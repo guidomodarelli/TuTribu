@@ -2,7 +2,6 @@
 import {render,screen,waitFor,within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {describe,expect,it,vi} from "vitest";
-import {Link} from "@/components/navigation/link";
 import {MessagingConnectionsWorkspace,type MessagingConnectionsWorkspaceProps} from "@/components/academy-admissions/messaging-connections-workspace";
 
 const now=new Date().toISOString();
@@ -45,10 +44,10 @@ describe("messaging connections workspace",()=>{
     expect(screen.getByRole("alert")).toHaveTextContent("No pudimos confirmar la prueba.");expect(screen.getByRole("button",{name:"Consultar guardado"})).toBeVisible();
     view.rerender(<MessagingConnectionsWorkspace {...props} message={{kind:"status",text:"La configuración quedó guardada."}} />);expect(screen.getByRole("status")).toHaveTextContent("La configuración quedó guardada.");expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
-  it("should place the result and the Google continuation inside the active step, next to the action that produced them",()=>{
-    const props=workspaceProps();render(<MessagingConnectionsWorkspace {...props} activeTab="tests" message={{kind:"status",text:"La confirmación está preparada. Continuá con Google."}} messageAction={<Link href="/auth/reauthenticate">Continuar con Google</Link>} />);
+  it("should place the result inside the active step, next to the action that produced it",()=>{
+    const props=workspaceProps();render(<MessagingConnectionsWorkspace {...props} activeTab="tests" message={{kind:"status",text:"La prueba quedó enviada."}} />);
     const panel=screen.getByRole("region",{name:"Pruebas"});
-    expect(within(panel).getByRole("status")).toHaveTextContent("La confirmación está preparada.");expect(within(panel).getByRole("link",{name:"Continuar con Google"})).toBeVisible();expect(screen.getAllByRole("link",{name:"Continuar con Google"})).toHaveLength(1);
+    expect(within(panel).getByRole("status")).toHaveTextContent("La prueba quedó enviada.");expect(screen.queryByRole("link",{name:/Google/})).not.toBeInTheDocument();
   });
   it("should show a calm completed state when the candidate is already the selection",()=>{
     const props=workspaceProps();render(<MessagingConnectionsWorkspace {...props} selected={props.candidate} nextStep="active" />);

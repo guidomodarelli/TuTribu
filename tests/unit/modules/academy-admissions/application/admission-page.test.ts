@@ -11,7 +11,7 @@ import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/aca
 /** Supplies explicit account/query ports without database or SDK replacement. */
 function pageFixture() {
   const now = new Date("2026-10-07T01:00:00Z");
-  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "applicant@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-08T01:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "applicant@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-08T01:00:00Z") }, googleAccount: null, identityEvidence: null};
   const request = { id: randomUUID(), status: "pending" as const, version: 1, submittedAt: now.toISOString(), expiresAt: "2026-11-06T01:00:00Z", source: "common" as const, needsVerification: false, eligibilityReasons: [], contact: { type: "email" as const, maskedValue: "a•••@example.test", evidenceKind: "declared" as const } };
   const overview: AdmissionOverviewDto = { tribe: { slug: "synthetic-academy", name: "Academia sintética", accessModel: "academy" }, policy: { mode: "manual_review", contactType: "email", requiresAdditionalVerification: false, isOpen: true, version: 1 }, state: "pending", nextAction: "view_request", safeMessage: "Tu solicitud está pendiente.", request };
   const accounts = { getAuthenticatedAccount: vi.fn(async (): Promise<AuthenticatedAccount | null> => account) };

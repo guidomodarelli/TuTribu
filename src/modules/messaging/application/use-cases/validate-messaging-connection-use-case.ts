@@ -23,7 +23,7 @@ function sameValidationScope(original:AuthorizedMessagingContext,current:Authori
 
 /** Never retries the provider after a consumed reservation, uncertain result or original replay. */
 export class ValidateMessagingConnectionUseCase {
-  /** @param resolver - Current own account/role/recency/resource authority. @param operations - Committing DB-only preparation/result stages. @param budget - Committing private validation allowance. @param secrets - Current authority-checking private material store. @param inspectors - Explicit per-resource provider factory. */
+  /** @param resolver - Current own account/role/resource authority. @param operations - Committing DB-only preparation/result stages. @param budget - Committing private validation allowance. @param secrets - Current authority-checking private material store. @param inspectors - Explicit per-resource provider factory. */
   constructor(private readonly resolver:Pick<ResolveMessagingContextUseCase,"execute">,private readonly operations:MessagingCredentialValidationOperations,private readonly budget:Pick<ReserveMessagingUsageUseCase,"execute">,private readonly secrets:MessagingSecretStore,private readonly inspectors:MessagingCredentialInspectorFactory,private readonly clock:()=>Date=()=>new Date()){}
   /** @param input - Own boundary-validated original action. @param signal - Caller cancellation/deadline. @returns Original safe metadata, durable progress or a closed current denial. */
   async execute(input:ValidateMessagingConnectionInput,signal:AbortSignal){

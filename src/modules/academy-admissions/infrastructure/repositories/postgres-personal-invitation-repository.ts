@@ -31,7 +31,7 @@ import { mapPersonalInvitationRow, type PersonalInvitationRow } from "./personal
 import { cancelRevokedPersonalAdmission } from "./cancel-revoked-personal-admission";
 import type { AdmissionNotificationObligationWriter } from "../../domain/repositories/admission-repositories";
 
-/** One command retains its exact native resource/recency context across registry phases. */
+/** One command retains its exact native resource context across registry phases. */
 type InvitationIntent = PersonalInvitationCreationIntent | PersonalInvitationRenameIntent | PersonalInvitationRevocationIntent;
 /** Only closed original business codes can be completed after rollback of staged effects. */
 type InvitationSnapshot = PersonalInvitationMutationResult | { outcome: "denied"; code: "invalid_input" | "invitation_conflict" | "invitation_unavailable" | "resource_unavailable" };
@@ -73,7 +73,7 @@ export class PostgresPersonalInvitationRepository implements PersonalInvitationR
     return mapPersonalInvitationRow(row);
   }
 
-  /** @param intent - Server-derived explicit command. @param operation - Exact recency/namespace. @param resourceId - Tribe or observed invitation. @param payload - Canonical protected intent without token. @param mutate - Atomic DB-only mutation. @returns Confirmed original metadata or recorded progress; expected refusal rolls back effects first. */
+  /** @param intent - Server-derived explicit command. @param operation - Exact namespace. @param resourceId - Tribe or observed invitation. @param payload - Canonical protected intent without token. @param mutate - Atomic DB-only mutation. @returns Confirmed original metadata or recorded progress; expected refusal rolls back effects first. */
   private async run(intent: InvitationIntent, operation: ReauthenticationOperation, resourceId: string, payload: Parameters<PostgresAdmissionOperationRepository["run"]>[0]["intent"], mutate: (database: RequestDatabase, ledgerId: string) => Promise<PersonalInvitationMutationResult>) {
     const command = { actorUserId: intent.context.userId, tribeId: intent.context.tribeId, operationType: operation, idempotencyKey: intent.operationId, intent: payload };
     const ledger = new PostgresAdmissionOperationRepository((work) => this.execute(intent.context, work), async (database) => { await authorizeAdmissionLeader(database, intent.context, { action: ADMISSION_ACTION.manageInvitations, resourceId, operation }); return true; }, this.readSecurityConfig);
@@ -136,7 +136,7 @@ export class PostgresPersonalInvitationRepository implements PersonalInvitationR
     return { ...original, replayed: false, ...(initialToken ? { initialToken } : {}) };
   }
 
-  /** @param intent - Exact observed name edit and recency. @returns One increment or a current no-op; immutable restrictions remain unchanged. */
+  /** @param intent - Exact observed name edit. @returns One increment or a current no-op; immutable restrictions remain unchanged. */
   async rename(intent: PersonalInvitationRenameIntent) {
     if (!intent.confirmed) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     return this.run(intent, REAUTHENTICATION_OPERATION.renamePersonalInvitation, intent.invitationId, { confirmed: true, invitationId: intent.invitationId, expectedVersion: intent.expectedVersion, internalName: intent.internalName }, async (database, ledgerId) => {

@@ -87,11 +87,11 @@ export function createPersonalInvitationManagementHandlers(open: () => Promise<P
     } catch (error) { return boundary.unexpected(error); }
   }
   return {
-    /** @param request - Own bounded query. @param context - Native tribe. @returns Current private metadata without token or mutation recency. */
+    /** @param request - Own bounded query. @param context - Native tribe. @returns Current private metadata without token. */
     list: (request: Request, context: RouteContext) => execute(request, context, PERSONAL_INVITATION_HTTP_ACTION.list),
     /** @param request - Own empty query. @param context - Exact native resource. @returns Current metadata independent of original history. */
     read: (request: Request, context: RouteContext) => execute(request, context, PERSONAL_INVITATION_HTTP_ACTION.read),
-    /** @param request - Confirmed recipient/restrictions proposal. @param context - Native tribe. @returns Initial URL once or original metadata after signed creation recency. */
+    /** @param request - Confirmed recipient/restrictions proposal. @param context - Native tribe. @returns Initial URL once or original metadata after current leader and session checks. */
     create: (request: Request, context: RouteContext) => execute(request, context, PERSONAL_INVITATION_HTTP_ACTION.create),
     /** @param request - Confirmed observed-version name edit. @param context - Exact native resource. @returns Original minimal CAS result. */
     rename: (request: Request, context: RouteContext) => execute(request, context, PERSONAL_INVITATION_HTTP_ACTION.rename),

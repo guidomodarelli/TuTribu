@@ -1,5 +1,5 @@
 /** Runs actual activation owners with closed HTTP, without Vitest, migrations or CLI dependencies. */
-import {randomBytes,randomUUID} from "node:crypto";
+import {randomUUID} from "node:crypto";
 import {sql} from "drizzle-orm";
 import type { MessagingRestoreSql } from "./messaging-restore-composition";
 import type {prepareMessagingConnectionCreation} from "@/tests/support/messaging-connection-fixture";
@@ -22,16 +22,13 @@ import { MESSAGING_NATIVE_ACTIVATION as SETUP } from "./constants/messaging-acti
 export type MessagingActivationCreation = Pick<Awaited<ReturnType<typeof prepareMessagingConnectionCreation>>, "fixture" | "context" | "repository" | "execute">;
 
 /** @param database - Exact owned SQL capability. @param original - Actual native account, tribe and creation owner. @param options - Preparation facts; schema work stays outside this runtime. @returns Actual SDK checks, diagnostic verification and activation authority with no external messages. */
-export async function prepareMessagingActivationFromCreation<Creation extends MessagingActivationCreation>(database: MessagingRestoreSql, original: Creation, options: { diagnosticRecipient?: string; initializeUsagePolicy: boolean; refreshCreationAuthority: boolean; readSecurityConfig?: () => Promise<MessagingSecurityConfig> }) {
-  let fixture = original;
+export async function prepareMessagingActivationFromCreation<Creation extends MessagingActivationCreation>(database: MessagingRestoreSql, original: Creation, options: { diagnosticRecipient?: string; initializeUsagePolicy: boolean; readSecurityConfig?: () => Promise<MessagingSecurityConfig> }) {
+  const fixture = original;
   const credential = randomUUID(), senderId = randomUUID();
   const readSecurityConfig = options.readSecurityConfig ?? (async () => fixture.fixture.config);
-  if(options.refreshCreationAuthority){const context=await refreshMessagingActivationRecency(database,fixture,"save_messaging_credentials",fixture.context.tribeId);fixture={...fixture,context:{...fixture.context,authenticatedAt:context.authenticatedAt,validUntil:context.validUntil}};}
   const created=await fixture.repository.create(fixture.context,{operationId:randomUUID(),confirmed:true,providerId:"zavu",name:"Activación real",apiKey:credential});if(created.state!=="completed")throw new Error("Expected protected candidate");
   await database.withContext(fixture.fixture.own,async(transaction)=>{
-    const now=new Date((await transaction.execute<{now:string}>(sql`select clock_timestamp() as now`)).rows[0].now),validUntil=new Date(now.getTime()+SETUP.evidenceLifetimeMs);
     if(options.initializeUsagePolicy)await transaction.execute(sql`insert into public.messaging_usage_policies(tribe_id) values (${fixture.context.tribeId})`);
-    for(const operation of["configure_messaging_connection","validate_messaging_connection","diagnose_messaging_connection","verify_messaging_diagnostic","activate_messaging_connection"]){const intentId=randomUUID();await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.context.actorUserId},${fixture.context.sessionId},${fixture.context.accountId},${fixture.context.subject},${fixture.context.tribeId},${operation},${created.result.id},${SETUP.returnPaths.activation},${randomBytes(SETUP.nonceBytes)},${SETUP.intentState},${now},${validUntil},${now})`);await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.context.actorUserId},${fixture.context.accountId},${fixture.context.subject},${fixture.context.sessionId},${fixture.context.tribeId},${operation},${created.result.id},${now},${now},${validUntil})`);}
   });
   let code="",transactions=0;
   const execute=async<Result>(_context:{actorUserId:string},run:(database:RequestDatabase)=>Promise<Result>)=>{transactions+=1;try{return await database.withContext(fixture.fixture.own,run);}finally{transactions-=1;}};
@@ -58,12 +55,3 @@ export async function prepareMessagingActivationFromCreation<Creation extends Me
   return{fixture,transport,owner,request,inspectors,execute,verificationInput,credential,senderId,context:resolved.context,input:{operationId:randomUUID(),expectedVersion:lifecycleVersion,confirmed:true as const},get transactions(){return transactions;}};
 }
 
-/** @param database - Exact owned branch. @param fixture - Native account/session and tribe from the existing owner. @param operation - Actual sensitive action. @param resourceId - Exact action resource. @returns Current SQL authentication bounds after persisting fresh native evidence. */
-export async function refreshMessagingActivationRecency(database:MessagingRestoreSql,fixture:MessagingActivationCreation,operation:string,resourceId:string){
-  return database.withContext(fixture.fixture.own,async(transaction)=>{
-    const now=new Date((await transaction.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now),validUntil=new Date(now.getTime()+SETUP.evidenceLifetimeMs),intentId=randomUUID();
-    await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.context.actorUserId},${fixture.context.sessionId},${fixture.context.accountId},${fixture.context.subject},${fixture.context.tribeId},${operation},${resourceId},${SETUP.returnPaths.refresh},${randomBytes(SETUP.nonceBytes)},${SETUP.intentState},${now},${validUntil},${now})`);
-    await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.context.actorUserId},${fixture.context.accountId},${fixture.context.subject},${fixture.context.sessionId},${fixture.context.tribeId},${operation},${resourceId},${now},${now},${validUntil})`);
-    return{authenticatedAt:now,validUntil};
-  });
-}

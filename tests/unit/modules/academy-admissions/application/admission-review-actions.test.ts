@@ -14,7 +14,7 @@ import type { AdmissionAuthorizationResource } from "@/src/modules/academy-admis
 /** Supplies only own account/resource/persistence ports; the resolver remains real. */
 function reviewActions(role: AdmissionActorFacts["role"] = "guardian") {
   const now = new Date("2026-10-06T12:00:00Z"), tribeId = randomUUID(), admissionRequestId = randomUUID(), applicantUserId = randomUUID(), operationId = randomUUID();
-  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "reviewer@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-07T12:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "reviewer@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-07T12:00:00Z") }, googleAccount: null, identityEvidence: null};
   const actor: AdmissionActorFacts = { userId: account.userId, tribeId, role, status: "active" };
   const resource: AdmissionAuthorizationResource = { id: admissionRequestId, tribeId, applicantUserId };
   const resolver = new ResolveAdmissionContextUseCase({ getAuthenticatedAccount: async () => account }, { getCurrentActor: async () => actor, getResource: async () => resource }, () => now);

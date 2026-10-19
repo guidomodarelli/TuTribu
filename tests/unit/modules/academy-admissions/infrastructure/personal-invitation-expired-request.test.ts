@@ -7,7 +7,6 @@ import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-
 import { prepareAllowlistAdmission } from "@/tests/support/allowlist-admission-database-fixture";
 import { createPersonalInvitationTokenCodec } from "@/src/modules/academy-admissions/infrastructure/tokens/personal-invitation-token";
 import { createAdmissionContactFingerprint } from "@/src/modules/academy-admissions/infrastructure/verification/admission-contact-fingerprint";
-import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native consumed invitation after request expiry", () => {
   it("should expire the historical request during a separate common presentation and never recycle its original redeemed link", async () => {
@@ -48,7 +47,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native consumed in
       const cancellation = { tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), admissionRequestId: commonRequestId, expectedVersion: common.value.result.committedRequestVersion!, confirmed: true as const, internalReason: "Cerrar la presentación común independiente" };
       const cancelled = await recipient.commands.cancelOwn.execute(cancellation);
       if (!cancelled.ok || cancelled.value.state !== "completed") throw new Error("Expired personal request flow failed: common_cancellation_unavailable");
-      await fixture.confirm(REAUTHENTICATION_OPERATION.advanceAdmissionRetry, commonRequestId);
       expect(await leader.allowRetry.execute({ ...cancellation, operationId: randomUUID(), expectedVersion: cancelled.value.result.version, internalReason: "Otro intento permitido sin reciclar fuentes" })).toMatchObject({ ok: true, value: { state: "completed" } });
       expect(await recipient.commands.submit.execute({ ...recipient.input, operationId: randomUUID(), expectedPolicyVersion: 3, invitationToken: token.token })).toMatchObject({ ok: false, failure: { code: "admission_ineligible" } });
 

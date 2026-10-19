@@ -47,7 +47,7 @@ export class PostgresAdmissionNotificationGroupRecoveryContent implements Notifi
     }
   }
 
-  /** @param database - Existing ledger transaction. @param command - Exact human-owned original and target. @param authorize - Native current authority. @returns After session, leadership and original-specific recency remain current. */
+  /** @param database - Existing ledger transaction. @param command - Exact human-owned original and target. @param authorize - Native current authority. @returns After session and leadership remain current. */
   private async assertAuthorized(database: RequestDatabase, command: NotificationGroupRecoveryContentCommand, authorize: NotificationGroupRecoveryAuthorizer): Promise<void> {
     if (!await authorize(database, command.tribeId)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
   }

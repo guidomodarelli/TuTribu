@@ -18,7 +18,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native activation 
       expect(await previous.owner.activate(previous.context, previous.input)).toMatchObject({ state: "completed", result: { state: "active" } });
       let currentConfig = originalConfig;
       const replacement = await prepareMessagingActivationFromCreation(database, previous.fixture, {
-        diagnosticRecipient: `${randomUUID()}@example.test`, initializeUsagePolicy: false, refreshCreationAuthority: true,
+        diagnosticRecipient: `${randomUUID()}@example.test`, initializeUsagePolicy: false,
         readSecurityConfig: async () => currentConfig,
       });
       /** @returns Only native selection/version facts; no credentials, contacts or provider payloads. */

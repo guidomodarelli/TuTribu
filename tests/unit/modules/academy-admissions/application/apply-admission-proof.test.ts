@@ -9,7 +9,7 @@ import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain
 /** Supplies only native identity and an own atomic attachment port; no provider or platform implementation is replaced. */
 function proofFixture() {
   const now = new Date("2026-10-08T22:00:00Z");
-  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "applicant@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-08T23:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "applicant@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-08T23:00:00Z") }, googleAccount: null, identityEvidence: null};
   const accounts = { getAuthenticatedAccount: vi.fn(async (): Promise<AuthenticatedAccount | null> => account) };
   const input = { tribeId: randomUUID(), requestId: randomUUID(), admissionRequestId: randomUUID(), operationId: randomUUID(), proofId: randomUUID(), expectedRequestVersion: 1 };
   const confirmed = { state: "completed", operationId: input.operationId, replayed: false, result: { outcome: "applied", requestId: input.admissionRequestId, requestVersion: 2, status: "pending", proofId: input.proofId } };

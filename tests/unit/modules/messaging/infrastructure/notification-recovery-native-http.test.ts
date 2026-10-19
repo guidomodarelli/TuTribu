@@ -7,13 +7,12 @@ import { makeSignature } from "better-auth/crypto";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
 import { prepareNotificationDeliveryRecovery } from "@/tests/support/notification-delivery-recovery-fixture";
-import { refreshMessagingActivationRecency } from "@/tests/support/messaging-activation-fixture";
 import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import { MESSAGING_KEY_PURPOSE, MESSAGING_CRYPTO } from "@/src/modules/messaging/constants/messaging-cryptography";
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native notification recovery HTTP", () => {
-  it("should recover once and read the original result after recency expires without dispatching or leaking private metadata", async () => {
+  it("should recover once with the live leader session and read the original result without dispatching or leaking private metadata", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const keyrings = Object.fromEntries(Object.values(MESSAGING_KEY_PURPOSE).map((purpose) => [purpose, { activeKeyId: purpose, keys: [{ id: purpose, materialBase64: randomBytes(MESSAGING_CRYPTO.keyBytes).toString("base64") }] }]));
       const keyringsJson = JSON.stringify(keyrings), environment = "synthetic-recovery-http", securityEpoch = randomUUID();
@@ -30,7 +29,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native notific
         const input = { ...fixture.input, reason: "authorized_connection_replacement" };
         const rejected = await fetch(recoverUrl, { method: "POST", headers, body: JSON.stringify({ ...input, deduplicationProven: true }) });
         expect(rejected.status).toBe(400);
-        await refreshMessagingActivationRecency(database, fixture.creation, "recover_notification_delivery", fixture.context.deliveryId);
         const response = await fetch(recoverUrl, { method: "POST", headers, body: JSON.stringify(input) });
         expect(response.status).toBe(200);
         // Discard the write response and retrieve its original UUID; this does not claim a real TCP interruption.
@@ -38,7 +36,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native notific
         const stale = await fetch(recoverUrl, { method: "POST", headers, body: JSON.stringify({ ...input, operationId: randomUUID() }) });
         expect(stale.status).toBe(409);
         expect(await stale.json()).toMatchObject({ code: "delivery_conflict" });
-        await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where tribe_id=${tribeId} and invalidated_at is null`));
         const originalUrl = `${base}/notification-recovery-operations/${input.operationId}`;
         const original = await fetch(originalUrl, { headers });
         expect(original.status).toBe(200);

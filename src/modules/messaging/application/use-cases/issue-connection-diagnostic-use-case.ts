@@ -15,7 +15,7 @@ import {messagingFailure} from "../results/messaging-errors";
 export type IssueConnectionDiagnosticInput={tribeId:string;connectionId:string;requestId:string;operationId:string;expectedVersion:number;confirmed:true;channel:"email"|"sms"|"whatsapp";recipient:string;country?:string;currentChallengeId?:string};
 /** A replay never restarts dispatch and any failed observation preserves the committed issuance. */
 export class IssueConnectionDiagnosticUseCase{
-  /** @param resolver - Current exact leader/session/recency/resource authority. @param operations - Atomic owned issuance/budgets/outbox ledger. @param dispatcher - Focal backend-only observed launch for one committed obligation. */
+  /** @param resolver - Current exact leader/session/resource authority. @param operations - Atomic owned issuance/budgets/outbox ledger. @param dispatcher - Focal backend-only observed launch for one committed obligation. */
   constructor(private readonly resolver:Pick<ResolveMessagingContextUseCase,"execute">,private readonly operations:ConnectionDiagnosticIssueOperations,private readonly dispatcher:ConnectionDiagnosticDispatcher){}
   /** @param input - Original confirmed destination and server routing scope. @returns Original safe issuance, registered progress or a current safe denial; provider acceptance never becomes verification. */
   async execute(input:IssueConnectionDiagnosticInput){

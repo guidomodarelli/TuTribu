@@ -18,7 +18,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
       // Arrange only synthetic current identity and native prerequisite metadata; no provider is called.
       const fixture = await prepareAdmissionEmailSettings(database);
       const identity = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ slug: string; token: string }>(sql`select tribe.slug,session.token from public.tribes tribe join public.session session on session.id=${fixture.read.sessionId} and session."userId"=${fixture.own.userId} where tribe.id=${fixture.read.tribeId}`)).rows[0]);
-      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where session_id=${fixture.read.sessionId} and tribe_id=${fixture.read.tribeId}`));
 
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, identity.slug, async (origin, secret) => {
         const cookie = encodeURIComponent(`${identity.token}.${await makeSignature(identity.token, secret)}`);
@@ -42,9 +41,11 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
           const settings = await runPrivateBrowserRequest("read_current_admission_email_settings", () => client.get(`${prefix}/email-settings`));
           expect(settings.status()).toBe(200);
           expect(await settings.json()).toEqual({ enabled: false, version: 0, timeZone: "America/Argentina/Buenos_Aires" });
-          const missingConfirmation = await runPrivateBrowserRequest("deny_unconfirmed_admission_email_change", () => client.post(`${prefix}/email-settings`, { data: fixture.command(0, false, "UTC") }));
-          expect(missingConfirmation.status()).toBe(401);
-          expect(await missingConfirmation.json()).toMatchObject({ code: "reauthentication_required" });
+          await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${fixture.read.sessionId}`));
+          const expiredSession = await runPrivateBrowserRequest("deny_admission_email_change_after_session_expiry", () => client.post(`${prefix}/email-settings`, { data: fixture.command(0, false, "UTC") }));
+          expect(expiredSession.status()).toBe(401);
+          expect(await expiredSession.json()).toMatchObject({ code: "authentication_required" });
+          await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()+interval '1 hour' where id=${fixture.read.sessionId}`));
           const spoofed = await runPrivateBrowserRequest("reject_admission_preference_identity_claim", () => client.patch(`${prefix}/notification-preferences`, { data: { mode: "daily", expectedVersion: 1, userId: randomUUID() } }));
           expect(spoofed.status()).toBe(400);
           const foreignOrigin = await runPrivateBrowserRequest("deny_foreign_admission_preference_origin", () => client.patch(`${prefix}/notification-preferences`, { headers: { origin: "https://foreign.example.invalid" }, data: { mode: "daily", expectedVersion: 1 } }));

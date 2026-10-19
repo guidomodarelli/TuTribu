@@ -12,7 +12,7 @@ import { ADMISSION_AUDIT_RESOURCE_TYPE } from "@/src/modules/academy-admissions/
 import { ADMISSION_ACTIVITY_EXPOSURE } from "@/src/modules/academy-admissions/constants/admission-activity";
 import { createAdmissionResourceAuditEvent } from "@/src/modules/academy-admissions/domain/entities/admission-resource-audit-event";
 import { PostgresAdmissionAuditRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository";
-import { authorizeMessagingSecret, messagingSecretLifetimeIsCurrent } from "./postgres-messaging-secret-authorizer";
+import { authorizeMessagingSecret, messagingSecretLifetimeFailure, messagingSecretLifetimeIsCurrent } from "./postgres-messaging-secret-authorizer";
 
 /** Own fixed extent, never a raw provider page, token, envelope or credential. */
 type AuthorizedExposureDetails = { surface: "connection_resources" | "operational_secret"; resourceKind: "senders" | "templates" | "credential"; itemCount: number };
@@ -38,7 +38,7 @@ export class PostgresMessagingResourceExposureRecorder implements MessagingResou
         const facts = await this.readSecurityFacts();
         if (facts.recoveryLocked || facts.environment !== context.environment || facts.securityEpoch !== context.securityEpoch) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.connectionIncomplete);
         const now = new Date((await database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-        if (!messagingSecretLifetimeIsCurrent(authorization, now)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.reauthenticationRequired);
+        if (!messagingSecretLifetimeIsCurrent(authorization, now)) throw new MessagingSecretAccessError(messagingSecretLifetimeFailure(authorization, now));
       };
       await requireCurrent();
       await appendMessagingAuthorizedExposure(database, context, { surface: MESSAGING_AUTHORIZED_EXPOSURE.resources, resourceKind: exposure.kind, itemCount: exposure.itemCount });

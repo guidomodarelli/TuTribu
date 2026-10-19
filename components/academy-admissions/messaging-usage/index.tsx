@@ -5,7 +5,6 @@ import type { MessagingUsagePolicyStateDto } from "@/src/modules/messaging/appli
 import type { MessagingUsageDraft, MessagingUsageCountryChoice } from "@/src/modules/messaging/application/commands/messaging-usage-draft";
 import type { MessagingUsageChangeImpact } from "@/src/modules/messaging/application/results/messaging-usage-change-impact";
 import { MESSAGING_USAGE_LIMIT } from "@/src/modules/messaging/constants/messaging-limits";
-import { Link } from "@/components/navigation/link";
 import styles from "./styles.module.scss";
 
 /** Current state, proposed input, safe validation and explicit interactions are owned by the route container. */
@@ -13,7 +12,7 @@ export type MessagingUsageProps = {
   state: MessagingUsagePolicyStateDto; draft: MessagingUsageDraft; countryChoices: readonly MessagingUsageCountryChoice[];
   confirmed: boolean; busy: boolean; canEdit: boolean; validationMessage: string | null; errorMessage: string | null; statusMessage: string | null;
   onChange: (draft: MessagingUsageDraft) => void; onConfirm: (confirmed: boolean) => void; onInitialize: () => void; onSave: () => void; onReloadCurrent: () => void;
-  uncertain?: boolean; canRetry?: boolean; onRetryOriginal?: () => void; reauthenticationRequired?: boolean; reauthenticationHref?: string | null; onPrepareReauthentication?: () => void;
+  uncertain?: boolean; canRetry?: boolean; onRetryOriginal?: () => void;
   impact?: MessagingUsageChangeImpact | null;
 };
 
@@ -63,7 +62,6 @@ export function MessagingUsage(props: MessagingUsageProps) {
       <div className={styles.MessagingUsage__confirmation}><Checkbox id={confirmationId} checked={props.confirmed} disabled={disabled} onCheckedChange={(checked) => props.onConfirm(checked === true)} /><label htmlFor={confirmationId}>{props.impact?.increasesQuota ? "Revisé los países y cupos y confirmo el aumento indicado." : "Revisé los países y cupos y quiero confirmar esta acción."}</label></div>
       <div className={styles.MessagingUsage__actions}>{policy ? <Button type="submit" disabled={!canSubmit}>{props.busy ? "Procesando…" : "Guardar países y cupos"}</Button> : <Button type="button" disabled={!canInitialize} onClick={props.onInitialize}>{props.busy ? "Procesando…" : "Iniciar configuración de uso"}</Button>}</div>
       {props.statusMessage && <p role="status">{props.statusMessage}</p>}
-      {props.reauthenticationRequired && <section className={styles.MessagingUsage__field} aria-label="Confirmación de Google"><p>Confirmá tu cuenta de Google para esta acción. El borrador y la operación original se conservan; al volver revisá el estado y confirmá nuevamente.</p>{props.reauthenticationHref ? <Link href={props.reauthenticationHref}>Continuar con la confirmación de Google</Link> : <Button type="button" variant="secondary" disabled={props.busy} onClick={props.onPrepareReauthentication}>Preparar confirmación con Google</Button>}</section>}
       {props.uncertain && <section className={styles.MessagingUsage__field} aria-label="Recuperar operación original"><p role="status">Todavía no podemos confirmar el guardado. Consultá la operación original antes de repetir.</p><Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReloadCurrent}>Consultar operación original</Button>{props.canRetry && <><div className={styles.MessagingUsage__confirmation}><Checkbox id={`${instanceId}-retry`} checked={props.confirmed} disabled={props.busy} onCheckedChange={(checked) => props.onConfirm(checked === true)} /><label htmlFor={`${instanceId}-retry`}>Confirmo reintentar el guardado con sus datos originales.</label></div><Button type="button" disabled={props.busy || !props.confirmed} onClick={props.onRetryOriginal}>Reintentar operación original</Button></>}</section>}
     </form>
   </div>;

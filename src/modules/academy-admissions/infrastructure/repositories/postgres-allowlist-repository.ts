@@ -60,7 +60,7 @@ export class PostgresAllowlistRepository implements AllowlistCommandWriter {
     }));
   }
 
-  /** @param intent - Exact native proposal, without caller permissions. @param operation - Server-owned namespace/recency. @param resourceId - Tribe for creation or exact entry for editing. @param payload - Canonical intent protected by the ledger. @param mutate - DB-only list effect returning a grant or known denial. @returns Confirmed original result or actual progress; no stale CAS overrides a replay. */
+  /** @param intent - Exact native proposal, without caller permissions. @param operation - Server-owned namespace. @param resourceId - Tribe for creation or exact entry for editing. @param payload - Canonical intent protected by the ledger. @param mutate - DB-only list effect returning a grant or known denial. @returns Confirmed original result or actual progress; no stale CAS overrides a replay. */
   private async run(intent: ListIntent, operation: ReauthenticationOperation, resourceId: string, payload: AdmissionOperationCommand["intent"], mutate: (database: RequestDatabase, ledgerId: string) => Promise<MutationSnapshot>): Promise<AdmissionOperationResult<AllowlistMutationResult>> {
     const command = { actorUserId: intent.context.userId, tribeId: intent.context.tribeId, operationType: operation, idempotencyKey: intent.operationId, intent: payload };
     const ledger = new PostgresAdmissionOperationRepository((work) => this.execute(intent.context, work), async (database) => { await authorizeAdmissionLeader(database, intent.context, { action: ADMISSION_ACTION.manageAllowlist, resourceId, operation }); return true; }, this.readSecurityConfig);

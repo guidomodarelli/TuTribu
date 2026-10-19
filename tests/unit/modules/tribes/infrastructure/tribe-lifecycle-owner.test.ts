@@ -7,7 +7,6 @@ import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-
 import { prepareAllowlistAdmission } from "@/tests/support/allowlist-admission-database-fixture";
 import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS } from "@/tests/support/constants/membership-lifecycle-validation";
 import { TRIBE_LIFECYCLE_AUDIT_MIGRATIONS } from "@/tests/support/constants/tribe-lifecycle-audit";
-import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { PostgresTribeLifecycleRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-lifecycle-repository";
 import { ManageTribeLifecycleUseCases } from "@/src/modules/tribes/application/use-cases/manage-tribe-lifecycle-use-cases";
@@ -16,7 +15,7 @@ import type { TribeLifecycleContext } from "@/src/modules/tribes/domain/reposito
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native tribe lifecycle owner", () => {
-  it("should require exact signed recency, close scope on exit and recover a committed deletion without using a surviving tribe", async () => {
+  it("should change with the live leader session, close scope on exit and recover a committed deletion without using a surviving tribe", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const { fixture, applicant: createApplicant } = await prepareAllowlistAdmission(database);
       for (const migration of TRIBE_LIFECYCLE_AUDIT_MIGRATIONS) await database.applyMigration(migration);
@@ -34,10 +33,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native tribe lifec
       const lifecycle = new ManageTribeLifecycleUseCases(accounts, new PostgresTribeLifecycleRepository(execute, async () => fixture.config, createAdmissionScopeClosureWriter));
       const settings = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{config_version: number}>(sql`select config_version from public.tribe_academy_settings where tribe_id=${fixture.tribeId}`)).rows[0]);
       const exit = { tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), action: "exit_academy" as const, expectedConfigVersion: settings.config_version, confirmed: true };
-      await expect(lifecycle.change(exit)).rejects.toMatchObject({ code: "reauthentication_required" });
-      await fixture.confirm(REAUTHENTICATION_OPERATION.deleteTribe);
-      await expect(lifecycle.change(exit)).rejects.toMatchObject({ code: "reauthentication_required" });
-      await fixture.confirm(REAUTHENTICATION_OPERATION.exitAcademyMode);
       const exited = await lifecycle.change(exit);
       expect(exited).toMatchObject({ state: "completed", replayed: false, result: { action: "exit_academy", deleted: false, accessModel: "legacy", configVersion: settings.config_version + 1 } });
       await expect(lifecycle.change(exit)).resolves.toMatchObject({ state: "completed", replayed: true });

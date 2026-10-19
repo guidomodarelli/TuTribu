@@ -50,7 +50,7 @@ export class PostgresNotificationDeliveryRecoveryRepository implements Notificat
   /** @param execute - Original server principal's guarded native executor. @param readSecurityConfig - Current external epoch/keyring/recovery state; no SDK or remote call under locks. @param groupContent - Explicit complete-group source owner; absent composition closes group recovery without falling back to individual references. */
   constructor(private readonly execute: RecoveryDatabaseExecutor, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly groupContent?: NotificationGroupRecoveryContent) {}
 
-  /** @param database - Current native transaction. @param context - Exact original-delivery global recency. @returns After current identity and all post-wait lifetimes are validated. @throws AdmissionOperationError preserving closed denial and its private cause. */
+  /** @param database - Current native transaction. @param context - Exact current scope. @returns After current identity and all post-wait lifetimes are validated. @throws AdmissionOperationError preserving closed denial and its private cause. */
   private async authorize(database: RequestDatabase, context: NotificationDeliveryRecoveryContext): Promise<void> {
     if (context.operation !== MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.recoverNotification) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
     try { await authorizeMessagingTribeManagement(database, context); }
@@ -81,7 +81,7 @@ export class PostgresNotificationDeliveryRecoveryRepository implements Notificat
     return request.status === obligation.event_type;
   }
 
-  /** @param context - Current original-delivery recency, repeated by the ledger. @param input - Exact original/target CAS and explicit UUID/consent. @returns A single committed new lineage or the identical original replay without dispatch. */
+  /** @param context - Current original-delivery scope, repeated by the ledger. @param input - Exact original/target CAS and explicit UUID/consent. @returns A single committed new lineage or the identical original replay without dispatch. */
   async recover(context: NotificationDeliveryRecoveryContext, input: NotificationDeliveryRecoveryInput) {
     if (input.confirmed !== true) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     // Only a new staged mutation receives this final fence. Historical completed replay keeps its original result.

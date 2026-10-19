@@ -6,7 +6,7 @@ import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain
 import type { AuthenticatedAccount } from "@/src/modules/auth/domain/entities/authenticated-account";
 
 const command = { tribeId: randomUUID(), operationType: "update_allowlist_entry", idempotencyKey: randomUUID(), intent: { expectedVersion: 1, displayName: "Primero" } };
-const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "synthetic@example.test", session: { id: randomUUID(), expiresAt: new Date(Date.now() + 3_600_000) }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "synthetic@example.test", session: { id: randomUUID(), expiresAt: new Date(Date.now() + 3_600_000) }, googleAccount: null, identityEvidence: null};
 
 describe("resolve admission operation", () => {
   it("should derive actor from the current account despite an extra client identity", async () => {

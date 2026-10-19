@@ -8,7 +8,7 @@ import type { MessagingAuthenticatedAccount, MessagingLeadershipFacts } from "@/
 /** @returns Real management policy with replaceable own account, leadership and catalog ports. */
 function setupCatalog() {
   const now = new Date("2026-10-11T12:00:00Z"), tribeId = randomUUID(), actorUserId = randomUUID();
-  const account: MessagingAuthenticatedAccount = { userId: actorUserId, session: { id: randomUUID(), expiresAt: new Date(now.getTime() + 60_000) }, googleAccount: null, recentAuthentication: [] };
+  const account: MessagingAuthenticatedAccount = { userId: actorUserId, session: { id: randomUUID(), expiresAt: new Date(now.getTime() + 60_000) }, googleAccount: null};
   const leadership: MessagingLeadershipFacts = { tribeId, leaderUserId: actorUserId, membership: { userId: actorUserId, role: "leader", status: "active" } };
   const item = { id: randomUUID(), version: 3, state: "unknown" as const, connectionId: randomUUID(), createdAt: now.toISOString(), deadlineAt: new Date(now.getTime() + 60_000).toISOString(), recoveryDeliveryId: null };
   let catalog: unknown = { items: [item], nextCursor: null }, reads = 0;
@@ -19,7 +19,7 @@ function setupCatalog() {
 }
 
 describe("notification delivery catalog", () => {
-  it("should read minimal current notification facts without fresh Google recency or another send", async () => {
+  it("should read minimal current notification facts without a sensitive operation or another send", async () => {
     const fixture = setupCatalog();
     expect(await fixture.useCase.execute(fixture.query)).toEqual({ ok: true, value: { items: [fixture.item], nextCursor: null } });
     expect(fixture.reads).toBe(1);

@@ -24,5 +24,5 @@ export const admissionNotificationSettingsPageStateSchema = z.discriminatedUnion
   z.strictObject({ kind: z.literal(ADMISSION_NOTIFICATION_SETTINGS_PAGE_KIND.ready), slug: admissionTribeParamsSchema.shape.slug, tribeId: z.uuid(), viewerId: z.string().min(1), preference: admissionNotificationPreferenceViewSchema, canConfigureEmail: z.boolean(), email: admissionNotificationEmailSettingsViewSchema.nullable() }).refine((state) => state.canConfigureEmail ? state.email !== null : state.email === null),
   z.strictObject({ kind: z.literal(ADMISSION_NOTIFICATION_SETTINGS_PAGE_KIND.unavailable), code: z.enum(ADMISSION_ERROR_CODE), message: z.string() }).refine((state) => state.message === ADMISSION_ERROR_MESSAGE[state.code]),
 ]) satisfies z.ZodType<AdmissionNotificationSettingsPageState>;
-/** Storage retains an exact prior command, not the editor's current consent or Google recency. */
+/** Storage retains an exact prior command, not the editor's current consent. */
 export const admissionNotificationEmailSettingsStoredIntentSchema = z.strictObject({ viewerId: z.string().min(1), slug: admissionTribeParamsSchema.shape.slug, input: admissionNotificationEmailSettingsCommandSchema });

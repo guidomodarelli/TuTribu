@@ -23,7 +23,7 @@ export interface AllowlistReader {
 
 /** Writers own final authority, selected contact type, original ledger and uniqueness/CAS together. */
 export interface AllowlistCommandWriter {
-  /** @param intent - Explicit canonical contact proposal under the exact creation recency. @returns Version one or the confirmed original, without editing an existing duplicate. */
+  /** @param intent - Explicit canonical contact proposal under the live leader session. @returns Version one or the confirmed original, without editing an existing duplicate. */
   create(intent: AllowlistCreationIntent): Promise<AdmissionOperationResult<AllowlistMutationResult>>;
   /** @param intent - Explicit name/state edit bound to the observed entry version and original operation. @returns One effective version increment or current no-op after replay is resolved. */
   update(intent: AllowlistUpdateIntent): Promise<AdmissionOperationResult<AllowlistMutationResult>>;

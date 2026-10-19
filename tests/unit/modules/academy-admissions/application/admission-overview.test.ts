@@ -10,7 +10,7 @@ import type { AdmissionOverviewFacts } from "@/src/modules/academy-admissions/do
 /** Supplies only feature-owned facts and a current account port. */
 function overviewFixture() {
   const now = new Date("2026-10-06T12:00:00Z"), tribeId = randomUUID();
-  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "applicant@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-07T12:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "applicant@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-07T12:00:00Z") }, googleAccount: null, identityEvidence: null};
   const facts: AdmissionOverviewFacts<AdmissionRequestDto> = { tribe: { id: tribeId, slug: "synthetic-academy", name: "Academia sintética", accessModel: "academy", controlActivated: true, evaluatorEnabled: true }, policy: { mode: "manual_review", contactType: "email", requiresAdditionalVerification: false, isOpen: true, version: 1 }, membership: null, request: null, recoveryLocked: false };
   const accounts = { getAuthenticatedAccount: vi.fn(async (): Promise<AuthenticatedAccount | null> => account) };
   const reader = { readOverview: vi.fn(async (): Promise<AdmissionOverviewFacts | null> => facts) };

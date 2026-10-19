@@ -1,5 +1,4 @@
 /** Resolves current server-owned scope before any secret access or provider operation. */
-import { evaluateRecentAuthentication } from "@/src/modules/auth/domain/policies/recent-authentication";
 import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
@@ -35,8 +34,9 @@ export class ResolveMessagingContextUseCase {
   /**
    * Produces a private authorized context; it never returns the credential itself.
    *
-   * Resource/tribe/user/account/session/operation recency are all checked from
-   * current own readers. Failed authority precedes reading a connection secret.
+   * Resource, tribe, user, account and live session are all checked from current
+   * own readers; no recent account confirmation is required. Failed authority
+   * precedes reading a connection secret.
    * The SQL writer and SecretStore must repeat authority under their locks.
    *
    * @param command - Boundary-validated resource identity and fixed server operation.
@@ -61,14 +61,12 @@ export class ResolveMessagingContextUseCase {
     if (!hasCurrentLeadership(leadership, command.tribeId, account.userId)) return deny(MESSAGING_ERROR_CODE.permissionDenied);
     const now = this.clock();
     if (!isAuthenticatedSessionLive(account.session.expiresAt, now)) return deny(MESSAGING_ERROR_CODE.authenticationRequired);
-    if (!account.googleAccount) return deny(MESSAGING_ERROR_CODE.reauthenticationRequired);
-    const scope = { userId: account.userId, sessionId: account.session.id, accountId: account.googleAccount.id, subject: account.googleAccount.subject, tribeId: command.tribeId, operation: command.operation, resourceId: command.connectionId };
-    const evidence = account.recentAuthentication.find((candidate) => evaluateRecentAuthentication({ now, scope, evidence: candidate, sessionActive: true, currentLeaderUserId: leadership.leaderUserId }).allowed);
-    if (!evidence?.authenticatedAt) return deny(MESSAGING_ERROR_CODE.reauthenticationRequired);
+    // The Google session binding is created at sign-in; without it the session cannot use credentials.
+    if (!account.googleAccount) return deny(MESSAGING_ERROR_CODE.authenticationRequired);
     return { allowed: true, context: { authorizationPurpose: MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader, resourceId: command.connectionId,
       actorUserId: account.userId, sessionId: account.session.id, accountId: account.googleAccount.id, subject: account.googleAccount.subject,
       tribeId: command.tribeId, connectionId: connection.id, connectionVersion: connection.version, environment: security.environment, securityEpoch: security.securityEpoch,
-      operation: command.operation, requestId: command.requestId, authenticatedAt: evidence.authenticatedAt, validUntil: evidence.validUntil, secretRef: connection.secretRef,
+      operation: command.operation, requestId: command.requestId, secretRef: connection.secretRef,
     } };
   }
 }

@@ -13,9 +13,9 @@ import { presentAllowlistImport } from "../results/allowlist-import-result";
 type ImportScope = { tribeId: string; requestId: string };
 /** Keeps every mutation behind exact signed purpose and current scoped SQL owner. */
 export class ImportAllowlistUseCases {
-  /** @param resolver - Native leader/resource/recency authorization. @param repository - Real original operation and import row owner. @param inputReader - Once-validated file grammar adapter. */
+  /** @param resolver - Native leader/resource authorization. @param repository - Real original operation and import row owner. @param inputReader - Once-validated file grammar adapter. */
   constructor(private readonly resolver: Pick<ResolveAdmissionContextUseCase, "execute">, private readonly repository: AllowlistImportRepository, private readonly inputReader: AllowlistImportInputReader) {}
-  /** @param input - Canonical tribe and safe correlation. @returns Read-only template permission without parsing, writing or recency demand. */
+  /** @param input - Canonical tribe and safe correlation. @returns Read-only template permission without parsing or writing. */
   async templateAccess(input: ImportScope) {
     try {
       const authority = await this.resolver.execute({ ...input, action: ADMISSION_ACTION.manageAllowlist });

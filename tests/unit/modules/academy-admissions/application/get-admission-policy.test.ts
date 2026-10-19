@@ -9,10 +9,10 @@ import type { AuthenticatedAccount } from "@/src/modules/auth/domain/entities/au
 import type { AdmissionActorFacts } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
 import type { AdmissionPolicyViewFacts } from "@/src/modules/academy-admissions/domain/repositories/admission-policy-management";
 
-/** Supplies true absence and an actual global account, with no recency or mutation owner. */
+/** Supplies true absence and an actual global account, with no mutation owner. */
 function fixture() {
   const tribeId = randomUUID(), userId = randomUUID(), now = new Date("2026-10-07T07:00:00Z");
-  const account: AuthenticatedAccount = { userId, normalizedEmail: "leader@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-08T07:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId, normalizedEmail: "leader@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-08T07:00:00Z") }, googleAccount: null, identityEvidence: null};
   const actor: AdmissionActorFacts = { userId, tribeId, role: "leader", status: "active" };
   const current: AdmissionPolicyState = { policy: null, controlActivated: false, usage: null };
   const reader = { read: vi.fn(async () => current) }, facts = { read: vi.fn(async (): Promise<AdmissionPolicyViewFacts> => ({ pendingRequestCount: 3, preparation: null })) };

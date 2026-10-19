@@ -12,7 +12,7 @@ import { ADMISSION_QUERY_LIMIT } from "@/src/modules/academy-admissions/constant
 /** Own current identity never derives a role, applicant or session from page input. */
 function fixture() {
   const now = new Date("2026-10-07T03:00:00Z"), tribeId = randomUUID();
-  const account: AuthenticatedAccount = { userId: "synthetic-reviewer", normalizedEmail: "reviewer@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-07T04:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId: "synthetic-reviewer", normalizedEmail: "reviewer@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-07T04:00:00Z") }, googleAccount: null, identityEvidence: null};
   const accounts = { getAuthenticatedAccount: vi.fn(async (): Promise<AuthenticatedAccount | null> => account) };
   const review = { list: vi.fn<GetAdmissionReviewUseCases["list"]>(async () => ({ ok: true, value: { items: [], nextCursor: null } })), detail: vi.fn<GetAdmissionReviewUseCases["detail"]>(async () => ({ ok: false, failure: { code: "resource_unavailable" } })) };
   const resolveTribe = { execute: vi.fn(async () => ({ ok: true as const, value: { tribeId } })) };

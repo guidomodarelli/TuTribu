@@ -19,7 +19,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native allowlist n
       // Grant only attempted DML privileges so the rejection proves RLS itself,
       // rather than merely failing on a missing table privilege.
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql.raw(`grant select,insert,update on table public.academy_allowlist_entries,public.academy_admission_operations,public.academy_admission_audit_events to "${roleName}"`)));
-      await database.withContext(fixture.own, (transaction) => transaction.execute(sql.raw(`grant select,update on table public.tribes,public.tribe_academy_settings,public."user",public.session,public.account,public.global_session_identity_bindings,public.recent_authentication_evidence,public.academy_admission_policies to "${roleName}"`)));
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql.raw(`grant select,update on table public.tribes,public.tribe_academy_settings,public."user",public.session,public.account,public.global_session_identity_bindings,public.academy_admission_policies to "${roleName}"`)));
       // The existing tribe RLS policy reads invitation metadata while resolving its own member scope.
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql.raw(`grant select on table public.tribe_members,public.tribe_invitations,public.global_identity_evidence to "${roleName}"`)));
       const context = await fixture.confirm(REAUTHENTICATION_OPERATION.createAllowlistEntry);

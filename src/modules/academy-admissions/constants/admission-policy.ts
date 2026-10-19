@@ -44,7 +44,7 @@ export const ADMISSION_POLICY_ACTIVATION_ERROR = {
 
 /** Original ledger namespaces keep creation, edit, activation and pause intents distinct. */
 export const ADMISSION_POLICY_OPERATION = { initialize: "initialize_admission_policy", update: "update_admission_policy", activate: "activate_admission_policy", pause: "pause_admission_policy" } as const;
-/** Recovery is read-only and requires current leadership, independently of mutation recency. */
+/** Recovery is read-only and requires current leadership. */
 export const ADMISSION_POLICY_RECOVERABLE_OPERATIONS: readonly string[] = Object.values(ADMISSION_POLICY_OPERATION);
 
 /** Own audit vocabulary distinguishes durable configuration changes from request decisions. */

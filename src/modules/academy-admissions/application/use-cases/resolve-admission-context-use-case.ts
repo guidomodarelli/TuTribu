@@ -1,13 +1,11 @@
 /** Resolves current global account and admission-owned actor/resource facts before private operations. */
 import type { AuthenticatedAccountProvider } from "@/src/modules/auth/domain/repositories/authenticated-account-provider";
-import type { AuthenticatedAccount } from "@/src/modules/auth/domain/entities/authenticated-account";
 import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
-import { evaluateRecentAuthentication } from "@/src/modules/auth/domain/policies/recent-authentication";
 import { canPerformAdmissionAction, type AdmissionActorFacts } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
 import type { AdmissionAuthorizationReader, AdmissionContextCommand, AuthorizedAdmissionContext } from "@/src/modules/academy-admissions/domain/repositories/admission-authorization-reader";
 import { admissionFailure, type AdmissionFailure } from "@/src/modules/academy-admissions/application/results/admission-errors";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
-import { ADMISSION_DECISION_ACTIONS, ADMISSION_OWN_REQUEST_ACTIONS, ADMISSION_REQUIRED_RECENCY_ACTIONS, ADMISSION_RESOURCE_KIND, ADMISSION_SENSITIVE_OPERATIONS } from "@/src/modules/academy-admissions/constants/admission-authorization";
+import { ADMISSION_DECISION_ACTIONS, ADMISSION_OWN_REQUEST_ACTIONS, ADMISSION_OPERATION_SCOPED_ACTIONS, ADMISSION_RESOURCE_KIND, ADMISSION_SENSITIVE_OPERATIONS } from "@/src/modules/academy-admissions/constants/admission-authorization";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { REAUTHENTICATION_OPERATION_RESOURCE, REAUTHENTICATION_RESOURCE_KIND } from "@/src/modules/auth/constants/reauthentication-resources";
@@ -22,7 +20,8 @@ export class ResolveAdmissionContextUseCase {
   constructor(private readonly accounts: AuthenticatedAccountProvider, private readonly authorization: AdmissionAuthorizationReader, private readonly clock: () => Date) {}
 
   /**
-   * Applies current permission twice, with exact resource ownership and operation-scoped recency.
+   * Applies current permission twice, with exact resource ownership and an explicit operation scope.
+   * The active session of the current authorized actor is sufficient; no recent account confirmation is required.
    * Maintenance uses its separate authenticated server root and cannot be requested here.
    * @param command - Fixed server action and boundary-validated resource identifiers, without caller identity.
    * @returns A minimal private context or closed own failure before any secret/provider access.
@@ -40,9 +39,9 @@ export class ResolveAdmissionContextUseCase {
     if (!hasActor(initialActor)) return deny(ADMISSION_ERROR_CODE.permissionDenied);
     const mayReadResource = ownRequest || (decision
       ? initialActor.status === TRIBE_MEMBERSHIP_STATUS.active && (initialActor.role === TRIBE_MEMBER_ROLE.leader || initialActor.role === TRIBE_MEMBER_ROLE.guardian)
-      : canPerformAdmissionAction(initialActor, command.action, { tribeId: command.tribeId, hasRecentAuthentication: ADMISSION_REQUIRED_RECENCY_ACTIONS.has(command.action) || Boolean(command.sensitiveOperation) }));
+      : canPerformAdmissionAction(initialActor, command.action, { tribeId: command.tribeId }));
     if (!mayReadResource) return deny(ADMISSION_ERROR_CODE.permissionDenied);
-    if (ADMISSION_REQUIRED_RECENCY_ACTIONS.has(command.action) && !command.sensitiveOperation) return deny(ADMISSION_ERROR_CODE.reauthenticationRequired);
+    if (ADMISSION_OPERATION_SCOPED_ACTIONS.has(command.action) && !command.sensitiveOperation) return deny(ADMISSION_ERROR_CODE.invalidInput);
     if (command.sensitiveOperation && !sensitiveOperations?.includes(command.sensitiveOperation)) return deny(ADMISSION_ERROR_CODE.invalidInput);
     if (command.sensitiveOperation && REAUTHENTICATION_OPERATION_RESOURCE[command.sensitiveOperation] !== (command.resource?.kind ?? REAUTHENTICATION_RESOURCE_KIND.tribe)) return deny(ADMISSION_ERROR_CODE.invalidInput);
     const resource = command.resource ? await this.authorization.getResource(command.tribeId, command.resource) : null;
@@ -52,16 +51,9 @@ export class ResolveAdmissionContextUseCase {
     const actor = await this.authorization.getCurrentActor(command.tribeId, account.userId);
     const now = this.clock();
     if (!isAuthenticatedSessionLive(account.session.expiresAt, now)) return deny(ADMISSION_ERROR_CODE.authenticationRequired);
-    const target = { tribeId: command.tribeId, ...(resource?.applicantUserId ? { applicantUserId: resource.applicantUserId } : {}), hasRecentAuthentication: Boolean(command.sensitiveOperation) };
+    const target = { tribeId: command.tribeId, ...(resource?.applicantUserId ? { applicantUserId: resource.applicantUserId } : {}) };
     if (!hasActor(actor) || !canPerformAdmissionAction(actor, command.action, target)) return deny(ADMISSION_ERROR_CODE.permissionDenied);
     const resourceId = resource?.id ?? command.tribeId;
-    let recent: AuthenticatedAccount["recentAuthentication"][number] | undefined;
-    if (command.sensitiveOperation) {
-      if (!account.googleAccount) return deny(ADMISSION_ERROR_CODE.reauthenticationRequired);
-      const scope = { userId: account.userId, sessionId: account.session.id, accountId: account.googleAccount.id, subject: account.googleAccount.subject, tribeId: command.tribeId, operation: command.sensitiveOperation, resourceId };
-      recent = account.recentAuthentication.find((evidence) => evaluateRecentAuthentication({ now, scope, evidence, sessionActive: true, currentLeaderUserId: actor.role === TRIBE_MEMBER_ROLE.leader && actor.status === TRIBE_MEMBERSHIP_STATUS.active ? actor.userId : null }).allowed);
-      if (!recent?.authenticatedAt) return deny(ADMISSION_ERROR_CODE.reauthenticationRequired);
-    }
-    return { allowed: true, context: { userId: account.userId, sessionId: account.session.id, tribeId: command.tribeId, requestId: command.requestId, action: command.action, role: actor.role, membershipStatus: actor.status, resourceId, ...(resource?.applicantUserId ? { applicantUserId: resource.applicantUserId } : {}), ...(recent?.authenticatedAt ? { sensitiveOperation: command.sensitiveOperation, authenticatedAt: recent.authenticatedAt, validUntil: recent.validUntil } : {}) } };
+    return { allowed: true, context: { userId: account.userId, sessionId: account.session.id, tribeId: command.tribeId, requestId: command.requestId, action: command.action, role: actor.role, membershipStatus: actor.status, resourceId, ...(resource?.applicantUserId ? { applicantUserId: resource.applicantUserId } : {}), ...(command.sensitiveOperation ? { sensitiveOperation: command.sensitiveOperation } : {}) } };
   }
 }

@@ -64,7 +64,7 @@ export function createAdmissionPolicyCommandHandlers(open: () => Promise<Admissi
       const { operationId, confirmed, expectedVersion, tribeId, requestId, ...patch } = input;
       return services.policy.update({ operationId, confirmed, expectedVersion, tribeId, requestId, patch });
     }),
-    /** @param request - Native request. @param context - Framework params. @returns Original activation; browser preflight/recency flags are rejected. */
+    /** @param request - Native request. @param context - Framework params. @returns Original activation; browser preflight flags are rejected. */
     activate: (request: Request, context: PolicyRouteContext) => command(request, context, ADMISSION_HTTP_OPERATION.policyActivate, admissionPolicyActivationSchema, (services, input) => services.policy.activate(input)),
     /** @param request - Native request. @param context - Framework params. @returns Explicit observed-version pause without removing protection. */
     pause: (request: Request, context: PolicyRouteContext) => command(request, context, ADMISSION_HTTP_OPERATION.policyPause, admissionPolicyPauseSchema, (services, input) => services.policy.pause(input)),

@@ -26,7 +26,7 @@ export function createRequestMessagingSecretStore(readSecurityConfig: MessagingS
 }
 
 /**
- * Composes only persisted worker attempts; no human session or recency is invented.
+ * Composes only persisted worker attempts; no human session is invented.
  * @param readSecurityConfig - Explicit current hosting-secret source.
  * @returns A private worker store that revalidates marker/reservation/lease and rejects human contexts.
  */

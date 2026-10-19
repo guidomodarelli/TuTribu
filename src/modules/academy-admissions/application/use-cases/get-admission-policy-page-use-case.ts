@@ -8,7 +8,7 @@ import { admissionOperationFailure } from "../results/admission-operation-failur
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 
-/** The current leader query remains independent of mutation recency, keyrings and provider clients. */
+/** The current leader query remains independent of keyrings and provider clients. */
 export class GetAdmissionPolicyPageUseCase {
   /** @param accounts - Native global identity. @param readers - Current authorized policy and canonical tribe resolution. @param clock - Final render clock. */
   constructor(private readonly accounts: AuthenticatedAccountProvider, private readonly readers: { policy: Pick<GetAdmissionPolicyUseCase, "execute">; resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute"> }, private readonly clock: () => Date) {}

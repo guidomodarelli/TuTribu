@@ -7,7 +7,7 @@ import type { AdmissionActorFacts } from "@/src/modules/academy-admissions/domai
 /** Creates only private domain facts and own mutable ports, never framework or auth mocks. */
 function prepareAuthority() {
   const now = new Date("2026-10-06T12:00:00Z");
-  const account: AuthenticatedAccount = { userId: "leader-a", normalizedEmail: "synthetic@example.test", session: { id: "session-a", expiresAt: new Date("2026-10-06T13:00:00Z") }, googleAccount: { id: "account-a", subject: "subject-a" }, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId: "leader-a", normalizedEmail: "synthetic@example.test", session: { id: "session-a", expiresAt: new Date("2026-10-06T13:00:00Z") }, googleAccount: { id: "account-a", subject: "subject-a" }, identityEvidence: null };
   const actor: AdmissionActorFacts = { userId: account.userId, tribeId: "tribe-a", role: "leader", status: "active" };
   const state = { account: account as AuthenticatedAccount | null, actor: actor as AdmissionActorFacts | null, now, resource: { id: "request-a", tribeId: "tribe-a", applicantUserId: "applicant-a" } as { id: string; tribeId: string; applicantUserId?: string } | null, resourceReads: 0, afterResource: () => undefined as void };
   const resolver = new ResolveAdmissionContextUseCase({ getAuthenticatedAccount: async () => state.account ? structuredClone(state.account) : null }, {
@@ -63,27 +63,40 @@ describe("current admission authority", () => {
     expect(await fixture.resolver.execute({ ...fixture.command, action: "decide_request", resource: { kind: "admission_request", id: "request-a" } })).toMatchObject({ allowed: false });
   });
 
-  it("should require exact current global recency for a sensitive leader operation", async () => {
+  it("should authorize a sensitive leader operation with the active session alone", async () => {
     const fixture = prepareAuthority();
     const command = { ...fixture.command, action: "configure_policy" as const, sensitiveOperation: "update_admission_policy" as const };
-    expect(await fixture.resolver.execute(command)).toMatchObject({ allowed: false, failure: { code: "reauthentication_required" } });
+    const result = await fixture.resolver.execute(command);
+    expect(result).toMatchObject({ allowed: true, context: { userId: "leader-a", sessionId: "session-a", tribeId: "tribe-a", action: "configure_policy", resourceId: "tribe-a", sensitiveOperation: "update_admission_policy" } });
+    expect(result.allowed && Object.keys(result.context)).not.toContain("authenticatedAt");
     if (!fixture.state.account) throw new Error("Synthetic account missing");
-    fixture.state.account.recentAuthentication = [{ id: "recent-a", intentId: "intent-a", userId: "leader-a", sessionId: "session-a", accountId: "account-a", subject: "subject-a", tribeId: "tribe-a", operation: "update_admission_policy", resourceId: "tribe-a", authenticatedAt: fixture.state.now, verifiedAt: fixture.state.now, validUntil: new Date("2026-10-06T12:10:00Z"), invalidatedAt: null }];
-    expect(await fixture.resolver.execute(command)).toMatchObject({ allowed: true, context: { authenticatedAt: fixture.state.now } });
-    expect(await fixture.resolver.execute({ ...command, sensitiveOperation: "activate_admission_policy" })).toMatchObject({ allowed: false, failure: { code: "reauthentication_required" } });
+    fixture.state.account.googleAccount = null;
+    expect(await fixture.resolver.execute({ ...command, sensitiveOperation: "activate_admission_policy" })).toMatchObject({ allowed: true, context: { sensitiveOperation: "activate_admission_policy" } });
   });
 
-  it("should reject missing sensitive scope or unrelated action/resource before private lookup", async () => {
+  it.each(["missing_account", "expired_session", "guardian", "another_tribe"] as const)("should still reject a sensitive operation for %s", async (change) => {
     const fixture = prepareAuthority();
-    expect(await fixture.resolver.execute({ ...fixture.command, action: "configure_policy" })).toMatchObject({ allowed: false, failure: { code: "reauthentication_required" } });
+    if (change === "missing_account") fixture.state.account = null;
+    if (change === "expired_session" && fixture.state.account) fixture.state.account.session.expiresAt = fixture.state.now;
+    if (change === "guardian" && fixture.state.actor) fixture.state.actor.role = "guardian";
+    if (change === "another_tribe" && fixture.state.actor) fixture.state.actor.tribeId = "another-tribe";
+    const expected = change === "missing_account" || change === "expired_session" ? "authentication_required" : "permission_denied";
+    expect(await fixture.resolver.execute({ ...fixture.command, action: "configure_policy", sensitiveOperation: "update_admission_policy" })).toMatchObject({ allowed: false, failure: { code: expected } });
+    expect(fixture.state.resourceReads).toBe(0);
+  });
+
+  it("should reject missing sensitive scope or unrelated operation/resource before private lookup", async () => {
+    const fixture = prepareAuthority();
+    expect(await fixture.resolver.execute({ ...fixture.command, action: "configure_policy" })).toMatchObject({ allowed: false, failure: { code: "invalid_input" } });
+    expect(await fixture.resolver.execute({ ...fixture.command, action: "configure_policy", sensitiveOperation: "create_allowlist_entry" })).toMatchObject({ allowed: false, failure: { code: "invalid_input" } });
     expect(await fixture.resolver.execute({ ...fixture.command, action: "configure_policy", sensitiveOperation: "update_admission_policy", resource: { kind: "admission_request", id: "request-a" } })).toMatchObject({ allowed: false, failure: { code: "invalid_input" } });
     expect(await fixture.resolver.execute({ ...fixture.command, action: "read_own_request", resource: { kind: "allowlist_entry", id: "entry-a" } })).toMatchObject({ allowed: false, failure: { code: "invalid_input" } });
     expect(fixture.state.resourceReads).toBe(0);
   });
 
-  it("should permit ordinary leader list reads while requiring current recency for the corresponding writer", async () => {
+  it("should permit ordinary leader list reads and the corresponding writer with the same active session", async () => {
     const fixture = prepareAuthority();
     expect(await fixture.resolver.execute({ ...fixture.command, action: "manage_allowlist" })).toMatchObject({ allowed: true });
-    expect(await fixture.resolver.execute({ ...fixture.command, action: "manage_allowlist", sensitiveOperation: "create_allowlist_entry" })).toMatchObject({ allowed: false, failure: { code: "reauthentication_required" } });
+    expect(await fixture.resolver.execute({ ...fixture.command, action: "manage_allowlist", sensitiveOperation: "create_allowlist_entry" })).toMatchObject({ allowed: true, context: { sensitiveOperation: "create_allowlist_entry" } });
   });
 });

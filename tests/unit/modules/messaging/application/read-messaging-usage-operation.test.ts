@@ -1,4 +1,4 @@
-/** Exercises original usage recovery with current leader identity and no mutation recency. @module read-messaging-usage-operation-tests */
+/** Exercises original usage recovery with current leader identity and no sensitive operation. @module read-messaging-usage-operation-tests */
 import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { ReadMessagingUsageOperationUseCase } from "@/src/modules/messaging/application/use-cases/read-messaging-usage-operation-use-case";
@@ -8,7 +8,7 @@ import { MessagingSecretAccessError } from "@/src/modules/messaging/domain/error
 /** Own account/reader ports isolate current authority while retaining the real recovery schema. */
 function fixture() {
   const now = new Date("2026-10-07T12:00:00Z"), tribeId = randomUUID(), operationId = randomUUID(), userId = randomUUID(), sessionId = randomUUID();
-  const account: MessagingAuthenticatedAccount = { userId, session: { id: sessionId, expiresAt: new Date("2026-10-08T12:00:00Z") }, googleAccount: null, recentAuthentication: [] };
+  const account: MessagingAuthenticatedAccount = { userId, session: { id: sessionId, expiresAt: new Date("2026-10-08T12:00:00Z") }, googleAccount: null};
   const leadership: MessagingLeadershipFacts = { tribeId, leaderUserId: userId, membership: { userId, role: "leader", status: "active" } };
   const value = { type: "update_messaging_usage", state: "completed", operationId, replayed: true, result: { version: 2, allowedCountries: ["AR"], verificationDailyLimit: 0, notificationDailyLimit: 200, platformMaximums: { verificationDailyLimit: 1000, notificationDailyLimit: 5000 }, consumption: { verificationToday: 0, notificationToday: 0 } } };
   const reader = { read: vi.fn(async (): Promise<unknown | null> => value) };
@@ -17,7 +17,7 @@ function fixture() {
 }
 
 describe("usage original operation recovery", () => {
-  it("should return the original safe result without recency or current policy substitution", async () => {
+  it("should return the original safe result without current policy substitution", async () => {
     const data = fixture();
     expect(await data.useCase.execute(data.query)).toMatchObject({ ok: true, value: { type: "update_messaging_usage", state: "completed", operationId: data.query.operationId, result: { version: 2 } } });
     expect(data.reader.read).toHaveBeenCalledWith({ actorUserId: data.account.userId, sessionId: data.account.session.id, tribeId: data.query.tribeId, requestId: data.query.requestId }, data.query.operationId);

@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 /** Exercises original-message preparation with actual SQL, account projection, secret guards, crypto and SDK transport. @module postgres-message-status-preparation-tests */
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
@@ -13,8 +13,6 @@ import { ResolveMessagingContextUseCase } from "@/src/modules/messaging/applicat
 import { PostgresEncryptedSecretStore } from "@/src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store";
 import { ZavuMessageDeliverySender } from "@/src/modules/messaging/infrastructure/zavu/zavu-message-delivery-sender";
 import { ZavuMessageStatusLookup } from "@/src/modules/messaging/infrastructure/zavu/zavu-message-status-lookup";
-import { MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/message-delivery-reauthentication";
-import { RECENT_AUTHENTICATION_WINDOW_MS } from "@/src/modules/auth/constants/recent-authentication";
 import { GOOGLE_IDENTITY_PROVIDER } from "@/src/modules/auth/constants/google-identity-evidence";
 import { MESSAGING_DISPATCH_DEFAULT } from "@/src/modules/messaging/constants/messaging-dispatch";
 import { MESSAGING_AUTHORIZATION_PURPOSE } from "@/src/modules/messaging/constants/messaging-connection";
@@ -23,6 +21,8 @@ import { MESSAGE_ATTEMPT_STATE, MESSAGE_AUTHORIZATION_OUTCOME } from "@/src/modu
 import { ZAVU_DELIVERY_CHANNEL, ZAVU_DELIVERY_STATUS, ZAVU_MESSAGE_DIRECTION } from "@/src/modules/messaging/constants/zavu-delivery";
 import type { MessagingAuthorizationReader, MessagingSecretStore } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+
+/** Keeps synthetic native sessions alive for the whole scenario. */
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native original message status preparation", () => {
   it("should read only an owned stored message while preserving attempt, usage and rejecting crossed or revoked authority", async () => {
@@ -36,14 +36,12 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native original me
       const receipt = await send.send(authorization.context, new AbortController().signal);
       expect(receipt.outcome).toBe(MESSAGE_ATTEMPT_STATE.accepted);
       await fixture.repository.complete({ context: authorization.context, ...receipt });
-      const sessionId = randomUUID(), accountId = randomUUID(), subject = randomUUID(), intentId = randomUUID();
+      const sessionId = randomUUID(), accountId = randomUUID(), subject = randomUUID();
       await database.withContext(fixture.own, async (transaction) => {
-        const now = new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now), validUntil = new Date(now.getTime() + RECENT_AUTHENTICATION_WINDOW_MS);
+        const now = new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
         await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${accountId},${fixture.userId},${GOOGLE_IDENTITY_PROVIDER},${subject},${now},${now})`);
         await transaction.execute(sql`insert into public.session(id,token,"userId","expiresAt","createdAt","updatedAt") values (${sessionId},${randomUUID()},${fixture.userId},clock_timestamp()+interval '1 hour',${now},${now})`);
         await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${sessionId},${fixture.userId},${accountId},${subject},${fixture.own.email})`);
-        await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.userId},${sessionId},${accountId},${subject},${fixture.scope.tribeId},${MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.reconcile},${fixture.scope.connectionId},'/synthetic-status',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);
-        await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.userId},${accountId},${subject},${sessionId},${fixture.scope.tribeId},${MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.reconcile},${fixture.scope.connectionId},${now},${now},${validUntil})`);
       });
       let statusTransactions = 0;
       /** @param actor - Current native actor. @param run - Guarded SQL-only callback. @returns A committed result while observing the real preparation transaction lifetime. */

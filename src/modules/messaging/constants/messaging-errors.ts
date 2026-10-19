@@ -16,6 +16,7 @@ export const MESSAGING_ERROR_CODE = {
   challengeExpired: "challenge_expired",
   challengeInvalidated: "challenge_invalidated",
   verificationAttemptsExceeded: "verification_attempts_exceeded",
+  /** Kept only for persisted audit values and responses from older servers; current writers never emit it. */
   reauthenticationRequired: "reauthentication_required",
   connectionIncomplete: "connection_incomplete",
   missingCapability: "missing_capability",
@@ -48,7 +49,7 @@ export const MESSAGING_ERROR_MESSAGE = {
   [MESSAGING_ERROR_CODE.challengeExpired]: "El código de la prueba venció. Solicitá uno nuevo cuando esté disponible.",
   [MESSAGING_ERROR_CODE.challengeInvalidated]: "Ese código ya no está vigente para esta prueba de conexión.",
   [MESSAGING_ERROR_CODE.verificationAttemptsExceeded]: "Alcanzaste el límite de intentos de esta prueba. Esperá antes de intentar otra vez.",
-  [MESSAGING_ERROR_CODE.reauthenticationRequired]: "Volvé a autenticarte para confirmar esta operación sensible.",
+  [MESSAGING_ERROR_CODE.reauthenticationRequired]: "Tu sesión cambió. Recargá la página e intentá de nuevo.",
   [MESSAGING_ERROR_CODE.connectionIncomplete]: "La academia todavía no tiene preparada la conexión necesaria.",
   [MESSAGING_ERROR_CODE.missingCapability]: "La academia todavía no tiene preparado el canal necesario.",
   [MESSAGING_ERROR_CODE.invalidCredentials]: "El líder debe revisar las credenciales de mensajería de la academia.",

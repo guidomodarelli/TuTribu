@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-/** Exercises full-capacity CSV confirmation and reimport with actual bounded commits and explicit recency renewal. @module allowlist-import-maximum-confirmation-tests */
+/** Exercises full-capacity CSV confirmation and reimport with actual bounded commits and explicit original renewal. @module allowlist-import-maximum-confirmation-tests */
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
@@ -18,8 +18,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAllowlistManagement(database);
       await database.applyMigration("20261009061000_guard_allowlist_import_progress.sql");
-      // Only this synthetic session is long lived; signed write recency and
-      // operation leases retain their unchanged production durations.
+      // Only this synthetic session is long lived; operation leases retain
+      // their unchanged production durations.
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()+interval '12 hours' where id=${fixture.sessionId} and "userId"=${fixture.userId}`));
       let activeImportId: string | null = null, nextProgress = 500;
       const repository = new PostgresAllowlistImportRepository(async (_context, work) => {
@@ -55,7 +55,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
             const result = await repository.confirm(input);
             if (result.state === "completed") finalResult = result;
           } catch (error) {
-            if (!(error instanceof AdmissionOperationError) || !["reauthentication_required", "operation_unresolved", "allowlist_import_conflict"].includes(error.code)) throw error;
+            if (!(error instanceof AdmissionOperationError) || !["operation_unresolved", "allowlist_import_conflict"].includes(error.code)) throw error;
             process.stdout.write(JSON.stringify({ phase: "maximum_import_explicit_recovery", code: error.code, confirmedRows: completedRows }) + "\n");
           }
           if (finalResult?.state === "completed") {

@@ -9,51 +9,40 @@ import { createMessagingRouteBoundary } from "@/src/modules/messaging/infrastruc
 import { messagingFailure } from "@/src/modules/messaging/application/results/messaging-errors";
 
 /** Creates synthetic private authority only for the application port's controlled boundary. */
-function context(now: Date): AuthorizedMessagingContext {
+function context(): AuthorizedMessagingContext {
   const connectionId = randomUUID();
-  return { authorizationPurpose: "sensitive_leader", actorUserId: randomUUID(), sessionId: randomUUID(), accountId: randomUUID(), subject: randomUUID(), tribeId: randomUUID(), connectionId, connectionVersion: 1, environment: "synthetic-local", securityEpoch: "synthetic-epoch", requestId: randomUUID(), secretRef: randomUUID(), resourceId: connectionId, operation: "validate_messaging_connection", authenticatedAt: now, validUntil: new Date(now.getTime()+540_000) };
+  return { authorizationPurpose: "sensitive_leader", actorUserId: randomUUID(), sessionId: randomUUID(), accountId: randomUUID(), subject: randomUUID(), tribeId: randomUUID(), connectionId, connectionVersion: 1, environment: "synthetic-local", securityEpoch: "synthetic-epoch", requestId: randomUUID(), secretRef: randomUUID(), resourceId: connectionId, operation: "validate_messaging_connection" };
 }
 
 describe("reserve messaging usage", () => {
   it.each(["read_messaging_senders", "diagnose_messaging_connection"])("should close an unrelated %s action before reserving", async (operation) => {
-    const now = new Date();
     let calls = 0;
-    const useCase = new ReserveMessagingUsageUseCase({ reserve: async () => { calls += 1; return { outcome: "denied", code: "usage_limit_reached" }; } }, () => now);
-    expect(await useCase.execute({ context: { ...context(now), operation }, operationId: randomUUID() })).toEqual({ outcome: "denied", code: "permission_denied" });
+    const useCase = new ReserveMessagingUsageUseCase({ reserve: async () => { calls += 1; return { outcome: "denied", code: "usage_limit_reached" }; } });
+    expect(await useCase.execute({ context: { ...context(), operation }, operationId: randomUUID() })).toEqual({ outcome: "denied", code: "permission_denied" });
     expect(calls).toBe(0);
   });
 
-  it("should require a live recency window before reserving", async () => {
-    const now = new Date();
+  it("should reserve for the exact validation operation without a recent account confirmation", async () => {
+    const operationId = randomUUID(), reservedAt = new Date();
     let calls = 0;
-    const useCase = new ReserveMessagingUsageUseCase({ reserve: async () => { calls += 1; return { outcome: "denied", code: "usage_limit_reached" }; } }, () => now);
-    expect(await useCase.execute({ context: { ...context(now), validUntil: now }, operationId: randomUUID() })).toEqual({ outcome: "denied", code: "reauthentication_required" });
-    expect(calls).toBe(0);
-  });
-
-  it("should preserve a committed slot while closing provider access when its reply arrives after recency expires", async () => {
-    const now = new Date();
-    const authority = context(now);
-    let current = now;
-    const operationId = randomUUID();
-    const useCase = new ReserveMessagingUsageUseCase({ reserve: async () => { current = authority.validUntil; return { outcome: "reserved", operationId, reservedAt: now }; } }, () => current);
-    expect(await useCase.execute({ context: authority, operationId })).toEqual({ outcome: "denied", code: "reauthentication_required" });
+    const useCase = new ReserveMessagingUsageUseCase({ reserve: async () => { calls += 1; return { outcome: "reserved", operationId, reservedAt }; } });
+    expect(await useCase.execute({ context: context(), operationId })).toEqual({ outcome: "reserved", operationId, reservedAt });
+    expect(calls).toBe(1);
   });
 
   it("should return historical accounting without granting another fresh reservation", async () => {
     const now = new Date();
     const operationId = randomUUID();
     const historical = { outcome: "already_reserved" as const, operationId, reservedAt: new Date(now.getTime()-60_000) };
-    const useCase = new ReserveMessagingUsageUseCase({ reserve: async () => historical }, () => now);
-    expect(await useCase.execute({ context: context(now), operationId })).toEqual(historical);
+    const useCase = new ReserveMessagingUsageUseCase({ reserve: async () => historical });
+    expect(await useCase.execute({ context: context(), operationId })).toEqual(historical);
   });
 
   it("should retain the real private cause when the persistence result is unresolved", async () => {
-    const now = new Date();
     const cause = new Error("Synthetic own persistence reply lost");
     const error = new MessagingUsageBudgetError("operation_unresolved", { cause, operation: "reserveCredentialValidation" });
-    const useCase = new ReserveMessagingUsageUseCase({ reserve: async () => { throw error; } }, () => now);
-    await expect(useCase.execute({ context: context(now), operationId: randomUUID() })).rejects.toBe(error);
+    const useCase = new ReserveMessagingUsageUseCase({ reserve: async () => { throw error; } });
+    await expect(useCase.execute({ context: context(), operationId: randomUUID() })).rejects.toBe(error);
     expect(error.cause).toBe(cause);
   });
 

@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 /** Exercises native policy invalidation racing proof attachment under observed PostgreSQL locks. @module admission-proof-policy-race-tests */
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
@@ -16,7 +16,6 @@ import { PostgresMessagingUsageRepository } from "@/src/modules/messaging/infras
 import { PostgresAdmissionVerificationReadinessReader } from "@/src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader";
 import { createMessagingSecretCipher } from "@/src/modules/messaging/infrastructure/encryption/messaging-secret-cipher";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
-import { RECENT_AUTHENTICATION_WINDOW_MS } from "@/src/modules/auth/constants/recent-authentication";
 import type { AuthorizedAdmissionContext } from "@/src/modules/academy-admissions/domain/repositories/admission-authorization-reader";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import { PostgresAdmissionRequestRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository";
@@ -25,20 +24,18 @@ import { lockAcademyAdmissionMembershipScope } from "@/src/modules/tribes/infras
 import { createPostgresAdmissionNotificationObligationWriter } from "@/src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer";
 
 /**
- * Creates action-bound native recency for the already canonical synthetic leader.
+ * Creates a live native session bound to Google for the already canonical synthetic leader.
  * @param database - Exact owned branch containing the existing leader and tribe.
  * @param fixture - Native verification setup; no historic account/session is rewritten.
- * @returns Current leader context whose session and confirmation are persisted.
+ * @returns Current leader context whose session and Google binding are persisted.
  */
 async function confirmPolicyLeader(database: AcademyAdmissionTestDatabase, fixture: Awaited<ReturnType<typeof prepareAdmissionContactVerification>>): Promise<AuthorizedAdmissionContext> {
-  const accountId = randomUUID(), subject = randomUUID(), sessionId = randomUUID(), intentId = randomUUID();
+  const accountId = randomUUID(), subject = randomUUID(), sessionId = randomUUID();
   await database.withContext(fixture.fixture.own, async (transaction) => {
-    const now = new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now), until = new Date(now.getTime() + RECENT_AUTHENTICATION_WINDOW_MS);
+    const now = new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
     await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${accountId},${fixture.fixture.userId},'google',${subject},${now},${now})`);
     await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${fixture.fixture.userId},${randomUUID()},clock_timestamp()+interval '1 hour',${now},${now})`);
     await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${sessionId},${fixture.fixture.userId},${accountId},${subject},${fixture.fixture.own.email})`);
-    await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.fixture.userId},${sessionId},${accountId},${subject},${fixture.context.tribeId},${REAUTHENTICATION_OPERATION.updateAdmissionPolicy},${fixture.context.tribeId},'/synthetic-policy-race',${randomBytes(32)},'consumed',${now},${until},${now})`);
-    await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.fixture.userId},${accountId},${subject},${sessionId},${fixture.context.tribeId},${REAUTHENTICATION_OPERATION.updateAdmissionPolicy},${fixture.context.tribeId},${now},${now},${until})`);
   });
   return { userId: fixture.fixture.userId, sessionId, tribeId: fixture.context.tribeId, requestId: randomUUID(), role: "leader", membershipStatus: "active", resourceId: fixture.context.tribeId, action: "configure_policy", sensitiveOperation: REAUTHENTICATION_OPERATION.updateAdmissionPolicy };
 }
@@ -64,7 +61,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native proof appli
       const original = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select submitted_at,expires_at,normalized_contact,status,version from public.academy_admission_requests where id=${requestId}`)).rows[0]);
       const context = await confirmPolicyLeader(database, fixture);
       const policy = new PostgresAdmissionPolicyRepository((authority, run) => database.withContext({ userId: authority.userId, email: null }, run), async () => fixture.fixture.config, (transaction, authority) => {
-        /** @param current - Native preparation transaction. @param tribeId - Exact own policy tribe. @returns Current scoped authority after native recency and leader checks. */
+        /** @param current - Native preparation transaction. @param tribeId - Exact own policy tribe. @returns Current scoped authority after native session and leader checks. */
         const authorize = async (current: RequestDatabase, tribeId: string) => { if (tribeId !== authority.tribeId) return false; await authorizeAdmissionPolicy(current, authority, authority.sensitiveOperation); return true; };
         // The preflight port is separately verified; usage, readiness, security and policy authority stay native.
         return new PostgresAdmissionPolicyPreparationReader(transaction, { isPrepared: async () => true }, new AdmissionMessagingUsagePolicyReader(new PostgresMessagingUsageRepository(transaction, authorize)), new PostgresAdmissionVerificationReadinessReader(transaction, authorize, async () => fixture.fixture.config), async () => fixture.fixture.config);
@@ -115,7 +112,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native proof appli
         await transaction.execute(sql`select id from public.tribes where id=${fixture.context.tribeId} for update`);
         const authorize = async (current: RequestDatabase, tribeId: string) => { if (tribeId !== context.tribeId) return false; await authorizeAdmissionPolicy(current, context, context.sensitiveOperation); return true; };
         // Preflight belongs to a separately tested owner; current native scope,
-        // usage, readiness, recency, ledger and invalidation remain real here.
+        // usage, readiness, session, ledger and invalidation remain real here.
         const writer = new PostgresAdmissionPolicyRepository((_context, run) => run(transaction), async () => fixture.fixture.config, (current) => new PostgresAdmissionPolicyPreparationReader(current, { isPrepared: async () => true }, new AdmissionMessagingUsagePolicyReader(new PostgresMessagingUsageRepository(current, authorize)), new PostgresAdmissionVerificationReadinessReader(current, authorize, async () => fixture.fixture.config), async () => fixture.fixture.config));
         if (change === "epoch") {
           expect(await writer.update({ context, operationId: randomUUID(), type: "update_admission_policy", confirmed: true, expectedVersion: 2, patch: { requiresAdditionalVerification: false } })).toMatchObject({ state: "completed" });

@@ -100,7 +100,7 @@ describe("admission mutation handlers", () => {
     expect((await fixture.handlers.submit(request, { params: Promise.resolve({ slug: "synthetic-academy" }) })).status).toBe(201);
   });
 
-  it("should expose only retry eligibility/version and delegate current recency failure without changing the request decision", async () => {
+  it("should expose only retry eligibility/version and delegate a legacy session-change failure without changing the request decision", async () => {
     const fixture = mutationFixture(), context = { params: Promise.resolve({ slug: "synthetic-academy", requestId: fixture.requestId }) };
     const body = { operationId: fixture.operationId, confirmed: true, expectedVersion: 2, internalReason: "Corrección" };
     const response = await fixture.handlers.retry(fixture.request(body), context);

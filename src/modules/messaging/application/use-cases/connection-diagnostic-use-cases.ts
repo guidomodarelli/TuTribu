@@ -14,7 +14,7 @@ export type VerifyConnectionDiagnosticInput = { tribeId: string; connectionId: s
 /** Derives private authority on each request and leaves transport/activation to their separate owners. */
 export class VerifyConnectionDiagnosticUseCase {
   /**
-   * @param resolver - Own current global account/role/recency/resource resolver.
+   * @param resolver - Own current global account/role/resource resolver.
    * @param operations - Owner-bound ledger and local diagnostic transaction composition.
    */
   constructor(private readonly resolver: Pick<ResolveMessagingContextUseCase, "execute">, private readonly operations: ConnectionDiagnosticOperations<ConnectionDiagnosticSnapshot>) {}

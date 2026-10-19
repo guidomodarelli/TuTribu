@@ -44,7 +44,7 @@ export class PostgresMessagingCredentialValidation implements MessagingCredentia
       const now=new Date((await database.execute<{now:string}>(sql`select clock_timestamp() as now`)).rows[0].now);
       if(!messagingSecretLifetimeIsCurrent(authority,now)){
         const sessionStillLive=(await database.execute(sql`select id from public.session where id=${context.sessionId} and "userId"=${context.actorUserId} and "expiresAt">clock_timestamp()`)).rows[0];
-        throw new AdmissionOperationError(sessionStillLive?ADMISSION_ERROR_CODE.reauthenticationRequired:ADMISSION_ERROR_CODE.authenticationRequired);
+        throw new AdmissionOperationError(sessionStillLive?ADMISSION_ERROR_CODE.resourceUnavailable:ADMISSION_ERROR_CODE.authenticationRequired);
       }
       return now;
     }catch(error){if(error instanceof MessagingSecretAccessError){const sessionStillLive=(await database.execute(sql`select id from public.session where id=${context.sessionId} and "userId"=${context.actorUserId} and "expiresAt">clock_timestamp()`)).rows[0];throw new AdmissionOperationError(sessionStillLive?error.code:ADMISSION_ERROR_CODE.authenticationRequired,{cause:error});}throw error;}

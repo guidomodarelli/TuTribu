@@ -26,7 +26,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Las solicitudes vencidas pueden cerrarse mediante el proceso interno sin esperar otra presentación, conservando el plazo original y las invitaciones ya canjeadas; su ejecución programada sigue pendiente.
 - El líder puede gestionar invitaciones personales desde la configuración de admisión: emitir, renombrar, reemitir o revocar con confirmaciones separadas, vigencia explícita y recuperación de respuestas inciertas sin duplicar la acción.
 - La consulta privada de invitaciones personales incorpora las fechas de creación, canje, revocación y retiro de autorización.
-- La gestión de invitaciones personales exige confirmación reciente del líder al crear, renombrar o revocar y conserva el resultado original; el enlace completo solo se entrega una vez.
+- La gestión de invitaciones personales exige la confirmación explícita del líder al crear, renombrar o revocar y conserva el resultado original; el enlace completo solo se entrega una vez.
 - La invitación personal dispone de una pantalla para iniciar o cambiar de cuenta, comprobar el contacto y confirmar el ingreso por separado; las respuestas inciertas se consultan conservando la operación original.
 - El pedido y reenvío de código para una invitación personal conserva su origen y comprueba que siga autorizada; verificar el código no consume el enlace ni concede membresía.
 - La consulta de una invitación personal protege el destinatario, indica si falta comprobar el contacto y conserva las solicitudes existentes sin consumir el enlace al leerlo.
@@ -41,9 +41,9 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Las solicitudes pendientes comunes pueden pedir un código para comprobar el contacto sin renovar su plazo; pedirlo no fija el contacto ni concede membresía.
 - Los códigos de ingreso conservan el resultado original ante una respuesta perdida; su prueba puede adjuntarse a la solicitud pendiente sin renovar el plazo ni conceder membresía.
 - El asistente ofrece Seguridad y retiro para elegir una conexión, revisar el motivo y el impacto, renovar la confirmación y consultar un resultado perdido antes de continuar.
-- Los líderes pueden suspender una conexión con una confirmación reciente específica o retirarla cuando se resuelven sus dependencias, y recuperar el resultado original sin consultar al proveedor.
+- Los líderes pueden suspender una conexión con una confirmación explícita o retirarla cuando se resuelven sus dependencias, y recuperar el resultado original sin consultar al proveedor.
 - Los líderes pueden confirmar la activación de una candidata productiva comprobada desde el asistente, recuperar la selección si se pierde la respuesta y conservar los ajustes de admisión y avisos.
-- Los líderes pueden probar el canal de la candidata desde el asistente, consultar su entrega y confirmar el código recibido; la vuelta desde Google y las respuestas perdidas conservan el diagnóstico original sin volver a enviarlo.
+- Los líderes pueden probar el canal de la candidata desde el asistente, consultar su entrega y confirmar el código recibido; las respuestas perdidas conservan el diagnóstico original sin volver a enviarlo.
 - Los líderes pueden elegir remitentes y configurar canales desde la conexión candidata; WhatsApp muestra sus campos de plantilla e idioma, y un guardado incierto se recupera sin repetirlo.
 - Los líderes pueden comprobar la credencial candidata desde la pantalla de conexión, distinguir cuentas de prueba y recuperar la comprobación sin repetirla; ante cambios concurrentes consultan el estado actual y confirman nuevamente.
 - Los líderes tienen un primer paso de conexión para guardar una candidata de Zavu, borrar la clave del formulario y recuperar una respuesta perdida sin repetir el guardado; los guardianes consultan sólo su alerta de disponibilidad.
@@ -51,12 +51,12 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Los líderes pueden activar una conexión productiva comprobada y reemplazar la anterior, conservando cupos y pruebas de admisión ya aplicadas, sin encender verificaciones automáticamente.
 - Los líderes pueden solicitar y confirmar una prueba de conexión por canal, con destino y consumo explícitos, y consultar su entrega sin convertirla en verificación de admisión ni activar la conexión.
 - Los líderes pueden guardar remitentes y plantillas por canal en una nueva versión candidata, conservando la conexión seleccionada y requiriendo nuevas comprobaciones antes de activarla.
-- Los líderes pueden consultar remitentes y plantillas disponibles con una confirmación reciente de cuenta, sin enviar códigos ni activar canales.
+- Los líderes pueden consultar remitentes y plantillas disponibles, sin enviar códigos ni activar canales.
 - Los líderes pueden comprobar la credencial de una conexión y consultar su estado sin preparar canales ni enviar códigos; los guardianes reciben sólo una alerta operativa mínima.
 - Los líderes pueden guardar una conexión candidata de mensajería con nombre y credenciales protegidas, sin sustituir la conexión seleccionada, activar códigos ni reiniciar cupos.
 - Los líderes tienen una pantalla para preparar países y cupos antes de conectar la mensajería, conservar el borrador ante conflictos y recuperar un guardado incierto sin reiniciar el consumo.
-- Los líderes tienen una pantalla para preparar reglas de admisión, revisar requisitos, conservar el borrador ante cambios concurrentes y volver de la confirmación con Google sin repetir un guardado incierto.
-- Los líderes pueden preparar y pausar borradores de admisión con confirmación reciente; guardarlos no activa la academia ni envía comprobaciones de contacto.
+- Los líderes tienen una pantalla para preparar reglas de admisión, revisar requisitos, conservar el borrador ante cambios concurrentes y recuperar un guardado incierto sin repetirlo.
+- Los líderes pueden preparar y pausar borradores de admisión con una confirmación explícita; guardarlos no activa la academia ni envía comprobaciones de contacto.
 - Los líderes pueden consultar el estado actual de admisión de su academia y conservar los resultados originales de cambios de configuración si se pierde una respuesta.
 - La oferta de una academia con control de admisión ofrece Solicitar ingreso y abre la solicitud sin intentar un ingreso gratuito directo.
 - Líderes y guardianes activos pueden revisar solicitudes comunes de admisión manual, separar el motivo interno del mensaje al solicitante y conservar la decisión original si se pierde una respuesta.
@@ -64,7 +64,6 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - La bandeja incorpora avisos propios de admisión y avisos de revisión para responsables activos, con mensajes internos que conservan la privacidad del contacto y de la revisión.
 - El inicio de sesión con Google guarda evidencia del correo autenticado para las comprobaciones de contacto de academias; si esa comprobación adicional no está disponible, se conserva el acceso a la cuenta.
 - Las comprobaciones sensibles distinguen la cuenta Google usada en cada sesión y dejan de reconocer una verificación anterior cuando cambia el correo de la cuenta.
-- La confirmación con Google tiene una pantalla propia que conserva la solicitud y muestra si falta iniciar sesión, confirmar o volver a solicitarla.
 - Se incorpora la consulta privada de actividad y métricas de admisión para el líder, conservando el consumo diario y restringiendo datos sensibles; la pantalla de consulta sigue pendiente.
 - El acceso autorizado a habilitados, reportes CSV, invitaciones y solicitudes de admisión queda registrado con quién lo consultó y su alcance, preservando los permisos y evitando copiar datos privados en la auditoría.
 - Las consultas autorizadas de recursos de mensajería y el uso operativo de la credencial dejan un registro de alcance y configuración, sin guardar claves ni contenido del proveedor en la auditoría.
@@ -77,7 +76,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - El consumo e historial de admisión reconoce los lotes de conservación y avisos internos completados; muestra sólo duraciones medidas y conserva su ausencia cuando no hay datos.
 - El historial de admisión distingue los cambios de avisos por correo y muestra su habilitación y zona horaria, sin exponer contactos ni credenciales.
 - Las preferencias de avisos por correo conservan la elección propia de cada responsable y se administran por separado de la habilitación del líder y de los códigos de contacto.
-- El líder puede consultar el resultado original de un cambio de correo de admisión sin repetir la confirmación de Google; los nuevos cambios siguen requiriéndola.
+- El líder puede consultar el resultado original de un cambio de correo de admisión sin repetir el cambio.
 - Los líderes y guardianes pueden preparar su preferencia de avisos de admisión desde una pantalla propia; el líder ajusta el correo y su zona por separado y puede recuperar respuestas inciertas conservando el cambio original.
 - La consulta autorizada de solicitudes de admisión permite distinguir cuáles necesitan actualmente un motivo de excepción y combinarlo con otros filtros; el control de filtros en la bandeja sigue pendiente.
 - La bandeja de admisión incorpora búsqueda y filtros de estado, origen, fecha y requisitos actuales, y conserva la selección al revisar un detalle o recargar la página.
@@ -103,8 +102,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - La conexión de mensajería guía el avance con un indicador de pasos: los pasos completados se pueden volver a abrir, los siguientes se habilitan al completar el actual y Seguridad y retiro queda como acción aparte.
 - Las pantallas de la plataforma usan todo el ancho disponible; los textos y formularios conservan un ancho cómodo de lectura.
 - Las páginas de admisión se rediseñaron con jerarquía más clara: la bandeja muestra estado y origen como insignias, el detalle agrupa los datos de la solicitud, las reglas empiezan por un resumen del estado actual, el historial se lee como línea de tiempo y los formularios separan datos, confirmación y acciones.
-- La conexión de mensajería se organiza en pestañas Conexión, Canales, Pruebas, Activación y Seguridad, con un resumen del estado de cada conexión, el próximo paso destacado y una sola acción principal por paso; la confirmación con Google queda como opción secundaria y, al volver de Google, se reabre la misma pestaña. Cambiar de pestaña conserva lo escrito y no envía ni activa nada.
-- En la conexión de mensajería, el resultado de cada acción y el enlace para continuar con Google aparecen junto a la acción que los produjo, también en pantallas angostas.
+- La conexión de mensajería se organiza en pestañas Conexión, Canales, Pruebas, Activación y Seguridad, con un resumen del estado de cada conexión, el próximo paso destacado y una sola acción principal por paso. Cambiar de pestaña conserva lo escrito y no envía ni activa nada.
+- En la conexión de mensajería, el resultado de cada acción aparece junto a la acción que lo produjo, también en pantallas angostas.
 - Los títulos y destacados de las pantallas de admisión y mensajería usan el peso de letra del sistema de diseño.
 - El indicador de carga que se convierte en un check o una cruz y el balanceo de la campana cuando llegan notificaciones nuevas son un poco más rápidos.
 - Las animaciones de la aplicación son más sobrias: las etiquetas, filas de tablas y avatares aparecen sin animación de entrada, los enlaces ya no se mueven al pasar el puntero, y los menús y desplegables se abren creciendo desde el botón que los abre.
@@ -133,6 +132,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - La preparación interna de avisos agrupados comparte las comprobaciones del destinatario y conserva los permisos y la confianza de cada aviso; el envío automático sigue pendiente.
 - La recolección interna de avisos comparte comprobaciones por página, conserva un resultado por cada aviso y recupera los ya incorporados aunque la conexión actual no esté disponible; la ejecución automática sigue pendiente.
 
+### Removed
+
+- Los líderes de tribu ya no necesitan confirmar su cuenta con Google para operaciones sensibles de admisiones, mensajería, salida del modo academia o borrado de la tribu; desaparecen el botón y la pantalla de confirmación.
+
 ### Fixed
 
 - El próximo paso de la conexión de mensajería ya no se frena por un canal no disponible cuando otro canal se puede usar.
@@ -143,15 +146,12 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Consultar remitentes o plantillas sin resultados explica que Zavu no devolvió opciones, en lugar de dejar la lista vacía sin aviso.
 - El nombre de la conexión y el código de prueba ya no aceptan más caracteres que los permitidos.
 - Si se confirma de nuevo un envío ya aceptado por Zavu, TuTribu recupera el resultado original en lugar de dejarlo como incierto, sin enviar otro mensaje.
-- La confirmación de acciones sensibles permite mantener abierta la sesión de Google y deja de exigir salir y volver a ingresar; la cuenta se comprueba para la acción concreta durante diez minutos.
 - Al cancelar una solicitud o resolver una revisión individual con teclado, el resultado recibe el foco si desaparece la acción; si lo moviste a otro control, se conserva allí.
 
 - La barra lateral ignora eventos de teclado sin tecla y mantiene operativo su atajo de navegación.
 
 - El cierre de academia y la eliminación de una tribu conservan el registro privado de sus mensajes cancelados y de los resultados que llegan para envíos ya iniciados, sin duplicarlos ni devolver su consumo.
 - El guardado de conexiones reconoce la dirección pública segura de TuTribu detrás del servidor local y evita rechazos falsos de permisos.
-- Una confirmación de cuenta vencida indica cómo volver a la acción e iniciar otra, sin mantener indefinidamente el resultado de un intento anterior.
-- La confirmación de cuenta distingue la sesión de TuTribu de la de Google y explica cómo continuar cuando Google conserva una autenticación anterior.
 - Los eventos de teclado sin una tecla válida ya no interrumpen la navegación lateral; los atajos con Ctrl y Cmd siguen disponibles.
 - Una academia que ya activó su control de admisión conserva la entrada mediante solicitud aunque se pierda su configuración, sin volver a ofrecer un ingreso directo.
 - Se puede llegar con el teclado al enlace para volver a solicitar ingreso después de cancelar una solicitud.
@@ -183,7 +183,6 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Volver a confirmar el ingreso con una membresía ya recuperada cierra la solicitud anterior sin fingir una aprobación; conserva su vencimiento y los resultados de envíos anteriores.
 - El ingreso anterior a una academia con control no informa una membresía creada cuando el resultado real es una solicitud pendiente.
 - Los resultados tardíos de envío conservan el intento pendiente para su reconciliación, sin repetir el mensaje ni alterar un resultado ya informado.
-- Volver de Google con Atrás no permite repetir una confirmación si todavía no se pudo consultar el estado del intento anterior.
 - La recuperación de operaciones de admisión conserva los resultados confirmados de un lote sin repetir cambios; una falla inesperada revierte el lote completo.
 - Las academias con control protegido rechazan ingresos por enlaces antiguos y conservan las restricciones de recuperación; el modo clásico y los reintentos de membresías pagas mantienen sus recorridos.
 - Una solicitud de pago malformada se rechaza sin iniciar un reintento de suscripción.
@@ -211,7 +210,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Cambiar o perder el liderazgo activo suspende las conexiones del líder anterior en el mismo cambio, conservando las membresías, las invitaciones y el consumo.
 - El historial de decisiones de admisión conserva la evidencia mínima usada al decidir, sin guardar códigos ni datos privados del proveedor.
 - La recuperación de una admisión permite consultar el resultado propio sin pertenecer todavía a la academia y conserva los permisos actuales de sus responsables.
-- Adelantar un reintento requiere un líder activo y una confirmación reciente de cuenta; conserva la decisión original y rechaza la corrección si la sesión vence durante la operación.
+- Adelantar un reintento requiere un líder activo con su sesión vigente; conserva la decisión original y rechaza la corrección si la sesión vence durante la operación.
 - Las consultas de admisión permiten leer sólo la solicitud propia sin exigir pertenencia; conservan el estado existente cuando la configuración de una academia protegida deja de estar disponible.
 - Los reintentos de presentación conservan el resultado originalmente confirmado, y las mutaciones rechazan peticiones desde un origen web ajeno antes de ejecutar cambios.
 - Las operaciones sensibles de mensajería conservan la sesión y cuenta originales; si vencen durante la operación, informan que hace falta iniciar sesión sin confirmar cambios pendientes.
@@ -221,12 +220,12 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Las comprobaciones de credenciales de mensajería comparten un límite por academia aunque cambie la clave, y los reintentos conservan su consumo original.
 - Los avisos de admisión quedan ligados a la solicitud y tribu de origen; su acceso distingue al solicitante de los responsables activos y evita duplicados.
 - Un código de verificación que vence mientras espera una comprobación se rechaza sin confirmar el contacto ni consumirlo.
-- Las solicitudes de confirmación de cuenta dejan de crearse, iniciarse o consultarse si la sesión vence, incluso cuando ocurre durante una espera.
 - Las operaciones de purga de credenciales retiradas requieren autorización vigente y conservan sus referencias e historial al eliminar el material privado.
 - Los controles de mensajería rechazan sesiones vencidas y recursos de otro entorno antes de consultar material privado.
 - El historial de admisiones conserva la relación con su tribu y sus operaciones, evitando referencias cruzadas entre comunidades.
 - Los resultados confirmados de las operaciones de admisión quedan protegidos contra sobrescrituras y cambios de identidad.
 - Las credenciales de mensajería retiradas o vinculadas a una cuenta o recurso sin autorización quedan fuera de uso; su eliminación conserva el historial de la conexión.
+- Las operaciones sensibles de admisiones, mensajería y ciclo de vida de la tribu exigen la sesión activa del líder y la confirmación explícita de cada acción.
 
 ## [1.8.1] - 2026-10-16
 

@@ -1,4 +1,4 @@
-/** Wires read-only own import data and preserved progress without claims or recency renewal. @module allowlist-import-route */
+/** Wires read-only own import data and preserved progress without claims. @module allowlist-import-route */
 import { createAllowlistRequestModule } from "@/src/modules/setup";
 import { createAllowlistImportHandlers } from "@/src/modules/academy-admissions/infrastructure/api/allowlist-import-handlers";
 /** @param request - Current import query. @param context - Native tribe/import params. @returns Current authorized own snapshot or safe failure. */

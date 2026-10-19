@@ -27,7 +27,7 @@ export function createAdmissionRequestAuditEvent(input:AdmissionRequestAuditInpu
 
 /**
  * Preserves the private corrective reason and retry date without inventing another terminal decision.
- * @param input - Authorized owner proposal and the original terminal request after current recency/CAS checks.
+ * @param input - Authorized owner proposal and the original terminal request after current CAS checks.
  * @returns A dedicated private retry fact, retaining original presentation policy and decision lineage.
  */
 export function createAdmissionRetryAuditEvent(input:{actorUserId:string;operationId:string;request:AdmissionRequest;previous:AdmissionRequest;internalReason:string;retryAllowedAt:Date}){

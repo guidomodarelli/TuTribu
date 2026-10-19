@@ -14,7 +14,7 @@ import { ResolveMessagingTribeManagementUseCase } from "./resolve-messaging-trib
 /** Boundary input contains resource/correlation only; the browser cannot select the account or session. */
 type UsageQuery = { tribeId: string; requestId: string };
 
-/** Current account/role/recency orchestration; persistence rechecks its authority under actual SQL locks. */
+/** Current account/role orchestration; persistence rechecks its authority under actual SQL locks. */
 export class ManageMessagingUsageUseCases {
   /**
    * @param accounts - Current private global session projection, with no provider tokens.
@@ -25,7 +25,7 @@ export class ManageMessagingUsageUseCases {
   constructor(accounts: MessagingAccountProvider, authorization: Pick<MessagingAuthorizationReader, "getCurrentLeadership">, private readonly operations: MessagingUsageOperations<MessagingUsagePolicyResult, MessagingUsagePolicyStateResult>, clock: () => Date) { this.authority = new ResolveMessagingTribeManagementUseCase(accounts, authorization, clock); }
   private readonly authority: ResolveMessagingTribeManagementUseCase;
 
-  /** Resolves only tribe management; absent recency closes the sensitive action, while reads remain available. */
+  /** Resolves only tribe management; sensitive actions additionally bind their exact operation, while reads remain available. */
   private async resolve(query: UsageQuery, operation?: MessagingUsageSensitiveContext["operation"]): Promise<MessagingUsageContext | MessagingUsageSensitiveContext> {
     return operation ? this.authority.execute(query, operation) : this.authority.execute(query);
   }
@@ -49,14 +49,14 @@ export class ManageMessagingUsageUseCases {
   }
 
   /**
-   * Starts configuration only after the explicit action and exact tribe-scoped global recency.
+   * Starts configuration only after the explicit action under the current leader session.
    * @param input - Boundary-validated confirmation/idempotency, without countries, quotas or a client version.
    * @returns Original initialized/existing snapshot or registered unfinished work, without an SDK call.
    */
   async initialize(input: UsageQuery & { operationId: string; confirmed: true }) {
     try {
       const context = await this.resolve(input, REAUTHENTICATION_OPERATION.initializeMessagingUsage);
-      if (!("operation" in context)) throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.reauthenticationRequired);
+      if (!("operation" in context)) throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.invalidInput);
       return { ok: true as const, value: await this.operations.initialize(context, input.operationId) };
     } catch (error) { return this.failure(error); }
   }
@@ -69,7 +69,7 @@ export class ManageMessagingUsageUseCases {
   async update(input: UsageQuery & MessagingUsageUpdate) {
     try {
       const context = await this.resolve(input, REAUTHENTICATION_OPERATION.updateMessagingUsage);
-      if (!("operation" in context)) throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.reauthenticationRequired);
+      if (!("operation" in context)) throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.invalidInput);
       return { ok: true as const, value: await this.operations.update(context, input) };
     } catch (error) { return this.failure(error); }
   }

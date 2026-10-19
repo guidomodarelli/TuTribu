@@ -1,7 +1,6 @@
 /** Presents current notification facts and explicit recovery callbacks without auth, HTTP or storage ownership. @module messaging-notification-recovery */
 import { useId } from "react";
 import { Button, Checkbox, Label, Select } from "@astra-kit/ui";
-import { Link } from "@/components/navigation/link";
 import type { NotificationDeliveryCatalogItem } from "@/src/modules/messaging/application/results/notification-delivery-catalog-result";
 import { MESSAGING_DELIVERY_STATE_LABEL } from "@/src/modules/messaging/constants/messaging-diagnostic-browser";
 import { MESSAGE_DELIVERY_STATE } from "@/src/modules/messaging/constants/message-delivery";
@@ -18,7 +17,6 @@ export type MessagingNotificationRecoveryProps = {
   busy: boolean;
   canRead: boolean;
   canRecover: boolean;
-  canReauthenticate: boolean;
   confirmed: boolean;
   hasReference: boolean;
   originalCompleted: boolean;
@@ -27,14 +25,12 @@ export type MessagingNotificationRecoveryProps = {
   archiveConfirmed: boolean;
   historyCount: number;
   historyFull: boolean;
-  reauthenticationHref: string | null;
   message: { kind: "status" | "alert"; text: string } | null;
   onSelect: (deliveryId: string) => void;
   onConfirm: (confirmed: boolean) => void;
   onRefresh: () => void;
   onMore: () => void;
   onRecover: () => void;
-  onReauthenticate: () => void;
   onReadOriginal: () => void;
   onResumeOriginal: () => void;
   onClearCompleted: () => void;
@@ -71,7 +67,6 @@ export function MessagingNotificationRecovery(props: MessagingNotificationRecove
       <Label htmlFor={consentControlId}>Revisé el aviso, la conexión y el impacto; quiero registrar esta recuperación.</Label>
     </div>
     <div className={styles.MessagingNotificationRecovery__actions}>
-      <Button type="button" variant="secondary" disabled={props.busy || !props.canReauthenticate} onClick={props.onReauthenticate}>Confirmar recuperación con Google</Button>
       {!props.hasReference && <Button type="button" disabled={props.busy || !props.canRecover || !props.confirmed} onClick={props.onRecover}>Registrar recuperación</Button>}
       {props.hasReference && <>
         <Button type="button" variant="secondary" disabled={props.busy || !props.canRead} onClick={props.onReadOriginal}>Consultar recuperación original</Button>
@@ -86,7 +81,6 @@ export function MessagingNotificationRecovery(props: MessagingNotificationRecove
       <div className={styles.MessagingNotificationRecovery__actions}><Button type="button" variant="secondary" disabled={props.busy || !props.canRead || !props.archiveConfirmed} onClick={props.onArchive}>Conservar intento y liberar formulario</Button></div>
     </>}
     {props.historyCount > 0 && <div className={styles.MessagingNotificationRecovery__actions}>{Array.from({ length: props.historyCount }, (_, index) => <Button key={index} type="button" variant="secondary" disabled={props.busy || !props.canRead || props.hasReference} onClick={() => props.onRestoreHistory(index)}>Consultar intento conservado {index + 1}</Button>)}</div>}
-    {props.reauthenticationHref && <p className={styles.MessagingNotificationRecovery__help}><Link href={props.reauthenticationHref}>Continuar confirmación con Google</Link></p>}
     {props.hasReference && <p className={styles.MessagingNotificationRecovery__help}>La referencia del intento original está conservada en esta pestaña. Consultarla no registra otra recuperación. Dejar de observar no cancela ni revierte el trabajo del servidor.</p>}
     {props.originalCompleted && <p className={styles.MessagingNotificationRecovery__help}>La recuperación quedó registrada. Esto no confirma que el aviso se haya enviado o entregado.</p>}
     {props.message && <p className={styles.MessagingNotificationRecovery__feedback} role={props.message.kind === "alert" ? "alert" : "status"}>{props.message.text}</p>}

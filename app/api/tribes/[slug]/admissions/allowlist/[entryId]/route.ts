@@ -7,7 +7,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
   return createAllowlistHandlers(createAllowlistRequestModule).read(request, context);
 }
 
-/** @param request - Explicit name/state patch and original operation/version. @param context - Native entry params. @returns Its original CAS result after exact signed global recency. */
+/** @param request - Explicit name/state patch and original operation/version. @param context - Native entry params. @returns Its original CAS result after current leader and session checks. */
 export async function PATCH(request: Request, context: { params: Promise<{ slug: string; entryId: string }> }) {
   return createAllowlistHandlers(createAllowlistRequestModule).update(request, context);
 }

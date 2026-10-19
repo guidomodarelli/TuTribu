@@ -10,7 +10,7 @@ import { VERIFICATION_CODE_GENERATION } from "@/src/modules/academy-admissions/c
 /** @returns One coherent synthetic transport object with ephemeral identifiers and no reusable credentials. */
 function phaseInput() {
   const tribeId = randomUUID(), connectionId = randomUUID(), securityEpoch = randomUUID();
-  const common = { actorUserId: randomUUID(), sessionId: randomUUID(), tribeId, requestId: randomUUID(), accountId: randomUUID(), subject: randomUUID(), resourceId: connectionId, authenticatedAt: new Date().toISOString(), validUntil: new Date().toISOString() };
+  const common = { actorUserId: randomUUID(), sessionId: randomUUID(), tribeId, requestId: randomUUID(), accountId: randomUUID(), subject: randomUUID(), resourceId: connectionId };
   const authorized = { ...common, authorizationPurpose: "sensitive_leader", connectionId, connectionVersion: 1, environment: HOST.securityEnvironment, securityEpoch, secretRef: randomUUID() };
   const applicant = () => { const userId = randomUUID(); return { context: { userId, sessionId: randomUUID(), tribeId, requestId: randomUUID(), purpose: "admission" }, contact: { type: "email", value: `${userId}@example.test` } }; };
   const history = ["selected", "fresh", "expired", "late", "selected_with_candidate"].map((name) => ({ name, tribeId: randomUUID(), connectionId: randomUUID(), candidateVersion: 1, selectedVersion: null }));
@@ -27,11 +27,16 @@ function phaseInput() {
 }
 
 describe("private native restore input", () => {
-  it("adapts serialized authority dates while retaining the exact fixture scope", () => {
+  it("adapts serialized dates while retaining the exact fixture scope", () => {
     const input = phaseInput(), parsed = messagingRestoreNodeInputSchema.parse(input);
-    expect(parsed.source.context.authenticatedAt).toBeInstanceOf(Date);
+    expect(parsed.source.applied.applyBefore).toBeInstanceOf(Date);
     expect(parsed.source.context.connectionId).toBe(input.source.context.connectionId);
     expect(parsed.source.history).toHaveLength(HOST.historyCaseCount);
+  });
+
+  it("rejects retired recent-authentication fields in an authority context", () => {
+    const input = phaseInput();
+    expect(messagingRestoreNodeInputSchema.safeParse({ ...input, source: { ...input.source, context: { ...input.source.context, authenticatedAt: new Date().toISOString() } } }).success).toBe(false);
   });
 
   it("rejects authority from a different account even when every identifier is individually valid", () => {

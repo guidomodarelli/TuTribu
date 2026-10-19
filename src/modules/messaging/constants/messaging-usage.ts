@@ -18,7 +18,7 @@ export const MESSAGING_USAGE_SETTINGS_SEGMENT = "academia/admissions/messaging";
 /** UI phases never grant the current role or permission by themselves. */
 export type MessagingUsageBrowserPhase = "checking" | "idle" | "reading" | "writing" | "uncertain" | "changed_viewer";
 export const MESSAGING_USAGE_BROWSER_PHASE = { checking: "checking", idle: "idle", reading: "reading", writing: "writing", uncertain: "uncertain", changedViewer: "changed_viewer" } as const satisfies Record<string, MessagingUsageBrowserPhase>;
-/** Missing recency alone does not revoke read access; actual authority/resource denial does. */
+/** A legacy session-change answer alone does not revoke read access; actual authority/resource denial does. */
 export const MESSAGING_USAGE_PRIVATE_AUTHORITY_FAILURES: readonly MessagingErrorCode[] = [MESSAGING_ERROR_CODE.authenticationRequired, MESSAGING_ERROR_CODE.permissionDenied, MESSAGING_ERROR_CODE.resourceUnavailable];
 /** Safe browser feedback never renders database or provider messages. */
 export const MESSAGING_USAGE_UI_COPY = {
@@ -31,5 +31,4 @@ export const MESSAGING_USAGE_UI_COPY = {
   changedViewer: "La cuenta cambió. Volvé a abrir la configuración de uso con tu cuenta actual.",
   storageFailed: "No pudimos conservar esta acción. Consultá su resultado antes de repetir.",
   retry: "La operación original todavía no está registrada. Confirmá un reintento con sus mismos datos.",
-  reauthenticationFailed: "No pudimos preparar la confirmación de Google. Consultá el estado antes de continuar.",
 } as const;

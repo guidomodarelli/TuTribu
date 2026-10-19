@@ -68,7 +68,7 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
     return changedAt;
   }
 
-  /** Original replay precedes new CAS; every phase independently checks current leadership and recency. */
+  /** Original replay precedes new CAS; every phase independently checks current leadership. */
   private async run(intent: PolicyIntent, operation: ReauthenticationOperation, commandIntent: AdmissionOperationCommand["intent"], mutate: (database: RequestDatabase, ledgerId: string) => Promise<AdmissionPolicyMutationResult>): Promise<AdmissionOperationResult<AdmissionPolicyMutationResult>> {
     const command: AdmissionOperationCommand = { actorUserId: intent.context.userId, tribeId: intent.context.tribeId, operationType: intent.type, idempotencyKey: intent.operationId, intent: commandIntent };
     const ledger = new PostgresAdmissionOperationRepository((work) => this.execute(intent.context, work), async (database) => { await authorizeAdmissionPolicy(database, intent.context, operation); return true; }, this.readSecurityConfig);

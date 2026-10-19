@@ -22,7 +22,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("native configuration
       if(created.state!=="completed")throw new Error("Expected candidate");
       await database.withContext(fixture.fixture.own,async(transaction)=>{
         await transaction.execute(sql`insert into public.messaging_usage_policies(tribe_id,allowed_countries,verification_daily_limit,notification_daily_limit) values (${tribeId},ARRAY['AR'],0,0)`);
-        await transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where tribe_id=${tribeId}`);
+
       });
       const snapshot=await reader.execute(query);
       expect(snapshot).toMatchObject({ok:true,value:{audience:"leader",selected:null,candidate:{id:created.result.id,name:"Candidata privada",version:1,configurationVersion:1,state:"draft",credentialState:"not_validated",credentialMode:"unknown",maskedCredential:"••••••••",capabilities:[]},usage:{state:"configured",policy:{version:1,allowedCountries:["AR"],verificationDailyLimit:0,notificationDailyLimit:0,consumption:{verificationToday:0,notificationToday:0}}}}});

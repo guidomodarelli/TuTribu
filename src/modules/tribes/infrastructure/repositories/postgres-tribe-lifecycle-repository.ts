@@ -5,8 +5,6 @@ import type { RequestDatabase } from "@/src/modules/shared/infrastructure/databa
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
-import { evaluateRecentAuthentication } from "@/src/modules/auth/domain/policies/recent-authentication";
-import type { RecentAuthenticationEvidence } from "@/src/modules/auth/domain/entities/recent-authentication-evidence";
 import { createAdmissionOperationFingerprint } from "@/src/modules/academy-admissions/infrastructure/verification/admission-operation-fingerprint";
 import { CloseAcademyAdmissionScopeUseCase } from "@/src/modules/academy-admissions/application/use-cases/close-academy-admission-scope-use-case";
 import type { AdmissionScopeClosureWriter } from "@/src/modules/academy-admissions/domain/repositories/admission-scope-closure-writer";
@@ -14,7 +12,7 @@ import type { AdmissionOperationCommand, AdmissionOperationResult } from "@/src/
 import { ADMISSION_SCOPE_RETIREMENT_REASON } from "@/src/modules/academy-admissions/constants/admission-scope-lifecycle";
 import { TRIBE_MEMBER_ROLE } from "../../constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "../../constants/tribe-page-access";
-import { TRIBE_LIFECYCLE_ACTION, TRIBE_LIFECYCLE_ACTIONS, TRIBE_LIFECYCLE_AUDIT_CONTEXT, TRIBE_LIFECYCLE_ERROR, TRIBE_LIFECYCLE_OPERATION, TRIBE_LIFECYCLE_REAUTHENTICATION } from "../../constants/tribe-lifecycle";
+import { TRIBE_LIFECYCLE_ACTION, TRIBE_LIFECYCLE_ACTIONS, TRIBE_LIFECYCLE_AUDIT_CONTEXT, TRIBE_LIFECYCLE_ERROR, TRIBE_LIFECYCLE_OPERATION } from "../../constants/tribe-lifecycle";
 import { TribeLifecycleError } from "../../domain/errors/tribe-lifecycle-error";
 import type { TribeLifecycleContext, TribeLifecycleInput, TribeLifecycleWriter, TribeLifecycleResult } from "../../domain/repositories/tribe-lifecycle-repository";
 import { tribeLifecycleResultSchema } from "../../constants/tribe-lifecycle-result";
@@ -69,35 +67,20 @@ export class PostgresTribeLifecycleRepository implements TribeLifecycleWriter {
     } catch (error) { if (error instanceof TribeLifecycleError) throw error; throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.unexpectedFailure, { cause: error }); }
   }
 
-  /** @param database - Fenced original transaction. @param context - Current native scope. @param input - Confirmed exact action. @returns After canonical leadership, session and operation-scoped signed recency remain current. */
-  private async authorizeChange(database: RequestDatabase, context: TribeLifecycleContext, input: TribeLifecycleInput): Promise<RecentAuthenticationEvidence> {
-    const account = await this.identity(database, context);
+  /** @param database - Fenced original transaction. @param context - Current native scope. @returns After the canonical leader and its live session remain current; the explicit confirmation is checked by the caller. */
+  private async authorizeChange(database: RequestDatabase, context: TribeLifecycleContext): Promise<void> {
+    await this.identity(database, context);
     const leaders = (await database.execute<{user_id: string}>(sql`select user_id from public.tribe_members where tribe_id=${context.tribeId} and role=${TRIBE_MEMBER_ROLE.leader} and status=${TRIBE_MEMBERSHIP_STATUS.active} order by user_id for share`)).rows;
     if (leaders.length !== 1 || leaders[0].user_id !== context.actorUserId) throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.permissionDenied);
-    if (!account.googleAccount) throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.reauthenticationRequired);
-    const operation = input.action === TRIBE_LIFECYCLE_ACTION.exitAcademy ? TRIBE_LIFECYCLE_REAUTHENTICATION.exitAcademy : TRIBE_LIFECYCLE_REAUTHENTICATION.deleteTribe;
-    await database.execute(sql`select id from public.account where id=${account.googleAccount.id} and "userId"=${context.actorUserId} for share`);
-    await database.execute(sql`select session_id from public.global_session_identity_bindings where session_id=${context.sessionId} and user_id=${context.actorUserId} for share`);
-    await database.execute(sql`select intent_id from public.recent_authentication_evidence where user_id=${context.actorUserId} and session_id=${context.sessionId} and tribe_id=${context.tribeId} and operation=${operation} and resource_id=${context.tribeId} for share`);
-    const current = await this.identity(database, context), now = new Date((await database.execute<{now: Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now);
-    const scope = { userId: context.actorUserId, sessionId: context.sessionId, accountId: account.googleAccount.id, subject: account.googleAccount.subject, tribeId: context.tribeId, operation, resourceId: context.tribeId };
-    const evidence = current.recentAuthentication.find((candidate) => evaluateRecentAuthentication({ now, scope, evidence: candidate, sessionActive: true, currentLeaderUserId: context.actorUserId }).allowed);
-    if (!evidence) throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.reauthenticationRequired);
-    return evidence;
   }
 
-  /** Rechecks locked signed evidence after the intentional parent cascade removed its live row.
-   * @param database - Original transaction retaining account/session/evidence locks.
+  /** Rechecks the native identity after the intentional parent cascade removed the tribe and its membership rows.
+   * @param database - Original transaction retaining user/session locks.
    * @param context - Original native actor and retired UUID.
-   * @param evidence - Private signed facts captured while canonical leadership was still live.
-   * @returns After fresh SQL time and the surviving native identity still authorize deletion.
+   * @returns After fresh SQL time and the surviving native session still authorize deletion.
    */
-  private async authorizeDeletedScope(database: RequestDatabase, context: TribeLifecycleContext, evidence: RecentAuthenticationEvidence): Promise<void> {
-    const account = await this.identity(database, context);
-    if (!account.googleAccount) throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.reauthenticationRequired);
-    const now = new Date((await database.execute<{now: Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now);
-    const scope = { userId: context.actorUserId, sessionId: context.sessionId, accountId: account.googleAccount.id, subject: account.googleAccount.subject, tribeId: context.tribeId, operation: TRIBE_LIFECYCLE_REAUTHENTICATION.deleteTribe, resourceId: context.tribeId };
-    if (!evaluateRecentAuthentication({ now, scope, evidence, sessionActive: true, currentLeaderUserId: context.actorUserId }).allowed) throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.reauthenticationRequired);
+  private async authorizeDeletedScope(database: RequestDatabase, context: TribeLifecycleContext): Promise<void> {
+    await this.identity(database, context);
   }
 
   /** @param context - Native actor and fixed UUID scope. @param input - Original confirmed action/CAS. @returns The original committed metadata; a lost commit response is reconciled before another mutation. */
@@ -112,22 +95,22 @@ export class PostgresTribeLifecycleRepository implements TribeLifecycleWriter {
         const original = await this.original(database, context, input, fingerprint);
         if (original) return original;
         if (!(await database.execute(sql`select id from public.tribes where id=${context.tribeId}`)).rows[0]) throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.resourceUnavailable);
-        await this.authorizeChange(database, context, input);
+        await this.authorizeChange(database, context);
         const settings = (await database.execute<{access_model: string;config_version: number}>(sql`select access_model,config_version from public.tribe_academy_settings where tribe_id=${context.tribeId} for update`)).rows[0];
         if (!settings || settings.config_version !== input.expectedConfigVersion || input.action === TRIBE_LIFECYCLE_ACTION.exitAcademy && settings.access_model !== TRIBE_ACCESS_MODEL.academy) throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.lifecycleConflict);
         const signed = await fingerprint.sign(command);
-        const evidence = await this.authorizeChange(database, context, input);
+        await this.authorizeChange(database, context);
         const deleted = input.action === TRIBE_LIFECYCLE_ACTION.deleteTribe;
         const result: TribeLifecycleResult = { action: input.action, deleted, accessModel: deleted ? null : TRIBE_ACCESS_MODEL.legacy, configVersion: deleted ? null : input.expectedConfigVersion + 1 };
         const publicResult = tribeLifecycleResultSchema.parse(result);
-        // The original is private until commit; a failed effect or recency check rolls it back with its audit.
+        // The original is private until commit; a failed effect or authority check rolls it back with its audit.
         await database.execute(sql`insert into public.tribe_lifecycle_operations(actor_user_id,tribe_id,operation_id,action,fingerprint_key_id,intent_fingerprint,public_result) values (${context.actorUserId},${context.tribeId},${input.operationId},${input.action},${signed.keyId},${Buffer.from(signed.digest)},${JSON.stringify(publicResult)}::jsonb)`);
         await database.execute(sql`select set_config(${TRIBE_LIFECYCLE_AUDIT_CONTEXT},${input.operationId},true)`);
         await new CloseAcademyAdmissionScopeUseCase(this.admission(database)).execute({ tribeId: context.tribeId, reason: deleted ? ADMISSION_SCOPE_RETIREMENT_REASON.tribeDeletion : ADMISSION_SCOPE_RETIREMENT_REASON.academyExit });
         if (deleted) await database.execute(sql`delete from public.tribes where id=${context.tribeId}`);
         else await database.execute(sql`update public.tribe_academy_settings set access_model=${TRIBE_ACCESS_MODEL.legacy},admission_enabled=false,sales_enabled=false,config_version=config_version+1,updated_at=clock_timestamp() where tribe_id=${context.tribeId} and config_version=${input.expectedConfigVersion}`);
         await database.execute(sql`select set_config(${TRIBE_LIFECYCLE_AUDIT_CONTEXT},'',true)`);
-        if (!deleted) await this.authorizeChange(database, context, input); else await this.authorizeDeletedScope(database, context, evidence);
+        if (!deleted) await this.authorizeChange(database, context); else await this.authorizeDeletedScope(database, context);
         transactionStaged = true;
         return { state: OPERATION_STATE.completed, operationId: input.operationId, replayed: false, result: publicResult };
       });

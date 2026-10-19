@@ -1,10 +1,10 @@
 /** @vitest-environment node */
 /**
- * Exercises durable credential-validation usage with actual identity, recency and resource guards.
+ * Exercises durable credential-validation usage with actual identity, live session and resource guards.
  *
  * @module credential-validation-budget-tests
  */
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
@@ -42,27 +42,24 @@ async function seedCredentialValidationResource(database: AcademyAdmissionTestDa
 }
 
 /**
- * Seeds trusted synthetic global recency for an existing resource without an OAuth or provider request.
+ * Seeds a trusted synthetic live leader session for an existing resource without an OAuth or provider request.
  * @param database - Disposable branch owned by this test.
  * @param originalResource - Optional historical resource preserved through the actual completed upgrade.
  * @returns A live private context and the real usage composition.
  */
 async function prepareCredentialValidation(database: AcademyAdmissionTestDatabase, originalResource?: Awaited<ReturnType<typeof seedCredentialValidationResource>>) {
   const fixture = originalResource ?? await seedCredentialValidationResource(database, await prepareContactVerificationDatabase(database));
-  const accountId = randomUUID(), sessionId = randomUUID(), subject = randomUUID(), intentId = randomUUID();
+  const accountId = randomUUID(), sessionId = randomUUID(), subject = randomUUID();
   const context = await database.withContext(fixture.own, async (transaction): Promise<AuthorizedMessagingContext> => {
     const now = new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-    const validUntil = new Date(now.getTime() + 540_000);
     const secretRef = fixture.secretRef;
     await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${accountId},${fixture.userId},'google',${subject},${now},${now})`);
     await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${fixture.userId},${randomUUID()},${new Date(now.getTime()+3_600_000)},${now},${now})`);
     await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${sessionId},${fixture.userId},${accountId},${subject},${fixture.own.email})`);
-    await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.userId},${sessionId},${accountId},${subject},${fixture.scope.tribeId},${REAUTHENTICATION_OPERATION.validateMessagingConnection},${fixture.scope.connectionId},'/synthetic-validation',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);
-    await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.userId},${accountId},${subject},${sessionId},${fixture.scope.tribeId},${REAUTHENTICATION_OPERATION.validateMessagingConnection},${fixture.scope.connectionId},${now},${now},${validUntil})`);
-    return { authorizationPurpose: "sensitive_leader", actorUserId: fixture.userId, sessionId, accountId, subject, tribeId: fixture.scope.tribeId, connectionId: fixture.scope.connectionId, connectionVersion: 1, environment: fixture.config.environment, securityEpoch: fixture.config.securityEpoch, operation: REAUTHENTICATION_OPERATION.validateMessagingConnection, resourceId: fixture.scope.connectionId, requestId: randomUUID(), secretRef, authenticatedAt: now, validUntil };
+    return { authorizationPurpose: "sensitive_leader", actorUserId: fixture.userId, sessionId, accountId, subject, tribeId: fixture.scope.tribeId, connectionId: fixture.scope.connectionId, connectionVersion: 1, environment: fixture.config.environment, securityEpoch: fixture.config.securityEpoch, operation: REAUTHENTICATION_OPERATION.validateMessagingConnection, resourceId: fixture.scope.connectionId, requestId: randomUUID(), secretRef };
   });
   const budget = new PostgresCredentialValidationBudget((current, run) => database.withContext({ userId: current.actorUserId, email: fixture.own.email }, run), async () => fixture.config);
-  const reserve = (operationId = randomUUID(), current = context) => new ReserveMessagingUsageUseCase(budget, () => new Date()).execute({ context: current, operationId });
+  const reserve = (operationId = randomUUID(), current = context) => new ReserveMessagingUsageUseCase(budget).execute({ context: current, operationId });
   return { ...fixture, context, budget, reserve };
 }
 
@@ -137,7 +134,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("credential validat
       const fixture = await prepareCredentialValidation(database);
       expect(await fixture.reserve()).toMatchObject({ outcome: "reserved" });
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${fixture.context.sessionId}`));
-      expect(await fixture.reserve()).toEqual({ outcome: "denied", code: "reauthentication_required" });
+      expect(await fixture.reserve()).toEqual({ outcome: "denied", code: "authentication_required" });
       expect(await database.withContext(fixture.own, async (transaction) => ({
         resources: (await transaction.execute(sql`select state from public.tenant_messaging_connections where id=${fixture.scope.connectionId}`)).rows,
         usage: (await transaction.execute(sql`select count(*)::integer as total from public.messaging_usage_events where tribe_id=${fixture.scope.tribeId} and event_type='credential_validation'`)).rows,

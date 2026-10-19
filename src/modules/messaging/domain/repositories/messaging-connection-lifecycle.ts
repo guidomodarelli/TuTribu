@@ -7,10 +7,10 @@ import type { MessagingConnectionRetirementFacts } from "../policies/messaging-c
 
 /** Only these connection-scoped local actions can use lifecycle management authority. */
 export type MessagingConnectionLifecycleOperation = typeof REAUTHENTICATION_OPERATION.suspendMessagingConnection | typeof REAUTHENTICATION_OPERATION.disconnectMessagingConnection;
-/** Contains server-derived identity and exact global recency, with no credential or provider scope. */
+/** Contains server-derived identity and the exact operation, with no credential or provider scope. */
 export type MessagingConnectionLifecycleContext = MessagingUsageContext & {
   connectionId: string; resourceId: string; operation: MessagingConnectionLifecycleOperation;
-  accountId: string; subject: string; authenticatedAt: Date; validUntil: Date;
+  accountId: string; subject: string;
 };
 /** An explicit local action keeps the same original operation/CAS and never accepts provider authority or private material. */
 export type MessagingConnectionLifecycleInput={operationId:string;expectedVersion:number;confirmed:true};

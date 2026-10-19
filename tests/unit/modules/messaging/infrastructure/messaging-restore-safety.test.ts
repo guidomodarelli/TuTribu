@@ -6,19 +6,17 @@ import { describe, expect, it, vi } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
 import { createAdmissionSyntheticHostingEnvironment } from "@/tests/support/admission-synthetic-hosting-environment";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
-import { composeMessagingRestoreOwners, createMessagingRestoreSecurity, prepareMessagingRestoreSource, readMessagingRestoreFacts, refreshMessagingRestoreCheckpointAuthority } from "@/tests/support/messaging-restore-fixture";
+import { composeMessagingRestoreOwners, createMessagingRestoreSecurity, prepareMessagingRestoreSource, readMessagingRestoreFacts } from "@/tests/support/messaging-restore-fixture";
 import { composeRestoreAdmissionOwners, prepareRestoreAdmissionCheckpoint, readRestoreAdmissionFacts } from "@/tests/support/messaging-restore-admission-fixture";
 import { composeRestoreAdmissionDispatch } from "@/tests/support/messaging-restore-dispatch-fixture";
 import { createAdmissionProviderTransport } from "@/tests/support/admission-provider-transport";
 import { prepareMessagingRestoreReplacement, admitAfterMessagingRestore } from "@/tests/support/messaging-restore-reopening-fixture";
 import { seedMessagingCandidateExpiration } from "@/tests/support/messaging-candidate-expiration-fixture";
 import { readMessagingRestoreHistory, seedMessagingRestoreManualPolicy } from "@/tests/support/messaging-restore-history-fixture";
-import { refreshMessagingActivationRecency } from "@/tests/support/messaging-activation-fixture";
 import { buildMessagingRecoveryModule } from "@/src/modules/messaging/setup";
 import type { MessagingRecoveryResult } from "@/src/modules/messaging/domain/repositories/messaging-recovery";
 import { PostgresSecretMaterialMaintenance } from "@/src/modules/messaging/infrastructure/repositories/postgres-secret-material-maintenance";
 import { readAdmissionPolicy } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-storage";
-import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { registerMessagingPrivateMacKeyMaterial } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
@@ -47,7 +45,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native messaging r
       // Arrange: every challenge/proof and the open ON policy come from their actual native owners.
       reportPhase(MESSAGING_RESTORE_SAFETY_PHASE.initializing);
       const originalConfig = await readMessagingHostingSecurityConfig(createAdmissionSyntheticHostingEnvironment());
-      let source = await prepareMessagingRestoreSource(parent, originalConfig);
+      const source = await prepareMessagingRestoreSource(parent, originalConfig);
       expect(source.fixture.fixture.fixture.config === originalConfig).toBe(true);
       reportPhase(MESSAGING_RESTORE_SAFETY_PHASE.sourcePrepared);
       const prepared = await prepareRestoreAdmissionCheckpoint(parent, source);
@@ -55,7 +53,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native messaging r
       const manualScope = historical.cases.find((candidate) => candidate.name === "selected")!;
       await seedMessagingRestoreManualPolicy(parent, manualScope.tribeId);
       const historyCheckpoint = await readMessagingRestoreHistory(parent, historical.cases);
-      source = await refreshMessagingRestoreCheckpointAuthority(parent, source);
       reportPhase(MESSAGING_RESTORE_SAFETY_PHASE.checkpointPrepared);
       let currentConfig = originalConfig;
       const applicants = [prepared.applied.context.userId, prepared.available.context.userId, prepared.queued.context.userId, prepared.uncertain.context.userId];
@@ -129,7 +126,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native messaging r
         const decrypt = vi.spyOn(crypto.subtle, "decrypt");
         try {
           expect(await admissions.preflight.execute({ tribeId: source.context.tribeId, requestId: randomUUID() })).toMatchObject({ ok: true, value: { prepared: false } });
-          expect(Date.now() < source.context.validUntil.getTime()).toBe(true);
           await expectDenied(messaging.secrets.loadAuthorizedSecret(source.context), "connection_incomplete");
           await expectDenied(messaging.activation.activate(source.fixture.context, { ...source.fixture.input, operationId: randomUUID(), expectedVersion: source.activated.version }), "connection_incomplete");
           await expectDenied(admissions.requests.decide({ ...approval, operationId: randomUUID() }), "resource_unavailable");
@@ -142,7 +138,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native messaging r
 
           // Retaining every old key does not make an old resource/proof current in the new external epoch.
           currentConfig = { ...originalConfig, securityEpoch: currentConfig.securityEpoch, recoveryLocked: false };
-          expect(Date.now() < source.context.validUntil.getTime()).toBe(true);
           expect(Date.now() < new Date(String(queuedChallenge!.expires_at)).getTime()).toBe(true);
           await expectDenied(messaging.secrets.loadAuthorizedSecret(source.context), "connection_incomplete");
           const invalidCode = await admissions.verification.verify({ ...prepared.queued.context, operationId: randomUUID(), challengeId: prepared.queued.original.challengeId, verificationCode: prepared.queuedVerificationCode });
@@ -166,7 +161,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native messaging r
           reportPhase(MESSAGING_RESTORE_SAFETY_PHASE.externalEpochChecked);
           // Isolate key retirement: even a matching epoch cannot open bytes after their credential key is removed.
           currentConfig = { ...recoveryConfig, securityEpoch: originalConfig.securityEpoch, recoveryLocked: false };
-          expect(Date.now() < source.context.validUntil.getTime()).toBe(true);
           expect(currentConfig.keyrings.credential.keys.has(originalConfig.keyrings.credential.activeKeyId)).toBe(false);
           await expectDenied(messaging.secrets.loadAuthorizedSecret(source.context), "connection_incomplete");
           expect(decrypt).not.toHaveBeenCalled();
@@ -270,8 +264,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native messaging r
         expect(replacement.context.connectionId).not.toBe(source.context.connectionId);
         expect(replacement.closedPolicy.isOpen).toBe(false);
         expect(await replacement.owners.secrets.loadAuthorizedSecret(replacement.context) === replacement.replacement.credential).toBe(true);
-        const oldRecency = await refreshMessagingActivationRecency(copy, source.fixture.fixture, REAUTHENTICATION_OPERATION.readMessagingSenders, source.context.connectionId);
-        await expectDenied(messaging.secrets.loadAuthorizedSecret({ ...source.context, ...oldRecency }), "resource_unavailable");
+        await expectDenied(messaging.secrets.loadAuthorizedSecret(source.context), "resource_unavailable");
         expect(await replacement.admission.preflight.execute({ tribeId: source.context.tribeId, requestId: randomUUID() })).toMatchObject({ ok: true, value: { prepared: true } });
         reportPhase(MESSAGING_RESTORE_SAFETY_PHASE.replacementPrepared);
         const fresh = await admitAfterMessagingRestore(copy, source, prepared, replacement, currentConfig, reportPhase);

@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-/** Exercises UUID lifecycle routes with actual Next, Better Auth, scoped recency and PostgreSQL. @module tribe-lifecycle-native-route-tests */
+/** Exercises UUID lifecycle routes with actual Next, Better Auth sessions, origin checks and PostgreSQL. @module tribe-lifecycle-native-route-tests */
 import { randomBytes, randomUUID } from "node:crypto";
 import { makeSignature } from "better-auth/crypto";
 import { sql } from "drizzle-orm";
@@ -10,7 +10,6 @@ import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
 import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS } from "@/tests/support/constants/membership-lifecycle-validation";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
-import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native tribe lifecycle HTTP", () => {
   it("should authorize exact native confirmations and recover the original after physical deletion", async () => {
@@ -36,12 +35,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native tribe lifec
         expect((await send(exit, false, false)).status).toBe(401);
         expect((await send({ ...exit, role: "leader", authenticatedAt: new Date().toISOString() })).status).toBe(400);
         expect((await send({ ...exit, confirmed: false })).status).toBe(400);
-        const noRecency = await send(exit);
-        expect(noRecency.status).toBe(403);
-        expect(await noRecency.json()).toMatchObject({ code: "reauthentication_required" });
-        await fixture.confirm(REAUTHENTICATION_OPERATION.deleteTribe);
-        expect((await send(exit)).status).toBe(403);
-        await fixture.confirm(REAUTHENTICATION_OPERATION.exitAcademyMode);
+        expect((await fetch(base, { method: "POST", headers: { origin: "https://foreign.example.invalid", "content-type": "application/json", cookie: `better-auth.session_token=${signed}` }, body: JSON.stringify(exit) })).status).toBe(403);
         const exited = await send({ ...exit, operationId: exit.operationId.toUpperCase() });
         expect(exited.status).toBe(200);
         expect(exited.headers.get("Cache-Control")).toContain("no-store");

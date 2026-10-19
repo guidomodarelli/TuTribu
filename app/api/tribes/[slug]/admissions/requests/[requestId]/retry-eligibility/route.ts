@@ -1,4 +1,4 @@
-/** A current leader with exact global recency may advance a corrective presentation with a reason. @module admission-retry-route */
+/** A current leader with a live session may advance a corrective presentation with a reason. @module admission-retry-route */
 import { createAdmissionRequestModules } from "@/src/modules/setup";
 import { DATABASE_CONNECTION_USAGE } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import { createAdmissionMutationHandlers } from "@/src/modules/academy-admissions/infrastructure/api/admission-mutation-handlers";

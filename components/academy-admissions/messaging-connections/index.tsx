@@ -8,8 +8,8 @@ import {TRIBE_MEMBER_ROLE} from "@/src/modules/tribes/constants/tribe-member-rol
 import {ADMISSION_LIMIT} from "@/src/modules/academy-admissions/constants/admission-limits";
 import styles from "./styles.module.scss";
 
-/** The route container owns ephemeral key state, validation, consent, mutations, feedback and any reauthentication. */
-export type MessagingConnectionsProps={configuration:MessagingConfigurationResult;name:string;apiKey:string;confirmed:boolean;busy:boolean;canSave:boolean;canReauthenticate:boolean;validationConfirmed:boolean;canValidate:boolean;fieldErrors:Partial<Record<"name"|"apiKey"|"confirmation",string>>;onNameChange:(value:string)=>void;onApiKeyChange:(value:string)=>void;onConfirmationChange:(confirmed:boolean)=>void;onValidationConfirmationChange:(confirmed:boolean)=>void;onValidate:()=>void;onSave:()=>void;onReauthenticate:()=>void;onValidationReauthenticate:()=>void};
+/** The route container owns ephemeral key state, validation, consent, mutations and feedback. */
+export type MessagingConnectionsProps={configuration:MessagingConfigurationResult;name:string;apiKey:string;confirmed:boolean;busy:boolean;canSave:boolean;validationConfirmed:boolean;canValidate:boolean;fieldErrors:Partial<Record<"name"|"apiKey"|"confirmation",string>>;onNameChange:(value:string)=>void;onApiKeyChange:(value:string)=>void;onConfirmationChange:(confirmed:boolean)=>void;onValidationConfirmationChange:(confirmed:boolean)=>void;onValidate:()=>void;onSave:()=>void};
 
 /** @param props - Current own audience/view state and explicit callbacks. @returns The guardian's operational status, or the leader's single credential form; no automatic save, fetch, provider or browser persistence occurs. */
 export function MessagingConnections(props:MessagingConnectionsProps){
@@ -21,7 +21,6 @@ export function MessagingConnections(props:MessagingConnectionsProps){
     <form className={styles.MessagingConnections__form} aria-label="Comprobar credencial candidata" onSubmit={(event)=>{event.preventDefault();props.onValidate();}}>
       <Checkbox id={`${fieldId}-validation`} checked={props.validationConfirmed} disabled={props.busy} onCheckedChange={(checked)=>props.onValidationConfirmationChange(checked===true)} label="Confirmo que quiero comprobar la credencial de esta candidata." />
       <div className={styles.MessagingConnections__actions}><Button className={styles.MessagingConnections__action} type="submit" variant="primary" disabled={!props.canValidate||props.busy}>Comprobar credencial</Button></div>
-      <p className={styles.MessagingConnections__reauthentication}>Si TuTribu te pide confirmar tu cuenta: <Button variant="ghost" size="sm" disabled={!props.canReauthenticate||props.busy} onClick={props.onValidationReauthenticate}>Confirmar comprobación con Google</Button></p>
     </form>
   </section>;
   return<section className={styles.MessagingConnections} aria-labelledby={titleId} data-beezping-ignore="true">
@@ -35,7 +34,6 @@ export function MessagingConnections(props:MessagingConnectionsProps){
         {props.fieldErrors.confirmation&&<p id={`${confirmationId}-error`} className={styles.MessagingConnections__error}>{props.fieldErrors.confirmation}</p>}
       </div>
       <div className={styles.MessagingConnections__actions}><Button className={styles.MessagingConnections__action} type="submit" variant="primary" disabled={!props.canSave||props.busy}>Guardar conexión</Button></div>
-      <p className={styles.MessagingConnections__reauthentication}>Si TuTribu te pide confirmar tu cuenta: <Button variant="ghost" size="sm" disabled={!props.canReauthenticate||props.busy} onClick={props.onReauthenticate}>Confirmar con Google</Button></p>
     </form>
   </section>;
 }

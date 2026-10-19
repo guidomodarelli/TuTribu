@@ -11,7 +11,7 @@ import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messagin
 import { MESSAGING_AUTHORIZATION_PURPOSE } from "@/src/modules/messaging/constants/messaging-connection";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { MESSAGING_SECRET_HUMAN_OPERATIONS, MESSAGING_SECRET_DELIVERY_SCOPE } from "@/src/modules/messaging/constants/messaging-secret-access";
-import { authorizeMessagingSecret, messagingSecretLifetimeIsCurrent } from "./postgres-messaging-secret-authorizer";
+import { authorizeMessagingSecret, messagingSecretLifetimeFailure, messagingSecretLifetimeIsCurrent } from "./postgres-messaging-secret-authorizer";
 import { appendMessagingAuthorizedExposure } from "./postgres-messaging-authorized-exposure";
 import { MESSAGING_AUTHORIZED_EXPOSURE } from "../../constants/messaging-authorized-exposure";
 import type { MarkedMessageDeliveryResourceAuthority } from "../message-delivery-resource-authority";
@@ -52,7 +52,6 @@ export class PostgresEncryptedSecretStore implements MessagingSecretStore, Messa
     try {
       if (human) {
         if (context.resourceId !== context.connectionId || !MESSAGING_SECRET_HUMAN_OPERATIONS.some((operation) => operation === context.operation)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
-        if (!Number.isFinite(context.authenticatedAt.getTime()) || !Number.isFinite(context.validUntil.getTime())) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.reauthenticationRequired);
         const account = await this.accounts.getAuthenticatedAccount();
         if (!account || account.userId !== context.actorUserId || account.session.id !== context.sessionId || account.googleAccount?.id !== context.accountId || account.googleAccount.subject !== context.subject) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
       } else if (context.operation !== MESSAGING_SECRET_DELIVERY_SCOPE.operation) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
@@ -64,15 +63,15 @@ export class PostgresEncryptedSecretStore implements MessagingSecretStore, Messa
         };
         assertConfig(config);
         const readClock = async () => new Date((await database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-        if (!messagingSecretLifetimeIsCurrent(authorization, await readClock())) throw new MessagingSecretAccessError(human ? MESSAGING_ERROR_CODE.reauthenticationRequired : MESSAGING_ERROR_CODE.resourceUnavailable);
+        { const now = await readClock(); if (!messagingSecretLifetimeIsCurrent(authorization, now)) throw new MessagingSecretAccessError(messagingSecretLifetimeFailure(authorization, now)); }
         const row = (await database.execute<{ format: number; purpose: MessagingSecretEnvelope["purpose"]; environment: string; security_epoch: string; key_id: string; iv: Uint8Array; ciphertext: Uint8Array }>(sql`select format,purpose,environment,security_epoch,key_id,iv,ciphertext from public.messaging_secret_envelopes where secret_ref=${context.secretRef} and tribe_id=${context.tribeId} and connection_id=${context.connectionId} and connection_version=${context.connectionVersion} and retired_at is null`)).rows[0];
         if (!row) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
         const plaintext = await createMessagingSecretCipher(config).open({ format: row.format, purpose: row.purpose, environment: row.environment, securityEpoch: row.security_epoch, keyId: row.key_id, iv: row.iv, ciphertext: row.ciphertext }, { tribeId: context.tribeId, connectionId: context.connectionId, connectionVersion: context.connectionVersion, resourceId: context.secretRef });
         assertConfig(await this.readSecurityConfig());
-        if (!messagingSecretLifetimeIsCurrent(authorization, await readClock())) throw new MessagingSecretAccessError(human ? MESSAGING_ERROR_CODE.reauthenticationRequired : MESSAGING_ERROR_CODE.resourceUnavailable);
+        { const now = await readClock(); if (!messagingSecretLifetimeIsCurrent(authorization, now)) throw new MessagingSecretAccessError(messagingSecretLifetimeFailure(authorization, now)); }
         await appendMessagingAuthorizedExposure(database, context, { surface: MESSAGING_AUTHORIZED_EXPOSURE.secret, resourceKind: MESSAGING_AUTHORIZED_EXPOSURE.credentialKind, itemCount: MESSAGING_AUTHORIZED_EXPOSURE.itemCount });
         assertConfig(await this.readSecurityConfig());
-        if (!messagingSecretLifetimeIsCurrent(authorization, await readClock())) throw new MessagingSecretAccessError(human ? MESSAGING_ERROR_CODE.reauthenticationRequired : MESSAGING_ERROR_CODE.resourceUnavailable);
+        { const now = await readClock(); if (!messagingSecretLifetimeIsCurrent(authorization, now)) throw new MessagingSecretAccessError(messagingSecretLifetimeFailure(authorization, now)); }
         return { credential: plaintext, providerId: authorization.providerId };
       });
     } catch (error) {

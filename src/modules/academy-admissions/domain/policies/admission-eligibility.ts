@@ -230,10 +230,10 @@ export type AdmissionAction = (typeof ADMISSION_ACTION)[keyof typeof ADMISSION_A
  *
  * @param actor - Current role/status read from the membership owner, not a cookie role.
  * @param action - Admission-owned operation being authorized.
- * @param resource - Target tribe/account and separately accredited sensitive scope.
+ * @param resource - Target tribe and, for own-request or decision actions, the applicant account.
  * @returns Whether the current actor can perform this action on this resource.
  */
-export function canPerformAdmissionAction(actor: AdmissionActorFacts | null, action: AdmissionAction, resource: { tribeId: string; applicantUserId?: string; hasRecentAuthentication?: boolean }): boolean {
+export function canPerformAdmissionAction(actor: AdmissionActorFacts | null, action: AdmissionAction, resource: { tribeId: string; applicantUserId?: string }): boolean {
   if (!actor || actor.tribeId !== resource.tribeId) return false;
   if (action === ADMISSION_ACTION.readSecret || action === ADMISSION_ACTION.grantProductOrRole) return false;
   if (action === ADMISSION_ACTION.readOwnRequest || action === ADMISSION_ACTION.cancelOwnRequest || action === ADMISSION_ACTION.attachOwnProof || action === ADMISSION_ACTION.updateOwnWhatsappNumber) return actor.userId === resource.applicantUserId;
@@ -241,7 +241,7 @@ export function canPerformAdmissionAction(actor: AdmissionActorFacts | null, act
   const isReviewer = actor.status === TRIBE_MEMBERSHIP_STATUS.active && (actor.role === TRIBE_MEMBER_ROLE.leader || actor.role === TRIBE_MEMBER_ROLE.guardian);
   if (action === ADMISSION_ACTION.decideRequest || action === ADMISSION_ACTION.rejectRequest) return isReviewer && Boolean(resource.applicantUserId) && actor.userId !== resource.applicantUserId;
   if (action === ADMISSION_ACTION.readInbox || action === ADMISSION_ACTION.readReviewHistory || action === ADMISSION_ACTION.readConnectionAlert || action === ADMISSION_ACTION.updateOwnNotificationPreferences) return isReviewer;
-  if (action === ADMISSION_ACTION.manageConnection) return isLeader && resource.hasRecentAuthentication === true;
+  if (action === ADMISSION_ACTION.manageConnection) return isLeader;
   return isLeader && (
     action === ADMISSION_ACTION.readPolicy || action === ADMISSION_ACTION.configurePolicy || action === ADMISSION_ACTION.manageAllowlist
     || action === ADMISSION_ACTION.manageInvitations || action === ADMISSION_ACTION.readConnectionMetadata

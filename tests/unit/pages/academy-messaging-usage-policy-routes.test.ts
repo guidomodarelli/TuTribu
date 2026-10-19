@@ -14,7 +14,7 @@ import { createMessagingUsageOperationHandler } from "@/src/modules/messaging/in
 /** No connection/key/provider port is available to the tested use case. */
 function fixture() {
   const now = new Date("2026-10-07T12:00:00Z"), tribeId = randomUUID(), userId = randomUUID(), sessionId = randomUUID(), accountId = randomUUID(), subject = randomUUID();
-  const account: MessagingAuthenticatedAccount = { userId, session: { id: sessionId, expiresAt: new Date("2026-10-08T12:00:00Z") }, googleAccount: { id: accountId, subject }, recentAuthentication: ["initialize_messaging_usage", "update_messaging_usage"].map((operation) => ({ id: randomUUID(), intentId: randomUUID(), userId, sessionId, accountId, subject, tribeId, operation, resourceId: tribeId, authenticatedAt: now, verifiedAt: now, validUntil: new Date("2026-10-07T12:09:00Z"), invalidatedAt: null })) };
+  const account: MessagingAuthenticatedAccount = { userId, session: { id: sessionId, expiresAt: new Date("2026-10-08T12:00:00Z") }, googleAccount: { id: accountId, subject } };
   const leadership: MessagingLeadershipFacts = { tribeId, leaderUserId: userId, membership: { userId, role: "leader", status: "active" } };
   const policy: MessagingUsagePolicyResult = { version: 1, allowedCountries: [], verificationDailyLimit: 100, notificationDailyLimit: 200, platformMaximums: { verificationDailyLimit: 1000, notificationDailyLimit: 5000 }, consumption: { verificationToday: 0, notificationToday: 0 } };
   const operations: MessagingUsageOperations<MessagingUsagePolicyResult, MessagingUsagePolicyStateResult> = {
@@ -30,8 +30,8 @@ function fixture() {
 }
 
 describe("usage policy HTTP", () => {
-  it("should recover only the current leader's original own DTO without recency, browser audience or private causes", async () => {
-    const data = fixture(), operationId = randomUUID(); data.account.googleAccount = null; data.account.recentAuthentication = [];
+  it("should recover only the current leader's original own DTO without a Google binding, browser audience or private causes", async () => {
+    const data = fixture(), operationId = randomUUID(); data.account.googleAccount = null;
     const operation = new ReadMessagingUsageOperationUseCase({ getAuthenticatedAccount: async () => data.account }, { getCurrentLeadership: async () => data.leadership }, { read: async () => ({ type: "initialize_messaging_usage", state: "completed", operationId, replayed: true, result: data.policy, privateCause: "synthetic-private" }) }, () => new Date("2026-10-07T12:00:00Z"));
     const services = await data.open(), open = vi.fn(async () => ({ operation, resolveTribe: services.resolveTribe }));
     const handler = createMessagingUsageOperationHandler(open), context = { params: Promise.resolve({ slug: "synthetic-academy", operationId }) };
@@ -43,8 +43,8 @@ describe("usage policy HTTP", () => {
     data.leadership.membership!.role = "guardian";
     expect((await handler(data.request("GET"), context)).status).toBe(403);
   });
-  it("should publish read-only absence without claiming a version, creating defaults or requiring recency", async () => {
-    const data = fixture(); data.account.googleAccount = null; data.account.recentAuthentication = [];
+  it("should publish read-only absence without claiming a version, creating defaults or requiring a Google binding", async () => {
+    const data = fixture(); data.account.googleAccount = null;
     const response = await data.handlers.read(data.request("GET"), data.context);
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ state: "not_configured", policy: null });
@@ -73,13 +73,13 @@ describe("usage policy HTTP", () => {
     expect(await saved.json()).toMatchObject({ state: "completed", operationId: data.input.operationId, result: { version: 2, allowedCountries: ["AR", "US"], verificationDailyLimit: 0 } });
   });
 
-  it("should deny guardians and operation-crossed recency before storage while keeping reads available to a leader", async () => {
+  it("should deny guardians and a missing Google session binding before storage while keeping reads available to a leader", async () => {
     const data = fixture(); data.leadership.membership!.role = "guardian";
     expect((await data.handlers.read(data.request("GET"), data.context)).status).toBe(403);
     expect((await data.handlers.update(data.request("PUT", data.input), data.context)).status).toBe(403);
     expect(data.operations.read).not.toHaveBeenCalled(); expect(data.operations.update).not.toHaveBeenCalled();
     data.leadership.membership!.role = "leader";
-    data.account.recentAuthentication = data.account.recentAuthentication.filter((evidence) => evidence.operation === "initialize_messaging_usage");
+    data.account.googleAccount = null;
     expect((await data.handlers.update(data.request("PUT", data.input), data.context)).status).toBe(401);
     expect((await data.handlers.read(data.request("GET"), data.context)).status).toBe(200);
   });

@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 /** Exercises real request/work module composition with SQL, crypto and SDK transport. @module messaging-module-composition-tests */
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
@@ -22,15 +22,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging module c
       const accountId = randomUUID(), sessionId = randomUUID(), subject = randomUUID();
       await database.withContext(fixture.own, async (transaction) => {
         const now = new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-        const validUntil = new Date(now.getTime()+540_000);
         await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${accountId},${fixture.userId},'google',${subject},${now},${now})`);
         await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${fixture.userId},${randomUUID()},${new Date(now.getTime()+3_600_000)},${now},${now})`);
         await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${sessionId},${fixture.userId},${accountId},${subject},${fixture.own.email})`);
-        for (const operation of [REAUTHENTICATION_OPERATION.updateMessagingUsage, REAUTHENTICATION_OPERATION.validateMessagingConnection, REAUTHENTICATION_OPERATION.verifyMessagingDiagnostic]) {
-          const intentId = randomUUID(), resourceId = operation === REAUTHENTICATION_OPERATION.updateMessagingUsage ? fixture.scope.tribeId : fixture.scope.connectionId;
-          await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.userId},${sessionId},${accountId},${subject},${fixture.scope.tribeId},${operation},${resourceId},'/synthetic-composition',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);
-          await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.userId},${accountId},${subject},${sessionId},${fixture.scope.tribeId},${operation},${resourceId},${now},${now},${validUntil})`);
-        }
       });
       let featureTransaction = false;
       let currentSessionId = sessionId;
@@ -97,7 +91,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging module c
       expireOnIdentityRead = 5;
       identityReads = 0;
       /** @returns Actual native session/binding/evidence state without tokens, account claims or another identity-provider read. */
-      const readSessionState = () => database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ session_active: boolean; binding_present: boolean; binding_invalidated: boolean; current_evidence: number }>(sql`select session."expiresAt">clock_timestamp() as session_active,binding.session_id is not null as binding_present,binding.invalidated_at is not null as binding_invalidated,(select count(*)::int from public.recent_authentication_evidence evidence where evidence.session_id=session.id and evidence.user_id=session."userId" and evidence.invalidated_at is null and evidence.valid_until>clock_timestamp()) as current_evidence from public.session session left join public.global_session_identity_bindings binding on binding.session_id=session.id and binding.user_id=session."userId" where session.id=${sessionId} and session."userId"=${fixture.userId}`)).rows[0]);
+      const readSessionState = () => database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ session_active: boolean; binding_present: boolean; binding_invalidated: boolean }>(sql`select session."expiresAt">clock_timestamp() as session_active,binding.session_id is not null as binding_present,binding.invalidated_at is not null as binding_invalidated from public.session session left join public.global_session_identity_bindings binding on binding.session_id=session.id and binding.user_id=session."userId" where session.id=${sessionId} and session."userId"=${fixture.userId}`)).rows[0]);
       const beforeUsageRead = await readSessionState();
       const expiredUsage = await messaging.useCases.manageUsage.read({ tribeId: fixture.scope.tribeId, requestId });
       const afterUsageRead = await readSessionState();

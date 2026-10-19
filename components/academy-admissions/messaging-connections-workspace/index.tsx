@@ -17,7 +17,7 @@ const CAPABILITY_STATE_TONE={unprepared:"neutral",prepared:"success",unavailable
 export type MessagingConnectionsWorkspaceProps={
   selected:MessagingConfigurationConnection|null;candidate:MessagingConfigurationConnection|null;
   activeTab:MessagingConnectionsTab;nextStep:MessagingConnectionsNextStep;busy:boolean;
-  message:{kind:"status"|"alert";text:string}|null;messageAction?:ReactNode;attention?:ReactNode;
+  message:{kind:"status"|"alert";text:string}|null;attention?:ReactNode;
   panels:Record<MessagingConnectionsTab,ReactNode|null>;
   onTabChange:(tab:MessagingConnectionsTab)=>void;onReadCurrent:()=>void;
 };
@@ -37,7 +37,7 @@ function ConnectionRow({connection,role}:{connection:MessagingConfigurationConne
   </li>;
 }
 
-/** @param props - Pending-original or Google continuation controls supplied by the container. @returns A named region above the tabs, because it blocks every step. */
+/** @param props - Pending-original controls supplied by the container. @returns A named region above the tabs, because it blocks every step. */
 export function MessagingConnectionsAttention({children}:{children:ReactNode}){
   return<section className={styles.MessagingConnectionsWorkspace__attention} aria-label="Acciones pendientes">{children}</section>;
 }
@@ -80,7 +80,7 @@ export function MessagingConnectionsWorkspace(props:MessagingConnectionsWorkspac
     {MESSAGING_CONNECTIONS_TAB_ORDER.map((tab)=>(props.activeTab===tab||tab===MESSAGING_CONNECTIONS_TAB.security)&&<section key={tab} aria-label={MESSAGING_CONNECTIONS_TAB_LABEL[tab]} hidden={props.activeTab!==tab} className={styles.MessagingConnectionsWorkspace__panel}>
       {props.panels[tab]??<div className={styles.MessagingConnectionsWorkspace__blocked}><p className={styles.MessagingConnectionsWorkspace__empty}>Este paso necesita una conexión candidata. Guardá la clave de Zavu en Conexión para continuar.</p><Button variant="secondary" size="sm" onClick={()=>props.onTabChange(MESSAGING_CONNECTIONS_TAB.connection)}>Ir a Conexión</Button></div>}
       {/* The result sits next to the actions that produce it, so it stays in view on narrow screens. */}
-      {props.activeTab===tab&&(props.message||props.messageAction)&&<div className={styles.MessagingConnectionsWorkspace__result}>{props.message&&<p className={`${styles.MessagingConnectionsWorkspace__feedback} ${props.message.kind==="alert"?styles["MessagingConnectionsWorkspace__feedback--alert"]:""}`} role={props.message.kind} aria-live={props.message.kind==="alert"?"assertive":"polite"}>{props.message.text}</p>}{props.messageAction}</div>}
+      {props.activeTab===tab&&props.message&&<div className={styles.MessagingConnectionsWorkspace__result}><p className={`${styles.MessagingConnectionsWorkspace__feedback} ${props.message.kind==="alert"?styles["MessagingConnectionsWorkspace__feedback--alert"]:""}`} role={props.message.kind} aria-live={props.message.kind==="alert"?"assertive":"polite"}>{props.message.text}</p></div>}
     </section>)}
   </div>;
 }

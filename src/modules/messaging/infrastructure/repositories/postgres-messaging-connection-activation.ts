@@ -53,7 +53,7 @@ export class PostgresMessagingConnectionActivation implements MessagingConnectio
       const current={...context,connectionVersion:resource.version,secretRef:resource.secretRef},authority=await authorizeMessagingSecret(database,current,true),security=await this.readSecurityConfig();
       if(security.recoveryLocked||security.environment!==context.environment||security.securityEpoch!==context.securityEpoch||!security.keyrings.credential.keys.has(authority.keyId))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
       const now=new Date((await database.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now);
-      if(!messagingSecretLifetimeIsCurrent(authority,now))throw new AdmissionOperationError((await database.execute(sql`select id from public.session where id=${context.sessionId} and "expiresAt">clock_timestamp()`)).rows[0]?ADMISSION_ERROR_CODE.reauthenticationRequired:ADMISSION_ERROR_CODE.authenticationRequired);
+      if(!messagingSecretLifetimeIsCurrent(authority,now))throw new AdmissionOperationError((await database.execute(sql`select id from public.session where id=${context.sessionId} and "expiresAt">clock_timestamp()`)).rows[0]?ADMISSION_ERROR_CODE.resourceUnavailable:ADMISSION_ERROR_CODE.authenticationRequired);
       return{now,current,security};
     }catch(error){if(error instanceof MessagingSecretAccessError)throw new AdmissionOperationError(error.code,{cause:error});throw error;}
   }
@@ -61,7 +61,7 @@ export class PostgresMessagingConnectionActivation implements MessagingConnectio
   private ledger(context:AuthorizedMessagingContext){return new PostgresAdmissionOperationRepository((run)=>executeMessagingLedger(()=>this.execute(context,run)),async(database)=>{await this.authorize(database,context);return true;},this.readSecurityConfig);}
   /** @param error - Original private failure. @returns Safe connection error preserving a genuinely registered original operation. */
   private failure(error:unknown){if(error instanceof MessagingConnectionOperationError)return error;const code=error instanceof AdmissionOperationError?Object.values(MESSAGING_ERROR_CODE).find((candidate)=>candidate===error.code)??MESSAGING_ERROR_CODE.unexpectedFailure:MESSAGING_ERROR_CODE.unexpectedFailure;return new MessagingConnectionOperationError(code,{cause:error,...(error instanceof AdmissionOperationError&&error.code===ADMISSION_ERROR_CODE.operationUnresolved&&error.operationId?{operationId:error.operationId}:{})});}
-  /** @param context - Native exact actor/session/recency/resource. @param input - Stable confirmed lifecycle CAS. @returns Original selection/retirement/dependency commit without loading plaintext, RPC or changing usage/settings flags. */
+  /** @param context - Native exact actor/session/resource. @param input - Stable confirmed lifecycle CAS. @returns Original selection/retirement/dependency commit without loading plaintext, RPC or changing usage/settings flags. */
   async activate(context:AuthorizedMessagingContext,input:MessagingConnectionActivationInput){
     const command={actorUserId:context.actorUserId,tribeId:context.tribeId,operationType:REAUTHENTICATION_OPERATION.activateMessagingConnection,idempotencyKey:input.operationId,intent:{connectionId:context.connectionId,expectedVersion:input.expectedVersion,confirmed:input.confirmed}},ledger=this.ledger(context);
     try{

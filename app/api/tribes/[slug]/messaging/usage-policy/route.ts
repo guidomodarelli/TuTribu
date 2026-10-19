@@ -7,7 +7,7 @@ import { DATABASE_CONNECTION_USAGE } from "@/src/modules/shared/infrastructure/d
 export async function GET(request: Request, context: { params: Promise<{ slug: string }> }) {
   return createMessagingUsagePolicyHandlers(() => createMessagingUsageRequestModule()).read(request, context);
 }
-/** @param request - Explicit confirmed initialization. @param context - Canonical framework params. @returns Original defaults or unchanged existing configuration after current scoped recency. */
+/** @param request - Explicit confirmed initialization. @param context - Canonical framework params. @returns Original defaults or unchanged existing configuration after current leader and session checks. */
 export async function POST(request: Request, context: { params: Promise<{ slug: string }> }) {
   return createMessagingUsagePolicyHandlers(() => createMessagingUsageRequestModule(DATABASE_CONNECTION_USAGE.maintenance)).initialize(request, context);
 }

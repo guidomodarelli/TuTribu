@@ -11,9 +11,8 @@ import { ALLOWLIST_FILTER_ALL, ALLOWLIST_STATUS_LABEL, ALLOWLIST_SOURCE_LABEL } 
 import { ADMISSION_CONTACT_TYPE } from "@/src/modules/academy-admissions/constants/admission-contact";
 import { ALLOWLIST_FILTER_OPTIONS, ALLOWLIST_ENTRY_STATUS_OPTIONS } from "@/src/modules/academy-admissions/constants/allowlist-options";
 import styles from "./styles.module.scss";
-import { Link } from "@/components/navigation/link";
 
-export type AllowlistManagementProps = { items: readonly AllowlistEntryResult[]; contactType: "email" | "phone" | null; search: string; status: "enabled" | "disabled" | null; draft: AllowlistDraft; confirmed: boolean; ready: boolean; busy: boolean; writing: boolean; privateVisible: boolean; pending: boolean; hasNext: boolean; conflict: boolean; reauthenticationRequired: boolean; errorMessage: string | null; statusMessage: string | null; fieldError: string | null; recoveryHref: string | null; onSearchChange: (value: string) => void; onStatusChange: (value: "enabled" | "disabled" | null) => void; onSearch: () => void; onNext: () => void; onSelect: (entry: AllowlistEntryResult) => void; onNew: () => void; onDraftChange: (draft: AllowlistDraft) => void; onConfirm: (value: boolean) => void; onSave: () => void; onReadOriginal: () => void; onReadCurrentEntry: () => void; onReauthenticate: () => void };
+export type AllowlistManagementProps = { items: readonly AllowlistEntryResult[]; contactType: "email" | "phone" | null; search: string; status: "enabled" | "disabled" | null; draft: AllowlistDraft; confirmed: boolean; ready: boolean; busy: boolean; writing: boolean; privateVisible: boolean; pending: boolean; hasNext: boolean; conflict: boolean; errorMessage: string | null; statusMessage: string | null; fieldError: string | null; onSearchChange: (value: string) => void; onStatusChange: (value: "enabled" | "disabled" | null) => void; onSearch: () => void; onNext: () => void; onSelect: (entry: AllowlistEntryResult) => void; onNew: () => void; onDraftChange: (draft: AllowlistDraft) => void; onConfirm: (value: boolean) => void; onSave: () => void; onReadOriginal: () => void; onReadCurrentEntry: () => void };
 
 /** @param props - Controlled safe state and callbacks from one route-level workflow. @returns Semantic responsive controls with persistent validation and clear membership impact. */
 export function AllowlistManagement(props: AllowlistManagementProps) {
@@ -45,6 +44,5 @@ export function AllowlistManagement(props: AllowlistManagementProps) {
     {props.errorMessage && <p role="alert" className={styles.AllowlistManagement__error}>{props.errorMessage}</p>}
     {props.statusMessage && <p role="status">{props.statusMessage}</p>}
     {props.pending && props.privateVisible && <Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReadOriginal}>Consultar operación original</Button>}
-    {props.reauthenticationRequired && props.privateVisible && (props.recoveryHref === null ? <Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReauthenticate}>Confirmar identidad para guardar</Button> : <Link href={props.recoveryHref}>Continuar confirmación con Google</Link>)}
   </section>;
 }

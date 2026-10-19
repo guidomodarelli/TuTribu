@@ -31,7 +31,7 @@ export type DiagnosticIssuanceDatabaseExecutor=<Result>(context:AuthorizedMessag
 export class PostgresConnectionDiagnosticIssuance implements ConnectionDiagnosticIssueOperations{
   /** @param execute - Exact current native actor executor. @param readSecurityConfig - Current external epoch/recovery and purpose-separated keyrings. */
   constructor(private readonly execute:DiagnosticIssuanceDatabaseExecutor,private readonly readSecurityConfig:()=>Promise<MessagingSecurityConfig>){}
-  /** @param database - Existing protected transaction. @param context - Current exact sensitive leader scope. @returns Nothing while current actor/session/recency/resource/epoch remain authorized. */
+  /** @param database - Existing protected transaction. @param context - Current exact sensitive leader scope. @returns Nothing while current actor/session/resource/epoch remain authorized. */
   private async authorize(database:RequestDatabase,context:AuthorizedMessagingContext):Promise<void>{
     if(context.operation!==REAUTHENTICATION_OPERATION.diagnoseMessagingConnection||context.resourceId!==context.connectionId)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
     if(!(await database.execute(sql`select id from public.session where id=${context.sessionId} and "userId"=${context.actorUserId} and "expiresAt">clock_timestamp()`)).rows[0])throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
@@ -39,7 +39,7 @@ export class PostgresConnectionDiagnosticIssuance implements ConnectionDiagnosti
       const authority=await authorizeMessagingSecret(database,context),security=await this.readSecurityConfig();
       if(security.recoveryLocked||security.environment!==context.environment||security.securityEpoch!==context.securityEpoch||!security.keyrings.credential.keys.has(authority.keyId))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
       const now=new Date((await database.execute<{now:string}>(sql`select clock_timestamp() as now`)).rows[0].now);
-      if(!messagingSecretLifetimeIsCurrent(authority,now))throw new AdmissionOperationError((await database.execute(sql`select id from public.session where id=${context.sessionId} and "expiresAt">clock_timestamp()`)).rows[0]?ADMISSION_ERROR_CODE.reauthenticationRequired:ADMISSION_ERROR_CODE.authenticationRequired);
+      if(!messagingSecretLifetimeIsCurrent(authority,now))throw new AdmissionOperationError((await database.execute(sql`select id from public.session where id=${context.sessionId} and "expiresAt">clock_timestamp()`)).rows[0]?ADMISSION_ERROR_CODE.resourceUnavailable:ADMISSION_ERROR_CODE.authenticationRequired);
     }catch(error){if(error instanceof MessagingSecretAccessError)throw new AdmissionOperationError(error.code,{cause:error});throw error;}
   }
   /** @param context - Current exact authority. @param input - Original canonical destination/CAS/consent. @returns Atomically committed challenge/outbox/original metadata; no RPC or code in public result. */

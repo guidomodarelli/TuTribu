@@ -10,10 +10,10 @@ type EmailSettingsQuery = { tribeId: string; requestId: string };
 
 /** Keeps native current state separate from the original operation's historical result. */
 export class AdmissionNotificationEmailSettingsUseCases {
-  /** @param resolver - Actual current identity, resource and scoped recency owner. @param repository - Private atomic settings/ledger owner. */
+  /** @param resolver - Actual current identity and resource owner. @param repository - Private atomic settings/ledger owner. */
   constructor(private readonly resolver: Pick<ResolveAdmissionContextUseCase, "execute">, private readonly repository: AdmissionNotificationEmailSettingsRepository) {}
 
-  /** @param query - Exact native tenant and correlation. @param options - Server-selected response binding, never input authority. @returns Read-only configuration for its current leader; no recency, provider or initialization work is requested. */
+  /** @param query - Exact native tenant and correlation. @param options - Server-selected response binding, never input authority. @returns Read-only configuration for its current leader; no provider or initialization work is requested. */
   async read(query: EmailSettingsQuery, options: { includeViewer?: boolean } = {}) {
     try {
       const authority = await this.resolver.execute({ ...query, action: ADMISSION_ACTION.readPolicy });

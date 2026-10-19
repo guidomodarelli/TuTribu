@@ -14,7 +14,7 @@ import type { AdmissionActorFacts } from "@/src/modules/academy-admissions/domai
 /** @returns Real inward readers with own account/storage ports and no file, ledger or provider effect. */
 function fixture() {
   const now = new Date("2026-10-09T08:00:00Z"), tribeId = randomUUID(), userId = randomUUID();
-  const account: AuthenticatedAccount = { userId, normalizedEmail: "synthetic-leader@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-10T08:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId, normalizedEmail: "synthetic-leader@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-10T08:00:00Z") }, googleAccount: null, identityEvidence: null};
   const accounts = { getAuthenticatedAccount: vi.fn(async () => account) }, actor: AdmissionActorFacts = { userId, tribeId, role: "leader", status: "active" };
   const resolver = new ResolveAdmissionContextUseCase(accounts, { getCurrentActor: async () => actor, getResource: async () => null }, () => now);
   const reader = { read: vi.fn(async () => ({ policy: createDefaultAdmissionPolicy({ id: tribeId, tribeId }), controlActivated: false, usage: null })) };

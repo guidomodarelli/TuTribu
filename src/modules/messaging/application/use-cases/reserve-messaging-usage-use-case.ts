@@ -6,11 +6,8 @@ import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthe
 
 /** Message-send reservations remain atomic with their delivery marker in the delivery owner. */
 export class ReserveMessagingUsageUseCase {
-  /**
-   * @param validations - Current-authority, committing credential-check budget.
-   * @param clock - Fresh application time; SQL independently checks all current lifetimes.
-   */
-  constructor(private readonly validations: CredentialValidationBudget, private readonly clock: () => Date) {}
+  /** @param validations - Current-authority, committing credential-check budget that rechecks the live session under SQL locks. */
+  constructor(private readonly validations: CredentialValidationBudget) {}
 
   /**
    * Reserves the human validation category without invoking an SDK or loading a credential.
@@ -23,16 +20,7 @@ export class ReserveMessagingUsageUseCase {
     if (context.authorizationPurpose !== MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader
       || context.operation !== REAUTHENTICATION_OPERATION.validateMessagingConnection
       || context.resourceId !== context.connectionId) return { outcome: "denied", code: MESSAGING_ERROR_CODE.permissionDenied };
-    const now = this.clock();
-    if (!Number.isFinite(now.getTime()) || !Number.isFinite(context.authenticatedAt.getTime())
-      || !Number.isFinite(context.validUntil.getTime()) || context.authenticatedAt > now
-      || context.validUntil <= now) return { outcome: "denied", code: MESSAGING_ERROR_CODE.reauthenticationRequired };
-    const result = await this.validations.reserve(command);
-    // A confirmed slot remains spent even if authority expires while its response returns.
-    const after = this.clock();
-    if (result.outcome === "reserved" && (!Number.isFinite(after.getTime()) || context.validUntil <= after)) {
-      return { outcome: "denied", code: MESSAGING_ERROR_CODE.reauthenticationRequired };
-    }
-    return result;
+    // The budget owner rechecks the live session, leadership and resource under its own locks.
+    return this.validations.reserve(command);
   }
 }

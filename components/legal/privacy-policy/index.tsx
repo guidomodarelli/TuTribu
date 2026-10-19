@@ -19,7 +19,7 @@ export function PrivacyPolicy() {
       <section className={styles.PrivacyPolicy__section}>
         <h2 className={styles.PrivacyPolicy__heading}>Cuenta e inicio de sesión con Google</h2>
         <p className={styles.PrivacyPolicy__text}>Al iniciar sesión con Google, recibimos el identificador de tu cuenta, tu nombre, tu correo electrónico y tu imagen de perfil cuando están disponibles. Usamos esos datos para reconocer tu cuenta, mostrar tu perfil y gestionar tu sesión en TuTribu. Google administra tu contraseña; TuTribu no la recibe.</p>
-        <p className={styles.PrivacyPolicy__text}>Conservamos información de sesión y credenciales de autorización de Google en el servidor. Pueden utilizarse para mantener el acceso autorizado y actualizar la imagen de perfil. Cuando una acción sensible necesita confirmar tu cuenta, solicitamos a Google información sobre esa autenticación. No accedemos al contenido de tu correo de Gmail, documentos de Drive ni contactos de Google mediante este inicio de sesión.</p>
+        <p className={styles.PrivacyPolicy__text}>Conservamos información de sesión y credenciales de autorización de Google en el servidor. Pueden utilizarse para mantener el acceso autorizado y actualizar la imagen de perfil. No accedemos al contenido de tu correo de Gmail, documentos de Drive ni contactos de Google mediante este inicio de sesión.</p>
       </section>
 
       <section className={styles.PrivacyPolicy__section}>

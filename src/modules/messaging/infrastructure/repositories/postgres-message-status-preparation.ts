@@ -13,14 +13,14 @@ import { MESSAGE_STATUS_LOOKUP_OPERATION } from "../../constants/message-reconci
 import { MESSAGING_KEY_PURPOSE } from "../../constants/messaging-cryptography";
 import { MessagingSecretAccessError } from "../../domain/errors/messaging-secret-access-error";
 import { ZavuInspectionError } from "../zavu/zavu-inspection-error";
-import { authorizeMessagingSecret, messagingSecretLifetimeIsCurrent, type LockedMessagingSecret } from "./postgres-messaging-secret-authorizer";
+import { authorizeMessagingSecret, messagingSecretLifetimeFailure, messagingSecretLifetimeIsCurrent, type LockedMessagingSecret } from "./postgres-messaging-secret-authorizer";
 
 /** Each callback commits before private material leaves the database boundary. */
 type StatusDatabaseExecutor = <Result>(actorUserId: string, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
 
 /** Reads only an authorized original message; credentials and provider payloads remain infrastructure-owned. */
 export class PostgresMessageStatusPreparation implements MessageStatusPreparation {
-  /** @param resolver - Current account/session/leader/resource/security and exact reconciliation recency. @param execute - Existing guarded actor transaction. @param secrets - Existing human-purpose store with its own locks and lifetime checks. @param readSecurityConfig - Current external recovery/epoch/keyrings, read again after the final SQL wait. @param clock - Server time sampled after that final external read. */
+  /** @param resolver - Current account/session/leader/resource/security. @param execute - Existing guarded actor transaction. @param secrets - Existing human-purpose store with its own locks and lifetime checks. @param readSecurityConfig - Current external recovery/epoch/keyrings, read again after the final SQL wait. @param clock - Server time sampled after that final external read. */
   constructor(private readonly resolver: OriginalMessageContextResolver, private readonly execute: StatusDatabaseExecutor, private readonly secrets: MessagingSecretStore, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly clock: () => Date = () => new Date()) {}
 
   /** @param reference - Original immutable message metadata from protected storage. @returns Current native authority, never authority selected by the reference itself. */
@@ -49,7 +49,7 @@ export class PostgresMessageStatusPreparation implements MessageStatusPreparatio
       `)).rows[0];
       if (!row?.sender_id || row.channel !== reference.channel) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
       const now = new Date((await database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-      if (!messagingSecretLifetimeIsCurrent(authority, now)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.reauthenticationRequired);
+      if (!messagingSecretLifetimeIsCurrent(authority, now)) throw new MessagingSecretAccessError(messagingSecretLifetimeFailure(authority, now));
       return { senderId: row.sender_id, authority };
     });
   }
@@ -71,7 +71,7 @@ export class PostgresMessageStatusPreparation implements MessageStatusPreparatio
     const security = await this.readSecurityConfig();
     signal.throwIfAborted();
     if (security.recoveryLocked || security.environment !== current.environment || security.securityEpoch !== current.securityEpoch || !security.keyrings[MESSAGING_KEY_PURPOSE.credential].keys.has(latest.authority.keyId)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.connectionIncomplete);
-    if (!messagingSecretLifetimeIsCurrent(latest.authority, this.clock())) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.reauthenticationRequired);
+    { const now = this.clock(); if (!messagingSecretLifetimeIsCurrent(latest.authority, now)) throw new MessagingSecretAccessError(messagingSecretLifetimeFailure(latest.authority, now)); }
     return { reference: original, credential, senderId: latest.senderId };
   }
 }

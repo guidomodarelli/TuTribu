@@ -16,7 +16,7 @@ export type ConfigureMessagingConnectionInput=MessagingConnectionConfigurationIn
 
 /** Resource detail reads do not establish code receipt, production readiness or contact authority. */
 export class ConfigureMessagingConnectionUseCase{
-  /** @param resolver - Current native account/leader/recency/resource authority. @param operations - Original-result/CAS/version owner. @param secrets - Independently current private credential storage. @param inspectors - Fresh explicitly scoped real detail readers. */
+  /** @param resolver - Current native account/leader/resource authority. @param operations - Original-result/CAS/version owner. @param secrets - Independently current private credential storage. @param inspectors - Fresh explicitly scoped real detail readers. */
   constructor(private readonly resolver:Pick<ResolveMessagingContextUseCase,"execute">,private readonly operations:MessagingConnectionConfigurationOperations,private readonly secrets:MessagingSecretStore,private readonly inspectors:MessagingConfigurationInspectorFactory){}
   /** @param original - Authority before awaited private/provider access. @returns Current unchanged context. @throws Safe identity/resource conflict before another RPC or commit. */
   private async current(original:AuthorizedMessagingContext):Promise<AuthorizedMessagingContext>{

@@ -10,7 +10,7 @@ import { getMessagingUsageCountryChoices } from "@/src/modules/messaging/infrast
 /** Current identity and usage absence remain feature-owned ports; their authority checks and public schemas are real. */
 function fixture() {
   const now = new Date("2026-10-07T12:00:00Z"), tribeId = randomUUID(), userId = randomUUID();
-  const account: MessagingAuthenticatedAccount = { userId, session: { id: randomUUID(), expiresAt: new Date("2026-10-08T12:00:00Z") }, googleAccount: null, recentAuthentication: [] };
+  const account: MessagingAuthenticatedAccount = { userId, session: { id: randomUUID(), expiresAt: new Date("2026-10-08T12:00:00Z") }, googleAccount: null};
   const accounts = { getAuthenticatedAccount: vi.fn(async (): Promise<MessagingAuthenticatedAccount | null> => account) }, facts: MessagingLeadershipFacts = { tribeId, leaderUserId: userId, membership: { userId, role: "leader", status: "active" } };
   const read = vi.fn(async () => ({ state: "not_configured" as const, policy: null }));
   const usage = new ManageMessagingUsageUseCases({ getAuthenticatedAccount: async () => account }, { getCurrentLeadership: async () => facts }, { read, initialize: async () => { throw new Error("SSR must not initialize usage"); }, update: async () => { throw new Error("SSR must not update usage"); } }, () => now);

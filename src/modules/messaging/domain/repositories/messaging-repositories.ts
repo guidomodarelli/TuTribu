@@ -1,12 +1,10 @@
 /** Defines inward-facing context/resource/secret ports without HTTP, SDK or persistence types. */
-import type { RecentAuthenticationEvidence } from "@/src/modules/auth/domain/entities/recent-authentication-evidence";
 import type { MessageDelivery } from "../entities/message-delivery";
 
 /** Private account projection adapted from auth, without profile flags or provider payloads. */
 export type MessagingAuthenticatedAccount = {
   userId: string; session: { id: string; expiresAt: Date };
   googleAccount: { id: string; subject: string } | null;
-  recentAuthentication: readonly RecentAuthenticationEvidence[];
 };
 export interface MessagingAccountProvider {
   getAuthenticatedAccount(): Promise<MessagingAuthenticatedAccount | null>;
@@ -36,16 +34,16 @@ export type MessagingSecretResourceScope = {
   tribeId: string; connectionId: string; connectionVersion: number;
   environment: string; securityEpoch: string; requestId: string; secretRef: string;
 };
-/** Human credential operations require scoped global recency and a current session. */
+/** Human credential operations require the current leader session bound to its Google identity. */
 export type AuthorizedMessagingContext = MessagingSecretResourceScope & {
   authorizationPurpose: "sensitive_leader"; resourceId: string;
   actorUserId: string; sessionId: string; accountId: string; subject: string;
-  operation: string; authenticatedAt: Date; validUntil: Date;
+  operation: string;
 };
 /**
  * A writer emits this only after committing the attempt marker and budget.
  * SecretStore must reread that attempt, scope, version, lease, current leader,
- * resource retirement and external epoch. A worker does not reuse human recency.
+ * resource retirement and external epoch. A worker does not reuse a human session.
  */
 export type AuthorizedDeliveryMessagingContext = MessagingSecretResourceScope & {
   authorizationPurpose: "authorized_delivery";

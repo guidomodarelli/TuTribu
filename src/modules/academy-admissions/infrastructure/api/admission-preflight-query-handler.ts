@@ -11,7 +11,7 @@ type PreflightQueryServices = {
   preflight: { execute(query: { tribeId: string; requestId: string }): Promise<{ ok: true; value: unknown } | { ok: false; failure: AdmissionFailure }> };
 };
 
-/** @param open - Current native read composition after validation. @returns GET of aggregate blockers, independent of sensitive mutation recency. */
+/** @param open - Current native read composition after validation. @returns GET of aggregate blockers. */
 export function createAdmissionPreflightQueryHandler(open: () => Promise<PreflightQueryServices>) {
   return async function GET(request: Request, context: { params: Promise<{ slug: string }> }): Promise<Response> {
     const boundary = createAdmissionRouteBoundary({ request, operation: ADMISSION_HTTP_OPERATION.policyPreflight });

@@ -46,7 +46,7 @@ describe("tribe lifecycle HTTP boundary", () => {
   it("should map exact reauthentication failures to safe Spanish copy without exposing their cause", async () => {
     const fixture = routeFixture(); fixture.change.mockRejectedValue(new TribeLifecycleError("reauthentication_required", { cause: new Error("synthetic-sensitive-cause") }));
     const response = await fixture.handlers.change(fixture.request(), fixture.context), result = await response.json();
-    expect(response.status).toBe(403); expect(result).toMatchObject({ code: "reauthentication_required", message: "Confirmá tu identidad para esta acción en esta tribu." }); expect(JSON.stringify(result)).not.toContain("synthetic-sensitive-cause");
+    expect(response.status).toBe(403); expect(result).toMatchObject({ code: "reauthentication_required", message: "Tu sesión cambió. Recargá la página e intentá de nuevo." }); expect(JSON.stringify(result)).not.toContain("synthetic-sensitive-cause");
   });
   it("should reject private fields in a result rather than forwarding archived resource data", async () => {
     const fixture = routeFixture(), invalid = { ...fixture.original, retiredBindings: "synthetic-sensitive-contact" }; fixture.change.mockResolvedValue(invalid);

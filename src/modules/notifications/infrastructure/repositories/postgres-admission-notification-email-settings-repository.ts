@@ -40,7 +40,7 @@ export class PostgresAdmissionNotificationEmailSettingsRepository implements Adm
   /** @param execute - Native current-user transaction executor. @param readSecurityConfig - Current local hosting configuration; never a provider call. */
   constructor(private readonly execute: SettingsDatabaseExecutor, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>) {}
 
-  /** @param database - Original transaction. @param context - Server-resolved current native actor. @param mutate - Requires this settings action's own exact recency only when changing configuration. @returns After canonical leadership, session and academy checks. */
+  /** @param database - Original transaction. @param context - Server-resolved current native actor. @param mutate - Requires this settings action's own operation scope only when changing configuration. @returns After canonical leadership, session and academy checks. */
   private async authorize(database: RequestDatabase, context: AuthorizedAdmissionContext, mutate: boolean): Promise<void> {
     await authorizeAdmissionPolicy(database, context, mutate ? REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings : undefined);
     const academy = (await database.execute<{ access_model: string }>(sql`select access_model from public.tribe_academy_settings where tribe_id=${context.tribeId} for share`)).rows[0];

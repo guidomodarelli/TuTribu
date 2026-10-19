@@ -12,7 +12,7 @@ import { ReadAdmissionOperationUseCase } from "@/src/modules/academy-admissions/
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal original recovery", () => {
-  it("should read only the original leader metadata without a token or recency, then close after current role loss", async () => {
+  it("should read only the original leader metadata without a token, then close after current role loss", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const { fixture, applicant: createApplicant } = await prepareAllowlistAdmission(database), applicant = await createApplicant();
       for (const migration of ["20261009130000_add_personal_invitation_context_digest.sql", "20261007002000_read_own_admission_operations.sql"]) await database.applyMigration(migration);
@@ -21,7 +21,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal or
       const created = await repository.create({ context, operationId, confirmed: true, contact: { type: "email", value: "recipient@example.test" }, internalName: "Historial privado", requiresAllowlist: false, allowlistExemptionAcknowledged: true });
       if (created.state !== "completed" || !created.initialToken) throw new Error("Expected native initial token before readonly recovery");
       const initialToken = created.initialToken;
-      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where user_id=${fixture.userId} and tribe_id=${fixture.tribeId}`));
       /** @param identity - Exact current native session. @returns A real own registry use case with no writer/lease dependency. */
       const forIdentity = (identity: { userId: string; sessionId: string }) => new ReadAdmissionOperationUseCase(new PostgresAuthenticatedAccountProvider(async () => identity, (scope, run) => database.withContext({ userId: scope.userId, email: null }, run)), new PostgresAdmissionOperationReader((scope, run) => database.withContext({ userId: scope.userId, email: null }, run)), () => new Date());
       const query = { tribeId: fixture.tribeId, requestId: randomUUID(), operationId };

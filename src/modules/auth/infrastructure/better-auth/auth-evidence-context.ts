@@ -7,7 +7,7 @@ import type {GlobalIdentityEvidenceScope} from "@/src/modules/auth/domain/reposi
 import type {AUTH_EVIDENCE_CAPTURE_FAILURE,AUTH_EVIDENCE_FAILURE_KIND} from "@/src/modules/auth/constants/auth-evidence-capture";
 
 /** Identifies only the native login that completed with matching signed identity facts. */
-export type CompletedGoogleLogin=GlobalIdentityEvidenceScope&{evidence:GoogleIdentityEvidenceCandidate;reauthenticationIntentId:string|null};
+export type CompletedGoogleLogin=GlobalIdentityEvidenceScope&{evidence:GoogleIdentityEvidenceCandidate};
 /** Contains a safe diagnostic only; the request store never retains a raw SDK failure. */
 export type AuthEvidenceCaptureFailure={code:(typeof AUTH_EVIDENCE_CAPTURE_FAILURE)[keyof typeof AUTH_EVIDENCE_CAPTURE_FAILURE];failureKind?:(typeof AUTH_EVIDENCE_FAILURE_KIND)[keyof typeof AUTH_EVIDENCE_FAILURE_KIND]};
 

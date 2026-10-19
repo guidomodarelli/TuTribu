@@ -9,6 +9,5 @@
   &__consent { @include workspace-panel.field; }
   &__actions { @include workspace-panel.actions; }
   &__action { @include workspace-panel.action; }
-  &__reauthentication { @include workspace-panel.reauthentication; }
   &__error { @include workspace-panel.error; }
 }

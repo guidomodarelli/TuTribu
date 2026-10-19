@@ -12,7 +12,7 @@ export type AdmissionContextCommand = { tribeId: string; action: AdmissionAction
 export type AuthorizedAdmissionContext = {
   userId: string; sessionId: string; tribeId: string; requestId: string; action: AdmissionAction;
   role: AdmissionActorFacts["role"]; membershipStatus: AdmissionActorFacts["status"];
-  resourceId: string; applicantUserId?: string; sensitiveOperation?: ReauthenticationOperation; authenticatedAt?: Date; validUntil?: Date;
+  resourceId: string; applicantUserId?: string; sensitiveOperation?: ReauthenticationOperation;
 };
 
 export interface AdmissionAuthorizationReader {

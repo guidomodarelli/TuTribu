@@ -1,6 +1,4 @@
 /** Models the private current-session projection consumed through feature-owned account ports. */
-import type { RecentAuthenticationEvidence } from "./recent-authentication-evidence";
-
 export type AuthenticatedAccount = {
   userId: string; normalizedEmail: string;
   session: { id: string; expiresAt: Date };
@@ -10,5 +8,4 @@ export type AuthenticatedAccount = {
     classification: "gmail" | "workspace" | "insufficient"; version: number;
     verifiedAt: Date; invalidatedAt: Date | null;
   } | null;
-  recentAuthentication: readonly RecentAuthenticationEvidence[];
 };

@@ -37,6 +37,7 @@ export const ADMISSION_ERROR_CODE = {
   verificationAttemptsExceeded: "verification_attempts_exceeded",
   usageLimitReached: "usage_limit_reached",
   verificationCodeIncorrect: "verification_code_incorrect",
+  /** Kept only for persisted audit values and responses from older servers; current writers never emit it. */
   reauthenticationRequired: "reauthentication_required",
   admissionsPaused: "admissions_paused",
   admissionIneligible: "admission_ineligible",
@@ -81,7 +82,7 @@ export const ADMISSION_ERROR_MESSAGE = {
   [ADMISSION_ERROR_CODE.verificationAttemptsExceeded]: "Alcanzaste el límite de intentos de verificación. Esperá antes de intentar otra vez.",
   [ADMISSION_ERROR_CODE.usageLimitReached]: "Se alcanzó el límite de nuevos envíos. Podés validar un código vigente o consultar tu solicitud.",
   [ADMISSION_ERROR_CODE.verificationCodeIncorrect]: "El código no es correcto. Revisalo antes de intentar otra vez.",
-  [ADMISSION_ERROR_CODE.reauthenticationRequired]: "Volvé a autenticarte para confirmar esta operación sensible.",
+  [ADMISSION_ERROR_CODE.reauthenticationRequired]: "Tu sesión cambió. Recargá la página e intentá de nuevo.",
   [ADMISSION_ERROR_CODE.admissionsPaused]: "Las admisiones están pausadas. Podés consultar o cancelar tu solicitud.",
   [ADMISSION_ERROR_CODE.admissionIneligible]: "Falta un requisito actual para resolver el ingreso. Consultá el estado de la solicitud.",
   [ADMISSION_ERROR_CODE.membershipRecoveryRequired]: "La recuperación de tu pertenencia requiere asistencia autorizada.",

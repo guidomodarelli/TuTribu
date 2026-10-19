@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-/** Exercises native original-delivery recency through the real management resolver. @module notification-recovery-authority-tests */
+/** Exercises native original-delivery authority through the real management resolver. @module notification-recovery-authority-tests */
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { ResolveMessagingTribeManagementUseCase } from "@/src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case";
@@ -9,7 +9,7 @@ import type { NotificationDeliveryRecoveryContext, NotificationDeliveryRecoveryI
 import type { AdmissionOperationResult } from "@/src/modules/academy-admissions/domain/entities/admission-operation";
 import type { MessagingAuthenticatedAccount, MessagingLeadershipFacts } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 
-/** @returns Current synthetic global identity, exact delivery recency and mutable native ports. */
+/** @returns Current synthetic global identity, exact delivery scope and mutable native ports. */
 function prepareAuthority() {
   const now = new Date("2026-10-11T08:00:00Z");
   const userId = randomUUID(), sessionId = randomUUID(), accountId = randomUUID();
@@ -19,11 +19,6 @@ function prepareAuthority() {
     userId,
     session: { id: sessionId, expiresAt: new Date("2026-10-11T09:00:00Z") },
     googleAccount: { id: accountId, subject },
-    recentAuthentication: [{
-      id: randomUUID(), intentId: randomUUID(), userId, sessionId, accountId, subject,
-      tribeId, resourceId: deliveryId, operation: "recover_notification_delivery",
-      authenticatedAt: now, verifiedAt: now, validUntil: new Date("2026-10-11T08:09:00Z"), invalidatedAt: null,
-    }],
   };
   const leadership: MessagingLeadershipFacts = { tribeId, leaderUserId: userId, membership: { userId, role: "leader", status: "active" } };
   let currentAccount: MessagingAuthenticatedAccount | null = account;
@@ -43,7 +38,7 @@ function prepareAuthority() {
 }
 
 describe("original notification recovery authority", () => {
-  it("should bind current leader recency to the original delivery without reading a credential", async () => {
+  it("should bind the current leader session to the original delivery without reading a credential", async () => {
     const fixture = prepareAuthority();
     const context = await fixture.resolver.execute(fixture.query, "recover_notification_delivery");
     expect(context).toMatchObject({
@@ -56,10 +51,10 @@ describe("original notification recovery authority", () => {
     expect(fixture.accountReads).toBe(3);
   });
 
-  it.each(["tribe", "connection", "other_delivery"])("should reject recency for %s instead of the original delivery", async (resourceKind) => {
+  it("should require the Google session binding created at sign-in", async () => {
     const fixture = prepareAuthority();
-    fixture.account.recentAuthentication[0].resourceId = resourceKind === "tribe" ? fixture.query.tribeId : randomUUID();
-    await expect(fixture.resolver.execute(fixture.query, "recover_notification_delivery")).rejects.toMatchObject({ code: "reauthentication_required" });
+    fixture.account.googleAccount = null;
+    await expect(fixture.resolver.execute(fixture.query, "recover_notification_delivery")).rejects.toMatchObject({ code: "authentication_required" });
   });
 
   it("should reject connection and ordinary read queries for recovery before reading the account", async () => {
@@ -70,22 +65,16 @@ describe("original notification recovery authority", () => {
     expect(fixture.accountReads).toBe(0);
   });
 
-  it("should reject a guardian even with exact recent global evidence", async () => {
+  it("should reject a guardian with an otherwise valid session", async () => {
     const fixture = prepareAuthority();
     fixture.leadership.membership!.role = "guardian";
     await expect(fixture.resolver.execute(fixture.query, "recover_notification_delivery")).rejects.toMatchObject({ code: "permission_denied" });
   });
 
-  it("should reject an expired actual session before checking recency", async () => {
+  it("should reject an expired actual session", async () => {
     const fixture = prepareAuthority();
     fixture.setTime(fixture.account.session.expiresAt);
     await expect(fixture.resolver.execute(fixture.query, "recover_notification_delivery")).rejects.toMatchObject({ code: "authentication_required" });
-  });
-
-  it("should reject exact recency at its deadline", async () => {
-    const fixture = prepareAuthority();
-    fixture.setTime(fixture.account.recentAuthentication[0].validUntil);
-    await expect(fixture.resolver.execute(fixture.query, "recover_notification_delivery")).rejects.toMatchObject({ code: "reauthentication_required" });
   });
 });
 
@@ -198,13 +187,13 @@ describe("explicit notification recovery orchestration", () => {
     expect(await fixture.cases.execute(fixture.input)).toMatchObject({ ok: false, failure: { code: "unexpected_failure" } });
   });
 
-  it("should stop before persistence when current account or original recency is unavailable", async () => {
+  it("should stop before persistence when the current account or its leadership is unavailable", async () => {
     const fixture = prepareRecovery();
     fixture.authority.setAccount(null);
     expect(await fixture.cases.execute(fixture.input)).toMatchObject({ ok: false, failure: { code: "authentication_required" } });
     fixture.authority.setAccount(fixture.account);
-    fixture.account.recentAuthentication[0].resourceId = fixture.input.targetConnectionId;
-    expect(await fixture.cases.execute(fixture.input)).toMatchObject({ ok: false, failure: { code: "reauthentication_required" } });
+    fixture.authority.leadership.membership!.role = "guardian";
+    expect(await fixture.cases.execute(fixture.input)).toMatchObject({ ok: false, failure: { code: "permission_denied" } });
     expect(fixture.calls).toHaveLength(0);
   });
 });

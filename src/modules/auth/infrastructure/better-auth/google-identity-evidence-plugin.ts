@@ -1,11 +1,9 @@
 /** Adds minimal signed evidence to the unchanged global Google authentication flow. */
 import "server-only";
 import type {BetterAuthPlugin} from "better-auth";
-import {APIError,createAuthMiddleware,getOAuthState} from "better-auth/api";
+import {createAuthMiddleware} from "better-auth/api";
 import {GOOGLE_EVIDENCE_PLUGIN_ID,GOOGLE_IDENTITY_PROVIDER} from "@/src/modules/auth/constants/google-identity-evidence";
-import {AUTH_EVIDENCE_CAPTURE_FAILURE,AUTH_EVIDENCE_CAPTURE_PATH,AUTH_EVIDENCE_FAILURE_KIND,AUTH_EVIDENCE_INTENT_STATE_KEY,GLOBAL_REAUTHENTICATION_OAUTH_PARAMETER} from "@/src/modules/auth/constants/auth-evidence-capture";
-import {REAUTHENTICATION_ERROR_CODE,REAUTHENTICATION_ERROR_MESSAGE} from "@/src/modules/auth/constants/reauthentication-intents";
-import {reauthenticationIntentParamsSchema} from "@/src/modules/auth/infrastructure/api/reauthentication-request-schemas";
+import {AUTH_EVIDENCE_CAPTURE_FAILURE,AUTH_EVIDENCE_CAPTURE_PATH,AUTH_EVIDENCE_FAILURE_KIND} from "@/src/modules/auth/constants/auth-evidence-capture";
 import {getAuthEvidenceContext} from "./auth-evidence-context";
 import {verifyGoogleIdTokenEvidence} from "./google-id-token-evidence-verifier";
 
@@ -15,7 +13,7 @@ import {verifyGoogleIdTokenEvidence} from "./google-id-token-evidence-verifier";
  * @remarks Missing scope produces no capture. Persistence after account/session creation
  * belongs to the global auth owner and does not occur inside this provider decorator.
  */
-export function googleIdentityEvidencePlugin(options:{authorizeIntent?:(intentId:string)=>Promise<{allowed:true;nonce:string}|{allowed:false}>}={}):BetterAuthPlugin {
+export function googleIdentityEvidencePlugin():BetterAuthPlugin {
   return {
     id:GOOGLE_EVIDENCE_PLUGIN_ID,
     init(context) {
@@ -23,21 +21,8 @@ export function googleIdentityEvidencePlugin(options:{authorizeIntent?:(intentId
         if(provider.id!==GOOGLE_IDENTITY_PROVIDER||!provider.verifyIdToken) return provider;
         const originalGetUserInfo=provider.getUserInfo;
         const originalVerifyIdToken=provider.verifyIdToken;
-        const originalCreateAuthorizationURL=provider.createAuthorizationURL;
         return {
           ...provider,
-          async createAuthorizationURL(data) {
-            const state=await getOAuthState();
-            const opaqueIntent=state?.[AUTH_EVIDENCE_INTENT_STATE_KEY];
-            if(opaqueIntent===undefined) return originalCreateAuthorizationURL(data);
-            const parsed=reauthenticationIntentParamsSchema.safeParse({intentId:opaqueIntent});
-            if(!getAuthEvidenceContext()||!parsed.success||!options.authorizeIntent) throw new APIError("FORBIDDEN",{code:REAUTHENTICATION_ERROR_CODE.required,message:REAUTHENTICATION_ERROR_MESSAGE[REAUTHENTICATION_ERROR_CODE.required]});
-            const issued=await options.authorizeIntent(parsed.data.intentId);
-            if(!issued.allowed) throw new APIError("FORBIDDEN",{code:REAUTHENTICATION_ERROR_CODE.required,message:REAUTHENTICATION_ERROR_MESSAGE[REAUTHENTICATION_ERROR_CODE.required]});
-            const url=await originalCreateAuthorizationURL(data);
-            url.searchParams.set(GLOBAL_REAUTHENTICATION_OAUTH_PARAMETER.nonce,issued.nonce);
-            return url;
-          },
           async getUserInfo(tokens) {
             const idToken=tokens.idToken;
             const scope=getAuthEvidenceContext();
@@ -76,9 +61,7 @@ export function googleIdentityEvidencePlugin(options:{authorizeIntent?:(intentId
             scope.captureFailure={code:AUTH_EVIDENCE_CAPTURE_FAILURE.binding};
             return;
           }
-          const oauthState=await getOAuthState();
-          const opaqueIntent=oauthState?.[AUTH_EVIDENCE_INTENT_STATE_KEY];
-          scope.completedGoogleLogin={userId:login.user.id,accountId:account.id,sessionId:login.session.id,evidence:candidate,reauthenticationIntentId:typeof opaqueIntent==="string"?opaqueIntent:null};
+          scope.completedGoogleLogin={userId:login.user.id,accountId:account.id,sessionId:login.session.id,evidence:candidate};
         } catch(error) {
           scope.captureFailure={code:AUTH_EVIDENCE_CAPTURE_FAILURE.lookup,failureKind:error instanceof Error?AUTH_EVIDENCE_FAILURE_KIND.exception:AUTH_EVIDENCE_FAILURE_KIND.unknownThrow};
         }

@@ -96,7 +96,7 @@ export class PostgresAdmissionAuthorizationReader implements AdmissionAuthorizat
     if (!actor) return null;
     const ownRequest = ADMISSION_OWN_REQUEST_ACTIONS.has(this.action);
     const reviewer = actor.status === TRIBE_MEMBERSHIP_STATUS.active && (actor.role === TRIBE_MEMBER_ROLE.leader || actor.role === TRIBE_MEMBER_ROLE.guardian);
-    const permission = canPerformAdmissionAction(actor, this.action, { tribeId, hasRecentAuthentication: true });
+    const permission = canPerformAdmissionAction(actor, this.action, { tribeId });
     let result: AdmissionAuthorizationResource | undefined;
     switch (resource.kind) {
       case ADMISSION_RESOURCE_KIND.request: {

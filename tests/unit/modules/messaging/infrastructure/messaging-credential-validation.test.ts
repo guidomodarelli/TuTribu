@@ -2,7 +2,7 @@
 /** Exercises actual SQL stages, budget/SecretStore and the pinned SDK through an owned HTTP boundary. @module messaging-credential-validation-tests */
 import {setTimeout as delay} from "node:timers/promises";
 import {MESSAGING_CREDENTIAL_RECOVERY_GRACE_MS} from "@/src/modules/messaging/constants/messaging-credential-validation";
-import {randomBytes,randomUUID} from "node:crypto";
+import {randomUUID} from "node:crypto";
 import {sql} from "drizzle-orm";
 import {describe,expect,it} from "vitest";
 import {withAcademyAdmissionDatabase} from "@/tests/support/academy-admission-database";
@@ -32,11 +32,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("private credential i
       const creation=await fixture.repository.create(fixture.context,{operationId:randomUUID(),confirmed:true,providerId:"zavu",name:"Credencial de prueba",apiKey:credential});
       if(creation.state!=="completed")throw new Error("Expected protected candidate");
       const connectionId=creation.result.id;
-      await database.withContext(fixture.fixture.own,async(transaction)=>{
-        const now=new Date((await transaction.execute<{now:string}>(sql`select clock_timestamp() as now`)).rows[0].now),validUntil=new Date(now.getTime()+540_000),intentId=randomUUID();
-        await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.context.actorUserId},${fixture.context.sessionId},${fixture.context.accountId},${fixture.context.subject},${fixture.context.tribeId},'validate_messaging_connection',${connectionId},'/synthetic-validation',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);
-        await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.context.actorUserId},${fixture.context.accountId},${fixture.context.subject},${fixture.context.sessionId},${fixture.context.tribeId},'validate_messaging_connection',${connectionId},${now},${now},${validUntil})`);
-      });
       let activeTransactions=0;
       const execute=async<Result>(_context:AuthorizedMessagingContext,run:(transaction:RequestDatabase)=>Promise<Result>):Promise<Result>=>{
         activeTransactions+=1;try{return await database.withContext(fixture.fixture.own,run);}finally{activeTransactions-=1;}
@@ -51,7 +46,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("private credential i
         return Response.json({isTestMode:true,apiKey:{id:privateRefs.apiKeyId},project:{id:privateRefs.projectId},team:{id:privateRefs.teamId},ignoredProviderMetadata:{arbitrary:true}});
       }}]);
       const operations=new PostgresMessagingCredentialValidation(execute,async()=>fixture.fixture.config);
-      const budget=new ReserveMessagingUsageUseCase(new PostgresCredentialValidationBudget(execute,async()=>fixture.fixture.config),()=>new Date());
+      const budget=new ReserveMessagingUsageUseCase(new PostgresCredentialValidationBudget(execute,async()=>fixture.fixture.config));
       const secrets=new PostgresEncryptedSecretStore((actorUserId,run)=>database.withContext({userId:actorUserId,email:fixture.fixture.own.email},run),accounts,async()=>fixture.fixture.config,"sensitive_leader");
       const useCase=new ValidateMessagingConnectionUseCase(resolver,operations,budget,secrets,{create:(context,key)=>new ZavuConnectionInspector({...context,credential:key},transport.fetch)});
       const input={tribeId:fixture.context.tribeId,connectionId,operationId:randomUUID(),confirmed:true as const,expectedVersion:1,requestId:randomUUID()};
@@ -84,11 +79,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("private credential i
       const created=await fixture.repository.create(fixture.context,{operationId:randomUUID(),confirmed:true,providerId:"zavu",name:"Preparación interrumpida",apiKey:randomUUID()});
       if(created.state!=="completed")throw new Error("Expected candidate");
       const connectionId=created.result.id;
-      await database.withContext(fixture.fixture.own,async(transaction)=>{
-        const now=new Date((await transaction.execute<{now:string}>(sql`select clock_timestamp() as now`)).rows[0].now),validUntil=new Date(now.getTime()+540_000),intentId=randomUUID();
-        await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.context.actorUserId},${fixture.context.sessionId},${fixture.context.accountId},${fixture.context.subject},${fixture.context.tribeId},'validate_messaging_connection',${connectionId},'/synthetic-validation',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);
-        await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.context.actorUserId},${fixture.context.accountId},${fixture.context.subject},${fixture.context.sessionId},${fixture.context.tribeId},'validate_messaging_connection',${connectionId},${now},${now},${validUntil})`);
-      });
       const accounts=new PostgresAuthenticatedAccountProvider(async()=>({userId:fixture.context.actorUserId,sessionId:fixture.context.sessionId}),(_identity,run)=>database.withContext(fixture.fixture.own,run));
       let revoked=false;
       const requestModule=buildMessagingModule({accounts,clock:()=>new Date(),execute:async(_account,run)=>{
@@ -110,11 +100,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("private credential i
     await withAcademyAdmissionDatabase(async(database)=>{
       const fixture=await prepareMessagingConnectionCreation(database),credential=randomUUID();await database.applyMigration("20261006230000_bind_credential_validation_usage.sql");
       const created=await fixture.repository.create(fixture.context,{operationId:randomUUID(),confirmed:true,providerId:"zavu",name:"Comprobación abandonada",apiKey:credential});if(created.state!=="completed")throw new Error("Expected protected candidate");const connectionId=created.result.id;
-      await database.withContext(fixture.fixture.own,async(transaction)=>{const now=new Date((await transaction.execute<{now:string}>(sql`select clock_timestamp() as now`)).rows[0].now),validUntil=new Date(now.getTime()+540_000),intentId=randomUUID();await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.context.actorUserId},${fixture.context.sessionId},${fixture.context.accountId},${fixture.context.subject},${fixture.context.tribeId},'validate_messaging_connection',${connectionId},'/synthetic-validation-recovery',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.context.actorUserId},${fixture.context.accountId},${fixture.context.subject},${fixture.context.sessionId},${fixture.context.tribeId},'validate_messaging_connection',${connectionId},${now},${now},${validUntil})`);});
       const execute=<Result>(_context:AuthorizedMessagingContext,run:(transaction:RequestDatabase)=>Promise<Result>)=>database.withContext(fixture.fixture.own,run),accounts=new PostgresAuthenticatedAccountProvider(async()=>({userId:fixture.context.actorUserId,sessionId:fixture.context.sessionId}),(_identity,run)=>database.withContext(fixture.fixture.own,run));
       const resolver={execute:async(command:Parameters<ResolveMessagingContextUseCase["execute"]>[0])=>database.withContext(fixture.fixture.own,(transaction)=>new ResolveMessagingContextUseCase(accounts,new PostgresMessagingAuthorizationReader(transaction,fixture.context.sessionId,"candidate"),{getCurrentSecurityFacts:async()=>({environment:fixture.fixture.config.environment,securityEpoch:fixture.fixture.config.securityEpoch,recoveryLocked:false})},()=>new Date()).execute(command))};
       const input={tribeId:fixture.context.tribeId,connectionId,operationId:randomUUID(),confirmed:true as const,expectedVersion:1,requestId:randomUUID()},authorized=await resolver.execute({...input,operation:"validate_messaging_connection"});if(!authorized.allowed)throw new Error("Expected native validation authority");
-      const context=authorized.context,operations=new PostgresMessagingCredentialValidation(execute,async()=>fixture.fixture.config),budget=new ReserveMessagingUsageUseCase(new PostgresCredentialValidationBudget(execute,async()=>fixture.fixture.config),()=>new Date()),prepared=await operations.prepare(context,input);if(prepared.state!=="prepared")throw new Error("Expected committed preparation");expect((await budget.execute({context,operationId:prepared.validationId})).outcome).toBe("reserved");
+      const context=authorized.context,operations=new PostgresMessagingCredentialValidation(execute,async()=>fixture.fixture.config),budget=new ReserveMessagingUsageUseCase(new PostgresCredentialValidationBudget(execute,async()=>fixture.fixture.config)),prepared=await operations.prepare(context,input);if(prepared.state!=="prepared")throw new Error("Expected committed preparation");expect((await budget.execute({context,operationId:prepared.validationId})).outcome).toBe("reserved");
       if(finalState==="claimed"){
         const command={actorUserId:context.actorUserId,tribeId:context.tribeId,operationType:"validate_messaging_connection",idempotencyKey:input.operationId,intent:{connectionId,expectedVersion:input.expectedVersion,confirmed:input.confirmed}};
         const ledger=new PostgresAdmissionOperationRepository((run)=>database.withContext(fixture.fixture.own,run),async()=>true,async()=>fixture.fixture.config);

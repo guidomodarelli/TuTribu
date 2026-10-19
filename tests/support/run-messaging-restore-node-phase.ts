@@ -10,11 +10,9 @@ import { registerMessagingPrivateMacKeyMaterial } from "@/src/modules/messaging/
 import { createPersonalInvitationTokenCodec } from "@/src/modules/academy-admissions/infrastructure/tokens/personal-invitation-token";
 import { readAdmissionPolicy } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-storage";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
-import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { composeAdmissionRestoreOwnersForPrincipal, composeMessagingRestoreOwnersForPrincipal } from "./messaging-restore-composition";
 import { composeRestoreAdmissionDispatch } from "./messaging-restore-dispatch-native";
 import { prepareMessagingRestoreReplacement, admitAfterMessagingRestore } from "./messaging-restore-reopening-native";
-import { refreshMessagingActivationRecency } from "./messaging-activation-native";
 import { readMessagingRestoreFacts, readMessagingRestoreHistory, readRestoreAdmissionFacts } from "./messaging-restore-observations-native";
 import { createAdmissionProviderTransport } from "./admission-provider-transport";
 import { observeMessagingNativeCipher } from "./observe-messaging-native-cipher";
@@ -103,7 +101,6 @@ export async function runMessagingRestoreNodePhase(database: MessagingRestoreNod
   }
 
   if (input.phase === PHASE.locked || input.phase === PHASE.lockedOriginal || input.phase === PHASE.epoch || input.phase === PHASE.retiredKey) {
-    requireCondition(Date.now() < context.validUntil.getTime(), "original_authority_expired");
     const transport = createAdmissionProviderTransport([]);
     const observed = await observeMessagingNativeCipher(async () => {
       await requireDenied(messaging.secrets.loadAuthorizedSecret(context), "connection_incomplete");
@@ -195,8 +192,7 @@ export async function runMessagingRestoreNodePhase(database: MessagingRestoreNod
   const opened = await observeMessagingNativeCipher(() => replacement.owners.secrets.loadAuthorizedSecret(replacement.context));
   requireCondition(opened.value === replacement.replacement.credential && opened.cipherOperations > 0, "replacement_secret_or_observer_unavailable");
   result.cipherOperations = opened.cipherOperations;
-  const recency = await refreshMessagingActivationRecency(database, creation, REAUTHENTICATION_OPERATION.readMessagingSenders, context.connectionId);
-  const oldAccess = await observeMessagingNativeCipher(() => requireDenied(messaging.secrets.loadAuthorizedSecret({ ...context, ...recency }), "resource_unavailable"));
+  const oldAccess = await observeMessagingNativeCipher(() => requireDenied(messaging.secrets.loadAuthorizedSecret(context), "resource_unavailable"));
   requireCondition(oldAccess.cipherOperations === 0, "retired_secret_used_after_reopening");
   result.checkedRejections += 1;
   const preflight = await replacement.admission.preflight.execute({ tribeId: context.tribeId, requestId: randomUUID() });

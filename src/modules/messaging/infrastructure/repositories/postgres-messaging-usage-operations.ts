@@ -59,7 +59,7 @@ export class PostgresMessagingUsageOperations implements MessagingUsageOperation
 
   /**
    * Queries absence without a write or fabricated persisted resource version.
-   * @param context - Current server session and authorized tribe; no recency required for reading.
+   * @param context - Current server session and authorized tribe; no sensitive operation required for reading.
    * @returns Current own configuration or not_configured, without initialization or external work.
    */
   async read(context: MessagingUsageContext): Promise<MessagingUsagePolicyStateResult> {
@@ -130,7 +130,7 @@ export class PostgresMessagingUsageOperations implements MessagingUsageOperation
 
   /**
    * Explicitly initializes database-owned defaults under unique tribe identity.
-   * @param context - Current sensitive leader with recency for this exact initialization.
+   * @param context - Current sensitive leader with the operation scope for this exact initialization.
    * @param operationId - Original client operation UUID; private ledger identity is assigned by its owner.
    * @returns Original committed policy or registered progress, never a reset of an existing policy.
    */
@@ -150,7 +150,7 @@ export class PostgresMessagingUsageOperations implements MessagingUsageOperation
 
   /**
    * Recovers an identical original commit before applying CAS to a new intent.
-   * @param context - Current sensitive leader with recency for this exact edit.
+   * @param context - Current sensitive leader with the operation scope for this exact edit.
    * @param input - Boundary-validated countries/quotas, current expected version and explicit confirmation.
    * @returns Committed configuration snapshot; it does not claim the historical replay is today's current state.
    */

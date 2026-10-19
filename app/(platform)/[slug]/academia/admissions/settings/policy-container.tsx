@@ -15,16 +15,12 @@ import { ADMISSION_POLICY_BROWSER_PHASE as PHASE, ADMISSION_POLICY_BROWSER_COPY 
 import { ADMISSION_POLICY_OPERATION, ADMISSION_POLICY_PUBLIC_STATE, ADMISSION_POLICY_CONFIGURATION_ERROR, ADMISSION_POLICY_EDITABLE_FIELDS } from "@/src/modules/academy-admissions/constants/admission-policy";
 import { admissionPolicyStateResultSchema } from "@/src/modules/academy-admissions/application/results/admission-policy-result-schemas";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
-import type { AdmissionPolicyReauthenticationClient, AdmissionPolicyReauthenticationOperation } from "@/src/modules/academy-admissions/application/ports/admission-policy-reauthentication-client";
-import { admissionPolicyReauthenticationClient } from "@/lib/academy-admissions/admission-policy-reauthentication-client";
-import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
-import { ADMISSION_POLICY_SETTINGS_SEGMENT } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 import { MESSAGING_USAGE_SETTINGS_SEGMENT } from "@/src/modules/messaging/constants/messaging-usage";
 
 /** Only application props and own ports enter the workflow; no SDK identity is serialized. */
-type PolicyContainerProps = { initialState: AdmissionPolicyPageState; client?: AdmissionPolicyBrowserClient; reauthentication?: AdmissionPolicyReauthenticationClient };
+type PolicyContainerProps = { initialState: AdmissionPolicyPageState; client?: AdmissionPolicyBrowserClient };
 /** @param props - Safe SSR state and an optional own transport port. @returns A current account-scoped form that retains draft/UUID through conflict and uncertainty. */
-export function AdmissionPolicyContainer({ initialState, client = admissionApiClient, reauthentication = admissionPolicyReauthenticationClient }: PolicyContainerProps) {
+export function AdmissionPolicyContainer({ initialState, client = admissionApiClient }: PolicyContainerProps) {
   const ready = initialState.kind === "ready" ? initialState : null;
   const [state, setState] = useState(ready?.policy ?? null);
   const [draft, setDraft] = useState<AdmissionPolicyDraft | null>(ready ? createAdmissionPolicyDraft(ready.policy) : null);
@@ -35,7 +31,6 @@ export function AdmissionPolicyContainer({ initialState, client = admissionApiCl
   const [preflightResult, setPreflightResult] = useState<AdmissionPolicyPreflightDto | null>(null);
   const [fresh, setFresh] = useState(false), [canRetry, setCanRetry] = useState(false);
   const [privateVisible, setPrivateVisible] = useState(true);
-  const [reauthenticationOperation, setReauthenticationOperation] = useState<AdmissionPolicyReauthenticationOperation | null>(null), [reauthenticationHref, setReauthenticationHref] = useState<string | null>(null);
   const pending = useRef<AdmissionPolicyBrowserIntent | null>(null), loaded = useRef(false), busy = useRef(false);
   const mounted = useRef(false);
   const readController = useRef<AbortController | null>(null), writeController = useRef<AbortController | null>(null);
@@ -139,9 +134,8 @@ export function AdmissionPolicyContainer({ initialState, client = admissionApiCl
       if (!await checkViewer(controller.signal)) return;
       if (result.status === "failed") {
         setErrorMessage(result.message);
-        if (result.code === ADMISSION_ERROR_CODE.reauthenticationRequired) {
-          setReauthenticationOperation(intent.type === ADMISSION_POLICY_OPERATION.activate ? REAUTHENTICATION_OPERATION.activateAdmissionPolicy : intent.type === ADMISSION_POLICY_OPERATION.pause ? REAUTHENTICATION_OPERATION.pauseAdmissionPolicy : REAUTHENTICATION_OPERATION.updateAdmissionPolicy);
-        } else if (!result.uncertain) { writeAdmissionPolicyIntent(ready.viewerId, ready.slug, null); pending.current = null; }
+        /** A legacy session-change answer keeps the original intent so reloading can still recover it. */
+        if (!result.uncertain && result.code !== ADMISSION_ERROR_CODE.reauthenticationRequired) { writeAdmissionPolicyIntent(ready.viewerId, ready.slug, null); pending.current = null; }
         return;
       }
       if (result.value.state === "started") { setErrorMessage(COPY.uncertain); return; }
@@ -153,21 +147,6 @@ export function AdmissionPolicyContainer({ initialState, client = admissionApiCl
       if (writeController.current === controller) busy.current = false;
       if (!controller.signal.aborted) { setCanRetry(false); setPhase((current) => current === PHASE.changedViewer ? current : pending.current ? PHASE.uncertain : PHASE.idle); }
     }
-  };
-
-  /** Creates a global recency intent only on an explicit user action and retains the original local command. */
-  const prepareReauthentication = async () => {
-    if (!ready || !reauthenticationOperation || busy.current) return;
-    busy.current = true; readController.current?.abort(); const controller = new AbortController(); writeController.current = controller; setPhase(PHASE.writing); setConfirmed(false);
-    try {
-      if (!await checkViewer(controller.signal)) return;
-      const result = await reauthentication.create({ tribeId: ready.tribeId, resourceId: ready.tribeId, operation: reauthenticationOperation, returnPath: `/${encodeURIComponent(ready.slug)}/${ADMISSION_POLICY_SETTINGS_SEGMENT}`, confirmed: true }, controller.signal);
-      if (controller.signal.aborted || result.status === "aborted") return;
-      if (!await checkViewer(controller.signal)) return;
-      if (result.status === "ready") setReauthenticationHref(result.href);
-      else setErrorMessage("No pudimos preparar la confirmación de Google. Consultá el estado antes de continuar.");
-    } catch { if (!controller.signal.aborted) setErrorMessage("No pudimos preparar la confirmación de Google. Consultá el estado antes de continuar."); }
-    finally { if (writeController.current === controller) busy.current = false; if (!controller.signal.aborted) setPhase((current) => current === PHASE.changedViewer ? current : PHASE.uncertain); }
   };
 
   /** Preview is informational, abortable and invalidated by any edit; activation repeats authoritative checks. */
@@ -204,7 +183,7 @@ export function AdmissionPolicyContainer({ initialState, client = admissionApiCl
     void send(parsed.data);
   };
   return <>
-    <AdmissionPolicyForm state={state} draft={draft} confirmed={confirmed} canEdit={!disabled} busy={isBusy} errorMessage={errorMessage} validationMessage={validationMessage} preflightMessage={preflightMessage} preflightResult={preflightResult} activationAvailable={activationAvailable} pauseReason={pauseReason} usageSettingsHref={`/${encodeURIComponent(ready.slug)}/${MESSAGING_USAGE_SETTINGS_SEGMENT}`} statusMessage={statusMessage} uncertain={uncertain} canRetry={canRetry && fresh} reauthenticationRequired={reauthenticationOperation !== null} reauthenticationHref={reauthenticationHref} onPrepareReauthentication={() => { void prepareReauthentication(); }}
+    <AdmissionPolicyForm state={state} draft={draft} confirmed={confirmed} canEdit={!disabled} busy={isBusy} errorMessage={errorMessage} validationMessage={validationMessage} preflightMessage={preflightMessage} preflightResult={preflightResult} activationAvailable={activationAvailable} pauseReason={pauseReason} usageSettingsHref={`/${encodeURIComponent(ready.slug)}/${MESSAGING_USAGE_SETTINGS_SEGMENT}`} statusMessage={statusMessage} uncertain={uncertain} canRetry={canRetry && fresh}
       onChange={(next) => { setDraft(next); setConfirmed(false); setErrorMessage(null); setStatusMessage(null); setActivationAvailable(false); setPreflightResult(null); setPreflightMessage(COPY.draftChanged); }}
       onConfirm={(value) => { setConfirmed(value); setErrorMessage(null); }} onPauseReason={(value) => { setPauseReason(value); setConfirmed(false); setErrorMessage(null); }}
       onInitialize={() => action(ADMISSION_POLICY_OPERATION.initialize)} onSave={() => action(ADMISSION_POLICY_OPERATION.update)} onActivate={() => action(ADMISSION_POLICY_OPERATION.activate)} onPause={() => action(ADMISSION_POLICY_OPERATION.pause)} onCheckPreflight={() => { void preflight(); }} onReloadCurrent={launchRead}

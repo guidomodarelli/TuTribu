@@ -15,7 +15,7 @@ export type MessagingConnectionResourcesProps={
   senders:Pick<MessagingResourcePageResult,"items"|"nextCursor">;templates:Pick<MessagingResourcePageResult,"items"|"nextCursor">;
   fieldErrors:Partial<Record<"senderId"|"templateId"|"templateLanguage",string>>;message:{kind:"status"|"alert";text:string}|null;
   onChannelChange:(channel:MessagingConnectionResourcesProps["channel"])=>void;onSenderChange:(value:string)=>void;onTemplateChange:(value:string)=>void;onTemplateLanguageChange:(value:string)=>void;onConfirmationChange:(confirmed:boolean)=>void;
-  onReadSenders:()=>void;onReadTemplates:()=>void;onMoreSenders:()=>void;onMoreTemplates:()=>void;onSave:()=>void;onReauthenticate:()=>void;onReadSendersReauthenticate:()=>void;onReadTemplatesReauthenticate:()=>void;
+  onReadSenders:()=>void;onReadTemplates:()=>void;onMoreSenders:()=>void;onMoreTemplates:()=>void;onSave:()=>void;
 };
 
 /** @param props - Controlled own resource pages and explicit action callbacks. @returns Only fields required by the selected channel; no choice is selected automatically. */
@@ -44,11 +44,6 @@ export function MessagingConnectionResources(props:MessagingConnectionResourcesP
       {props.message&&<p className={styles.MessagingConnectionResources__feedback} role={props.message.kind}>{props.message.text}</p>}
       <Checkbox id={`${fieldId}-confirmation`} checked={props.confirmed} disabled={props.busy} onCheckedChange={(checked)=>props.onConfirmationChange(checked===true)} label="Revisé el canal y sus recursos y quiero guardar esta configuración." />
       <div className={styles.MessagingConnectionResources__actions}><Button className={styles.MessagingConnectionResources__action} type="submit" variant="primary" disabled={props.busy||!props.canSave||!channelAvailable}>Guardar configuración del canal</Button></div>
-      <div className={styles.MessagingConnectionResources__reauthentication}><span>Si TuTribu te pide confirmar tu cuenta:</span>
-        <Button className={styles.MessagingConnectionResources__action} variant="ghost" size="sm" disabled={props.busy||!channelAvailable} onClick={props.onReadSendersReauthenticate}>Confirmar consulta de remitentes con Google</Button>
-        {whatsapp&&<Button className={styles.MessagingConnectionResources__action} variant="ghost" size="sm" disabled={props.busy} onClick={props.onReadTemplatesReauthenticate}>Confirmar consulta de plantillas con Google</Button>}
-        <Button className={styles.MessagingConnectionResources__action} variant="ghost" size="sm" disabled={props.busy||!channelAvailable} onClick={props.onReauthenticate}>Confirmar configuración con Google</Button>
-      </div>
     </form>
   </section>;
 }

@@ -8,7 +8,7 @@ import { GetOwnAdmissionUseCases } from "@/src/modules/academy-admissions/applic
 /** Own reader ports do not grant membership, materialize expiration or create operations. */
 function ownQuery() {
   const now = new Date("2026-10-06T12:00:00Z");
-  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "applicant@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-07T12:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "applicant@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-07T12:00:00Z") }, googleAccount: null, identityEvidence: null};
   const request = { id: randomUUID(), status: "pending", version: 1, submittedAt: now.toISOString(), expiresAt: "2026-11-05T12:00:00Z", source: "common", needsVerification: false, eligibilityReasons: [], contact: { type: "email", maskedValue: "a•••@example.test", evidenceKind: "declared" }, internalReason: "Synthetic reviewer-only reason", secretReference: randomUUID() };
   const accounts = { getAuthenticatedAccount: vi.fn(async (): Promise<AuthenticatedAccount | null> => account) };
   const reader = { readOwn: vi.fn(async (): Promise<unknown | null> => request) };

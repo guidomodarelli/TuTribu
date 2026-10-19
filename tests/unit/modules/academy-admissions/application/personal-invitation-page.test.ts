@@ -11,7 +11,7 @@ import { loadPersonalInvitationPageState } from "@/src/modules/academy-admission
 /** @returns Controlled own ports and a canonical opaque proposal, without replacing SDK/database/schema libraries. */
 function fixture() {
   const now = new Date("2026-10-09T18:00:00Z"), token = randomBytes(32).toString("base64url");
-  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "synthetic@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-10T18:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "synthetic@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-10T18:00:00Z") }, googleAccount: null, identityEvidence: null};
   const accounts = { getAuthenticatedAccount: vi.fn(async (): Promise<AuthenticatedAccount | null> => account) };
   const preview = { execute: vi.fn<GetPersonalInvitationOverviewUseCase["execute"]>(async () => ({ ok: true, value: { state: "available", requiresAllowlist: false, expectedOutcome: "pending", overview: { tribe: { slug: "synthetic-personal", name: "Academia sintética", accessModel: "academy" }, policy: { mode: "manual_review", contactType: "email", requiresAdditionalVerification: false, isOpen: true, version: 1 }, state: "available", nextAction: "request_admission", safeMessage: "Al confirmar, enviarás una solicitud que deberá revisar el equipo de la academia." } } })) };
   const page = new GetPersonalInvitationPageUseCase(accounts, preview, () => now);

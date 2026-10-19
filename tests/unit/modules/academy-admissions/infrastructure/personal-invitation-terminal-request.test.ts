@@ -33,7 +33,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal te
         ? await recipient.commands.cancelOwn.execute(transition)
         : await leader.decide.execute({ ...transition, decision: "reject", externalMessage: null });
       expect(resolved).toMatchObject({ ok: true, value: { state: "completed", result: { status: terminalStatus, version: 3 } } });
-      await fixture.confirm(REAUTHENTICATION_OPERATION.advanceAdmissionRetry, requestId);
       expect(await leader.allowRetry.execute({ ...transition, operationId: randomUUID(), expectedVersion: 3, internalReason: "Nuevo intento expresamente autorizado" })).toMatchObject({ ok: true, value: { state: "completed", result: { version: 4 } } });
       expect(await recipient.commands.submit.execute({ ...submission, operationId: randomUUID() })).toMatchObject({ ok: false, failure: { code: "admission_ineligible" } });
       expect(await recipient.commands.submit.execute(submission)).toMatchObject({ ok: true, value: { state: "completed", replayed: true, result: submitted.value.result } });

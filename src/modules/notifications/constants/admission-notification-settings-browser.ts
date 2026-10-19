@@ -20,7 +20,6 @@ export const ADMISSION_NOTIFICATION_SETTINGS_COPY = {
   emailSaved: "La configuración del correo quedó guardada.",
   emailUnchanged: "La configuración del correo ya estaba guardada.",
   invalid: "Revisá la zona horaria y marcá la confirmación antes de guardar.",
-  authenticationFailed: "No pudimos preparar la confirmación de Google. Consultá el estado y volvé a intentarlo.",
 } as const;
 /** Terminal business rejections never announce a save or copy a provider diagnostic. */
 export const ADMISSION_NOTIFICATION_SETTINGS_REJECTION_COPY = {

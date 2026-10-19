@@ -36,7 +36,7 @@ export class PostgresConnectionDiagnosticRepository implements ConnectionDiagnos
   constructor(private readonly database: RequestDatabase, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly verification: ContactVerificationWriter, private readonly failureBudget: VerificationFailureBudget) {}
 
   /**
-   * Revalidates current SQL leader/session/recency/resource without reading protected credential bytes.
+   * Revalidates current SQL leader/session/resource without reading protected credential bytes.
    * @param command - Exact private resource and operation currently being confirmed.
    * @returns Nothing while scope, authority and all locked time bounds remain live.
    * @throws MessagingSecretAccessError when current authority or external security scope changes.

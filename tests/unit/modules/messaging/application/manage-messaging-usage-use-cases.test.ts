@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-/** Exercises server-derived usage identity, scoped recency and safe mixed operation outcomes. @module manage-messaging-usage-use-cases-tests */
+/** Exercises server-derived usage identity, exact operation scope and safe mixed operation outcomes. @module manage-messaging-usage-use-cases-tests */
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { ManageMessagingUsageUseCases } from "@/src/modules/messaging/application/use-cases/manage-messaging-usage-use-cases";
@@ -14,7 +14,7 @@ import type { MessagingUsagePolicyResult, MessagingUsagePolicyStateResult } from
 function prepareUseCases() {
   const now = new Date("2026-10-06T12:00:00.000Z");
   const userId = randomUUID(), tribeId = randomUUID(), sessionId = randomUUID(), accountId = randomUUID(), subject = randomUUID();
-  let account: MessagingAuthenticatedAccount | null = { userId, session: { id: sessionId, expiresAt: new Date(now.getTime()+3_600_000) }, googleAccount: { id: accountId, subject }, recentAuthentication: [REAUTHENTICATION_OPERATION.initializeMessagingUsage, REAUTHENTICATION_OPERATION.updateMessagingUsage].map((operation) => ({ id: randomUUID(), intentId: randomUUID(), userId, sessionId, accountId, subject, tribeId, operation, resourceId: tribeId, authenticatedAt: now, validUntil: new Date(now.getTime()+540_000), verifiedAt: now, invalidatedAt: null })) };
+  let account: MessagingAuthenticatedAccount | null = { userId, session: { id: sessionId, expiresAt: new Date(now.getTime()+3_600_000) }, googleAccount: { id: accountId, subject } };
   let role: "leader" | "guardian" = "leader";
   const calls: MessagingUsageSensitiveContext[] = [];
   const policy: MessagingUsagePolicyResult = { version: 1, allowedCountries: [], verificationDailyLimit: 100, notificationDailyLimit: 200, platformMaximums: { verificationDailyLimit: 1000, notificationDailyLimit: 5000 }, consumption: { verificationToday: 0, notificationToday: 0 } };
@@ -40,9 +40,9 @@ describe("messaging usage use cases", () => {
     fixture.operations.initialize = async () => { throw cause; };
     expect(await fixture.cases.initialize({ tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), confirmed: true })).toMatchObject({ ok: false, failure: { code: "authentication_required", cause } });
   });
-  it("should read absence without recency, a connection or a mutation and keep presentation defaults separate", async () => {
+  it("should read absence without a Google session binding, a connection or a mutation and keep presentation defaults separate", async () => {
     const fixture = prepareUseCases();
-    fixture.setAccount({ ...fixture.account!, googleAccount: null, recentAuthentication: [] });
+    fixture.setAccount({ ...fixture.account!, googleAccount: null});
     expect(await fixture.cases.read({ tribeId: fixture.tribeId, requestId: randomUUID() })).toMatchObject({ ok: true, value: { state: "not_configured", policy: null }, defaults: { allowedCountries: [], verificationDailyLimit: 100, notificationDailyLimit: 200 } });
     expect(fixture.calls).toEqual([]);
   });
@@ -58,12 +58,13 @@ describe("messaging usage use cases", () => {
     expect(fixture.calls).toHaveLength(1);
   });
 
-  it("should preserve registered unfinished work and reject missing or crossed recency before persistence", async () => {
+  it("should preserve registered unfinished work with the active session alone and require the Google session binding before persistence", async () => {
     const fixture = prepareUseCases();
     const input = { tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), confirmed: true as const, expectedVersion: 1, allowedCountries: ["AR"], verificationDailyLimit: 100, notificationDailyLimit: 200 };
     expect(await fixture.cases.update(input)).toMatchObject({ ok: true, value: { state: "started", operationId: input.operationId } });
-    fixture.setAccount({ ...fixture.account!, recentAuthentication: fixture.account!.recentAuthentication.filter((evidence) => evidence.operation === REAUTHENTICATION_OPERATION.initializeMessagingUsage) });
-    expect(await fixture.cases.update(input)).toMatchObject({ ok: false, failure: { code: "reauthentication_required" } });
+    expect(fixture.calls[0]).toMatchObject({ operation: REAUTHENTICATION_OPERATION.updateMessagingUsage, resourceId: fixture.tribeId });
+    fixture.setAccount({ ...fixture.account!, googleAccount: null });
+    expect(await fixture.cases.update(input)).toMatchObject({ ok: false, failure: { code: "authentication_required" } });
     expect(fixture.calls).toHaveLength(1);
   });
 

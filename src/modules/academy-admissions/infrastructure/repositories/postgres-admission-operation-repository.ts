@@ -98,7 +98,7 @@ export class PostgresAdmissionOperationRepository {
           return { state: "claimed", ledgerId: row.id, owner: currentClaim.owner, version: renewed.version };
         });
       } catch (error) {
-        if (error instanceof AdmissionOperationError && (error.code === ADMISSION_ERROR_CODE.permissionDenied || error.code === ADMISSION_ERROR_CODE.authenticationRequired || error.code === ADMISSION_ERROR_CODE.reauthenticationRequired)) throw error;
+        if (error instanceof AdmissionOperationError && (error.code === ADMISSION_ERROR_CODE.permissionDenied || error.code === ADMISSION_ERROR_CODE.authenticationRequired)) throw error;
         // A block may have COMMITted before its response was lost. Never redispatch
         // it here: the row owner and exact original must be consulted first.
         try { const original = await this.read(command, schema); if (original?.state === OPERATION_STATE.completed) return original; }

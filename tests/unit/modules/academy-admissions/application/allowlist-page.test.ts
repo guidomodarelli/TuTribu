@@ -14,7 +14,7 @@ import type { AllowlistCommandWriter, AllowlistReader } from "@/src/modules/acad
 /** @returns Real application readers with doubles confined to own account/persistence ports. */
 function fixture() {
   const now = new Date("2026-10-09T08:00:00Z"), tribeId = randomUUID(), userId = randomUUID();
-  const account: AuthenticatedAccount = { userId, normalizedEmail: "leader@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-10T08:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId, normalizedEmail: "leader@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-10T08:00:00Z") }, googleAccount: null, identityEvidence: null};
   const accounts = { getAuthenticatedAccount: vi.fn(async () => account) }, actor: AdmissionActorFacts = { userId, tribeId, role: "leader", status: "active" };
   const resolver = new ResolveAdmissionContextUseCase({ getAuthenticatedAccount: async () => account }, { getCurrentActor: async () => actor, getResource: async () => null }, () => now);
   const reader: AllowlistReader = { list: vi.fn(async () => ({ entries: [], nextCursor: null })), read: vi.fn(async () => null) };
@@ -27,7 +27,7 @@ function fixture() {
 }
 
 describe("allowlist SSR page", () => {
-  it("should project one filtered current leader page without policy creation, recency demand or native session data", async () => {
+  it("should project one filtered current leader page without policy creation, writes or native session data", async () => {
     const data = fixture(), cursorId = randomUUID(), cursor = `2026-10-09T07:00:00.123456Z~${cursorId}`;
     const state = await loadAllowlistPageState({ ...data.input, query: { limit: "20", search: "Grupo", status: "disabled", cursor } }, async () => data.useCase);
     expect(state).toMatchObject({ kind: "ready", viewerId: data.account.userId, contactType: null, page: { items: [], nextCursor: null }, query: { limit: 20, search: "Grupo", status: "disabled", cursor } });

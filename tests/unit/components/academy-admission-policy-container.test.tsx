@@ -9,7 +9,6 @@ import type { AdmissionPolicyBrowserClient } from "@/src/modules/academy-admissi
 import type { AdmissionPolicyPageState } from "@/src/modules/academy-admissions/application/results/admission-policy-page-state";
 import { readAdmissionPolicyIntent, writeAdmissionPolicyIntent } from "@/lib/academy-admissions/admission-policy-intent";
 import { createAdmissionPolicyDraft } from "@/src/modules/academy-admissions/application/commands/admission-policy-browser-intent";
-import type { AdmissionPolicyReauthenticationClient } from "@/src/modules/academy-admissions/application/ports/admission-policy-reauthentication-client";
 
 const tribeId = "83ecbfaf-0e7c-4afb-aefc-62b62800d367", viewerId = "synthetic-leader", slug = "synthetic-academy";
 const router = { back: vi.fn(), bfcacheId: "policy-container-test", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: vi.fn(), replace: vi.fn() } satisfies AppRouterInstance;
@@ -231,17 +230,15 @@ describe("policy route workflow", () => {
     expect(screen.getByRole("button", { name: "Activar control de admisión" })).toBeDisabled();
   });
 
-  it("should create action-scoped reauthentication only on an explicit click while retaining the original draft and without refreshing or resending", async () => {
-    const data = fixture(), href = "/auth/reauthenticate?intentId=297d47c2-5419-4c3d-a339-e8b7970275ca";
-    const recency = { create: vi.fn<AdmissionPolicyReauthenticationClient["create"]>(async () => ({ status: "ready", href })) };
-    data.client.updatePolicy.mockResolvedValueOnce({ status: "failed", code: "reauthentication_required", message: "Volvé a autenticarte para confirmar esta operación sensible.", uncertain: false });
-    render(<AdmissionPolicyContainer initialState={data.state} client={data.client} reauthentication={recency} />, { wrapper: Providers });
+  it("should show a legacy session-change answer as a plain error, keep the original intent and offer no Google control", async () => {
+    const data = fixture(), message = "Tu sesión cambió. Recargá la página e intentá de nuevo.";
+    data.client.updatePolicy.mockResolvedValueOnce({ status: "failed", code: "reauthentication_required", message, uncertain: false });
+    render(data.node, { wrapper: Providers });
     await confirm(); fireEvent.click(screen.getByRole("button", { name: "Guardar borrador" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Preparar confirmación con Google" })).toBeInTheDocument());
-    expect(recency.create).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Preparar confirmación con Google" }));
-    await waitFor(() => expect(screen.getByRole("link", { name: "Continuar con la confirmación de Google" })).toHaveAttribute("href", href));
-    expect(recency.create).toHaveBeenCalledWith({ tribeId, resourceId: tribeId, operation: "update_admission_policy", returnPath: `/${slug}/academia/admissions/settings`, confirmed: true }, expect.any(AbortSignal));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(message));
+    expect(screen.getByRole("button", { name: "Consultar operación original" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Google/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Google/ })).not.toBeInTheDocument();
     expect(readAdmissionPolicyIntent(viewerId, slug)).toMatchObject({ type: "update_admission_policy", input: { expectedVersion: 3 } });
     expect(data.client.updatePolicy).toHaveBeenCalledOnce();
     expect(router.refresh).not.toHaveBeenCalled();

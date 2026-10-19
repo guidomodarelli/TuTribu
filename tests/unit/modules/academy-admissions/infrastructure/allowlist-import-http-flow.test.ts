@@ -9,7 +9,6 @@ import { prepareAllowlistManagement } from "@/tests/support/allowlist-management
 import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
-import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native import HTTP", () => {
   it("should preview, confirm and recover originals while GET/download never changes the list and lost permission closes the report", async () => {
@@ -19,7 +18,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native import 
       const config = await readMessagingHostingSecurityConfig({ MESSAGING_SECURITY_ENVIRONMENT: messagingSecurity.environment, MESSAGING_SECURITY_EPOCH: messagingSecurity.securityEpoch, MESSAGING_RECOVERY_LOCK: "false", MESSAGING_KEYRINGS_JSON: messagingSecurity.keyringsJson });
       const fixture = await prepareAllowlistManagement(database, config), slug = `allowlist-${fixture.tribeId}`;
       for (const migration of ["20261009061000_guard_allowlist_import_progress.sql", "20261005093000_guard_academy_membership_sources.sql", "20261007231500_bind_verification_operation_purpose.sql", "20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261008220000_scope_admission_operation_recovery.sql"]) await database.applyMigration(migration);
-      await fixture.confirm(REAUTHENTICATION_OPERATION.previewAllowlistImport);
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
         const cookie = `better-auth.session_token=${encodeURIComponent(`${fixture.sessionToken}.${await makeSignature(fixture.sessionToken, secret)}`)}`, headers = { cookie, origin, "content-type": "application/json" }, base = `${origin}/api/tribes/${slug}/admissions`;
         /** @param path - Own native resource path. @param method - Static HTTP operation. @param body - Own input without actor/role/provider metadata. @returns Actual native HTTP response without logging protected headers. */
@@ -37,7 +35,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native import 
         const recovery = await request(`/operations/${previewInput.operationId}`); expect(recovery.status).toBe(200); expect(await recovery.json()).toMatchObject({ type: "preview_allowlist_import", result: { importId, sourceVersion: 1 } });
         expect((await request(`/allowlist/imports/${importId}/report`)).status).toBe(200);
         expect((await request("/allowlist")).status).toBe(200); expect((await (await request("/allowlist")).json()).items).toEqual([]);
-        await fixture.confirm(REAUTHENTICATION_OPERATION.confirmAllowlistImport, importId);
         const confirmation = { operationId: randomUUID(), confirmed: true, expectedVersion: 1, selectedRows: [1] };
         const committed = await request(`/allowlist/imports/${importId}/confirm`, "POST", confirmation), result = await committed.json();
         expect(committed.status).toBe(200); expect(result).toMatchObject({ state: "completed", result: { importId, state: "completed", counts: { selected: 1, added: 1, skipped: 1 } } });

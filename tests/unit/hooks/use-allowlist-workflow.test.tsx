@@ -152,16 +152,13 @@ describe("list workflow ownership", () => {
     expect(result.current.pending).toBeNull(); expect(result.current.page.items).toEqual([]); expect(data.client.write).toHaveBeenCalledOnce();
   });
 
-  it("should prepare only the exact entry-bound global confirmation while preserving the draft without another write", async () => {
-    const data = fixture(), reauthentication = { create: vi.fn(async () => ({ status: "ready" as const, href: "/auth/reauthenticate?intentId=synthetic" })) };
-    vi.mocked(data.client.write).mockResolvedValue({ status: "failed", code: "reauthentication_required", message: "Volvé a autenticarte para confirmar esta operación sensible.", uncertain: false });
-    const { result } = renderHook(() => useAllowlistWorkflow({ ...data, reauthentication })); await waitFor(() => expect(result.current.ready).toBe(true));
+  it("should show a legacy session-change answer as a plain error while preserving the draft without another write", async () => {
+    const data = fixture(), message = "Tu sesión cambió. Recargá la página e intentá de nuevo.";
+    vi.mocked(data.client.write).mockResolvedValue({ status: "failed", code: "reauthentication_required", message, uncertain: false });
+    const { result } = renderHook(() => useAllowlistWorkflow(data)); await waitFor(() => expect(result.current.ready).toBe(true));
     act(() => result.current.select(data.entry)); act(() => { result.current.changeDraft({ ...result.current.draft, displayName: "Conservar" }); result.current.setConfirmed(true); });
     await act(async () => result.current.save());
-    expect(result.current.reauthenticationRequired).toBe(true); expect(result.current.confirmed).toBe(false);
-    await act(async () => result.current.reauthenticate());
-    expect(reauthentication.create).toHaveBeenCalledWith({ tribeId: data.initialState.tribeId, resourceId: data.entry.id, operation: "update_allowlist_entry", returnPath: "/synthetic-academy/academia/admissions/allowlist", confirmed: true }, expect.any(AbortSignal));
-    expect(result.current.recoveryHref).toBe("/auth/reauthenticate?intentId=synthetic"); expect(result.current.draft.displayName).toBe("Conservar");
+    expect(result.current.errorMessage).toBe(message); expect(result.current.confirmed).toBe(false); expect(result.current.draft.displayName).toBe("Conservar");
     expect(result.current.pending).toBeNull(); expect(data.client.write).toHaveBeenCalledOnce();
   });
 });

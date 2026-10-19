@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 /** Exercises immutable candidate versions, exact AAD, no-op and original replay against real protected PostgreSQL. @module messaging-connection-configuration-tests */
-import {randomBytes,randomUUID} from "node:crypto";
+import {randomUUID} from "node:crypto";
 import {sql} from "drizzle-orm";
 import {describe,expect,it} from "vitest";
 import {withAcademyAdmissionDatabase} from "@/tests/support/academy-admission-database";
@@ -11,7 +11,6 @@ import type {RequestDatabase} from "@/src/modules/shared/infrastructure/database
 import {createMessagingSecretCipher,type MessagingSecretEnvelope} from "@/src/modules/messaging/infrastructure/encryption/messaging-secret-cipher";
 import {prepareContactVerificationIssuer} from "@/tests/support/contact-verification-issuance-fixture";
 import {expectMessageDeliveryCancellationAudits} from "@/tests/support/message-delivery-cancellation-audit-assertions";
-import {RECENT_AUTHENTICATION_WINDOW_MS} from "@/src/modules/auth/constants/recent-authentication";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("immutable SQL configuration",()=>{
   it("should cancel the original queued diagnostic with the current configuration ledger once while preserving its delivery identity",async()=>{
@@ -21,16 +20,14 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("immutable SQL config
       await database.applyMigration("20261005100000_guard_messaging_secret_retirement.sql");
       const issued=await fixture.issue();
       if(issued.state!=="completed"||issued.result.outcome!=="issued")throw new Error("Synthetic original diagnostic did not complete");
-      const deliveryId=issued.result.deliveryId,sessionId=randomUUID(),accountId=randomUUID(),subject=randomUUID(),intentId=randomUUID();
+      const deliveryId=issued.result.deliveryId,sessionId=randomUUID(),accountId=randomUUID(),subject=randomUUID();
       const context=await database.withContext(fixture.own,async(transaction):Promise<AuthorizedMessagingContext>=>{
-        const now=new Date((await transaction.execute<{instant:string|Date}>(sql`select clock_timestamp() as instant`)).rows[0].instant),validUntil=new Date(now.getTime()+RECENT_AUTHENTICATION_WINDOW_MS);
+        const now=new Date((await transaction.execute<{instant:string|Date}>(sql`select clock_timestamp() as instant`)).rows[0].instant);
         await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${accountId},${fixture.userId},'google',${subject},${now},${now})`);
         await transaction.execute(sql`insert into public.session(id,token,"userId","expiresAt","createdAt","updatedAt") values (${sessionId},${randomUUID()},${fixture.userId},clock_timestamp()+interval '1 hour',${now},${now})`);
         await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${sessionId},${fixture.userId},${accountId},${subject},${fixture.own.email})`);
-        await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.userId},${sessionId},${accountId},${subject},${fixture.scope.tribeId},'configure_messaging_connection',${fixture.scope.connectionId},'/synthetic-diagnostic-configure',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);
-        await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.userId},${accountId},${subject},${sessionId},${fixture.scope.tribeId},'configure_messaging_connection',${fixture.scope.connectionId},${now},${now},${validUntil})`);
         const secretRef=(await transaction.execute<{secret_ref:string}>(sql`select secret_ref from public.messaging_connection_versions where connection_id=${fixture.scope.connectionId} and tribe_id=${fixture.scope.tribeId} and version=1`)).rows[0].secret_ref;
-        return{authorizationPurpose:"sensitive_leader",actorUserId:fixture.userId,sessionId,accountId,subject,tribeId:fixture.scope.tribeId,resourceId:fixture.scope.connectionId,connectionId:fixture.scope.connectionId,connectionVersion:1,secretRef,environment:fixture.config.environment,securityEpoch:fixture.config.securityEpoch,requestId:randomUUID(),operation:"configure_messaging_connection",authenticatedAt:now,validUntil};
+        return{authorizationPurpose:"sensitive_leader",actorUserId:fixture.userId,sessionId,accountId,subject,tribeId:fixture.scope.tribeId,resourceId:fixture.scope.connectionId,connectionId:fixture.scope.connectionId,connectionVersion:1,secretRef,environment:fixture.config.environment,securityEpoch:fixture.config.securityEpoch,requestId:randomUUID(),operation:"configure_messaging_connection"};
       });
       const before=await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select id,source_resource_id,recipient_ref,idempotency_key,created_at,deadline_at from public.message_deliveries where id=${deliveryId}`)).rows[0]);
       const input={operationId:randomUUID(),expectedVersion:1,confirmed:true as const,channel:"email" as const,senderId:randomUUID()};
@@ -54,11 +51,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("immutable SQL config
       await database.applyMigration("20261005100000_guard_messaging_secret_retirement.sql");
       const created=await fixture.repository.create(fixture.context,{operationId:randomUUID(),confirmed:true,providerId:"zavu",name:"Configuración inmutable",apiKey:credential});if(created.state!=="completed")throw new Error("Expected candidate creation");
       const context=await database.withContext(fixture.fixture.own,async(transaction):Promise<AuthorizedMessagingContext>=>{
-        const now=new Date((await transaction.execute<{now:string}>(sql`select clock_timestamp() as now`)).rows[0].now),validUntil=new Date(now.getTime()+540_000),intentId=randomUUID();
-        await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.context.actorUserId},${fixture.context.sessionId},${fixture.context.accountId},${fixture.context.subject},${fixture.context.tribeId},'configure_messaging_connection',${created.result.id},'/synthetic-configure',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);
-        await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.context.actorUserId},${fixture.context.accountId},${fixture.context.subject},${fixture.context.sessionId},${fixture.context.tribeId},'configure_messaging_connection',${created.result.id},${now},${now},${validUntil})`);
         const secretRef=(await transaction.execute<{secret_ref:string}>(sql`select secret_ref from public.messaging_connection_versions where connection_id=${created.result.id} and version=1`)).rows[0].secret_ref;
-        return{...fixture.context,authorizationPurpose:"sensitive_leader",resourceId:created.result.id,connectionId:created.result.id,connectionVersion:1,secretRef,operation:"configure_messaging_connection",authenticatedAt:now,validUntil,environment:fixture.fixture.config.environment,securityEpoch:fixture.fixture.config.securityEpoch};
+        return{...fixture.context,authorizationPurpose:"sensitive_leader",resourceId:created.result.id,connectionId:created.result.id,connectionVersion:1,secretRef,operation:"configure_messaging_connection",environment:fixture.fixture.config.environment,securityEpoch:fixture.fixture.config.securityEpoch};
       });
       const execute=<Result>(_context:AuthorizedMessagingContext,run:(transaction:RequestDatabase)=>Promise<Result>)=>database.withContext(fixture.fixture.own,run);
       const owner=new PostgresMessagingConnectionConfiguration(execute,async()=>fixture.fixture.config),input={operationId:randomUUID(),expectedVersion:1,confirmed:true as const,channel:"email"as const,senderId};

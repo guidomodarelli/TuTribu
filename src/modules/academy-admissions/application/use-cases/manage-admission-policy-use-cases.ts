@@ -11,12 +11,12 @@ type PolicyQuery = { tribeId: string; requestId: string };
 type PolicyConfirmation = PolicyQuery & { operationId: string; confirmed: true };
 type VersionedPolicyConfirmation = PolicyConfirmation & { expectedVersion: number };
 
-/** Current scope and private signed recency are derived by the resolver, never the browser. */
+/** Current scope is derived by the resolver, never the browser. */
 export class ManageAdmissionPolicyUseCases {
-  /** @param resolver - Current account/role/resource and signed recency owner. @param reader - Read-only own policy state. @param writer - Atomic current-preparation/ledger/CAS authority. */
+  /** @param resolver - Current account/role/resource owner. @param reader - Read-only own policy state. @param writer - Atomic current-preparation/ledger/CAS authority. */
   constructor(private readonly resolver: Pick<ResolveAdmissionContextUseCase, "execute">, private readonly reader: AdmissionPolicyStateReader, private readonly writer: AdmissionPolicyCommandWriter) {}
 
-  /** @param query - Exact authorized tribe and correlation. @returns Current policy or real absence for a current leader, without any creation or recency demand. */
+  /** @param query - Exact authorized tribe and correlation. @returns Current policy or real absence for a current leader, without any creation. */
   async read(query: PolicyQuery) {
     try {
       const authority = await this.resolver.execute({ ...query, action: ADMISSION_ACTION.readPolicy });

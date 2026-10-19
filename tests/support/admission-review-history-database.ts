@@ -60,9 +60,9 @@ export async function prepareAdmissionReviewHistoryDatabase(database: AcademyAdm
   await database.grantTablesToNonBypass(["tribes", "tribe_members", "session", "user", "academy_admission_requests", "academy_admission_audit_events"]);
   const readRolePrivileges = await database.withContext(fixture.own, async (transaction) => {
     /** @returns Actual catalog SELECT privileges needed by the real authenticated-account projection. */
-    const inspect = async () => (await transaction.execute<{ account: boolean; session_binding: boolean; identity_evidence: boolean; recent_authentication: boolean }>(sql`select has_table_privilege(${database.nonBypassRole.name},'public.account','SELECT') as account,has_table_privilege(${database.nonBypassRole.name},'public.global_session_identity_bindings','SELECT') as session_binding,has_table_privilege(${database.nonBypassRole.name},'public.global_identity_evidence','SELECT') as identity_evidence,has_table_privilege(${database.nonBypassRole.name},'public.recent_authentication_evidence','SELECT') as recent_authentication`)).rows[0];
+    const inspect = async () => (await transaction.execute<{ account: boolean; session_binding: boolean; identity_evidence: boolean }>(sql`select has_table_privilege(${database.nonBypassRole.name},'public.account','SELECT') as account,has_table_privilege(${database.nonBypassRole.name},'public.global_session_identity_bindings','SELECT') as session_binding,has_table_privilege(${database.nonBypassRole.name},'public.global_identity_evidence','SELECT') as identity_evidence`)).rows[0];
     const before = await inspect();
-    await transaction.execute(sql`grant select on table public.account,public.global_session_identity_bindings,public.global_identity_evidence,public.recent_authentication_evidence to ${sql.identifier(database.nonBypassRole.name)}`);
+    await transaction.execute(sql`grant select on table public.account,public.global_session_identity_bindings,public.global_identity_evidence to ${sql.identifier(database.nonBypassRole.name)}`);
     return { before, after: await inspect() };
   });
   return { ...fixture, leader, guardian, applicant, otherApplicant, tribeId, foreignTribeId, admissionRequestId, otherRequestId, foreignRequestId, eventIds, readRolePrivileges, slug: `review-history-${tribeId}` };

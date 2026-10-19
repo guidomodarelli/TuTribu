@@ -15,9 +15,9 @@ export type AdmissionNotificationSettingsProps = {
   preference: AdmissionNotificationPreferenceView; mode: AdmissionNotificationPreferenceMode; email: AdmissionNotificationEmailSettingsView | null;
   draft: AdmissionNotificationEmailSettingsDraft; busy: boolean; disabled: boolean; confirmed: boolean; pending: boolean; canRetry: boolean;
   preferenceError: string | null; preferenceStatus: string | null; emailError: string | null; emailStatus: string | null;
-  reauthenticationRequired: boolean; reauthenticationHref: string | null; messagingHref: string;
+  messagingHref: string;
   onMode: (mode: AdmissionNotificationPreferenceMode) => void; onSavePreference: () => void; onDraft: (draft: AdmissionNotificationEmailSettingsDraft) => void;
-  onConfirm: (confirmed: boolean) => void; onSaveEmail: () => void; onRead: () => void; onRetryOriginal: () => void; onPrepareReauthentication: () => void;
+  onConfirm: (confirmed: boolean) => void; onSaveEmail: () => void; onRead: () => void; onRetryOriginal: () => void;
 };
 /** @param props - Guarded current state, retained draft and explicit callbacks. @returns Two accessible forms with adjacent validation, status and original recovery controls. */
 export function AdmissionNotificationSettings(props: AdmissionNotificationSettingsProps) {
@@ -47,7 +47,6 @@ export function AdmissionNotificationSettings(props: AdmissionNotificationSettin
       {props.emailStatus && <p role="status" className={styles.AdmissionNotificationSettings__help}>{props.emailStatus}</p>}
       <div className={styles.AdmissionNotificationSettings__check}><Checkbox id={confirmId} checked={props.confirmed} disabled={props.busy || props.disabled || props.pending && !props.canRetry} onCheckedChange={(checked) => props.onConfirm(checked === true)} /><label htmlFor={confirmId}>Confirmo la habilitación y la zona elegidas para el correo de esta tribu.</label></div>
       <div className={styles.AdmissionNotificationSettings__actions}>{props.pending ? <Button type="button" onClick={props.onRetryOriginal} disabled={props.busy || props.disabled || !props.canRetry || !props.confirmed}>Reintentar el cambio original</Button> : <Button type="submit" disabled={editDisabled || !props.confirmed || zoneInvalid}>Guardar correo de admisión</Button>}<Link href={props.messagingHref}>Revisar mensajería</Link></div>
-      {props.reauthenticationRequired && <div className={styles.AdmissionNotificationSettings__recovery}><p>Este cambio requiere una confirmación reciente de Google. Al volver, revisá y confirmá el cambio original; la autenticación no lo guarda por sí sola.</p>{props.reauthenticationHref ? <Link href={props.reauthenticationHref}>Continuar con Google</Link> : <Button type="button" variant="secondary" onClick={props.onPrepareReauthentication} disabled={props.busy}>Preparar confirmación con Google</Button>}</div>}
     </form>}
   </div>;
 }

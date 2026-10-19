@@ -6,7 +6,7 @@ import {describe,expect,it,vi} from "vitest";
 import {MessagingConnections} from "@/components/academy-admissions/messaging-connections";
 
 /** @returns Controlled own view state without session, SDK, HTTP adapter or a stored credential. */
-function presenterFixture(){return{configuration:{audience:"leader" as const,selected:null,candidate:null,usage:{state:"not_configured" as const,policy:null}},name:"",apiKey:"",confirmed:false,busy:false,canSave:false,canReauthenticate:true,validationConfirmed:false,canValidate:false,fieldErrors:{},message:null,onNameChange:vi.fn(),onApiKeyChange:vi.fn(),onConfirmationChange:vi.fn(),onSave:vi.fn(),onReauthenticate:vi.fn(),onValidationReauthenticate:vi.fn(),onValidationConfirmationChange:vi.fn(),onValidate:vi.fn()};}
+function presenterFixture(){return{configuration:{audience:"leader" as const,selected:null,candidate:null,usage:{state:"not_configured" as const,policy:null}},name:"",apiKey:"",confirmed:false,busy:false,canSave:false,validationConfirmed:false,canValidate:false,fieldErrors:{},message:null,onNameChange:vi.fn(),onApiKeyChange:vi.fn(),onConfirmationChange:vi.fn(),onSave:vi.fn(),onValidationConfirmationChange:vi.fn(),onValidate:vi.fn()};}
 describe("messaging connection first step",()=>{
   it("should show only the operational alert to a guardian without credential controls",()=>{
     const props=presenterFixture();render(<MessagingConnections {...props} configuration={{audience:"guardian",operationalAlert:"attention_required"}} />);
@@ -22,8 +22,8 @@ describe("messaging connection first step",()=>{
     const props=presenterFixture();render(<MessagingConnections {...props} busy fieldErrors={{apiKey:"Ingresá la clave antes de guardar."}} />);
     expect(screen.getByText("Ingresá la clave antes de guardar.")).toBeVisible();expect(screen.getByLabelText("Clave de Zavu")).toHaveAccessibleDescription(expect.stringContaining("Ingresá la clave antes de guardar."));expect(screen.getByRole("button",{name:/Guardar conexión/i})).toBeDisabled();
   });
-  it("should show a single primary action per form and keep Google confirmation secondary",()=>{
+  it("should show a single primary action per form and no Google confirmation control",()=>{
     const props=presenterFixture();render(<MessagingConnections {...props} />);
-    expect(screen.getByRole("heading",{level:2,name:"Conectar Zavu"})).toBeVisible();expect(screen.queryByRole("heading",{name:"Conexión de mensajería"})).not.toBeInTheDocument();expect(screen.queryByRole("alert")).not.toBeInTheDocument();expect(screen.getByRole("button",{name:"Confirmar con Google"})).toBeEnabled();expect(props.onReauthenticate).not.toHaveBeenCalled();expect(props.onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading",{level:2,name:"Conectar Zavu"})).toBeVisible();expect(screen.queryByRole("heading",{name:"Conexión de mensajería"})).not.toBeInTheDocument();expect(screen.queryByRole("alert")).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:/Google/})).not.toBeInTheDocument();expect(props.onSave).not.toHaveBeenCalled();
   });
 });

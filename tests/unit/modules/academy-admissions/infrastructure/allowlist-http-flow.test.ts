@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-/** Exercises actual Next list routes, native signed auth/recency and PostgreSQL, including readonly historical recovery. @module allowlist-http-flow-tests */
+/** Exercises actual Next list routes, native signed auth sessions and PostgreSQL, including readonly historical recovery. @module allowlist-http-flow-tests */
 import { randomBytes, randomUUID } from "node:crypto";
 import { makeSignature } from "better-auth/crypto";
 import { sql } from "drizzle-orm";
@@ -9,7 +9,6 @@ import { prepareAllowlistManagement } from "@/tests/support/allowlist-management
 import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
-import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native allowlist HTTP flow", () => {
   it("should create, query, update and recover an original under actual leader authority without changing memberships", async () => {
@@ -19,7 +18,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native allowli
       const config = await readMessagingHostingSecurityConfig({ MESSAGING_SECURITY_ENVIRONMENT: messagingSecurity.environment, MESSAGING_SECURITY_EPOCH: messagingSecurity.securityEpoch, MESSAGING_RECOVERY_LOCK: "false", MESSAGING_KEYRINGS_JSON: messagingSecurity.keyringsJson });
       const fixture = await prepareAllowlistManagement(database, config), slug = `allowlist-${fixture.tribeId}`;
       for (const migration of ["20261005093000_guard_academy_membership_sources.sql", "20261007231500_bind_verification_operation_purpose.sql", "20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261008220000_scope_admission_operation_recovery.sql"]) await database.applyMigration(migration);
-      await fixture.confirm(REAUTHENTICATION_OPERATION.createAllowlistEntry);
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
         const signed = encodeURIComponent(`${fixture.sessionToken}.${await makeSignature(fixture.sessionToken, secret)}`), headers = { cookie: `better-auth.session_token=${signed}`, origin, "content-type": "application/json" }, base = `${origin}/api/tribes/${slug}/admissions`;
         /** @param path - Own list/operation path. @param method - Explicit native method. @param body - Own proposal without actor or permission. @returns Actual response without private headers in diagnostics. */
@@ -33,7 +31,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native allowli
         expect(original).toMatchObject({ state: "completed", operationId: create.operationId, result: { version: 1, created: true, changed: true } });
         const entryId = String(original.result.entryId);
         expect((await request("/allowlist", "POST", create)).status).toBe(200);
-        await fixture.confirm(REAUTHENTICATION_OPERATION.updateAllowlistEntry, entryId);
         const edit = { operationId: randomUUID(), confirmed: true, expectedVersion: 1, displayName: "Otro nombre", status: "disabled" };
         const updated = await request(`/allowlist/${entryId}`, "PATCH", edit);
         expect(updated.status).toBe(200); expect(await updated.json()).toMatchObject({ result: { entryId, version: 2, created: false, changed: true } });

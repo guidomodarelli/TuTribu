@@ -7,7 +7,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
   return createAllowlistHandlers(createAllowlistRequestModule).list(request, context);
 }
 
-/** @param request - Explicit version-free creation proposal. @param context - Native tribe params. @returns Original creation after exact leader/session/recency checks. */
+/** @param request - Explicit version-free creation proposal. @param context - Native tribe params. @returns Original creation after exact leader/session checks. */
 export async function POST(request: Request, context: { params: Promise<{ slug: string }> }) {
   return createAllowlistHandlers(createAllowlistRequestModule).create(request, context);
 }

@@ -1,6 +1,6 @@
 /** @vitest-environment node */
-/** Exercises actual account/recency/issuer/budgets/marker/SecretStore/SDK and local diagnostic proof isolation. @module diagnostic-issue-workflow-tests */
-import {randomBytes,randomUUID} from "node:crypto";
+/** Exercises actual account/issuer/budgets/marker/SecretStore/SDK and local diagnostic proof isolation. @module diagnostic-issue-workflow-tests */
+import {randomUUID} from "node:crypto";
 import {setTimeout as delay} from "node:timers/promises";
 import {sql} from "drizzle-orm";
 import {describe,expect,it} from "vitest";
@@ -21,17 +21,16 @@ import type {AuthorizedMessagingContext} from "@/src/modules/messaging/domain/re
 import {PostgresMessagingConnectionConfiguration} from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-configuration";
 import {ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS} from "@/tests/support/constants/admission-notification-validation";
 
-/** @param database - Owned disposable branch. @param phone - Whether to exercise required country configuration. @param alternativePhoneChannel - Whether the closed transport accepts explicit SMS/WhatsApp replacement. @returns Actual native account/recency and implemented request/work roots without any provider network. */
+/** @param database - Owned disposable branch. @param phone - Whether to exercise required country configuration. @param alternativePhoneChannel - Whether the closed transport accepts explicit SMS/WhatsApp replacement. @returns Actual native account and implemented request/work roots without any provider network. */
 async function workflowFixture(database:AcademyAdmissionTestDatabase,phone=false,alternativePhoneChannel=false){
   const fixture=await prepareContactVerificationIssuer(database,"connection_diagnostic",phone);
   for(const migration of["20261005092500_guard_messaging_attempts.sql","20261005095000_guard_global_identity_context.sql","20261005100000_guard_messaging_secret_retirement.sql","20261006140000_claim_messaging_deliveries_fairly.sql","20261006160000_purge_verification_delivery_material.sql","20261007050000_claim_scoped_diagnostic_delivery.sql"])await database.applyMigration(migration);
   const sessionId=randomUUID(),accountId=randomUUID(),subject=randomUUID();
   await database.withContext(fixture.own,async(transaction)=>{
-    const now=new Date((await transaction.execute<{now:string}>(sql`select clock_timestamp() as now`)).rows[0].now),validUntil=new Date(now.getTime()+540_000);
+    const now=new Date((await transaction.execute<{now:string}>(sql`select clock_timestamp() as now`)).rows[0].now);
     await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${accountId},${fixture.userId},'google',${subject},${now},${now})`);
     await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${fixture.userId},${randomUUID()},${new Date(now.getTime()+3_600_000)},${now},${now})`);
     await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${sessionId},${fixture.userId},${accountId},${subject},${fixture.own.email})`);
-    for(const operation of["diagnose_messaging_connection","verify_messaging_diagnostic","configure_messaging_connection","update_messaging_usage"]){const intentId=randomUUID(),resourceId=operation==="update_messaging_usage"?fixture.scope.tribeId:fixture.scope.connectionId;await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.userId},${sessionId},${accountId},${subject},${fixture.scope.tribeId},${operation},${resourceId},'/synthetic-diagnostic-workflow',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.userId},${accountId},${subject},${sessionId},${fixture.scope.tribeId},${operation},${resourceId},${now},${now},${validUntil})`);}
   });
   let transactions=0,sentCode="";
   const withActor=async<Result>(userId:string|null,run:(database:RequestDatabase)=>Promise<Result>)=>{transactions+=1;try{return await database.withContext({userId,email:userId===fixture.userId?fixture.own.email:null},run);}finally{transactions-=1;}};
@@ -80,8 +79,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("native diagnostic is
       expect(await fixture.request.useCases.verifyDiagnostic.execute({tribeId:fixture.scope.tribeId,connectionId:fixture.scope.connectionId,diagnosticId:original.diagnosticId,operationId:randomUUID(),code:fixture.sentCode,requestId:randomUUID()})).toMatchObject({ok:true,value:{state:"completed",result:{outcome:"verified",connectionVersion:1}}});
       if(selected)await database.withContext(fixture.own,(transaction)=>transaction.execute(sql`update public.tenant_messaging_connections set is_selected=true,selected_version=1,is_candidate=false,candidate_version=null,state='active' where id=${fixture.scope.connectionId}`));
       const context=await database.withContext(fixture.own,async(transaction):Promise<AuthorizedMessagingContext>=>{
-        const row=(await transaction.execute<{secret_ref:string;authenticated_at:Date;valid_until:Date}>(sql`select resource.secret_ref,evidence.authenticated_at,evidence.valid_until from public.messaging_connection_versions resource join public.recent_authentication_evidence evidence on evidence.resource_id=resource.connection_id::text and evidence.operation='configure_messaging_connection' and evidence.session_id=${fixture.sessionId} where resource.connection_id=${fixture.scope.connectionId} and resource.version=1`)).rows[0];
-        return{authorizationPurpose:"sensitive_leader",actorUserId:fixture.userId,sessionId:fixture.sessionId,accountId:fixture.accountId,subject:fixture.subject,operation:"configure_messaging_connection",resourceId:fixture.scope.connectionId,tribeId:fixture.scope.tribeId,connectionId:fixture.scope.connectionId,connectionVersion:1,environment:fixture.config.environment,securityEpoch:fixture.config.securityEpoch,requestId:randomUUID(),secretRef:row.secret_ref,authenticatedAt:new Date(row.authenticated_at),validUntil:new Date(row.valid_until)};
+        const row=(await transaction.execute<{secret_ref:string}>(sql`select resource.secret_ref from public.messaging_connection_versions resource where resource.connection_id=${fixture.scope.connectionId} and resource.version=1`)).rows[0];
+        return{authorizationPurpose:"sensitive_leader",actorUserId:fixture.userId,sessionId:fixture.sessionId,accountId:fixture.accountId,subject:fixture.subject,operation:"configure_messaging_connection",resourceId:fixture.scope.connectionId,tribeId:fixture.scope.tribeId,connectionId:fixture.scope.connectionId,connectionVersion:1,environment:fixture.config.environment,securityEpoch:fixture.config.securityEpoch,requestId:randomUUID(),secretRef:row.secret_ref};
       });
       const writer=new PostgresMessagingConnectionConfiguration((_context,run)=>database.withContext(fixture.own,run),async()=>fixture.config),senderId=randomUUID();
       expect(await writer.commit(context,{operationId:randomUUID(),expectedVersion:1,confirmed:true,channel:"email",senderId},{credential:fixture.credential,sender:{resourceId:senderId,name:"Nuevo remitente",channels:["email"],canSendWhatsappTemplates:false}})).toMatchObject({state:"completed",result:{configurationVersion:2,version:2}});

@@ -16,7 +16,7 @@ function audienceOf(facts:MessagingLeadershipFacts|null,tribeId:string,userId:st
   if(facts.membership.role===TRIBE_MEMBER_ROLE.leader&&facts.leaderUserId===userId)return"leader";
   return facts.membership.role===TRIBE_MEMBER_ROLE.guardian?"guardian":null;
 }
-/** Read does not require recency, connection, keyring or provider availability. */
+/** Read does not require a sensitive operation, connection, keyring or provider availability. */
 export class ReadMessagingConfigurationUseCase{
   /** @param accounts - Current native identity. @param authorization - Current canonical tenant membership. @param reader - Role-scoped DB-only metadata projection. @param clock - Current time after waits. */
   constructor(private readonly accounts:MessagingAccountProvider,private readonly authorization:Pick<MessagingAuthorizationReader,"getCurrentLeadership">,private readonly reader:MessagingConfigurationReader<MessagingConfigurationResult>,private readonly clock:()=>Date){}

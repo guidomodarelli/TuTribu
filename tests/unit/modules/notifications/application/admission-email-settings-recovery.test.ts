@@ -9,7 +9,7 @@ import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain
 /** @returns A genuine readonly use case with controlled owned account/registry ports, not SDK or SQL doubles. */
 function fixture() {
   const tribeId = randomUUID(), operationId = randomUUID(), now = new Date("2026-10-15T20:00:00Z");
-  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "recovery@example.invalid", session: { id: randomUUID(), expiresAt: new Date("2026-10-15T21:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "recovery@example.invalid", session: { id: randomUUID(), expiresAt: new Date("2026-10-15T21:00:00Z") }, googleAccount: null, identityEvidence: null};
   const stored = { operationType: "update_admission_email_settings", operation: { state: "completed", operationId, replayed: true, result: { status: "changed", settings: { tribeId, enabled: true, version: 1, enabledAtMicroseconds: 1792090800123456, timeZone: "Asia/Kolkata" } } } };
   const accounts = { getAuthenticatedAccount: vi.fn(async () => account) };
   const reader = { read: vi.fn(async (): Promise<unknown | null> => stored) };

@@ -8,7 +8,6 @@ import { prepareAllowlistManagement } from "@/tests/support/allowlist-management
 import { seedContactVerificationChallenge, createContactVerificationWriter } from "@/tests/support/contact-verification-database-fixture";
 import { TRIBE_LIFECYCLE_AUDIT_MIGRATIONS } from "@/tests/support/constants/tribe-lifecycle-audit";
 import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS } from "@/tests/support/constants/membership-lifecycle-validation";
-import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { TRIBE_LIFECYCLE_AUDIT_CONTEXT } from "@/src/modules/tribes/constants/tribe-lifecycle";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { PostgresTribeLifecycleRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-lifecycle-repository";
@@ -33,7 +32,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native lifecycle r
       });
       const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: fixture.userId, sessionId: fixture.sessionId }), (_identity, run) => database.withContext(fixture.own, run));
       const lifecycle = new ManageTribeLifecycleUseCases(accounts, new PostgresTribeLifecycleRepository((_context, run) => database.withContext(fixture.own, run), async () => fixture.config, createAdmissionScopeClosureWriter));
-      await fixture.confirm(action === "exit_academy" ? REAUTHENTICATION_OPERATION.exitAcademyMode : REAUTHENTICATION_OPERATION.deleteTribe);
       const settings = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ config_version: number }>(sql`select config_version from public.tribe_academy_settings where tribe_id=${fixture.tribeId}`)).rows[0]);
       const command = { tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), action, expectedConfigVersion: settings.config_version, confirmed: true };
       expect(await lifecycle.change(command)).toMatchObject({ state: "completed", replayed: false });
@@ -56,7 +54,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native lifecycle r
             await transaction.execute(sql`insert into public.academy_admission_audit_events(tribe_id,resource_type,event_type) values (${target.tribeId},'message_delivery','delivery_cancelled')`);
           })).rejects.toMatchObject({ cause: { code: "42501" } });
         }
-        await fixture.confirm(REAUTHENTICATION_OPERATION.deleteTribe);
         expect(await lifecycle.change({ ...command, operationId: randomUUID(), action: "delete_tribe", expectedConfigVersion: settings.config_version + 1 })).toMatchObject({ state: "completed", replayed: false });
       }
       await database.withContext(fixture.own, async (transaction) => {

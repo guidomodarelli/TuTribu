@@ -5,7 +5,7 @@ import type { RequestDatabase } from "@/src/modules/shared/infrastructure/databa
 import type { AuthorizedMessagingContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import type { CredentialValidationBudget, CredentialValidationBudgetCommand, CredentialValidationBudgetResult } from "@/src/modules/messaging/domain/repositories/credential-validation-budget";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
-import { authorizeMessagingSecret, messagingSecretLifetimeIsCurrent } from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-secret-authorizer";
+import { authorizeMessagingSecret, messagingSecretLifetimeFailure, messagingSecretLifetimeIsCurrent } from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-secret-authorizer";
 import { MessagingSecretAccessError } from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
 import { MessagingUsageBudgetError } from "@/src/modules/messaging/domain/errors/messaging-usage-budget-error";
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
@@ -29,7 +29,7 @@ export class PostgresCredentialValidationBudget implements CredentialValidationB
   constructor(private readonly execute: CredentialValidationExecutor, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>) {}
 
   /**
-   * Rechecks actual session, account, recency, canonical leader and live immutable resource metadata.
+   * Rechecks actual session, account, canonical leader and live immutable resource metadata.
    * @param database - Current transaction, already holding its own identity/resource locks.
    * @param context - Original private validation action and resource.
    * @returns Current SQL time after the last awaited authority/configuration read.
@@ -43,7 +43,7 @@ export class PostgresCredentialValidationBudget implements CredentialValidationB
     if (config.recoveryLocked || config.environment !== context.environment || config.securityEpoch !== context.securityEpoch
       || !config.keyrings.credential.keys.has(authority.keyId)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.connectionIncomplete);
     const now = new Date((await database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-    if (!messagingSecretLifetimeIsCurrent(authority, now)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.reauthenticationRequired);
+    if (!messagingSecretLifetimeIsCurrent(authority, now)) throw new MessagingSecretAccessError(messagingSecretLifetimeFailure(authority, now));
     return now;
   }
 

@@ -17,16 +17,15 @@ import { createAdmissionPreflightQueryHandler } from "@/src/modules/academy-admi
 /** Uses the actual authority resolver and boundary; only feature-owned account/storage ports are replaced. */
 function commandFixture() {
   const now = new Date("2026-10-07T07:00:00Z"), tribeId = randomUUID(), userId = randomUUID(), sessionId = randomUUID(), accountId = randomUUID(), subject = randomUUID(), operationId = randomUUID();
-  const account: AuthenticatedAccount = { userId, normalizedEmail: "leader@example.test", session: { id: sessionId, expiresAt: new Date("2026-10-08T07:00:00Z") }, googleAccount: { id: accountId, subject }, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId, normalizedEmail: "leader@example.test", session: { id: sessionId, expiresAt: new Date("2026-10-08T07:00:00Z") }, googleAccount: { id: accountId, subject }, identityEvidence: null};
   const actor: AdmissionActorFacts = { userId, tribeId, role: "leader", status: "active" };
   const resolver = new ResolveAdmissionContextUseCase({ getAuthenticatedAccount: async () => account }, { getCurrentActor: async () => actor, getResource: async () => null }, () => now);
   const completed = { state: "completed" as const, operationId, replayed: false, result: { policyId: tribeId, version: 1, verificationEpoch: 1, activatedAt: null, controlActivated: false, changed: true } };
   const writer: AdmissionPolicyCommandWriter = { initialize: vi.fn(async () => completed), update: vi.fn(async () => completed), activate: vi.fn(async () => completed), pause: vi.fn(async () => completed) };
   const policy = new ManageAdmissionPolicyUseCases(resolver, { read: async () => ({ policy: null, controlActivated: false, usage: null }) }, writer);
   const open = vi.fn(async () => ({ policy, resolveTribe: { execute: async () => ({ ok: true as const, value: { tribeId } }) } }));
-  const signedScope = (operation: string) => { account.recentAuthentication = [{ id: randomUUID(), intentId: randomUUID(), userId, sessionId, accountId, subject, tribeId, resourceId: tribeId, operation, authenticatedAt: now, verifiedAt: now, validUntil: new Date("2026-10-07T07:09:00Z"), invalidatedAt: null }]; };
   const request = (body: unknown, origin = "https://tutribu.example.test") => new Request("https://tutribu.example.test/api/tribes/synthetic/policy", { method: "POST", headers: { origin, "content-type": "application/json" }, body: JSON.stringify(body) });
-  return { tribeId, operationId, actor, completed, writer, open, signedScope, request, handlers: createAdmissionPolicyCommandHandlers(open), context: { params: Promise.resolve({ slug: "synthetic" }) } };
+  return { tribeId, operationId, actor, account, now, completed, writer, open, request, handlers: createAdmissionPolicyCommandHandlers(open), context: { params: Promise.resolve({ slug: "synthetic" }) } };
 }
 
 describe("policy explicit input contracts", () => {
@@ -43,7 +42,7 @@ describe("policy explicit input contracts", () => {
     for (const extra of [{ expectedVersion: 0 }, { verificationEpoch: 9 }, { activatedAt: "2026-10-07T01:00:00Z" }, { allowedCountries: ["AR"] }, { paid: true, verified: true }, { role: "leader" }]) expect(admissionPolicyUpdateSchema.safeParse({ ...intent, ...extra }).success).toBe(false);
   });
 
-  it("should keep activate and pause explicit without accepting a preflight or recency boolean as authority", () => {
+  it("should keep activate and pause explicit without accepting a preflight or authority boolean", () => {
     const intent = { operationId: randomUUID(), confirmed: true, expectedVersion: 2 };
     expect(admissionPolicyActivationSchema.parse(intent)).toEqual(intent);
     expect(admissionPolicyActivationSchema.safeParse({ ...intent, preflightComplete: true, hasRecentAuthentication: true }).success).toBe(false);
@@ -91,20 +90,20 @@ describe("policy native command HTTP boundary", () => {
     expect(data.writer.initialize).not.toHaveBeenCalled();
   });
 
-  it("should deny a guardian and unrelated or browser-only recency before the policy writer", async () => {
-    const data = commandFixture(), body = { operationId: data.operationId, confirmed: true, expectedVersion: 1 };
+  it("should deny a guardian, an expired session or browser-only authority flags before the policy writer", async () => {
+    const data = commandFixture(), body = { operationId: data.operationId, confirmed: true, expectedVersion: 1 }, expiresAt = data.account.session.expiresAt;
     data.actor.role = "guardian";
     expect((await data.handlers.activate(data.request(body), data.context)).status).toBe(403);
     data.actor.role = "leader";
+    data.account.session.expiresAt = data.now;
     expect((await data.handlers.activate(data.request(body), data.context)).status).toBe(401);
-    data.signedScope("update_admission_policy");
-    expect((await data.handlers.activate(data.request(body), data.context)).status).toBe(401);
+    data.account.session.expiresAt = expiresAt;
     expect((await data.handlers.activate(data.request({ ...body, hasRecentAuthentication: true, preflightComplete: true }), data.context)).status).toBe(400);
     expect(data.writer.activate).not.toHaveBeenCalled();
   });
 
   it("should confirm activation only with an original committed protection marker", async () => {
-    const data = commandFixture(); data.signedScope("activate_admission_policy");
+    const data = commandFixture();
     const body = { operationId: data.operationId, confirmed: true, expectedVersion: 1 };
     vi.mocked(data.writer.activate).mockResolvedValue({ ...data.completed, result: { ...data.completed.result, version: 2 } });
     expect((await data.handlers.activate(data.request(body), data.context)).status).toBe(500);
@@ -114,8 +113,8 @@ describe("policy native command HTTP boundary", () => {
     expect(await activated.json()).toMatchObject({ result: { version: 2, controlActivated: true, activatedAt: "2026-10-07T07:00:00Z" } });
   });
 
-  it("should preserve the exact signed initialization intent and publish only its minimal original snapshot", async () => {
-    const data = commandFixture(); data.signedScope("update_admission_policy");
+  it("should preserve the exact initialization intent and publish only its minimal original snapshot", async () => {
+    const data = commandFixture();
     const response = await data.handlers.initialize(data.request({ operationId: data.operationId, confirmed: true }), data.context);
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual(data.completed);
@@ -124,7 +123,7 @@ describe("policy native command HTTP boundary", () => {
   });
 
   it("should reject an effective initialization claiming activation or later counters while preserving existing-resource no-ops", async () => {
-    const data = commandFixture(); data.signedScope("update_admission_policy");
+    const data = commandFixture();
     const body = { operationId: data.operationId, confirmed: true };
     for (const incorrect of [{ version: 2 }, { verificationEpoch: 2 }, { activatedAt: "2026-10-07T07:00:00Z", controlActivated: true }]) {
       vi.mocked(data.writer.initialize).mockResolvedValue({ ...data.completed, result: { ...data.completed.result, ...incorrect } });
@@ -137,7 +136,7 @@ describe("policy native command HTTP boundary", () => {
   });
 
   it("should map stale policy to visible 409 without exposing its private cause", async () => {
-    const data = commandFixture(); data.signedScope("pause_admission_policy");
+    const data = commandFixture();
     vi.mocked(data.writer.pause).mockRejectedValue(new AdmissionOperationError("policy_conflict", { cause: new Error("Synthetic private SQL diagnostic") }));
     const response = await data.handlers.pause(data.request({ operationId: data.operationId, confirmed: true, expectedVersion: 3, reason: "  Revisión  " }), data.context);
     expect(response.status).toBe(409);
@@ -148,7 +147,7 @@ describe("policy native command HTTP boundary", () => {
   });
 
   it("should keep editable draft settings apart from the original UUID/version and reject a second country list", async () => {
-    const data = commandFixture(); data.signedScope("update_admission_policy");
+    const data = commandFixture();
     const patch = { mode: "manual_review", contactType: "email", isOpen: false, allowCommonExceptions: false, requiresAdditionalVerification: true, phoneChannel: null, allowSmsAlternative: false, messagingConnectionId: null, messagingConnectionVersion: null };
     const body = { operationId: data.operationId, confirmed: true, expectedVersion: 3, ...patch };
     expect((await data.handlers.update(data.request({ ...body, allowedCountries: ["AR"] }), data.context)).status).toBe(400);
@@ -162,7 +161,7 @@ describe("policy native command HTTP boundary", () => {
   });
 
   it("should preserve a historical replay of the same versioned intent and reject a claimed no-op counter increment", async () => {
-    const data = commandFixture(); data.signedScope("pause_admission_policy");
+    const data = commandFixture();
     const body = { operationId: data.operationId, confirmed: true, expectedVersion: 3, reason: "Pausa explícita" };
     vi.mocked(data.writer.pause).mockResolvedValue({ ...data.completed, replayed: true, result: { ...data.completed.result, version: 4 } });
     const replay = await data.handlers.pause(data.request(body), data.context);
@@ -175,7 +174,7 @@ describe("policy native command HTTP boundary", () => {
   });
 
   it("should return 202 only for the registered original operation and reject foreign commit or UUID results", async () => {
-    const data = commandFixture(); data.signedScope("update_admission_policy");
+    const data = commandFixture();
     const body = { operationId: data.operationId, confirmed: true };
     vi.mocked(data.writer.initialize).mockResolvedValue({ state: "started", operationId: data.operationId });
     const started = await data.handlers.initialize(data.request(body), data.context);

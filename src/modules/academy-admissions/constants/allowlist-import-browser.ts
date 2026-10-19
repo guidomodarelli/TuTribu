@@ -15,7 +15,6 @@ export const ALLOWLIST_IMPORT_BROWSER_COPY = {
   conflict: "La importación cambió. Conservamos tu selección: consultá el progreso actual y confirmá nuevamente las filas pendientes.", policyConflict: "La configuración cambió. Conservamos el archivo: consultá la configuración actual antes de crear otra vista previa.",
   storage: "No pudimos conservar este borrador en el navegador. Revisá el espacio disponible antes de continuar.", account: "La cuenta o el acceso cambió. Volvé a cargar esta página para continuar.",
   noPolicy: "Guardá la configuración de admisión antes de importar contactos.", expired: "La vista previa venció. Elegí nuevamente el archivo para preparar otra importación.",
-  reauthentication: "Confirmá tu identidad con Google para continuar con este paso de importación.", reauthenticationFailed: "No pudimos preparar la confirmación de identidad. Conservamos el borrador para intentarlo otra vez.",
   downloaded: "Se preparó la descarga privada.", empty: "El archivo no contiene filas de datos. Elegí otro CSV para importar.",
   historical: "La operación original quedó confirmada. Sus filas temporales ya no están disponibles; podés elegir otro archivo sin repetir esa escritura.",
   currentReadFailed: "La operación original quedó confirmada. No pudimos consultar el progreso actual; volvé a consultarlo antes de confirmar otro cambio.",

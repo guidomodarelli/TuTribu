@@ -1,4 +1,4 @@
-/** Binds policy authorization to the shared native leader/session/recency guard. @module postgres-admission-policy-authorizer */
+/** Binds policy authorization to the shared native leader/session guard. @module postgres-admission-policy-authorizer */
 import "server-only";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { AuthorizedAdmissionContext } from "../../domain/repositories/admission-authorization-reader";
@@ -9,7 +9,7 @@ import { authorizeAdmissionLeader, admissionDatabaseNow } from "./postgres-admis
 /** Keeps the policy clock API while sampling the original database transaction after waits. */
 export const admissionPolicyDatabaseNow = admissionDatabaseNow;
 
-/** @param database - Original guarded transaction. @param context - Private current policy scope. @param operation - Exact server-selected policy mutation purpose or read-only absence. @returns Nothing while canonical leadership, session and policy recency remain valid. */
+/** @param database - Original guarded transaction. @param context - Private current policy scope. @param operation - Exact server-selected policy mutation purpose or read-only absence. @returns Nothing while canonical leadership, session remain valid. */
 export async function authorizeAdmissionPolicy(database: RequestDatabase, context: AuthorizedAdmissionContext, operation?: ReauthenticationOperation): Promise<void> {
   await authorizeAdmissionLeader(database, context, { action: operation ? ADMISSION_ACTION.configurePolicy : ADMISSION_ACTION.readPolicy, resourceId: context.tribeId, operation });
 }

@@ -1,4 +1,4 @@
-/** Recovers one original notification operation under current leadership without requiring fresh recency or keys. @module read-notification-recovery-operation-use-case */
+/** Recovers one original notification operation under current leadership without requiring keys. @module read-notification-recovery-operation-use-case */
 import type { ResolveMessagingTribeManagementUseCase } from "./resolve-messaging-tribe-management-use-case";
 import type { NotificationRecoveryOperationReader } from "../../domain/repositories/notification-recovery-operation-reader";
 import { notificationRecoveryOperationSchema } from "../../constants/notification-delivery-recovery-schema";

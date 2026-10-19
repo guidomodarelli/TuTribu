@@ -561,23 +561,13 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("manual admission d
     });
   }, 240_000);
 
-  it("should advance only retry metadata with exact current leader recency, preserve terminal effects and replay before CAS", async () => {
+  it("should advance only retry metadata with the live leader session, preserve terminal effects and replay before CAS", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareManualAdmission(database), created = await fixture.repository.submit(fixture.submission);
       if (created.state !== "completed" || !created.result.admissionRequestId) throw new Error("Synthetic retry request did not commit");
       const requestId = created.result.admissionRequestId;
       await fixture.repository.decide({ ...fixture.submission, userId: fixture.leaderId, sessionId: fixture.leaderSessionId, operationId: randomUUID(), type: "decide_admission_request", admissionRequestId: requestId, expectedVersion: 1, decision: "reject", internalReason: "Corrección necesaria", externalMessage: "Revisá los datos." });
       const retry = { ...fixture.submission, userId: fixture.leaderId, sessionId: fixture.leaderSessionId, operationId: randomUUID(), admissionRequestId: requestId, expectedVersion: 2, internalReason: "Corrección autorizada" };
-      await expect(fixture.repository.allowRetry(retry)).rejects.toMatchObject({ code: "reauthentication_required" });
-      expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select id from public.academy_admission_operations where idempotency_key=${retry.operationId}`)).rows)).toEqual([]);
-      const accountId = randomUUID(), subject = randomUUID(), intentId = randomUUID();
-      await database.withContext(fixture.own, async (transaction) => {
-        const now = new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now), validUntil = new Date(now.getTime() + 540_000);
-        await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${accountId},${fixture.leaderId},'google',${subject},${now},${now})`);
-        await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${fixture.leaderSessionId},${fixture.leaderId},${accountId},${subject},${`${fixture.leaderId}@example.test`})`);
-        await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.leaderId},${fixture.leaderSessionId},${accountId},${subject},${fixture.tribeId},'advance_admission_retry',${requestId},'/synthetic-retry',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);
-        await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.leaderId},${accountId},${subject},${fixture.leaderSessionId},${fixture.tribeId},'advance_admission_retry',${requestId},${now},${now},${validUntil})`);
-      });
       const before = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select status,decision_id,submitted_at,expires_at from public.academy_admission_requests where id=${requestId}`)).rows[0]);
       const result = await fixture.repository.allowRetry(retry);
       expect(result).toMatchObject({ state: "completed", result: { admissionRequestId: requestId, version: 3, retryAllowedAt: expect.any(String) } });
@@ -629,8 +619,11 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("manual admission d
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select version,retry_allowed_at from public.academy_admission_requests where id=${requestId}`)).rows)).toEqual(expiryBaseline);
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select state,public_result from public.academy_admission_operations where idempotency_key=${expiredIntent.operationId}`)).rows)).toEqual([{ state: "started", public_result: null }]);
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::int as retry_audit from public.academy_admission_audit_events where resource_id=${requestId} and event_type='retry_allowed'`)).rows)).toEqual([{ retry_audit: 1 }]);
-      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where intent_id=${intentId}`));
-      await expect(fixture.repository.allowRetry({ ...retry, operationId: randomUUID(), expectedVersion: 4 })).rejects.toMatchObject({ code: "reauthentication_required" });
+      await database.withContext(fixture.own, async (transaction) => {
+        await transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()+interval '1 hour' where id=${fixture.leaderSessionId}`);
+        await transaction.execute(sql`update public.tribe_members set role='guardian' where tribe_id=${fixture.tribeId} and user_id=${fixture.leaderId}`);
+      });
+      await expect(fixture.repository.allowRetry({ ...retry, operationId: randomUUID(), expectedVersion: 4 })).rejects.toMatchObject({ code: "permission_denied" });
     });
   }, 240_000);
 });

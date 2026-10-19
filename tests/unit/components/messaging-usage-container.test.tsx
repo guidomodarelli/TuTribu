@@ -8,7 +8,6 @@ import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provi
 import { MessagingUsageContainer } from "@/app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container";
 import type { MessagingUsagePageState } from "@/src/modules/messaging/application/results/messaging-usage-page-state";
 import type { MessagingUsageBrowserClient } from "@/src/modules/messaging/application/ports/messaging-usage-browser-client";
-import type { MessagingUsageReauthenticationClient } from "@/src/modules/messaging/application/ports/messaging-usage-reauthentication-client";
 import { readMessagingUsageIntent, writeMessagingUsageIntent } from "@/lib/messaging/messaging-usage-intent";
 import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
 import { AdmissionWorkspaceRoute } from "@/tests/support/admission-workspace-route";
@@ -28,8 +27,7 @@ function fixture(configured = true) {
     initialize: vi.fn<MessagingUsageBrowserClient["initialize"]>(async (_slug, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { ...policy, version: 1, allowedCountries: [] } } })),
     update: vi.fn<MessagingUsageBrowserClient["update"]>(async (_slug, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { ...policy, version: input.expectedVersion + 1, allowedCountries: input.allowedCountries, verificationDailyLimit: input.verificationDailyLimit, notificationDailyLimit: input.notificationDailyLimit } } })),
   };
-  const reauthentication = { create: vi.fn<MessagingUsageReauthenticationClient["create"]>(async () => ({ status: "ready", href: "/auth/reauthenticate?intentId=297d47c2-5419-4c3d-a339-e8b7970275ca" })) };
-  return { state, policy, client, reauthentication, node: <MessagingUsageContainer initialState={state} client={client} reauthentication={reauthentication} /> };
+  return { state, policy, client, node: <MessagingUsageContainer initialState={state} client={client} /> };
 }
 /** Confirmation is always a fresh interaction, distinct from stored confirmed:true. */
 async function confirm() { const checkbox = screen.getByRole("checkbox", { name: /Revisé los países/ }); await waitFor(() => expect(checkbox).not.toBeDisabled()); fireEvent.click(checkbox); }
@@ -197,14 +195,13 @@ describe("early usage route workflow", () => {
     await waitFor(() => expect(screen.getByText(/La cuenta cambió/)).toBeInTheDocument());
     expect(screen.queryByRole("spinbutton", { name: "Códigos por día" })).not.toBeInTheDocument(); expect(data.client.update).not.toHaveBeenCalled();
   });
-  it("should create exact reauthentication only on an explicit click and retain the original command for the return", async () => {
-    const data = fixture(); data.client.update.mockResolvedValueOnce({ status: "failed", code: "reauthentication_required", message: "Volvé a autenticarte para confirmar esta operación sensible.", uncertain: false });
+  it("should show a legacy session-change answer as a plain error, keep the original command and offer no Google control", async () => {
+    const message = "Tu sesión cambió. Recargá la página e intentá de nuevo.";
+    const data = fixture(); data.client.update.mockResolvedValueOnce({ status: "failed", code: "reauthentication_required", message, uncertain: false });
     render(data.node, { wrapper: Providers }); await confirm(); fireEvent.click(screen.getByRole("button", { name: "Guardar países y cupos" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Preparar confirmación con Google" })).toBeInTheDocument());
-    expect(data.reauthentication.create).not.toHaveBeenCalled(); fireEvent.click(screen.getByRole("button", { name: "Preparar confirmación con Google" }));
-    await waitFor(() => expect(screen.getByRole("link", { name: "Continuar con la confirmación de Google" })).toBeInTheDocument());
-    expect(data.reauthentication.create.mock.calls[0][0]).toEqual({ tribeId, resourceId: tribeId, operation: "update_messaging_usage", returnPath: `/${slug}/academia/admissions/messaging`, confirmed: true });
-    expect(readMessagingUsageIntent(viewerId, slug)).not.toBeNull(); expect(data.client.update).toHaveBeenCalledOnce();
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(message));
+    expect(screen.queryByRole("button", { name: /Google/ })).not.toBeInTheDocument(); expect(screen.queryByRole("link", { name: /Google/ })).not.toBeInTheDocument();
+    expect(readMessagingUsageIntent(viewerId, slug)).not.toBeNull(); expect(data.client.update).toHaveBeenCalledOnce(); expect(router.refresh).not.toHaveBeenCalled();
   });
   it("should initialize server defaults even when an editable quota draft is incomplete and keep that draft for correction", async () => {
     const data = fixture(false); render(data.node, { wrapper: Providers }); await confirm();

@@ -87,7 +87,7 @@ describe("academy admission query handlers", () => {
 describe("admission HTTP with actual current-authority use cases", () => {
   it("should reject self approval and a role revoked during lookup before any decision write", async () => {
     const tribeId = randomUUID(), requestId = randomUUID(), operationId = randomUUID();
-    const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "reviewer@example.test", session: { id: randomUUID(), expiresAt: new Date("2100-10-07T12:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+    const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "reviewer@example.test", session: { id: randomUUID(), expiresAt: new Date("2100-10-07T12:00:00Z") }, googleAccount: null, identityEvidence: null};
     const actor: AdmissionActorFacts = { userId: account.userId, tribeId, role: "guardian", status: "active" };
     let applicantUserId = account.userId, revokeDuringLookup = false;
     const resolver = new ResolveAdmissionContextUseCase({ getAuthenticatedAccount: async () => account }, { getCurrentActor: async () => actor, getResource: async () => { if (revokeDuringLookup) actor.status = "muted"; return { id: requestId, tribeId, applicantUserId }; } }, () => new Date("2026-10-07T00:00:00Z"));

@@ -9,7 +9,7 @@ import { PostgresPersonalInvitationRepository } from "@/src/modules/academy-admi
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal invitation management security", () => {
-  it("should deny old sensitive contexts and confirmed replay before keys after recency or canonical leadership is lost", async () => {
+  it("should deny old sensitive contexts and confirmed replay before keys after the session or canonical leadership is lost", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAllowlistManagement(database);
       await database.applyMigration("20261009130000_add_personal_invitation_context_digest.sql");
@@ -25,9 +25,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal in
       const revokeContext = { ...await fixture.confirm(REAUTHENTICATION_OPERATION.revokePersonalInvitation, invitationId), action: "manage_invitations" as const };
       const rename = { context: renameContext, operationId: randomUUID(), confirmed: true as const, invitationId, expectedVersion: 1, internalName: "Nombre no autorizado" };
       const revoke = { context: revokeContext, operationId: randomUUID(), confirmed: true as const, invitationId, expectedVersion: 1, revokeRedeemedAuthorization: false, internalReason: "Retiro no autorizado" };
-      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where user_id=${fixture.userId} and tribe_id=${fixture.tribeId}`));
       securityReads = 0;
-      for (const action of [() => repository.create(input), () => repository.rename(rename), () => repository.revoke(revoke)]) await expect(action()).rejects.toMatchObject({ code: "reauthentication_required" });
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${fixture.sessionId}`));
+      for (const action of [() => repository.create(input), () => repository.rename(rename), () => repository.revoke(revoke)]) await expect(action()).rejects.toMatchObject({ code: "authentication_required" });
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()+interval '1 hour' where id=${fixture.sessionId}`));
       const readContext = { ...context, sensitiveOperation: undefined };
       expect((await repository.list(readContext, { limit: 20 })).invitations.map((invitation) => invitation.id)).toEqual([invitationId]);
       expect(await repository.read({ ...readContext, resourceId: invitationId }, invitationId)).toMatchObject({ version: 1, internalName: "Permiso original" });

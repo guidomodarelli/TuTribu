@@ -1,7 +1,7 @@
 // Shared typography and rhythm for the messaging connection workspace panels.
 //
 // Each panel keeps its own BEM block; these mixins only give the steps the same hierarchy: one 20px title,
-// short secondary copy, compact forms and a quiet Google confirmation row under the main action.
+// short secondary copy and compact forms under the main action.
 //
 // Usage (path relative to the module):
 //   @use "../../../src/styles/workspace-panel";
@@ -73,17 +73,6 @@
   min-height: var(--control-height-sm, 2rem);
   white-space: normal;
   overflow-wrap: anywhere;
-}
-
-@mixin reauthentication {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem 0.5rem;
-  margin: 0;
-  color: var(--text-secondary, var(--muted-foreground));
-  font-size: 0.875rem;
-  line-height: 1.5;
 }
 
 @mixin error {

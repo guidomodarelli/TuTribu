@@ -11,7 +11,7 @@ export type MessagingConnectionActivationInput={operationId:string;expectedVersi
 export type MessagingConnectionActivationResult={id:string;name:string;version:number;configurationVersion:number;state:TenantMessagingConnection["state"];maskedCredential:"••••••••";replaced:MessagingEffectiveSelection|null;policyVersion:number|null};
 /** Runs metadata transition, retirement and dependency changes in the same protected atomic effect. */
 export interface MessagingConnectionActivator{
-  /** @param context - Current exact native leader/session/recency/resource. @param input - Original confirmed CAS action. @returns Confirmed original snapshot or genuine registered progress, without RPC or enabling codes/email preferences. */
+  /** @param context - Current exact native leader/session/resource. @param input - Original confirmed CAS action. @returns Confirmed original snapshot or genuine registered progress, without RPC or enabling codes/email preferences. */
   activate(context:AuthorizedMessagingContext,input:MessagingConnectionActivationInput):Promise<AdmissionOperationResult<MessagingConnectionActivationResult>>;
 }
 /** Feature owners implement their dependency changes in the writer's existing transaction. */

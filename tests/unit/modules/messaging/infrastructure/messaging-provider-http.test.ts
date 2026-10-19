@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 /** Exercises real Next/auth/SQL provider boundaries with a closed real-SDK transport. @module messaging-provider-http-tests */
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { Client } from "pg";
 import { sql } from "drizzle-orm";
@@ -16,7 +16,6 @@ import { createAdmissionOperationStateSchema } from "@/src/modules/academy-admis
 import { messagingConnectionMutationSchema } from "@/src/modules/messaging/application/results/messaging-connection-mutation-result";
 import { messagingConnectionConfigurationSchema } from "@/src/modules/messaging/application/results/messaging-connection-configuration-result";
 import { messagingPublicErrorSchema } from "@/src/modules/messaging/application/results/messaging-public-result-schemas";
-import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native provider HTTP boundary", () => {
   it("should deny unknown providers without fallback or effects when real creation and configuration are attempted", async () => {
@@ -89,13 +88,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
         } finally { try { await client.query("rollback"); } finally { await client.end(); } }
         expect(constraintFailure).toEqual({ code: "23514", constraint: "messaging_connection_provider_check" });
 
-        // Explicit current recency permits the real detail lookup and versioned configuration, using only Zavu.
-        await database.withContext(fixture.fixture.own, async (transaction) => {
-          const now = new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-          const validUntil = fixture.context.validUntil, intentId = randomUUID(), operation = REAUTHENTICATION_OPERATION.configureMessagingConnection;
-          await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.context.actorUserId},${fixture.context.sessionId},${fixture.context.accountId},${fixture.context.subject},${tribeId},${operation},${connectionId},'/synthetic-provider-configuration',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);
-          await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.context.actorUserId},${fixture.context.accountId},${fixture.context.subject},${fixture.context.sessionId},${tribeId},${operation},${connectionId},${now},${now},${validUntil})`);
-        });
+        // The live leader session permits the real detail lookup and versioned configuration, using only Zavu.
         const configured = await request(configurationPath, "PUT", { ...configuration, operationId: randomUUID() });
         expect(configured.status).toBe(200);
         const configuredRaw: unknown = await configured.json();

@@ -11,8 +11,8 @@ import {MESSAGING_ERROR_CODE} from "@/src/modules/messaging/constants/messaging-
 
 /** @returns Actual SDK pagination with only the project's authority/secret ports controlled. */
 function resourceFixture(){
-  const now=new Date(),connectionId=randomUUID(),credential=randomUUID();
-  const context:AuthorizedMessagingContext={authorizationPurpose:"sensitive_leader",actorUserId:randomUUID(),sessionId:randomUUID(),accountId:randomUUID(),subject:randomUUID(),tribeId:randomUUID(),connectionId,connectionVersion:1,secretRef:randomUUID(),environment:"synthetic",securityEpoch:"synthetic-epoch",requestId:randomUUID(),resourceId:connectionId,operation:"read_messaging_senders",authenticatedAt:now,validUntil:new Date(now.getTime()+540_000)};
+  const connectionId=randomUUID(),credential=randomUUID();
+  const context:AuthorizedMessagingContext={authorizationPurpose:"sensitive_leader",actorUserId:randomUUID(),sessionId:randomUUID(),accountId:randomUUID(),subject:randomUUID(),tribeId:randomUUID(),connectionId,connectionVersion:1,secretRef:randomUUID(),environment:"synthetic",securityEpoch:"synthetic-epoch",requestId:randomUUID(),resourceId:connectionId,operation:"read_messaging_senders"};
   const events:string[]=[],senderIds=[randomUUID(),randomUUID(),randomUUID()].sort(),privateSecret=randomUUID();
   const transport=createAdmissionProviderTransport([{origin:"https://api.zavu.dev",pathname:"/v1/senders",method:"GET",respond:(request)=>{
     events.push("provider");expect(request.headers.get("Authorization")).toBe(`Bearer ${credential}`);

@@ -43,9 +43,7 @@ import { TRIBE_FREE_JOIN_STATUS } from "@/src/modules/tribes/constants/tribe-sto
 import type { AdmissionRetryWriter, AdmissionRetryIntent } from "@/src/modules/academy-admissions/domain/repositories/admission-retry-writer";
 import { proposeAdmissionRetry } from "@/src/modules/academy-admissions/domain/policies/admission-retry";
 import { proposeAdmissionExternalResolution } from "@/src/modules/academy-admissions/domain/policies/admission-external-resolution";
-import { evaluateRecentAuthentication } from "@/src/modules/auth/domain/policies/recent-authentication";
 import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
-import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import type { AdmissionExecutionCapabilitiesReader, AdmissionExecutionCapabilities } from "../../domain/repositories/admission-execution-capabilities";
 import { MANUAL_ADMISSION_EXECUTION_CAPABILITIES } from "../../constants/admission-execution-capabilities";
 import { PostgresAdmissionSubmissionProofReader } from "./postgres-admission-submission-proof-reader";
@@ -123,7 +121,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
    * @param registrationOnly - Whether only an intent claim is registered; administrative effects retain the exclusive tribe lock.
    * @param submissionActor - Same-statement native projection just checked by the ledger; never reused between guards or phases.
    * @returns Whether the current actor can perform the exact action.
-   * @throws AdmissionOperationError when scope, native session or required recency is unavailable.
+   * @throws AdmissionOperationError when scope, native session or current leadership is unavailable.
    */
   private async authorize(database: RequestDatabase, scope: AdmissionCommandScope, operation: string, requestId?: string, registrationOnly = false, submissionActor?: AdmissionSubmissionActorContext): Promise<boolean> {
     const scopeLock = registrationOnly ? ADMISSION_OPERATION_TRIBE_LOCK_SQL.registration : ADMISSION_OPERATION_TRIBE_LOCK_SQL.execution;
@@ -154,15 +152,11 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
     if (operation === ADMISSION_OPERATION_TYPE.decide) return reviewer && request.user_id !== scope.userId;
     if (operation === ADMISSION_OPERATION_TYPE.allowRetry) {
       if (actor.role !== TRIBE_MEMBER_ROLE.leader || actor.status !== TRIBE_MEMBERSHIP_STATUS.active) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
-      await database.execute(sql`select intent_id from public.recent_authentication_evidence where user_id=${scope.userId} and session_id=${scope.sessionId} and tribe_id=${scope.tribeId} and operation=${REAUTHENTICATION_OPERATION.advanceAdmissionRetry} and resource_id=${requestId} for share`);
       const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: scope.userId, sessionId: scope.sessionId }), (_identity, run) => run(database));
       const current = await accounts.getAuthenticatedAccount();
       if (!current) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-      if (!current?.googleAccount) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.reauthenticationRequired);
-      const recentScope = { userId: scope.userId, sessionId: scope.sessionId, accountId: current.googleAccount.id, subject: current.googleAccount.subject, tribeId: scope.tribeId, operation: REAUTHENTICATION_OPERATION.advanceAdmissionRetry, resourceId: requestId };
       const now = await databaseNow(database);
       if (!isAuthenticatedSessionLive(current.session.expiresAt, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-      if (!current.recentAuthentication.some((evidence) => evaluateRecentAuthentication({ now, scope: recentScope, evidence, sessionActive: true, currentLeaderUserId: actor.userId }).allowed)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.reauthenticationRequired);
       return true;
     }
     return request.user_id === scope.userId || actor.role === TRIBE_MEMBER_ROLE.leader && actor.status === TRIBE_MEMBERSHIP_STATUS.active;

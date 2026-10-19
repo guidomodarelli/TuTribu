@@ -10,7 +10,6 @@ import { createAdmissionProviderTransport } from "@/tests/support/admission-prov
 import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS, MEMBERSHIP_LIFECYCLE_OBSERVATION_INTERVAL_MS } from "@/tests/support/constants/membership-lifecycle-validation";
 import { MESSAGING_CRYPTO } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { MESSAGING_DISPATCH_DEFAULT } from "@/src/modules/messaging/constants/messaging-dispatch";
-import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { buildAcademyAdmissionsModule } from "@/src/modules/academy-admissions/setup";
 import { ScopedAdmissionVerificationDispatcher } from "@/src/modules/academy-admissions/infrastructure/verification/admission-verification-message-sender";
@@ -31,12 +30,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native shared veri
         await transaction.execute(sql`update public.messaging_usage_policies set allowed_countries=ARRAY['AR'],verification_daily_limit=1,notification_daily_limit=1,version=version+1 where tribe_id=${tribeId}`);
         await transaction.execute(sql`insert into public.messaging_connection_capabilities(tribe_id,connection_id,connection_version,channel,sender_id,template_id,template_language,state,checked_at,tested_at) values (${tribeId},${connectionId},1,'whatsapp','synthetic-whatsapp-sender','synthetic-otp-template','es','prepared',clock_timestamp(),clock_timestamp()),(${tribeId},${connectionId},1,'email',${fixture.fixture.emailSenderId},null,null,'prepared',clock_timestamp(),clock_timestamp())`);
         await transaction.execute(sql`update public.academy_admission_policies set requires_additional_verification=true,phone_channel='whatsapp',allow_sms_alternative=true,verification_epoch=verification_epoch+1,version=version+1 where tribe_id=${tribeId}`);
-        const now = new Date((await transaction.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now), expiresAt = new Date(now.getTime() + MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS), intentId = randomUUID();
+        const now = new Date((await transaction.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now), expiresAt = new Date(now.getTime() + MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
         await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${leaderAccountId},${leader.userId},'google',${leaderSubject},${now},${now})`);
         await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${leaderSessionId},${leader.userId},${randomUUID()},${expiresAt},${now},${now})`);
         await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${leaderSessionId},${leader.userId},${leaderAccountId},${leaderSubject},${leader.email})`);
-        await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${leader.userId},${leaderSessionId},${leaderAccountId},${leaderSubject},${tribeId},${REAUTHENTICATION_OPERATION.diagnoseMessagingConnection},${connectionId},'/synthetic-bucket',${randomBytes(MESSAGING_CRYPTO.keyBytes)},'consumed',${now},${expiresAt},${now})`);
-        await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${leader.userId},${leaderAccountId},${leaderSubject},${leaderSessionId},${tribeId},${REAUTHENTICATION_OPERATION.diagnoseMessagingConnection},${connectionId},${now},${now},${expiresAt})`);
       });
       const transport = createAdmissionProviderTransport([{ origin: "https://api.zavu.dev", pathname: "/v1/messages", method: "POST", respond: async (request) => {
         const payload = await request.json() as { channel: string; content?: { templateVariables?: Record<string, string> } };

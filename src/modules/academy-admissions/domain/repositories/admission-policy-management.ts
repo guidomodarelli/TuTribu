@@ -10,7 +10,7 @@ export type AdmissionPolicyState = { policy: AdmissionPolicy | null; controlActi
 /** Counts and preparation are current private owner projections for an informational leader query. */
 export type AdmissionPolicyViewFacts = { pendingRequestCount: number; preparation: Omit<AdmissionPolicyActivationFacts, "now"> | null };
 export interface AdmissionPolicyViewFactsReader {
-  /** @param context - Current leader scope without mutation recency. @param policy - Current stored policy or true absence. @returns Current impact and evaluated preparation, or explicit unevaluated preparation. */
+  /** @param context - Current leader scope. @param policy - Current stored policy or true absence. @returns Current impact and evaluated preparation, or explicit unevaluated preparation. */
   read(context: AuthorizedAdmissionContext, policy: AdmissionPolicy | null): Promise<AdmissionPolicyViewFacts>;
 }
 /** A completed outcome is the original commit, not proof of the current public view. */
@@ -29,7 +29,7 @@ export interface AdmissionPolicyStateReader {
   read(context: AuthorizedAdmissionContext): Promise<AdmissionPolicyState>;
 }
 
-/** Writers revalidate leader/session/recency, preparation and final clock inside one original-ledger transaction. */
+/** Writers revalidate leader/session, preparation and final clock inside one original-ledger transaction. */
 export interface AdmissionPolicyCommandWriter {
   initialize(intent: AdmissionPolicyInitializationIntent): Promise<AdmissionOperationResult<AdmissionPolicyMutationResult>>;
   update(intent: AdmissionPolicyUpdateIntent): Promise<AdmissionOperationResult<AdmissionPolicyMutationResult>>;

@@ -10,7 +10,7 @@ import type {AdmissionContactVerificationOperations} from "@/src/modules/academy
 /** @returns Only feature-owned account, atomic operation and dispatcher doubles; normalization and session policy remain real. */
 function verificationFixture(){
   const now=new Date(),operationId=randomUUID(),tribeId=randomUUID(),challengeId=randomUUID();
-  const account:AuthenticatedAccount={userId:randomUUID(),normalizedEmail:" Person+code@Gmail.com ",session:{id:randomUUID(),expiresAt:new Date(now.getTime()+3_600_000)},googleAccount:{id:randomUUID(),subject:randomUUID()},identityEvidence:null,recentAuthentication:[]};
+  const account:AuthenticatedAccount={userId:randomUUID(),normalizedEmail:" Person+code@Gmail.com ",session:{id:randomUUID(),expiresAt:new Date(now.getTime()+3_600_000)},googleAccount:{id:randomUUID(),subject:randomUUID()},identityEvidence:null};
   const challenge={challengeId,purpose:"admission"as const,channel:"email"as const,maskedDestination:"p•••@gmail.com",expiresAt:new Date(now.getTime()+600_000).toISOString(),resendAllowedAt:new Date(now.getTime()+60_000).toISOString(),deliveryState:"queued"as const};
   const issued={state:"completed"as const,operationId,replayed:false,result:challenge};
   const verified={state:"completed"as const,operationId,replayed:false,result:{purpose:"admission"as const,result:"verified"as const,proofId:randomUUID(),applyBefore:new Date(now.getTime()+900_000).toISOString()}};

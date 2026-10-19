@@ -25,7 +25,7 @@ export type PreparedNotificationGroupRecoveryContent = {
   readonly mac: Uint8Array;
 };
 
-/** Repeats the original human session/leadership/recency inside the caller's existing transaction. */
+/** Repeats the original human session/leadership inside the caller's existing transaction. */
 export type NotificationGroupRecoveryAuthorizer = (database: RequestDatabase, tribeId: string) => Promise<boolean>;
 
 /** Separates notifications' complete source/content policy from messaging's atomic ledger and transport lineage. */

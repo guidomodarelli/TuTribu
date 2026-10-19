@@ -31,7 +31,6 @@ const privateDate = z.coerce.date();
 const baseContext = {
   actorUserId: uuid, sessionId: uuid, tribeId: uuid, requestId: uuid,
   accountId: uuid, subject: uuid, resourceId: uuid,
-  authenticatedAt: privateDate, validUntil: privateDate,
 };
 const authorizedContext = {
   ...baseContext, authorizationPurpose: z.literal("sensitive_leader"),

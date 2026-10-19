@@ -42,7 +42,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("global identity evid
       const account=await provider.getAuthenticatedAccount();
       expect(account).toMatchObject({userId:fixture.userId,normalizedEmail:fixture.email,session:{id:fixture.sessionId},googleAccount:{id:fixture.accountId,subject:fixture.subject},identityEvidence:{classification:"gmail",accountId:fixture.accountId,subject:fixture.subject},recentAuthentication:[]});
       for(const privateField of ["token","idToken","accessToken","refreshToken","role","nonce"]) expect(account).not.toHaveProperty(privateField);
-      await database.grantTablesToNonBypass(["user","account","session","global_session_identity_bindings","global_identity_evidence","recent_authentication_evidence"]);
+      await database.grantTablesToNonBypass(["user","account","session","global_session_identity_bindings","global_identity_evidence"]);
       const protectedProvider=new PostgresAuthenticatedAccountProvider(async()=>({userId:fixture.userId,sessionId:fixture.sessionId}),(identity,run)=>database.withContext({userId:identity.userId,email:null},run,"non_bypass"));
       expect(await protectedProvider.getAuthenticatedAccount()).toMatchObject({userId:fixture.userId,googleAccount:{id:fixture.accountId},identityEvidence:{classification:"gmail"}});
     });

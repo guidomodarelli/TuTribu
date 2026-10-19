@@ -7,17 +7,17 @@ import type {MessagingAuthenticatedAccount,MessagingLeadershipFacts} from "@/src
 
 /** @returns Current own account/authorization/readonly ports; no SDK, database or framework is mocked. */
 function recoveryFixture(){
-  const now=new Date(),userId=randomUUID(),tribeId=randomUUID(),operationId=randomUUID(),sessionId=randomUUID(),account:MessagingAuthenticatedAccount={userId,session:{id:sessionId,expiresAt:new Date(now.getTime()+3_600_000)},googleAccount:null,recentAuthentication:[]},leadership:MessagingLeadershipFacts={tribeId,leaderUserId:userId,membership:{userId,role:"leader",status:"active"}};
+  const now=new Date(),userId=randomUUID(),tribeId=randomUUID(),operationId=randomUUID(),sessionId=randomUUID(),account:MessagingAuthenticatedAccount={userId,session:{id:sessionId,expiresAt:new Date(now.getTime()+3_600_000)},googleAccount:null},leadership:MessagingLeadershipFacts={tribeId,leaderUserId:userId,membership:{userId,role:"leader",status:"active"}};
   const result={type:"save_messaging_credentials",state:"completed",operationId,replayed:true,result:{id:randomUUID(),name:"Conexión",version:1,configurationVersion:1,state:"draft",maskedCredential:"••••••••"}},read=vi.fn(async():Promise<unknown|null>=>result),accounts={getAuthenticatedAccount:vi.fn(async():Promise<MessagingAuthenticatedAccount|null>=>account)},authorization={getCurrentLeadership:vi.fn(async():Promise<MessagingLeadershipFacts|null>=>leadership)},query={tribeId,operationId,requestId:randomUUID()};
   return{now,account,leadership,accounts,authorization,read,result,query,useCase:new ReadMessagingConnectionOperationUseCase(accounts,authorization,{read},()=>now)};
 }
 describe("original connection operation recovery",()=>{
-  it.each(["suspend_messaging_connection","disconnect_messaging_connection"]as const)("should read original %s metadata without mutation recency, keys or current selected resource",async(type)=>{
+  it.each(["suspend_messaging_connection","disconnect_messaging_connection"]as const)("should read original %s metadata without keys or current selected resource",async(type)=>{
     const fixture=recoveryFixture(),result={type,state:"completed",operationId:fixture.query.operationId,replayed:true,result:{id:randomUUID(),version:4,state:type==="suspend_messaging_connection"?"suspended":"disconnected",reason:type==="suspend_messaging_connection"?"security_stop":null,changed:true}};fixture.read.mockResolvedValueOnce(result);
-    expect(await fixture.useCase.execute(fixture.query)).toEqual({ok:true,value:result});expect(fixture.read).toHaveBeenCalledTimes(1);expect(fixture.account.recentAuthentication).toEqual([]);
+    expect(await fixture.useCase.execute(fixture.query)).toEqual({ok:true,value:result});expect(fixture.read).toHaveBeenCalledTimes(1);
     fixture.read.mockResolvedValueOnce({...result,result:{...result.result,secretRef:randomUUID()}});expect(await fixture.useCase.execute(fixture.query)).toMatchObject({ok:false,failure:{code:"public_contract_unusable"}});
   });
-  it("should recover a created connection without key input or mutation recency and preserve its original metadata",async()=>{
+  it("should recover a created connection without key input and preserve its original metadata",async()=>{
     const fixture=recoveryFixture();expect(await fixture.useCase.execute(fixture.query)).toEqual({ok:true,value:fixture.result});
     expect(fixture.read).toHaveBeenCalledExactlyOnceWith({actorUserId:fixture.account.userId,sessionId:fixture.account.session.id,tribeId:fixture.query.tribeId,requestId:fixture.query.requestId},fixture.query.operationId);
   });

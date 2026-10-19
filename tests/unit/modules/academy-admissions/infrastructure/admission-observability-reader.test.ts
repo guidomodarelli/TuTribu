@@ -122,7 +122,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission o
         if (actor.userId !== fixture.userId) await expect(reader.readMetrics({ ...scope, ...actor })).rejects.toMatchObject({ code: "permission_denied" });
         else await expect(reader.readMetrics({ ...scope, tribeId: randomUUID() })).rejects.toMatchObject({ code: "authentication_required" });
       }
-      await database.grantTablesToNonBypass(["user", "session", "account", "tribes", "tribe_members", "global_session_identity_bindings", "global_identity_evidence", "recent_authentication_evidence", "academy_admission_audit_events"]);
+      await database.grantTablesToNonBypass(["user", "session", "account", "tribes", "tribe_members", "global_session_identity_bindings", "global_identity_evidence", "academy_admission_audit_events"]);
       await database.withContext(fixture.own, async (transaction) => { expect((await transaction.execute<{ result: { tribeId: string } }>(sql`select public.read_academy_admission_metrics(${fixture.tribeId},${fixture.sessionId}) as result`)).rows[0].result.tribeId).toBe(fixture.tribeId); }, "non_bypass");
       await database.withServerEnvironment(async (environment) => {
         const client = new Client({ connectionString: environment.DATABASE_URL });

@@ -58,7 +58,7 @@ describe("explicit messaging provider registry",()=>{
     expect(()=>new MessagingProviderRegistry([descriptor,descriptor])).toThrow(expect.objectContaining({code:"connection_incomplete"}));
   });
   it("should create independent real SDK inspectors with the exact explicit credential and return only own facts",async()=>{
-    const firstCredential=randomUUID(),secondCredential=randomUUID(),now=new Date(),context:AuthorizedMessagingContext={authorizationPurpose:"sensitive_leader",actorUserId:randomUUID(),sessionId:randomUUID(),accountId:randomUUID(),subject:randomUUID(),tribeId:randomUUID(),connectionId:randomUUID(),connectionVersion:1,secretRef:randomUUID(),environment:"synthetic",securityEpoch:"synthetic-epoch",requestId:randomUUID(),resourceId:randomUUID(),operation:"validate_messaging_connection",authenticatedAt:now,validUntil:new Date(now.getTime()+540_000)},credentials:string[]=[];
+    const firstCredential=randomUUID(),secondCredential=randomUUID(),context:AuthorizedMessagingContext={authorizationPurpose:"sensitive_leader",actorUserId:randomUUID(),sessionId:randomUUID(),accountId:randomUUID(),subject:randomUUID(),tribeId:randomUUID(),connectionId:randomUUID(),connectionVersion:1,secretRef:randomUUID(),environment:"synthetic",securityEpoch:"synthetic-epoch",requestId:randomUUID(),resourceId:randomUUID(),operation:"validate_messaging_connection"},credentials:string[]=[];
     const transport=createAdmissionProviderTransport([{origin:"https://api.zavu.dev",pathname:"/v1/me",method:"GET",respond:(request)=>{credentials.push(request.headers.get("Authorization")??"");return Response.json({isTestMode:false,apiKey:{id:"synthetic-key"},project:{id:"synthetic-project"},team:{id:"synthetic-team"},unconsumed:{arbitrary:true}});}}]);
     const descriptor=new MessagingProviderRegistry([createZavuProviderDescriptor(transport.fetch)]).resolve("zavu");
     const first=descriptor.createInspector(context,firstCredential),second=descriptor.createInspector(context,secondCredential);expect(first).not.toBe(second);
@@ -67,15 +67,15 @@ describe("explicit messaging provider registry",()=>{
     expect(credentials).toEqual(expect.arrayContaining([`Bearer ${firstCredential}`,`Bearer ${secondCredential}`]));expect(transport.receipts).toHaveLength(2);
   });
   it("should resolve current own provider facts for every inspection and deny unknown identity before SDK transport",async()=>{
-    const now=new Date(),connectionId=randomUUID(),context:AuthorizedMessagingContext={authorizationPurpose:"sensitive_leader",actorUserId:randomUUID(),sessionId:randomUUID(),accountId:randomUUID(),subject:randomUUID(),tribeId:randomUUID(),connectionId,connectionVersion:1,secretRef:randomUUID(),environment:"synthetic",securityEpoch:"synthetic-epoch",requestId:randomUUID(),resourceId:connectionId,operation:"validate_messaging_connection",authenticatedAt:now,validUntil:new Date(now.getTime()+540_000)},credential=randomUUID();
+    const connectionId=randomUUID(),context:AuthorizedMessagingContext={authorizationPurpose:"sensitive_leader",actorUserId:randomUUID(),sessionId:randomUUID(),accountId:randomUUID(),subject:randomUUID(),tribeId:randomUUID(),connectionId,connectionVersion:1,secretRef:randomUUID(),environment:"synthetic",securityEpoch:"synthetic-epoch",requestId:randomUUID(),resourceId:connectionId,operation:"validate_messaging_connection"},credential=randomUUID();
     const transport=createAdmissionProviderTransport([{origin:"https://api.zavu.dev",pathname:"/v1/me",method:"GET",respond:()=>Response.json({isTestMode:false,apiKey:{id:"synthetic-key"},project:{id:"synthetic-project"},team:{id:"synthetic-team"}})}]),readProvider=vi.fn(async()=>"zavu"),registry=new MessagingProviderRegistry([createZavuProviderDescriptor(transport.fetch)]),inspector=new RegisteredMessagingInspectorFactory(registry,readProvider).create(context,credential);
     expect(await inspector.inspectCredential(new AbortController().signal)).toMatchObject({isTestMode:false});expect(readProvider).toHaveBeenCalledExactlyOnceWith(context);
     readProvider.mockResolvedValueOnce("unimplemented");await expect(inspector.inspectCredential(new AbortController().signal)).rejects.toMatchObject({code:"missing_capability"});expect(readProvider).toHaveBeenCalledTimes(2);expect(transport.receipts).toHaveLength(1);
   });
   it("should preserve actual Zavu template list and detail when registered template inspection has its own factory",async()=>{
     // Given the real SDK behind only the own closed HTTP boundary.
-    const now=new Date(),connectionId=randomUUID(),templateId=randomUUID(),credential=randomUUID();
-    const context:AuthorizedMessagingContext={authorizationPurpose:"sensitive_leader",actorUserId:randomUUID(),sessionId:randomUUID(),accountId:randomUUID(),subject:randomUUID(),tribeId:randomUUID(),connectionId,connectionVersion:1,secretRef:randomUUID(),environment:"synthetic",securityEpoch:"synthetic-epoch",requestId:randomUUID(),resourceId:connectionId,operation:"read_messaging_templates",authenticatedAt:now,validUntil:new Date(now.getTime()+540_000)};
+    const connectionId=randomUUID(),templateId=randomUUID(),credential=randomUUID();
+    const context:AuthorizedMessagingContext={authorizationPurpose:"sensitive_leader",actorUserId:randomUUID(),sessionId:randomUUID(),accountId:randomUUID(),subject:randomUUID(),tribeId:randomUUID(),connectionId,connectionVersion:1,secretRef:randomUUID(),environment:"synthetic",securityEpoch:"synthetic-epoch",requestId:randomUUID(),resourceId:connectionId,operation:"read_messaging_templates"};
     const template={id:templateId,name:"otp",language:"es",category:"AUTHENTICATION",status:"approved"};
     const transport=createAdmissionProviderTransport([
       {origin:"https://api.zavu.dev",pathname:"/v1/templates",method:"GET",respond:(request)=>{expect(request.headers.get("Authorization")===`Bearer ${credential}`).toBe(true);return Response.json({items:[template],nextCursor:null});}},
@@ -92,9 +92,9 @@ describe("explicit messaging provider registry",()=>{
   });
   it("should deny a declared template channel without its actual template factory before entering SDK transport",async()=>{
     // A broken infrastructure descriptor must fail with the own capability error, never a TypeError or a fallback.
-    const now=new Date(),connectionId=randomUUID(),fetch=vi.fn(),descriptor=createZavuProviderDescriptor(fetch);
+    const connectionId=randomUUID(),fetch=vi.fn(),descriptor=createZavuProviderDescriptor(fetch);
     delete descriptor.createTemplateInspector;
-    const context:AuthorizedMessagingContext={authorizationPurpose:"sensitive_leader",actorUserId:randomUUID(),sessionId:randomUUID(),accountId:randomUUID(),subject:randomUUID(),tribeId:randomUUID(),connectionId,connectionVersion:1,secretRef:randomUUID(),environment:"synthetic",securityEpoch:"synthetic-epoch",requestId:randomUUID(),resourceId:connectionId,operation:"read_messaging_templates",authenticatedAt:now,validUntil:new Date(now.getTime()+540_000)};
+    const context:AuthorizedMessagingContext={authorizationPurpose:"sensitive_leader",actorUserId:randomUUID(),sessionId:randomUUID(),accountId:randomUUID(),subject:randomUUID(),tribeId:randomUUID(),connectionId,connectionVersion:1,secretRef:randomUUID(),environment:"synthetic",securityEpoch:"synthetic-epoch",requestId:randomUUID(),resourceId:connectionId,operation:"read_messaging_templates"};
     const inspector=new RegisteredMessagingInspectorFactory(new MessagingProviderRegistry([descriptor]),async()=>"zavu").create(context,randomUUID()),signal=new AbortController().signal;
     await expect(inspector.listTemplates(signal)).rejects.toMatchObject({code:"missing_capability"});
     await expect(inspector.retrieveTemplate(randomUUID(),signal)).rejects.toMatchObject({code:"missing_capability"});expect(fetch).not.toHaveBeenCalled();

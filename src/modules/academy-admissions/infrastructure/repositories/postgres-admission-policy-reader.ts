@@ -1,4 +1,4 @@
-/** Reads current leader-only policy state without recency, initialization or provider work. @module postgres-admission-policy-reader */
+/** Reads current leader-only policy state without initialization or provider work. @module postgres-admission-policy-reader */
 import "server-only";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { AuthorizedAdmissionContext } from "../../domain/repositories/admission-authorization-reader";

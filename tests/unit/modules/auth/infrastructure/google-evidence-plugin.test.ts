@@ -14,13 +14,13 @@ import {createScopedAuthEvidenceHandler} from "@/src/modules/auth/infrastructure
 import { SECONDS_PER_DAY } from "@/src/constants/time";
 
 /** Creates a real auth instance with its published in-memory adapter and synthetic credentials. */
-function createTestAuth(clientId:string,mapProfileToUser?:Parameters<typeof google>[0]["mapProfileToUser"],authorizeIntent?:(intentId:string)=>Promise<{allowed:true;nonce:string}|{allowed:false}>) {
+function createTestAuth(clientId:string,mapProfileToUser?:Parameters<typeof google>[0]["mapProfileToUser"]) {
   return betterAuth({
     baseURL:"https://auth.example.test",secret:randomUUID()+randomUUID(),
     database:memoryAdapter({user:[],account:[],session:[],verification:[]}),
     logger:{disabled:true},
     socialProviders:{google:{clientId,clientSecret:randomUUID(),mapProfileToUser}},
-    plugins:[googleIdentityEvidencePlugin({authorizeIntent})],
+    plugins:[googleIdentityEvidencePlugin()],
   });
 }
 
@@ -38,11 +38,11 @@ async function signIn(auth:ReturnType<typeof createTestAuth>,token:string) {
 }
 
 describe("Google evidence plugin",()=>{
-  it("should carry the owned intent and signed nonce/auth_time through the complete OAuth callback",async()=>{
-    const signer=await createAdmissionGoogleTokenFixture();const clientId=randomUUID();const subject=randomUUID();const intentId=randomUUID();const nonce=randomUUID();
+  it("should ignore a legacy confirmation intent and capture signed identity through the complete OAuth callback",async()=>{
+    const signer=await createAdmissionGoogleTokenFixture();const clientId=randomUUID();const subject=randomUUID();const legacyIntentId=randomUUID();
     const instant=Math.floor(Date.now()/1000);const email=`${subject}@gmail.com`;
-    const token=await signer.sign({iss:"https://accounts.google.com",aud:clientId,sub:subject,iat:instant,exp:instant+3600,email,name:"Synthetic recent account",email_verified:true,nonce,auth_time:instant});
-    const auth=createTestAuth(clientId,undefined,async(opaqueId)=>opaqueId===intentId?{allowed:true,nonce}:{allowed:false});
+    const token=await signer.sign({iss:"https://accounts.google.com",aud:clientId,sub:subject,iat:instant,exp:instant+3600,email,name:"Synthetic account",email_verified:true,auth_time:instant});
+    const auth=createTestAuth(clientId);
     const persisted:unknown[]=[];
     const handler=createScopedAuthEvidenceHandler(auth.handler,{persist:async(completion)=>{persisted.push(completion);return {status:"stored"};},reportFailure:()=>{throw new Error("Unexpected capture failure");}});
     const transport=createAdmissionProviderTransport([
@@ -50,10 +50,11 @@ describe("Google evidence plugin",()=>{
       {origin:"https://www.googleapis.com",pathname:"/oauth2/v3/certs",method:"GET",respond:()=>Response.json(signer.jwks)},
     ]);
     await withAdmissionProviderTransport(transport,async()=>{
-      const started=await handler(new Request("https://auth.example.test/api/auth/sign-in/social",{method:"POST",headers:{"Content-Type":"application/json",Origin:"https://auth.example.test"},body:JSON.stringify({provider:"google",callbackURL:"https://auth.example.test/tribes",disableRedirect:true,additionalData:{reauthenticationIntentId:intentId}})}));
+      const started=await handler(new Request("https://auth.example.test/api/auth/sign-in/social",{method:"POST",headers:{"Content-Type":"application/json",Origin:"https://auth.example.test"},body:JSON.stringify({provider:"google",callbackURL:"https://auth.example.test/tribes",disableRedirect:true,additionalData:{reauthenticationIntentId:legacyIntentId}})}));
       expect(started.status).toBe(200);
       const body=await started.json() as {url:string};const authorization=new URL(body.url);
-      expect(authorization.searchParams.get("nonce")).toBe(nonce);
+      expect(authorization.searchParams.get("state")).toBeTruthy();expect(authorization.searchParams.get("code_challenge")).toBeTruthy();
+      expect(authorization.toString()).not.toContain(legacyIntentId);
       const cookies=started.headers.getSetCookie().map((cookie)=>cookie.split(";")[0]).join("; ");
       const callback=new URL("https://auth.example.test/api/auth/callback/google");
       callback.searchParams.set("state",authorization.searchParams.get("state")??"");callback.searchParams.set("code",randomUUID());
@@ -61,29 +62,9 @@ describe("Google evidence plugin",()=>{
       expect(response.status).toBe(302);expect(response.headers.get("location")).toBe("https://auth.example.test/tribes");
     });
     expect(persisted).toHaveLength(1);
-    expect(persisted[0]).toMatchObject({reauthenticationIntentId:intentId,evidence:{subject,normalizedEmail:email,nonce,authenticatedAt:new Date(instant*1000)}});
+    expect(persisted[0]).toMatchObject({evidence:{subject,normalizedEmail:email,authenticatedAt:new Date(instant*1000)}});
+    expect(persisted[0]).not.toHaveProperty("reauthenticationIntentId");
     expect(JSON.stringify(persisted)).not.toContain(token);expect(getAuthEvidenceContext()).toBeUndefined();
-  });
-
-  it("should bind an owned nonce without requiring Google session age claims while preserving native OAuth state and PKCE",async()=>{
-    const intentId=randomUUID();const nonce=randomUUID();const requested:string[]=[];
-    const auth=createTestAuth(randomUUID(),undefined,async(opaqueId)=>{requested.push(opaqueId);return {allowed:true,nonce};});
-    const transport=createAdmissionProviderTransport([]);
-    const response=await withAdmissionProviderTransport(transport,()=>runWithAuthEvidenceContext(()=>auth.handler(new Request("https://auth.example.test/api/auth/sign-in/social",{method:"POST",headers:{"Content-Type":"application/json",Origin:"https://auth.example.test"},body:JSON.stringify({provider:"google",callbackURL:"https://auth.example.test/tribes",disableRedirect:true,additionalData:{reauthenticationIntentId:intentId}})}))));
-    expect(response.status).toBe(200);
-    const body=await response.json() as {url:string};const url=new URL(body.url);
-    expect(requested).toEqual([intentId]);
-    expect(url.searchParams.get("nonce")).toBe(nonce);
-    expect(url.searchParams.has("claims")).toBe(false);
-    expect(url.searchParams.has("max_age")).toBe(false);
-    expect(url.searchParams.get("state")).toBeTruthy();expect(url.searchParams.get("code_challenge")).toBeTruthy();
-    expect(transport.receipts).toEqual([]);
-  });
-
-  it("should close a denied opaque intent before creating an OAuth authorization URL",async()=>{
-    const auth=createTestAuth(randomUUID(),undefined,async()=>({allowed:false}));const transport=createAdmissionProviderTransport([]);
-    const response=await withAdmissionProviderTransport(transport,()=>runWithAuthEvidenceContext(()=>auth.handler(new Request("https://auth.example.test/api/auth/sign-in/social",{method:"POST",headers:{"Content-Type":"application/json",Origin:"https://auth.example.test"},body:JSON.stringify({provider:"google",callbackURL:"https://auth.example.test/tribes",disableRedirect:true,additionalData:{reauthenticationIntentId:randomUUID()}})}))));
-    expect(response.status).toBe(403);expect(await response.json()).not.toHaveProperty("url");expect(transport.receipts).toEqual([]);
   });
 
   it.each([false,true])("should persist native completion without changing global login when persistence fails=%s",async(fails)=>{
@@ -101,7 +82,7 @@ describe("Google evidence plugin",()=>{
     expect(await response.json()).toMatchObject({user:{email}});
     expect(response.headers.getSetCookie().length).toBeGreaterThan(0);
     expect(persisted).toHaveLength(1);
-    expect(persisted[0]).toMatchObject({evidence:{subject,normalizedEmail:email},reauthenticationIntentId:null});
+    expect(persisted[0]).toMatchObject({evidence:{subject,normalizedEmail:email}});
     expect(failures).toEqual(fails?[{requestId,traceId:requestId,code:"capture_persistence_failed",failureKind:"exception"}]:[]);
     expect(JSON.stringify(failures)).not.toContain(token);
     expect(getAuthEvidenceContext()).toBeUndefined();
@@ -120,7 +101,7 @@ describe("Google evidence plugin",()=>{
     const session=await auth.api.getSession({headers});
     const accounts=await auth.api.listUserAccounts({headers});
     expect(session).not.toBeNull();
-    expect(result.completion).toMatchObject({userId:session?.user.id,sessionId:session?.session.id,accountId:accounts[0].id,reauthenticationIntentId:null,evidence:{subject,normalizedEmail:email}});
+    expect(result.completion).toMatchObject({userId:session?.user.id,sessionId:session?.session.id,accountId:accounts[0].id,evidence:{subject,normalizedEmail:email}});
     expect(JSON.stringify(result.completion)).not.toContain(token);
   });
 
@@ -211,7 +192,7 @@ describe("Google evidence plugin",()=>{
     expect(result.response.status).toBe(302);
     expect(result.response.headers.get("location")).toBe(callbackURL);
     expect(result.persisted).toHaveLength(1);
-    expect(result.persisted[0]).toMatchObject({evidence:{subject,normalizedEmail:email},reauthenticationIntentId:null});
+    expect(result.persisted[0]).toMatchObject({evidence:{subject,normalizedEmail:email}});
     expect(result.failures).toEqual([]);
     expect(result.capture).toMatchObject({status:"verified",evidence:{subject,normalizedEmail:email,classification:scenario.classification}});
     expect(getAuthEvidenceContext()).toBeUndefined();

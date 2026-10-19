@@ -69,7 +69,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native allowli
             if (capture) await captureAdmissionReview(page, "allowlist-uncertain", forbidden, "allowlist-captures.json", { selector: 'section[aria-label="Gestión de lista de habilitados"]' });
             await original.click(); await page.getByText(newIdentity, { exact: true }).waitFor({ state: "visible" });
             expect(writes).toHaveLength(3); expect(routeNavigations).toBe(1);
-            expect(pageErrors).toEqual([]); expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+            expect(await page.getByRole("button", { name: /Google/ }).count() + await page.getByRole("link", { name: /Google/ }).count()).toBe(0); expect(pageErrors).toEqual([]); expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
             if (capture) await captureAdmissionReview(page, "allowlist-recovered", forbidden, "allowlist-captures.json", { selector: 'section[aria-label="Gestión de lista de habilitados"]' });
             console.info(JSON.stringify({ phase: "allowlist_ui_complete", engine: name, width }));
           } finally { await page.unrouteAll({ behavior: "ignoreErrors" }); await context.close(); await browser.close(); }

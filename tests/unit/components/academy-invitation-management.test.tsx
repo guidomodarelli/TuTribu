@@ -6,7 +6,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InvitationsContainer } from "@/app/(platform)/[slug]/academia/admissions/invitations/invitations-container";
 import type { PersonalInvitationManagementPageState } from "@/src/modules/academy-admissions/application/results/personal-invitation-management-page-state";
 import type { PersonalInvitationManagementBrowserClient } from "@/src/modules/academy-admissions/application/ports/personal-invitation-management-browser-client";
-import type { ReauthenticationIntentBrowserClient } from "@/src/modules/auth/application/ports/reauthentication-intent-browser-client";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { PERSONAL_INVITATION_MANAGEMENT_DATE } from "@/src/modules/academy-admissions/constants/personal-invitation-management-browser";
 
@@ -22,11 +21,10 @@ function fixture(phone = false) {
     write: vi.fn(async (_slug, intent) => ({ status: "ready" as const, value: { viewerId, outcome: { state: "completed" as const, operationId: intent.input.operationId, replayed: false, result: { invitationId, version: intent.type === "create_personal_invitation" ? 1 : intent.input.expectedVersion + 1, changed: true, created: intent.type === "create_personal_invitation" }, ...(intent.type === "create_personal_invitation" ? { invitationUrl } : {}) } } })),
     operation: vi.fn(async () => ({ status: "failed" as const, code: "resource_unavailable" as const, message: "Recurso no disponible.", uncertain: false })),
   };
-  const reauthentication: ReauthenticationIntentBrowserClient = { create: vi.fn(async () => ({ status: "ready" as const, href: "/auth/reauthenticate?intentId=synthetic" })) };
-  return { initial, client, metadata, invitationUrl, reauthentication };
+  return { initial, client, metadata, invitationUrl };
 }
 /** @param data - Own fixture. @returns Mounted real container after its native viewer observation. */
-async function mount(data: ReturnType<typeof fixture>) { render(<InvitationsContainer initialState={data.initial} client={data.client} reauthentication={data.reauthentication} />); await waitFor(() => expect(screen.getByRole("button", { name: "Nueva invitación" })).toBeEnabled()); }
+async function mount(data: ReturnType<typeof fixture>) { render(<InvitationsContainer initialState={data.initial} client={data.client} />); await waitFor(() => expect(screen.getByRole("button", { name: "Nueva invitación" })).toBeEnabled()); }
 /** @param user - Actual DOM interaction driver. @returns After completing only a valid explicit email proposal. */
 async function emailProposal(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("Nombre interno"), "Grupo inicial");

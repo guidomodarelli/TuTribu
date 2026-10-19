@@ -1,4 +1,4 @@
-/** Resolves actual private leader/recency scope before delegating original personal invitation commands. @module manage-personal-invitations-use-cases */
+/** Resolves actual private leader scope before delegating original personal invitation commands. @module manage-personal-invitations-use-cases */
 import type { ResolveAdmissionContextUseCase } from "./resolve-admission-context-use-case";
 import type { PersonalInvitationReader, PersonalInvitationCommandWriter, PersonalInvitationQuery, PersonalInvitationReplacement } from "../../domain/repositories/personal-invitation-management";
 import type { AdmissionContactType } from "../../domain/value-objects/admission-contact";
@@ -24,9 +24,9 @@ type InvitationCommandScope = InvitationScope & { operationId: string; confirmed
 
 /** Administrative history remains separate from recipient preview/redemption. */
 export class ManagePersonalInvitationsUseCases {
-  /** @param resolver - Actual account/role/resource and signed recency owner. @param reader - Private metadata-only reader. @param writer - Atomic original command owner; no provider transport is involved. */
+  /** @param resolver - Actual account/role/resource owner. @param reader - Private metadata-only reader. @param writer - Atomic original command owner; no provider transport is involved. */
   constructor(private readonly resolver: Pick<ResolveAdmissionContextUseCase, "execute">, private readonly reader: PersonalInvitationReader, private readonly writer: PersonalInvitationCommandWriter) {}
-  /** @param input - Validated own bounded query. @param expectedViewer - Optional trusted initial server identity, never route input or authority. @returns Current guarded metadata, without mutation recency or token recovery. */
+  /** @param input - Validated own bounded query. @param expectedViewer - Optional trusted initial server identity, never route input or authority. @returns Current guarded metadata, without token recovery. */
   async list(input: InvitationScope & PersonalInvitationQuery, expectedViewer?: { userId: string; sessionId: string }) {
     try {
       const authority = await this.resolver.execute({ tribeId: input.tribeId, requestId: input.requestId, action: ADMISSION_ACTION.manageInvitations });

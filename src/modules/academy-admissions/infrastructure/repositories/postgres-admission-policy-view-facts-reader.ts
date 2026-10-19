@@ -16,7 +16,7 @@ export class PostgresAdmissionPolicyViewFactsReader implements AdmissionPolicyVi
   /** @param execute - Actual native actor transaction. @param composePreparation - Explicit evaluator or null; null is publicly represented as not evaluated. */
   constructor(private readonly execute: <Result>(context: AuthorizedAdmissionContext, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>, private readonly composePreparation: ((database: RequestDatabase, context: AuthorizedAdmissionContext) => AdmissionPolicyPreparationReader) | null) {}
 
-  /** @param context - Current leader query scope without sensitive recency. @param policy - Policy snapshot whose version must remain current. @returns Minimal current impact and actual preparation, with no initialization or provider call. */
+  /** @param context - Current leader query scope. @param policy - Policy snapshot whose version must remain current. @returns Minimal current impact and actual preparation, with no initialization or provider call. */
   async read(context: AuthorizedAdmissionContext, policy: AdmissionPolicy | null): Promise<AdmissionPolicyViewFacts> {
     return this.execute(context, async (database) => {
       await authorizeAdmissionPolicy(database, context);

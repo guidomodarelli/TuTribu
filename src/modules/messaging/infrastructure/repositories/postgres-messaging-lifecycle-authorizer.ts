@@ -11,7 +11,7 @@ import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants
 
 /** Only lifecycle fields needed by local actions are consumed; no row schema or credential lookup is introduced. */
 export type LockedMessagingLifecycleRow={id:string;version:number;state:TenantMessagingConnection["state"];state_reason:string|null;retired_at:Date|string|null;is_selected:boolean;selected_version:number|null;candidate_version:number|null};
-/** @param database - Existing native transaction. @param context - Exact current account/leader/connection recency. @returns After current authority/lifetime checks. @throws AdmissionOperationError preserving a closed current denial and cause. */
+/** @param database - Existing native transaction. @param context - Exact current account/leader/connection scope. @returns After current authority/lifetime checks. @throws AdmissionOperationError preserving a closed current denial and cause. */
 export async function assertMessagingLifecycleAuthority(database:RequestDatabase,context:MessagingConnectionLifecycleContext):Promise<void>{
   try{await authorizeMessagingTribeManagement(database,context);}catch(error){if(error instanceof MessagingUsageOperationError)throw new AdmissionOperationError(Object.values(ADMISSION_ERROR_CODE).find((candidate)=>candidate===error.code)??ADMISSION_ERROR_CODE.unexpectedFailure,{cause:error});throw error;}
 }

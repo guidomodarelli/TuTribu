@@ -37,7 +37,7 @@ describe("protected connection creation route",()=>{
     expect((await fixture.handlers.create(fixture.request(fixture.body,"https://other.example.test"),fixture.context)).status).toBe(403);
     expect(fixture.open).not.toHaveBeenCalled();
   });
-  it("should preserve conflict and recency failures while stripping their private causes",async()=>{
+  it("should preserve conflict and legacy session-change failures while stripping their private causes",async()=>{
     const fixture=creationRouteFixture();
     fixture.setOutcome({ok:false,failure:{code:"connection_conflict",cause:{credential:fixture.body.apiKey}}});
     const response=await fixture.handlers.create(fixture.request(),fixture.context),published=await response.json();

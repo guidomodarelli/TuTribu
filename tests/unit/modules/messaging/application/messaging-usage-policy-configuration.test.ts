@@ -21,7 +21,7 @@ import { captureAdmissionReview } from "@/tests/support/admission-review-capture
 import { join } from "node:path";
 
 /**
- * Seeds current global session/recency and a canonical leader without a messaging connection or admission policy.
+ * Seeds a current global session bound to Google and a canonical leader without a messaging connection or admission policy.
  * @param database - This run's checked disposable branch, with cleanup owned by the SQL helper.
  * @returns Actual guarded operation composition and the exact private contexts.
  */
@@ -32,19 +32,13 @@ async function prepareUsage(database: AcademyAdmissionTestDatabase) {
   const tribeId = randomUUID(), accountId = randomUUID(), sessionId = randomUUID(), subject = randomUUID(), sessionToken = randomUUID();
   const contexts = await database.withContext(fixture.own, async (transaction) => {
     const now = new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-    const validUntil = new Date(now.getTime() + 540_000);
     await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${tribeId},'Synthetic usage tribe',${`usage-${tribeId}`},${fixture.userId})`);
     await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${fixture.userId},'leader','active')`);
     await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${accountId},${fixture.userId},'google',${subject},${now},${now})`);
     await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${fixture.userId},${sessionToken},${new Date(now.getTime() + 3_600_000)},${now},${now})`);
     await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${sessionId},${fixture.userId},${accountId},${subject},${fixture.own.email})`);
-    for (const operation of [REAUTHENTICATION_OPERATION.initializeMessagingUsage, REAUTHENTICATION_OPERATION.updateMessagingUsage]) {
-      const intentId = randomUUID();
-      await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.userId},${sessionId},${accountId},${subject},${tribeId},${operation},${tribeId},'/synthetic-usage',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);
-      await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.userId},${accountId},${subject},${sessionId},${tribeId},${operation},${tribeId},${now},${now},${validUntil})`);
-    }
     const base = { actorUserId: fixture.userId, sessionId, tribeId, requestId: randomUUID() };
-    const sensitive = { ...base, accountId, subject, authenticatedAt: now, validUntil, resourceId: tribeId };
+    const sensitive = { ...base, accountId, subject, resourceId: tribeId };
     return {
       read: base satisfies MessagingUsageContext,
       initialize: { ...sensitive, operation: REAUTHENTICATION_OPERATION.initializeMessagingUsage } satisfies MessagingUsageSensitiveContext,
@@ -58,7 +52,7 @@ async function prepareUsage(database: AcademyAdmissionTestDatabase) {
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging usage configuration", () => {
-  it("should compose current usage identity and exact recency through the real module without a connection and preserve read authentication failures", async () => {
+  it("should compose current usage identity and exact operation through the real module without a connection and preserve read authentication failures", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareUsage(database), operationId = randomUUID();
       const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: fixture.userId, sessionId: fixture.contexts.read.sessionId }), (_scope, run) => database.withContext(fixture.own, run));
@@ -72,14 +66,13 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging usage co
     });
   }, 180_000);
 
-  it("should read original usage work without mutation recency and preserve its ledger while rejecting foreign or ambiguous namespaces", async () => {
+  it("should read original usage work and preserve its ledger while rejecting foreign or ambiguous namespaces", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareUsage(database), initializeId = randomUUID(), updateId = randomUUID();
       await fixture.operations.initialize(fixture.contexts.initialize, initializeId);
       await fixture.update(1, ["AR"], updateId);
       const reader = new PostgresMessagingUsageOperationReader(fixture.execute);
       const before = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select id,version,state,completed_at,lease_owner,lease_until from public.academy_admission_operations where tribe_id=${fixture.tribeId} and idempotency_key=${initializeId}`)).rows);
-      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where user_id=${fixture.userId} and tribe_id=${fixture.tribeId}`));
       expect(messagingUsageOperationRecoverySchema.parse(await reader.read(fixture.contexts.read, initializeId))).toMatchObject({ type: "initialize_messaging_usage", state: "completed", replayed: true, result: { version: 1, allowedCountries: [] } });
       expect(messagingUsageOperationRecoverySchema.parse(await reader.read(fixture.contexts.read, updateId))).toMatchObject({ type: "update_messaging_usage", result: { version: 2, allowedCountries: ["AR"] } });
       expect(await fixture.operations.read(fixture.contexts.read)).toMatchObject({ policy: { version: 2 } });
@@ -143,7 +136,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging usage co
     });
   }, 180_000);
 
-  it("should recheck current actor, canonical role, session and operation-scoped recency without divulging another tenant", async () => {
+  it("should recheck current actor, canonical role, session, Google binding and exact operation without divulging another tenant", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareUsage(database);
       await expect(fixture.operations.initialize({ ...fixture.contexts.initialize, actorUserId: randomUUID() }, randomUUID())).rejects.toMatchObject({ code: "permission_denied" });
@@ -152,8 +145,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging usage co
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='guardian' where tribe_id=${fixture.tribeId} and user_id=${fixture.userId}`));
       await expect(fixture.operations.read(fixture.contexts.read)).rejects.toMatchObject({ code: "permission_denied" });
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='leader' where tribe_id=${fixture.tribeId} and user_id=${fixture.userId}`));
-      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where user_id=${fixture.userId}`));
-      await expect(fixture.operations.initialize(fixture.contexts.initialize, randomUUID())).rejects.toMatchObject({ code: "reauthentication_required" });
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.global_session_identity_bindings set invalidated_at=clock_timestamp() where session_id=${fixture.contexts.read.sessionId}`));
+      await expect(fixture.operations.initialize(fixture.contexts.initialize, randomUUID())).rejects.toMatchObject({ code: "authentication_required" });
       expect(await fixture.operations.read(fixture.contexts.read)).toEqual({ state: "not_configured", policy: null });
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`delete from public.session where id=${fixture.contexts.read.sessionId}`));
       await expect(fixture.operations.read(fixture.contexts.read)).rejects.toMatchObject({ code: "authentication_required" });
@@ -337,14 +330,13 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
 });
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early usage HTTP", () => {
-  it("should recover original usage through the actual route without recency and close an expired global session without changing the ledger", async () => {
+  it("should recover original usage through the actual route and close an expired global session without changing the ledger", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareUsage(database), slug = `usage-${fixture.tribeId}`, operationId = randomUUID();
       await database.applyMigration("20261005093000_guard_academy_membership_sources.sql");
       await database.applyMigration("20261007001000_read_public_admission_overview.sql");
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${fixture.tribeId},'academy',true)`));
       await fixture.operations.initialize(fixture.contexts.initialize, operationId);
-      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where user_id=${fixture.userId} and tribe_id=${fixture.tribeId}`));
       const before = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select id,version,state,public_result,completed_at,lease_owner,lease_until from public.academy_admission_operations where tribe_id=${fixture.tribeId} and idempotency_key=${operationId}`)).rows);
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
         const cookie = `better-auth.session_token=${encodeURIComponent(`${fixture.sessionToken}.${await makeSignature(fixture.sessionToken, secret)}`)}`;
@@ -361,7 +353,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
     });
   }, 300_000);
 
-  it("should configure countries before any connection or admission policy using real leader recency, CAS and original replay", async () => {
+  it("should configure countries before any connection or admission policy using the real leader session, CAS and original replay", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareUsage(database), slug = `usage-${fixture.tribeId}`;
       await database.applyMigration("20261005093000_guard_academy_membership_sources.sql");
@@ -388,9 +380,9 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
         expect(await (await request("PUT", { ...update, operationId: randomUUID(), expectedVersion: 2, allowedCountries: ["AR"] })).json()).toMatchObject({ result: { version: 3, allowedCountries: ["AR"] } });
         expect(await (await request("PUT", update)).json()).toMatchObject({ replayed: true, result: { version: 2, allowedCountries: ["AR", "US"] } });
         expect(await (await request("GET")).json()).toMatchObject({ state: "configured", policy: { version: 3, allowedCountries: ["AR"], verificationDailyLimit: 0 } });
-        await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where user_id=${fixture.userId} and tribe_id=${fixture.tribeId}`));
         const deniedId = randomUUID();
         expect((await request("PUT", { ...update, operationId: deniedId, expectedVersion: 3, hasRecentAuthentication: true })).status).toBe(400);
+        await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.global_session_identity_bindings set invalidated_at=clock_timestamp() where session_id=${fixture.contexts.read.sessionId}`));
         expect((await request("PUT", { ...update, operationId: deniedId, expectedVersion: 3 })).status).toBe(401);
         expect((await request("GET")).status).toBe(200);
         const original = await request("GET", undefined, `/operations/${initializeId}`);

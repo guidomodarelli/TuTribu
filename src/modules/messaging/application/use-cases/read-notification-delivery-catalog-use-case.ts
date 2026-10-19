@@ -1,4 +1,4 @@
-/** Reads bounded notification metadata under current canonical leadership without fresh recency or writes. @module read-notification-delivery-catalog-use-case */
+/** Reads bounded notification metadata under current canonical leadership without writes. @module read-notification-delivery-catalog-use-case */
 import type { ResolveMessagingTribeManagementUseCase } from "./resolve-messaging-tribe-management-use-case";
 import type { NotificationDeliveryCatalogReader, NotificationDeliveryCatalogPosition } from "../../domain/repositories/notification-delivery-catalog-reader";
 import { notificationDeliveryCatalogSchema } from "../../constants/notification-delivery-catalog";

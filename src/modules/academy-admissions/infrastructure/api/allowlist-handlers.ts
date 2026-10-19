@@ -73,11 +73,11 @@ export function createAllowlistHandlers(open: () => Promise<AllowlistServices>) 
     } catch (error) { return boundary.unexpected(error); }
   }
   return {
-    /** @param request - Own bounded query. @param context - Current tribe params. @returns Current leader metadata without write or recency demand. */
+    /** @param request - Own bounded query. @param context - Current tribe params. @returns Current leader metadata without write. */
     list: (request: Request, context: RouteContext) => execute(request, context, "list"),
     /** @param request - Exact own entry query. @param context - Current tribe/entry params. @returns Current metadata independent of an older replay. */
     read: (request: Request, context: RouteContext) => execute(request, context, "read"),
-    /** @param request - Explicit canonical proposal. @param context - Current tribe params. @returns Version-one creation or original result after exact global recency. */
+    /** @param request - Explicit canonical proposal. @param context - Current tribe params. @returns Version-one creation or original result after current leader and session checks. */
     create: (request: Request, context: RouteContext) => execute(request, context, "create"),
     /** @param request - Explicit observed-version edit. @param context - Current entry params. @returns Minimal original CAS result without membership/binding effects. */
     update: (request: Request, context: RouteContext) => execute(request, context, "update"),

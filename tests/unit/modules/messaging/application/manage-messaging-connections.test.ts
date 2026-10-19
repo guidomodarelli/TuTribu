@@ -5,10 +5,10 @@ import { ManageMessagingConnectionsUseCases } from "@/src/modules/messaging/appl
 import type { MessagingAuthenticatedAccount,MessagingLeadershipFacts } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import { MessagingConnectionOperationError } from "@/src/modules/messaging/domain/errors/messaging-connection-operation-error";
 
-/** @returns Current owned identity/recency and observable creation port, with no mocked platform library. */
+/** @returns Current owned identity and observable creation port, with no mocked platform library. */
 function creationFixture(){
   const now=new Date("2026-10-07T12:00:00.000Z"),tribeId=randomUUID(),userId=randomUUID(),sessionId=randomUUID(),accountId=randomUUID(),subject=randomUUID(),operationId=randomUUID();
-  const account:MessagingAuthenticatedAccount={userId,session:{id:sessionId,expiresAt:new Date(now.getTime()+3_600_000)},googleAccount:{id:accountId,subject},recentAuthentication:[{id:randomUUID(),intentId:randomUUID(),userId,sessionId,accountId,subject,tribeId,resourceId:tribeId,operation:"save_messaging_credentials",authenticatedAt:now,verifiedAt:now,validUntil:new Date(now.getTime()+540_000),invalidatedAt:null}]};
+  const account:MessagingAuthenticatedAccount={userId,session:{id:sessionId,expiresAt:new Date(now.getTime()+3_600_000)},googleAccount:{id:accountId,subject}};
   const leadership:MessagingLeadershipFacts={tribeId,leaderUserId:userId,membership:{userId,role:"leader",status:"active"}};
   const input={tribeId,requestId:randomUUID(),operationId,confirmed:true as const,providerId:"zavu" as const,name:"Conexión candidata",apiKey:randomUUID()};
   const result={state:"completed" as const,operationId,replayed:false,result:{id:randomUUID(),name:input.name,version:1,configurationVersion:1,state:"draft" as const,maskedCredential:"••••••••" as const}};
@@ -18,7 +18,7 @@ function creationFixture(){
 }
 
 describe("connection creation authority",()=>{
-  it("should derive exact tribe recency from current native account facts and return only committed metadata",async()=>{
+  it("should create with the active leader session alone and return only committed metadata",async()=>{
     const fixture=creationFixture();
     expect(await fixture.useCase.create(fixture.input)).toEqual({ok:true,value:fixture.result});
     expect(fixture.create).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({actorUserId:fixture.account.userId,sessionId:fixture.account.session.id,accountId:fixture.account.googleAccount!.id,subject:fixture.account.googleAccount!.subject,tribeId:fixture.input.tribeId,resourceId:fixture.input.tribeId,operation:"save_messaging_credentials"}),fixture.input);
@@ -34,13 +34,12 @@ describe("connection creation authority",()=>{
     expect(fixture.create).not.toHaveBeenCalled();
   });
 
-  it("should reject usage recency and invalidated creation recency rather than treating Google login as confirmation",async()=>{
+  it.each(["missing_account","expired_session","missing_google_binding"] as const)("should require an authenticated session for %s before the creation port receives a credential",async(reason)=>{
     const fixture=creationFixture();
-    fixture.account.recentAuthentication[0].operation="initialize_messaging_usage";
-    expect(await fixture.useCase.create(fixture.input)).toMatchObject({ok:false,failure:{code:"reauthentication_required"}});
-    fixture.account.recentAuthentication[0].operation="save_messaging_credentials";
-    fixture.account.recentAuthentication[0].invalidatedAt=new Date("2026-10-07T12:00:00Z");
-    expect(await fixture.useCase.create(fixture.input)).toMatchObject({ok:false,failure:{code:"reauthentication_required"}});
+    if(reason==="missing_account")fixture.getAuthenticatedAccount.mockResolvedValue(null as never);
+    if(reason==="expired_session")fixture.account.session.expiresAt=new Date("2026-10-07T12:00:00Z");
+    if(reason==="missing_google_binding")fixture.account.googleAccount=null;
+    expect(await fixture.useCase.create(fixture.input)).toMatchObject({ok:false,failure:{code:"authentication_required"}});
     expect(fixture.create).not.toHaveBeenCalled();
   });
 

@@ -3,7 +3,7 @@ import type {GlobalIdentityEvidence,GoogleIdentityEvidenceCandidate} from "../en
 
 /** Identifies the actual global session and account, never a browser permission flag. */
 export type GlobalIdentityEvidenceScope={userId:string;accountId:string;sessionId:string};
-/** Excludes transient nonce and authentication recency from the durable identity capture. */
+/** Excludes transient nonce and authentication time from the durable identity capture. */
 export type CaptureGlobalIdentityEvidenceCommand=GlobalIdentityEvidenceScope&{
   evidence:Omit<GoogleIdentityEvidenceCandidate,"nonce"|"authenticatedAt">;
 };

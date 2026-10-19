@@ -5,10 +5,10 @@ import type { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/re
 /** Private current-session identity, resolved by the server and rechecked by the SQL adapter. */
 export type MessagingUsageContext = { actorUserId: string; sessionId: string; tribeId: string; requestId: string };
 
-/** Scoped global recency for usage management; the tribe itself is the resource. */
+/** Exact sensitive usage operation bound to the current Google session identity; the tribe itself is the resource. */
 export type MessagingUsageSensitiveContext = MessagingUsageContext & {
   operation: typeof REAUTHENTICATION_OPERATION.initializeMessagingUsage | typeof REAUTHENTICATION_OPERATION.updateMessagingUsage;
-  resourceId: string; accountId: string; subject: string; authenticatedAt: Date; validUntil: Date;
+  resourceId: string; accountId: string; subject: string;
 };
 
 /** The boundary validates input once; sorted countries define the ledger's normalized intent. */

@@ -6,7 +6,7 @@ import type {MessagingConfigurationConnection} from "@/src/modules/messaging/app
 import styles from "./styles.module.scss";
 
 /** The route owns current authority, requirements, consent and original-operation coordination. */
-export type MessagingConnectionActivationProps={candidate:MessagingConfigurationConnection;selected:MessagingConfigurationConnection|null;confirmed:boolean;busy:boolean;canActivate:boolean;requirements:readonly string[];onConfirm:(confirmed:boolean)=>void;onActivate:()=>void;onReauthenticate:()=>void};
+export type MessagingConnectionActivationProps={candidate:MessagingConfigurationConnection;selected:MessagingConfigurationConnection|null;confirmed:boolean;busy:boolean;canActivate:boolean;requirements:readonly string[];onConfirm:(confirmed:boolean)=>void;onActivate:()=>void};
 
 /** @param props - Current own candidate/selection facts and explicit callbacks. @returns Requirements first, then a controlled confirmation; rendering never selects or sends. */
 export function MessagingConnectionActivation(props:MessagingConnectionActivationProps){
@@ -23,7 +23,6 @@ export function MessagingConnectionActivation(props:MessagingConnectionActivatio
     <form className={styles.MessagingConnectionActivation__form} aria-busy={props.busy} onSubmit={(event)=>{event.preventDefault();props.onActivate();}}>
       <Checkbox id={`${fieldId}-consent`} checked={props.confirmed} disabled={props.busy} onCheckedChange={(checked)=>props.onConfirm(checked===true)} label="Confirmo que quiero usar esta candidata y reemplazar la conexión seleccionada cuando corresponda." />
       <div className={styles.MessagingConnectionActivation__actions}><Button className={styles.MessagingConnectionActivation__button} type="submit" variant="primary" disabled={props.busy||!props.canActivate}>{props.selected?"Reemplazar conexión seleccionada":"Activar candidata"}</Button></div>
-      <p className={styles.MessagingConnectionActivation__reauthentication}>Si TuTribu te pide confirmar tu cuenta: <Button variant="ghost" size="sm" disabled={props.busy} onClick={props.onReauthenticate}>Confirmar activación con Google</Button></p>
     </form>
   </section>;
 }

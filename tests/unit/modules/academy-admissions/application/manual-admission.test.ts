@@ -143,7 +143,7 @@ describe("manual admission application", () => {
   /** Creates explicit own persistence ports, without simulating PostgreSQL or provider behavior. */
   function submissionPorts() {
     const facts = manualFacts(), operationId = randomUUID(), requestId = randomUUID();
-    const account: AuthenticatedAccount = { userId: facts.account!.userId, normalizedEmail: facts.account!.normalizedEmail, session: { id: randomUUID(), expiresAt: new Date(facts.now.getTime() + ADMISSION_LIMIT.submissionCadenceMs) }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+    const account: AuthenticatedAccount = { userId: facts.account!.userId, normalizedEmail: facts.account!.normalizedEmail, session: { id: randomUUID(), expiresAt: new Date(facts.now.getTime() + ADMISSION_LIMIT.submissionCadenceMs) }, googleAccount: null, identityEvidence: null};
     const outcome: AdmissionCommittedOutcome = { operationId, outcome: "pending", admissionRequestId: randomUUID(), committedRequestVersion: 1, membership: null };
     const submit = vi.fn<AdmissionCommandWriter["submit"]>().mockResolvedValue({ state: "completed", operationId, replayed: false, result: outcome });
     const writer: AdmissionCommandWriter = { submit, decide: vi.fn(), cancel: vi.fn() };

@@ -16,7 +16,7 @@ export type SuspendMessagingConnectionInput=MessagingConnectionLifecycleQuery&Me
 
 /** Owns no SDK or SecretStore and never retries a possibly committed local action. */
 export class ManageMessagingConnectionLifecycleUseCases<Result>{
-  /** @param management - Actual current native leadership and exact scoped global recency. @param lifecycle - Atomic local writer with repeated authorization, dependency checks and original recovery. */
+  /** @param management - Actual current native leadership. @param lifecycle - Atomic local writer with repeated authorization, dependency checks and original recovery. */
   constructor(private readonly management:Pick<ResolveMessagingTribeManagementUseCase,"execute">,private readonly lifecycle:MessagingConnectionLifecycleActions<Result>){}
   /** @param input - Original own UUID/CAS and exact resource. @param operation - Server-selected local action. @param perform - Exact DB-only action using current authority. @returns Committed original result or safe failure with proven registered progress only. */
   private async run(input:ManageMessagingConnectionLifecycleInput,operation:MessagingConnectionLifecycleOperation,perform:(context:MessagingConnectionLifecycleContext)=>Promise<AdmissionOperationResult<Result>>){

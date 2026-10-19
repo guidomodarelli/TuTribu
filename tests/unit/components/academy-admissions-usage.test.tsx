@@ -83,8 +83,8 @@ describe("admission usage and historical presentation", () => {
     const marker = randomUUID();
     const props: MessagingConnectionsProps = {
       configuration: { audience: "guardian", operationalAlert: "attention_required" }, name: marker, apiKey: randomUUID(),
-      confirmed: true, busy: false, canSave: true, canReauthenticate: true, validationConfirmed: true, canValidate: true, fieldErrors: {},
-      onNameChange: vi.fn(), onApiKeyChange: vi.fn(), onConfirmationChange: vi.fn(), onValidationConfirmationChange: vi.fn(), onValidate: vi.fn(), onSave: vi.fn(), onReauthenticate: vi.fn(), onValidationReauthenticate: vi.fn(),
+      confirmed: true, busy: false, canSave: true, validationConfirmed: true, canValidate: true, fieldErrors: {},
+      onNameChange: vi.fn(), onApiKeyChange: vi.fn(), onConfirmationChange: vi.fn(), onValidationConfirmationChange: vi.fn(), onValidate: vi.fn(), onSave: vi.fn(),
     };
     const view = render(<MessagingConnections {...props} />, { wrapper: Providers });
     expect(within(screen.getByRole("region", { name: "Estado de mensajería" })).getByRole("status")).not.toBeEmptyDOMElement();

@@ -16,9 +16,8 @@ import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastruc
 
 /** @returns One synthetic scope whose authority is provided by the test-owned current-resource port. */
 function inspectionContext(): AuthorizedMessagingContext {
-  const now = new Date();
   const connectionId = randomUUID();
-  return { authorizationPurpose: "sensitive_leader", actorUserId: randomUUID(), sessionId: randomUUID(), accountId: randomUUID(), subject: randomUUID(), tribeId: randomUUID(), connectionId, connectionVersion: 1, secretRef: randomUUID(), environment: "synthetic", securityEpoch: "synthetic-epoch", requestId: randomUUID(), resourceId: connectionId, operation: "configure_messaging_connection", authenticatedAt: now, validUntil: new Date(now.getTime() + 540_000) };
+  return { authorizationPurpose: "sensitive_leader", actorUserId: randomUUID(), sessionId: randomUUID(), accountId: randomUUID(), subject: randomUUID(), tribeId: randomUUID(), connectionId, connectionVersion: 1, secretRef: randomUUID(), environment: "synthetic", securityEpoch: "synthetic-epoch", requestId: randomUUID(), resourceId: connectionId, operation: "configure_messaging_connection" };
 }
 
 describe("own-port provider substitution", () => {

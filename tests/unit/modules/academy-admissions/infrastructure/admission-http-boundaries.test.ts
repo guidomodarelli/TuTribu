@@ -176,8 +176,8 @@ describe("current messaging authority before SecretStore", () => {
   function createAuthority(secretStore?: MessagingSecretStore) {
     const now = new Date("2026-10-05T12:00:00.000Z");
     const command = { tribeId: "tribe-a", connectionId: "connection-a", operation: "validate_messaging_connection", requestId: randomUUID() };
-    const evidence = { id: "recent-evidence", userId: "leader-a", sessionId: "session-a", accountId: "google-account-a", subject: "google-subject-a", tribeId: command.tribeId, operation: command.operation, resourceId: command.connectionId, intentId: "consumed-intent", authenticatedAt: new Date(now.getTime() - 60_000), verifiedAt: now, validUntil: new Date(now.getTime() + 540_000), invalidatedAt: null };
-    const account: MessagingAuthenticatedAccount = { userId: evidence.userId, session: { id: evidence.sessionId, expiresAt: new Date(now.getTime() + 3_600_000) }, googleAccount: { id: evidence.accountId, subject: evidence.subject }, recentAuthentication: [evidence] };
+    const identity = { userId: "leader-a", sessionId: "session-a", accountId: "google-account-a", subject: "google-subject-a" };
+    const account: MessagingAuthenticatedAccount = { userId: identity.userId, session: { id: identity.sessionId, expiresAt: new Date(now.getTime() + 3_600_000) }, googleAccount: { id: identity.accountId, subject: identity.subject } };
     const leadership: MessagingLeadershipFacts = { tribeId: command.tribeId, leaderUserId: account.userId, membership: { userId: account.userId, role: "leader", status: "active" } };
     const connection: MessagingConnectionAuthorizationFacts = { id: command.connectionId, tribeId: command.tribeId, version: 1, contributedByUserId: account.userId, state: "active", environment: "synthetic-local", securityEpoch: "epoch-a", retiredAt: null, secretRef: "secret-a" };
     const security = { environment: "synthetic-local", securityEpoch: "epoch-a", recoveryLocked: false };
@@ -197,7 +197,7 @@ describe("current messaging authority before SecretStore", () => {
     expect(state.secretLoads).toBe(1);
   });
 
-  it.each(["permission_denied", "reauthentication_required", "resource_unavailable"] as const)("should preserve a current Store %s failure without claiming private credential access", async (code) => {
+  it.each(["permission_denied", "authentication_required", "resource_unavailable"] as const)("should preserve a current Store %s failure without claiming private credential access", async (code) => {
     const failure = new MessagingSecretAccessError(code);
     const { command, loader } = createAuthority({ loadAuthorizedSecret: async () => { throw failure; } });
     expect(await loader.execute(command)).toEqual({ allowed: false, failure: { code, cause: failure } });
@@ -219,7 +219,7 @@ describe("current messaging authority before SecretStore", () => {
     expect(state.secretLoads).toBe(0);
   });
 
-  it.each(["missing_session", "guardian", "muted", "wrong_tribe", "wrong_resource", "previous_leader", "retired", "suspended", "disconnected", "old_epoch", "recovery_lock", "expired_session", "invalid_session_expiry", "old_authentication", "wrong_account", "wrong_subject", "wrong_operation"] as const)("should reject %s before calling SecretStore", async (changed) => {
+  it.each(["missing_session", "guardian", "muted", "wrong_tribe", "wrong_resource", "previous_leader", "retired", "suspended", "disconnected", "old_epoch", "recovery_lock", "expired_session", "invalid_session_expiry", "missing_google_binding"] as const)("should reject %s before calling SecretStore", async (changed) => {
     const { state, command, loader } = createAuthority();
     if (changed === "missing_session") state.account = null;
     if (changed === "guardian") state.leadership!.membership!.role = "guardian";
@@ -234,10 +234,7 @@ describe("current messaging authority before SecretStore", () => {
     if (changed === "recovery_lock") state.security.recoveryLocked = true;
     if (changed === "expired_session") state.account!.session.expiresAt = state.now;
     if (changed === "invalid_session_expiry") state.account!.session.expiresAt = new Date(Number.NaN);
-    if (changed === "old_authentication") state.account!.recentAuthentication[0].authenticatedAt = new Date(state.now.getTime() - 600_000);
-    if (changed === "wrong_account") state.account!.googleAccount!.id = "other-account";
-    if (changed === "wrong_subject") state.account!.googleAccount!.subject = "other-subject";
-    if (changed === "wrong_operation") command.operation = "rotate_messaging_credentials";
+    if (changed === "missing_google_binding") state.account!.googleAccount = null;
     expect(await loader.execute(command)).toMatchObject({ allowed: false });
     expect(state.secretLoads).toBe(0);
   });

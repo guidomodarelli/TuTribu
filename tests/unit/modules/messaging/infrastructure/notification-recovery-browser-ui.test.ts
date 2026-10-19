@@ -9,7 +9,6 @@ import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
 import { prepareNotificationDeliveryRecovery } from "@/tests/support/notification-delivery-recovery-fixture";
-import { refreshMessagingActivationRecency } from "@/tests/support/messaging-activation-fixture";
 import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
 import { captureAdmissionReview } from "@/tests/support/admission-review-capture";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
@@ -47,7 +46,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native notific
           const consent = recovery.getByRole("checkbox", { name: /Revisé el aviso/ });
           expect(await consent.isChecked()).toBe(false);
           expect(await recovery.getByRole("button", { name: "Registrar recuperación", exact: true }).isDisabled()).toBe(true);
-          await refreshMessagingActivationRecency(database, fixture.creation, "recover_notification_delivery", fixture.context.deliveryId);
           if (name === "chromium" && width === 1280) await captureAdmissionReview(page, "notification-recovery-confirmation", [fixture.creation.sessionToken, secret, fixture.own.email, fixture.context.actorUserId], "notification-recovery-captures.json", { selector: captureSelector });
           const recoverPath = `**/api/tribes/${slug}/messaging/deliveries/${fixture.context.deliveryId}/recover`;
           await page.route(recoverPath, async (route) => {
@@ -66,7 +64,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native notific
           expect(await recovery.getByRole("button", { name: "Reanudar intento original", exact: true }).isDisabled()).toBe(true);
           await page.unroute(recoverPath);
           if (name === "chromium" && width === 1280) await captureAdmissionReview(page, "notification-recovery-response-lost", [fixture.creation.sessionToken, secret, fixture.own.email, fixture.context.actorUserId], "notification-recovery-captures.json", { selector: captureSelector });
-          await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where tribe_id=${tribeId} and invalidated_at is null`));
           await page.reload({ waitUntil: "networkidle", timeout: 120_000 }); await openConnectionsStep(page,"Seguridad");
           const originalButton = recovery.getByRole("button", { name: "Consultar recuperación original", exact: true });
           await originalButton.waitFor({ timeout: 120_000 });
@@ -80,7 +77,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native notific
           await recovery.getByRole("button", { name: "Preparar otra recuperación", exact: true }).waitFor({ timeout: 120_000 });
           expect(posts).toHaveLength(1); expect(await consent.isChecked()).toBe(false);
           expect(providerRequests).toBe(0); expect(errors).toBe(0); expect(hydrationErrors).toBe(0);
-          expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+          expect(await page.getByRole("button", { name: /Google/ }).count() + await page.getByRole("link", { name: /Google/ }).count()).toBe(0); expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
           if (name === "chromium" && width === 1280) await captureAdmissionReview(page, "notification-recovery-original-confirmed", [fixture.creation.sessionToken, secret, fixture.own.email, fixture.context.actorUserId], "notification-recovery-captures.json", { selector: captureSelector });
           const effects = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ children: number; audits: number; reservations: number }>(sql`select (select count(*)::int from public.message_deliveries where recovery_of_delivery_id=${fixture.context.deliveryId}) as children,(select count(*)::int from public.academy_admission_audit_events where tribe_id=${tribeId} and event_type='notification_delivery_recovered') as audits,(select count(*)::int from public.messaging_usage_reservations where tribe_id=${tribeId}) as reservations`)).rows[0]);
           expect(effects).toEqual({ children: 1, audits: 1, reservations: fixture.baselineUsage.reservations });

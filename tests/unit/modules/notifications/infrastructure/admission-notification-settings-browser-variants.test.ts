@@ -20,9 +20,8 @@ import { ADMISSION_NOTIFICATION_SETTINGS_STORAGE_PREFIX } from "@/src/modules/no
 import { PostgresAdmissionOperationRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository";
 import { authorizeAdmissionPolicy } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-authorizer";
 import { admissionEmailSettingsChangeResultSchema } from "@/src/modules/notifications/application/results/admission-email-settings-result-schemas";
-import { REAUTHENTICATION_ROUTES } from "@/src/modules/auth/constants/reauthentication-ui";
 
-/** Each bounded flow owns its database, process and recency; separating them does not extend either deadline. */
+/** Each bounded flow owns its database and process; separating them does not extend either deadline. */
 const scenarios = [{ name: "validation" }, { name: "recovery" }];
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native admission notification settings recovery variants", () => {
@@ -183,17 +182,14 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await page.getByRole("form", { name: "Correo de la tribu", exact: true }).getByText("La configuración del correo ya estaba guardada.", { exact: true }).waitFor(); await ready();
               expect(await fixture.repository.get(fixture.read)).toMatchObject({ version: 3, timeZone: "UTC" }); await capture("notification-settings-email-unchanged");
 
-              await mark("google_preparation_failure_keeps_original");
-              await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where session_id=${fixture.read.sessionId} and tribe_id=${tribeId}`));
+              await mark("lost_write_keeps_original_without_google");
               await page.getByRole("textbox", { name: "Zona horaria de la tribu", exact: true }).fill("Asia/Kolkata"); await confirm();
+              await page.route("**/admissions/email-settings", (route) => route.request().method() === "POST" ? route.abort("failed") : route.fallback(), { times: 1 });
               await page.getByRole("button", { name: "Guardar correo de admisión", exact: true }).click();
-              await page.getByRole("button", { name: "Preparar confirmación con Google", exact: true }).waitFor(); await ready();
+              await page.getByRole("form", { name: "Correo de la tribu", exact: true }).getByRole("button", { name: "Reintentar el cambio original", exact: true }).waitFor(); await ready();
+              expect(await page.getByRole("button", { name: /Google/ }).count() + await page.getByRole("link", { name: /Google/ }).count()).toBe(0);
               const pending = await page.evaluate((key) => sessionStorage.getItem(key), storedKey); expect(pending).not.toBeNull();
-              forbidden.push(JSON.parse(pending!).input.operationId);
-              await page.route(`${origin}${REAUTHENTICATION_ROUTES.intents}`, (request) => request.fulfill({ status: 503, contentType: "text/plain", body: "Synthetic own intent preparation unavailable" }), { times: 1 });
-              await page.getByRole("button", { name: "Preparar confirmación con Google", exact: true }).click();
-              await page.getByRole("alert").filter({ hasText: "No pudimos preparar la confirmación de Google." }).waitFor(); await ready();
-              expect(await page.evaluate((key) => sessionStorage.getItem(key), storedKey)).toBe(pending); await capture("notification-settings-google-preparation-failed");
+              forbidden.push(JSON.parse(pending!).input.operationId); await capture("notification-settings-lost-write-kept");
 
               await mark("native_account_changed_hides_old_snapshot");
               const alternateCookie = encodeURIComponent(`${alternateToken}.${await makeSignature(alternateToken, secret)}`);

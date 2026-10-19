@@ -1,4 +1,4 @@
-/** Recovers an original usage operation under current leadership without mutation recency. @module read-messaging-usage-operation-use-case */
+/** Recovers an original usage operation under current leadership. @module read-messaging-usage-operation-use-case */
 import type { MessagingAccountProvider, MessagingAuthorizationReader } from "../../domain/repositories/messaging-repositories";
 import type { MessagingUsageOperationReader } from "../../domain/repositories/messaging-usage-operation-reader";
 import { messagingUsageOperationRecoverySchema } from "../results/messaging-usage-operation-result";

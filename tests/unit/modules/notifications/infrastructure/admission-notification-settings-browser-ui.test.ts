@@ -18,7 +18,7 @@ import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infr
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { ADMISSION_NOTIFICATION_SETTINGS_STORAGE_PREFIX } from "@/src/modules/notifications/constants/admission-notification-settings-page";
 
-/** Every engine/viewport owns a fresh database, server and recency window; the desktop case also captures recovery. */
+/** Every engine/viewport owns a fresh database and server; the desktop case also captures recovery. */
 const scenarios = [{ name: "chromium", engine: chromium, width: 390 }, { name: "webkit", engine: webkit, width: 390 }, { name: "webkit", engine: webkit, width: 1280 }, { name: "chromium", engine: chromium, width: 1280 }];
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native admission notification settings UI", () => {
@@ -129,8 +129,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                   const original = await fixture.repository.get(fixture.read); originalVersion = original.version;
                   expect(original).toMatchObject({ enabled: true, timeZone: "Asia/Kolkata" });
                   expect(await fixture.repository.change(fixture.change, fixture.command(original.version, false, "UTC"))).toMatchObject({ state: "completed" });
-                  await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where session_id=${fixture.read.sessionId} and tribe_id=${tribeId}`));
-                  stage = "recover_original_without_google";
+                  stage = "recover_original";
                   await page.getByRole("button", { name: "Consultar estado actual", exact: true }).click();
                   await emailForm.getByText("Recuperamos el resultado del cambio original. Los ajustes actuales se consultaron por separado.", { exact: true }).waitFor();
                   expect(await page.getByLabel("Zona horaria de la tribu", { exact: true }).inputValue()).toBe("UTC");
@@ -139,16 +138,14 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                   expect(recoveredVersion).toBe(original.version + 1); expect(emailWrites).toBe(1);
                   await capture(page, "notification-settings-recovered-current");
 
-                  stage = "new_write_requires_google";
+                  stage = "new_write_with_session_only";
                   await page.getByRole("checkbox", { name: "Habilitar correo de admisión", exact: true }).check();
                   await page.getByRole("checkbox", { name: /Confirmo la habilitación/ }).check();
                   await page.getByRole("button", { name: "Guardar correo de admisión", exact: true }).click();
-                  await page.getByRole("button", { name: "Preparar confirmación con Google", exact: true }).click();
-                  await page.getByRole("link", { name: "Continuar con Google", exact: true }).waitFor();
-                  const intent = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ id: string; operation: string; return_path: string }>(sql`select id,operation,return_path from public.global_reauthentication_intents where user_id=${fixture.own.userId} and tribe_id=${tribeId} and state='created' order by created_at desc limit 1`)).rows[0]);
-                  expect({ operation: intent.operation, return_path: intent.return_path }).toEqual({ operation: "update_admission_email_settings", return_path: `/${slug}/academia/admissions/notifications` });
-                  forbidden.push(intent.id);
-                  expect(emailWrites).toBe(2); await capture(page, "notification-settings-google-required");
+                  await emailForm.getByText("La configuración del correo quedó guardada.", { exact: true }).waitFor();
+                  expect(await fixture.repository.get(fixture.read)).toMatchObject({ enabled: true, version: recoveredVersion + 1 });
+                  expect(await page.getByRole("button", { name: /Google/ }).count() + await page.getByRole("link", { name: /Google/ }).count()).toBe(0);
+                  expect(emailWrites).toBe(2); await capture(page, "notification-settings-saved-after-recovery");
                 } else {
                   stage = `${scenario.name}_${scenario.width}_email_confirmed_result`;
                   await emailForm.getByText("La configuración del correo quedó guardada.", { exact: true }).waitFor();
@@ -170,7 +167,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                     try {
                       databaseMetadata = await database.withContext(fixture.own, async (transaction) => ({
                         settings: (await transaction.execute(sql`select enabled,version,time_zone from public.admission_email_settings where tribe_id=${tribeId}`)).rows,
-                        recency: (await transaction.execute(sql`select count(*) filter(where invalidated_at is null and valid_until>clock_timestamp())::int as fresh from public.recent_authentication_evidence where session_id=${fixture.read.sessionId} and tribe_id=${tribeId} and operation='update_admission_email_settings'`)).rows,
                         capabilities: (await transaction.execute(sql`select channel,state from public.messaging_connection_capabilities where tribe_id=${tribeId}`)).rows,
                         operations: (await transaction.execute(sql`select operation_type,state,public_result->>'status' as result_status,public_result->>'reason' as result_reason from public.academy_admission_operations where tribe_id=${tribeId} and actor_user_id=${fixture.own.userId}`)).rows,
                       }));

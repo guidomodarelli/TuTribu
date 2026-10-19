@@ -293,7 +293,7 @@ describe("new admission evidence and pathway matrix", () => {
     { action: "update_own_notification_preferences", leader: true, guardian: true, applicant: false },
     { action: "grant_product_or_role", leader: false, guardian: false, applicant: false },
   ] as const)("should apply the complete actor matrix for $action", (row) => {
-    const resource = { tribeId: "tribe-a", applicantUserId: "applicant", hasRecentAuthentication: true };
+    const resource = { tribeId: "tribe-a", applicantUserId: "applicant" };
     expect(canPerformAdmissionAction({ userId: "leader", tribeId: resource.tribeId, role: "leader", status: "active" }, row.action, resource)).toBe(row.leader);
     expect(canPerformAdmissionAction({ userId: "guardian", tribeId: resource.tribeId, role: "guardian", status: "active" }, row.action, resource)).toBe(row.guardian);
     expect(canPerformAdmissionAction({ userId: "applicant", tribeId: resource.tribeId, role: null, status: null }, row.action, resource)).toBe(row.applicant);
@@ -370,12 +370,14 @@ describe("current-policy review and permissions", () => {
     expect(canPerformAdmissionAction(actor, "read_inbox", { tribeId: "tribe-a" })).toBe(false);
   });
 
-  it("should require current sensitive authorization while never exposing saved secrets or granting products", () => {
+  it("should let only the active leader manage connections while never exposing saved secrets or granting products", () => {
     const actor = { userId: "leader", tribeId: "tribe-a", role: "leader" as const, status: "active" as const };
-    expect(canPerformAdmissionAction(actor, "manage_connection", { tribeId: "tribe-a" })).toBe(false);
-    expect(canPerformAdmissionAction(actor, "manage_connection", { tribeId: "tribe-a", hasRecentAuthentication: true })).toBe(true);
-    expect(canPerformAdmissionAction(actor, "read_secret", { tribeId: "tribe-a", hasRecentAuthentication: true })).toBe(false);
-    expect(canPerformAdmissionAction(actor, "grant_product_or_role", { tribeId: "tribe-a", hasRecentAuthentication: true })).toBe(false);
+    expect(canPerformAdmissionAction(actor, "manage_connection", { tribeId: "tribe-a" })).toBe(true);
+    expect(canPerformAdmissionAction({ ...actor, role: "guardian" }, "manage_connection", { tribeId: "tribe-a" })).toBe(false);
+    expect(canPerformAdmissionAction({ ...actor, status: "muted" }, "manage_connection", { tribeId: "tribe-a" })).toBe(false);
+    expect(canPerformAdmissionAction(actor, "manage_connection", { tribeId: "tribe-b" })).toBe(false);
+    expect(canPerformAdmissionAction(actor, "read_secret", { tribeId: "tribe-a" })).toBe(false);
+    expect(canPerformAdmissionAction(actor, "grant_product_or_role", { tribeId: "tribe-a" })).toBe(false);
   });
 
   it.each(["paused", "expired", "proof_revoked", "list_removed", "allowed_exception"] as const)(

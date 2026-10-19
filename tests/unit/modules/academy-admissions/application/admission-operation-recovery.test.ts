@@ -9,7 +9,7 @@ import { ADMISSION_BATCH_DECISION_OPERATION } from "@/src/modules/academy-admiss
 /** Supplies only own account/registry read ports; no claim or mutation dependency exists. */
 function recoveryFixture() {
   const now = new Date("2026-10-07T00:00:00Z"), operationId = randomUUID(), tribeId = randomUUID();
-  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "applicant@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-08T00:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "applicant@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-08T00:00:00Z") }, googleAccount: null, identityEvidence: null};
   const accounts = { getAuthenticatedAccount: vi.fn(async (): Promise<AuthenticatedAccount | null> => account) };
   const registered = { operationType: "submit_admission", operation: { state: "completed", operationId, replayed: true, result: { operationId, outcome: "already_member", admissionRequestId: null, committedRequestVersion: null, membership: { role: "tribemate", status: "active" }, privateCiphertext: "synthetic-private" }, leaseOwner: randomUUID() } };
   const reader = { read: vi.fn(async (): Promise<unknown | null> => registered) };
@@ -110,14 +110,13 @@ describe("original admission operation read", () => {
     expect(await new ReadAdmissionOperationUseCase(fixture.accounts, fixture.reader, () => fixture.now).execute(fixture.query)).toMatchObject({ ok: false, failure: { code: "public_contract_unusable" } });
   });
 
-  it.each(["initialize_admission_policy", "update_admission_policy", "activate_admission_policy", "pause_admission_policy"])("should recover the original %s without recency or current policy reconstruction", async (operationType) => {
+  it.each(["initialize_admission_policy", "update_admission_policy", "activate_admission_policy", "pause_admission_policy"])("should recover the original %s without current policy reconstruction", async (operationType) => {
     const fixture = recoveryFixture();
     const activated = operationType === "activate_admission_policy";
     fixture.reader.read.mockResolvedValue({ operationType, operation: { state: "completed", operationId: fixture.query.operationId, replayed: true, result: { policyId: fixture.query.tribeId, version: 1, verificationEpoch: 1, activatedAt: activated ? "2026-10-06T23:00:00Z" : null, controlActivated: activated, changed: true, privateKeyId: "synthetic-private" } } });
     const result = await new ReadAdmissionOperationUseCase(fixture.accounts, fixture.reader, () => fixture.now).execute(fixture.query);
     expect(result).toMatchObject({ ok: true, value: { type: operationType, state: "completed", replayed: true, result: { version: 1, controlActivated: activated } } });
     if (result.ok) expect(result.value).not.toHaveProperty("result.privateKeyId");
-    expect(fixture.account.recentAuthentication).toEqual([]);
     fixture.reader.read.mockResolvedValueOnce({ operationType, operation: { state: "started", operationId: fixture.query.operationId } });
     expect(await new ReadAdmissionOperationUseCase(fixture.accounts, fixture.reader, () => fixture.now).execute(fixture.query)).toMatchObject({ ok: true, value: { type: operationType, state: "started" } });
   });

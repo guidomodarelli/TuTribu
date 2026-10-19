@@ -39,7 +39,7 @@ export class PostgresMessagingConnectionRepository implements MessagingConnectio
 
   /**
    * Applies explicit creation only after the matching ledger intent and current authority.
-   * @param context - Current exact session/account/tribe recency, never browser authority.
+   * @param context - Current exact session/account/tribe scope, never browser authority.
    * @param input - Boundary-normalized original credential/name intent.
    * @returns Original committed minimal metadata or durably registered unfinished work.
    * @throws MessagingConnectionOperationError with no plaintext or provider payload in its message.

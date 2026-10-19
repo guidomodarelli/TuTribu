@@ -48,15 +48,15 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("private messaging 
     });
   },240_000);
 
-  it("should close guardian, changed leadership, invalidated recency and expired session before persisting a credential", async () => {
+  it("should close guardian, changed leadership, an invalidated Google session binding and expired session before persisting a credential", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const prepared = await prepareMessagingConnectionCreation(database);
       const input = () => ({operationId:randomUUID(),confirmed:true as const,providerId:"zavu" as const,name:"Conexión cerrada",apiKey:randomUUID()});
       await database.withContext(prepared.fixture.own,(transaction)=>transaction.execute(sql`update public.tribe_members set role='guardian' where tribe_id=${prepared.context.tribeId} and user_id=${prepared.context.actorUserId}`));
       await expect(prepared.repository.create(prepared.context,input())).rejects.toMatchObject({code:"permission_denied"});
       await database.withContext(prepared.fixture.own,(transaction)=>transaction.execute(sql`update public.tribe_members set role='leader' where tribe_id=${prepared.context.tribeId} and user_id=${prepared.context.actorUserId}`));
-      await database.withContext(prepared.fixture.own,(transaction)=>transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where tribe_id=${prepared.context.tribeId}`));
-      await expect(prepared.repository.create(prepared.context,input())).rejects.toMatchObject({code:"reauthentication_required"});
+      await database.withContext(prepared.fixture.own,(transaction)=>transaction.execute(sql`update public.global_session_identity_bindings set invalidated_at=clock_timestamp() where session_id=${prepared.context.sessionId}`));
+      await expect(prepared.repository.create(prepared.context,input())).rejects.toMatchObject({code:"authentication_required"});
       await database.withContext(prepared.fixture.own,(transaction)=>transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${prepared.context.sessionId}`));
       await expect(prepared.repository.create(prepared.context,input())).rejects.toMatchObject({code:"authentication_required"});
       const counts = await database.withContext(prepared.fixture.own,async(transaction)=>(await transaction.execute(sql`select (select count(*)::int from public.tenant_messaging_connections where tribe_id=${prepared.context.tribeId}) as connections,(select count(*)::int from public.messaging_secret_envelopes where tribe_id=${prepared.context.tribeId}) as secrets,(select count(*)::int from public.academy_admission_operations where tribe_id=${prepared.context.tribeId}) as operations`)).rows[0]);
@@ -117,7 +117,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS!=="1")("native connectio
         const replayed=await post();expect(replayed.status).toBe(200);expect(await replayed.json()).toMatchObject({replayed:true,result:initial.result});
         expect((await post({...body,apiKey:randomUUID()})).status).toBe(409);
         const conflicting=await post({...body,operationId:randomUUID()});expect(conflicting.status).toBe(409);expect(await conflicting.json()).toMatchObject({code:"connection_conflict"});
-        await database.withContext(prepared.fixture.own,(transaction)=>transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where tribe_id=${prepared.context.tribeId}`));
+        await database.withContext(prepared.fixture.own,(transaction)=>transaction.execute(sql`update public.global_session_identity_bindings set invalidated_at=clock_timestamp() where session_id=${prepared.context.sessionId}`));
         expect((await post({...body,operationId:randomUUID()})).status).toBe(401);
         await database.withContext(prepared.fixture.own,(transaction)=>transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${prepared.context.sessionId}`));
         expect((await post({...body,operationId:randomUUID()})).status).toBe(401);

@@ -1,4 +1,4 @@
-/** Exposes only original usage recovery for current leaders, independently of current policy and recency. @module messaging-usage-operation-handler */
+/** Exposes only original usage recovery for current leaders, independently of current policy. @module messaging-usage-operation-handler */
 import "server-only";
 import { z } from "zod";
 import type { ReadMessagingUsageOperationUseCase } from "../../application/use-cases/read-messaging-usage-operation-use-case";

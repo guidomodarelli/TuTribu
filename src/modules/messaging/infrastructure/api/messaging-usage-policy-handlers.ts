@@ -14,7 +14,7 @@ import { MESSAGING_HTTP_OPERATION } from "../../constants/messaging-http";
 import { HTTP_STATUS } from "@/src/constants/http-status";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 
-/** The resolver is read-only; usage derives account, canonical leadership and exact recency server-side. */
+/** The resolver is read-only; usage derives account and canonical leadership server-side. */
 export type MessagingUsagePolicyServices = {
   resolveTribe: { execute(query: { slug: string; requestId: string }): Promise<{ ok: true; value: { tribeId: string } } | { ok: false; failure: AdmissionFailure }> };
   usage: Pick<ManageMessagingUsageUseCases, "read" | "initialize" | "update">;
@@ -60,7 +60,7 @@ export function createMessagingUsagePolicyHandlers(open: () => Promise<Messaging
   }
 
   return {
-    /** @param request - Native input. @param context - Current framework params. @returns True absence or the current own DTO, with no initialization or recency requirement. */
+    /** @param request - Native input. @param context - Current framework params. @returns True absence or the current own DTO, with no initialization. */
     async read(request: Request, context: UsageRouteContext): Promise<Response> {
       const boundary = createMessagingRouteBoundary({ request, operation: MESSAGING_HTTP_OPERATION.usageRead });
       try {

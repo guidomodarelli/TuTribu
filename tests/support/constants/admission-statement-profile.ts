@@ -16,7 +16,7 @@ export const ADMISSION_STATEMENT_PROFILE = {
 } as const;
 /** Output hints are selected from this closed list; unmatched SQL identifiers are discarded. */
 export const ADMISSION_STATEMENT_OBJECTS = [
-  "user", "session", "account", "global_session_identity_bindings", "global_identity_evidence", "recent_authentication_evidence",
+  "user", "session", "account", "global_session_identity_bindings", "global_identity_evidence",
   "tribes", "tribe_members", "tribe_academy_settings", "academy_admission_policies", "academy_admission_requests", "academy_admission_operations",
   "academy_allowlist_entries", "academy_admission_contact_bindings", "academy_admission_decisions", "academy_admission_membership_effects", "academy_admission_verification_proofs",
   "academy_admission_audit_events", "academy_allowlist_import_rows", "academy_allowlist_import_selections", "academy_allowlist_imports", "academy_personal_invitations",

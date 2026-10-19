@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
-import { prepareMessagingConnectionActivation, refreshMessagingActivationRecency } from "@/tests/support/messaging-activation-fixture";
+import { prepareMessagingConnectionActivation } from "@/tests/support/messaging-activation-fixture";
 import { advanceVerificationRequestCooldown, contactVerificationIssuanceSnapshotSchema } from "@/tests/support/contact-verification-issuance-fixture";
 import { createAdmissionProviderTransport } from "@/tests/support/admission-provider-transport";
 import { PostgresAdmissionOperationRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository";
@@ -61,7 +61,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("late receipt after
       let receipt;
       try {
         await entered.promise;
-        await refreshMessagingActivationRecency(database, next.fixture, "activate_messaging_connection", next.context.connectionId);
         const resolution = await next.request.useCases.resolveContext.execute({ tribeId: next.context.tribeId, connectionId: next.context.connectionId, operation: "activate_messaging_connection", requestId: randomUUID() });
         if (!resolution.allowed) throw new Error("Expected current native replacement authority");
         expect(await next.owner.activate(resolution.context, next.input)).toMatchObject({ state: "completed", result: { id: next.context.connectionId, state: "active", replaced: { connectionId: previous.context.connectionId, connectionVersion: previous.context.connectionVersion } } });

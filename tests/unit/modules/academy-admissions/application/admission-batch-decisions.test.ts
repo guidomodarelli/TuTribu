@@ -12,7 +12,7 @@ import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain
 /** @returns Real context resolution with doubles only for the project's account, authorization and atomic writer ports. */
 function batchDecisions() {
   const now = new Date("2026-10-15T12:00:00Z"), tribeId = randomUUID(), operationId = randomUUID();
-  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "synthetic.reviewer@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-15T13:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "synthetic.reviewer@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-15T13:00:00Z") }, googleAccount: null, identityEvidence: null};
   const actor: AdmissionActorFacts = { userId: account.userId, tribeId, role: "guardian", status: "active" };
   const accounts = { getAuthenticatedAccount: vi.fn(async () => account) };
   const resolver = new ResolveAdmissionContextUseCase(accounts, { getCurrentActor: async () => actor, getResource: async () => null }, () => now);

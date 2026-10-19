@@ -48,7 +48,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native original co
       const cancellation = { tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), admissionRequestId: requestId, expectedVersion: version + 1, confirmed: true as const };
       expect(await applicant.commands.cancelOwn.execute(cancellation)).toMatchObject({ ok: false, failure: { code: "request_conflict", operation: { operationId: cancellation.operationId, state: "completed" } } });
       expect(await applicant.commands.cancelOwn.execute(cancellation)).toMatchObject({ ok: false, failure: { code: "request_conflict", operation: { state: "completed" } } });
-      await fixture.confirm(REAUTHENTICATION_OPERATION.advanceAdmissionRetry, requestId);
       const retry = { tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), admissionRequestId: requestId, expectedVersion: version, confirmed: true as const, internalReason: "Reintento solicitado durante pendiente" };
       expect(await leader.allowRetry.execute(retry)).toMatchObject({ ok: false, failure: { code: "request_conflict", operation: { operationId: retry.operationId, state: "completed" } } });
       const decision = { tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), admissionRequestId: requestId, expectedVersion: version + 1, confirmed: true as const, decision: "approve" as const, internalReason: "Revisión con versión anterior", externalMessage: null };

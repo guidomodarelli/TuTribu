@@ -13,8 +13,6 @@ export const NOTIFICATION_RECOVERY_UI_COPY = {
   completed: "La recuperación quedó registrada. Consultá el estado de la entrega nueva; aún no se afirma que el aviso se haya entregado.",
   stopped: "Se detuvo la observación. El servidor puede continuar; se conserva la referencia original antes de otra acción.",
   currentRequired: "La sesión cambió. Volvé a abrir esta pantalla con tu cuenta actual antes de continuar.",
-  preparingGoogle: "Preparando la confirmación de este aviso con Google…",
-  googleFailed: "No pudimos preparar la confirmación. Conservá el aviso seleccionado y volvé a intentarlo.",
   historyFull: "El historial de esta pestaña está lleno. Conservá y consultá las referencias anteriores; no se borrará un intento para iniciar otro.",
   archived: "La referencia quedó conservada en el historial. El servidor puede continuar; revisá el estado actual antes de otra acción.",
 } as const;

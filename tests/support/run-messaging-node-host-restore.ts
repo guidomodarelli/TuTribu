@@ -6,18 +6,16 @@ import { setTimeout as delay } from "node:timers/promises";
 import { sql } from "drizzle-orm";
 import { withAcademyAdmissionDatabase } from "./academy-admission-database";
 import { createAdmissionSyntheticHostingEnvironment } from "./admission-synthetic-hosting-environment";
-import { prepareMessagingRestoreSource, refreshMessagingRestoreCheckpointAuthority } from "./messaging-restore-fixture";
+import { prepareMessagingRestoreSource } from "./messaging-restore-fixture";
 import { prepareRestoreAdmissionCheckpoint } from "./messaging-restore-admission-fixture";
 import { seedMessagingCandidateExpiration } from "./messaging-candidate-expiration-fixture";
 import { seedMessagingRestoreManualPolicy } from "./messaging-restore-history-fixture";
-import { refreshMessagingActivationRecency } from "./messaging-activation-native";
 import { readMessagingRestoreFacts, readMessagingRestoreHistory, readRestoreAdmissionFacts } from "./messaging-restore-observations-native";
 import { MessagingNodeHostFailure, summarizeMessagingNodeHostFailure } from "./messaging-node-host-failure";
 import { deployOwnedMessagingNodes, type OwnedMessagingNodeDeployment } from "./owned-messaging-node-deployment";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import { MESSAGING_HOSTING_ENV, MESSAGING_RECOVERY_LOCK_VALUE } from "@/src/modules/messaging/constants/messaging-hosting";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
-import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import type { AuthorizedMessagingContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import { ADMISSION_NODE_HOST, ADMISSION_NODE_RUN_STATE, admissionNodeStatusSchema, type AdmissionNodeStatus } from "./constants/admission-node-host";
 import { MESSAGING_NATIVE_ACTIVATION } from "./constants/messaging-activation-native";
@@ -37,7 +35,7 @@ export type MessagingNodeHostRestoreObservation = {
 
 /** @param context - Actual original internal scope. @returns Its own private transport shape without unrelated fixture fields. */
 function authorizedInput(context: AuthorizedMessagingContext) {
-  return { actorUserId: context.actorUserId, sessionId: context.sessionId, tribeId: context.tribeId, requestId: context.requestId, accountId: context.accountId, subject: context.subject, resourceId: context.resourceId, authenticatedAt: context.authenticatedAt, validUntil: context.validUntil, authorizationPurpose: context.authorizationPurpose, connectionId: context.connectionId, connectionVersion: context.connectionVersion, environment: context.environment, securityEpoch: context.securityEpoch, secretRef: context.secretRef, operation: context.operation };
+  return { actorUserId: context.actorUserId, sessionId: context.sessionId, tribeId: context.tribeId, requestId: context.requestId, accountId: context.accountId, subject: context.subject, resourceId: context.resourceId, authorizationPurpose: context.authorizationPurpose, connectionId: context.connectionId, connectionVersion: context.connectionVersion, environment: context.environment, securityEpoch: context.securityEpoch, secretRef: context.secretRef, operation: context.operation };
 }
 
 /**
@@ -56,7 +54,7 @@ export async function runMessagingNodeHostRestore(options: { reportFile?: string
       await progress("source_preparing");
       const originalEnvironment: Record<string, string> = { ...createAdmissionSyntheticHostingEnvironment(), [MESSAGING_HOSTING_ENV.environment]: HOST.securityEnvironment };
       const originalConfig = await readMessagingHostingSecurityConfig(originalEnvironment);
-      let source = await prepareMessagingRestoreSource(parent, originalConfig);
+      const source = await prepareMessagingRestoreSource(parent, originalConfig);
       const prepared = await prepareRestoreAdmissionCheckpoint(parent, source);
       const history = await seedMessagingCandidateExpiration(parent, source.fixture.fixture.fixture);
       const manual = history.cases.find((candidate) => candidate.name === "selected");
@@ -64,7 +62,6 @@ export async function runMessagingNodeHostRestore(options: { reportFile?: string
       await seedMessagingRestoreManualPolicy(parent, manual.tribeId);
       const migration = await readFile(HOST.supportMigration, "utf8");
       await parent.withContext({ userId: null, email: null }, (transaction) => transaction.execute(sql.raw(migration)));
-      source = await refreshMessagingRestoreCheckpointAuthority(parent, source);
       const applicants = [prepared.applied.context.userId, prepared.available.context.userId, prepared.queued.context.userId, prepared.uncertain.context.userId];
       const snapshot = (database: Parameters<typeof readRestoreAdmissionFacts>[0]) => readRestoreAdmissionFacts(database, source.context.tribeId, applicants);
       const checkpoint = await snapshot(parent), credentialCheckpoint = await readMessagingRestoreFacts(parent, source.context), historyCheckpoint = await readMessagingRestoreHistory(parent, history.cases);
@@ -99,18 +96,12 @@ export async function runMessagingNodeHostRestore(options: { reportFile?: string
           await active.deployment.remove();
           active = undefined;
         }
-        /** Re-seals actual current synthetic authority without changing any product authentication deadline. */
+        /** Seals the actual current synthetic authority of the live session for one phase. */
         async function phaseInput(phase: MessagingRestoreNodePhase, environment: Record<string, string>): Promise<MessagingRestoreNodeInput> {
-          const usesFrozenAuthority = phase === PHASE.baseline || phase === PHASE.locked;
-          const secretRecency = usesFrozenAuthority ? source.context : await refreshMessagingActivationRecency(copy, source.fixture.fixture, REAUTHENTICATION_OPERATION.readMessagingSenders, source.context.connectionId);
-          const activationRecency = usesFrozenAuthority ? source.fixture.context : await refreshMessagingActivationRecency(copy, source.fixture.fixture, REAUTHENTICATION_OPERATION.activateMessagingConnection, source.context.connectionId);
-          const retirementRecency = usesFrozenAuthority ? source.retirementContext : await refreshMessagingActivationRecency(copy, source.fixture.fixture, REAUTHENTICATION_OPERATION.disconnectMessagingConnection, source.context.connectionId);
-          const creationRecency = usesFrozenAuthority ? source.fixture.fixture.context : await refreshMessagingActivationRecency(copy, source.fixture.fixture, REAUTHENTICATION_OPERATION.saveMessagingCredentials, source.context.tribeId);
-          if (!usesFrozenAuthority) for (const operation of [REAUTHENTICATION_OPERATION.updateAdmissionPolicy, REAUTHENTICATION_OPERATION.activateAdmissionPolicy]) await refreshMessagingActivationRecency(copy, source.fixture.fixture, operation, source.context.tribeId);
           const creation = source.fixture.fixture.context;
           return messagingRestoreNodeInputSchema.parse({ operationId: phaseIds[phase], cohortId: report.cohortId, phase, expected: { environment: environment[MESSAGING_HOSTING_ENV.environment], securityEpoch: environment[MESSAGING_HOSTING_ENV.securityEpoch], recoveryLocked: environment[MESSAGING_HOSTING_ENV.recoveryLock] === MESSAGING_RECOVERY_LOCK_VALUE.locked }, source: {
-            context: authorizedInput({ ...source.context, ...secretRecency }), activationContext: authorizedInput({ ...source.fixture.context, ...activationRecency }), retirementContext: authorizedInput({ ...source.fixture.context, ...source.retirementContext, ...retirementRecency }),
-            creationContext: { actorUserId: creation.actorUserId, sessionId: creation.sessionId, tribeId: creation.tribeId, requestId: creation.requestId, accountId: creation.accountId, subject: creation.subject, resourceId: creation.resourceId, operation: creation.operation, ...creationRecency },
+            context: authorizedInput(source.context), activationContext: authorizedInput(source.fixture.context), retirementContext: authorizedInput({ ...source.fixture.context, ...source.retirementContext }),
+            creationContext: { actorUserId: creation.actorUserId, sessionId: creation.sessionId, tribeId: creation.tribeId, requestId: creation.requestId, accountId: creation.accountId, subject: creation.subject, resourceId: creation.resourceId, operation: creation.operation },
             ownEmail: source.fixture.fixture.fixture.own.email, originalCredential: source.fixture.credential, originalKeyIds: Object.fromEntries(Object.values(MESSAGING_KEY_PURPOSE).map((purpose) => [purpose, originalConfig.keyrings[purpose].activeKeyId])), activatedVersion: source.activated.version, policyVersion: prepared.policy.version, nonBypassRoleName: parent.nonBypassRole.name,
             applied: { context: prepared.applied.context, contact: prepared.applied.contact, proofId: prepared.applied.proofId, requestId: prepared.applied.requestId, requestVersion: prepared.applied.requestVersion, applyBefore: prepared.applied.applyBefore },
             available: { context: prepared.available.context, contact: prepared.available.contact, proofId: prepared.available.proofId, applyBefore: prepared.available.applyBefore },

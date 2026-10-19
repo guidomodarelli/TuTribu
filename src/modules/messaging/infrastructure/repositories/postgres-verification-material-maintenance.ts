@@ -21,7 +21,7 @@ export async function purgeVerificationMaterial(database: RequestDatabase, comma
   return (await database.execute<{ count: number }>(sql`select public.purge_messaging_verification_envelopes(${command.limit},${command.deliveryId ?? null}::uuid) as count`)).rows[0].count;
 }
 
-/** Maintenance needs no decryption key, provider access or current human recency to destroy private bytes. */
+/** Maintenance needs no decryption key or provider access to destroy private bytes. */
 export class PostgresVerificationMaterialMaintenance implements VerificationMaterialMaintenance {
   /**
    * @param execute - Existing guarded maintenance/worker executor, with ownership bound by its composition root.

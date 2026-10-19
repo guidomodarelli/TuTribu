@@ -1,14 +1,13 @@
 /** @vitest-environment node */
 /** Verifies a genuine noncreator payer and retained complete intent across canonical transfers and account deletion. @module admission-notification-group-recovery-lifecycle-tests */
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
 import { prepareAdmissionNotificationGroupAuthority } from "@/tests/support/admission-notification-group-authority-fixture";
 import { ADMISSION_NOTIFICATION_GROUP_PREPARATION_TEST_TIMEOUT_MS } from "@/tests/support/constants/admission-notification-validation";
-import { RECENT_AUTHENTICATION_WINDOW_MS } from "@/src/modules/auth/constants/recent-authentication";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
-import { MESSAGING_CRYPTO, MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
+import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { MESSAGING_CONNECTION_STATE } from "@/src/modules/messaging/constants/messaging-connection";
 import { MESSAGING_CREDENTIAL_PUBLIC_STATE, MESSAGING_CAPABILITY_PUBLIC_STATE, MESSAGING_PUBLIC_CHANNEL, MESSAGING_INITIAL_PROVIDER_ID } from "@/src/modules/messaging/constants/messaging-public-contract";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
@@ -34,6 +33,9 @@ import { MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION } from "@/src/modules/auth/
 import type { NotificationDeliveryRecoveryContext } from "@/src/modules/messaging/domain/repositories/notification-delivery-recovery";
 import { PostgresNotificationDeliveryRecoveryRepository } from "@/src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository";
 import { buildAdmissionNotificationRecoveryContent } from "@/src/modules/notifications/setup";
+
+/** Keeps synthetic native sessions alive for the whole scenario. */
+const SESSION_LIFETIME_MS = 10 * 60 * 1000;
 
 /** Restricts lifecycle diagnostics to safe boolean/count facts and a sanitized native failure chain. */
 declare module "vitest" {
@@ -61,10 +63,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native complete no
         const createSession = (userId: string) => database.withContext(fixture.system, async (transaction) => {
           const sessionId = randomUUID();
           const account = (await transaction.execute<{ id: string; subject: string; email: string }>(sql`select account.id,account."accountId" as subject,app_user.email from public.account account join public."user" app_user on app_user.id=account."userId" where account.id=${accountIds.get(userId)!}`)).rows[0];
-          const now = new Date((await transaction.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now), validUntil = new Date(now.getTime() + RECENT_AUTHENTICATION_WINDOW_MS);
-          await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${userId},${randomUUID()},${validUntil},${now},${now})`);
+          const now = new Date((await transaction.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now), expiresAt = new Date(now.getTime() + SESSION_LIFETIME_MS);
+          await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${userId},${randomUUID()},${expiresAt},${now},${now})`);
           await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${sessionId},${userId},${account.id},${account.subject},${account.email.trim().toLowerCase()})`);
-          return { actorUserId: userId, tribeId: fixture.tribeId, requestId: randomUUID(), sessionId, accountId: account.id, subject: account.subject, authenticatedAt: now, validUntil };
+          return { actorUserId: userId, tribeId: fixture.tribeId, requestId: randomUUID(), sessionId, accountId: account.id, subject: account.subject };
         });
         const creator = await createSession(creatorUserId), payer = await createSession(payerUserId);
         await fixture.execute(async (transaction) => {
@@ -80,11 +82,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native complete no
         const authority = await execute(payer, (transaction) => new PostgresMessagingAuthorizationReader(transaction, payer.sessionId).getCurrentLeadership(fixture.tribeId, payerUserId));
         expect(authority?.leaderUserId).toBe(payerUserId);
         const creation: MessagingConnectionCreationContext = { ...payer, operation: REAUTHENTICATION_OPERATION.saveMessagingCredentials, resourceId: fixture.tribeId };
-        await execute(payer, async (transaction) => {
-          const intentId = randomUUID();
-          await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${payerUserId},${payer.sessionId},${payer.accountId},${payer.subject},${fixture.tribeId},${creation.operation},${fixture.tribeId},'/synthetic-noncreator-payer',${randomBytes(MESSAGING_CRYPTO.keyBytes)},'consumed',${payer.authenticatedAt},${payer.validUntil},${payer.authenticatedAt})`);
-          await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${payerUserId},${payer.accountId},${payer.subject},${payer.sessionId},${fixture.tribeId},${creation.operation},${fixture.tribeId},${payer.authenticatedAt},${payer.authenticatedAt},${payer.validUntil})`);
-        });
         phase = "create_noncreator_connection";
         const credential = randomUUID();
         const created = await new PostgresMessagingConnectionRepository(execute, readSecurityConfig).create(creation, { operationId: randomUUID(), confirmed: true, providerId: MESSAGING_INITIAL_PROVIDER_ID, name: "Conexión sintética del líder actual", apiKey: credential });
@@ -92,12 +89,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native complete no
         const connectionId = created.result.id, senderId = randomUUID();
         phase = "configure_noncreator_connection";
         const configurationContext = await execute(payer, async (transaction): Promise<AuthorizedMessagingContext> => {
-          const intentId = randomUUID(), operation = REAUTHENTICATION_OPERATION.configureMessagingConnection;
+          const operation = REAUTHENTICATION_OPERATION.configureMessagingConnection;
           const secret = (await transaction.execute<{ secret_ref: string }>(sql`select secret_ref from public.messaging_connection_versions where connection_id=${connectionId} and version=${created.result.configurationVersion}`)).rows[0];
-          const now = new Date((await transaction.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now), validUntil = new Date(now.getTime() + RECENT_AUTHENTICATION_WINDOW_MS);
-          await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${payerUserId},${payer.sessionId},${payer.accountId},${payer.subject},${fixture.tribeId},${operation},${connectionId},'/synthetic-noncreator-configuration',${randomBytes(MESSAGING_CRYPTO.keyBytes)},'consumed',${now},${validUntil},${now})`);
-          await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${payerUserId},${payer.accountId},${payer.subject},${payer.sessionId},${fixture.tribeId},${operation},${connectionId},${now},${now},${validUntil})`);
-          return { ...payer, authorizationPurpose: "sensitive_leader", operation, resourceId: connectionId, connectionId, connectionVersion: created.result.configurationVersion, environment: fixture.keys.config.environment, securityEpoch: fixture.keys.config.securityEpoch, secretRef: secret.secret_ref, authenticatedAt: now, validUntil };
+          return { ...payer, authorizationPurpose: "sensitive_leader", operation, resourceId: connectionId, connectionId, connectionVersion: created.result.configurationVersion, environment: fixture.keys.config.environment, securityEpoch: fixture.keys.config.securityEpoch, secretRef: secret.secret_ref };
         });
         const configured = await new PostgresMessagingConnectionConfiguration(execute, readSecurityConfig).commit(configurationContext, { operationId: randomUUID(), expectedVersion: created.result.version, confirmed: true, channel: MESSAGING_PUBLIC_CHANNEL.email, senderId }, { credential, sender: { resourceId: senderId, name: "Remitente sintético de prueba", channels: [MESSAGING_PUBLIC_CHANNEL.email], canSendWhatsappTemplates: false } });
         if (configured.state !== OPERATION_STATE.completed) throw new Error("Native noncreator payer configuration did not complete");
@@ -137,9 +131,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native complete no
         const currentCreator=await createSession(creatorUserId);
         const recoveryContext:NotificationDeliveryRecoveryContext={...currentCreator,operation:MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.recoverNotification,deliveryId:prepared.deliveryId,resourceId:prepared.deliveryId};
         const targetVersion=await execute(currentCreator,async(transaction)=>{
-          const intentId=randomUUID();
-          await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${creatorUserId},${currentCreator.sessionId},${currentCreator.accountId},${currentCreator.subject},${fixture.tribeId},${recoveryContext.operation},${prepared.deliveryId},'/synthetic-minimized-payer-recovery',${randomBytes(MESSAGING_CRYPTO.keyBytes)},'consumed',${currentCreator.authenticatedAt},${currentCreator.validUntil},${currentCreator.authenticatedAt})`);
-          await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${creatorUserId},${currentCreator.accountId},${currentCreator.subject},${currentCreator.sessionId},${fixture.tribeId},${recoveryContext.operation},${prepared.deliveryId},${currentCreator.authenticatedAt},${currentCreator.authenticatedAt},${currentCreator.validUntil})`);
           await transaction.execute(sql`update public.tenant_messaging_connections set is_selected=false,selected_version=null where id=${connectionId}`);
           await transaction.execute(sql`update public.tenant_messaging_connections set is_selected=true,selected_version=1,state=${MESSAGING_CONNECTION_STATE.active} where id=${fixture.connectionId}`);
           return (await transaction.execute<{version:number}>(sql`select version from public.tenant_messaging_connections where id=${fixture.connectionId}`)).rows[0].version;

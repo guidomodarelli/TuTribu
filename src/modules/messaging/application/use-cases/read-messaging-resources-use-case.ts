@@ -25,7 +25,7 @@ function requireSameResource(original:AuthorizedMessagingContext,current:Authori
 
 /** Completes all upstream pagination before publishing any bounded own page; partial reads never appear successful. */
 export class ReadMessagingResourcesUseCase{
-  /** @param resolver - Current human recency, canonical leader and resource authority. @param secrets - Independent current SQL/epoch authorization. @param inspectors - Fresh explicitly scoped SDK readers. @param exposure - Current fixed read-fact recorder without provider data. */
+  /** @param resolver - Current human session, canonical leader and resource authority. @param secrets - Independent current SQL/epoch authorization. @param inspectors - Fresh explicitly scoped SDK readers. @param exposure - Current fixed read-fact recorder without provider data. */
   constructor(private readonly resolver:Pick<ResolveMessagingContextUseCase,"execute">,private readonly secrets:MessagingSecretStore,private readonly inspectors:MessagingResourceInspectorFactory,private readonly exposure:MessagingResourceExposureRecorder){}
   /** @param input - Own validated pagination and server-resolved tenant. @param signal - Native cancellation/deadline. @returns Minimal guarded selections or a safe current denial, without creating operations or consuming messaging quota. */
   async execute(input:ReadMessagingResourcesInput,signal:AbortSignal):Promise<{ok:true;value:MessagingResourcePageResult}|{ok:false;failure:MessagingFailure}>{

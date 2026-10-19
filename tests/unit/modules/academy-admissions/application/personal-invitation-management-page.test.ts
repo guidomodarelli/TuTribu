@@ -17,7 +17,7 @@ import type { AdmissionPolicyState } from "@/src/modules/academy-admissions/doma
 /** @returns Actual read-only use cases with controlled doubles only at own identity/storage ports. */
 function fixture() {
   const now = new Date("2026-10-09T10:00:00Z"), tribeId = randomUUID(), userId = randomUUID();
-  const account: AuthenticatedAccount = { userId, normalizedEmail: "leader@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-10T10:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId, normalizedEmail: "leader@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-10T10:00:00Z") }, googleAccount: null, identityEvidence: null};
   const accounts = { getAuthenticatedAccount: vi.fn(async () => account) }, actor: AdmissionActorFacts = { userId, tribeId, role: "leader", status: "active" };
   const resolver = new ResolveAdmissionContextUseCase(accounts, { getCurrentActor: async () => actor, getResource: async () => null }, () => now);
   const invitation = createPersonalInvitation({ id: randomUUID(), tribeId, actorUserId: userId, contact: { type: "email", value: "recipient@example.test" }, internalName: "Grupo inicial", requiresAllowlist: true, allowlistExemptionAcknowledged: false, now, policy: { contactType: "email", requiresAdditionalVerification: false } });
@@ -45,7 +45,7 @@ describe("personal invitation management SSR", () => {
     expect(data.reader.list).not.toHaveBeenCalled();
     expect(state).not.toHaveProperty("page");
   });
-  it("should project exact-type list availability and private lifecycle dates without mutation recency or secret material", async () => {
+  it("should project exact-type list availability and private lifecycle dates without secret material", async () => {
     const data = fixture(), cursor = "2026-10-09T09:00:00.123456Z~" + randomUUID();
     const state = await loadPersonalInvitationManagementPageState({ ...data.input, query: { limit: "20", status: "active", cursor } }, async () => data.page);
     expect(state).toMatchObject({ kind: "ready", viewerId: data.account.userId, contactType: "email", requiresAdditionalVerification: false, hasUsableAllowlist: true, query: { limit: 20, status: "active", cursor }, page: { items: [{ id: data.invitation.id, version: 1, createdAt: data.now.toISOString(), redeemedAt: null, revokedAt: null, authorizationRevokedAt: null }] } });

@@ -1,14 +1,12 @@
 /** @vitest-environment node */
 /** Exercises consumed verification capacity through real connection replacement and a second native session. @module verification-quota-connection-session-tests */
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
-import { prepareMessagingConnectionActivation, refreshMessagingActivationRecency } from "@/tests/support/messaging-activation-fixture";
+import { prepareMessagingConnectionActivation } from "@/tests/support/messaging-activation-fixture";
 import { createAdmissionProviderTransport } from "@/tests/support/admission-provider-transport";
 import { MESSAGING_QUOTA_CONTINUITY_VALIDATION_TIMEOUT_MS } from "@/tests/support/constants/messaging-quota-continuity";
-import { MESSAGING_CRYPTO } from "@/src/modules/messaging/constants/messaging-cryptography";
-import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { ScopedConnectionDiagnosticDispatcher } from "@/src/modules/messaging/infrastructure/composition/connection-diagnostic-dispatcher";
 import { buildMessagingModule, buildMessagingWorkModule } from "@/src/modules/messaging/setup";
@@ -32,22 +30,18 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native consumed qu
       expect(consumed.every((reservation) => reservation.state === "consumed" && reservation.category === "verification")).toBe(true);
       await database.withContext(own, (transaction) => transaction.execute(sql`update public.messaging_usage_policies set verification_daily_limit=${consumed.length},version=version+1 where tribe_id=${tribeId}`));
       const policyBefore = await database.withContext(own, async (transaction) => (await transaction.execute(sql`select version,verification_daily_limit,notification_daily_limit from public.messaging_usage_policies where tribe_id=${tribeId}`)).rows[0]);
-      const recency = await refreshMessagingActivationRecency(database, replacement.fixture, REAUTHENTICATION_OPERATION.activateMessagingConnection, replacement.context.connectionId);
-      const replaced = await replacement.owner.activate({ ...replacement.context, ...recency }, replacement.input);
+      const replaced = await replacement.owner.activate(replacement.context, replacement.input);
       expect(replaced).toMatchObject({ state: "completed", result: { state: "active", replaced: { connectionId: first.context.connectionId, connectionVersion: first.context.connectionVersion } } });
       if (replaced.state !== "completed") throw new Error("Quota continuity expected the native replacement commit");
       process.stdout.write(JSON.stringify({ phase: "replacement_committed" }) + "\n");
 
-      // Act: establish another real session of the same account and exact diagnosis recency.
+      // Act: establish another real session of the same account bound to Google.
       const sessionId = randomUUID(), sessionToken = randomUUID();
       await database.withContext(own, async (transaction) => {
         const now = new Date((await transaction.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-        const validUntil = new Date(replacement.context.validUntil), expiresAt = new Date(replacement.context.validUntil);
-        const intentId = randomUUID();
+        const expiresAt = new Date(now.getTime() + 3_600_000);
         await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${own.userId},${sessionToken},${expiresAt},${now},${now})`);
         await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${sessionId},${own.userId},${replacement.context.accountId},${replacement.context.subject},${own.email})`);
-        await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${own.userId},${sessionId},${replacement.context.accountId},${replacement.context.subject},${tribeId},${REAUTHENTICATION_OPERATION.diagnoseMessagingConnection},${replacement.context.connectionId},'/synthetic-quota',${randomBytes(MESSAGING_CRYPTO.keyBytes)},'consumed',${now},${validUntil},${now})`);
-        await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${own.userId},${replacement.context.accountId},${replacement.context.subject},${sessionId},${tribeId},${REAUTHENTICATION_OPERATION.diagnoseMessagingConnection},${replacement.context.connectionId},${now},${now},${validUntil})`);
       });
       const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: own.userId, sessionId }), (_identity, run) => database.withContext(own, run));
       expect(await accounts.getAuthenticatedAccount()).toMatchObject({ userId: own.userId, session: { id: sessionId } });

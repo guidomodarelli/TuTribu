@@ -12,7 +12,7 @@ import { evaluateAdmissionSubmission } from "@/src/modules/academy-admissions/do
 /** @returns Exact private personal facts without any write/issuer or provider dependency. */
 function fixture() {
   const now = new Date("2026-10-09T12:00:00Z"), tribeId = randomUUID(), userId = randomUUID(), accountId = randomUUID(), subject = randomUUID();
-  const account: AuthenticatedAccount = { userId, normalizedEmail: "recipient+tag@gmail.com", session: { id: randomUUID(), expiresAt: new Date("2026-10-10T12:00:00Z") }, googleAccount: { id: accountId, subject }, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId, normalizedEmail: "recipient+tag@gmail.com", session: { id: randomUUID(), expiresAt: new Date("2026-10-10T12:00:00Z") }, googleAccount: { id: accountId, subject }, identityEvidence: null};
   const contact = { type: "email" as const, value: account.normalizedEmail };
   const policy = { ...createDefaultAdmissionPolicy({ id: tribeId, tribeId }), mode: "allowlist" as const, isOpen: true, activatedAt: now };
   const tribe = { id: tribeId, slug: "synthetic-personal", name: "Academia sintética", accessModel: "academy" as const, controlActivated: true, evaluatorEnabled: true };

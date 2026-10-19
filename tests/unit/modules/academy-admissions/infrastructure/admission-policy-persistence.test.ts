@@ -37,24 +37,19 @@ import { expectAdmissionProofInvalidationAudits } from "@/tests/support/admissio
 import { PostgresAdmissionActivityReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activity-reader";
 import { ADMISSION_WHATSAPP_SQL_TIMEOUT_MS } from "@/tests/support/constants/admission-whatsapp-number";
 
-/** @param database - This run's owned branch with native pg/Drizzle. @returns Current signed leader, policy repository and preparation-port controls. */
+/** @param database - This run's owned branch with native pg/Drizzle. @returns Current leader session, policy repository and preparation-port controls. */
 async function preparePolicy(database: AcademyAdmissionTestDatabase) {
   const fixture = await prepareContactVerificationDatabase(database);
   for (const migration of ["20261005092500_guard_messaging_attempts.sql", "20261005093000_guard_academy_membership_sources.sql", "20261005095000_guard_global_identity_context.sql", "20261005101000_guard_admission_operation_identity.sql", "20261006200000_scope_admission_audit_operations.sql"]) await database.applyMigration(migration);
   const tribeId = randomUUID(), accountId = randomUUID(), sessionId = randomUUID(), subject = randomUUID(), sessionToken = randomUUID();
   await database.withContext(fixture.own, async (transaction) => {
-    const now = new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now), until = new Date(now.getTime() + 540_000);
+    const now = new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
     await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${tribeId},'Synthetic policy tribe',${`policy-${tribeId}`},${fixture.userId})`);
     await transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`);
     await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${fixture.userId},'leader','active')`);
     await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${accountId},${fixture.userId},'google',${subject},${now},${now})`);
     await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${fixture.userId},${sessionToken},${new Date(now.getTime()+3_600_000)},${now},${now})`);
     await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${sessionId},${fixture.userId},${accountId},${subject},${fixture.own.email})`);
-    for (const operation of [REAUTHENTICATION_OPERATION.updateAdmissionPolicy, REAUTHENTICATION_OPERATION.activateAdmissionPolicy, REAUTHENTICATION_OPERATION.pauseAdmissionPolicy]) {
-      const intentId = randomUUID();
-      await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.userId},${sessionId},${accountId},${subject},${tribeId},${operation},${tribeId},'/synthetic-policy',${randomBytes(32)},'consumed',${now},${until},${now})`);
-      await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.userId},${accountId},${subject},${sessionId},${tribeId},${operation},${tribeId},${now},${now},${until})`);
-    }
   });
   const base = { userId: fixture.userId, sessionId, tribeId, requestId: randomUUID(), role: "leader" as const, membershipStatus: "active" as const, resourceId: tribeId };
   const readContext: AuthorizedAdmissionContext = { ...base, action: "read_policy" };
@@ -106,7 +101,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
 
   it("should preserve the original actor and policy audit once when a committed reply is lost or replayed", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
-      // Arrange: native current leadership, recency and the real policy/operation owners.
+      // Arrange: native current leadership, live session and the real policy/operation owners.
       const data = await preparePolicy(database), initializeId = randomUUID();
       await data.initialize(initializeId);
       const intent = { context: data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy), operationId: randomUUID(), type: "update_admission_policy" as const, confirmed: true as const, expectedVersion: 1, patch: { isOpen: true } };
@@ -302,7 +297,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
     });
   }, 300_000);
 
-  it("should compose current policy absence and protected loss through native query owners without recency or secret access", async () => {
+  it("should compose current policy absence and protected loss through native query owners without secret access", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database);
       const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: data.fixture.userId, sessionId: data.sessionId }), (_identity, work) => database.withContext(data.fixture.own, work));
@@ -312,7 +307,6 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       await data.initialize();
       await data.repository.activate({ context: data.context(REAUTHENTICATION_OPERATION.activateAdmissionPolicy), operationId: randomUUID(), confirmed: true, type: "activate_admission_policy", expectedVersion: 1 });
       await database.withContext(data.fixture.own, async (transaction) => {
-        await transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where user_id=${data.fixture.userId} and tribe_id=${data.tribeId}`);
         await transaction.execute(sql`delete from public.academy_admission_policies where tribe_id=${data.tribeId}`);
       });
       expect(await policy.execute(query)).toMatchObject({ ok: true, value: { state: "unavailable", policy: null, controlActivated: true, preparation: { state: "not_evaluated" }, impact: { contactTypeLocked: true, historicalLinksProtected: true } } });
@@ -330,7 +324,6 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       const recovery = new ReadAdmissionOperationUseCase(accounts, reader, () => new Date()), query = { tribeId: data.tribeId, operationId, requestId: randomUUID() };
       const registry = () => database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select state,version,lease_owner,lease_until,completed_at,public_result from public.academy_admission_operations where tribe_id=${data.tribeId} and idempotency_key=${operationId}`)).rows);
       const original = await registry();
-      await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where user_id=${data.fixture.userId} and tribe_id=${data.tribeId}`));
       expect(await recovery.execute(query)).toMatchObject({ ok: true, value: { type: "initialize_admission_policy", state: "completed", replayed: true, result: { version: 1, verificationEpoch: 1, controlActivated: false } } });
       expect(await data.reader.read(data.readContext)).toMatchObject({ policy: { version: 2, verificationEpoch: 2 } });
       expect(await registry()).toEqual(original);
@@ -502,13 +495,14 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
         expect(historical.status).toBe(200);
         expect(await historical.json()).toMatchObject({ type: "initialize_admission_policy", state: "completed", replayed: true, result: { version: 1 } });
         expect(await (await request("GET", "/policy")).json()).toMatchObject({ state: "draft", controlActivated: false, policy: { version: 3, isOpen: false } });
-        await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where user_id=${data.fixture.userId} and tribe_id=${data.tribeId} and operation=${REAUTHENTICATION_OPERATION.updateAdmissionPolicy}`));
-        const missingRecencyId = randomUUID();
-        expect((await request("POST", "/policy", { operationId: missingRecencyId, confirmed: true, hasRecentAuthentication: true })).status).toBe(400);
-        expect((await request("POST", "/policy", { operationId: missingRecencyId, confirmed: true })).status).toBe(401);
+        const expiredSessionId = randomUUID();
+        expect((await request("POST", "/policy", { operationId: expiredSessionId, confirmed: true, hasRecentAuthentication: true })).status).toBe(400);
+        await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${data.sessionId}`));
+        expect((await request("POST", "/policy", { operationId: expiredSessionId, confirmed: true })).status).toBe(401);
+        await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()+interval '1 hour' where id=${data.sessionId}`));
         expect((await request("GET", "/policy")).status).toBe(200);
         expect((await request("GET", `/operations/${initOperationId}`)).status).toBe(200);
-        expect(await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::int as registered from public.academy_admission_operations where tribe_id=${data.tribeId} and idempotency_key=${missingRecencyId}`)).rows)).toEqual([{ registered: 0 }]);
+        expect(await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::int as registered from public.academy_admission_operations where tribe_id=${data.tribeId} and idempotency_key=${expiredSessionId}`)).rows)).toEqual([{ registered: 0 }]);
         await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='guardian' where tribe_id=${data.tribeId} and user_id=${data.fixture.userId}`));
         expect((await request("GET", "/policy")).status).toBe(403);
         expect((await request("GET", "/policy/preflight")).status).toBe(403);

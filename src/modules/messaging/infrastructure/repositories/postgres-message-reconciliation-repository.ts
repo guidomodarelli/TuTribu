@@ -20,7 +20,7 @@ import { MESSAGING_ERROR_CODE } from "../../constants/messaging-errors";
 import { MESSAGE_ATTEMPT_STATE, MESSAGE_DELIVERY_STATE, MESSAGE_RECEIPT_REASON, MESSAGE_STORAGE_OPERATION, MESSAGE_DELIVERY_RECONCILIATION_AUDIT_EVENT } from "../../constants/message-delivery";
 import { MessagingSecretAccessError } from "../../domain/errors/messaging-secret-access-error";
 import { MessagingDeliveryStorageError } from "../../domain/errors/messaging-delivery-storage-error";
-import { authorizeMessagingSecret, messagingSecretLifetimeIsCurrent } from "./postgres-messaging-secret-authorizer";
+import { authorizeMessagingSecret, messagingSecretLifetimeFailure, messagingSecretLifetimeIsCurrent } from "./postgres-messaging-secret-authorizer";
 import { PostgresMessageDeliveryReader } from "./postgres-message-delivery-reader";
 
 /** Owns short current-actor transactions; no callback may perform a provider request. */
@@ -44,7 +44,7 @@ export class PostgresMessageReconciliationRepository implements MessageReconcili
     const session = (await database.execute<{ expires_at: string | Date }>(sql`select "expiresAt" as expires_at from public.session where id=${context.sessionId} and "userId"=${context.actorUserId} for share`)).rows[0];
     if (!principal || !session) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
     const binding = (await database.execute<{ account_id: string; provider_subject: string }>(sql`select account_id,provider_subject from public.global_session_identity_bindings where session_id=${context.sessionId} and user_id=${context.actorUserId} and normalized_email=${principal.email.trim().toLowerCase()} and invalidated_at is null for share`)).rows[0];
-    if (!binding || !accounts.some((account) => account.id === binding.account_id && account.subject === binding.provider_subject)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.reauthenticationRequired);
+    if (!binding || !accounts.some((account) => account.id === binding.account_id && account.subject === binding.provider_subject)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
     if (!(await database.execute(sql`select id from public.tribes where id=${context.tribeId} for share`)).rows[0]) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
     const leaders = (await database.execute<{ user_id: string }>(sql`select user_id from public.tribe_members where tribe_id=${context.tribeId} and role=${TRIBE_MEMBER_ROLE.leader} and status=${TRIBE_MEMBERSHIP_STATUS.active} order by user_id for share`)).rows;
     if (leaders.length !== 1 || leaders[0].user_id !== context.actorUserId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
@@ -63,7 +63,7 @@ export class PostgresMessageReconciliationRepository implements MessageReconcili
     });
   }
 
-  /** @param context - Exact current reconciliation recency. @param reference - Immutable original provider identity. @param observation - Minimal read fact for that ID. @returns Guarded own current metadata after a monotonic transaction. @throws MessagingDeliveryStorageError when commit confirmation is unavailable. */
+  /** @param context - Exact current reconciliation scope. @param reference - Immutable original provider identity. @param observation - Minimal read fact for that ID. @returns Guarded own current metadata after a monotonic transaction. @throws MessagingDeliveryStorageError when commit confirmation is unavailable. */
   async record(context: AuthorizedMessagingContext, reference: MessageStatusReference, observation: MessageStatusObservation) {
     if (context.operation !== MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.reconcile || context.tribeId !== reference.tribeId || context.connectionId !== reference.connectionId || context.connectionVersion !== reference.connectionVersion || context.resourceId !== reference.connectionId || context.requestId !== reference.requestId || observation.providerMessageId !== reference.providerMessageId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
     try {
@@ -76,7 +76,7 @@ export class PostgresMessageReconciliationRepository implements MessageReconcili
         const security = await this.readSecurityConfig();
         if (security.recoveryLocked || security.environment !== context.environment || security.securityEpoch !== context.securityEpoch) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.connectionIncomplete);
         const now = new Date((await database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-        if (!messagingSecretLifetimeIsCurrent(authority, now)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.reauthenticationRequired);
+        if (!messagingSecretLifetimeIsCurrent(authority, now)) throw new MessagingSecretAccessError(messagingSecretLifetimeFailure(authority, now));
         const next = reconcileMessageAttemptState(current.state, observation.outcome);
         if (next !== current.state) {
           const reason = next === MESSAGE_ATTEMPT_STATE.delivered ? MESSAGE_RECEIPT_REASON.delivered : next === MESSAGE_ATTEMPT_STATE.rejected ? MESSAGE_RECEIPT_REASON.rejected : next === MESSAGE_ATTEMPT_STATE.accepted ? MESSAGE_RECEIPT_REASON.accepted : MESSAGE_RECEIPT_REASON.unknown;
@@ -93,7 +93,7 @@ export class PostgresMessageReconciliationRepository implements MessageReconcili
         const finalSecurity = await this.readSecurityConfig();
         if (finalSecurity.recoveryLocked || finalSecurity.environment !== context.environment || finalSecurity.securityEpoch !== context.securityEpoch) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.connectionIncomplete);
         const finalNow = new Date((await database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-        if (!messagingSecretLifetimeIsCurrent(authority, finalNow)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.reauthenticationRequired);
+        if (!messagingSecretLifetimeIsCurrent(authority, finalNow)) throw new MessagingSecretAccessError(messagingSecretLifetimeFailure(authority, finalNow));
         return messageDeliverySchema.parse(value);
       });
     } catch (error) {

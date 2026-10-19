@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-/** Exercises actual Next administration, signed native sessions/recency and owned PostgreSQL with no platform mocks. @module personal-invitation-management-http-flow-tests */
+/** Exercises actual Next administration, signed native sessions and owned PostgreSQL with no platform mocks. @module personal-invitation-management-http-flow-tests */
 import { randomBytes, randomUUID } from "node:crypto";
 import { makeSignature } from "better-auth/crypto";
 import { sql } from "drizzle-orm";
@@ -9,10 +9,9 @@ import { prepareAllowlistManagement } from "@/tests/support/allowlist-management
 import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
-import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native personal invitation management HTTP", () => {
-  it("should enforce actual leader and signed recency while preserving one-view issuance, CAS and historical recovery", async () => {
+  it("should enforce the actual leader session while preserving one-view issuance, CAS and historical recovery", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const keyrings = Object.fromEntries(Object.values(MESSAGING_KEY_PURPOSE).map((purpose) => { const id = randomUUID(); return [purpose, { activeKeyId: id, keys: [{ id, materialBase64: randomBytes(32).toString("base64") }] }]; }));
       const messagingSecurity = { environment: "synthetic-personal-management-http", securityEpoch: randomUUID(), keyringsJson: JSON.stringify(keyrings) };
@@ -30,13 +29,9 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native persona
         const empty = await request("/invitations");
         expect(empty.status).toBe(200); expect(await empty.json()).toEqual({ items: [], nextCursor: null });
         const creation = { operationId: randomUUID(), confirmed: true, internalName: "Grupo inicial", recipient: { type: "email", value: "personal.native+tag@example.test" }, requiresAllowlist: true };
-        const absentRecency = await request("/invitations", "POST", creation);
-        expect(absentRecency.status).toBe(401); expect(await absentRecency.json()).toMatchObject({ code: "reauthentication_required" });
-        await fixture.confirm(REAUTHENTICATION_OPERATION.createPersonalInvitation);
         const blockedCreation = await request("/invitations", "POST", { ...creation, operationId: randomUUID() });
         expect(blockedCreation.status).toBe(404); expect(await blockedCreation.json()).toMatchObject({ code: "invitation_unavailable" });
         expect((await database.withContext(fixture.own, (transaction) => transaction.execute(sql`select count(*)::int as count from public.academy_personal_invitations where tribe_id=${fixture.tribeId}`))).rows).toEqual([{ count: 0 }]);
-        await fixture.confirm(REAUTHENTICATION_OPERATION.createAllowlistEntry);
         const preparedList = await request("/allowlist", "POST", { operationId: randomUUID(), confirmed: true, contactType: "email", identity: creation.recipient.value });
         expect(preparedList.status).toBe(201);
         const created = await request("/invitations", "POST", creation), original = await created.json();
@@ -51,7 +46,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native persona
         expect(replay.status).toBe(200); expect(await replay.json()).toEqual({ state: "completed", operationId: creation.operationId, replayed: true, result: original.result });
         const changedIntent = await request("/invitations", "POST", { ...creation, internalName: "Otro intent con el mismo UUID" });
         expect(changedIntent.status).toBe(409); expect(await changedIntent.json()).toMatchObject({ code: "idempotency_conflict" });
-        await fixture.confirm(REAUTHENTICATION_OPERATION.renamePersonalInvitation, invitationId);
         const rename = { operationId: randomUUID(), confirmed: true, expectedVersion: 1, internalName: "Otro nombre" };
         const renamed = await request(`/invitations/${invitationId.toUpperCase()}`, "PATCH", rename);
         expect(renamed.status).toBe(200); expect(await renamed.json()).toMatchObject({ result: { invitationId, version: 2, changed: true, created: false } });
@@ -67,7 +61,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native persona
         const replaced = await request("/invitations", "POST", { ...creation, operationId: randomUUID(), replacement: { invitationId, expectedVersion: 2 }, expiresAt: null }), replacement = await replaced.json();
         expect(replaced.status).toBe(201); expect(replacement.result.invitationId).not.toBe(invitationId);
         expect(replacement.result.version).toBe(1);
-        await fixture.confirm(REAUTHENTICATION_OPERATION.revokePersonalInvitation, replacement.result.invitationId);
         const revocation = { operationId: randomUUID(), confirmed: true, expectedVersion: 1, reason: "Enlace retirado", revokeRedeemedAuthorization: false };
         const revoked = await request(`/invitations/${replacement.result.invitationId}/revoke`, "POST", revocation);
         expect(revoked.status).toBe(200); expect(await revoked.json()).toMatchObject({ result: { version: 2, changed: true, created: false } });

@@ -10,7 +10,7 @@ import { parseAllowlistCsv } from "@/src/modules/academy-admissions/infrastructu
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native import finalization recovery", () => {
-  it("should finalize the same original selection after its row committed and recency was withdrawn without repeating that row", async () => {
+  it("should finalize the same original selection after its row committed and the session expired without repeating that row", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAllowlistManagement(database);
       await database.applyMigration("20261009061000_guard_allowlist_import_progress.sql");
@@ -21,7 +21,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native import fina
           const rowCommitted = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ committed: boolean }>(sql`select completed_rows=1 as committed from public.academy_allowlist_imports where id=${importId}`)).rows[0]?.committed);
           if (rowCommitted) {
             withdrawAfterCommit = false;
-            await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where user_id=${fixture.userId} and tribe_id=${fixture.tribeId} and operation='confirm_allowlist_import' and resource_id=${importId} and invalidated_at is null`));
+            await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${fixture.sessionId}`));
           }
         }
         return result;
@@ -31,7 +31,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native import fina
       if (preview.state !== "completed") throw new Error("Import finalization fixture failed: preview_unavailable");
       importId = preview.result.importId;
       const original = { context: await fixture.confirm(REAUTHENTICATION_OPERATION.confirmAllowlistImport, importId), importId, operationId: randomUUID(), confirmed: true as const, expectedVersion: 1, selectedRows: [1] };
-      await expect(repository.confirm(original)).rejects.toMatchObject({ code: "reauthentication_required" });
+      await expect(repository.confirm(original)).rejects.toMatchObject({ code: "authentication_required" });
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()+interval '1 hour' where id=${fixture.sessionId}`));
       const snapshot = await repository.read(original.context, importId);
       expect(snapshot).toMatchObject({ state: "processing", rows: [{ outcome: "added" }] });
       expect(snapshot?.rows.filter((row) => row.outcome === null)).toHaveLength(0);
@@ -45,7 +46,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native import fina
       expect(await repository.confirm(renewed)).toMatchObject({ state: "completed", replayed: true });
       await database.withContext(fixture.own, async (transaction) => {
         expect((await transaction.execute(sql`select count(*)::int as total from public.academy_allowlist_entries where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ total: 1 }]);
-        expect((await transaction.execute(sql`select count(*)::int as total from public.academy_admission_audit_events where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ total: 1 }]);
+        // One confirmed entry plus the administrative read of the interrupted snapshot; the finalization adds no duplicate.
+        expect((await transaction.execute(sql`select event_type from public.academy_admission_audit_events where tribe_id=${fixture.tribeId} order by created_at`)).rows).toEqual([{ event_type: "confirm_allowlist_import" }, { event_type: "authorized_resource_exposure" }]);
         expect((await transaction.execute(sql`select count(*)::int as total from public.academy_allowlist_import_selections where import_id=${importId}`)).rows).toEqual([{ total: 1 }]);
       });
     });

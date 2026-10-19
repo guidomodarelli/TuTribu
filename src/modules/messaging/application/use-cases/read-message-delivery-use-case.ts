@@ -1,4 +1,4 @@
-/** Reads minimal original transport under current session without recency, provider requests or a resend. @module read-message-delivery */
+/** Reads minimal original transport under current session without provider requests or a resend. @module read-message-delivery */
 import type {MessagingAccountProvider} from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import type {MessageDeliveryReader} from "@/src/modules/messaging/domain/repositories/message-delivery-reader";
 import type {messageDeliverySchema} from "../results/messaging-flow-result-schemas";

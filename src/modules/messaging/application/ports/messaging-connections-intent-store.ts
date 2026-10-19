@@ -20,7 +20,7 @@ export interface MessagingConnectionsIntentStore{
   history(viewerId:string,slug:string):MessagingConnectionsPendingIntent[];
   /** @param viewerId - Current own viewer. @param slug - Current route. @param intent - Exact original public metadata. @returns Whether it was preserved before the pending reference can be cleared. */
   archive(viewerId:string,slug:string,intent:MessagingConnectionsPendingIntent):boolean;
-  /** @param viewerId - Current own viewer. @param slug - Current route. @returns A safe issued-operation reference for return from Google, without another send. */
+  /** @param viewerId - Current own viewer. @param slug - Current route. @returns A safe issued-operation reference restored after a page reload, without another send. */
   diagnostic(viewerId:string,slug:string):MessagingDiagnosticObservationReference|null;
   /** @param viewerId - Current own viewer. @param slug - Exact current route. @returns Preserved issued references for explicit original lookup, without contact or code. */
   diagnostics(viewerId:string,slug:string):MessagingDiagnosticObservationReference[];

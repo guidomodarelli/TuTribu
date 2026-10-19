@@ -13,7 +13,7 @@ import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain
 /** @returns Native HTTP inputs and actual use cases backed only by inward port doubles. */
 function batchRoute() {
   const now = new Date("2026-10-16T04:00:00Z"), tribeId = randomUUID();
-  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "reviewer@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-16T05:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "reviewer@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-16T05:00:00Z") }, googleAccount: null, identityEvidence: null};
   const actor: AdmissionActorFacts = { userId: account.userId, tribeId, role: "guardian", status: "active" };
   const accounts = { getAuthenticatedAccount: vi.fn(async () => account) };
   const resolver = new ResolveAdmissionContextUseCase(accounts, { getCurrentActor: async () => actor, getResource: async () => null }, () => now);

@@ -1,4 +1,4 @@
-/** Reads only own original transport status without recency, provider calls or dispatch. @module message-delivery-handler */
+/** Reads only own original transport status without provider calls or dispatch. @module message-delivery-handler */
 import "server-only";
 import {z} from "zod";
 import type {ReadMessageDeliveryUseCase} from "@/src/modules/messaging/application/use-cases/read-message-delivery-use-case";

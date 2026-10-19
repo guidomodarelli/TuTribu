@@ -20,7 +20,6 @@
   }
   &__actions { @include workspace-panel.actions; }
   &__action { @include workspace-panel.action; }
-  &__reauthentication { @include workspace-panel.reauthentication; }
   &__error { @include workspace-panel.error; }
   &__feedback { @include workspace-panel.lead; }
 }

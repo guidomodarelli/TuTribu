@@ -38,8 +38,4 @@
     @include workspace-panel.feedback;
     @include workspace-panel.feedback-alert;
   }
-
-  &__recovery {
-    @include workspace-panel.callout;
-  }
 }

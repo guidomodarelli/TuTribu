@@ -10,6 +10,5 @@
   &__note { @include workspace-panel.note; }
   &__consent { @include workspace-panel.consent; }
   &__actions { @include workspace-panel.actions; }
-  &__reauthentication { @include workspace-panel.reauthentication; }
   &__feedback { @include workspace-panel.lead; }
 }

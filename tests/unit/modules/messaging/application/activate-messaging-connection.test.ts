@@ -9,7 +9,7 @@ import {messagingFailure} from "@/src/modules/messaging/application/results/mess
 
 /** @returns Own authority/storage ports with no provider or SecretStore capability. */
 function activationFixture(){
-  const now=new Date(),connectionId=randomUUID(),context:AuthorizedMessagingContext={authorizationPurpose:"sensitive_leader",actorUserId:randomUUID(),sessionId:randomUUID(),accountId:randomUUID(),subject:randomUUID(),tribeId:randomUUID(),connectionId,connectionVersion:2,secretRef:randomUUID(),environment:"synthetic",securityEpoch:"synthetic-epoch",requestId:randomUUID(),resourceId:connectionId,operation:"activate_messaging_connection",authenticatedAt:now,validUntil:new Date(now.getTime()+540_000)};
+  const connectionId=randomUUID(),context:AuthorizedMessagingContext={authorizationPurpose:"sensitive_leader",actorUserId:randomUUID(),sessionId:randomUUID(),accountId:randomUUID(),subject:randomUUID(),tribeId:randomUUID(),connectionId,connectionVersion:2,secretRef:randomUUID(),environment:"synthetic",securityEpoch:"synthetic-epoch",requestId:randomUUID(),resourceId:connectionId,operation:"activate_messaging_connection"};
   const input={tribeId:context.tribeId,connectionId,requestId:context.requestId,operationId:randomUUID(),expectedVersion:3,confirmed:true as const};
   const resolve=vi.fn(async()=>({allowed:true as const,context})),activate=vi.fn(async()=>({state:"completed"as const,operationId:input.operationId,replayed:false,result:{id:connectionId,name:"Conexión",version:4,configurationVersion:2,state:"active"as const,maskedCredential:"••••••••"as const,replaced:null,policyVersion:null}}));
   return{context,input,resolve,activate,useCase:new ActivateMessagingConnectionUseCase({execute:resolve},{activate})};

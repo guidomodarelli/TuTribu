@@ -9,7 +9,7 @@ import type { MessagingAuthenticatedAccount, MessagingLeadershipFacts } from "@/
 /** @returns Actual management orchestration with controllable readonly storage and current identity. */
 function prepareRead() {
   const now = new Date("2026-10-11T10:00:00Z"), userId = randomUUID(), tribeId = randomUUID();
-  const account: MessagingAuthenticatedAccount = { userId, session: { id: randomUUID(), expiresAt: new Date("2026-10-11T11:00:00Z") }, googleAccount: null, recentAuthentication: [] };
+  const account: MessagingAuthenticatedAccount = { userId, session: { id: randomUUID(), expiresAt: new Date("2026-10-11T11:00:00Z") }, googleAccount: null};
   const leadership: MessagingLeadershipFacts = { tribeId, leaderUserId: userId, membership: { userId, role: "leader", status: "active" } };
   const query = { tribeId, operationId: randomUUID(), requestId: randomUUID() };
   const result = { originalDeliveryId: randomUUID(), recoveryDeliveryId: randomUUID(), originalVersion: 2, targetConnectionId: randomUUID(), targetConnectionVersion: 3 };
@@ -22,11 +22,10 @@ function prepareRead() {
 }
 
 describe("original notification recovery read", () => {
-  it("should return a historical completed original without Google recency or another write", async () => {
+  it("should return a historical completed original without another write", async () => {
     const fixture = prepareRead();
     expect(await fixture.useCase.execute(fixture.query)).toMatchObject({ ok: true, value: { type: "recover_notification_delivery", state: "completed", operationId: fixture.query.operationId, replayed: true, result: fixture.result } });
     expect(fixture.reads).toBe(1);
-    expect(fixture.account.recentAuthentication).toEqual([]);
   });
 
   it("should preserve only registered started state", async () => {

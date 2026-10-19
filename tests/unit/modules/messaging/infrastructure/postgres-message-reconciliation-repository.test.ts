@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 /** Exercises own original-status selection, SDK reads and monotonic persistence with actual native authority and usage. @module postgres-message-reconciliation-repository-tests */
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
@@ -12,13 +12,14 @@ import { PostgresMessagingAuthorizationReader } from "@/src/modules/messaging/in
 import { ResolveMessagingContextUseCase } from "@/src/modules/messaging/application/use-cases/resolve-messaging-context-use-case";
 import { ZavuMessageDeliverySender } from "@/src/modules/messaging/infrastructure/zavu/zavu-message-delivery-sender";
 import { MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/message-delivery-reauthentication";
-import { RECENT_AUTHENTICATION_WINDOW_MS } from "@/src/modules/auth/constants/recent-authentication";
 import { GOOGLE_IDENTITY_PROVIDER } from "@/src/modules/auth/constants/google-identity-evidence";
 import { MESSAGING_DISPATCH_DEFAULT } from "@/src/modules/messaging/constants/messaging-dispatch";
 import { MESSAGE_AUTHORIZATION_OUTCOME } from "@/src/modules/messaging/constants/message-delivery";
 import { createMessagingSecretCipher } from "@/src/modules/messaging/infrastructure/encryption/messaging-secret-cipher";
 import type { MessagingAuthorizationReader } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+
+/** Keeps synthetic native sessions alive for the whole scenario. */
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native original message reconciliation", () => {
   it.each([
@@ -37,14 +38,12 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native original me
       const sender = new ZavuMessageDeliverySender(fixture.preparation, async () => Response.json({ message: { id: providerMessageId, direction: "outbound", channel: "email", status: "queued" } }));
       const receipt = await sender.send(authorization.context, new AbortController().signal);
       expect(receipt.outcome).toBe("accepted"); await fixture.repository.complete({ context: authorization.context, ...receipt });
-      const sessionId = randomUUID(), accountId = randomUUID(), subject = randomUUID(), intentId = randomUUID();
+      const sessionId = randomUUID(), accountId = randomUUID(), subject = randomUUID();
       await database.withContext(fixture.own, async (transaction) => {
-        const now = new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now), validUntil = new Date(now.getTime() + RECENT_AUTHENTICATION_WINDOW_MS);
+        const now = new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
         await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${accountId},${fixture.userId},${GOOGLE_IDENTITY_PROVIDER},${subject},${now},${now})`);
         await transaction.execute(sql`insert into public.session(id,token,"userId","expiresAt","createdAt","updatedAt") values (${sessionId},${randomUUID()},${fixture.userId},clock_timestamp()+interval '1 hour',${now},${now})`);
         await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${sessionId},${fixture.userId},${accountId},${subject},${fixture.own.email})`);
-        await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.userId},${sessionId},${accountId},${subject},${fixture.scope.tribeId},${MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.reconcile},${fixture.scope.connectionId},'/synthetic-reconcile',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);
-        await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.userId},${accountId},${subject},${sessionId},${fixture.scope.tribeId},${MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.reconcile},${fixture.scope.connectionId},${now},${now},${validUntil})`);
       });
       if (layout !== "selected") {
         const otherConnectionId = layout === "separate_candidate" ? randomUUID() : fixture.scope.connectionId;

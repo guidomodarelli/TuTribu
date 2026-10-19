@@ -6,7 +6,6 @@ import { describe, expect, it, vi } from "vitest";
 import { NotificationRecoveryContainer, type NotificationRecoveryContainerProps } from "@/app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container";
 import type { NotificationRecoverySnapshot } from "@/src/modules/messaging/application/ports/notification-recovery-intent-store";
 import type { NotificationRecoveryBrowserClient } from "@/src/modules/messaging/application/ports/notification-recovery-browser-client";
-import type { ReauthenticationIntentBrowserClient } from "@/src/modules/auth/application/ports/reauthentication-intent-browser-client";
 import { NOTIFICATION_RECOVERY_HISTORY_LIMIT } from "@/src/modules/messaging/constants/notification-recovery-intent";
 
 /** @returns Own metadata and controlled boundary ports; libraries and UI remain real. */
@@ -17,8 +16,8 @@ function prepareContainer() {
   let snapshot: NotificationRecoverySnapshot = { draft: { deliveryId: item.id, targetConnectionId: target.id }, reference: null };
   let persist = true;
   const props: NotificationRecoveryContainerProps = {
-    slug: "synthetic", tribeId: randomUUID(), viewerId: randomUUID(), renderedAt: item.createdAt, target, blocked: false, viewerVerified: true, initialCatalog: { items: [item], nextCursor: null },
-    verifyViewer: vi.fn(async () => true), onBusyChange: vi.fn(), reauthentication: { create: vi.fn<ReauthenticationIntentBrowserClient["create"]>(async () => ({ status: "ready", href: "/auth/signin?synthetic=1" })) },
+    slug: "synthetic", viewerId: randomUUID(), renderedAt: item.createdAt, target, blocked: false, viewerVerified: true, initialCatalog: { items: [item], nextCursor: null },
+    verifyViewer: vi.fn(async () => true), onBusyChange: vi.fn(),
     store: { read: () => ({ state: "ready", value: snapshot }), save: (_viewer, _slug, value) => { if (!persist) return false; snapshot = value; return true; } },
     client: {
       catalog: vi.fn<NotificationRecoveryBrowserClient["catalog"]>(async () => ({ status: "ready", value: { items: [item], nextCursor: null } })),
@@ -34,7 +33,7 @@ describe("notification recovery container", () => {
     const fixture = prepareContainer(), user = userEvent.setup(); fixture.props.initialCatalog = { items: [{ ...fixture.item, state: "unknown" }], nextCursor: null };
     render(<NotificationRecoveryContainer {...fixture.props} />);
     await waitFor(() => expect(screen.getByRole("checkbox", { name: /Revisé el aviso/ })).toBeEnabled()); await user.click(screen.getByRole("checkbox", { name: /Revisé el aviso/ }));
-    expect(screen.getByRole("alert")).toHaveTextContent(/No se habilita otro envío a ciegas/); expect(screen.getByRole("button", { name: "Registrar recuperación" })).toBeDisabled(); expect(screen.getByRole("button", { name: "Confirmar recuperación con Google" })).toBeDisabled(); expect(fixture.props.client!.recover).not.toHaveBeenCalled(); expect(fixture.props.reauthentication.create).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(/No se habilita otro envío a ciegas/); expect(screen.getByRole("button", { name: "Registrar recuperación" })).toBeDisabled(); expect(fixture.props.client!.recover).not.toHaveBeenCalled();
   });
   it("should block a fresh recovery when history is full and keep prior originals consultable", async () => {
     const fixture = prepareContainer(), user = userEvent.setup();
@@ -110,9 +109,11 @@ describe("notification recovery container", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Actualizar avisos" })).toBeEnabled()); await user.click(screen.getByRole("button", { name: "Actualizar avisos" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/La sesión cambió/); expect(screen.queryByRole("combobox")).not.toBeInTheDocument(); expect(screen.getByRole("button", { name: "Actualizar avisos" })).toBeDisabled();
   });
-  it("should request Google recency for the original delivery and preserve the draft without posting", async () => {
-    const fixture = prepareContainer(), user = userEvent.setup(); render(<NotificationRecoveryContainer {...fixture.props} />);
-    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar recuperación con Google" })).toBeEnabled()); await user.click(screen.getByRole("button", { name: "Confirmar recuperación con Google" }));
-    await screen.findByRole("link", { name: "Continuar confirmación con Google" }); expect(fixture.props.reauthentication.create).toHaveBeenCalledWith(expect.objectContaining({ resourceId: fixture.item.id, operation: "recover_notification_delivery", returnPath: "/synthetic/academia/admissions/messaging/connections" }), expect.any(AbortSignal)); expect(fixture.props.client!.recover).not.toHaveBeenCalled(); expect(fixture.snapshot.draft?.deliveryId).toBe(fixture.item.id);
+  it("should offer no Google confirmation and keep the selected draft without posting before explicit consent", async () => {
+    const fixture = prepareContainer(); render(<NotificationRecoveryContainer {...fixture.props} />);
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Revisé el aviso/ })).toBeEnabled());
+    expect(screen.getByRole("button", { name: "Registrar recuperación" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Google/ })).not.toBeInTheDocument(); expect(screen.queryByRole("link", { name: /Google/ })).not.toBeInTheDocument();
+    expect(fixture.props.client!.recover).not.toHaveBeenCalled(); expect(fixture.snapshot.draft?.deliveryId).toBe(fixture.item.id);
   });
 });

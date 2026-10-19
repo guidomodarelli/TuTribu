@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-/** Exercises real administrative UI, native signed recency and lost-reply recovery across both engines and sizes. @module personal-invitation-management-browser-ui-tests */
+/** Exercises real administrative UI with the live session only and lost-reply recovery across both engines and sizes. @module personal-invitation-management-browser-ui-tests */
 import { randomBytes, randomUUID } from "node:crypto";
 import { chromium, webkit } from "@playwright/test";
 import { makeSignature } from "better-auth/crypto";
@@ -78,6 +78,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native persona
             await page.getByRole("button", { name: "Guardar acción", exact: true }).waitFor({ state: "visible" }); await page.waitForFunction(() => !Array.from(document.querySelectorAll("button")).some((button) => button.textContent === "Guardando…")); completed("revoked");
             const persisted = await page.evaluate(() => JSON.stringify(Object.fromEntries(Object.keys(sessionStorage).filter((key) => key.startsWith("tutribu-personal-invitation-management:")).map((key) => [key, sessionStorage.getItem(key)])))); expect(persisted.includes(rawUrl)).toBe(false); expect(persisted.includes(identity)).toBe(false);
             expect(navigations).toBe(1); expect(reportingReads).toBe(0); expect(codeRequests).toBe(0); expect(failures).toEqual([]);
+            expect(await page.getByRole("button", { name: /Google/ }).count() + await page.getByRole("link", { name: /Google/ }).count()).toBe(0);
             expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
             const rows = (await database.withContext(fixture.own, (transaction) => transaction.execute<{ id: string; status: string; version: number }>(sql`select id,status,version from public.academy_personal_invitations where id in (${firstId},${latestId}) order by id`))).rows;
             expect(rows.map((row) => ({ status: row.status, version: row.version })).sort((first, second) => first.version - second.version)).toEqual([{ status: "revoked", version: 2 }, { status: "revoked", version: 3 }]);

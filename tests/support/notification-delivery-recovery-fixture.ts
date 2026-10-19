@@ -29,7 +29,6 @@ export async function prepareNotificationDeliveryRecovery(database: AcademyAdmis
   const context = await database.withContext(own, async (transaction): Promise<NotificationDeliveryRecoveryContext> => {
     const now = new Date((await transaction.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now);
     const deadline = new Date(now.getTime() + deadlineMs);
-    const intentId = randomUUID(), validUntil = new Date(creation.context.validUntil);
     const request = createPendingAdmissionRequest({
       id: requestId, tribeId: creation.context.tribeId, userId: own.userId,
       source: ADMISSION_REQUEST_SOURCE.common, contact: null,
@@ -42,9 +41,7 @@ export async function prepareNotificationDeliveryRecovery(database: AcademyAdmis
     await transaction.execute(sql`insert into public.academy_admission_notification_obligations(id,tribe_id,request_id,applicant_user_id,event_type) values (${obligationId},${creation.context.tribeId},${requestId},${own.userId},'pending_created')`);
     await transaction.execute(sql`select public.enqueue_admission_notification(${obligationId},${own.userId},'reviewer')`);
     await transaction.execute(sql`insert into public.message_deliveries(id,tribe_id,connection_id,connection_version,environment,security_epoch,purpose,source_resource_id,actor_user_id,recipient_ref,channel,idempotency_key,payload_fingerprint,payload_mac_key_id,frozen_intent,queued_usage_policy_version,state,created_at,due_at,deadline_at) values (${originalDeliveryId},${creation.context.tribeId},${first.result.id},1,${creation.fixture.config.environment},${creation.fixture.config.securityEpoch},'admission_notification',${obligationId},${own.userId},${own.userId},'email',${randomUUID()},${randomBytes(32)},'synthetic-original-payload','{}',1,'suppressed',${now},${now},${deadline})`);
-    await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${own.userId},${creation.context.sessionId},${creation.context.accountId},${creation.context.subject},${creation.context.tribeId},'recover_notification_delivery',${originalDeliveryId},'/synthetic-notification-recovery',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);
-    await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${own.userId},${creation.context.accountId},${creation.context.subject},${creation.context.sessionId},${creation.context.tribeId},'recover_notification_delivery',${originalDeliveryId},${now},${now},${validUntil})`);
-    return { ...creation.context, operation: "recover_notification_delivery", deliveryId: originalDeliveryId, resourceId: originalDeliveryId, authenticatedAt: now, validUntil };
+    return { ...creation.context, operation: "recover_notification_delivery", deliveryId: originalDeliveryId, resourceId: originalDeliveryId };
   });
   const execute = <Result>(_context: NotificationDeliveryRecoveryContext, run: (transaction: RequestDatabase) => Promise<Result>) => database.withContext(own, run);
   const input = { operationId: randomUUID(), expectedVersion: 1, targetConnectionId: activation.context.connectionId, expectedTargetVersion: activated.result.version, confirmed: true as const };

@@ -15,6 +15,6 @@ export interface NotificationRecoveryBrowserClient {
   catalog(query: { slug: string; cursor: NotificationDeliveryCatalogCursor | null }, signal: AbortSignal): Promise<MessagingUsageBrowserResult<NotificationDeliveryCatalogResult>>;
   /** @param scope - Exact original public delivery. @param input - Explicit original replacement intent. @param signal - Observation lifetime. @returns Minimum registered progress or original lineage, without retry or dispatch. */
   recover(scope: NotificationRecoveryBrowserScope, input: NotificationRecoveryCommand, signal: AbortSignal): Promise<MessagingUsageBrowserResult<AdmissionOperationResult<NotificationDeliveryRecoveryResult>>>;
-  /** @param query - Exact original UUID within its owning tribe. @param signal - Read lifetime. @returns Historical own result or safe absence/current denial, with no fresh recency requirement or mutation. */
+  /** @param query - Exact original UUID within its owning tribe. @param signal - Read lifetime. @returns Historical own result or safe absence/current denial, with no mutation. */
   operation(query: { slug: string; operationId: string }, signal: AbortSignal): Promise<MessagingUsageBrowserResult<NotificationRecoveryOperationResult>>;
 }

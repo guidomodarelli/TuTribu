@@ -4,7 +4,6 @@ import { sql } from "drizzle-orm";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
 import type { MessagingRestoreSql, prepareMessagingRestoreSource } from "./messaging-restore-fixture";
 import { composeAdmissionRestoreOwnersForPrincipal } from "./messaging-restore-composition";
-import { refreshMessagingActivationRecency } from "./messaging-activation-fixture";
 import { createAdmissionProviderTransport } from "./admission-provider-transport";
 import { composeRestoreAdmissionDispatch } from "./messaging-restore-dispatch-fixture";
 import { MESSAGING_RESTORE_APPLICANT_SESSION_LIFETIME_MS } from "./constants/messaging-restore-safety";
@@ -83,9 +82,6 @@ async function recoverRestoreSetupCode(database: MessagingRestoreSql, config: Me
 export async function prepareRestoreAdmissionCheckpoint(database: AcademyAdmissionTestDatabase, source: RestoreSource) {
   const config = source.fixture.fixture.fixture.config;
   const tribeId = source.context.tribeId;
-  for (const operation of [REAUTHENTICATION_OPERATION.updateAdmissionPolicy, REAUTHENTICATION_OPERATION.activateAdmissionPolicy, REAUTHENTICATION_OPERATION.pauseAdmissionPolicy]) {
-    await refreshMessagingActivationRecency(database, source.fixture.fixture, operation, tribeId);
-  }
   await database.withContext({ userId: source.context.actorUserId, email: null }, (transaction) => transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`));
   const owners = composeRestoreAdmissionOwners(database, source, async () => config);
   const base = { tribeId, requestId: randomUUID(), confirmed: true as const };

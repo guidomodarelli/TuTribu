@@ -12,7 +12,7 @@ import {messagingFailure} from "../results/messaging-errors";
 export type ActivateMessagingConnectionInput=MessagingConnectionActivationInput&{tribeId:string;connectionId:string;requestId:string};
 /** No SecretStore or provider capability is present; activation consumes current local evidence. */
 export class ActivateMessagingConnectionUseCase{
-  /** @param resolver - Actual current native account/leader/recency/resource authority. @param activator - Atomic metadata/evidence/dependency writer with its own repeated authorization. */
+  /** @param resolver - Actual current native account/leader/resource authority. @param activator - Atomic metadata/evidence/dependency writer with its own repeated authorization. */
   constructor(private readonly resolver:Pick<ResolveMessagingContextUseCase,"execute">,private readonly activator:MessagingConnectionActivator){}
   /** @param input - Original confirmed expected lifecycle and exact server tenant. @returns Original guarded selection commit, genuine progress or current safe denial. */
   async execute(input:ActivateMessagingConnectionInput){

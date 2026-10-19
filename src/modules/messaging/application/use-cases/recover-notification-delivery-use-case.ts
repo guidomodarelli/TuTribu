@@ -16,7 +16,7 @@ export type RecoverNotificationDeliveryInput = NotificationDeliveryRecoveryQuery
 /** Leaves current facts, immutable history, cancellation, usage and audit to one authoritative native writer. */
 export class RecoverNotificationDeliveryUseCase<Result> {
   /**
-   * @param management - Native account/leader/exact original-delivery recency; never a credential lookup.
+   * @param management - Native account/leader/original-delivery scope; never a credential lookup.
    * @param repository - Atomic owner that rechecks original and replacement under locks before any effect.
    */
   constructor(

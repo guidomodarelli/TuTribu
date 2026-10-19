@@ -10,7 +10,6 @@ import { AdmissionNotificationSettingsContainer } from "@/app/(platform)/[slug]/
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import type { AdmissionNotificationSettingsBrowserClient } from "@/src/modules/notifications/application/ports/admission-notification-settings-browser-client";
 import type { AdmissionNotificationSettingsPageState } from "@/src/modules/notifications/application/results/admission-notification-settings-page-state";
-import type { ReauthenticationIntentBrowserClient } from "@/src/modules/auth/application/ports/reauthentication-intent-browser-client";
 import { readAdmissionNotificationSettingsIntent, writeAdmissionNotificationSettingsIntent } from "@/lib/academy-admissions/admission-notification-settings-intent";
 
 const tribeId = "83ecbfaf-0e7c-4afb-aefc-62b62800d367", viewerId = "synthetic-notification-leader", slug = "synthetic-academy";
@@ -28,8 +27,7 @@ function fixture() {
     changeEmail: vi.fn<AdmissionNotificationSettingsBrowserClient["changeEmail"]>(async (_slug, input) => ({ status: "ready", value: { viewerId, data: { state: "completed", operationId: input.operationId, replayed: false, result: { status: "changed", settings: { enabled: input.enabled, version: input.expectedVersion + 1, timeZone: input.timeZone } } } } })),
     operation: vi.fn<AdmissionNotificationSettingsBrowserClient["operation"]>(async () => ({ status: "failed", code: "resource_unavailable", message: "La operación no está disponible.", uncertain: false })),
   };
-  const reauthentication = { create: vi.fn<ReauthenticationIntentBrowserClient["create"]>(async () => ({ status: "ready", href: "/auth/reauthenticate?intentId=synthetic-intent" })) };
-  return { state, client, reauthentication, node: () => <AdmissionNotificationSettingsContainer initialState={state} client={client} reauthentication={reauthentication} /> };
+  return { state, client, node: () => <AdmissionNotificationSettingsContainer initialState={state} client={client} /> };
 }
 /** Waits for the real native viewer check before explicit interactions. */
 async function ready() { await waitFor(() => expect(screen.getByRole("button", { name: "Consultar estado actual" })).not.toBeDisabled()); }
@@ -60,7 +58,7 @@ describe("admission notification settings workflow", () => {
     const data = fixture(); render(data.node(), { wrapper: Providers }); await ready();
     expect(screen.getByLabelText("Zona horaria de la tribu")).toHaveValue("America/Argentina/Buenos_Aires");
     expect(data.client.readPreference).not.toHaveBeenCalled(); expect(data.client.readEmail).not.toHaveBeenCalled();
-    expect(data.client.changePreference).not.toHaveBeenCalled(); expect(data.client.changeEmail).not.toHaveBeenCalled(); expect(data.reauthentication.create).not.toHaveBeenCalled();
+    expect(data.client.changePreference).not.toHaveBeenCalled(); expect(data.client.changeEmail).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Guardar correo de admisión" })).toBeDisabled();
   });
 
@@ -183,7 +181,7 @@ describe("admission notification settings workflow", () => {
     await waitFor(() => expect(data.client.changeEmail).toHaveBeenCalledTimes(2));
     expect(data.client.changeEmail.mock.calls.map((call) => call[1])).toEqual([original, original]);
     await waitFor(() => expect(readAdmissionNotificationSettingsIntent(viewerId, slug)).toBeNull());
-    expect(data.reauthentication.create).not.toHaveBeenCalled(); expect(router.refresh).not.toHaveBeenCalled();
+    expect(router.refresh).not.toHaveBeenCalled();
   });
 
   it.each(["permission_denied", "resource_unavailable", "authentication_required"] as const)("should hide private settings after a personal write loses current authority with %s", async (code) => {
@@ -204,15 +202,15 @@ describe("admission notification settings workflow", () => {
     expect(data.client.operation).not.toHaveBeenCalled(); expect(router.refresh).not.toHaveBeenCalled();
   });
 
-  it("should replace stale Google feedback with a later personal permission denial while retaining its pending original", async () => {
-    const data = fixture(); data.client.changeEmail.mockResolvedValueOnce({ status: "failed", code: "reauthentication_required", message: "Confirmá tu autenticación para continuar.", uncertain: false });
+  it("should replace a stale session-change error with a later personal permission denial while retaining its pending original", async () => {
+    const data = fixture(); data.client.changeEmail.mockResolvedValueOnce({ status: "failed", code: "reauthentication_required", message: "Tu sesión cambió. Recargá la página e intentá de nuevo.", uncertain: false });
     data.client.changePreference.mockResolvedValueOnce({ status: "failed", code: "permission_denied", message: "Ya no tenés acceso a estos avisos.", uncertain: false });
     render(data.node(), { wrapper: Providers }); await ready(); await confirm(); fireEvent.click(screen.getByRole("button", { name: "Guardar correo de admisión" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Preparar confirmación con Google" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Tu sesión cambió. Recargá la página e intentá de nuevo.")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Guardar mi preferencia" }));
     await waitFor(() => expect(screen.queryByRole("form", { name: "Mi preferencia de correo" })).not.toBeInTheDocument());
     expect(screen.getByRole("alert")).toHaveTextContent("Ya no tenés acceso a estos avisos.");
-    expect(screen.queryByText("Confirmá tu autenticación para continuar.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Tu sesión cambió. Recargá la página e intentá de nuevo.")).not.toBeInTheDocument();
     expect(readAdmissionNotificationSettingsIntent(viewerId, slug)).toEqual(data.client.changeEmail.mock.calls[0][1]);
   });
 
@@ -263,7 +261,7 @@ describe("admission notification settings workflow", () => {
     writeAdmissionNotificationSettingsIntent(viewerId, slug, original); render(data.node(), { wrapper: Providers }); await ready();
     expect(screen.getByRole("checkbox", { name: /Confirmo la habilitación/ })).not.toBeChecked(); expect(data.client.changeEmail).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Reintentar el cambio original" })).toBeDisabled(); await confirm(); fireEvent.click(screen.getByRole("button", { name: "Reintentar el cambio original" }));
-    await waitFor(() => expect(data.client.changeEmail).toHaveBeenCalledWith(slug, original, expect.any(AbortSignal))); expect(data.reauthentication.create).not.toHaveBeenCalled();
+    await waitFor(() => expect(data.client.changeEmail).toHaveBeenCalledWith(slug, original, expect.any(AbortSignal)));
   });
 
   it("should announce recovered current settings only after that independent current read completes", async () => {
@@ -316,28 +314,18 @@ describe("admission notification settings workflow", () => {
     expect(readAdmissionNotificationSettingsIntent(viewerId, slug)).toEqual(original);
   });
 
-  it("should prepare the exact Google continuation only after an explicit action and leave the write pending", async () => {
-    const data = fixture(); data.client.changeEmail.mockResolvedValueOnce({ status: "failed", code: "reauthentication_required", message: "Confirmá tu autenticación para continuar.", uncertain: false });
+  it("should show a legacy session-change answer as a plain error, keep the original pending and retry it only after a fresh confirmation", async () => {
+    const message = "Tu sesión cambió. Recargá la página e intentá de nuevo.";
+    const data = fixture(); data.client.changeEmail.mockResolvedValueOnce({ status: "failed", code: "reauthentication_required", message, uncertain: false });
     render(data.node(), { wrapper: Providers }); await ready(); await confirm(); fireEvent.click(screen.getByRole("button", { name: "Guardar correo de admisión" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Preparar confirmación con Google" })).toBeInTheDocument()); expect(data.reauthentication.create).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Preparar confirmación con Google" }));
-    await waitFor(() => expect(screen.getByRole("link", { name: "Continuar con Google" })).toHaveAttribute("href", "/auth/reauthenticate?intentId=synthetic-intent"));
-    expect(data.reauthentication.create).toHaveBeenCalledWith({ tribeId, resourceId: tribeId, operation: "update_admission_email_settings", returnPath: `/${slug}/academia/admissions/notifications`, confirmed: true }, expect.any(AbortSignal));
-    expect(screen.getByRole("checkbox", { name: /Confirmo la habilitación/ })).not.toBeChecked(); expect(data.client.changeEmail).toHaveBeenCalledOnce(); expect(readAdmissionNotificationSettingsIntent(viewerId, slug)).not.toBeNull();
-  });
-
-  it("should clear a failed Google preparation before an explicit retry without resending the email change", async () => {
-    const data = fixture(); data.client.changeEmail.mockResolvedValueOnce({ status: "failed", code: "reauthentication_required", message: "Confirmá tu autenticación para continuar.", uncertain: false });
-    data.reauthentication.create.mockResolvedValueOnce({ status: "failed" });
-    render(data.node(), { wrapper: Providers }); await ready(); await confirm(); fireEvent.click(screen.getByRole("button", { name: "Guardar correo de admisión" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Preparar confirmación con Google" })).toBeInTheDocument()); fireEvent.click(screen.getByRole("button", { name: "Preparar confirmación con Google" }));
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No pudimos preparar la confirmación de Google."));
-    let finish!: (result: Awaited<ReturnType<ReauthenticationIntentBrowserClient["create"]>>) => void;
-    data.reauthentication.create.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
-    fireEvent.click(screen.getByRole("button", { name: "Preparar confirmación con Google" }));
-    await waitFor(() => expect(data.reauthentication.create).toHaveBeenCalledTimes(2)); expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    await act(async () => { finish({ status: "ready", href: "/auth/reauthenticate?intentId=synthetic-intent" }); });
-    expect(screen.getByRole("link", { name: "Continuar con Google" })).toBeInTheDocument(); expect(data.client.changeEmail).toHaveBeenCalledOnce();
+    await waitFor(() => expect(screen.getByText(message)).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /Google/ })).not.toBeInTheDocument(); expect(screen.queryByRole("link", { name: /Google/ })).not.toBeInTheDocument();
+    const original = data.client.changeEmail.mock.calls[0][1];
+    expect(readAdmissionNotificationSettingsIntent(viewerId, slug)).toEqual(original);
+    expect(screen.getByRole("button", { name: "Reintentar el cambio original" })).toBeDisabled();
+    await confirm(); fireEvent.click(screen.getByRole("button", { name: "Reintentar el cambio original" }));
+    await waitFor(() => expect(data.client.changeEmail).toHaveBeenCalledTimes(2));
+    expect(data.client.changeEmail.mock.calls[1][1]).toEqual(original); expect(router.refresh).not.toHaveBeenCalled();
   });
 
   it("should report a terminal capability rejection without announcing saved state or retrying it automatically", async () => {

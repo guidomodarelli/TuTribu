@@ -6,8 +6,6 @@ import { MESSAGING_NATIVE_ACTIVATION } from "./constants/messaging-activation-na
 import type { MessagingRestoreSql } from "./messaging-restore-composition";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 
-export { refreshMessagingActivationRecency } from "./messaging-activation-native";
-
 /** @param database - Exact owned full fixture. @returns Migration capability only when originally granted. */
 function initialActivationDatabase(database: AcademyAdmissionTestDatabase | MessagingRestoreSql): AcademyAdmissionTestDatabase {
   if ("applyMigration" in database) return database;
@@ -18,5 +16,5 @@ function initialActivationDatabase(database: AcademyAdmissionTestDatabase | Mess
 export async function prepareMessagingConnectionActivation(database: AcademyAdmissionTestDatabase | MessagingRestoreSql, existing?: Awaited<ReturnType<typeof prepareMessagingConnectionCreation>>, diagnosticRecipient?: string, securityConfig?: MessagingSecurityConfig) {
   const fixture = existing ?? await prepareMessagingConnectionCreation(initialActivationDatabase(database), securityConfig);
   if (!existing) for (const migration of MESSAGING_NATIVE_ACTIVATION.migrations) await initialActivationDatabase(database).applyMigration(migration);
-  return prepareMessagingActivationFromCreation(database, fixture, { diagnosticRecipient, initializeUsagePolicy: !existing, refreshCreationAuthority: Boolean(existing) });
+  return prepareMessagingActivationFromCreation(database, fixture, { diagnosticRecipient, initializeUsagePolicy: !existing });
 }

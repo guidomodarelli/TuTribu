@@ -4,6 +4,6 @@ import type { AuthorizedMessagingContext } from "./messaging-repositories";
 export type MessagingResourceExposure = { kind: "senders" | "templates"; itemCount: number };
 /** Implementations recheck current resource authority before committing the read fact. */
 export interface MessagingResourceExposureRecorder {
-  /** @param context - Exact native account/session/resource/recency scope. @param exposure - Fixed kind and own selected count only. @returns After confirmed authorization and recording, never a provider action. */
+  /** @param context - Exact native account/session/resource scope. @param exposure - Fixed kind and own selected count only. @returns After confirmed authorization and recording, never a provider action. */
   record(context: AuthorizedMessagingContext, exposure: MessagingResourceExposure): Promise<void>;
 }

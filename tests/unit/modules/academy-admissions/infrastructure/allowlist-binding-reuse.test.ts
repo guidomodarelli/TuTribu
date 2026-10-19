@@ -21,7 +21,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native owned allow
       const creation = await fixture.confirm(REAUTHENTICATION_OPERATION.createAllowlistEntry);
       const entry = await fixture.writer.create({ context: creation, operationId: randomUUID(), confirmed: true, contact: { type: "email", value: applicant.email }, displayName: "Configuración independiente" });
       if (entry.state !== "completed") throw new Error("Expected separately added list entry");
-      await fixture.confirm(REAUTHENTICATION_OPERATION.advanceAdmissionRetry, requestId);
       expect(await leader.allowRetry.execute({ tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), admissionRequestId: requestId, expectedVersion: version + 1, confirmed: true, internalReason: "La presentación fue cancelada y el contacto ya está habilitado." })).toMatchObject({ ok: true, value: { state: "completed" } });
       const current = await applicant.commands.submit.execute({ ...applicant.input, operationId: randomUUID() });
       expect(current).toMatchObject({ ok: true, value: { state: "completed", result: { outcome: "admitted", membership: { role: "tribemate", status: "active" } } } });

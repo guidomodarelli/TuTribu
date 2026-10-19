@@ -14,5 +14,4 @@
   &__form { @include workspace-panel.form; }
   &__actions { @include workspace-panel.actions; }
   &__button { @include workspace-panel.action; }
-  &__reauthentication { @include workspace-panel.reauthentication; }
 }

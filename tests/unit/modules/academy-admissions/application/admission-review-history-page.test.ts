@@ -12,7 +12,7 @@ import { ADMISSION_REVIEW_CURSOR_SEPARATOR } from "@/src/modules/academy-admissi
 /** @returns Current synthetic identities, real page orchestration and only owned history/routing doubles. */
 function fixture() {
   const now = new Date("2026-10-16T03:00:00Z"), tribeId = randomUUID(), admissionRequestId = randomUUID();
-  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "cuenta@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-16T04:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "cuenta@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-16T04:00:00Z") }, googleAccount: null, identityEvidence: null};
   const accounts = { getAuthenticatedAccount: vi.fn(async (): Promise<AuthenticatedAccount | null> => account) };
   const nextCursor = `2026-10-15T02:00:00.123456Z${ADMISSION_REVIEW_CURSOR_SEPARATOR}${randomUUID()}`;
   const value = { tribeId, admissionRequestId, items: [{ id: randomUUID(), eventType: "unclassified" as const, fromStatus: null, toStatus: "pending" as const, resourceVersion: 1, actorKind: "unattributed" as const, createdAt: "2026-10-15T02:00:00.123Z" }], nextCursor };

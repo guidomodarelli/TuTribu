@@ -12,7 +12,7 @@ import type { AdmissionActorFacts } from "@/src/modules/academy-admissions/domai
 /** Uses real application authorization and DTO mapping; only own account/storage ports are replaced. */
 function fixture() {
   const now = new Date("2026-10-07T09:00:00Z"), tribeId = randomUUID(), userId = randomUUID();
-  const account: AuthenticatedAccount = { userId, normalizedEmail: "synthetic-leader@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-08T09:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId, normalizedEmail: "synthetic-leader@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-08T09:00:00Z") }, googleAccount: null, identityEvidence: null};
   const accounts = { getAuthenticatedAccount: vi.fn(async () => account) }, actor: AdmissionActorFacts = { userId, tribeId, role: "leader", status: "active" };
   const resolver = new ResolveAdmissionContextUseCase({ getAuthenticatedAccount: async () => account }, { getCurrentActor: async () => actor, getResource: async () => null }, () => now);
   const reader = { read: vi.fn(async () => ({ policy: null, controlActivated: false, usage: null })) };

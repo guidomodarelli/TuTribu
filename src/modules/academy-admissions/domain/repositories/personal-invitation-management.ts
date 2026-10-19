@@ -28,7 +28,7 @@ export type PersonalInvitationQuery = { limit: number; status?: PersonalInvitati
 /** Private current metadata contains no token/hash/key material. */
 export type PersonalInvitationPage = { invitations: PersonalInvitation[]; nextCursor: string | null };
 
-/** Reads recheck actual native session and canonical leadership without mutation recency. */
+/** Reads recheck actual native session and canonical leadership. */
 export interface PersonalInvitationReader {
   /** @param context - Native current leader and tribe. @param query - Bounded own filter/cursor. @returns Current private metadata without token recovery or a write. */
   list(context: AuthorizedAdmissionContext, query: PersonalInvitationQuery): Promise<PersonalInvitationPage>;
@@ -36,12 +36,12 @@ export interface PersonalInvitationReader {
   read(context: AuthorizedAdmissionContext, invitationId: string): Promise<PersonalInvitation | null>;
 }
 
-/** Final writers own leadership/recency, original registry, recipient uniqueness, CAS and related cancellation atomically. */
+/** Final writers own leadership, original registry, recipient uniqueness, CAS and related cancellation atomically. */
 export interface PersonalInvitationCommandWriter {
-  /** @param intent - Explicit canonical issuance/replacement proposal under creation recency. @returns Original metadata; only a newly acknowledged commit may add its transient initial token. */
+  /** @param intent - Explicit canonical issuance/replacement proposal under the live leader session. @returns Original metadata; only a newly acknowledged commit may add its transient initial token. */
   create(intent: PersonalInvitationCreationIntent): Promise<PersonalInvitationCreationResult>;
-  /** @param intent - Exact name edit with observed version and signed resource recency. @returns One increment or current no-op after replay, without changing recipient or expiry. */
+  /** @param intent - Exact name edit with its observed version. @returns One increment or current no-op after replay, without changing recipient or expiry. */
   rename(intent: PersonalInvitationRenameIntent): Promise<AdmissionOperationResult<PersonalInvitationMutationResult>>;
-  /** @param intent - Explicit observed state/action, reason and recency. @returns Versioned original result; pending request cancellation must share the same commit. */
+  /** @param intent - Explicit observed state/action and reason. @returns Versioned original result; pending request cancellation must share the same commit. */
   revoke(intent: PersonalInvitationRevocationIntent): Promise<AdmissionOperationResult<PersonalInvitationMutationResult>>;
 }

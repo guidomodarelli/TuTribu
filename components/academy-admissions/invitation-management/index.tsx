@@ -2,14 +2,13 @@
 /** Presents private invitation history and controlled explicit proposals without adapters or session lookups. @module invitation-management */
 import { useEffect, useId, useRef } from "react";
 import { Button, Checkbox, EmptyState, Input, Label, Select, Textarea } from "@astra-kit/ui";
-import { Link } from "@/components/navigation/link";
 import type { PersonalInvitationManagementDraft } from "@/src/modules/academy-admissions/application/commands/personal-invitation-management-intent";
 import type { PersonalInvitationManagementResult } from "@/src/modules/academy-admissions/application/results/admission-resource-result";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { PERSONAL_INVITATION_MANAGEMENT_COPY as COPY, PERSONAL_INVITATION_MANAGEMENT_MODE as MODE, PERSONAL_INVITATION_MANAGEMENT_STATUS_LABEL } from "@/src/modules/academy-admissions/constants/personal-invitation-management-browser";
 import styles from "./styles.module.scss";
 
-export type InvitationManagementProps = { draft: PersonalInvitationManagementDraft; items: readonly PersonalInvitationManagementResult[]; contactType: "email" | "phone" | null; requiresAdditionalVerification: boolean; hasUsableAllowlist: boolean; allowedCountries: readonly string[]; ready: boolean; busy: boolean; privateVisible: boolean; pending: boolean; confirmed: boolean; conflict: boolean; needsCurrent: boolean; selectionBlocked: boolean; onDiscardSelection: () => void; hasNext: boolean; errorMessage: string | null; fieldError: string | null; statusMessage: string | null; invitationUrl: string | null; reauthenticationRequired: boolean; recoveryHref: string | null; onDraftChange: (value: PersonalInvitationManagementDraft) => void; onConfirm: (value: boolean) => void; onSave: () => void; onSelect: (item: PersonalInvitationManagementResult, mode: "create" | "rename" | "revoke") => void; onNew: () => void; onReadOriginal: () => void; onReadCurrent: () => void; onNext: () => void; onReauthenticate: () => void; onHideUrl: () => void; onCopyUrl: () => void };
+export type InvitationManagementProps = { draft: PersonalInvitationManagementDraft; items: readonly PersonalInvitationManagementResult[]; contactType: "email" | "phone" | null; requiresAdditionalVerification: boolean; hasUsableAllowlist: boolean; allowedCountries: readonly string[]; ready: boolean; busy: boolean; privateVisible: boolean; pending: boolean; confirmed: boolean; conflict: boolean; needsCurrent: boolean; selectionBlocked: boolean; onDiscardSelection: () => void; hasNext: boolean; errorMessage: string | null; fieldError: string | null; statusMessage: string | null; invitationUrl: string | null; onDraftChange: (value: PersonalInvitationManagementDraft) => void; onConfirm: (value: boolean) => void; onSave: () => void; onSelect: (item: PersonalInvitationManagementResult, mode: "create" | "rename" | "revoke") => void; onNew: () => void; onReadOriginal: () => void; onReadCurrent: () => void; onNext: () => void; onHideUrl: () => void; onCopyUrl: () => void };
 
 /** @param props - Controlled current state and explicit callbacks. @returns Responsive semantic controls with independent consent and visible feedback. */
 export function InvitationManagement(props: InvitationManagementProps) {
@@ -47,7 +46,6 @@ export function InvitationManagement(props: InvitationManagementProps) {
       {props.selectionBlocked && <Button type="button" variant="secondary" disabled={props.busy || props.pending} onClick={props.onDiscardSelection}>Descartar selección</Button>}
       {props.statusMessage && <p role="status">{props.statusMessage}</p>}
       {props.pending && <Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReadOriginal}>Consultar operación original</Button>}
-      {props.reauthenticationRequired && (props.recoveryHref ? <><p>Al volver, revisá y completá el borrador; no se guarda automáticamente.</p><Link href={props.recoveryHref}>Continuar confirmación con Google</Link></> : <Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReauthenticate}>Confirmar identidad para guardar</Button>)}
     </>}
   </section>;
 }

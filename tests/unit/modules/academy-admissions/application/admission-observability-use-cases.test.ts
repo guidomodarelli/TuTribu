@@ -12,7 +12,7 @@ import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants
 /** @returns Mutable own domain facts and projection ports for revocation races; no SDK or platform is replaced. */
 function prepareObservation() {
   const tribeId = randomUUID(), userId = randomUUID(), sessionId = randomUUID();
-  const account: AuthenticatedAccount = { userId, normalizedEmail: `synthetic.${userId}@example.test`, session: { id: sessionId, expiresAt: new Date("2026-10-14T14:00:00.000Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId, normalizedEmail: `synthetic.${userId}@example.test`, session: { id: sessionId, expiresAt: new Date("2026-10-14T14:00:00.000Z") }, googleAccount: null, identityEvidence: null};
   const actor: AdmissionActorFacts = { userId, tribeId, role: "leader", status: "active" };
   const state = { now: new Date("2026-10-14T13:00:00.000Z"), account, actor, scopes: [] as AdmissionCommandScope[], afterRead: () => undefined as void, projectedTribeId: tribeId, failure: null as Error | null };
   const resolver = new ResolveAdmissionContextUseCase({ getAuthenticatedAccount: async () => structuredClone(state.account) }, { getCurrentActor: async () => ({ ...state.actor }), getResource: async () => null }, () => state.now);

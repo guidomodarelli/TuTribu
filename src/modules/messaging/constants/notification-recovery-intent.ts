@@ -4,7 +4,7 @@ import { z } from "zod";
 export const NOTIFICATION_RECOVERY_INTENT_STORAGE_PREFIX = "tutribu.notification-recovery.v1";
 /** Bounds local unresolved references without silently dropping any original to make room. */
 export const NOTIFICATION_RECOVERY_HISTORY_LIMIT = 10;
-/** Restored selections are untrusted input; no consent, recipient, credential or recency field is accepted. */
+/** Restored selections are untrusted input; no consent, recipient or credential field is accepted. */
 export const notificationRecoveryDraftSchema = z.strictObject({ deliveryId: z.uuid(), targetConnectionId: z.uuid() });
 /** Contains only the exact original operation and observed version metadata needed for consultation/resumption. */
 export const notificationRecoveryReferenceSchema = z.strictObject({ operationId: z.uuid(), deliveryId: z.uuid(), expectedVersion: z.int().positive(), targetConnectionId: z.uuid(), expectedTargetVersion: z.int().positive() });

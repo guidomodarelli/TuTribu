@@ -1,7 +1,7 @@
 /** Composes fresh native adapters against an owned restore copy without reusing the parent's SQL closures. @module messaging-restore-fixture */
 import { randomBytes, randomUUID } from "node:crypto";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
-import { prepareMessagingConnectionActivation, refreshMessagingActivationRecency } from "./messaging-activation-fixture";
+import { prepareMessagingConnectionActivation } from "./messaging-activation-fixture";
 import { composeMessagingRestoreOwnersForPrincipal, type MessagingRestoreSql } from "./messaging-restore-composition";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { createMessagingSecurityConfig, type MessagingSecurityConfig, type MessagingKeyPurpose, type MessagingKeyringInput } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
@@ -35,40 +35,14 @@ export async function prepareMessagingRestoreSource(database: AcademyAdmissionTe
   const activated = await fixture.owner.activate(fixture.context, fixture.input);
   if (activated.state !== "completed") throw new Error("Messaging restore fixture failed: original_activation_unconfirmed");
   const connectionId = fixture.context.connectionId;
-  await refreshMessagingActivationRecency(database, fixture.fixture, REAUTHENTICATION_OPERATION.readMessagingSenders, connectionId);
-  const recency = await refreshMessagingActivationRecency(database, fixture.fixture, REAUTHENTICATION_OPERATION.disconnectMessagingConnection, connectionId);
   const owners = composeMessagingRestoreOwners(database, fixture, async () => fixture.fixture.fixture.config);
   const resolved = await owners.request.useCases.resolveContext.execute({ tribeId: fixture.context.tribeId, connectionId, operation: REAUTHENTICATION_OPERATION.readMessagingSenders, requestId: randomUUID() });
   if (!resolved.allowed) throw new Error(`Messaging restore fixture failed: original_scope_${resolved.failure.code}`);
   const retirementContext: MessagingConnectionLifecycleContext = {
-    ...fixture.context, ...recency, connectionId, resourceId: connectionId,
+    ...fixture.context, connectionId, resourceId: connectionId,
     operation: REAUTHENTICATION_OPERATION.disconnectMessagingConnection,
   };
   return { fixture, owners, context: resolved.context, retirementContext, activated: activated.result };
-}
-
-/**
- * Refreshes the original action-bound authority after long native setup and before freezing its parent.
- * Resource identity stays native and unchanged; only bounds returned by newly persisted evidence are replaced.
- * This avoids relying on the unspecified ordering of multiple still-live evidence rows.
- * @param database - Exact owned parent, still writable before its restore callback begins.
- * @param source - Actual verified resource scope and native principal from preparation.
- * @returns The same selection with current evidence for secret access, activation, retirement and policy commands.
- */
-export async function refreshMessagingRestoreCheckpointAuthority(database: AcademyAdmissionTestDatabase, source: Awaited<ReturnType<typeof prepareMessagingRestoreSource>>) {
-  const connectionId = source.context.connectionId, tribeId = source.context.tribeId;
-  const secretRecency = await refreshMessagingActivationRecency(database, source.fixture.fixture, REAUTHENTICATION_OPERATION.readMessagingSenders, connectionId);
-  const activationRecency = await refreshMessagingActivationRecency(database, source.fixture.fixture, REAUTHENTICATION_OPERATION.activateMessagingConnection, connectionId);
-  const retirementRecency = await refreshMessagingActivationRecency(database, source.fixture.fixture, REAUTHENTICATION_OPERATION.disconnectMessagingConnection, connectionId);
-  for (const operation of [REAUTHENTICATION_OPERATION.updateAdmissionPolicy, REAUTHENTICATION_OPERATION.activateAdmissionPolicy, REAUTHENTICATION_OPERATION.pauseAdmissionPolicy]) {
-    await refreshMessagingActivationRecency(database, source.fixture.fixture, operation, tribeId);
-  }
-  return {
-    ...source,
-    context: { ...source.context, ...secretRecency },
-    retirementContext: { ...source.retirementContext, ...retirementRecency },
-    fixture: { ...source.fixture, context: { ...source.fixture.context, ...activationRecency } },
-  };
 }
 
 /**

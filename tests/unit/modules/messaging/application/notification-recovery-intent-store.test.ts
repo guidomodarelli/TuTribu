@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { createNotificationRecoveryIntentStore } from "@/lib/messaging/notification-recovery-intent-store";
 
 describe("notification recovery local references", () => {
-  it("should preserve only one original under its actual viewer and route without consent or recency", () => {
+  it("should preserve only one original under its actual viewer and route without consent", () => {
     const viewerId = randomUUID(), slug = `synthetic-${randomUUID()}`, reference = { operationId: randomUUID(), deliveryId: randomUUID(), expectedVersion: 3, targetConnectionId: randomUUID(), expectedTargetVersion: 8 };
     const draft = { deliveryId: reference.deliveryId, targetConnectionId: reference.targetConnectionId }, store = createNotificationRecoveryIntentStore();
     expect(store.save(viewerId, slug, { draft, reference })).toBe(true);

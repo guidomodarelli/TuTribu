@@ -67,14 +67,14 @@ describe("explicit notification recovery HTTP", () => {
     expect(await response.json()).toMatchObject({ code: "public_contract_unusable" });
   });
 
-  it("should map current recency failure to safe Spanish without publishing private causes", async () => {
+  it("should map a legacy session-change failure to safe Spanish without publishing private causes", async () => {
     const fixture = prepareHttp();
     fixture.setOutcome({ ok: false, failure: { code: "reauthentication_required", cause: new Error("Synthetic private diagnostic") } });
     const response = await fixture.handler(fixture.request(), fixture.context);
     expect(response.status).toBe(401);
     const payload = await response.json();
     expect(payload).toMatchObject({ code: "reauthentication_required" });
-    expect(payload.message).toMatch(/confirm/i);
+    expect(payload.message).toBe("Tu sesión cambió. Recargá la página e intentá de nuevo.");
     expect(payload).not.toHaveProperty("cause");
     expect(JSON.stringify(payload)).not.toContain("Synthetic private diagnostic");
   });

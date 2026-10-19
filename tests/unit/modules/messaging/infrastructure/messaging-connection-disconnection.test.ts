@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 /** Exercises actual ordinary retirement effects and original replay against protected SQL evidence/accounting. @module messaging-connection-disconnection-tests */
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
@@ -19,12 +19,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("ordinary connection 
       await database.withContext(fixture.fixture.own,(transaction)=>transaction.execute(sql`insert into public.messaging_usage_policies(tribe_id) values (${fixture.context.tribeId})`));
       const created=await fixture.repository.create(fixture.context,{operationId:randomUUID(),confirmed:true,providerId:"zavu",name:"Candidata conservada",apiKey:randomUUID()});if(created.state!=="completed")throw new Error("Expected candidate fixture");
       const previous=await seedPreviousMessagingSelection(database,fixture,created.result.id),before=await previous.snapshot();
-      const context=await database.withContext(fixture.fixture.own,async(transaction):Promise<MessagingConnectionLifecycleContext>=>{
-        const now=new Date((await transaction.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now),validUntil=new Date(now.getTime()+540_000),intentId=randomUUID();
-        await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.context.actorUserId},${fixture.context.sessionId},${fixture.context.accountId},${fixture.context.subject},${fixture.context.tribeId},'disconnect_messaging_connection',${previous.connectionId},'/synthetic-disconnection',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);
-        await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.context.actorUserId},${fixture.context.accountId},${fixture.context.subject},${fixture.context.sessionId},${fixture.context.tribeId},'disconnect_messaging_connection',${previous.connectionId},${now},${now},${validUntil})`);
-        return{...fixture.context,connectionId:previous.connectionId,resourceId:previous.connectionId,operation:"disconnect_messaging_connection",authenticatedAt:now,validUntil};
-      });
+      const context: MessagingConnectionLifecycleContext = {...fixture.context,connectionId:previous.connectionId,resourceId:previous.connectionId,operation:"disconnect_messaging_connection"};
       await database.applyMigration("20261008161500_create_admission_email_settings.sql");
       await database.withContext(fixture.fixture.own,async(transaction)=>{
         expect(await readAdmissionEmailLifecycleDependency(context,transaction)).toBe(false);expect((await transaction.execute(sql`select tribe_id from public.admission_email_settings where tribe_id=${context.tribeId}`)).rows).toEqual([]);

@@ -12,7 +12,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
   })(request, context);
 }
 
-/** @param request - Explicit confirmed first-configuration request. @param context - Framework params. @returns Closed draft creation after actual leader/recency checks. */
+/** @param request - Explicit confirmed first-configuration request. @param context - Framework params. @returns Closed draft creation after actual leader checks. */
 export async function POST(request: Request, context: { params: Promise<{ slug: string }> }) {
   return createAdmissionPolicyCommandHandlers(async () => {
     const modules = await createAdmissionRequestModules(DATABASE_CONNECTION_USAGE.maintenance);

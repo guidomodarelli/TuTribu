@@ -59,7 +59,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal ad
       const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: fixture.userId, sessionId: fixture.sessionId }), (_identity, run) => database.withContext(fixture.own, run));
       const lifecycle = new ManageTribeLifecycleUseCases(accounts, new PostgresTribeLifecycleRepository((_scope, run) => database.withContext(fixture.own, run), async () => fixture.config, createAdmissionScopeClosureWriter));
       const settings = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{config_version: number}>(sql`select config_version from public.tribe_academy_settings where tribe_id=${fixture.tribeId}`)).rows[0]);
-      await fixture.confirm(REAUTHENTICATION_OPERATION.exitAcademyMode);
       expect(await lifecycle.change({ tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), action: "exit_academy", expectedConfigVersion: settings.config_version, confirmed: true })).toMatchObject({ state: "completed", result: { accessModel: "legacy" } });
       expect(await snapshot()).toEqual(before);
       await database.withContext(fixture.own, async (transaction) => {

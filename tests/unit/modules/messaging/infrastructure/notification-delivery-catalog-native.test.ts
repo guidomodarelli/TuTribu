@@ -11,7 +11,7 @@ import type { RequestDatabase } from "@/src/modules/shared/infrastructure/databa
 import type { MessagingUsageContext } from "@/src/modules/messaging/domain/repositories/messaging-usage-operations";
 
 describe.runIf(process.env.RUN_ADMISSION_SQL_TESTS === "1")("native notification catalog", () => {
-  it("should scope current own facts and lineage without fresh recency, provider calls or additional usage", async () => {
+  it("should scope current own facts and lineage without provider calls or additional usage", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareNotificationDeliveryRecovery(database);
       const reader = new PostgresNotificationDeliveryCatalogReader(<Result>(_context: MessagingUsageContext, run: (transaction: RequestDatabase) => Promise<Result>) => database.withContext(fixture.own, run));
@@ -24,7 +24,6 @@ describe.runIf(process.env.RUN_ADMISSION_SQL_TESTS === "1")("native notification
       expect(result.ok).toBe(true);
       if (!result.ok || result.value.state !== "completed") throw new Error("Synthetic catalog recovery did not complete");
       const recovery = result.value.result;
-      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where tribe_id=${fixture.context.tribeId} and invalidated_at is null`));
       const after = notificationDeliveryCatalogSchema.parse(await reader.read(context, null));
       expect(after.items).toHaveLength(2);
       expect(after.items.find((item) => item.id === fixture.context.deliveryId)).toMatchObject({ version: 2, recoveryDeliveryId: recovery.recoveryDeliveryId });

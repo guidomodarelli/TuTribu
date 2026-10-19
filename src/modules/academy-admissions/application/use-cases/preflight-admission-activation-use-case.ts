@@ -10,7 +10,7 @@ import { admissionOperationFailure } from "../results/admission-operation-failur
 
 /** Preview remains independent of activation; the writer must repeat its actual locked inventory at commit. */
 export class PreflightAdmissionActivationUseCase {
-  /** @param resolver - Current account/session/leader owner without mutation recency for a read. @param inventory - Actual authorized storage/history/runtime inventory. */
+  /** @param resolver - Current account/session/leader owner for a read. @param inventory - Actual authorized storage/history/runtime inventory. */
   constructor(private readonly resolver: Pick<ResolveAdmissionContextUseCase, "execute">, private readonly inventory: AdmissionActivationInventoryReader) {}
 
   /** @param query - Validated target and correlation. @returns A safe informational preflight after current authority is rechecked; no marker, history or key is changed. */

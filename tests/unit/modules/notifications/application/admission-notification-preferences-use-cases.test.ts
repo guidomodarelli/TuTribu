@@ -14,7 +14,7 @@ import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain
 function fixture() {
   const now = new Date("2026-10-15T19:00:00Z");
   const tribeId = randomUUID(), userId = randomUUID();
-  const account: AuthenticatedAccount = { userId, normalizedEmail: "reviewer@example.invalid", session: { id: randomUUID(), expiresAt: new Date("2026-10-15T20:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId, normalizedEmail: "reviewer@example.invalid", session: { id: randomUUID(), expiresAt: new Date("2026-10-15T20:00:00Z") }, googleAccount: null, identityEvidence: null};
   const actor: AdmissionActorFacts = { userId, tribeId, role: "leader", status: "active" };
   const resolver = new ResolveAdmissionContextUseCase({ getAuthenticatedAccount: async () => account }, { getCurrentActor: async () => actor, getResource: async () => null }, () => now);
   const current = () => ({ tribeId, recipientUserId: userId, currentRole: actor.role, membershipStatus: actor.status });
@@ -26,7 +26,7 @@ function fixture() {
 }
 
 describe("own admission notification preferences", () => {
-  // Read authority comes from the current account and role; no Google recency or email resource is required.
+  // Read authority comes from the current account and role; no sensitive operation or email resource is required.
   it.each([{ role: "leader", mode: "grouped", canConfigureEmail: true }, { role: "guardian", mode: "omitted", canConfigureEmail: false }] as const)("should resolve the $role default when no preference has been stored", async ({ role, mode, canConfigureEmail }) => {
     const data = fixture();
     data.actor.role = role;

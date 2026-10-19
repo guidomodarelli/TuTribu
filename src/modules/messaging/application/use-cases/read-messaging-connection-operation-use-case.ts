@@ -1,4 +1,4 @@
-/** Recovers an original connection mutation with current leadership/session but no key or mutation recency. @module read-messaging-connection-operation */
+/** Recovers an original connection mutation with current leadership/session but no key. @module read-messaging-connection-operation */
 import type {MessagingAccountProvider,MessagingAuthorizationReader} from "../../domain/repositories/messaging-repositories";
 import type {MessagingConnectionOperationReader} from "../../domain/repositories/messaging-connection-operation-reader";
 import {MessagingConnectionOperationError} from "../../domain/errors/messaging-connection-operation-error";

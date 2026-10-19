@@ -13,7 +13,7 @@ import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admi
  * Changes only the metadata needed for a corrective presentation; abuse controls remain with their owners.
  * @param input - Locked request/current leader, explicit expected version/reason and post-lock clock.
  * @returns A retry proposal, current no-op or safe denial without rewriting source/decision/deadline.
- * @remarks The adapter independently verifies exact signed global recency before every ledger phase.
+ * @remarks The adapter independently verifies the live leader session before every ledger phase.
  */
 export function proposeAdmissionRetry(input: { request: AdmissionRequest; actor: AdmissionActorFacts; expectedVersion: number; internalReason: string; now: Date }) {
   const deny = (code: typeof ADMISSION_ERROR_CODE[keyof typeof ADMISSION_ERROR_CODE]) => ({ allowed: false as const, code });

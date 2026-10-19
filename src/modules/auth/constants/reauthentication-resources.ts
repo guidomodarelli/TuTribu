@@ -1,4 +1,4 @@
-/** Enumerates exact sensitive actions; authenticated recency never authorizes another action. */
+/** Enumerates exact sensitive actions; an operation scope never authorizes another action. */
 import { MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION } from "./message-delivery-reauthentication";
 export const REAUTHENTICATION_OPERATION={
   saveMessagingCredentials:"save_messaging_credentials",validateMessagingConnection:"validate_messaging_connection",readMessagingSenders:"read_messaging_senders",readMessagingTemplates:"read_messaging_templates",configureMessagingConnection:"configure_messaging_connection",diagnoseMessagingConnection:"diagnose_messaging_connection",verifyMessagingDiagnostic:"verify_messaging_diagnostic",activateMessagingConnection:"activate_messaging_connection",suspendMessagingConnection:"suspend_messaging_connection",disconnectMessagingConnection:"disconnect_messaging_connection",initializeMessagingUsage:"initialize_messaging_usage",updateMessagingUsage:"update_messaging_usage",
@@ -9,7 +9,7 @@ export const REAUTHENTICATION_OPERATION={
   deleteTribe: "delete_tribe",
   updateAdmissionEmailSettings: "update_admission_email_settings",
 } as const satisfies Record<string, ReauthenticationOperation>;
-/** Enumerates the exact global-recency contract independently of runtime constants. */
+/** Enumerates the exact sensitive-operation contract independently of runtime constants. */
 export type ReauthenticationOperation=
   | "save_messaging_credentials" | "validate_messaging_connection" | "read_messaging_senders" | "read_messaging_templates"
   | "configure_messaging_connection" | "diagnose_messaging_connection" | "verify_messaging_diagnostic" | "activate_messaging_connection"

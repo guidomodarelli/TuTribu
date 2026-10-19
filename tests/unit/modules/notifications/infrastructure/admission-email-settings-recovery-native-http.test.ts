@@ -18,7 +18,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
       expect(await fixture.repository.change(fixture.change, original)).toMatchObject({ state: "completed", result: { status: "changed", settings: { version: 1 } } });
       expect(await fixture.repository.change(fixture.change, fixture.command(1, false, "UTC"))).toMatchObject({ state: "completed", result: { status: "changed", settings: { version: 2 } } });
       const identity = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ slug: string; token: string }>(sql`select tribe.slug,session.token from public.tribes tribe join public.session session on session.id=${fixture.read.sessionId} and session."userId"=${fixture.own.userId} where tribe.id=${fixture.read.tribeId}`)).rows[0]);
-      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where session_id=${fixture.read.sessionId} and tribe_id=${fixture.read.tribeId}`));
       const baseline = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::int as operations,sum(version)::int as versions from public.academy_admission_operations where tribe_id=${fixture.read.tribeId}`)).rows[0]);
 
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, identity.slug, async (origin, secret) => {
@@ -34,9 +33,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
           const current = await runPrivateBrowserRequest("read_current_settings_after_original", () => client.get(`${prefix}/email-settings`));
           expect(current.status()).toBe(200);
           expect(await current.json()).toEqual({ enabled: false, version: 2, timeZone: "UTC" });
-          const mutation = await runPrivateBrowserRequest("deny_email_change_without_new_confirmation", () => client.post(`${prefix}/email-settings`, { data: fixture.command(2, true) }));
+          await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${fixture.read.sessionId}`));
+          const mutation = await runPrivateBrowserRequest("deny_email_change_after_session_expiry", () => client.post(`${prefix}/email-settings`, { data: fixture.command(2, true) }));
           expect(mutation.status()).toBe(401);
-          expect(await mutation.json()).toMatchObject({ code: "reauthentication_required" });
+          expect(await mutation.json()).toMatchObject({ code: "authentication_required" });
         } finally { await client.dispose(); }
       }));
 

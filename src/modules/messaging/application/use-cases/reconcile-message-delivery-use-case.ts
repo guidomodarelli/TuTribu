@@ -16,7 +16,7 @@ export type OriginalMessageContextResolver = { execute(query: OriginalMessageCon
 
 /** Keeps provider reads outside native transactions and rechecks authority before persistence. */
 export class ReconcileMessageDeliveryUseCase<Result> {
-  /** @param accounts - Actual native account/session projection. @param resolver - Current exact leader/connection/recency authority. @param repository - Protected original selector and DB-only writer. @param lookup - Read-only provider port. @param clock - Time sampled after awaited authority reads. */
+  /** @param accounts - Actual native account/session projection. @param resolver - Current exact leader/connection authority. @param repository - Protected original selector and DB-only writer. @param lookup - Read-only provider port. @param clock - Time sampled after awaited authority reads. */
   constructor(private readonly accounts: MessagingAccountProvider, private readonly resolver: OriginalMessageContextResolver, private readonly repository: MessageReconciliationRepository<Result>, private readonly lookup: MessageStatusLookup, private readonly clock: () => Date = () => new Date()) {}
 
   /** @param reference - Native original reference. @param actor - Original server principal. @param session - Original session. @returns Current exact reconciliation authority. @throws MessagingSecretAccessError on revoked, changed or insufficient authority. */

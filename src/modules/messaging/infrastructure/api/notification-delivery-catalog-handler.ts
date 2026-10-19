@@ -10,7 +10,7 @@ import { messagingTribeParamsSchema } from "./messaging-request-schemas";
 
 /** Routing resolves only a canonical tribe; the reader independently owns actual leader visibility. */
 export type NotificationDeliveryCatalogServices = { catalog: Pick<ReadNotificationDeliveryCatalogUseCase, "execute">; resolveTribe: { execute(query: { slug: string; requestId: string }): Promise<{ ok: true; value: { tribeId: string } } | { ok: false; failure: AdmissionFailure }> } };
-/** @param open - Own services after once-only public input validation. @returns Current metadata without recency, keys, provider queries or automatic creation. */
+/** @param open - Own services after once-only public input validation. @returns Current metadata without keys, provider queries or automatic creation. */
 export function createNotificationDeliveryCatalogHandler(open: () => Promise<NotificationDeliveryCatalogServices>) {
   /** @param request - Current native session and untrusted cursor. @param context - Exact framework tribe route. @returns Safe current page or localized denial. */
   return async function GET(request: Request, context: { params: Promise<{ slug: string }> }): Promise<Response> {

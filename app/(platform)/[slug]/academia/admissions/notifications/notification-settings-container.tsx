@@ -9,30 +9,25 @@ import type { AdmissionNotificationSettingsBrowserClient, AdmissionNotificationS
 import type { AdmissionNotificationEmailSettingsCommand } from "@/src/modules/notifications/domain/repositories/admission-notification-email-settings-repository";
 import type { AdmissionNotificationEmailSettingsDraft } from "@/src/modules/notifications/application/commands/admission-notification-email-settings-draft";
 import type { AdmissionNotificationPreferenceMode } from "@/src/modules/notifications/domain/entities/admission-notification-preference";
-import type { ReauthenticationIntentBrowserClient } from "@/src/modules/auth/application/ports/reauthentication-intent-browser-client";
-import { createReauthenticationIntentBrowserClient } from "@/src/modules/auth/infrastructure/reauthentication-intent-browser-client";
 import { admissionNotificationSettingsApiClient } from "@/lib/academy-admissions/admission-notification-settings-api-client";
 import { readAdmissionNotificationSettingsIntent, writeAdmissionNotificationSettingsIntent } from "@/lib/academy-admissions/admission-notification-settings-intent";
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
 import { admissionNotificationEmailSettingsCommandSchema } from "@/src/modules/notifications/constants/admission-notification-settings-schemas";
 import { ADMISSION_NOTIFICATION_SETTINGS_PHASE as PHASE, ADMISSION_NOTIFICATION_SETTINGS_COPY as COPY, ADMISSION_NOTIFICATION_SETTINGS_REJECTION_COPY } from "@/src/modules/notifications/constants/admission-notification-settings-browser";
-import { ADMISSION_NOTIFICATION_SETTINGS_SEGMENT, ADMISSION_NOTIFICATION_SETTINGS_PAGE_KIND as PAGE_KIND, ADMISSION_NOTIFICATION_SETTINGS_BROWSER_STATUS as STATUS } from "@/src/modules/notifications/constants/admission-notification-settings-page";
+import { ADMISSION_NOTIFICATION_SETTINGS_PAGE_KIND as PAGE_KIND, ADMISSION_NOTIFICATION_SETTINGS_BROWSER_STATUS as STATUS } from "@/src/modules/notifications/constants/admission-notification-settings-page";
 import { ADMISSION_NOTIFICATION_PREFERENCE_MODE as MODE, ADMISSION_NOTIFICATION_PREFERENCE_STATUS as PREFERENCE_STATUS } from "@/src/modules/notifications/constants/admission-notification-preference";
 import { ADMISSION_EMAIL_SETTINGS_STATUS as EMAIL_STATUS } from "@/src/modules/notifications/constants/admission-notification-email-settings";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE, type AdmissionErrorCode } from "@/src/modules/academy-admissions/constants/admission-errors";
-import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { MESSAGING_CONNECTIONS_SETTINGS_SEGMENT } from "@/src/modules/messaging/constants/messaging-connections-browser";
 
 /** Explicit local phases do not derive types from a runtime constant. */
 type SettingsPhase = "checking" | "reading" | "writing" | "idle" | "uncertain" | "changed_viewer";
-/** The shared creator is a runtime instance; importing it performs no OAuth or HTTP request. */
-const reauthenticationClient = createReauthenticationIntentBrowserClient();
 /** Safe SSR data and owned ports isolate effects from the presentational forms. */
-type ContainerProps = { initialState: AdmissionNotificationSettingsPageState; client?: AdmissionNotificationSettingsBrowserClient; reauthentication?: ReauthenticationIntentBrowserClient };
+type ContainerProps = { initialState: AdmissionNotificationSettingsPageState; client?: AdmissionNotificationSettingsBrowserClient };
 
 /** @param props - Current guarded SSR snapshot and optional own interaction ports. @returns Account-scoped settings with cancellable reads and no automatic mutation or full-route refresh. */
-export function AdmissionNotificationSettingsContainer({ initialState, client = admissionNotificationSettingsApiClient, reauthentication = reauthenticationClient }: ContainerProps) {
+export function AdmissionNotificationSettingsContainer({ initialState, client = admissionNotificationSettingsApiClient }: ContainerProps) {
   const ready = initialState.kind === PAGE_KIND.ready ? initialState : null;
   const [preference, setPreference] = useState(ready?.preference ?? null), [email, setEmail] = useState(ready?.email ?? null);
   const [mode, setMode] = useState<AdmissionNotificationPreferenceMode>(ready?.preference.mode ?? MODE.omitted);
@@ -41,7 +36,6 @@ export function AdmissionNotificationSettingsContainer({ initialState, client = 
   const [confirmed, setConfirmed] = useState(false), [hasPending, setHasPending] = useState(false), [canRetry, setCanRetry] = useState(false);
   const [preferenceError, setPreferenceError] = useState<string | null>(null), [preferenceStatus, setPreferenceStatus] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null), [emailStatus, setEmailStatus] = useState<string | null>(null);
-  const [reauthenticationRequired, setReauthenticationRequired] = useState(false), [reauthenticationHref, setReauthenticationHref] = useState<string | null>(null);
   const pending = useRef<AdmissionNotificationEmailSettingsCommand | null>(null), loaded = useRef(false), mounted = useRef(false), busy = useRef(false);
   const slot = useRef<AbortController | null>(null);
   const hasEmailView = useRef(Boolean(ready?.email));
@@ -52,7 +46,7 @@ export function AdmissionNotificationSettingsContainer({ initialState, client = 
   const hideInaccessibleSettings = useCallback((code: AdmissionErrorCode, message: string) => {
     if (code !== ADMISSION_ERROR_CODE.authenticationRequired && code !== ADMISSION_ERROR_CODE.permissionDenied && code !== ADMISSION_ERROR_CODE.resourceUnavailable) return false;
     setPrivateVisible(false); setFresh(false); setConfirmed(false); setCanRetry(false);
-    setReauthenticationRequired(false); setReauthenticationHref(null); setPreferenceError(null); setPreferenceStatus(null); setEmailStatus(null); setEmailError(message);
+    setPreferenceError(null); setPreferenceStatus(null); setEmailStatus(null); setEmailError(message);
     return true;
   }, []);
   /** Updates render state and the synchronous original-command guard together. */
@@ -100,7 +94,7 @@ export function AdmissionNotificationSettingsContainer({ initialState, client = 
       if (!canConfigureEmail) {
         // Retain inaccessible privileged storage for its original account; personal preferences remain independent.
         remember(null); loaded.current = false; hasEmailView.current = false; setEmail(null);
-        setReauthenticationRequired(false); setReauthenticationHref(null); setEmailError(null); setEmailStatus(null);
+        setEmailError(null); setEmailStatus(null);
         setPrivateVisible(true); setFresh(true); return;
       }
       restoreEmailIntent();
@@ -113,7 +107,6 @@ export function AdmissionNotificationSettingsContainer({ initialState, client = 
           else {
             const terminal = result.value.data.result;
             writeAdmissionNotificationSettingsIntent(ready.viewerId, ready.slug, null); remember(null); recovered = true;
-            setReauthenticationRequired(false); setReauthenticationHref(null);
             if (terminal.status === EMAIL_STATUS.rejected) setEmailError(ADMISSION_NOTIFICATION_SETTINGS_REJECTION_COPY[terminal.reason]);
             else { setEmailError(null); recoveredSucceeded = true; }
           }
@@ -175,7 +168,7 @@ export function AdmissionNotificationSettingsContainer({ initialState, client = 
     finally { if (slot.current === controller) busy.current = false; if (isCurrent(controller.signal)) setPhase((current) => current === PHASE.changedViewer ? current : pending.current ? PHASE.uncertain : PHASE.idle); }
   };
 
-  /** Persists before transport and retains the same original body through uncertainty or a required Google confirmation. */
+  /** Persists before transport and retains the same original body through uncertainty or a legacy session-change answer. */
   const sendEmail = async (input: AdmissionNotificationEmailSettingsCommand) => {
     if (!ready || !email || !fresh || !confirmed || busy.current) return;
     busy.current = true; slot.current?.abort(); const controller = new AbortController(); slot.current = controller; let dispatched = false;
@@ -188,34 +181,20 @@ export function AdmissionNotificationSettingsContainer({ initialState, client = 
       if (result.status === STATUS.failed) {
         if (hideInaccessibleSettings(result.code, result.message)) return;
         setEmailError(result.message);
-        if (result.code === ADMISSION_ERROR_CODE.reauthenticationRequired) { setReauthenticationRequired(true); setCanRetry(true); setFresh(true); }
+        if (result.code === ADMISSION_ERROR_CODE.reauthenticationRequired) { setCanRetry(true); setFresh(true); }
         else if (!result.uncertain) { writeAdmissionNotificationSettingsIntent(ready.viewerId, ready.slug, null); remember(null); }
         return;
       }
       if (!await accept(result.value, controller.signal) || !isCurrent(controller.signal)) return;
       if (result.value.data.state === OPERATION_STATE.started) { setEmailError(COPY.uncertain); toast.info(COPY.uncertain); return; }
       const operation = result.value.data, terminal = operation.result;
-      writeAdmissionNotificationSettingsIntent(ready.viewerId, ready.slug, null); remember(null); setReauthenticationRequired(false); setReauthenticationHref(null);
+      writeAdmissionNotificationSettingsIntent(ready.viewerId, ready.slug, null); remember(null);
       if (terminal.status === EMAIL_STATUS.rejected) { const message = ADMISSION_NOTIFICATION_SETTINGS_REJECTION_COPY[terminal.reason]; setEmailError(message); toast.error(message); return; }
       if (operation.replayed) { setEmailStatus(null); await readCurrent(controller.signal, false, true); return; }
       setEmail(terminal.settings); setDraft({ enabled: terminal.settings.enabled, timeZone: terminal.settings.timeZone }); setFresh(true);
       const message = terminal.status === EMAIL_STATUS.changed ? COPY.emailSaved : COPY.emailUnchanged; setEmailStatus(message); toast.success(message);
     } catch { if (isCurrent(controller.signal)) { if (!dispatched) loaded.current = false; setEmailError(dispatched ? COPY.uncertain : COPY.storageFailed); } }
     finally { if (slot.current === controller) busy.current = false; if (isCurrent(controller.signal)) setPhase((current) => current === PHASE.changedViewer ? current : pending.current ? PHASE.uncertain : PHASE.idle); }
-  };
-
-  /** Creates exact global recency only on a human action; returning never submits the stored configuration automatically. */
-  const prepareReauthentication = async () => {
-    if (!ready || !email || !pending.current || busy.current) return;
-    busy.current = true; slot.current?.abort(); const controller = new AbortController(); slot.current = controller;
-    setPhase(PHASE.writing); setEmailError(null); setConfirmed(false); setReauthenticationHref(null);
-    try {
-      if (!await checkViewer(controller.signal) || !isCurrent(controller.signal)) return;
-      const result = await reauthentication.create({ tribeId: ready.tribeId, resourceId: ready.tribeId, operation: REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings, returnPath: `/${encodeURIComponent(ready.slug)}/${ADMISSION_NOTIFICATION_SETTINGS_SEGMENT}`, confirmed: true }, controller.signal);
-      if (!isCurrent(controller.signal) || result.status === STATUS.aborted || !await checkViewer(controller.signal) || !isCurrent(controller.signal)) return;
-      if (result.status === STATUS.ready) setReauthenticationHref(result.href); else setEmailError(COPY.authenticationFailed);
-    } catch { if (isCurrent(controller.signal)) setEmailError(COPY.authenticationFailed); }
-    finally { if (slot.current === controller) busy.current = false; if (isCurrent(controller.signal)) setPhase((current) => current === PHASE.changedViewer ? current : PHASE.uncertain); }
   };
 
   if (!ready || !preference) return <AdmissionRouteError embedded message={initialState.kind === PAGE_KIND.unavailable ? initialState.message : COPY.storageFailed} reset={() => window.location.reload()} />;
@@ -229,8 +208,8 @@ export function AdmissionNotificationSettingsContainer({ initialState, client = 
     if (!input.success) { setEmailError(COPY.invalid); return; }
     void sendEmail(input.data);
   };
-  return <AdmissionNotificationSettings preference={preference} mode={mode} email={email} draft={draft} busy={isBusy} disabled={!fresh} confirmed={confirmed} pending={hasPending} canRetry={canRetry && fresh} preferenceError={preferenceError} preferenceStatus={preferenceStatus} emailError={emailError} emailStatus={emailStatus} reauthenticationRequired={reauthenticationRequired} reauthenticationHref={reauthenticationHref} messagingHref={`/${encodeURIComponent(ready.slug)}/${MESSAGING_CONNECTIONS_SETTINGS_SEGMENT}`}
+  return <AdmissionNotificationSettings preference={preference} mode={mode} email={email} draft={draft} busy={isBusy} disabled={!fresh} confirmed={confirmed} pending={hasPending} canRetry={canRetry && fresh} preferenceError={preferenceError} preferenceStatus={preferenceStatus} emailError={emailError} emailStatus={emailStatus} messagingHref={`/${encodeURIComponent(ready.slug)}/${MESSAGING_CONNECTIONS_SETTINGS_SEGMENT}`}
     onMode={(value) => { setMode(value); setPreferenceError(null); setPreferenceStatus(null); }} onSavePreference={() => { void savePreference(); }}
-    onDraft={(value) => { setDraft(value); setConfirmed(false); setEmailError(null); setEmailStatus(null); setReauthenticationHref(null); }} onConfirm={(value) => { setConfirmed(value); setEmailError(null); }} onSaveEmail={saveEmail} onRead={launchRead}
-    onRetryOriginal={() => { if (pending.current && canRetry && fresh && confirmed && !busy.current) void sendEmail(pending.current); }} onPrepareReauthentication={() => { void prepareReauthentication(); }} />;
+    onDraft={(value) => { setDraft(value); setConfirmed(false); setEmailError(null); setEmailStatus(null); }} onConfirm={(value) => { setConfirmed(value); setEmailError(null); }} onSaveEmail={saveEmail} onRead={launchRead}
+    onRetryOriginal={() => { if (pending.current && canRetry && fresh && confirmed && !busy.current) void sendEmail(pending.current); }} />;
 }

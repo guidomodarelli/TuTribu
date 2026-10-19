@@ -20,13 +20,12 @@ function queries(database: AcademyAdmissionTestDatabase, fixture: Awaited<Return
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native original email settings recovery", { concurrent: true }, () => {
-  it("should recover an original historical setting without fresh Google while refusing a new write and current role loss", async () => {
+  it("should recover an original historical setting while refusing a new write after the session ends and after current role loss", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAdmissionEmailSettings(database);
       const first = fixture.command(0, false, "Asia/Kolkata"), later = fixture.command(1, false, "UTC");
       expect(await fixture.repository.change(fixture.change, first)).toMatchObject({ state: "completed", result: { status: "changed", settings: { version: 1 } } });
       expect(await fixture.repository.change(fixture.change, later)).toMatchObject({ state: "completed", result: { status: "changed", settings: { version: 2 } } });
-      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where session_id=${fixture.read.sessionId} and tribe_id=${fixture.read.tribeId}`));
       fixture.setRecoveryLocked(true);
       const query = { tribeId: fixture.read.tribeId, operationId: first.operationId, requestId: randomUUID() };
       const current = queries(database, fixture);
@@ -34,7 +33,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native original em
 
       expect(await current.operation.execute(query)).toEqual({ ok: true, value: { type: "update_admission_email_settings", state: "completed", operationId: first.operationId, replayed: true, result: { status: "changed", settings: { enabled: false, version: 1, timeZone: "Asia/Kolkata" } } } });
       expect(await fixture.repository.get(fixture.read)).toMatchObject({ enabled: false, version: 2, timeZone: "UTC" });
-      await expect(fixture.repository.change(fixture.change, fixture.command(2, true))).rejects.toMatchObject({ code: "reauthentication_required" });
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${fixture.read.sessionId}`));
+      await expect(fixture.repository.change(fixture.change, fixture.command(2, true))).rejects.toMatchObject({ code: "authentication_required" });
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()+interval '1 hour' where id=${fixture.read.sessionId}`));
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::int as operations,sum(version)::int as versions from public.academy_admission_operations where tribe_id=${fixture.read.tribeId}`)).rows[0])).toEqual(baseline);
 
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set status='muted' where tribe_id=${fixture.read.tribeId} and user_id=${fixture.own.userId}`));
@@ -50,7 +51,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native original em
       await expect(ledger.run(command, admissionEmailSettingsChangeResultSchema, async () => { throw new Error("Synthetic interruption after the original claim"); })).rejects.toMatchObject({ code: "operation_unresolved" });
       const before = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select state,version,lease_owner::text,lease_until::text from public.academy_admission_operations where tribe_id=${fixture.read.tribeId} and idempotency_key=${operationId}`)).rows[0]);
       expect(before).toMatchObject({ state: "started" });
-      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where session_id=${fixture.read.sessionId} and tribe_id=${fixture.read.tribeId}`));
       const query = { tribeId: fixture.read.tribeId, operationId, requestId: randomUUID() };
 
       expect(await queries(database, fixture).operation.execute(query)).toEqual({ ok: true, value: { type: "update_admission_email_settings", state: "started", operationId } });

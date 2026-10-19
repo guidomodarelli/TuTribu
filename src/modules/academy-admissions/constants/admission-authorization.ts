@@ -1,14 +1,14 @@
-/** Fixes server-owned resource/action and global recency scopes without browser permission flags. */
+/** Fixes server-owned resource/action and sensitive operation scopes without browser permission flags. */
 import { ADMISSION_ACTION } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 
 export const ADMISSION_RESOURCE_KIND = { request: "admission_request", allowlistEntry: "allowlist_entry", allowlistImport: "allowlist_import", personalInvitation: "personal_invitation", connection: "connection" } as const;
 export const ADMISSION_OWN_REQUEST_ACTIONS = new Set<string>([ADMISSION_ACTION.readOwnRequest, ADMISSION_ACTION.cancelOwnRequest, ADMISSION_ACTION.attachOwnProof, ADMISSION_ACTION.updateOwnWhatsappNumber]);
 export const ADMISSION_DECISION_ACTIONS = new Set<string>([ADMISSION_ACTION.decideRequest, ADMISSION_ACTION.rejectRequest]);
-/** These actions have no ordinary read variant; list/invitation reads remain leader-only without recency. */
-export const ADMISSION_REQUIRED_RECENCY_ACTIONS = new Set<string>([ADMISSION_ACTION.configurePolicy, ADMISSION_ACTION.allowEarlyRetry, ADMISSION_ACTION.manageConnection]);
+/** These actions have no ordinary read variant and must declare their exact sensitive operation; list/invitation reads remain leader-only. */
+export const ADMISSION_OPERATION_SCOPED_ACTIONS = new Set<string>([ADMISSION_ACTION.configurePolicy, ADMISSION_ACTION.allowEarlyRetry, ADMISSION_ACTION.manageConnection]);
 
-/** Sensitive writers select one of these exact signed operations; an unrelated recency cannot authorize them. */
+/** Sensitive writers select one of these exact operations; a writer never accepts an operation of another action. */
 export const ADMISSION_SENSITIVE_OPERATIONS: Readonly<Partial<Record<string, readonly string[]>>> = {
   [ADMISSION_ACTION.configurePolicy]: [REAUTHENTICATION_OPERATION.updateAdmissionPolicy, REAUTHENTICATION_OPERATION.activateAdmissionPolicy, REAUTHENTICATION_OPERATION.pauseAdmissionPolicy, REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings],
   [ADMISSION_ACTION.manageAllowlist]: [REAUTHENTICATION_OPERATION.createAllowlistEntry, REAUTHENTICATION_OPERATION.updateAllowlistEntry, REAUTHENTICATION_OPERATION.previewAllowlistImport, REAUTHENTICATION_OPERATION.confirmAllowlistImport],

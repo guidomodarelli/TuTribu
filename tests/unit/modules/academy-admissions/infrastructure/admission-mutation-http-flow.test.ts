@@ -107,16 +107,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("admission nati
           const cancelledRecovery = await fetch(`${base}/operations/${cancelOperationId}`, { headers: { cookie: cookies[2] } });
           expect(cancelledRecovery.status).toBe(200);
           expect(await cancelledRecovery.json()).toMatchObject({ type: "cancel_admission_request", state: "completed", result: { status: "cancelled", version: 2 } });
-          const missingRecency = await post(`/requests/${otherRequest.request.id}/retry-eligibility`, { operationId: randomUUID(), confirmed: true, expectedVersion: 2, internalReason: "Corrección HTTP" }, cookies[0]);
-          expect(missingRecency.status).toBe(401);
-          const accountId = randomUUID(), subject = randomUUID(), intentId = randomUUID();
-          await database.withContext({ userId: leaderId, email: null }, async (transaction) => {
-            const now = new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now), validUntil = new Date(now.getTime() + 540_000);
-            await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${accountId},${leaderId},'google',${subject},${now},${now})`);
-            await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${identities[0].sessionId},${leaderId},${accountId},${subject},${`${leaderId}@example.test`})`);
-            await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${leaderId},${identities[0].sessionId},${accountId},${subject},${tribeId},'advance_admission_retry',${otherRequest.request.id},'/synthetic-retry',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);
-            await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${leaderId},${accountId},${subject},${identities[0].sessionId},${tribeId},'advance_admission_retry',${otherRequest.request.id},${now},${now},${validUntil})`);
-          });
           const retryIntent = { operationId: randomUUID(), confirmed: true, expectedVersion: 2, internalReason: "Corrección HTTP" };
           const retry = await post(`/requests/${otherRequest.request.id}/retry-eligibility`, retryIntent, cookies[0]);
           expect(retry.status).toBe(200);

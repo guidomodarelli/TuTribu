@@ -3,12 +3,11 @@
 import type { AllowlistImportDto } from "@/src/modules/academy-admissions/application/results/admission-management-result-schemas";
 import { useId, useMemo, useState } from "react";
 import { Button, Checkbox, Input, Label } from "@astra-kit/ui";
-import { Link } from "@/components/navigation/link";
 import { ALLOWLIST_IMPORT_FILE_ACCEPT, ALLOWLIST_IMPORT_VISIBLE_ROW_COUNT, ALLOWLIST_IMPORT_BROWSER_COPY } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
 import { ALLOWLIST_IMPORT_REPORT_ERROR_LABEL, ALLOWLIST_IMPORT_REPORT_OUTCOME_LABEL } from "@/src/modules/academy-admissions/constants/allowlist-import";
 import { ADMISSION_IMPORT_PUBLIC_STATE } from "@/src/modules/academy-admissions/constants/admission-management-contract";
 import styles from "./styles.module.scss";
-export type AllowlistImportProps = { ready: boolean; busy: boolean; privateVisible: boolean; initializationFailed: boolean; hasSavedImport: boolean; onRetryInitialization: () => void; fileName: string | null; contactType: "email" | "phone" | null; snapshot: AllowlistImportDto | null; selection: readonly number[]; confirmed: boolean; pending: boolean; canResume: boolean; conflict: boolean; policyConflict: boolean; unresolvedCount: number; canReconcile: boolean; reauthenticationRequired: boolean; recoveryHref: string | null; errorMessage: string | null; fieldError: string | null; statusMessage: string | null; onFile: (file: File) => void; onConfirmChange: (value: boolean) => void; onSelectRow: (row: number, selected: boolean) => void; onPreview: () => void; onConfirm: () => void; onReadOriginal: () => void; onReadCurrent: () => void; onReadPolicy: () => void; onReauthenticate: () => void; onTemplate: () => void; onReport: () => void; onReconcile: () => void };
+export type AllowlistImportProps = { ready: boolean; busy: boolean; privateVisible: boolean; initializationFailed: boolean; hasSavedImport: boolean; onRetryInitialization: () => void; fileName: string | null; contactType: "email" | "phone" | null; snapshot: AllowlistImportDto | null; selection: readonly number[]; confirmed: boolean; pending: boolean; canResume: boolean; conflict: boolean; policyConflict: boolean; unresolvedCount: number; canReconcile: boolean; errorMessage: string | null; fieldError: string | null; statusMessage: string | null; onFile: (file: File) => void; onConfirmChange: (value: boolean) => void; onSelectRow: (row: number, selected: boolean) => void; onPreview: () => void; onConfirm: () => void; onReadOriginal: () => void; onReadCurrent: () => void; onReadPolicy: () => void; onTemplate: () => void; onReport: () => void; onReconcile: () => void };
 /** @param props - Safe controlled view state and explicit callbacks. @returns Semantic paged rows and explicit impact confirmations without session, file reading or network access. */
 export function AllowlistImport(props: AllowlistImportProps) {
   const fieldId = useId(), [offset, setOffset] = useState(0), rows = props.snapshot?.rows ?? [];
@@ -52,7 +51,6 @@ export function AllowlistImport(props: AllowlistImportProps) {
       {props.errorMessage && <p role="alert" className={styles.AllowlistImport__error}>{props.errorMessage}</p>}
       {props.statusMessage && <p role="status">{props.statusMessage}</p>}
       {(props.pending || props.unresolvedCount > 0) && <div className={styles.AllowlistImport__actions}><Button type="button" variant="secondary" disabled={disabled} onClick={props.onReadOriginal}>Consultar operación original</Button>{props.unresolvedCount > 0 && <span className={styles.AllowlistImport__help}>Confirmaciones anteriores por conciliar: {props.unresolvedCount}</span>}{props.canReconcile && <Button type="button" variant="secondary" disabled={disabled} onClick={props.onReconcile}>Conciliar resultados anteriores</Button>}</div>}
-      {props.reauthenticationRequired && (props.recoveryHref ? <Link href={props.recoveryHref}>Continuar confirmación con Google</Link> : <Button type="button" variant="secondary" disabled={disabled} onClick={props.onReauthenticate}>Confirmar identidad para importar</Button>)}
     </>}
   </section>;
 }

@@ -110,7 +110,7 @@ export class PostgresAllowlistImportRepository implements AllowlistImportReposit
     if ("outcome" in original.result) throw new AdmissionOperationError(original.result.code, { operationId: original.operationId, operationState: OPERATION_STATE.completed });
     return { ...original, result: original.result };
   }
-  /** @param context - Current leader of the native tenant. @param importId - Own exact preview. @returns Authorized original rows/current progress without requiring write recency. */
+  /** @param context - Current leader of the native tenant. @param importId - Own exact preview. @returns Authorized original rows/current progress without a write scope. */
   async read(context: AuthorizedAdmissionContext, importId: string) {
     return this.execute(context, async (database) => {
       await authorizeAdmissionLeader(database, context, { action: ADMISSION_ACTION.manageAllowlist, resourceId: importId });

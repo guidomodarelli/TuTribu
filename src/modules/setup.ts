@@ -773,7 +773,7 @@ export async function createMessageDeliveryReadRequestModule(){
   return{delivery:buildMessagingModule(dependencies).createDeliveryReadModule().useCases,resolveTribe:routing.resolveTribe};
 }
 
-/** @returns Original owned-message SDK lookup and monotonic transport persistence with current native recency and explicit hosting transport. */
+/** @returns Original owned-message SDK lookup and monotonic transport persistence with the live session and explicit hosting transport. */
 export async function createMessageDeliveryReconciliationRequestModule() {
   const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
   const dependencies: AuthenticatedFeatureDependencies = {
@@ -810,7 +810,7 @@ export async function createNotificationRecoveryOperationRequestModule() {
   return { operation: operation.useCases, resolveTribe: routing.resolveTribe };
 }
 
-/** @returns Bounded current leader notification metadata and canonical routing, without fresh recency, keys or writes. */
+/** @returns Bounded current leader notification metadata and canonical routing, without keys or writes. */
 export async function createNotificationDeliveryCatalogRequestModule() {
   const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.request);
   const dependencies: AuthenticatedFeatureDependencies = {

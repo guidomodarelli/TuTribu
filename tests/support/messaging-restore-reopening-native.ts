@@ -5,7 +5,7 @@ import type { AuthorizedMessagingContext } from "@/src/modules/messaging/domain/
 import type { prepareRestoreAdmissionCheckpoint } from "./messaging-restore-admission-fixture";
 import { composeAdmissionRestoreOwnersForPrincipal } from "./messaging-restore-composition";
 import { composeMessagingRestoreOwnersForPrincipal } from "./messaging-restore-composition";
-import { prepareMessagingActivationFromCreation, refreshMessagingActivationRecency, type MessagingActivationCreation } from "./messaging-activation-native";
+import { prepareMessagingActivationFromCreation, type MessagingActivationCreation } from "./messaging-activation-native";
 import { composeRestoreAdmissionDispatch } from "./messaging-restore-dispatch-native";
 import { createAdmissionProviderTransport } from "./admission-provider-transport";
 import { PostgresMessagingConnectionRepository } from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-repository";
@@ -35,17 +35,15 @@ export async function prepareMessagingRestoreReplacement(database: MessagingRest
   const original = source.fixture.fixture;
   const execute = <Result>(_context: MessagingConnectionCreationContext, run: (transaction: RequestDatabase) => Promise<Result>) => database.withContext({ userId: original.context.actorUserId, email: null }, run);
   const existing = { ...original, fixture: { ...original.fixture, config }, execute, repository: new PostgresMessagingConnectionRepository(execute, readSecurityConfig) };
-  const replacement = await prepareMessagingActivationFromCreation(database, existing, { initializeUsagePolicy: false, refreshCreationAuthority: true, readSecurityConfig });
+  const replacement = await prepareMessagingActivationFromCreation(database, existing, { initializeUsagePolicy: false, readSecurityConfig });
   const activated = await replacement.owner.activate(replacement.context, replacement.input);
   if (activated.state !== "completed") throw new Error("Messaging restore reopening failed: replacement_activation_unconfirmed");
-  await refreshMessagingActivationRecency(database, replacement.fixture, REAUTHENTICATION_OPERATION.readMessagingSenders, replacement.context.connectionId);
   const resolved = await replacement.request.useCases.resolveContext.execute({ tribeId: replacement.context.tribeId, connectionId: replacement.context.connectionId, operation: REAUTHENTICATION_OPERATION.readMessagingSenders, requestId: randomUUID() });
   if (!resolved.allowed) throw new Error(`Messaging restore reopening failed: replacement_scope_${resolved.failure.code}`);
   const owners = composeMessagingRestoreOwnersForPrincipal(database, replacement.fixture.context, readSecurityConfig);
   // Readiness of the credential and diagnostic alone must not reopen the closed admission policy.
   const closedPolicy = await database.withContext({ userId: source.context.actorUserId, email: null }, (transaction) => readAdmissionPolicy(transaction, source.context.tribeId, false));
   if (!closedPolicy || closedPolicy.isOpen) throw new Error("Messaging restore reopening failed: policy_reopened_without_confirmation");
-  for (const operation of [REAUTHENTICATION_OPERATION.updateAdmissionPolicy, REAUTHENTICATION_OPERATION.activateAdmissionPolicy]) await refreshMessagingActivationRecency(database, replacement.fixture, operation, source.context.tribeId);
   const admission = composeAdmissionRestoreOwnersForPrincipal(database, original.context, readSecurityConfig);
   const updated = await admission.policy.update({ tribeId: source.context.tribeId, requestId: randomUUID(), operationId: randomUUID(), expectedVersion: closedPolicy.version, confirmed: true, patch: { isOpen: true, messagingConnectionId: replacement.context.connectionId, messagingConnectionVersion: replacement.context.connectionVersion } });
   if (!updated.ok || updated.value.state !== "completed") throw new Error("Messaging restore reopening failed: current_policy_update_unconfirmed");

@@ -16,7 +16,7 @@ import { resolveAdmissionNotificationPreference } from "@/src/modules/notificati
 /** @returns Real authority/use-case composition with doubles only at owned storage ports, without provider or auth SDK mocks. */
 function fixture() {
   const now = new Date("2026-10-15T20:00:00Z"), tribeId = randomUUID(), userId = randomUUID();
-  let account: AuthenticatedAccount | null = { userId, normalizedEmail: "reviewer@example.invalid", session: { id: randomUUID(), expiresAt: new Date("2026-10-15T21:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  let account: AuthenticatedAccount | null = { userId, normalizedEmail: "reviewer@example.invalid", session: { id: randomUUID(), expiresAt: new Date("2026-10-15T21:00:00Z") }, googleAccount: null, identityEvidence: null};
   const accounts = { getAuthenticatedAccount: async () => account };
   const actor: AdmissionActorFacts = { userId, tribeId, role: "leader", status: "active" };
   const resolver = new ResolveAdmissionContextUseCase(accounts, { getCurrentActor: async () => actor, getResource: async () => null }, () => now);

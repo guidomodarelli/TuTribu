@@ -21,7 +21,6 @@ export type AdmissionPolicyFormProps = {
   onChange: (draft: AdmissionPolicyDraft) => void; onConfirm: (confirmed: boolean) => void; onPauseReason: (reason: string) => void;
   onInitialize: () => void; onSave: () => void; onActivate: () => void; onPause: () => void; onCheckPreflight: () => void; onReloadCurrent: () => void;
   statusMessage?: string | null; uncertain?: boolean; canRetry?: boolean; onRetryOriginal?: () => void;
-  reauthenticationRequired?: boolean; reauthenticationHref?: string | null; onPrepareReauthentication?: () => void;
 };
 
 /** @param props - One rule option and its optional explanation. @returns A checkbox row with the explanation attached to the control. */
@@ -91,7 +90,6 @@ export function AdmissionPolicyForm(props: AdmissionPolicyFormProps) {
       {props.preflightMessage && <p role="status" className={styles.AdmissionPolicyForm__help}>{props.preflightMessage}</p>}
       {props.statusMessage && <p role="status" className={styles.AdmissionPolicyForm__feedback}>{props.statusMessage}</p>}
       {props.errorMessage && <div role="alert" className={styles.AdmissionPolicyForm__recovery}><p className={styles.AdmissionPolicyForm__error}>{props.errorMessage}</p><p className={styles.AdmissionPolicyForm__help}>El borrador se conserva para que puedas compararlo antes de volver a confirmar.</p><Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReloadCurrent}>Consultar configuración actual</Button></div>}
-      {props.reauthenticationRequired && <section className={styles.AdmissionPolicyForm__callout} aria-label="Confirmación de Google"><p>La acción requiere confirmar tu cuenta de Google. El borrador y la operación original se conservan; al volver tendrás que revisar el estado y confirmar nuevamente.</p>{props.reauthenticationHref ? <Link className={styles.AdmissionPolicyForm__link} href={props.reauthenticationHref}>Continuar con la confirmación de Google</Link> : <Button type="button" variant="secondary" disabled={props.busy} onClick={props.onPrepareReauthentication}>Preparar confirmación con Google</Button>}</section>}
       {props.uncertain && <section className={styles.AdmissionPolicyForm__callout} aria-label="Recuperar operación original"><p role="status">Todavía no podemos confirmar el resultado. Consultá la operación original antes de volver a guardar.</p><Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReloadCurrent}>Consultar operación original</Button>{props.canRetry && <><div className={styles.AdmissionPolicyForm__check}><Checkbox id={`${instanceId}-retry`} checked={props.confirmed} disabled={props.busy} onCheckedChange={(checked) => props.onConfirm(checked === true)} /><label htmlFor={`${instanceId}-retry`}>Confirmo reintentar la misma operación con sus datos originales.</label></div><Button type="button" disabled={!props.confirmed || props.busy} onClick={props.onRetryOriginal}>Reintentar operación original</Button></>}</section>}
     </section>
     {props.state.policy?.isOpen && <section className={styles.AdmissionPolicyForm__block} aria-label="Pausar admisiones">

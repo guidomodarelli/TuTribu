@@ -14,7 +14,7 @@ import { SECONDS_PER_DAY, MILLISECONDS_PER_SECOND } from "@/src/constants/time";
 /** @returns A native-identity port and independent own readers without a writer or provider capability. */
 function fixture() {
   const state = createAdmissionActivityPageFixture(), now = new Date(state.renderedAt);
-  const account: AuthenticatedAccount = { userId: state.viewerId, normalizedEmail: `${randomUUID()}@example.test`, session: { id: randomUUID(), expiresAt: new Date(now.getTime() + SECONDS_PER_DAY * MILLISECONDS_PER_SECOND) }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
+  const account: AuthenticatedAccount = { userId: state.viewerId, normalizedEmail: `${randomUUID()}@example.test`, session: { id: randomUUID(), expiresAt: new Date(now.getTime() + SECONDS_PER_DAY * MILLISECONDS_PER_SECOND) }, googleAccount: null, identityEvidence: null};
   const accounts = { getAuthenticatedAccount: vi.fn(async (): Promise<AuthenticatedAccount | null> => account) };
   const readers = {
     resolveTribe: { execute: vi.fn(async () => ({ ok: true as const, value: { tribeId: state.tribeId } })) },

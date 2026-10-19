@@ -6,14 +6,12 @@ import type { AllowlistPageState, AllowlistBrowserQuery } from "@/src/modules/ac
 import type { AllowlistBrowserClient } from "@/src/modules/academy-admissions/application/ports/allowlist-browser-client";
 import type { AllowlistDraft, AllowlistBrowserIntent } from "@/src/modules/academy-admissions/application/commands/allowlist-browser-intent";
 import type { AllowlistEntryResult } from "@/src/modules/academy-admissions/application/results/admission-resource-result";
-import type { ReauthenticationIntentBrowserClient } from "@/src/modules/auth/application/ports/reauthentication-intent-browser-client";
 import { allowlistApiClient } from "@/lib/academy-admissions/allowlist-api-client";
-import { allowlistReauthenticationClient } from "@/lib/academy-admissions/allowlist-reauthentication-client";
 import { readAllowlistWorkflow, writeAllowlistWorkflow } from "@/lib/academy-admissions/allowlist-intent";
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
 import { normalizeAdmissionContact } from "@/src/modules/academy-admissions/domain/value-objects/admission-contact";
 import { normalizeAllowlistDisplayName } from "@/src/modules/academy-admissions/domain/value-objects/allowlist-display-name";
-import { ALLOWLIST_BROWSER_PHASE as PHASE, ALLOWLIST_BROWSER_COPY as COPY, ALLOWLIST_BROWSER_TIMEOUT_MS, ALLOWLIST_SETTINGS_SEGMENT } from "@/src/modules/academy-admissions/constants/allowlist-browser";
+import { ALLOWLIST_BROWSER_PHASE as PHASE, ALLOWLIST_BROWSER_COPY as COPY, ALLOWLIST_BROWSER_TIMEOUT_MS } from "@/src/modules/academy-admissions/constants/allowlist-browser";
 import { ALLOWLIST_ENTRY_STATUS } from "@/src/modules/academy-admissions/constants/admission-resources";
 import { ADMISSION_CONTACT_NORMALIZATION_STATUS } from "@/src/modules/academy-admissions/constants/admission-contact";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
@@ -28,13 +26,13 @@ import type { AllowlistBrowserResult } from "@/src/modules/academy-admissions/ap
 function emptyDraft(): AllowlistDraft { return { identity: "", country: "", displayName: "", status: ALLOWLIST_ENTRY_STATUS.enabled, entryId: null, expectedVersion: null }; }
 
 /** @param options - Safe current SSR state and own browser ports. @returns Controlled state/actions without POST on mount or full route refresh. */
-export function useAllowlistWorkflow(options: { initialState: AllowlistPageState; client?: AllowlistBrowserClient; reauthentication?: ReauthenticationIntentBrowserClient }) {
-  const initial = options.initialState.kind === "ready" ? options.initialState : null, client = options.client ?? allowlistApiClient, reauthentication = options.reauthentication ?? allowlistReauthenticationClient;
+export function useAllowlistWorkflow(options: { initialState: AllowlistPageState; client?: AllowlistBrowserClient }) {
+  const initial = options.initialState.kind === "ready" ? options.initialState : null, client = options.client ?? allowlistApiClient;
   const [page, setPage] = useState(initial?.page ?? { items: [], nextCursor: null }), [query, setQuery] = useState<AllowlistBrowserQuery>(initial?.query ?? { limit: ADMISSION_QUERY_LIMIT.defaultPageSize });
   const [search, setSearch] = useState(initial?.query.search ?? ""), [status, setStatus] = useState<"enabled" | "disabled" | null>(initial?.query.status ?? null);
   const [draft, setDraft] = useState<AllowlistDraft>(emptyDraft), [confirmed, setConfirmed] = useState(false), [ready, setReady] = useState(false), [privateVisible, setPrivateVisible] = useState(true);
   const [phase, setPhase] = useState<typeof PHASE[keyof typeof PHASE]>(PHASE.checking), [pending, setPending] = useState<AllowlistBrowserIntent | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null), [statusMessage, setStatusMessage] = useState<string | null>(null), [fieldError, setFieldError] = useState<string | null>(null), [conflict, setConflict] = useState(false), [reauthenticationRequired, setReauthenticationRequired] = useState(false), [recoveryHref, setRecoveryHref] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null), [statusMessage, setStatusMessage] = useState<string | null>(null), [fieldError, setFieldError] = useState<string | null>(null), [conflict, setConflict] = useState(false);
   const currentDraft = useRef(draft), currentPending = useRef<AllowlistBrowserIntent | null>(null), controller = useRef<AbortController | null>(null), active = useRef(false), generation = useRef(0), busy = useRef(false);
   const live = (signal: AbortSignal, scope: number) => active.current && generation.current === scope && !signal.aborted;
 
@@ -42,7 +40,7 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
   const reportFailure = useCallback((failure: Extract<AllowlistBrowserResult<unknown>, { status: "failed" }>): boolean => {
     setErrorMessage(failure.message);
     const lostAuthority = failure.code === ADMISSION_ERROR_CODE.permissionDenied || failure.code === ADMISSION_ERROR_CODE.authenticationRequired;
-    if (lostAuthority) { setPrivateVisible(false); setReady(false); setConfirmed(false); setRecoveryHref(null); setReauthenticationRequired(false); setPhase(PHASE.changedViewer); }
+    if (lostAuthority) { setPrivateVisible(false); setReady(false); setConfirmed(false); setPhase(PHASE.changedViewer); }
     return lostAuthority;
   }, []);
 
@@ -59,7 +57,7 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
     const viewer = await client.viewer(signal);
     if (!live(signal, scope)) return false;
     if (viewer.status === "aborted") return false;
-    if (viewer.status !== "ready" || viewer.value?.id !== initial.viewerId) { setPrivateVisible(false); setReady(false); setConfirmed(false); setRecoveryHref(null); setPhase(PHASE.changedViewer); setErrorMessage(COPY.account); return false; }
+    if (viewer.status !== "ready" || viewer.value?.id !== initial.viewerId) { setPrivateVisible(false); setReady(false); setConfirmed(false); setPhase(PHASE.changedViewer); setErrorMessage(COPY.account); return false; }
     return true;
   }, [client, initial]);
 
@@ -95,7 +93,7 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
       setPage(refreshed.value);
     } else mergeEntry(current.value);
     if (!persist(emptyDraft(), null)) return;
-    setConfirmed(false); setConflict(false); setReauthenticationRequired(false); setRecoveryHref(null); setStatusMessage(COPY.recovered); setPhase(PHASE.idle); toast.success(COPY.saved);
+    setConfirmed(false); setConflict(false); setStatusMessage(COPY.recovered); setPhase(PHASE.idle); toast.success(COPY.saved);
   }, [authorize, client, initial, mergeEntry, page.items, persist, query, reportFailure]);
 
   /** Each interactive read owns one cancellable slot and cannot replace an unfinished mutation. */
@@ -159,7 +157,7 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
       const result = await client.write(initial.slug, intent, signal);
       if (!live(signal, scope) || !await authorize(signal, scope)) return;
       if (result.status === "ready") await consume(intent, result.value, signal, scope);
-      else if (result.status === "failed" && !result.uncertain) { if (!persist(proposal, null)) return; setConfirmed(false); if (reportFailure(result)) return; const staleEdit = result.code === ADMISSION_ERROR_CODE.allowlistConflict && intent.type === REAUTHENTICATION_OPERATION.updateAllowlistEntry; setErrorMessage(result.code === ADMISSION_ERROR_CODE.allowlistConflict ? staleEdit ? COPY.conflict : COPY.duplicate : result.message); setConflict(staleEdit); setReauthenticationRequired(result.code === ADMISSION_ERROR_CODE.reauthenticationRequired); toast.error(result.message); }
+      else if (result.status === "failed" && !result.uncertain) { if (!persist(proposal, null)) return; setConfirmed(false); if (reportFailure(result)) return; const staleEdit = result.code === ADMISSION_ERROR_CODE.allowlistConflict && intent.type === REAUTHENTICATION_OPERATION.updateAllowlistEntry; setErrorMessage(result.code === ADMISSION_ERROR_CODE.allowlistConflict ? staleEdit ? COPY.conflict : COPY.duplicate : result.message); setConflict(staleEdit); toast.error(result.message); }
       else { setErrorMessage(COPY.uncertain); setPhase(PHASE.uncertain); }
     }, true);
   }, [authorize, client, confirmed, conflict, consume, initial, persist, ready, reportFailure, run]);
@@ -173,18 +171,10 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
     mergeEntry(current.value); if (!persist({ ...proposal, expectedVersion: current.value.version }, null)) return; setConfirmed(false); setConflict(false); setStatusMessage("Versión actual consultada. Revisá el borrador y confirmá el cambio nuevamente.");
   }), [authorize, client, initial, mergeEntry, persist, reportFailure, run]);
 
-  const reauthenticate = useCallback(() => run(async (signal, scope) => {
-    if (!initial || !reauthenticationRequired) return;
-    const proposal = currentDraft.current, operation = proposal.entryId ? REAUTHENTICATION_OPERATION.updateAllowlistEntry : REAUTHENTICATION_OPERATION.createAllowlistEntry;
-    const result = await reauthentication.create({ tribeId: initial.tribeId, resourceId: proposal.entryId ?? initial.tribeId, operation, returnPath: `/${encodeURIComponent(initial.slug)}/${ALLOWLIST_SETTINGS_SEGMENT}`, confirmed: true }, signal);
-    if (!live(signal, scope) || !await authorize(signal, scope)) return;
-    if (result.status === "ready") { setRecoveryHref(result.href); setStatusMessage(COPY.reauthentication); } else if (result.status === "failed") setErrorMessage(COPY.reauthenticationFailed);
-  }), [authorize, initial, reauthentication, reauthenticationRequired, run]);
-
-  const changeDraft = (value: AllowlistDraft) => { if (!busy.current && !currentPending.current) { persist(value, null); setConfirmed(false); setFieldError(null); setErrorMessage(null); setStatusMessage(null); setReauthenticationRequired(false); setRecoveryHref(null); } };
+  const changeDraft = (value: AllowlistDraft) => { if (!busy.current && !currentPending.current) { persist(value, null); setConfirmed(false); setFieldError(null); setErrorMessage(null); setStatusMessage(null); } };
   /** Selection cannot discard conflict/progress while the original write is unresolved. */
   const select = (entry: AllowlistEntryResult) => { if (busy.current || currentPending.current || !ready) return; setConflict(false); changeDraft({ identity: entry.identity, country: "", displayName: entry.displayName ?? "", status: entry.status, entryId: entry.id, expectedVersion: entry.version }); };
   /** Starting a proposal is explicit and never replaces an unresolved original. */
   const newEntry = () => { if (busy.current || currentPending.current || !ready) return; setConflict(false); changeDraft(emptyDraft()); };
-  return { page, draft, search, status, confirmed, ready, privateVisible, phase, pending, conflict, errorMessage, statusMessage, fieldError, recoveryHref, reauthenticationRequired, changeDraft, setConfirmed: (value: boolean) => { if (!ready || busy.current || currentPending.current) return; setConfirmed(value); setFieldError(null); }, setSearch: (value: string) => { setSearch(value); setErrorMessage(null); setStatusMessage(null); }, setStatus: (value: "enabled" | "disabled" | null) => { setStatus(value); setErrorMessage(null); setStatusMessage(null); }, searchEntries: () => readList({ limit: query.limit, ...(search.trim() ? { search: search.trim() } : {}), ...(status ? { status } : {}) }), next: () => page.nextCursor ? readList({ ...query, cursor: page.nextCursor }) : Promise.resolve(), select, newEntry, save, readOriginal, readCurrentEntry, reauthenticate };
+  return { page, draft, search, status, confirmed, ready, privateVisible, phase, pending, conflict, errorMessage, statusMessage, fieldError, changeDraft, setConfirmed: (value: boolean) => { if (!ready || busy.current || currentPending.current) return; setConfirmed(value); setFieldError(null); }, setSearch: (value: string) => { setSearch(value); setErrorMessage(null); setStatusMessage(null); }, setStatus: (value: "enabled" | "disabled" | null) => { setStatus(value); setErrorMessage(null); setStatusMessage(null); }, searchEntries: () => readList({ limit: query.limit, ...(search.trim() ? { search: search.trim() } : {}), ...(status ? { status } : {}) }), next: () => page.nextCursor ? readList({ ...query, cursor: page.nextCursor }) : Promise.resolve(), select, newEntry, save, readOriginal, readCurrentEntry };
 }

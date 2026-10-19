@@ -37,7 +37,7 @@ export class PostgresMessagingConnectionConfiguration implements MessagingConnec
   constructor(private readonly execute:MessagingConfigurationDatabaseExecutor,private readonly readSecurityConfig:()=>Promise<MessagingSecurityConfig>){}
   /** @param context - Current private principal/resource. @param input - Stable boundary-normalized action. @returns Exact own MAC intent, with no transient key or provider payload. */
   private command(context:AuthorizedMessagingContext,input:MessagingConnectionConfigurationInput):AdmissionOperationCommand{return{actorUserId:context.actorUserId,tribeId:context.tribeId,operationType:REAUTHENTICATION_OPERATION.configureMessagingConnection,idempotencyKey:input.operationId,intent:{connectionId:context.connectionId,expectedVersion:input.expectedVersion,channel:input.channel,senderId:input.senderId,templateId:input.templateId??null,templateLanguage:input.templateLanguage??null,confirmed:input.confirmed}};}
-  /** @param database - Protected current transaction. @param context - Exact current human recency/resource. @param mutate - Locks the tribe exclusively before resource reads to avoid candidate-slot lock upgrades. @returns Current authorized selected/candidate scope and SQL time, also after this owner's effective version change. */
+  /** @param database - Protected current transaction. @param context - Exact current human resource. @param mutate - Locks the tribe exclusively before resource reads to avoid candidate-slot lock upgrades. @returns Current authorized selected/candidate scope and SQL time, also after this owner's effective version change. */
   private async authorize(database:RequestDatabase,context:AuthorizedMessagingContext,mutate=false){
     if(context.operation!==REAUTHENTICATION_OPERATION.configureMessagingConnection||context.resourceId!==context.connectionId)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
     if(mutate)await database.execute(sql`select id from public.tribes where id=${context.tribeId} for update`);
@@ -49,7 +49,7 @@ export class PostgresMessagingConnectionConfiguration implements MessagingConnec
       const authority=await authorizeMessagingSecret(database,current,mutate),config=await this.readSecurityConfig();
       if(config.recoveryLocked||config.environment!==context.environment||config.securityEpoch!==context.securityEpoch||!config.keyrings.credential.keys.has(authority.keyId))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
       const now=new Date((await database.execute<{now:string}>(sql`select clock_timestamp() as now`)).rows[0].now);
-      if(!messagingSecretLifetimeIsCurrent(authority,now))throw new AdmissionOperationError((await database.execute(sql`select id from public.session where id=${context.sessionId} and "expiresAt">clock_timestamp()`)).rows[0]?ADMISSION_ERROR_CODE.reauthenticationRequired:ADMISSION_ERROR_CODE.authenticationRequired);
+      if(!messagingSecretLifetimeIsCurrent(authority,now))throw new AdmissionOperationError((await database.execute(sql`select id from public.session where id=${context.sessionId} and "expiresAt">clock_timestamp()`)).rows[0]?ADMISSION_ERROR_CODE.resourceUnavailable:ADMISSION_ERROR_CODE.authenticationRequired);
       return{context:current,now};
     }catch(error){if(error instanceof MessagingSecretAccessError)throw new AdmissionOperationError(error.code,{cause:error});throw error;}
   }

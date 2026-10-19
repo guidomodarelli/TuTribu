@@ -18,10 +18,10 @@ type ConfirmedAllowlistScope = AllowlistScope & { operationId: string; confirmed
 
 /** Reads require current leadership; writes also require the exact signed global operation/resource. */
 export class ManageAllowlistUseCases {
-  /** @param resolver - Real current account, role, resource and signed recency owner. @param reader - Read-only own list storage. @param writer - Atomic original-ledger, selected-type and CAS owner. */
+  /** @param resolver - Real current account, role and resource owner. @param reader - Read-only own list storage. @param writer - Atomic original-ledger, selected-type and CAS owner. */
   constructor(private readonly resolver: Pick<ResolveAdmissionContextUseCase, "execute">, private readonly reader: AllowlistReader, private readonly writer: AllowlistCommandWriter) {}
 
-  /** @param query - Authorized tenant and boundary-validated filters. @returns Current entries for the leader without recency demand or mutation. */
+  /** @param query - Authorized tenant and boundary-validated filters. @returns Current entries for the leader without mutation. */
   async list(query: AllowlistScope & AllowlistQuery) {
     try {
       const authority = await this.resolver.execute({ tribeId: query.tribeId, requestId: query.requestId, action: ADMISSION_ACTION.manageAllowlist });
@@ -42,7 +42,7 @@ export class ManageAllowlistUseCases {
     } catch (error) { return admissionOperationFailure(error); }
   }
 
-  /** @param input - Explicit contact/name proposal without browser identity, version or source. @returns Original creation result after canonicalization and scoped global recency, without binding any account. */
+  /** @param input - Explicit contact/name proposal without browser identity, version or source. @returns Original creation result after canonicalization, without binding any account. */
   async create(input: ConfirmedAllowlistScope & { contactType: AdmissionContactType; identity: string; country?: string; displayName?: string | null }) {
     try {
       const authority = await this.resolver.execute({ tribeId: input.tribeId, requestId: input.requestId, action: ADMISSION_ACTION.manageAllowlist, sensitiveOperation: REAUTHENTICATION_OPERATION.createAllowlistEntry });
