@@ -14,7 +14,7 @@
 
 import { useLayoutEffect, useRef } from "react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
-import { SPRING_LAYOUT } from "@astra-kit/ui";
+import { SPRING_LAYOUT } from "@golfo/ui";
 import { Link } from "@/components/navigation/link";
 import { visibleAdmissionSections } from "@/lib/academy-admissions/admission-sections";
 import type { AdmissionSection, AdmissionSectionAudience } from "@/src/modules/academy-admissions/constants/admission-sections";

@@ -4,7 +4,7 @@
  * license; do not redistribute it on its own.
  *
  * Adapted from the Arc "Skeleton morph" component: timings come from the motion
- * tokens exported by @astra-kit/ui, styles are a BEM SCSS module, the loading
+ * tokens exported by @golfo/ui, styles are a BEM SCSS module, the loading
  * announcement is in Spanish, and every animation keeps a reduced-motion branch.
  */
 
@@ -12,7 +12,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ElementType, type ReactNode } from "react";
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
-import { MOTION_EASE_STANDARD, MOTION_TIMING, SPRING_PANEL } from "@astra-kit/ui";
+import { MOTION_EASE_STANDARD, MOTION_TIMING, SPRING_PANEL } from "@golfo/ui";
 import styles from "./styles.module.scss";
 
 /** Region that resolves its blocks one after another once `loading` turns false. */

@@ -1,5 +1,4 @@
 @use "../../../src/styles/motion";
-@use "../../../src/styles/action-link";
 
 @include motion.define-keyframes;
 
@@ -91,9 +90,4 @@
       width: 100%;
     }
   }
-}
-
-// Navigation styled as an Arc secondary button.
-.ErrorState__actionLink {
-  @include action-link.action-link(secondary, lg);
 }

@@ -6,14 +6,14 @@ import {
   AppRouterContext,
   type AppRouterInstance,
 } from "next/dist/shared/lib/app-router-context.shared-runtime";
-import { toast } from "@astra-kit/ui";
+import { toast } from "@golfo/ui";
 
 import { TribeEventsCalendar } from "@/components/events/tribe-events-calendar";
 
 // Preserve the existing Sonner double to isolate its timers and global
 // notification store; `promise` only records the lifecycle copy it receives.
-vi.mock("@astra-kit/ui", async () => ({
-  ...(await vi.importActual<typeof import("@astra-kit/ui")>("@astra-kit/ui")),
+vi.mock("@golfo/ui", async () => ({
+  ...(await vi.importActual<typeof import("@golfo/ui")>("@golfo/ui")),
   toast: {
     error: vi.fn(),
     promise: vi.fn(),

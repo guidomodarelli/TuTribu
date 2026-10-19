@@ -1,5 +1,5 @@
 /** Presents retained per-row outcomes without treating terminal conflicts as pending work. @module admission-batch-results */
-import { Button } from "@astra-kit/ui";
+import { Button } from "@golfo/ui";
 import type { AdmissionBatchResultDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import type { AdmissionBatchReviewSelection } from "@/src/modules/academy-admissions/application/results/admission-review-intent";
 import { ADMISSION_BATCH_REVIEW_COPY as COPY, ADMISSION_BATCH_REVIEW_RESULT_COPY } from "@/src/modules/academy-admissions/constants/admission-batch-review-ui";

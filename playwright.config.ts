@@ -7,9 +7,9 @@ const E2E_PORT = 3000;
 const E2E_ORIGIN = `http://127.0.0.1:${E2E_PORT}`;
 
 export default defineConfig({
-  // Closes WebKit processes left behind by aborted runs on Windows (see @astra-kit/cleaner).
-  globalSetup: "@astra-kit/cleaner/playwright/global-setup",
-  globalTeardown: "@astra-kit/cleaner/playwright/global-teardown",
+  // Closes WebKit processes left behind by aborted runs on Windows (see @golfo/cleaner).
+  globalSetup: "@golfo/cleaner/playwright/global-setup",
+  globalTeardown: "@golfo/cleaner/playwright/global-teardown",
   testDir: "./tests/e2e",
   // The Beezping widget spec needs SITEPING_ENABLED and the portless route; it
   // runs only through playwright.beezping.config.ts (`pnpm test:e2e:beezping`).

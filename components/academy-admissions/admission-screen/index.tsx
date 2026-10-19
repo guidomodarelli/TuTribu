@@ -1,5 +1,5 @@
 /** Composes the public entry and own state from props without auth, requests or storage. @module admission-screen */
-import { Button } from "@astra-kit/ui";
+import { Button } from "@golfo/ui";
 import { Link } from "@/components/navigation/link";
 import { AdmissionForm } from "@/components/academy-admissions/admission-form";
 import { RequestStatus } from "@/components/academy-admissions/request-status";

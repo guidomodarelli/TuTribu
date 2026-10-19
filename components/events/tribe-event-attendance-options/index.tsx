@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 import { LayoutGroup, motion } from "motion/react";
-import { Button, SPRING_LAYOUT } from "@astra-kit/ui";
+import { Button, SPRING_LAYOUT } from "@golfo/ui";
 
 import type {
   TribeEventAttendanceOption,

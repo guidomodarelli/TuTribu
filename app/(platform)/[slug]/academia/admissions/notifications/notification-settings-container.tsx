@@ -1,7 +1,7 @@
 "use client";
 /** Owns viewer checks, explicit writes and original recovery while presenters receive callbacks only. @module admission-notification-settings-container */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "@astra-kit/ui";
+import { toast } from "@golfo/ui";
 import { AdmissionNotificationSettings } from "@/components/academy-admissions/admission-notification-settings";
 import { AdmissionRouteError } from "@/components/academy-admissions/admission-route-error";
 import type { AdmissionNotificationSettingsPageState } from "@/src/modules/notifications/application/results/admission-notification-settings-page-state";

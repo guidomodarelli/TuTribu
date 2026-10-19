@@ -17,7 +17,7 @@ import {
   Dialog,
   DialogContent,
   toast,
-} from "@astra-kit/ui";
+} from "@golfo/ui";
 
 import { Link } from "@/components/navigation/link";
 import { buildAdmissionEntryRoute } from "@/lib/academy-admissions/admission-routes";

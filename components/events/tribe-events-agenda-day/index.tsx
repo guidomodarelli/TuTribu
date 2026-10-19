@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { AnimatePresence } from "motion/react";
-import { Badge, cn } from "@astra-kit/ui";
+import { Badge, cn } from "@golfo/ui";
 
 import { formatBuenosAiresLongDate } from "@/lib/date-time/buenos-aires-format";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";

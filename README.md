@@ -16,8 +16,8 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 - Next.js 16 (App Router) and React 19 with TypeScript 7
 - Better Auth with Google OAuth
 - Neon Postgres accessed through Drizzle ORM and `pg`
-- @astra-kit/ui shared components (customized shadcn/ui, Base UI and Radix UI)
-- SCSS Modules with BEM (Tailwind reserved for @astra-kit/ui base setup only)
+- @golfo/ui shared components (customized shadcn/ui, Base UI and Radix UI)
+- SCSS Modules with BEM (Tailwind reserved for @golfo/ui base setup only)
 - Sonner for toast notifications
 - Vitest + React Testing Library for unit/integration tests; Playwright for E2E
 
@@ -74,7 +74,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 | `pnpm run test:e2e:beezping` | Run the Beezping widget E2E spec (Chromium and WebKit, desktop and mobile) against `https://dev.tutribu.app`. Requires `pnpm run dev` with `SITEPING_ENABLED` on; excluded from `test:e2e`. |
 | `pnpm run db:migrate` | Apply pending SQL migrations to the configured Neon database. |
 | `pnpm run db:migrate:force` | Force a Drizzle push. Use only when an intentional override is required. |
-| `pnpm create-version` (alias `pnpm cv`) | Diagnose the repository and ship a release from `main`: update `main`, apply pending migrations (after confirmation), stop if the `CHANGELOG.md` `[Unreleased]` block is missing or has no entries, bump the version (`--bump patch\|minor\|major` or `-b p\|m\|M`, the shortcuts `--patch`/`-p`, `--minor`/`-m`, `--major`/`-M`, or `--set-version X.Y.Z`/`-sv X.Y.Z`, only the next patch/minor/major; `-l` is `--local`) renaming `[Unreleased]` to `[X.Y.Z] - date` (Argentina date through `releaseTimeZone`) in the version commit with a new empty `[Unreleased]` on top, and push `main` plus the `vX.Y.Z` tag. `--dry-run` only shows the plan. Runs the shared `astra-rp create-version` command, configured for TuTribu in `astra-rp.config.mjs`. See `docs/conventions/release-process.htm`. |
+| `pnpm create-version` (alias `pnpm cv`) | Diagnose the repository and ship a release from `main`: update `main`, apply pending migrations (after confirmation), stop if the `CHANGELOG.md` `[Unreleased]` block is missing or has no entries, bump the version (`--bump patch\|minor\|major` or `-b p\|m\|M`, the shortcuts `--patch`/`-p`, `--minor`/`-m`, `--major`/`-M`, or `--set-version X.Y.Z`/`-sv X.Y.Z`, only the next patch/minor/major; `-l` is `--local`) renaming `[Unreleased]` to `[X.Y.Z] - date` (Argentina date through `releaseTimeZone`) in the version commit with a new empty `[Unreleased]` on top, and push `main` plus the `vX.Y.Z` tag. `--dry-run` only shows the plan. Runs the shared `golfo-rp create-version` command, configured for TuTribu in `golfo-rp.config.mjs`. See `docs/conventions/release-process.htm`. |
 
 ## Environment
 
@@ -203,8 +203,8 @@ Notes:
   - `application/` — use cases, commands, queries, results.
   - `infrastructure/` — adapters for auth, persistence, HTTP clients, and provider SDKs. Owns external DTOs and their mappers.
 - `src/modules/shared/*` — cross-module shared code (e.g. `infrastructure/database/`).
-- `@astra-kit/ui` — shared UI implementation, maintained in the sibling repository. Import named components from the package root.
-- `@astra-kit/ui@^1.0.0` — shared UI package installed from the public npm registry, with its exact version and integrity pinned in `pnpm-lock.yaml`; see [the shared UI contract](docs/architecture/shared-ui-library.htm).
+- `@golfo/ui` — shared UI implementation, maintained in the sibling repository. Import named components from the package root.
+- `@golfo/ui@^2.0.0` — shared UI package installed from the public npm registry, with its exact version and integrity pinned in `pnpm-lock.yaml`; see [the shared UI contract](docs/architecture/shared-ui-library.htm).
 - `components/<scope>/<component>/{index.tsx,styles.module.scss}` — custom presentational components.
 - `lib/*` — framework-safe helpers, UI utilities, and client-only adapters. Off-limits to `application` and `domain`.
 - `database/migrations/*` — versioned SQL migrations (source of truth for schema and RLS policies).

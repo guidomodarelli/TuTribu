@@ -1,7 +1,7 @@
 /** Presents authorized review state and callbacks without importing auth or HTTP adapters. @module admission-review */
 import { ArrowLeftIcon } from "lucide-react";
 import { useId, type ReactNode, type Ref } from "react";
-import { Badge, Button, Checkbox, EmptyState, type BadgeTone } from "@astra-kit/ui";
+import { Badge, Button, Checkbox, EmptyState, type BadgeTone } from "@golfo/ui";
 import { AdmissionDecisionForm } from "@/components/academy-admissions/admission-decision-form";
 import { Link } from "@/components/navigation/link";
 import type { AdmissionReviewDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";

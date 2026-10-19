@@ -1,6 +1,6 @@
 /** Presents shared decision fields and explicit confirmation without owning transport or session state. @module admission-decision-form */
 import { useId } from "react";
-import { Button, Checkbox, Textarea } from "@astra-kit/ui";
+import { Button, Checkbox, Textarea } from "@golfo/ui";
 import { ADMISSION_REVIEW_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-review-ui";
 import { ADMISSION_DECISION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";

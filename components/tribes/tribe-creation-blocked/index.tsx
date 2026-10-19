@@ -1,8 +1,11 @@
-import { Link } from "@/components/navigation/link";
+import { buttonClassName } from "@golfo/ui";
+
 import { siteConfig } from "@/lib/site-config";
 import styles from "./styles.module.scss";
 
 const MAILTO_PROTOCOL = "mailto:";
+/** The `mailto:` contact opens the email client, not an app route, so it stays a native `<a>` with the button look. */
+const CONTACT_LINK_CLASS_NAME = buttonClassName({ className: styles.TribeCreationBlocked__contact });
 
 type TribeCreationBlockedProps = {
   contactEmail: string | null;
@@ -32,11 +35,11 @@ export function TribeCreationBlocked({
         </p>
 
         {contactEmail ? (
-          <Link className={styles.TribeCreationBlocked__contact} href={MAILTO_PROTOCOL + contactEmail}>
-              <span className={styles.TribeCreationBlocked__contactLabel}>
-                Escribir a {contactEmail}
-              </span>
-            </Link>
+          <a className={CONTACT_LINK_CLASS_NAME} href={MAILTO_PROTOCOL + contactEmail}>
+            <span className={styles.TribeCreationBlocked__contactLabel}>
+              Escribir a {contactEmail}
+            </span>
+          </a>
         ) : (
           <p className={styles.TribeCreationBlocked__note}>
             Contacta al equipo de {siteConfig.name} para pedir habilitación.

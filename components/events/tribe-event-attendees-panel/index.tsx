@@ -1,7 +1,7 @@
 "use client";
 
 import { DownloadIcon } from "lucide-react";
-import { Button, PresenceSwap } from "@astra-kit/ui";
+import { Button, PresenceSwap, buttonClassName } from "@golfo/ui";
 
 import { TribeEventAttendanceTrend } from "@/components/events/tribe-event-attendance-trend";
 import { formatBuenosAiresDateTimeRange } from "@/lib/date-time/buenos-aires-format";
@@ -35,6 +35,11 @@ const BUTTON_ATTRIBUTE = {
   typeButton: "button",
   variantSecondary: "secondary",
 } as const;
+/** The CSV export is a file download, not an app route, so it stays an `<a>` with the button look. */
+const EXPORT_LINK_CLASS_NAME = buttonClassName({
+  size: BUTTON_ATTRIBUTE.sizeSmall,
+  variant: BUTTON_ATTRIBUTE.variantSecondary,
+});
 const ALERT_ROLE = "alert";
 const STATUS_ROLE = "status";
 const COPY = {
@@ -142,7 +147,7 @@ function TribeEventAttendeesPanelBody({
     <div className={styles.TribeEventAttendeesPanel}>
       {hasAnswers ? (
         <div className={styles.TribeEventAttendeesPanel__toolbar}>
-          <a className={styles.TribeEventAttendeesPanel__actionLink} download href={exportUrl}>
+          <a className={EXPORT_LINK_CLASS_NAME} download href={exportUrl}>
               <DownloadIcon aria-hidden />
               {COPY.exportCsv}
             </a>

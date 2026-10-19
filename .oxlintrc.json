@@ -169,8 +169,8 @@
               "@/src/features/*",
               "src/features/*",
               "@/components/ui/*",
-              "@astra-kit/ui/*",
-              "!@astra-kit/ui/hooks"
+              "@golfo/ui/*",
+              "!@golfo/ui/hooks"
             ]
           }
         ]
@@ -188,9 +188,9 @@
               "@/src/features/*",
               "src/features/*",
               "@/components/ui/*",
-              "@astra-kit/ui/*",
-              "!@astra-kit/ui/hooks",
-              "!@astra-kit/ui/next"
+              "@golfo/ui/*",
+              "!@golfo/ui/hooks",
+              "!@golfo/ui/next"
             ]
           }
         ]
@@ -210,8 +210,8 @@
                   "@/src/features/*",
                   "src/features/*",
                   "@/components/ui/*",
-                  "@astra-kit/ui/*",
-                  "!@astra-kit/ui/hooks",
+                  "@golfo/ui/*",
+                  "!@golfo/ui/hooks",
                   "@/src/modules/setup",
                   "@/src/modules/setup.*",
                   "@/src/modules/*/setup",
@@ -244,8 +244,8 @@
                   "@/src/features/*",
                   "src/features/*",
                   "@/components/ui/*",
-                  "@astra-kit/ui/*",
-                  "!@astra-kit/ui/hooks",
+                  "@golfo/ui/*",
+                  "!@golfo/ui/hooks",
                   "@/src/modules/setup",
                   "@/src/modules/setup.*",
                   "@/src/modules/*/setup",

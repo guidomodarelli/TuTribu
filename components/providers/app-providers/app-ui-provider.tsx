@@ -2,8 +2,8 @@
 
 /** Composes shared Next adapters and the application's persisted theme contract. */
 import { useEffect, type ReactNode } from "react";
-import { useTheme } from "@astra-kit/ui";
-import { AstraUIProvider, type AstraUIProviderProps } from "@astra-kit/ui/next";
+import { useTheme } from "@golfo/ui";
+import { GolfoUIProvider, type GolfoUIProviderProps } from "@golfo/ui/next";
 import { isThemeMode } from "@/lib/theme-mode";
 import { SYSTEM_THEME_MODE, THEME_MODE_STORAGE_KEY } from "@/src/constants/theme-mode";
 
@@ -12,7 +12,7 @@ const APP_THEME_OPTIONS = {
   storageKey: THEME_MODE_STORAGE_KEY,
   defaultTheme: SYSTEM_THEME_MODE,
   enableSystem: true,
-} satisfies AstraUIProviderProps["themeOptions"];
+} satisfies GolfoUIProviderProps["themeOptions"];
 
 /** Restores the system default for unsupported stored values without owning a second theme state. */
 function ThemePreferenceValidation() {
@@ -30,9 +30,9 @@ function ThemePreferenceValidation() {
  */
 export function AppUIProvider({ children }: { children: ReactNode }) {
   return (
-    <AstraUIProvider themeOptions={APP_THEME_OPTIONS}>
+    <GolfoUIProvider themeOptions={APP_THEME_OPTIONS}>
       <ThemePreferenceValidation />
       {children}
-    </AstraUIProvider>
+    </GolfoUIProvider>
   );
 }

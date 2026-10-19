@@ -1,12 +1,15 @@
 @use "../../../src/styles/motion";
-@use "../../../src/styles/action-link";
 
 @include motion.define-keyframes;
 
 .TribeSupportButton {
+  // Root block on every rendered control; mirrors the button recipe's `shrink-0` so it adds no visual change.
+  flex-shrink: 0;
+
+  // Same 1rem icon the button recipe gives every svg; this unlayered rule would otherwise win over it.
   &__icon {
-    width: 1.125rem;
-    height: 1.125rem;
+    width: 1rem;
+    height: 1rem;
     color: var(--foreground);
 
     &--spinning {
@@ -29,9 +32,4 @@
   to {
     transform: rotate(360deg);
   }
-}
-
-// Navigation styled as an Arc ghost button.
-.TribeSupportButton {
-  @include action-link.action-link(ghost, sm);
 }

@@ -1,7 +1,7 @@
 "use client";
 /** Owns native viewer checks and cancellable private reads while presenters remain callback-only. @module admission-activity-container */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "@astra-kit/ui";
+import { Button } from "@golfo/ui";
 import { AdmissionMetrics } from "@/components/academy-admissions/admission-metrics";
 import { AdmissionActivity } from "@/components/academy-admissions/admission-activity";
 import { AdmissionRouteError } from "@/components/academy-admissions/admission-route-error";

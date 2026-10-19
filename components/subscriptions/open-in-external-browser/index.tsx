@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { AnimatedCount } from "@astra-kit/ui";
+import { AnimatedCount, buttonClassName } from "@golfo/ui";
 import { navigateToUrl } from "@/lib/browser-navigation";
 import styles from "./styles.module.scss";
 
@@ -111,7 +111,7 @@ export function OpenInExternalBrowser({
             {OPEN_IN_EXTERNAL_BROWSER_COPY.countdownDescription}
           </p>
         </div>
-        <a className={styles.OpenInExternalBrowser__primaryAction} href={externalBrowserUrl} onClick={handlePrimaryAction}>
+        <a className={buttonClassName({ size: "lg", className: styles.OpenInExternalBrowser__primaryAction })} href={externalBrowserUrl} onClick={handlePrimaryAction}>
             {OPEN_IN_EXTERNAL_BROWSER_COPY.primaryAction}
           </a>
         <a

@@ -3,7 +3,7 @@
 import { type ReactNode, useState } from "react";
 import { CalendarPlusIcon, CopyIcon, DownloadIcon, ExternalLinkIcon, LinkIcon } from "lucide-react";
 
-import { Badge, Button, Dialog, DialogContent, Tabs, TabsContent, TabsList, TabsTrigger, AnimatedCollapse, PresenceSwap } from "@astra-kit/ui";
+import { Badge, Button, Dialog, DialogContent, Tabs, TabsContent, TabsList, TabsTrigger, AnimatedCollapse, PresenceSwap, buttonClassName } from "@golfo/ui";
 
 import { TribeEventAttendanceOptions } from "@/components/events/tribe-event-attendance-options";
 import { TribeEventAttendanceSummary } from "@/components/events/tribe-event-attendance-summary";
@@ -117,6 +117,11 @@ const BUTTON_ATTRIBUTE = {
   variantDanger: "danger",
   variantSecondary: "secondary",
 } as const;
+/** Calendar links leave the app (Google Calendar, ICS download), so they stay `<a>` elements with the button look. */
+const CALENDAR_LINK_CLASS_NAME = buttonClassName({
+  size: BUTTON_ATTRIBUTE.sizeSmall,
+  variant: BUTTON_ATTRIBUTE.variantSecondary,
+});
 /**
  * Tabs of the manager view of the dialog.
  */
@@ -401,7 +406,7 @@ function buildTribeEventDetailDialogSections({
 
       <div className={styles.TribeEventDetailDialog__links}>
         {isCancelled ? null : occurrence.meetingUrl ? (
-          <a className={styles.TribeEventDetailDialog__primaryLink}
+          <a className={buttonClassName({ className: styles.TribeEventDetailDialog__primaryLink })}
               href={occurrence.meetingUrl}
               rel={LINK_ATTRIBUTE.noreferrer}
               target={LINK_ATTRIBUTE.targetBlank}
@@ -416,7 +421,7 @@ function buildTribeEventDetailDialogSections({
           </p>
         )}
         {googleCalendarUrl ? (
-          <a className={styles.TribeEventDetailDialog__actionLink}
+          <a className={CALENDAR_LINK_CLASS_NAME}
               href={googleCalendarUrl}
               rel={LINK_ATTRIBUTE.noreferrer}
               target={LINK_ATTRIBUTE.targetBlank}
@@ -425,7 +430,7 @@ function buildTribeEventDetailDialogSections({
               {COPY.googleCalendar}
             </a>
         ) : null}
-        <a className={styles.TribeEventDetailDialog__actionLink} href={buildCalendarDownloadUrl(tribeSlug, occurrence.eventId)}>
+        <a className={CALENDAR_LINK_CLASS_NAME} href={buildCalendarDownloadUrl(tribeSlug, occurrence.eventId)}>
             <DownloadIcon aria-hidden />
             {COPY.downloadIcs}
           </a>

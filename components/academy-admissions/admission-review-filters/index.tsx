@@ -1,6 +1,6 @@
 /** Presents explicit reviewer search/filter navigation without performing a read or mutation. @module admission-review-filters */
 import { useId } from "react";
-import { Button, Input, Select } from "@astra-kit/ui";
+import { Button, Input, Select } from "@golfo/ui";
 import type { AdmissionReviewFilterDraft } from "@/lib/academy-admissions/admission-review-filters";
 import { ADMISSION_QUERY_LIMIT } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { ADMISSION_REVIEW_FILTER_COPY, ADMISSION_REVIEW_FILTER_DATES, ADMISSION_REVIEW_FILTER_GROUPS } from "@/src/modules/academy-admissions/constants/admission-review-filters";

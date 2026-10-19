@@ -1,6 +1,6 @@
 /** Presents the single country/quota owner without auth, provider or HTTP dependencies. @module messaging-usage */
 import { useId } from "react";
-import { Button, Checkbox, Input, Select, UsageMeter } from "@astra-kit/ui";
+import { Button, Checkbox, Input, Select, UsageMeter } from "@golfo/ui";
 import type { MessagingUsagePolicyStateDto } from "@/src/modules/messaging/application/results/messaging-public-result-schemas";
 import type { MessagingUsageDraft, MessagingUsageCountryChoice } from "@/src/modules/messaging/application/commands/messaging-usage-draft";
 import type { MessagingUsageChangeImpact } from "@/src/modules/messaging/application/results/messaging-usage-change-impact";

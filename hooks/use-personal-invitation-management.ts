@@ -1,7 +1,7 @@
 "use client";
 /** Owns viewer-scoped administrative proposals, one-view material and read-only original recovery. @module use-personal-invitation-management */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "@astra-kit/ui";
+import { toast } from "@golfo/ui";
 import type { PersonalInvitationManagementPageState, PersonalInvitationManagementBrowserQuery } from "@/src/modules/academy-admissions/application/results/personal-invitation-management-page-state";
 import type { PersonalInvitationManagementBrowserClient } from "@/src/modules/academy-admissions/application/ports/personal-invitation-management-browser-client";
 import type { PersonalInvitationManagementDraft, PersonalInvitationManagementReference } from "@/src/modules/academy-admissions/application/commands/personal-invitation-management-intent";

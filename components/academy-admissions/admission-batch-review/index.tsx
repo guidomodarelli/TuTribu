@@ -1,5 +1,5 @@
 /** Presents explicit named batch confirmation and original recovery controls. @module admission-batch-review */
-import { AnimatedCollapse, Button } from "@astra-kit/ui";
+import { AnimatedCollapse, Button } from "@golfo/ui";
 import { AdmissionDecisionForm, type AdmissionDecisionFormProps } from "@/components/academy-admissions/admission-decision-form";
 import { AdmissionBatchResults } from "@/components/academy-admissions/admission-batch-results";
 import type { AdmissionBatchResultDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";

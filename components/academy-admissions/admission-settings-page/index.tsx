@@ -1,6 +1,6 @@
 /** One admission page inside the shared admissions layout: its heading, related actions and workflow. @module admission-settings-page */
 import type { ReactNode } from "react";
-import { Link } from "@/components/navigation/link";
+import { ButtonLink } from "@/components/navigation/link";
 import { ADMISSION_PAGES, ADMISSION_WORKSPACE_COPY, type AdmissionPage } from "@/src/modules/academy-admissions/constants/admission-sections";
 import styles from "./styles.module.scss";
 
@@ -25,7 +25,7 @@ export function AdmissionSettingsPage({ page, children, links = [] }: AdmissionS
   return <section className={styles.AdmissionSettingsPage} aria-label={ADMISSION_PAGES[page].title}>
     <AdmissionPageHeader page={page} />
     {links.length > 0 && <nav className={styles.AdmissionSettingsPage__related} aria-label={ADMISSION_WORKSPACE_COPY.related}>
-      {links.map((link) => <Link key={link.href} className={styles.AdmissionSettingsPage__relatedLink} href={link.href}>{link.label}</Link>)}
+      {links.map((link) => <ButtonLink key={link.href} variant="secondary" size="sm" href={link.href}>{link.label}</ButtonLink>)}
     </nav>}
     {children}
   </section>;

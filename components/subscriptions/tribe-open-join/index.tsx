@@ -1,4 +1,4 @@
-import { Link } from "@/components/navigation/link";
+import { ButtonLink } from "@/components/navigation/link";
 
 import { TribeOpenJoinSubmitButton } from "./tribe-open-join-submit-button";
 import styles from "./styles.module.scss";
@@ -125,7 +125,7 @@ export function TribeOpenJoinStatus({
       <p className={styles.TribeOpenJoin__description}>{description}</p>
       {cta ? (
         <div className={styles.TribeOpenJoin__form}>
-          <Link className={styles.TribeOpenJoin__actionLink} href={cta.href}>{cta.label}</Link>
+          <ButtonLink href={cta.href}>{cta.label}</ButtonLink>
         </div>
       ) : null}
     </section>

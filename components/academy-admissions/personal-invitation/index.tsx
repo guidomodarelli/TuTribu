@@ -1,7 +1,7 @@
 "use client";
 /** Presents controlled personal admission states without identity, transport or token access. @module personal-invitation */
 import { useEffect, useId, useRef, type ReactNode } from "react";
-import { Button, Checkbox, Label } from "@astra-kit/ui";
+import { Button, Checkbox, Label } from "@golfo/ui";
 import { Link } from "@/components/navigation/link";
 import type { PersonalInvitationPageState } from "@/src/modules/academy-admissions/application/results/personal-invitation-page-state";
 import { PERSONAL_INVITATION_UI_COPY, PERSONAL_INVITATION_UI_PHASE } from "@/src/modules/academy-admissions/constants/personal-invitation-ui";

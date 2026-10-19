@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { cn } from "@astra-kit/ui";
+import { cn } from "@golfo/ui";
 import {
   MapPinIcon,
   MessageCircleQuestionIcon,

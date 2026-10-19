@@ -31,6 +31,9 @@ vi.mock("@/components/tribes/tribe-support-config-dialog", () => ({
     ) : null,
 }));
 
+/** BEM root block every rendered support control must carry (non-scoped CSS modules in tests). */
+const SUPPORT_ROOT_BLOCK_CLASS_NAME = "TribeSupportButton";
+
 const usePathnameMock = usePathname as MockedFunction<typeof usePathname>;
 const fetchMock = vi.fn();
 
@@ -110,6 +113,7 @@ describe("TribeSupportButton", () => {
     );
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    expect(link).toHaveClass(SUPPORT_ROOT_BLOCK_CLASS_NAME);
     expect(screen.queryByTestId("support-config-dialog")).not.toBeInTheDocument();
   });
 
@@ -185,6 +189,7 @@ describe("TribeSupportButton", () => {
     });
     expect(loadingButton).toBeDisabled();
     expect(loadingButton).toHaveAttribute("aria-busy", "true");
+    expect(loadingButton).toHaveClass(SUPPORT_ROOT_BLOCK_CLASS_NAME);
     expect(
       screen.queryByRole("button", { name: /Botón de soporte/i })
     ).not.toBeInTheDocument();
@@ -210,6 +215,7 @@ describe("TribeSupportButton", () => {
     const trigger = await screen.findByRole("button", {
       name: /Botón de soporte/i,
     });
+    expect(trigger).toHaveClass(SUPPORT_ROOT_BLOCK_CLASS_NAME);
 
     await userEvent.click(trigger);
 
@@ -302,6 +308,7 @@ describe("TribeSupportButton", () => {
     const trigger = screen.getByRole("button", {
       name: /Botón de soporte/i,
     });
+    expect(trigger).toHaveClass(SUPPORT_ROOT_BLOCK_CLASS_NAME);
 
     await userEvent.click(trigger);
 

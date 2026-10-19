@@ -1,7 +1,7 @@
 "use client";
 /** Presents the Activation step: explicit candidate selection and visible prerequisites without session, persistence or provider ownership. @module messaging-connection-activation */
 import {useId} from "react";
-import {Button,Checkbox} from "@astra-kit/ui";
+import {Button,Checkbox} from "@golfo/ui";
 import type {MessagingConfigurationConnection} from "@/src/modules/messaging/application/results/messaging-configuration-result";
 import styles from "./styles.module.scss";
 

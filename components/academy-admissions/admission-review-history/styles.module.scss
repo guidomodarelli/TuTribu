@@ -1,4 +1,3 @@
-@use "../../../src/styles/action-link";
 @use "../../../src/styles/workspace-panel";
 
 .AdmissionReviewHistory {
@@ -102,10 +101,6 @@
 
   &__pages {
     @include workspace-panel.actions;
-  }
-
-  &__page {
-    @include action-link.action-link(secondary, sm);
   }
 
   &__backIcon {

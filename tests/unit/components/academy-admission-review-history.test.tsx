@@ -1,4 +1,4 @@
-/** Exercises actual React Activity, framework router context and @astra-kit/ui with only the owned viewer port doubled. @module academy-admission-review-history-tests */
+/** Exercises actual React Activity, framework router context and @golfo/ui with only the owned viewer port doubled. @module academy-admission-review-history-tests */
 import { AdmissionWorkspaceRoute } from "@/tests/support/admission-workspace-route";
 import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -6,7 +6,7 @@ import { Activity, type ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SidebarInset, SidebarProvider } from "@astra-kit/ui";
+import { SidebarInset, SidebarProvider } from "@golfo/ui";
 import { AdmissionReviewHistoryContainer } from "@/app/(platform)/[slug]/academia/admissions/history/[requestId]/history-container";
 import AdmissionReviewHistoryError from "@/app/(platform)/[slug]/academia/admissions/history/[requestId]/error";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";

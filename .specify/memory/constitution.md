@@ -125,7 +125,7 @@ contenido legible, feedback visible y layouts que funcionen en móvil y escritor
 Los textos visibles y la comunicación con el usuario DEBEN estar en español;
 los identificadores técnicos DEBEN permanecer en inglés.
 
-`@astra-kit/ui` DEBE ser la única biblioteca compartida de componentes. Los componentes originales,
+`@golfo/ui` DEBE ser la única biblioteca compartida de componentes. Los componentes originales,
 tokens, tema y fuentes compartidas pertenecen a esa biblioteca. NO DEBEN incorporarse copias
 en `components/ui`, tarballs locales ni componentes shadcn mediante el CLI en esta aplicación.
 Los componentes propios DEBEN usar
@@ -134,7 +134,7 @@ Los componentes propios DEBEN usar
 Los estilos de producto DEBEN usar SCSS Modules y BEM. NO DEBEN añadirse utilidades Tailwind
 ni compilación Tailwind en el consumidor. La navegación interna DEBE usar el `Link` compartido
 de `@/components/navigation/link`; las notificaciones DEBEN usar `toast` y `ThemedToaster` de
-`@astra-kit/ui`. El tema DEBE conservar un único propietario mediante el provider compartido.
+`@golfo/ui`. El tema DEBE conservar un único propietario mediante el provider compartido.
 
 Las interacciones críticas DEBEN mostrar sus estados de validación, carga, éxito y error
 de forma accesible. Las animaciones DEBEN seguir los tokens y primitivas aprobadas y respetar
@@ -223,7 +223,7 @@ sin crear agrupaciones genéricas de valores no relacionados.
   [package.json](../../package.json). La base vigente es Node.js 24, pnpm 12.14.0,
   TypeScript 7, Next.js 16 y React 19. Sus pins y lockfile DEBEN actualizarse coordinadamente.
 - Las dependencias DEBEN instalarse con `pnpm install --frozen-lockfile`.
-  `package.json` y `pnpm-lock.yaml` DEBEN permanecer sincronizados. `@astra-kit/ui` se consume
+  `package.json` y `pnpm-lock.yaml` DEBEN permanecer sincronizados. `@golfo/ui` se consume
   desde el registry público de npm mediante rango caret y lockfile, según su contrato arquitectónico.
 - La identidad DEBE usar Better Auth y Google OAuth; la base principal DEBE ser Neon Postgres,
   accedida mediante adapters de infraestructura y el contexto de request aprobado.

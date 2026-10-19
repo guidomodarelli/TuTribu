@@ -44,12 +44,12 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <div class="section">
   <div class="section-num">01</div>
   <div class="section-title">Overview</div>
-<p>La animación en TuTribu comunica cambios de estado: algo entró, algo salió, algo se guardó, un valor cambió o una región se expandió. No es decoración. Los primitivos de <code>@astra-kit/ui</code> (diálogos, menús, popovers, tooltips, sheets, tabs, sidebar y el press de <code>Button</code>) ya animan con <code>motion</code>; esta convención cubre la animación de los componentes de producto que viven en este repositorio.</p>
+<p>La animación en TuTribu comunica cambios de estado: algo entró, algo salió, algo se guardó, un valor cambió o una región se expandió. No es decoración. Los primitivos de <code>@golfo/ui</code> (diálogos, menús, popovers, tooltips, sheets, tabs, sidebar y el press de <code>Button</code>) ya animan con <code>motion</code>; esta convención cubre la animación de los componentes de producto que viven en este repositorio.</p>
 <p>Hay dos herramientas, según dónde se renderiza el contenido:</p>
 <table>
   <tr><th>Caso</th><th>Herramienta</th><th>Por qué</th></tr>
   <tr><td>Entrada de contenido renderizado en el servidor (secciones, listas iniciales, estados vacíos)</td><td>Mixins SCSS de <code>src/styles/_motion.scss</code></td><td>Corren sin JavaScript, no ocultan el HTML del servidor antes de hidratar y funcionan en Server Components.</td></tr>
-  <tr><td>Cambios en el cliente (ítems agregados o borrados, contadores, estados de envío, regiones que se expanden, indicadores que se deslizan)</td><td><code>motion/react</code> y las primitivas de movimiento de <code>@astra-kit/ui</code></td><td>Necesitan presencia (animar antes de desmontar), layout y dirección del cambio.</td></tr>
+  <tr><td>Cambios en el cliente (ítems agregados o borrados, contadores, estados de envío, regiones que se expanden, indicadores que se deslizan)</td><td><code>motion/react</code> y las primitivas de movimiento de <code>@golfo/ui</code></td><td>Necesitan presencia (animar antes de desmontar), layout y dirección del cambio.</td></tr>
 </table>
 </div>
 
@@ -62,11 +62,10 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <li><strong>Sin loops decorativos.</strong> Solo indicadores de carga pueden repetirse, y se detienen con reduced motion.</li>
   <li><strong>Excepción acotada: el loader de morph</strong> (<code>components/loaders/morph-loader</code>, adaptado del Morph loader de Arc Pro). Anima con resortes la geometría de sus cuatro trazos SVG (posición, largo, ángulo, curvatura, grosor) porque esa transformación es la forma del componente: son cuatro <code>path</code> dentro de un SVG de tamaño fijo, sin reflow ni layout. Su loop en reposo es continuo mientras dura la carga, como cualquier indicador de carga. El resto de la regla se mantiene: cada resorte y el pop final duran entre 120 y 320 ms tomados de <code>MOTION_TIMING</code>, y con reduced motion el loader muestra una forma estática por estado, sin loop, giro, pop ni desplazamientos residuales. La excepción no se extiende a otros componentes.</li>
   <li><strong>Excepción acotada: el skeleton morph</strong> (<code>components/loaders/skeleton-morph</code>, adaptado del Skeleton morph de Arc Pro). Cuando un contenido aparece después de una comprobación en el cliente (por ejemplo, el historial de una solicitud mientras se confirma la cuenta), cada esqueleto se estira hasta la caja del contenido real y se desvanece mientras el contenido aparece, y la región acompaña su nueva altura. Para eso anima el ancho y el alto del placeholder y la altura de la región con <code>SPRING_PANEL</code>, y el contenido entra con <code>MOTION_TIMING.standard</code>. Con reduced motion no hay estiramiento, pulso ni cambio de altura animado: el placeholder se desvanece en <code>MOTION_TIMING.instant</code>. No se usa para la carga del servidor (el <code>loading.tsx</code> de una ruta se reemplaza, no se transforma), y la excepción no se extiende a otros componentes.</li>
-  <li><strong>Reduced motion siempre.</strong> <code>AstraUIProvider</code> monta <code>MotionConfig reducedMotion="user"</code> para toda la app, y cada mixin SCSS se desactiva bajo <code>prefers-reduced-motion: reduce</code>. No agregar animaciones fuera de esos dos caminos.</li>
+  <li><strong>Reduced motion siempre.</strong> <code>GolfoUIProvider</code> monta <code>MotionConfig reducedMotion="user"</code> para toda la app, y cada mixin SCSS se desactiva bajo <code>prefers-reduced-motion: reduce</code>. No agregar animaciones fuera de esos dos caminos.</li>
   <li><strong>No ocultar HTML del servidor.</strong> No usar <code>initial={{ opacity: 0 }}</code> de <code>motion</code> en contenido que llega renderizado: se ve vacío hasta que hidrata. Envolver listas cliente en <code>&lt;AnimatePresence initial={false}&gt;</code> para que solo animen los cambios posteriores.</li>
-  <li><strong>No re-animar primitivos de <code>@astra-kit/ui</code>.</strong> Sí se pueden animar cambios internos de un diálogo (pasos, errores, listas).</li>
-  <li><strong>Valores con nombre.</strong> Duraciones, curvas y resortes salen de los tokens que exporta <code>@astra-kit/ui</code> (<code>MOTION_TIMING</code>, <code>MOTION_EASE</code>, <code>MOTION_EASE_IN_OUT</code>, <code>SPRING_LAYOUT</code>, <code>SPRING_POP</code> y las distancias), los mismos que usan sus primitivas; no se copian en la aplicación.</li>
-  <li><strong>API de beez-ui 4.</strong> Los timings adicionales <code>MOTION_TIMING.pop</code> y <code>MOTION_TIMING.surfaceClip</code> ya no existen. El loader de morph y el balanceo de la campana usan <code>MOTION_TIMING.standard</code> (240 ms); el loop del loader usa <code>MOTION_EASE_STANDARD</code>. No se recrean los tokens retirados en el producto.</li>
+  <li><strong>No re-animar primitivos de <code>@golfo/ui</code>.</strong> Sí se pueden animar cambios internos de un diálogo (pasos, errores, listas).</li>
+  <li><strong>Valores con nombre.</strong> Duraciones, curvas y resortes salen de los tokens que exporta <code>@golfo/ui</code> (<code>MOTION_TIMING</code>, <code>MOTION_EASE</code>, <code>MOTION_EASE_IN_OUT</code>, <code>SPRING_LAYOUT</code>, <code>SPRING_POP</code> y las distancias), los mismos que usan sus primitivas; no se copian en la aplicación.</li>
 </ul>
 </div>
 
@@ -74,7 +73,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-num">03</div>
   <div class="section-title">Primitivas cliente</div>
 <table>
-  <tr><th>Componente (desde <code>@astra-kit/ui</code>)</th><th>Uso</th></tr>
+  <tr><th>Componente (desde <code>@golfo/ui</code>)</th><th>Uso</th></tr>
   <tr><td><code>AnimatedCollapse</code></td><td>Expande y colapsa una región animando altura y opacidad; libera <code>overflow</code> al terminar para no recortar anillos de foco ni popovers. El padding va dentro del contenido.</td></tr>
   <tr><td><code>PresenceSwap</code></td><td>Cross-fade entre estados de una misma región (sin cambios → guardando → guardado). Cambiar <code>presenceKey</code> dispara la transición; el primer render no anima.</td></tr>
   <tr><td><code>AnimatedCount</code></td><td>Contadores (me gusta, asistentes, no leídas): el número rueda hacia arriba al subir y hacia abajo al bajar.</td></tr>
@@ -116,7 +115,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <ul>
   <li>En Vitest, <code>vitest.setup.ts</code> hace que <code>matchMedia</code> reporte <code>prefers-reduced-motion: reduce</code>: las animaciones de transformación se omiten, pero las salidas de <code>AnimatePresence</code> siguen siendo asíncronas. Esperarlas con <code>waitFor</code> o <code>findBy*</code>.</li>
   <li>Con fake timers, falsear solo <code>setTimeout</code>, <code>clearTimeout</code> y, si hace falta, <code>Date</code> (<code>vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] })</code>). jsdom programa <code>requestAnimationFrame</code> con un <code>setInterval</code>: si se falsea y se restaura con un frame pendiente, las animaciones de salida quedan congeladas en todos los tests siguientes del archivo. Por lo mismo, <code>PresenceSwap mode="wait"</code> nunca muestra el estado nuevo bajo fake timers completos.</li>
-  <li>No mockear <code>motion</code> ni <code>@astra-kit/ui</code>. Los tests validan el comportamiento observable (qué queda en el DOM, foco, roles), no los valores de la animación.</li>
+  <li>No mockear <code>motion</code> ni <code>@golfo/ui</code>. Los tests validan el comportamiento observable (qué queda en el DOM, foco, roles), no los valores de la animación.</li>
   <li>El recorrido real de las animaciones se valida en navegador, en Chromium y WebKit, en 375 px y desktop, y también con reduced motion activado.</li>
 </ul>
 </div>

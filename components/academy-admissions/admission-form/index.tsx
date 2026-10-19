@@ -1,5 +1,5 @@
 /** Renders an explicit declared-contact draft using shared primitives and callbacks only. @module admission-form */
-import { Button, Checkbox, Input, Textarea } from "@astra-kit/ui";
+import { Button, Checkbox, Input, Textarea } from "@golfo/ui";
 import { useId } from "react";
 import type { AdmissionDraft } from "@/lib/academy-admissions/admission-draft";
 import { ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";

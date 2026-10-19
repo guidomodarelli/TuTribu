@@ -14,7 +14,7 @@ import {
   Switch,
   Textarea,
   toast,
-} from "@astra-kit/ui";
+} from "@golfo/ui";
 
 import { Link } from "@/components/navigation/link";
 import {

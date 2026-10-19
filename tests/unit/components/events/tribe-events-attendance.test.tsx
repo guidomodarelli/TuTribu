@@ -1,7 +1,7 @@
 import { vi, describe, it, expect, beforeEach, afterEach, type Mock } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { toast } from "@astra-kit/ui";
+import { toast } from "@golfo/ui";
 import type { ReactNode } from "react";
 import {
   AppRouterContext,
@@ -17,8 +17,8 @@ import { MOTION_SAFE_FAKE_TIMERS } from "@/tests/unit/components/events/support/
 // notification store so toasts can be asserted.
 let apiFetch: Mock = vi.fn();
 
-vi.mock("@astra-kit/ui", async () => ({
-  ...await vi.importActual<typeof import("@astra-kit/ui")>("@astra-kit/ui"),
+vi.mock("@golfo/ui", async () => ({
+  ...await vi.importActual<typeof import("@golfo/ui")>("@golfo/ui"),
   toast: {
     error: vi.fn(),
     success: vi.fn(),
@@ -198,7 +198,7 @@ describe("TribeEventsCalendar attendance", () => {
 
   it("puts a going answer on the waitlist with its position when the event is full", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    const { toast } = vi.mocked(await import("@astra-kit/ui"), true);
+    const { toast } = vi.mocked(await import("@golfo/ui"), true);
 
     renderCalendar({
       events: [

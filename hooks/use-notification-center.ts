@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "@astra-kit/ui";
+import { toast } from "@golfo/ui";
 import { useAdmissionNotificationContext } from "./use-admission-notification-context";
 import { readAdmissionNotificationRefreshSnapshot } from "@/lib/notifications/admission-notification-refresh-store";
 import { useVisibleNotificationRefresh } from "./use-visible-notification-refresh";

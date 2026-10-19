@@ -3,8 +3,8 @@ import { createHash } from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { Link } from "@/components/navigation/link";
-import { Button } from "@astra-kit/ui";
+import { ButtonLink } from "@/components/navigation/link";
+import { Button } from "@golfo/ui";
 import { buildSignInRedirectUrl } from "@/lib/auth/sign-in-redirect";
 import { buildLegacyAdmissionEntryRoute } from "@/lib/academy-admissions/admission-routes";
 import { ROUTES } from "@/src/constants/routes";
@@ -116,9 +116,9 @@ function renderAlreadySubscribedStatus(slug: string) {
         <p className={styles.TribeInvitationPage__description}>
           {INVITATION_PAGE_COPY.alreadySubscribedDescription}
         </p>
-        <Link className={styles.TribeInvitationPage__actionLink} href={ROUTES.tribes.bySlug(slug)}>
-            {INVITATION_PAGE_COPY.alreadySubscribedButton}
-          </Link>
+        <ButtonLink href={ROUTES.tribes.bySlug(slug)}>
+          {INVITATION_PAGE_COPY.alreadySubscribedButton}
+        </ButtonLink>
       </section>
     </main>
   );

@@ -1,7 +1,7 @@
 "use client";
 /** Presents the connection summary, the advisory next step, global feedback a stepper over the workflow steps, without owning auth, transport or storage. @module messaging-connections-workspace */
 import {useId,type ReactNode} from "react";
-import {Badge,Button,Stepper,type BadgeTone} from "@astra-kit/ui";
+import {Badge,Button,Stepper,type BadgeTone} from "@golfo/ui";
 import type {MessagingConfigurationConnection} from "@/src/modules/messaging/application/results/messaging-configuration-result";
 import {MESSAGING_CAPABILITY_LABEL,MESSAGING_CHANNEL_LABEL,MESSAGING_CONNECTION_LABEL,MESSAGING_CREDENTIAL_LABEL,MESSAGING_CREDENTIAL_MODE_LABEL} from "@/src/modules/messaging/constants/messaging-connection-presentation";
 import {MESSAGING_CONNECTIONS_NEXT_STEP,MESSAGING_CONNECTIONS_NEXT_STEP_COPY,MESSAGING_CONNECTIONS_NEXT_STEP_TAB,MESSAGING_CONNECTIONS_TAB,MESSAGING_CONNECTIONS_TAB_LABEL,MESSAGING_CONNECTIONS_TAB_ORDER,MESSAGING_CONNECTIONS_STEP_ORDER,MESSAGING_CONNECTIONS_STEP_DESCRIPTION,MESSAGING_CONNECTIONS_STEPPER_COPY,type MessagingConnectionsNextStep,type MessagingConnectionsTab} from "@/src/modules/messaging/constants/messaging-connections-workspace";

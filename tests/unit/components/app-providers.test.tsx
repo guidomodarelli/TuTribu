@@ -1,6 +1,6 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
-import { Avatar, Button, Dialog, DialogContent, toast } from "@astra-kit/ui";
+import { Avatar, Button, Dialog, DialogContent, toast } from "@golfo/ui";
 import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
 import type { ReactNode } from "react";
 

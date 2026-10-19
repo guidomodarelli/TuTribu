@@ -8,7 +8,7 @@ import { MemberTribesProvider } from "@/components/platform/member-tribes-provid
 import { TribeSwitcher } from "@/components/platform/tribe-switcher";
 import { TribeSupportButton } from "@/components/tribes/tribe-support-button";
 import { ThemeModeDropdown } from "@/components/theme/theme-mode-dropdown";
-import { SIDEBAR_COOKIE_NAME, SIDEBAR_COOKIE_OPEN_VALUE } from "@astra-kit/ui";
+import { SIDEBAR_COOKIE_NAME, SIDEBAR_COOKIE_OPEN_VALUE } from "@golfo/ui";
 
 import { ROUTES } from "@/src/constants/routes";
 

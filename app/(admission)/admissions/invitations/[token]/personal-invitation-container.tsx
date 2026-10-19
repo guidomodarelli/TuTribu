@@ -2,7 +2,7 @@
 /** Composes current personal contact and canje workflows; presenters cannot access tokens or adapters. @module personal-invitation-container */
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { Button } from "@astra-kit/ui";
+import { Button } from "@golfo/ui";
 import { PersonalInvitation } from "@/components/academy-admissions/personal-invitation";
 import { ContactVerification } from "@/components/academy-admissions/contact-verification";
 import { AdmissionRouteError } from "@/components/academy-admissions/admission-route-error";

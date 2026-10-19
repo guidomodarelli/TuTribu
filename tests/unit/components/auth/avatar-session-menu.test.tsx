@@ -2,7 +2,7 @@ import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRouter } from "next/navigation";
-import { toast } from "@astra-kit/ui";
+import { toast } from "@golfo/ui";
 
 import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-client";
 
@@ -17,8 +17,8 @@ vi.mock("next/navigation", () => ({
 }));
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-vi.mock("@astra-kit/ui", async () => ({
-  ...await vi.importActual<typeof import("@astra-kit/ui")>("@astra-kit/ui"),
+vi.mock("@golfo/ui", async () => ({
+  ...await vi.importActual<typeof import("@golfo/ui")>("@golfo/ui"),
   toast: {
     error: vi.fn(),
   },

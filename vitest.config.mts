@@ -24,6 +24,6 @@ export default defineConfig({
     testTimeout: 30_000,
     maxWorkers: 2,
     css: { modules: { classNameStrategy: "non-scoped" } },
-    server: { deps: { inline: ["@astra-kit/ui", "@next/env"] } },
+    server: { deps: { inline: ["@golfo/ui", "@next/env"] } },
   },
 });

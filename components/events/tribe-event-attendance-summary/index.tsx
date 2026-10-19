@@ -1,6 +1,6 @@
 "use client";
 
-import { AvatarGroup, cn, PresenceSwap } from "@astra-kit/ui";
+import { AvatarGroup, cn, PresenceSwap } from "@golfo/ui";
 
 import {
   formatAttendanceCounts,

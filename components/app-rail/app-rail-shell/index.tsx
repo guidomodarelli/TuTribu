@@ -42,7 +42,7 @@ import { siteConfig } from "@/lib/site-config";
 import { ROUTES } from "@/src/constants/routes";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
-import { AnimatedCollapse, Avatar, SIDEBAR_COOKIE_COLLAPSED_VALUE, SIDEBAR_COOKIE_MAX_AGE, SIDEBAR_COOKIE_NAME, SIDEBAR_COOKIE_OPEN_VALUE } from "@astra-kit/ui";
+import { AnimatedCollapse, Avatar, SIDEBAR_COOKIE_COLLAPSED_VALUE, SIDEBAR_COOKIE_MAX_AGE, SIDEBAR_COOKIE_NAME, SIDEBAR_COOKIE_OPEN_VALUE } from "@golfo/ui";
 import { APP_RAIL_INSTANT, APP_RAIL_MOTION } from "../app-rail-motion";
 import {
   resolveAppRailNavigation,

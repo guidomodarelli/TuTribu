@@ -18,8 +18,8 @@ import { MOTION_SAFE_FAKE_TIMERS } from "@/tests/unit/components/events/support/
 // Preserve the existing Sonner double to isolate its timers and global notification store.
 let apiFetch: Mock = vi.fn();
 
-vi.mock("@astra-kit/ui", async () => ({
-  ...await vi.importActual<typeof import("@astra-kit/ui")>("@astra-kit/ui"),
+vi.mock("@golfo/ui", async () => ({
+  ...await vi.importActual<typeof import("@golfo/ui")>("@golfo/ui"),
   toast: {
     error: vi.fn(),
     success: vi.fn(),
@@ -806,6 +806,8 @@ describe("TribeEventsCalendar", () => {
       "rel",
       "noreferrer"
     );
+    // Vitest resolves CSS Modules non-scoped, so the BEM class carrying the entrance motion is visible.
+    expect(within(nextEvent).getByRole("link", { name: "Unirme" })).toHaveClass("TribeNextEvent__join");
 
     await user.click(screen.getByRole("button", { name: "Ver lista" }));
 
@@ -941,7 +943,7 @@ describe("TribeEventsCalendar", () => {
     });
 
     it("copies the occurrence link from the detail", async () => {
-      const { toast } = vi.mocked(await import("@astra-kit/ui"), true);
+      const { toast } = vi.mocked(await import("@golfo/ui"), true);
       const writeText = vi.fn<(text: string) => Promise<void>>(async () => undefined);
       // user-event installs its own clipboard stub on setup, so define ours after it.
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
@@ -965,7 +967,7 @@ describe("TribeEventsCalendar", () => {
     });
 
     it("reports a copy failure when the browser cannot write to the clipboard", async () => {
-      const { toast } = vi.mocked(await import("@astra-kit/ui"), true);
+      const { toast } = vi.mocked(await import("@golfo/ui"), true);
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       Object.defineProperty(navigator, "clipboard", {
         configurable: true,
@@ -1206,7 +1208,7 @@ describe("TribeEventsCalendar", () => {
     });
 
     it("keeps the previous month and warns when the month cannot be loaded", async () => {
-      const { toast } = vi.mocked(await import("@astra-kit/ui"), true);
+      const { toast } = vi.mocked(await import("@golfo/ui"), true);
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
       renderCalendar();
@@ -1225,7 +1227,7 @@ describe("TribeEventsCalendar", () => {
     });
 
     it("uses the safe fallback copy when the network fails or the answer is unusable", async () => {
-      const { toast } = vi.mocked(await import("@astra-kit/ui"), true);
+      const { toast } = vi.mocked(await import("@golfo/ui"), true);
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
       renderCalendar();
@@ -2060,7 +2062,7 @@ describe("TribeEventsCalendar", () => {
     });
 
     it("keeps the streak on screen when the refresh fails", async () => {
-      const { toast } = vi.mocked(await import("@astra-kit/ui"), true);
+      const { toast } = vi.mocked(await import("@golfo/ui"), true);
       renderCalendar({
         attendanceStreak: initialStreak,
         events: [occurrence, laterOccurrence],
@@ -2568,7 +2570,7 @@ describe("TribeEventsCalendar", () => {
       }
 
       async function waitForMutationToast() {
-        const { toast } = vi.mocked(await import("@astra-kit/ui"), true);
+        const { toast } = vi.mocked(await import("@golfo/ui"), true);
 
         await waitFor(() =>
           expect(toast.error.mock.calls.length + toast.success.mock.calls.length).toBe(1)
@@ -2715,7 +2717,7 @@ describe("TribeEventsCalendar", () => {
   });
 
   it("shows the endpoint message when saving fails", async () => {
-    const { toast } = vi.mocked(await import("@astra-kit/ui"), true);
+    const { toast } = vi.mocked(await import("@golfo/ui"), true);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar({ events: [] });
@@ -2740,7 +2742,7 @@ describe("TribeEventsCalendar", () => {
   });
 
   it("treats an unusable save response as a failure with the safe fallback copy", async () => {
-    const { toast } = vi.mocked(await import("@astra-kit/ui"), true);
+    const { toast } = vi.mocked(await import("@golfo/ui"), true);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar({ events: [] });
@@ -2771,7 +2773,7 @@ describe("TribeEventsCalendar", () => {
   });
 
   it("ignores an unusable attendance response and keeps the previous answer", async () => {
-    const { toast } = vi.mocked(await import("@astra-kit/ui"), true);
+    const { toast } = vi.mocked(await import("@golfo/ui"), true);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar();

@@ -1,6 +1,6 @@
 /** Presents current notification facts and explicit recovery callbacks without auth, HTTP or storage ownership. @module messaging-notification-recovery */
 import { useId } from "react";
-import { Button, Checkbox, Label, Select } from "@astra-kit/ui";
+import { Button, Checkbox, Label, Select } from "@golfo/ui";
 import type { NotificationDeliveryCatalogItem } from "@/src/modules/messaging/application/results/notification-delivery-catalog-result";
 import { MESSAGING_DELIVERY_STATE_LABEL } from "@/src/modules/messaging/constants/messaging-diagnostic-browser";
 import { MESSAGE_DELIVERY_STATE } from "@/src/modules/messaging/constants/message-delivery";

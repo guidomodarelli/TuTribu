@@ -1,6 +1,6 @@
 /** Exercises the actual private activity container and shared controls through its own browser read port. @module admission-activity-container-tests */
 import type { ReactNode } from "react";
-import { SidebarInset, SidebarProvider } from "@astra-kit/ui";
+import { SidebarInset, SidebarProvider } from "@golfo/ui";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";

@@ -1,7 +1,7 @@
 "use client";
 /** Owns native viewer checks and original usage recovery; all form controls remain callback-only. @module messaging-usage-container */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "@astra-kit/ui";
+import { toast } from "@golfo/ui";
 import type { MessagingUsagePageState } from "@/src/modules/messaging/application/results/messaging-usage-page-state";
 import type { MessagingUsageBrowserClient } from "@/src/modules/messaging/application/ports/messaging-usage-browser-client";
 import type { MessagingUsageDraft } from "@/src/modules/messaging/application/commands/messaging-usage-draft";

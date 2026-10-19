@@ -1,5 +1,5 @@
 /** Renders policy editing and explicit confirmation from current props, without session or HTTP dependencies. @module admission-policy-form */
-import { Badge, Button, Checkbox, Select, Textarea } from "@astra-kit/ui";
+import { Badge, Button, Checkbox, Select, Textarea } from "@golfo/ui";
 import { useId } from "react";
 import { Link } from "@/components/navigation/link";
 import type { AdmissionPolicyDraft } from "@/src/modules/academy-admissions/application/commands/admission-policy-draft";

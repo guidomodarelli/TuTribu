@@ -1,7 +1,7 @@
 "use client";
 /** Presents private invitation history and controlled explicit proposals without adapters or session lookups. @module invitation-management */
 import { useEffect, useId, useRef } from "react";
-import { Button, Checkbox, EmptyState, Input, Label, Select, Textarea } from "@astra-kit/ui";
+import { Button, Checkbox, EmptyState, Input, Label, Select, Textarea } from "@golfo/ui";
 import type { PersonalInvitationManagementDraft } from "@/src/modules/academy-admissions/application/commands/personal-invitation-management-intent";
 import type { PersonalInvitationManagementResult } from "@/src/modules/academy-admissions/application/results/admission-resource-result";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";

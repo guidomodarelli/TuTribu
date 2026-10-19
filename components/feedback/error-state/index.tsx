@@ -1,12 +1,14 @@
 "use client";
 
-import { Link } from "@/components/navigation/link";
-import { Button } from "@astra-kit/ui";
+import { ButtonLink } from "@/components/navigation/link";
+import { Button } from "@golfo/ui";
 import { ROUTES } from "@/src/constants/routes";
 import styles from "./styles.module.scss";
 
 const ERROR_STATE_UI = {
   backdropAriaHidden: "true",
+  homeLinkSize: "lg",
+  homeLinkVariant: "secondary",
   retryButtonSize: "lg",
 } as const;
 
@@ -47,7 +49,13 @@ export function ErrorState({
         >
           {retryLabel}
         </Button>
-        <Link className={styles.ErrorState__actionLink} href={ROUTES.home}>{homeLabel}</Link>
+        <ButtonLink
+          href={ROUTES.home}
+          size={ERROR_STATE_UI.homeLinkSize}
+          variant={ERROR_STATE_UI.homeLinkVariant}
+        >
+          {homeLabel}
+        </ButtonLink>
       </div>
     </section>
   );

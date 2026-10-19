@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CalendarPlusIcon, CopyIcon, ShieldAlertIcon } from "lucide-react";
-import { Button, Dialog, DialogContent, Input, PresenceSwap } from "@astra-kit/ui";
+import { Button, Dialog, DialogContent, Input, PresenceSwap, buttonClassName } from "@golfo/ui";
 
 import {
   TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS,
@@ -42,6 +42,8 @@ const BUTTON_ATTRIBUTE = {
   variantGhost: "ghost",
   variantSecondary: "secondary",
 } as const;
+/** Calendar apps open external subscription URLs, so they stay `<a>` elements with the button look. */
+const CALENDAR_APP_LINK_CLASS_NAME = buttonClassName({ variant: BUTTON_ATTRIBUTE.variantSecondary });
 const LINK_ATTRIBUTE = {
   noreferrer: "noopener noreferrer",
   targetBlank: "_blank",
@@ -130,11 +132,11 @@ export function TribeEventCalendarFeedDialog({
       </div>
       <p className={styles.TribeEventCalendarFeedDialog__hint}>{COPY.shownOnce}</p>
       <div className={styles.TribeEventCalendarFeedDialog__apps}>
-        <a className={styles.TribeEventCalendarFeedDialog__actionLink} href={buildAppleCalendarSubscriptionUrl(issuedFeedUrl)}>
+        <a className={CALENDAR_APP_LINK_CLASS_NAME} href={buildAppleCalendarSubscriptionUrl(issuedFeedUrl)}>
             <CalendarPlusIcon aria-hidden />
             {COPY.appleCalendar}
           </a>
-        <a className={styles.TribeEventCalendarFeedDialog__actionLink}
+        <a className={CALENDAR_APP_LINK_CLASS_NAME}
             href={buildGoogleCalendarSubscriptionUrl(issuedFeedUrl)}
             rel={LINK_ATTRIBUTE.noreferrer}
             target={LINK_ATTRIBUTE.targetBlank}

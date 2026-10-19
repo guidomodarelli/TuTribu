@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 
-import { Carousel } from "@astra-kit/ui";
+import { Carousel } from "@golfo/ui";
 import { TribeStoryVideoSlide } from "@/components/tribes/tribe-story-video-slide";
 import { TRIBE_STORY_MEDIA_TYPE } from "@/src/modules/tribes/constants/tribe-story";
 import type { TribeStoryMediaResult } from "@/src/modules/tribes/application/results/tribe-story-result";

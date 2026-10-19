@@ -7,9 +7,9 @@ installExitedBrowserStdioRelease({ executablePaths: [webkit.executablePath()] })
 
 /** Exercises the real application through the existing portless route. */
 export default defineConfig({
-  // Closes WebKit processes left behind by aborted runs on Windows (see @astra-kit/cleaner).
-  globalSetup: "@astra-kit/cleaner/playwright/global-setup",
-  globalTeardown: "@astra-kit/cleaner/playwright/global-teardown",
+  // Closes WebKit processes left behind by aborted runs on Windows (see @golfo/cleaner).
+  globalSetup: "@golfo/cleaner/playwright/global-setup",
+  globalTeardown: "@golfo/cleaner/playwright/global-teardown",
   testDir: "./tests/e2e", testMatch: "beezping-provider.spec.ts",
   fullyParallel: false, workers: 1,
   use: { baseURL: "https://dev.tutribu.app", trace: "retain-on-failure" },

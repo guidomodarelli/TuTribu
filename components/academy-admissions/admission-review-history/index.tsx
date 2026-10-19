@@ -1,7 +1,7 @@
 /** Presents only safe retained history facts and route-owned recovery/navigation callbacks. @module admission-review-history */
 import { ArrowLeftIcon } from "lucide-react";
-import { Button } from "@astra-kit/ui";
-import { Link } from "@/components/navigation/link";
+import { Button } from "@golfo/ui";
+import { ButtonLink, Link } from "@/components/navigation/link";
 import { MorphBlock, SkeletonMorph } from "@/components/loaders/skeleton-morph";
 import type { AdmissionReviewHistoryItemDto } from "@/src/modules/academy-admissions/application/results/admission-review-history-result";
 import { ADMISSION_REVIEW_HISTORY_ACTOR_LABEL, ADMISSION_REVIEW_HISTORY_COPY, ADMISSION_REVIEW_HISTORY_EVENT_LABEL } from "@/src/modules/academy-admissions/constants/admission-review-history-page";
@@ -37,7 +37,7 @@ export function AdmissionReviewHistory({ items, checking, refreshDisabled, error
             </dl>
           </MorphBlock>)}</ol>
       </SkeletonMorph>
-      {!checking && (olderHref || newestHref) && <nav className={styles.AdmissionReviewHistory__pages} aria-label="Páginas del historial">{newestHref && <Link className={styles.AdmissionReviewHistory__page} href={newestHref}>{ADMISSION_REVIEW_HISTORY_COPY.newest}</Link>}{olderHref && <Link className={styles.AdmissionReviewHistory__page} href={olderHref}>{ADMISSION_REVIEW_HISTORY_COPY.older}</Link>}</nav>}
+      {!checking && (olderHref || newestHref) && <nav className={styles.AdmissionReviewHistory__pages} aria-label="Páginas del historial">{newestHref && <ButtonLink variant="secondary" size="sm" href={newestHref}>{ADMISSION_REVIEW_HISTORY_COPY.newest}</ButtonLink>}{olderHref && <ButtonLink variant="secondary" size="sm" href={olderHref}>{ADMISSION_REVIEW_HISTORY_COPY.older}</ButtonLink>}</nav>}
     </>}
   </div>;
 }

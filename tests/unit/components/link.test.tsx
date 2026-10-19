@@ -3,7 +3,7 @@ import { render as renderComponent, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { AppProviders } from "@/components/providers/app-providers";
 
-import { Link } from "@/components/navigation/link";
+import { ButtonLink, Link } from "@/components/navigation/link";
 
 /** Exercises the application link with its actual provider-selected Next adapter. */
 function render(ui: ReactElement) {
@@ -71,5 +71,44 @@ describe("Link", () => {
 
     expect(link).toHaveAttribute("href", "/tribus");
     expect(link).toHaveClass("custom-link");
+  });
+});
+
+describe("ButtonLink", () => {
+  it("keeps the shared prefetch default of the provider", () => {
+    render(<ButtonLink href="/tribus">Ver tribus</ButtonLink>);
+
+    expect(screen.getByRole("link", { name: /ver tribus/i })).toHaveAttribute(
+      "data-prefetch",
+      "false"
+    );
+  });
+
+  it("lets callers opt back into prefetch", () => {
+    render(
+      <ButtonLink href="/tribus" prefetch>
+        Ver tribus
+      </ButtonLink>
+    );
+
+    expect(screen.getByRole("link", { name: /ver tribus/i })).toHaveAttribute(
+      "data-prefetch",
+      "true"
+    );
+  });
+
+  it("renders a link with the requested button variant and size and keeps the layout class", () => {
+    render(
+      <ButtonLink className="layout-class" href="/tribus" size="lg" variant="secondary">
+        Ver tribus
+      </ButtonLink>
+    );
+
+    const link = screen.getByRole("link", { name: /ver tribus/i });
+
+    expect(link).toHaveAttribute("href", "/tribus");
+    expect(link).toHaveAttribute("data-variant", "secondary");
+    expect(link).toHaveAttribute("data-size", "lg");
+    expect(link).toHaveClass("layout-class");
   });
 });
