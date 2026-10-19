@@ -34,9 +34,9 @@ export class GetPersonalInvitationManagementPageUseCase {
       };
       const tribe = await this.readers.resolveTribe.execute({ slug: query.slug, requestId: query.requestId });
       if (!tribe.ok) return tribe;
-      await assertViewer();
       const scope = { tribeId: tribe.value.tribeId, requestId: query.requestId };
-      const authority = await this.readers.resolveContext.execute({ ...scope, action: ADMISSION_ACTION.manageInvitations });
+      // Resolving authority reads no contacts, so the identity check after the tribe read runs alongside it.
+      const [, authority] = await Promise.all([assertViewer(), this.readers.resolveContext.execute({ ...scope, action: ADMISSION_ACTION.manageInvitations })]);
       if (!authority.allowed) return { ok: false as const, failure: authority.failure };
       if (authority.context.userId !== viewer.userId || authority.context.sessionId !== viewer.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       const policy = await this.readers.policy.execute(scope);

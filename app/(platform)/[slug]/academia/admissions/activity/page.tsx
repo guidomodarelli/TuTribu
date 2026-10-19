@@ -5,7 +5,6 @@ import { loadAdmissionActivityPageState } from "@/src/modules/academy-admissions
 import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
 import { ADMISSION_ACTIVITY_PAGE_KIND } from "@/src/modules/academy-admissions/constants/admission-activity-browser";
 import { AdmissionActivityContainer } from "./admission-activity-container";
-import { ADMISSION_SECTION, ADMISSION_SECTION_AUDIENCE } from "@/src/modules/academy-admissions/constants/admission-sections";
 import Loading from "./loading";
 
 /** @param props - Runtime routing resolved inside this segment's Suspense. @returns Only current leader-authorized own props, never a loopback request or implicit write. */
@@ -13,7 +12,7 @@ async function ActivityContent({ params, searchParams }: { params: Promise<{ slu
   const [route, query] = await Promise.all([params, searchParams]);
   const state = await loadAdmissionActivityPageState({ params: route, query }, async () => (await createAdmissionActivityRequestModule()).createPage());
   const key = state.kind === ADMISSION_ACTIVITY_PAGE_KIND.ready ? `${state.slug}:${state.viewerId}:${state.renderedAt}` : state.code;
-  return <AdmissionSettingsPage title="Consumo e historial de admisión" description="Consumo de mensajería, métricas de solicitudes y hechos registrados de esta academia." section={ADMISSION_SECTION.activity} slug={state.kind === ADMISSION_ACTIVITY_PAGE_KIND.ready ? state.slug : undefined} audience={ADMISSION_SECTION_AUDIENCE.leader}><AdmissionActivityContainer key={key} initialState={state} /></AdmissionSettingsPage>;
+  return <AdmissionSettingsPage><AdmissionActivityContainer key={key} initialState={state} /></AdmissionSettingsPage>;
 }
 /** @param props - Unresolved framework routing. @returns An own leaf fallback and the single private SSR loader. */
 export default function AdmissionActivityPage(props: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {

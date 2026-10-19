@@ -11,6 +11,7 @@ import type { MessagingUsageBrowserClient } from "@/src/modules/messaging/applic
 import type { MessagingUsageReauthenticationClient } from "@/src/modules/messaging/application/ports/messaging-usage-reauthentication-client";
 import { readMessagingUsageIntent, writeMessagingUsageIntent } from "@/lib/messaging/messaging-usage-intent";
 import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
+import { AdmissionWorkspaceRoute } from "@/tests/support/admission-workspace-route";
 
 const slug = "synthetic-academy", viewerId = "synthetic-leader", tribeId = "83ecbfaf-0e7c-4afb-aefc-62b62800d367", operationId = "297d47c2-5419-4c3d-a339-e8b7970275ca";
 const router = { back: vi.fn(), bfcacheId: "usage-container-test", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: vi.fn(), replace: vi.fn() } satisfies AppRouterInstance;
@@ -129,10 +130,10 @@ describe("early usage route workflow", () => {
 
   it("should retain a single main landmark when a page-embedded account lookup fails", async () => {
     const data = fixture(); data.client.viewer.mockResolvedValue({ status: "failed", code: "dependency_unavailable", message: "No pudimos confirmar la cuenta actual.", uncertain: false });
-    render(<AdmissionSettingsPage title="Mensajería de la academia">{data.node}</AdmissionSettingsPage>, { wrapper: Providers });
+    render(<AdmissionWorkspaceRoute pathname="/tribu/academia/admissions/messaging" slug="tribu"><AdmissionSettingsPage>{data.node}</AdmissionSettingsPage></AdmissionWorkspaceRoute>, { wrapper: Providers });
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No pudimos confirmar la cuenta actual"));
     expect(screen.getAllByRole("main")).toHaveLength(1);
-    expect(screen.getByRole("heading", { name: "Mensajería de la academia", level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Países y cupos de mensajería", level: 1 })).toBeInTheDocument();
   });
   it("should use the SSR snapshot once and clear confirmation after editing without initializing or fetching again", async () => {
     const data = fixture(); render(data.node, { wrapper: Providers }); await confirm();

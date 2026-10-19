@@ -219,6 +219,7 @@ components/<scope>/<component>/
 - Animate only `transform` and `opacity` (height only through `AnimatedCollapse`), keep durations between 120 and 320 ms, take timing from the motion tokens exported by `@astra-kit/ui` (`MOTION_TIMING`, `MOTION_EASE`, springs and distances), and never hide server-rendered HTML behind a Motion `initial` state.
 - Do not re-animate `@astra-kit/ui` primitives, which already animate. Every animation must respect `prefers-reduced-motion`.
 - Scoped exception: `components/loaders/morph-loader` springs the geometry of its four SVG strokes and runs a continuous idle loop while loading; its durations still come from `MOTION_TIMING` within 120 to 320 ms. See the exception in `docs/conventions/motion.htm`.
+- Scoped exception: `components/loaders/skeleton-morph` (adapted from Arc Pro) springs the width and height of its placeholders and the height of its region so skeletons become the content revealed after a client-side check; it uses `SPRING_PANEL` and `MOTION_TIMING`, and reduced motion only fades. It is not for route `loading.tsx` fallbacks.
 - Follow the motion convention guide at `docs/conventions/motion.htm`.
 
 ### CSS architecture baseline (BEM mandatory)

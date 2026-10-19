@@ -7,7 +7,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 ### Added
 
 - La barra lateral de las academias incorpora el grupo Admisiones con sus subsecciones: el líder ve todas y los guardianes, Solicitudes y Avisos; el grupo se abre solo al entrar en una de sus páginas.
-- Todas las páginas de admisión comparten un encabezado con acceso de vuelta, descripción y una fila de secciones que marca la página actual, también en celulares.
+- Todas las páginas de admisión comparten un encabezado con acceso de vuelta, descripción y una fila de secciones que marca la página actual, también en celulares; el encabezado queda fijo al cambiar de sección y el resaltado se desliza hasta la nueva.
+- Mientras una página de admisión carga se ve un esqueleto con la forma de su contenido, y el historial de una solicitud transforma sus esqueletos en los eventos al confirmar el acceso.
 - Gestionar academia ofrece al líder un acceso a Admisiones y mensajería: reglas de admisión, solicitudes, países y cupos, y conexión de mensajería.
 - El piloto de admisión incorpora una plantilla de códigos de WhatsApp en español; todavía no está disponible para enviar porque Meta rechaza su creación.
 - El piloto de WhatsApp cuenta con un negocio propio de TuTribu y su cuenta conectada y activa en Zavu, conservando la cuenta anterior; los códigos siguen pendientes porque Meta rechaza el permiso de creación de la plantilla.

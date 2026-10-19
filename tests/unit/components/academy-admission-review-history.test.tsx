@@ -1,6 +1,6 @@
 /** Exercises actual React Activity, framework router context and @astra-kit/ui with only the owned viewer port doubled. @module academy-admission-review-history-tests */
-import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { AdmissionWorkspaceRoute } from "@/tests/support/admission-workspace-route";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Activity, type ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
@@ -41,7 +41,7 @@ describe("current history visibility and navigation", () => {
   });
   it.each(["unavailable", "render_error"])("should preserve one real platform main and a history page heading for %s", (path) => {
     const unavailable: AdmissionReviewHistoryPageState = { kind: "unavailable", code: "permission_denied", message: "No tenés permiso para realizar esta operación." };
-    render(path === "unavailable" ? <AdmissionSettingsPage title={ADMISSION_REVIEW_HISTORY_COPY.title}><AdmissionReviewHistoryContainer initialState={unavailable} /></AdmissionSettingsPage> : <AdmissionReviewHistoryError reset={vi.fn()} />, { wrapper: Providers });
+    render(<AdmissionWorkspaceRoute pathname="/tribu/academia/admissions/history/request-1" slug="tribu">{path === "unavailable" ? <AdmissionReviewHistoryContainer initialState={unavailable} /> : <AdmissionReviewHistoryError reset={vi.fn()} />}</AdmissionWorkspaceRoute>, { wrapper: Providers });
     expect(screen.getAllByRole("main")).toHaveLength(1);
     expect(screen.getByRole("heading", { level: 1, name: ADMISSION_REVIEW_HISTORY_COPY.title })).toBeVisible();
     expect(screen.getByRole("alert")).toBeVisible();
@@ -49,8 +49,9 @@ describe("current history visibility and navigation", () => {
   it("should confirm the native viewer once and reuse the authorized server history without an ordinary route refresh", async () => {
     const data = fixture();
     render(data.node, { wrapper: Providers });
-    expect(await screen.findByRole("heading", { name: "Evento conservado" })).toBeVisible();
-    expect(screen.getByText("Sin atribución disponible")).toBeVisible();
+    // Each event morphs out of its skeleton, so it becomes visible once its entrance settles.
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Evento conservado" })).toBeVisible());
+    await waitFor(() => expect(screen.getByText("Sin atribución disponible")).toBeVisible());
     expect(screen.queryByText("El sistema")).not.toBeInTheDocument();
     expect(screen.getByText("15 oct · 22:00")).toHaveAttribute("dateTime", data.state.page.items[0].createdAt);
     expect(data.client.viewer).toHaveBeenCalledOnce();
@@ -74,6 +75,11 @@ describe("current history visibility and navigation", () => {
     expect(router.refresh).toHaveBeenCalledOnce();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(ADMISSION_REVIEW_HISTORY_COPY.checking);
+    // While access is confirmed again, the list keeps skeleton rows in place of events and exposes no private facts.
+    const events = screen.getByRole("list", { name: "Eventos de la solicitud" });
+    expect(events.closest("[aria-busy='true']")).not.toBeNull();
+    expect(within(events).getAllByRole("listitem").length).toBeGreaterThan(0);
+    expect(within(events).queryByRole("heading")).not.toBeInTheDocument();
   });
 
   it.each(["failed", "throws"])("should close private visibility on viewer %s with actionable safe feedback", async (failure) => {

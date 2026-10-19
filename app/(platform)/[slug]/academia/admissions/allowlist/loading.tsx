@@ -1,4 +1,8 @@
-/** Provides a deterministic leaf skeleton while list runtime input and authority resolve. @module allowlist-loading */
-import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
-/** @returns Safe server-rendered loading content without browser or session access. */
-export default function Loading() { return <AdmissionSettingsPage title="Lista de habilitados"><p role="status">Consultando la lista…</p></AdmissionSettingsPage>; }
+/** Content skeleton while this admission page reads; the shared layout keeps the heading and sections on screen. @module allowlist-loading */
+import { AdmissionPageSkeleton } from "@/components/academy-admissions/admission-page-skeleton";
+import { ADMISSION_PAGES } from "@/src/modules/academy-admissions/constants/admission-sections";
+
+/** @returns Placeholders and one loading announcement, without session, storage or clock access. */
+export default function AllowlistLoading() {
+  return <AdmissionPageSkeleton label={ADMISSION_PAGES.allowlist.loading} />;
+}

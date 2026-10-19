@@ -1,2 +1,8 @@
-/** Reuses the deterministic admission skeleton within the new leaf's own runtime boundary. @module admission-notification-settings-loading */
-export { default } from "../loading";
+/** Content skeleton while this admission page reads; the shared layout keeps the heading and sections on screen. @module admission-notification-settings-loading */
+import { AdmissionPageSkeleton } from "@/components/academy-admissions/admission-page-skeleton";
+import { ADMISSION_PAGES } from "@/src/modules/academy-admissions/constants/admission-sections";
+
+/** @returns Placeholders and one loading announcement, without session, storage or clock access. */
+export default function AdmissionNotificationSettingsLoading() {
+  return <AdmissionPageSkeleton label={ADMISSION_PAGES.notifications.loading} />;
+}

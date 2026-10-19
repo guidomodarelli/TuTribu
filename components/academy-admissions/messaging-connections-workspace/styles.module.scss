@@ -5,13 +5,6 @@
   min-width: 0;
   gap: 1.5rem;
 
-  &__intro {
-    margin: 0;
-    max-width: 60ch;
-    color: var(--text-secondary, var(--muted-foreground));
-    font-size: 1rem;
-    line-height: 1.55;
-  }
 
   &__overview {
     display: grid;

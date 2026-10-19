@@ -1,13 +1,12 @@
-/** Exercises the shared admission workspace frame with the real UI provider, links and navigation. @module admission-settings-page-tests */
+/** Exercises the shared admissions layout frame and page content with the real UI provider, links and route contexts. @module admission-settings-page-tests */
 import { render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { describe, expect, it, vi } from "vitest";
 import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
-import { MemberTribesProvider } from "@/components/platform/member-tribes-provider";
-import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
-import { ADMISSION_SECTION, ADMISSION_SECTION_AUDIENCE } from "@/src/modules/academy-admissions/constants/admission-sections";
+import { AdmissionWorkspaceRoute, buildAdmissionMemberTribe } from "@/tests/support/admission-workspace-route";
+import { ADMISSION_PAGES } from "@/src/modules/academy-admissions/constants/admission-sections";
 
 const router = { back: vi.fn(), bfcacheId: "synthetic-admission-frame", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: vi.fn(), replace: vi.fn() } satisfies AppRouterInstance;
 
@@ -16,18 +15,18 @@ function Providers({ children }: { children: ReactNode }) {
   return <AppRouterContext.Provider value={router}><AppUIProvider>{children}</AppUIProvider></AppRouterContext.Provider>;
 }
 
-/** @returns The visible names and current state of each admission section link. */
+/** @returns The visible names, targets and current state of each admission section link. */
 function readSections() {
   return within(screen.getByRole("navigation", { name: "Secciones de admisión" })).getAllByRole("link").map((link) => ({ name: link.textContent, href: link.getAttribute("href"), current: link.getAttribute("aria-current") }));
 }
 
-describe("AdmissionSettingsPage", () => {
+describe("admissions layout frame", () => {
   it("should give a leader every admission section with the open one marked as the current page", () => {
-    render(<AdmissionSettingsPage title="Reglas de admisión" description="Prepará las reglas." section={ADMISSION_SECTION.policy} slug="mi tribu" audience={ADMISSION_SECTION_AUDIENCE.leader}><p>Contenido</p></AdmissionSettingsPage>, { wrapper: Providers });
+    render(<AdmissionWorkspaceRoute pathname="/mi%20tribu/academia/admissions/settings" slug="mi tribu" memberTribes={[buildAdmissionMemberTribe({ slug: "mi tribu" })]}><p>Contenido</p></AdmissionWorkspaceRoute>, { wrapper: Providers });
 
-    const region = screen.getByRole("region", { name: "Reglas de admisión" });
-    expect(within(region).getByRole("heading", { level: 1, name: "Reglas de admisión" })).toBeVisible();
-    expect(within(region).getByText("Prepará las reglas.")).toBeVisible();
+    const region = screen.getByRole("region", { name: ADMISSION_PAGES.policy.title });
+    expect(within(region).getByRole("heading", { level: 1, name: ADMISSION_PAGES.policy.title })).toBeVisible();
+    expect(within(region).getByText(ADMISSION_PAGES.policy.description)).toBeVisible();
     expect(within(region).getByRole("link", { name: "Gestionar academia" })).toHaveAttribute("href", "/mi%20tribu/academia/gestionar");
     expect(readSections()).toEqual([
       { name: "Solicitudes", href: "/mi%20tribu/academia/admissions", current: null },
@@ -42,36 +41,29 @@ describe("AdmissionSettingsPage", () => {
     expect(within(region).getByText("Contenido")).toBeVisible();
   });
 
-  it("should limit a reviewer to the review sections and return them to academy management", () => {
-    render(<AdmissionSettingsPage title="Avisos de admisión" section={ADMISSION_SECTION.notifications} slug="tribu" audience={ADMISSION_SECTION_AUDIENCE.reviewer}><p>Contenido</p></AdmissionSettingsPage>, { wrapper: Providers });
+  it("should limit a guardian to the review sections and keep the request history and the CSV import under their sections", () => {
+    const view = render(<AdmissionWorkspaceRoute pathname="/tribu/academia/admissions/history/request-1" slug="tribu" memberTribes={[buildAdmissionMemberTribe({ role: "guardian" })]}><p>Contenido</p></AdmissionWorkspaceRoute>, { wrapper: Providers });
 
-    expect(readSections().map(({ name, current }) => ({ name, current }))).toEqual([{ name: "Solicitudes", current: null }, { name: "Avisos", current: "page" }]);
-    expect(screen.getByRole("link", { name: "Gestionar academia" })).toHaveAttribute("href", "/tribu/academia/gestionar");
+    expect(screen.getByRole("heading", { level: 1, name: ADMISSION_PAGES.history.title })).toBeVisible();
+    expect(readSections().map(({ name, current }) => ({ name, current }))).toEqual([{ name: "Solicitudes", current: "page" }, { name: "Avisos", current: null }]);
+
+    view.rerender(<AdmissionWorkspaceRoute pathname="/tribu/academia/admissions/allowlist/imports" slug="tribu" memberTribes={[buildAdmissionMemberTribe()]}><p>Contenido</p></AdmissionWorkspaceRoute>);
+    expect(screen.getByRole("heading", { level: 1, name: ADMISSION_PAGES.allowlistImport.title })).toBeVisible();
+    expect(readSections().find(({ current }) => current === "page")?.name).toBe("Habilitados");
   });
 
-  it("should follow the member's role from the platform layout, as the app rail does, over the page's fallback audience", () => {
-    const leaderTribe = { logoUrl: null, membershipStatus: "active", name: "Tribu", role: "leader", slug: "tribu", tribeId: "tribe-1", accessModel: "academy" } satisfies MemberTribeListItemResult;
-    const view = render(<MemberTribesProvider memberTribes={[leaderTribe]}><AdmissionSettingsPage title="Solicitudes de ingreso" section={ADMISSION_SECTION.review} slug="tribu" audience={ADMISSION_SECTION_AUDIENCE.reviewer}><p>Contenido</p></AdmissionSettingsPage></MemberTribesProvider>, { wrapper: Providers });
+  it("should keep the heading but offer no navigation to someone who is not a member of the tribe", () => {
+    render(<AdmissionWorkspaceRoute pathname="/tribu/academia/admissions/invitations" slug="tribu"><p>No disponible</p></AdmissionWorkspaceRoute>, { wrapper: Providers });
 
-    expect(readSections().map(({ name }) => name)).toEqual(["Solicitudes", "Reglas", "Habilitados", "Invitaciones", "Países y cupos", "Conexión", "Avisos", "Actividad"]);
-    expect(readSections()[0].current).toBe("page");
-
-    view.rerender(<MemberTribesProvider memberTribes={[{ ...leaderTribe, role: "guardian" }]}><AdmissionSettingsPage title="Reglas de admisión" section={ADMISSION_SECTION.policy} slug="tribu" audience={ADMISSION_SECTION_AUDIENCE.leader}><p>Contenido</p></AdmissionSettingsPage></MemberTribesProvider>);
-    expect(readSections().map(({ name }) => name)).toEqual(["Solicitudes", "Avisos"]);
+    expect(screen.getByRole("heading", { level: 1, name: ADMISSION_PAGES.invitations.title })).toBeVisible();
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
   it("should keep related actions apart from the section navigation", () => {
-    render(<AdmissionSettingsPage title="Lista de habilitados" section={ADMISSION_SECTION.allowlist} slug="tribu" audience={ADMISSION_SECTION_AUDIENCE.leader} links={[{ href: "/tribu/academia/admissions/allowlist/imports", label: "Importar habilitados desde CSV" }]}><p>Contenido</p></AdmissionSettingsPage>, { wrapper: Providers });
+    render(<AdmissionSettingsPage links={[{ href: "/tribu/academia/admissions/allowlist/imports", label: "Importar habilitados desde CSV" }]}><p>Contenido</p></AdmissionSettingsPage>, { wrapper: Providers });
 
     const related = screen.getByRole("navigation", { name: "Acciones relacionadas" });
     expect(within(related).getByRole("link", { name: "Importar habilitados desde CSV" })).toHaveAttribute("href", "/tribu/academia/admissions/allowlist/imports");
-  });
-
-  it("should omit navigation while the tribe or the viewer's access is unresolved", () => {
-    render(<AdmissionSettingsPage title="Reglas de admisión" section={ADMISSION_SECTION.policy} audience={ADMISSION_SECTION_AUDIENCE.leader}><p>No disponible</p></AdmissionSettingsPage>, { wrapper: Providers });
-
-    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1, name: "Reglas de admisión" })).toBeVisible();
   });
 });

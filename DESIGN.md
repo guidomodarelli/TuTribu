@@ -166,10 +166,15 @@ Use this pattern for a family of related pages that share one subject (for
 example the academy admission pages: requests, rules, allowlist, invitations,
 messaging, notices and activity).
 
-- Wrap every page in one shared frame: a quiet return link, a page `h1` with a
-  one-line description, and a row of sibling sections where the current page
-  carries `aria-current="page"` and the raised highlight. Filter the row by
-  what the viewer may open; the server still authorizes each page.
+- Put the shared frame in the family's `layout.tsx`: a quiet return link, the
+  page `h1` with a one-line description, and a row of sibling sections where
+  the current page carries `aria-current="page"` and a raised highlight that
+  glides to the new section. The frame stays mounted across sibling pages, so
+  only the content shows its loading skeleton. Layouts never read route params
+  on the server: the frame resolves the page on the client. Filter the row by
+  the member's role, as the app rail does; the server authorizes each page.
+- Content revealed after a client-side check uses the skeleton morph, so the
+  placeholders become the content instead of swapping for it.
 - Mirror the same family in the app rail as one disclosure group under its
   heading; the group opens by itself on any of its pages.
 - Inside a page, separate blocks with a hairline and a 20px `h2`; start with a

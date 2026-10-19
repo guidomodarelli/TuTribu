@@ -1,0 +1,127 @@
+// Contains code adapted from Arc Pro (https://uiarc.dev), licensed under the
+// Arc Pro license (https://uiarc.dev/license). Not covered by this project's
+// license; do not redistribute it on its own.
+//
+// Styles of the Arc "Skeleton morph" component as a BEM module on the product tokens.
+
+$skeleton-morph-pulse-duration: 1.4s;
+
+@keyframes SkeletonMorphPulse {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0.55;
+  }
+}
+
+.SkeletonMorph {
+  position: relative;
+  min-width: 0;
+
+  &__status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  &__shell {
+    position: relative;
+
+    &[data-easing] {
+      overflow: hidden;
+    }
+  }
+
+  &__inner {
+    display: flow-root;
+  }
+
+  &__block {
+    position: relative;
+    max-width: 100%;
+
+    &[data-state="skeleton"] {
+      flex-shrink: 0;
+    }
+
+    &[data-state="content"] {
+      width: fit-content;
+    }
+
+    &[data-state="content"][data-fill] {
+      width: 100%;
+    }
+  }
+
+  &__content {
+    position: relative;
+    z-index: 1;
+  }
+
+  // The placeholder fills the skeleton box; when the block resolves it is sized and faded from script.
+  &__placeholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    pointer-events: none;
+    background: var(--surface-muted);
+
+    &[data-lines] {
+      display: flex;
+      flex-direction: column;
+      background: none;
+    }
+  }
+
+  &__block[data-state="content"] &__placeholder {
+    will-change: width, height, opacity;
+  }
+
+  &__line {
+    position: relative;
+    flex: none;
+    width: 100%;
+    height: var(--skeleton-morph-line, 20px);
+
+    &::before {
+      position: absolute;
+      top: 50%;
+      right: 0;
+      left: 0;
+      height: min(12px, calc(var(--skeleton-morph-line, 20px) - 6px));
+      border-radius: 6px;
+      background: var(--surface-muted);
+      content: "";
+      translate: 0 -50%;
+    }
+
+    &[data-last] {
+      width: 62%;
+    }
+  }
+
+  // A calm pulse runs while loading and stops once a block resolves.
+  &__block[data-state="skeleton"] &__placeholder:not([data-lines]),
+  &__block[data-state="skeleton"] &__line {
+    animation: SkeletonMorphPulse $skeleton-morph-pulse-duration var(--ease-in-out) infinite alternate;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .SkeletonMorph__block[data-state="skeleton"] .SkeletonMorph__placeholder,
+  .SkeletonMorph__block[data-state="skeleton"] .SkeletonMorph__line {
+    animation: none;
+  }
+}

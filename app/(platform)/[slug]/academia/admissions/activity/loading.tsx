@@ -1,6 +1,8 @@
-/** Preserves an immediate own leaf loading state on page loads and sibling navigation. @module admission-activity-loading */
-import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
-/** @returns Deterministic public loading copy without administrative values. */
+/** Content skeleton while this admission page reads; the shared layout keeps the heading and sections on screen. @module admission-activity-loading */
+import { AdmissionPageSkeleton } from "@/components/academy-admissions/admission-page-skeleton";
+import { ADMISSION_PAGES } from "@/src/modules/academy-admissions/constants/admission-sections";
+
+/** @returns Placeholders and one loading announcement, without session, storage or clock access. */
 export default function AdmissionActivityLoading() {
-  return <AdmissionSettingsPage title="Consumo e historial de admisión"><p role="status">Cargando consumo e historial…</p></AdmissionSettingsPage>;
+  return <AdmissionPageSkeleton label={ADMISSION_PAGES.activity.loading} />;
 }

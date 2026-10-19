@@ -29,6 +29,21 @@
     flex: none;
   }
 
+  // The raised surface under the current section; it glides between sections while the row stays mounted.
+  &__highlight {
+    position: absolute;
+    z-index: -1;
+    inset: -1px;
+    border: 1px solid var(--border);
+    border-radius: inherit;
+    background: var(--surface);
+    box-shadow: var(--shadow-resting);
+  }
+
+  &__label {
+    position: relative;
+  }
+
   &__item {
     position: relative;
     display: flex;
@@ -47,10 +62,9 @@
       color var(--duration-fast) var(--ease-standard),
       background-color var(--duration-fast) var(--ease-standard);
 
+    isolation: isolate;
+
     &[aria-current="page"] {
-      border-color: var(--border);
-      background: var(--surface);
-      box-shadow: var(--shadow-resting);
       color: var(--foreground);
     }
 

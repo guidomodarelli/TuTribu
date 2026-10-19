@@ -3,7 +3,6 @@ import { Suspense } from "react";
 import { createAdmissionRequestModules } from "@/src/modules/setup";
 import { loadAdmissionPolicyPageState } from "@/src/modules/academy-admissions/infrastructure/composition/admission-policy-page";
 import { AdmissionPolicyContainer } from "./policy-container";
-import { ADMISSION_SECTION, ADMISSION_SECTION_AUDIENCE } from "@/src/modules/academy-admissions/constants/admission-sections";
 import Loading from "./loading";
 import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
 
@@ -12,7 +11,7 @@ async function PolicyContent({ params, searchParams }: { params: Promise<{ slug:
   const [route, query] = await Promise.all([params, searchParams]);
   const state = await loadAdmissionPolicyPageState({ params: route, query }, async () => (await createAdmissionRequestModules()).policyPage);
   const key = state.kind === "ready" ? `${state.slug}:${state.viewerId}` : state.code;
-  return <AdmissionSettingsPage title="Reglas de admisión" description="Prepará las reglas de ingreso y revisá su impacto antes de confirmar." section={ADMISSION_SECTION.policy} slug={state.kind === "ready" ? state.slug : undefined} audience={ADMISSION_SECTION_AUDIENCE.leader}><AdmissionPolicyContainer key={key} initialState={state} /></AdmissionSettingsPage>;
+  return <AdmissionSettingsPage><AdmissionPolicyContainer key={key} initialState={state} /></AdmissionSettingsPage>;
 }
 /** @param props - Unresolved framework runtime input. @returns Deterministic server skeleton and the current policy loader. */
 export default function AdmissionPolicySettingsPage(props: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {

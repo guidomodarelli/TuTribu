@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
+import { AdmissionWorkspaceRoute } from "@/tests/support/admission-workspace-route";
 import { AdmissionActivityContainer } from "@/app/(platform)/[slug]/academia/admissions/activity/admission-activity-container";
 import type { AdmissionActivityBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-activity-browser-client";
 import { createAdmissionActivityPageFixture } from "@/tests/support/admission-activity-page";
@@ -20,7 +21,7 @@ function fixture() {
     viewer: vi.fn<AdmissionActivityBrowserClient["viewer"]>(async () => ({ status: "ready", value: { id: state.viewerId } })),
     read: vi.fn<AdmissionActivityBrowserClient["read"]>(async (_slug, selection) => ({ status: "ready", value: { ...state, selection } })),
   };
-  const node = <AdmissionSettingsPage title="Consumo e historial de admisión"><AdmissionActivityContainer initialState={state} client={client} /></AdmissionSettingsPage>;
+  const node = <AdmissionWorkspaceRoute pathname={`/${state.kind === "ready" ? state.slug : "tribu"}/academia/admissions/activity`} slug={state.kind === "ready" ? state.slug : "tribu"}><AdmissionSettingsPage><AdmissionActivityContainer initialState={state} client={client} /></AdmissionSettingsPage></AdmissionWorkspaceRoute>;
   return { state, client, node };
 }
 /** @returns The enabled explicit read control after the initial native identity check. */

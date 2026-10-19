@@ -1,2 +1,8 @@
-/** Reuses the nearest deterministic admission skeleton inside the import leaf navigation boundary. @module allowlist-import-loading */
-export { default } from "../loading";
+/** Content skeleton while this admission page reads; the shared layout keeps the heading and sections on screen. @module allowlist-import-loading */
+import { AdmissionPageSkeleton } from "@/components/academy-admissions/admission-page-skeleton";
+import { ADMISSION_PAGES } from "@/src/modules/academy-admissions/constants/admission-sections";
+
+/** @returns Placeholders and one loading announcement, without session, storage or clock access. */
+export default function AllowlistImportLoading() {
+  return <AdmissionPageSkeleton label={ADMISSION_PAGES.allowlistImport.loading} />;
+}

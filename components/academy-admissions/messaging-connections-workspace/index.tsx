@@ -54,7 +54,6 @@ export function MessagingConnectionsWorkspace(props:MessagingConnectionsWorkspac
   const rows=shared?[{connection:shared,role:"Conexión seleccionada y candidata"}]:[...(props.selected?[{connection:props.selected,role:"Conexión seleccionada"}]:[]),...(props.candidate?[{connection:props.candidate,role:"Conexión candidata"}]:[])];
   const done=props.nextStep===MESSAGING_CONNECTIONS_NEXT_STEP.active;
   return<div className={styles.MessagingConnectionsWorkspace} data-beezping-ignore="true">
-    <p className={styles.MessagingConnectionsWorkspace__intro}>Conectá Zavu, prepará los canales, probalos y activá la conexión de tu academia.</p>
     <section className={styles.MessagingConnectionsWorkspace__overview} aria-labelledby={overviewId}>
       <div className={styles.MessagingConnectionsWorkspace__overviewHeader}>
         <h2 id={overviewId} className={styles.MessagingConnectionsWorkspace__overviewTitle}>Estado actual</h2>

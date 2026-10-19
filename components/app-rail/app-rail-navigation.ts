@@ -20,8 +20,8 @@ import {
 import { ROUTES } from "@/src/constants/routes";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
 import { ADMISSION_NAVIGATION } from "@/src/modules/academy-admissions/constants/admission-navigation";
-import { ADMISSION_SECTION, type ADMISSION_SECTIONS } from "@/src/modules/academy-admissions/constants/admission-sections";
-import { admissionAudienceForRole, visibleAdmissionSections } from "@/lib/academy-admissions/admission-sections";
+import { ADMISSION_PAGES } from "@/src/modules/academy-admissions/constants/admission-sections";
+import { admissionAudienceForRole, resolveAdmissionPage, visibleAdmissionSections } from "@/lib/academy-admissions/admission-sections";
 
 /**
  * Tribe navigation shared by the sidebar and the header breadcrumb, so both
@@ -290,25 +290,6 @@ export type AppRailEntry = {
 /** Label of the admissions group in the management section of the rail. */
 export const ADMISSIONS_NAVIGATION_LABEL = "Admisiones";
 const ADMISSIONS_ENTRY_ID = "admissions";
-const ADMISSION_HISTORY_SEGMENT = "history";
-
-/**
- * Whether the pathname belongs to one admission subsection. The review inbox owns
- * its root route and the request history; every other subsection owns its route
- * and nested routes (the CSV import belongs to the allowlist).
- *
- * @param pathname - Current pathname.
- * @param tribeSlug - Slug of the active tribe.
- * @param section - Admission subsection to compare against.
- * @returns True when the subsection is the open page.
- */
-function isAdmissionSectionActive(pathname: string, tribeSlug: string, section: (typeof ADMISSION_SECTIONS)[number]): boolean {
-  const routePath = `${ROUTES.tribes.bySlug(tribeSlug)}/${section.segment}`;
-  if (section.section === ADMISSION_SECTION.review) {
-    return pathname === routePath || isSameOrNestedPath(pathname, `${routePath}/${ADMISSION_HISTORY_SEGMENT}`);
-  }
-  return isSameOrNestedPath(pathname, routePath);
-}
 
 /**
  * Admissions group of the management section: academy tribes only, with every
@@ -321,11 +302,13 @@ function isAdmissionSectionActive(pathname: string, tribeSlug: string, section: 
  */
 function toAdmissionsEntry(pathname: string, tribe: MemberTribeListItemResult): AppRailEntry | undefined {
   if (tribe.accessModel !== TRIBE_ACCESS_MODEL_ACADEMY || !canManageTribe(tribe)) return undefined;
+  const currentPage = resolveAdmissionPage(pathname, tribe.slug);
+  const currentSection = currentPage ? ADMISSION_PAGES[currentPage].section : undefined;
   const children = visibleAdmissionSections(admissionAudienceForRole(tribe.role)).map((section) => ({
     href: `${ROUTES.tribes.bySlug(tribe.slug)}/${section.segment}`,
     icon: UserCheckIcon,
     id: `${ADMISSIONS_ENTRY_ID}-${section.section}`,
-    isActive: isAdmissionSectionActive(pathname, tribe.slug, section),
+    isActive: currentSection === section.section,
     label: section.label,
   }));
   return {

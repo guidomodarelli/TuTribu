@@ -1,4 +1,8 @@
-/** Shows only a deterministic private management skeleton while native input and authority resolve. @module invitations-loading */
-import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
-/** @returns Safe loading without account, storage, clocks or hidden actions. */
-export default function Loading() { return <AdmissionSettingsPage title="Invitaciones personales"><p role="status">Consultando las invitaciones…</p></AdmissionSettingsPage>; }
+/** Content skeleton while this admission page reads; the shared layout keeps the heading and sections on screen. @module invitations-loading */
+import { AdmissionPageSkeleton } from "@/components/academy-admissions/admission-page-skeleton";
+import { ADMISSION_PAGES } from "@/src/modules/academy-admissions/constants/admission-sections";
+
+/** @returns Placeholders and one loading announcement, without session, storage or clock access. */
+export default function InvitationsLoading() {
+  return <AdmissionPageSkeleton label={ADMISSION_PAGES.invitations.loading} />;
+}
