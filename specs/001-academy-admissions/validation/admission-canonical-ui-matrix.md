@@ -19,3 +19,15 @@ La segunda ejecución volvió a iniciar los veintiocho casos. El primer caso, qu
 El segundo caso, de teclado administrativo, resultados mixtos y recuperación tras perder la respuesta, aprobó también en aproximadamente 3,9 minutos. Este punto de control acredita dos casos completados; no se suman los demás como aprobados. La convención actualizada pasó cuatro vistas Chromium/WebKit a 390/1280 y ocho destinos locales, sin errores, desbordes o cambios de inputs.
 
 El diagnóstico utilizó el rol propietario de esa rama; `row_security_active` era falso. No se usa como prueba de RLS con un rol sin bypass. Los ensayos de permisos y RLS conservan sus evidencias y alcance independientes. Cero mensajes reales y ningún cierre de tarea o gate por este punto de control.
+
+## Cierre de la segunda ejecución
+
+La segunda ejecución terminó con diecisiete casos aprobados, uno fallido y diez sin ejecutar por `--max-failures=1`. El caso fallido (`academy-contact-same-retry` en WebKit 390) completó su recorrido, pero la limpieza no confirmó la ausencia de su rama propia después de un único DELETE: la rama seguía `ready` una hora después. Los 2.361 inputs conservaron sus hashes. Se eliminó esa rama exacta, registrada en el log de la cohorte, y se verificó que sólo quedaran las cuatro ramas preservadas.
+
+`confirmOwnedBranchRemoval` reintenta ahora el DELETE del id exacto, que es idempotente, con espera creciente y un máximo de cinco intentos, y conserva todas las causas si la rama sigue presente. Sus cuatro contratos locales aprobaron (`40a8122c`).
+
+## Tercera ejecución completa
+
+Sobre `64318da8`, con el build del checkout principal y `DATABASE_URL` sin credenciales (sólo nombres de rol y base), la matriz aprobó **los 28 casos**: veintiocho esperados, cero inesperados, cero omitidos y cero inestables, en 2,7 horas. Reporte privado `.git/admission-canonical-e2e-third-results.json`. Todas las ramas propias se retiraron sin intervención y en el proyecto sólo quedan las ramas preservadas. Cero mensajes reales.
+
+Este resultado acredita la matriz canónica de interfaz completa en ambos motores y anchos. T198/T208 siguen pendientes por su auditoría integral con lector de pantalla y por los estados que esta matriz no ejercita; esta ejecución no cierra tareas ni gates por sí sola.
