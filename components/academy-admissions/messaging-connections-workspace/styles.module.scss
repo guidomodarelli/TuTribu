@@ -1,5 +1,7 @@
 .MessagingConnectionsWorkspace {
   display: grid;
+  // WebKit sizes an auto track to the scrolling tab list's min-content; pin every track to the available width.
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   gap: 1.5rem;
 
@@ -135,6 +137,7 @@
 
   &__tabs {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     min-width: 0;
     gap: 1.25rem;
   }
@@ -145,6 +148,7 @@
 
   &__panel {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     min-width: 0;
     gap: 2rem;
   }

@@ -128,6 +128,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 - Una prueba de canal con el código ya confirmado deja de mostrar el vencimiento, el campo de código y el reenvío; la confirmación sólo se aplica a la prueba que emitió ese código.
 - La conexión de mensajería ya no muestra errores en los campos antes de que el líder los complete.
+- En Safari y otros navegadores WebKit para móviles, la conexión de mensajería ya no se desborda horizontalmente.
 - Consultar remitentes o plantillas sin resultados explica que Zavu no devolvió opciones, en lugar de dejar la lista vacía sin aviso.
 - El nombre de la conexión y el código de prueba ya no aceptan más caracteres que los permitidos.
 - La confirmación de acciones sensibles permite mantener abierta la sesión de Google y deja de exigir salir y volver a ingresar; la cuenta se comprueba para la acción concreta durante diez minutos.
