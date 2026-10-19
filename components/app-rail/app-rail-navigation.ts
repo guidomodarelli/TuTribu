@@ -20,7 +20,8 @@ import {
 import { ROUTES } from "@/src/constants/routes";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
 import { ADMISSION_NAVIGATION } from "@/src/modules/academy-admissions/constants/admission-navigation";
-import { ADMISSION_SECTION, ADMISSION_SECTION_AUDIENCE, ADMISSION_SECTIONS } from "@/src/modules/academy-admissions/constants/admission-sections";
+import { ADMISSION_SECTION, type ADMISSION_SECTIONS } from "@/src/modules/academy-admissions/constants/admission-sections";
+import { admissionAudienceForRole, visibleAdmissionSections } from "@/lib/academy-admissions/admission-sections";
 
 /**
  * Tribe navigation shared by the sidebar and the header breadcrumb, so both
@@ -320,8 +321,7 @@ function isAdmissionSectionActive(pathname: string, tribeSlug: string, section: 
  */
 function toAdmissionsEntry(pathname: string, tribe: MemberTribeListItemResult): AppRailEntry | undefined {
   if (tribe.accessModel !== TRIBE_ACCESS_MODEL_ACADEMY || !canManageTribe(tribe)) return undefined;
-  const leader = tribe.role === TRIBE_ADMIN_ROLE.leader;
-  const children = ADMISSION_SECTIONS.filter((section) => leader || section.audience === ADMISSION_SECTION_AUDIENCE.reviewer).map((section) => ({
+  const children = visibleAdmissionSections(admissionAudienceForRole(tribe.role)).map((section) => ({
     href: `${ROUTES.tribes.bySlug(tribe.slug)}/${section.segment}`,
     icon: UserCheckIcon,
     id: `${ADMISSIONS_ENTRY_ID}-${section.section}`,

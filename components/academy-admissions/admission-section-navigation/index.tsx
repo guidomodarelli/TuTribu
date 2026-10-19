@@ -14,10 +14,13 @@
 import { useLayoutEffect, useRef } from "react";
 import { useReducedMotion } from "motion/react";
 import { Link } from "@/components/navigation/link";
+import { useMemberTribe } from "@/components/platform/member-tribes-provider";
+import { admissionAudienceForRole, visibleAdmissionSections } from "@/lib/academy-admissions/admission-sections";
+import type { AdmissionSection, AdmissionSectionAudience } from "@/src/modules/academy-admissions/constants/admission-sections";
 import styles from "./styles.module.scss";
 
-/** One destination of the admission workspace, already filtered for the viewer. */
-export type AdmissionSectionNavigationItem = { href: string; label: string; current: boolean };
+/** The tribe and section of the page, plus the audience the page resolved on the server. */
+export type AdmissionSectionNavigationProps = { label: string; slug: string; section?: AdmissionSection; fallbackAudience: AdmissionSectionAudience };
 
 /** Smooth scrolling keeps the current section in view without a jump; reduced motion scrolls instantly. */
 const SMOOTH_SCROLL = "smooth";
@@ -26,12 +29,17 @@ const INSTANT_SCROLL = "auto";
 const CENTERING_DIVISOR = 2;
 
 /**
- * @param props - Accessible name and the sections the viewer may open.
- * @returns A navigation landmark whose current link carries `aria-current="page"` and stays visible in the scrolling row.
+ * @param props - Accessible name, tribe, current section and the server's audience for the page.
+ * @returns A navigation landmark with the sections the member's role opens, as in the app rail, whose current link
+ * carries `aria-current="page"` and stays visible in the scrolling row.
  */
-export function AdmissionSectionNavigation({ label, items }: { label: string; items: readonly AdmissionSectionNavigationItem[] }) {
+export function AdmissionSectionNavigation({ label, slug, section, fallbackAudience }: AdmissionSectionNavigationProps) {
   const list = useRef<HTMLUListElement>(null);
   const reduce = useReducedMotion();
+  const tribe = useMemberTribe(slug);
+  const audience = tribe ? admissionAudienceForRole(tribe.role) : fallbackAudience;
+  const tribePath = `/${encodeURIComponent(slug)}`;
+  const items = visibleAdmissionSections(audience).map((item) => ({ href: `${tribePath}/${item.segment}`, label: item.label, current: item.section === section }));
   const currentHref = items.find((item) => item.current)?.href;
 
   useLayoutEffect(() => {

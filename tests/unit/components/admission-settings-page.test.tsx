@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { describe, expect, it, vi } from "vitest";
 import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
+import { MemberTribesProvider } from "@/components/platform/member-tribes-provider";
+import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import { ADMISSION_SECTION, ADMISSION_SECTION_AUDIENCE } from "@/src/modules/academy-admissions/constants/admission-sections";
 
@@ -40,11 +42,22 @@ describe("AdmissionSettingsPage", () => {
     expect(within(region).getByText("Contenido")).toBeVisible();
   });
 
-  it("should limit a reviewer to the review sections and return them to the academy", () => {
+  it("should limit a reviewer to the review sections and return them to academy management", () => {
     render(<AdmissionSettingsPage title="Avisos de admisión" section={ADMISSION_SECTION.notifications} slug="tribu" audience={ADMISSION_SECTION_AUDIENCE.reviewer}><p>Contenido</p></AdmissionSettingsPage>, { wrapper: Providers });
 
     expect(readSections().map(({ name, current }) => ({ name, current }))).toEqual([{ name: "Solicitudes", current: null }, { name: "Avisos", current: "page" }]);
-    expect(screen.getByRole("link", { name: "Volver a la academia" })).toHaveAttribute("href", "/tribu/academia");
+    expect(screen.getByRole("link", { name: "Gestionar academia" })).toHaveAttribute("href", "/tribu/academia/gestionar");
+  });
+
+  it("should follow the member's role from the platform layout, as the app rail does, over the page's fallback audience", () => {
+    const leaderTribe = { logoUrl: null, membershipStatus: "active", name: "Tribu", role: "leader", slug: "tribu", tribeId: "tribe-1", accessModel: "academy" } satisfies MemberTribeListItemResult;
+    const view = render(<MemberTribesProvider memberTribes={[leaderTribe]}><AdmissionSettingsPage title="Solicitudes de ingreso" section={ADMISSION_SECTION.review} slug="tribu" audience={ADMISSION_SECTION_AUDIENCE.reviewer}><p>Contenido</p></AdmissionSettingsPage></MemberTribesProvider>, { wrapper: Providers });
+
+    expect(readSections().map(({ name }) => name)).toEqual(["Solicitudes", "Reglas", "Habilitados", "Invitaciones", "Países y cupos", "Conexión", "Avisos", "Actividad"]);
+    expect(readSections()[0].current).toBe("page");
+
+    view.rerender(<MemberTribesProvider memberTribes={[{ ...leaderTribe, role: "guardian" }]}><AdmissionSettingsPage title="Reglas de admisión" section={ADMISSION_SECTION.policy} slug="tribu" audience={ADMISSION_SECTION_AUDIENCE.leader}><p>Contenido</p></AdmissionSettingsPage></MemberTribesProvider>);
+    expect(readSections().map(({ name }) => name)).toEqual(["Solicitudes", "Avisos"]);
   });
 
   it("should keep related actions apart from the section navigation", () => {

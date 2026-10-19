@@ -48,11 +48,7 @@ export const ADMISSION_WORKSPACE_COPY = {
   navigation: "Secciones de admisión",
   related: "Acciones relacionadas",
   backToManagement: "Gestionar academia",
-  backToAcademy: "Volver a la academia",
 } as const;
 
-/** Return destination of the workspace frame for each audience: leaders manage the academy, reviewers go back to it. */
-export const ADMISSION_WORKSPACE_RETURN = {
-  leader: { label: ADMISSION_WORKSPACE_COPY.backToManagement, href: ROUTES.tribes.academyManage },
-  reviewer: { label: ADMISSION_WORKSPACE_COPY.backToAcademy, href: ROUTES.tribes.academy },
-} as const satisfies Record<AdmissionSectionAudience, { label: string; href: (slug: string) => string }>;
+/** Return destination of the workspace frame: academy management, which leaders and guardians both open from the app rail. */
+export const ADMISSION_WORKSPACE_RETURN = { label: ADMISSION_WORKSPACE_COPY.backToManagement, href: ROUTES.tribes.academyManage } as const;

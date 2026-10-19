@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { AppRailShell } from "@/components/app-rail/app-rail-shell";
 import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-client";
 import { NotificationCenter } from "./notification-center";
+import { MemberTribesProvider } from "@/components/platform/member-tribes-provider";
 import { TribeSwitcher } from "@/components/platform/tribe-switcher";
 import { TribeSupportButton } from "@/components/tribes/tribe-support-button";
 import { ThemeModeDropdown } from "@/components/theme/theme-mode-dropdown";
@@ -132,7 +133,7 @@ function PlatformLayoutShell({
         </div>
       }
     >
-      <div className={styles.PlatformLayout__content}>{children}</div>
+      <div className={styles.PlatformLayout__content}><MemberTribesProvider memberTribes={memberTribes}>{children}</MemberTribesProvider></div>
     </AppRailShell>
   );
 }
