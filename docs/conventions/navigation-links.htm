@@ -80,7 +80,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-num">05</div>
   <div class="section-title">Notes</div>
 <ul>
-  <li>Funciona con composición <code>asChild</code> de @astra-kit/ui (por ejemplo <code>&lt;Button asChild&gt;&lt;Link /&gt;&lt;/Button&gt;</code>) porque reenvía la <code>ref</code> al ancla.</li>
+  <li>Reenvía la <code>ref</code> al ancla, así que funciona dentro de componentes que necesitan un elemento enfocable (por ejemplo, el <code>trigger</code> de <code>DropdownMenu</code>). <code>Button</code> de @astra-kit/ui no tiene <code>asChild</code>: un enlace con aspecto de botón sigue siendo <code>Link</code>, con el mixin <code>action-link</code> de <code>src/styles/_action-link.scss</code>.</li>
   <li>El cambio de comportamiento (prefetch por defecto) vive en un solo lugar, así que ajustarlo a futuro no requiere tocar cada uso.</li>
 </ul>
 </div>
