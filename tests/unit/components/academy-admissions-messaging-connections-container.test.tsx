@@ -360,4 +360,14 @@ describe("connection wizard first container step",()=>{
     await openTab("Canales");expect(screen.getByLabelText("Identificador del remitente")).toHaveValue("remitente-borrador");
     expect(diagnosticClient.issue).not.toHaveBeenCalled();expect(resourcesClient.configure).not.toHaveBeenCalled();expect(resourcesClient.read).not.toHaveBeenCalled();expect(fixture.reauthentication.create).not.toHaveBeenCalled();
   });
+  it("should explain an empty sender list instead of leaving the leader with an unexplained empty choice",async()=>{
+    const fixture=containerFixture(),user=userEvent.setup(),now=new Date().toISOString(),candidate={id:fixture.connectionId,name:"Candidata sin remitentes",version:3,configurationVersion:2,state:"ready" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,capabilities:[]},initialState:MessagingConnectionsPageState={...fixture.initialState,kind:"ready",renderedAt:now,configuration:{...fixture.configuration,candidate}};
+    const resourcesClient:MessagingResourcesBrowserClient={read:vi.fn<MessagingResourcesBrowserClient["read"]>(async()=>({status:"ready",value:{connectionId:candidate.id,configurationVersion:candidate.configurationVersion,items:[{id:randomUUID(),label:"Sólo WhatsApp",channels:["whatsapp" as const],readiness:"ready" as const}]}})),configure:vi.fn()};
+    fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:{...fixture.configuration,candidate}}));
+    render(<MessagingConnectionsContainer {...fixture} initialState={initialState} resourcesClient={resourcesClient} />);
+    await openTab("Canales");await waitFor(()=>expect(screen.getByRole("button",{name:"Consultar remitentes"})).toBeEnabled());
+    await user.click(screen.getByRole("button",{name:"Consultar remitentes"}));
+    await waitFor(()=>expect(screen.getByRole("status")).toHaveTextContent(MESSAGING_RESOURCE_UI_COPY.sendersEmpty));
+    expect(resourcesClient.read).toHaveBeenCalledTimes(1);expect(resourcesClient.configure).not.toHaveBeenCalled();
+  });
 });

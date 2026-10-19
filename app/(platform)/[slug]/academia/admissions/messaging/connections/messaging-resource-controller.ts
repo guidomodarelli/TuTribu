@@ -50,7 +50,9 @@ export function useMessagingResourceController(options:ResourceControllerOptions
       if(outcome.status==="ready"){
         if(cursor&&outcome.value.nextCursor===cursor){apply({items:[]});options.feedback({kind:"alert",text:MESSAGING_RESOURCE_UI_COPY.readingFailed});return;}
         const items=more?[...new Map([...previous.items,...outcome.value.items].map((resource)=>[resource.id,resource])).values()]:outcome.value.items;
-        apply({items,...(outcome.value.nextCursor?{nextCursor:outcome.value.nextCursor}:{})});options.feedback(null);
+        apply({items,...(outcome.value.nextCursor?{nextCursor:outcome.value.nextCursor}:{})});// Senders also serve other channels; only the ones usable by the chosen channel count as found.
+        const usable=kind===MESSAGING_RESOURCE_KIND.senders?items.filter((sender)=>sender.channels.includes(draft.channel)):items;
+        options.feedback(usable.length===0?{kind:"status",text:kind===MESSAGING_RESOURCE_KIND.senders?MESSAGING_RESOURCE_UI_COPY.sendersEmpty:MESSAGING_RESOURCE_UI_COPY.templatesEmpty}:null);
       }else if(outcome.status==="failed"){apply({items:[]});if(outcome.code===MESSAGING_ERROR_CODE.connectionConflict)options.conflict();options.feedback({kind:"alert",text:outcome.message});}
     });
   };

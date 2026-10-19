@@ -11,6 +11,7 @@ import {MESSAGING_PUBLIC_CHANNEL} from "@/src/modules/messaging/constants/messag
 import {MESSAGING_DELIVERY_STATE_LABEL} from "@/src/modules/messaging/constants/messaging-diagnostic-browser";
 import {MESSAGING_CHANNEL_LABEL} from "@/src/modules/messaging/constants/messaging-connection-presentation";
 import {SECONDS_PER_MINUTE} from "@/src/constants/time";
+import {ADMISSION_LIMIT} from "@/src/modules/academy-admissions/constants/admission-limits";
 import styles from "./styles.module.scss";
 
 /** Controlled destination/code never belong in durable browser metadata; the route owns authority and lifecycle. `verified` is true only for this exact issued diagnostic. */
@@ -41,7 +42,7 @@ export function MessagingConnectionDiagnostic(props:MessagingConnectionDiagnosti
       </>}
       {props.delivery&&<p className={styles.MessagingConnectionDiagnostic__note}>Entrega: <span role="status">{MESSAGING_DELIVERY_STATE_LABEL[props.delivery.state]}</span></p>}
       {awaitingCode&&<form className={styles.MessagingConnectionDiagnostic__form} onSubmit={(event)=>{event.preventDefault();props.onVerify();}}>
-        <Input id={`${fieldId}-code`} label="Código recibido" description={undefined} error={props.fieldErrors.verificationCode} inputMode="numeric" autoComplete="one-time-code" value={props.verificationCode} disabled={props.busy||expired} onChange={(event)=>props.onCodeChange(event.target.value)} />
+        <Input id={`${fieldId}-code`} label="Código recibido" description={undefined} error={props.fieldErrors.verificationCode} inputMode="numeric" autoComplete="one-time-code" maxLength={ADMISSION_LIMIT.verificationCodeDigits} value={props.verificationCode} disabled={props.busy||expired} onChange={(event)=>props.onCodeChange(event.target.value)} />
         <div className={styles.MessagingConnectionDiagnostic__actions}>
           <Button className={styles.MessagingConnectionDiagnostic__action} type="submit" variant="primary" disabled={props.busy||!props.canVerify}>Confirmar código recibido</Button>
           <Button className={styles.MessagingConnectionDiagnostic__action} variant="secondary" disabled={props.busy} onClick={props.onReadDelivery}>Consultar entrega de la prueba</Button>

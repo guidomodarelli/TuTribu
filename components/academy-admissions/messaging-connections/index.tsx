@@ -5,6 +5,7 @@ import {Button,Checkbox,Input} from "beez-ui";
 import type {MessagingConfigurationResult} from "@/src/modules/messaging/application/results/messaging-configuration-result";
 import {MESSAGING_OPERATIONAL_ALERT_LABEL} from "@/src/modules/messaging/constants/messaging-connection-presentation";
 import {TRIBE_MEMBER_ROLE} from "@/src/modules/tribes/constants/tribe-member-role";
+import {ADMISSION_LIMIT} from "@/src/modules/academy-admissions/constants/admission-limits";
 import styles from "./styles.module.scss";
 
 /** The route container owns ephemeral key state, validation, consent, mutations, feedback and any reauthentication. */
@@ -27,7 +28,7 @@ export function MessagingConnections(props:MessagingConnectionsProps){
     <h2 id={titleId} className={styles.MessagingConnections__title}>Conectar Zavu</h2>
     <p className={styles.MessagingConnections__lead}>Se guarda como conexión candidata. Después vas a comprobar la credencial y los canales antes de activarla.</p>
     <form className={styles.MessagingConnections__form} aria-label="Guardar conexión candidata" onSubmit={(event)=>{event.preventDefault();props.onSave();}}>
-      <Input id={`${fieldId}-name`} label="Nombre de la conexión" description={undefined} error={props.fieldErrors.name} value={props.name} disabled={props.busy} onChange={(event)=>props.onNameChange(event.target.value)} placeholder="Mensajería de mi academia" />
+      <Input id={`${fieldId}-name`} label="Nombre de la conexión" description={undefined} error={props.fieldErrors.name} value={props.name} disabled={props.busy} onChange={(event)=>props.onNameChange(event.target.value)} placeholder="Mensajería de mi academia" maxLength={ADMISSION_LIMIT.displayNameCharacters} />
       <Input id={`${fieldId}-key`} label="Clave de Zavu" description="No se muestra ni se guarda en el navegador." error={props.fieldErrors.apiKey} type="password" autoComplete="off" spellCheck={false} value={props.apiKey} disabled={props.busy} onChange={(event)=>props.onApiKeyChange(event.target.value)} />
       <div className={styles.MessagingConnections__consent}>
         <Checkbox id={confirmationId} checked={props.confirmed} disabled={props.busy} onCheckedChange={(checked)=>props.onConfirmationChange(checked===true)} aria-invalid={Boolean(props.fieldErrors.confirmation)} aria-describedby={props.fieldErrors.confirmation?`${confirmationId}-error`:undefined} label="Confirmo que quiero guardar esta credencial para la academia." />

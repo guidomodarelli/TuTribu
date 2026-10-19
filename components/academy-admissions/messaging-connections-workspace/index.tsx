@@ -17,7 +17,7 @@ const CAPABILITY_STATE_TONE={unprepared:"neutral",prepared:"success",unavailable
 export type MessagingConnectionsWorkspaceProps={
   selected:MessagingConfigurationConnection|null;candidate:MessagingConfigurationConnection|null;
   activeTab:MessagingConnectionsTab;nextStep:MessagingConnectionsNextStep;busy:boolean;
-  message:{kind:"status"|"alert";text:string}|null;attention?:ReactNode;
+  message:{kind:"status"|"alert";text:string}|null;messageAction?:ReactNode;attention?:ReactNode;
   panels:Record<MessagingConnectionsTab,ReactNode|null>;
   onTabChange:(tab:MessagingConnectionsTab)=>void;onReadCurrent:()=>void;
 };
@@ -66,7 +66,6 @@ export function MessagingConnectionsWorkspace(props:MessagingConnectionsWorkspac
         {!done&&props.activeTab!==nextTab&&<Button variant="secondary" size="sm" onClick={()=>props.onTabChange(nextTab)}>{`Ir a ${MESSAGING_CONNECTIONS_TAB_LABEL[nextTab]}`}</Button>}
       </div>
     </section>
-    {props.message&&<p className={`${styles.MessagingConnectionsWorkspace__feedback} ${props.message.kind==="alert"?styles["MessagingConnectionsWorkspace__feedback--alert"]:""}`} role={props.message.kind} aria-live={props.message.kind==="alert"?"assertive":"polite"}>{props.message.text}</p>}
     {props.attention}
     <Tabs className={styles.MessagingConnectionsWorkspace__tabs} value={props.activeTab} onValueChange={(value)=>{const tab=MESSAGING_CONNECTIONS_TAB_ORDER.find((candidate)=>candidate===value);if(tab)props.onTabChange(tab);}}>
       <TabsList className={styles.MessagingConnectionsWorkspace__tabList} aria-label="Pasos de la conexión">
@@ -74,6 +73,8 @@ export function MessagingConnectionsWorkspace(props:MessagingConnectionsWorkspac
       </TabsList>
       {MESSAGING_CONNECTIONS_TAB_ORDER.map((tab)=><TabsContent key={tab} value={tab} forceMount={tab===MESSAGING_CONNECTIONS_TAB.security||undefined} hidden={props.activeTab!==tab} className={styles.MessagingConnectionsWorkspace__panel}>
         {props.panels[tab]??<div className={styles.MessagingConnectionsWorkspace__blocked}><p className={styles.MessagingConnectionsWorkspace__empty}>Este paso necesita una conexión candidata. Guardá la clave de Zavu en Conexión para continuar.</p><Button variant="secondary" size="sm" onClick={()=>props.onTabChange(MESSAGING_CONNECTIONS_TAB.connection)}>Ir a Conexión</Button></div>}
+        {/* The result sits next to the actions that produce it, so it stays in view on narrow screens. */}
+        {props.activeTab===tab&&(props.message||props.messageAction)&&<div className={styles.MessagingConnectionsWorkspace__result}>{props.message&&<p className={`${styles.MessagingConnectionsWorkspace__feedback} ${props.message.kind==="alert"?styles["MessagingConnectionsWorkspace__feedback--alert"]:""}`} role={props.message.kind} aria-live={props.message.kind==="alert"?"assertive":"polite"}>{props.message.text}</p>}{props.messageAction}</div>}
       </TabsContent>)}
     </Tabs>
   </div>;

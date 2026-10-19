@@ -95,6 +95,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 ### Changed
 
 - La conexión de mensajería se organiza en pestañas Conexión, Canales, Pruebas, Activación y Seguridad, con un resumen del estado de cada conexión, el próximo paso destacado y una sola acción principal por paso; la confirmación con Google queda como opción secundaria y, al volver de Google, se reabre la misma pestaña. Cambiar de pestaña conserva lo escrito y no envía ni activa nada.
+- En la conexión de mensajería, el resultado de cada acción y el enlace para continuar con Google aparecen junto a la acción que los produjo, también en pantallas angostas.
+- Los títulos y destacados de las pantallas de admisión y mensajería usan el peso de letra del sistema de diseño.
 - El indicador de carga que se convierte en un check o una cruz y el balanceo de la campana cuando llegan notificaciones nuevas son un poco más rápidos.
 - Las animaciones de la aplicación son más sobrias: las etiquetas, filas de tablas y avatares aparecen sin animación de entrada, los enlaces ya no se mueven al pasar el puntero, y los menús y desplegables se abren creciendo desde el botón que los abre.
 - Se agiliza la preparación de las operaciones de ingreso y revisión.
@@ -126,6 +128,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 - Una prueba de canal con el código ya confirmado deja de mostrar el vencimiento, el campo de código y el reenvío; la confirmación sólo se aplica a la prueba que emitió ese código.
 - La conexión de mensajería ya no muestra errores en los campos antes de que el líder los complete.
+- Consultar remitentes o plantillas sin resultados explica que Zavu no devolvió opciones, en lugar de dejar la lista vacía sin aviso.
+- El nombre de la conexión y el código de prueba ya no aceptan más caracteres que los permitidos.
 - La confirmación de acciones sensibles permite mantener abierta la sesión de Google y deja de exigir salir y volver a ingresar; la cuenta se comprueba para la acción concreta durante diez minutos.
 - Al cancelar una solicitud o resolver una revisión individual con teclado, el resultado recibe el foco si desaparece la acción; si lo moviste a otro control, se conserva allí.
 
