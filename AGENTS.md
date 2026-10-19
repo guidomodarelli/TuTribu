@@ -148,6 +148,11 @@ npx create-next-app@latest . --ts --eslint --tailwind --app --import-alias "@/*"
 - Add new shadcn/ui components through its official CLI in that library, never in this application.
 - Do not reintroduce `components/ui` source copies or a local `components.json`.
 - Prefer composition of existing shared primitives before custom product components.
+- Component sourcing priority for new or redesigned UI, checked in this order before building a custom component:
+  1. Arc Pro components and blocks (uiarc.dev, through the Arc MCP server): adapt them in this application following "Arc Pro license".
+  2. Arc Free components: add them to the `golfo-ui` repository (package `@golfo/ui`, successor of `@astra-kit/ui`, GitHub `guidomodarelli/golfo-ui`) first, release a version, and only then consume them here.
+  3. reui.io Free components only (never reui Pro): migrate them to `golfo-ui` the same way before consuming them.
+  Skip a candidate only when its `whenNotToUse` guidance or the product needs rule it out, and say why.
 - Import browser-ready `@astra-kit/ui/styles.css` once from the global stylesheet; do not add Tailwind compilation or `@source` in the consumer. It provides the Arc foundation (semantic color roles, concentric radii, control heights, shadows, keyboard-only focus outline, blue accent) in light and dark; product SCSS Modules use those tokens and explicit overrides stay here. Fonts come from `app/fonts` through `next/font/local`: Inter for text and controls, Geist for display headings; use only weights 400 and 500.
 - Use `Button` with Arc's API (`variant` `primary`, `secondary`, `ghost` or `danger`; `size` `sm`, `md` or `lg`; `loading`). It has no `asChild`: navigation that looks like a button stays a `Link`, `<a>` or `<label>` styled with the `action-link` mixin from `src/styles/_action-link.scss`. Icon-only buttons use `size="sm"` with an accessible name.
 - Use pnpm 12.14.0 and consume published `@astra-kit/ui` releases from the public npm registry with a caret range; no registry mapping or token is needed. Update package.json and pnpm-lock.yaml together; do not vendor local tarballs.
