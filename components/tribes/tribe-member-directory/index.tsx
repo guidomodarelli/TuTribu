@@ -8,7 +8,7 @@ import {
   TribeMemberList,
   type TribeMemberSelectionBadge,
 } from "@/components/tribes/tribe-member-list";
-import { Button, DropdownMenu, Input, cn } from "beez-ui";
+import { Button, DropdownMenu, Input, cn } from "@astra-kit/ui";
 
 import type { TribeMemberResult } from "@/src/modules/tribes/application/results/tribe-member-result";
 import {

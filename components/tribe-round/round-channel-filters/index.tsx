@@ -15,7 +15,7 @@ import { isInPageLinkClick } from "@/lib/plain-link-click";
 import type { TribeChannelResult } from "@/src/modules/messages/application/results/tribe-round-result";
 
 import styles from "./styles.module.scss";
-import { cn, SPRING_LAYOUT } from "beez-ui";
+import { cn, SPRING_LAYOUT } from "@astra-kit/ui";
 
 /** Identifier of the "all channels" chip, which has no channel id. */
 const ALL_CHANNELS_FILTER_ID = "all";
@@ -23,7 +23,7 @@ const ALL_CHANNELS_FILTER_ID = "all";
 /** Attribute values and identifiers used by the chip strip markup. */
 const ROUND_CHANNEL_FILTERS_UI = {
   ariaCurrentPage: "page",
-  // A `data-slot` opts the chip out of the beez-ui link hover fade, whose
+  // A `data-slot` opts the chip out of the @astra-kit/ui link hover fade, whose
   // partial opacity would lift the gliding indicator above neighbor chips.
   chipSlot: "round-channel-filter-chip",
   indicatorLayoutId: "round-channel-filter-indicator",

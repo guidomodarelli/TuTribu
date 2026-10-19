@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { CheckCircle2Icon, PencilLineIcon } from "lucide-react";
 
-import { Button, Input, AnimatedCollapse, PresenceSwap, cn } from "beez-ui";
+import { Button, Input, AnimatedCollapse, PresenceSwap, cn } from "@astra-kit/ui";
 
 import {
   CREATE_TRIBE_FORM_ERROR_FIELD,

@@ -10,10 +10,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 // Preserve the existing notification double to isolate Sonner timers and its global toast store.
-// Actual shared component behavior is exercised in beez-ui.test.tsx.
+// Actual shared component behavior is exercised in astra-ui.test.tsx.
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-vi.mock("beez-ui", async () => ({
-  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
+vi.mock("@astra-kit/ui", async () => ({
+  ...await vi.importActual<typeof import("@astra-kit/ui")>("@astra-kit/ui"),
   toast: {
     error: vi.fn(),
     success: vi.fn(),

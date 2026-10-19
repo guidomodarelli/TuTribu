@@ -1,7 +1,7 @@
 "use client";
 
 import { DownloadIcon } from "lucide-react";
-import { Button, PresenceSwap } from "beez-ui";
+import { Button, PresenceSwap } from "@astra-kit/ui";
 
 import { TribeEventAttendanceTrend } from "@/components/events/tribe-event-attendance-trend";
 import { formatBuenosAiresDateTimeRange } from "@/lib/date-time/buenos-aires-format";

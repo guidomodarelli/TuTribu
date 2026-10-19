@@ -3,7 +3,7 @@
  */
 "use client";
 
-import { MOTION_EASE, MOTION_EASE_STANDARD, MOTION_TIMING } from "beez-ui";
+import { MOTION_EASE, MOTION_EASE_STANDARD, MOTION_TIMING } from "@astra-kit/ui";
 import {
   animate,
   motion,

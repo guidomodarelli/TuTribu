@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, cn, PresenceSwap } from "beez-ui";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, cn, PresenceSwap } from "@astra-kit/ui";
 
 import {
   TRIBE_EVENT_TYPE_BADGE_VARIANT,

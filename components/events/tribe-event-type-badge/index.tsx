@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { cn } from "beez-ui";
+import { cn } from "@astra-kit/ui";
 import {
   MapPinIcon,
   MessageCircleQuestionIcon,

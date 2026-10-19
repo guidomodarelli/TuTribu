@@ -7,7 +7,7 @@ import {
   Dialog,
   DialogContent,
   toast,
-} from "beez-ui";
+} from "@astra-kit/ui";
 
 import { Link } from "@/components/navigation/link";
 import { activateAcademy } from "@/lib/academy/academy-api-client";

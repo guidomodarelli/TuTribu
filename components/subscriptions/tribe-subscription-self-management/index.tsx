@@ -8,7 +8,7 @@
 
 import { useRef, useState } from "react";
 import { LoaderCircleIcon, XCircleIcon } from "lucide-react";
-import { toast, Button, PresenceSwap } from "beez-ui";
+import { toast, Button, PresenceSwap } from "@astra-kit/ui";
 
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import styles from "./styles.module.scss";

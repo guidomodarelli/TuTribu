@@ -13,7 +13,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { Avatar, HoverCard, Popover, PopoverContent, PopoverTrigger } from "beez-ui";
+import { Avatar, HoverCard, Popover, PopoverContent, PopoverTrigger } from "@astra-kit/ui";
 
 import type { MessageLikerResult } from "@/src/modules/messages/application/results/tribe-round-result";
 
@@ -42,7 +42,7 @@ const MESSAGE_LIKES_HOVER_CARD_COPY = {
 const NO_HOVER_POINTER_MEDIA_QUERY = "(hover: none)";
 
 const MESSAGE_LIKES_HOVER_CARD_UI = {
-  // Centered over the like button, as before beez-ui 3 moved the default to `start`.
+  // Centered over the like button, as before the shared library moved the default to `start`.
   align: "center",
   ariaLivePolite: "polite",
   buttonType: "button",

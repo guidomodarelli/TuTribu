@@ -36,7 +36,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Avatar, AvatarGroup, Dialog, DialogClose, DialogContent, DialogTrigger, DropdownMenu, type DropdownItem, Input, Tooltip, Pagination, type PaginationClickEvent, Carousel, formatFileSize, AnimatedCount, AnimatedListItem, RichLinkEditor, useRichLinkEditor, RichTextContent, type RichLink, ReactionButton } from "beez-ui";
+import { toast, Button, Avatar, AvatarGroup, Dialog, DialogClose, DialogContent, DialogTrigger, DropdownMenu, type DropdownItem, Input, Tooltip, Pagination, type PaginationClickEvent, Carousel, formatFileSize, AnimatedCount, AnimatedListItem, RichLinkEditor, useRichLinkEditor, RichTextContent, type RichLink, ReactionButton } from "@astra-kit/ui";
 import { MorphLoader } from "@/components/loaders/morph-loader";
 
 import { isInPageLinkClick } from "@/lib/plain-link-click";
