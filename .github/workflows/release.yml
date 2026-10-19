@@ -1,5 +1,5 @@
 name: Release
-run-name: "astra-rp release ${{ inputs.tag }} ${{ inputs.sha }}"
+run-name: "golfo-rp release ${{ inputs.tag }} ${{ inputs.sha }}"
 
 on:
   workflow_dispatch:
@@ -22,7 +22,7 @@ permissions:
 
 
 concurrency:
-  group: "astra-rp-release"
+  group: "golfo-rp-release"
   cancel-in-progress: false
 
 jobs:
@@ -41,22 +41,22 @@ jobs:
           persist-credentials: true
       - name: Verificar identidad del release
         env:
-          ASTRA_RP_RELEASE_VERSION: ${{ inputs.version }}
-          ASTRA_RP_RELEASE_SHA: ${{ inputs.sha }}
+          GOLFO_RP_RELEASE_VERSION: ${{ inputs.version }}
+          GOLFO_RP_RELEASE_SHA: ${{ inputs.sha }}
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
           fail() { echo "::error title=Release no autorizado::$1"; exit 1; }
           version_pattern='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
           sha_pattern='^[a-f0-9]{40,64}$'
-          [[ "$ASTRA_RP_RELEASE_VERSION" =~ $version_pattern ]] || fail "El input version no es una versión estable X.Y.Z; no se instaló nada."
-          [[ "$RELEASE_TAG" == "v$ASTRA_RP_RELEASE_VERSION" ]] || fail "El input tag no es el tag de release v$ASTRA_RP_RELEASE_VERSION; no se instaló nada."
-          [[ "$ASTRA_RP_RELEASE_SHA" =~ $sha_pattern ]] || fail "El input sha no es un commit completo; no se instaló nada."
+          [[ "$GOLFO_RP_RELEASE_VERSION" =~ $version_pattern ]] || fail "El input version no es una versión estable X.Y.Z; no se instaló nada."
+          [[ "$RELEASE_TAG" == "v$GOLFO_RP_RELEASE_VERSION" ]] || fail "El input tag no es el tag de release v$GOLFO_RP_RELEASE_VERSION; no se instaló nada."
+          [[ "$GOLFO_RP_RELEASE_SHA" =~ $sha_pattern ]] || fail "El input sha no es un commit completo; no se instaló nada."
           git fetch --no-tags --quiet origin "+refs/heads/main:refs/remotes/origin/main" || fail "No se pudo traer origin/main para verificar $RELEASE_TAG."
           tag_sha="$(git rev-parse --verify --quiet "refs/tags/$RELEASE_TAG^{commit}")" || fail "$RELEASE_TAG no existe como tag en origin."
-          [[ "$tag_sha" == "$ASTRA_RP_RELEASE_SHA" ]] || fail "$RELEASE_TAG apunta a $tag_sha, no al commit $ASTRA_RP_RELEASE_SHA enviado."
-          [[ "$(git rev-parse HEAD)" == "$ASTRA_RP_RELEASE_SHA" ]] || fail "El checkout no está en el commit $ASTRA_RP_RELEASE_SHA de $RELEASE_TAG."
-          git merge-base --is-ancestor "$ASTRA_RP_RELEASE_SHA" "refs/remotes/origin/main" || fail "El commit $ASTRA_RP_RELEASE_SHA de $RELEASE_TAG no está en origin/main."
+          [[ "$tag_sha" == "$GOLFO_RP_RELEASE_SHA" ]] || fail "$RELEASE_TAG apunta a $tag_sha, no al commit $GOLFO_RP_RELEASE_SHA enviado."
+          [[ "$(git rev-parse HEAD)" == "$GOLFO_RP_RELEASE_SHA" ]] || fail "El checkout no está en el commit $GOLFO_RP_RELEASE_SHA de $RELEASE_TAG."
+          git merge-base --is-ancestor "$GOLFO_RP_RELEASE_SHA" "refs/remotes/origin/main" || fail "El commit $GOLFO_RP_RELEASE_SHA de $RELEASE_TAG no está en origin/main."
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
@@ -99,8 +99,8 @@ jobs:
         wait: install-test-browser
       - name: Checks y publicación del release
         env:
-          ASTRA_RP_RELEASE_VERSION: ${{ inputs.version }}
-          ASTRA_RP_RELEASE_SHA: ${{ inputs.sha }}
+          GOLFO_RP_RELEASE_VERSION: ${{ inputs.version }}
+          GOLFO_RP_RELEASE_SHA: ${{ inputs.sha }}
           RELEASE_TAG: ${{ inputs.tag }}
         shell: bash
         run: |

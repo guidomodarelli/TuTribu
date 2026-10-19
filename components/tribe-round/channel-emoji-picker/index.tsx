@@ -13,7 +13,7 @@ import {
 } from "emoji-picker-react";
 import { SmilePlusIcon } from "lucide-react";
 
-import { Button, Popover, PopoverContent, PopoverTrigger, useTheme, PresenceSwap } from "@astra-kit/ui";
+import { Button, Popover, PopoverContent, PopoverTrigger, useTheme, PresenceSwap } from "@golfo/ui";
 
 import { DARK_THEME_MODE } from "@/src/constants/theme-mode";
 import styles from "./styles.module.scss";

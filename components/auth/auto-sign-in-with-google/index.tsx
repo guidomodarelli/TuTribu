@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
-import { useIsHydrated } from "@astra-kit/ui/hooks";
+import { useIsHydrated } from "@golfo/ui/hooks";
 import { isBackForwardDocumentLoad } from "@/lib/browser-navigation";
 import { ROUTES } from "@/src/constants/routes";
 import { startGoogleSignIn } from "@/src/modules/auth/infrastructure/better-auth/client";

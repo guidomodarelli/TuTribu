@@ -2,7 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 
-import { Button, Dialog, DialogContent, Input, Select, type SelectOption, Textarea, cn } from "@astra-kit/ui";
+import { Button, Dialog, DialogContent, Input, Select, type SelectOption, Textarea, cn } from "@golfo/ui";
 
 import { buildBuenosAiresInstant } from "@/lib/date-time/buenos-aires-format";
 import type { TribeEventProposalSubmission } from "@/lib/events/tribe-event-form-submissions";

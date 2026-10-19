@@ -47,13 +47,13 @@ const nextConfig: NextConfig = {
     tsconfigPath: "tsconfig.typecheck.json",
   },
   // Keep the shared UI and storage package compatible with the Next build.
-  transpilePackages: ["files-sdk", "@astra-kit/ui"],
+  transpilePackages: ["files-sdk", "@golfo/ui"],
   experimental: {
     // Use Turbopack's native React Compiler in development and production.
     turbopackRustReactCompiler: true,
     // TypeScript 7 exposes a native CLI instead of the legacy compiler API.
     useTypeScriptCli: true,
-    optimizePackageImports: ["@astra-kit/ui"],
+    optimizePackageImports: ["@golfo/ui"],
   },
   // Pin the workspace root explicitly. A checked-in `pnpm-workspace.yaml` exists
   // in both the main checkout and every git worktree, so Next.js otherwise infers

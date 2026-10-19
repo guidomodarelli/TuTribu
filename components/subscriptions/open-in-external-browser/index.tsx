@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { AnimatedCount, buttonClassName } from "@astra-kit/ui";
+import { AnimatedCount, buttonClassName } from "@golfo/ui";
 import { navigateToUrl } from "@/lib/browser-navigation";
 import styles from "./styles.module.scss";
 

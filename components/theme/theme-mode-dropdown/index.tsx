@@ -4,8 +4,8 @@ import type { LucideIcon } from "lucide-react";
 import { MonitorIcon, MoonIcon, SunIcon, SunMoonIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
-import { Button, DropdownMenu, type DropdownItem, useTheme, MOTION_TIMING, MOTION_EASE, SPRING_POP } from "@astra-kit/ui";
-import { useIsHydrated } from "@astra-kit/ui/hooks";
+import { Button, DropdownMenu, type DropdownItem, useTheme, MOTION_TIMING, MOTION_EASE, SPRING_POP } from "@golfo/ui";
+import { useIsHydrated } from "@golfo/ui/hooks";
 
 import { isThemeMode } from "@/lib/theme-mode";
 import {

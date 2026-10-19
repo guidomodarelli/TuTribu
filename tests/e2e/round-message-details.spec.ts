@@ -35,7 +35,7 @@ const COMPOSER_DIALOG_TITLE = "Crear mensaje";
 /** First seeded reply: once it renders, the replies request has settled. */
 const FIRST_SEEDED_REPLY = "Primer comentario sembrado.";
 const LIKES_HOVER_CARD_TITLE = "Le gustó a";
-/** Longer than @astra-kit/ui's 500ms hover card open delay, so a pending open would have fired. */
+/** Longer than @golfo/ui's 500ms hover card open delay, so a pending open would have fired. */
 const HOVER_CARD_SETTLE_MS = 1200;
 /** Wait per hydration attempt before clicking the trigger again. */
 const HYDRATION_RETRY_MS = 2000;

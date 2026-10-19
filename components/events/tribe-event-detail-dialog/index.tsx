@@ -3,7 +3,7 @@
 import { type ReactNode, useState } from "react";
 import { CalendarPlusIcon, CopyIcon, DownloadIcon, ExternalLinkIcon, LinkIcon } from "lucide-react";
 
-import { Badge, Button, Dialog, DialogContent, Tabs, TabsContent, TabsList, TabsTrigger, AnimatedCollapse, PresenceSwap, buttonClassName } from "@astra-kit/ui";
+import { Badge, Button, Dialog, DialogContent, Tabs, TabsContent, TabsList, TabsTrigger, AnimatedCollapse, PresenceSwap, buttonClassName } from "@golfo/ui";
 
 import { TribeEventAttendanceOptions } from "@/components/events/tribe-event-attendance-options";
 import { TribeEventAttendanceSummary } from "@/components/events/tribe-event-attendance-summary";

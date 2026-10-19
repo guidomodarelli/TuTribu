@@ -3,7 +3,7 @@
  */
 "use client";
 
-import { MOTION_EASE, MOTION_EASE_STANDARD, MOTION_TIMING } from "@astra-kit/ui";
+import { MOTION_EASE, MOTION_EASE_STANDARD, MOTION_TIMING } from "@golfo/ui";
 import {
   animate,
   motion,

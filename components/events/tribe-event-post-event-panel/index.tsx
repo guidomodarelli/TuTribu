@@ -2,7 +2,7 @@
 
 import { ExternalLinkIcon, FileTextIcon, GraduationCapIcon, VideoIcon } from "lucide-react";
 
-import { Button, AnimatedCollapse, AnimatedCount, PresenceSwap, cn } from "@astra-kit/ui";
+import { Button, AnimatedCollapse, AnimatedCount, PresenceSwap, cn } from "@golfo/ui";
 
 import {
   TRIBE_EVENT_POST_EVENT_LOAD_STATUS,

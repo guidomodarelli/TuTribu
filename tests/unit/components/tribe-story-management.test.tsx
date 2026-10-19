@@ -4,13 +4,13 @@ import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { toast } from "@astra-kit/ui";
+import { toast } from "@golfo/ui";
 
 import { TribeStoryManagement } from "@/components/tribes/tribe-story-management";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-vi.mock("@astra-kit/ui", async () => ({
-  ...await vi.importActual<typeof import("@astra-kit/ui")>("@astra-kit/ui"),
+vi.mock("@golfo/ui", async () => ({
+  ...await vi.importActual<typeof import("@golfo/ui")>("@golfo/ui"),
   toast: {
     error: vi.fn(),
     success: vi.fn(),

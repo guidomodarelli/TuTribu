@@ -1,5 +1,5 @@
 /**
- * Validates that a @astra-kit/ui menu opened from the mobile navigation sheet paints
+ * Validates that a @golfo/ui menu opened from the mobile navigation sheet paints
  * over the sheet instead of behind it: the sheet is a modal layer, and the
  * tribe switcher's menu is portaled to the end of the document, so it must win
  * the stacking order to be seen and used.

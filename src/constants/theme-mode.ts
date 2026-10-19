@@ -1,4 +1,4 @@
-/** Defines the persisted theme contract shared with @astra-kit/ui. */
+/** Defines the persisted theme contract shared with @golfo/ui. */
 /** Preserves preferences saved before the provider migration. */
 export const THEME_MODE_STORAGE_KEY = "tutribu-theme";
 /** Accepted theme modes; the provider resolves the system preference. */

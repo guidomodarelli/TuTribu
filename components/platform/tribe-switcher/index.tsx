@@ -10,7 +10,7 @@ import {
 import type { ReactElement } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-import { DropdownMenu, type DropdownItem, Badge, cn } from "@astra-kit/ui";
+import { DropdownMenu, type DropdownItem, Badge, cn } from "@golfo/ui";
 
 import { ROUTES } from "@/src/constants/routes";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";

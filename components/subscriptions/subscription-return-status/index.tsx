@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@astra-kit/ui";
+import { Button } from "@golfo/ui";
 
 import {
   SUBSCRIPTION_RETURN_POLLING_PHASE,

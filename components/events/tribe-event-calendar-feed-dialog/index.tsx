@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CalendarPlusIcon, CopyIcon, ShieldAlertIcon } from "lucide-react";
-import { Button, Dialog, DialogContent, Input, PresenceSwap, buttonClassName } from "@astra-kit/ui";
+import { Button, Dialog, DialogContent, Input, PresenceSwap, buttonClassName } from "@golfo/ui";
 
 import {
   TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS,

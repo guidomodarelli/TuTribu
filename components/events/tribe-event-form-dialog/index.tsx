@@ -3,7 +3,7 @@
 import { type FormEvent, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
-import { Button, Checkbox, Dialog, DialogContent, Input, Select, type SelectOption, Textarea, MOTION_TIMING, MOTION_EASE } from "@astra-kit/ui";
+import { Button, Checkbox, Dialog, DialogContent, Input, Select, type SelectOption, Textarea, MOTION_TIMING, MOTION_EASE } from "@golfo/ui";
 
 import {
   addDaysToBuenosAiresDateKey,

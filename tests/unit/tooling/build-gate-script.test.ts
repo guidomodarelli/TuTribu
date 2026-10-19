@@ -19,20 +19,20 @@ const BUILD_EXIT_CODE = 1;
 /** Wrapper declared as the Vercel `ignoreCommand`. */
 const IGNORE_BUILD_SCRIPT = "scripts/ignore-build.sh";
 
-/** @astra-kit/rp range declared by every fixture, as the real package.json does. */
-const FIXTURE_ASTRA_RP_RANGE = "^0.1.1";
+/** @golfo/rp range declared by every fixture, as the real package.json does. */
+const FIXTURE_GOLFO_RP_RANGE = "^0.1.1";
 
-/** Installed astra-rp CLI that the `npx` stub runs, so the decision is the real one. */
-const ASTRA_RP_BIN = path.join(path.dirname(createRequire(import.meta.url).resolve("@astra-kit/rp/package.json")), "bin", "astra-rp.js");
+/** Installed golfo-rp CLI that the `npx` stub runs, so the decision is the real one. */
+const GOLFO_RP_BIN = path.join(path.dirname(createRequire(import.meta.url).resolve("@golfo/rp/package.json")), "bin", "golfo-rp.js");
 
 /**
  * Stand-in for `npx`: records its arguments and, depending on `NPX_STUB_MODE`,
- * runs the installed astra-rp gate or simulates an npx or network failure.
+ * runs the installed golfo-rp gate or simulates an npx or network failure.
  */
 const NPX_STUB = `#!/bin/bash
 printf '%s\\n' "$@" > "$NPX_ARGUMENTS_FILE"
 case "$NPX_STUB_MODE" in
-  real) exec node "$ASTRA_RP_BIN" "\${@:5}" ;;
+  real) exec node "$GOLFO_RP_BIN" "\${@:5}" ;;
   network-failure) echo "npm error code ENOTFOUND" >&2; exit 1 ;;
   build-then-failure) echo "BUILD"; exit 1 ;;
 esac
@@ -67,9 +67,9 @@ function runGit(gitArguments: string[], workingDirectory: string): void {
  * Creates a repository with the wrapper and one commit per `package.json` version.
  *
  * @param versions - Versions in commit order.
- * @param declaresAstraRp - Whether the manifests declare the @astra-kit/rp devDependency.
+ * @param declaresGolfoRp - Whether the manifests declare the @golfo/rp devDependency.
  */
-function createRepositoryWithVersions(versions: string[], declaresAstraRp = true): string {
+function createRepositoryWithVersions(versions: string[], declaresGolfoRp = true): string {
   const repositoryRoot = mkdtempSync(path.join(os.tmpdir(), "build-gate-"));
   temporaryDirectories.push(repositoryRoot);
   mkdirSync(path.join(repositoryRoot, "scripts"), { recursive: true });
@@ -80,7 +80,7 @@ function createRepositoryWithVersions(versions: string[], declaresAstraRp = true
   runGit(["config", "core.autocrlf", "false"], repositoryRoot);
 
   for (const version of versions) {
-    const manifest = declaresAstraRp ? { name: "fixture", version, devDependencies: { "@astra-kit/rp": FIXTURE_ASTRA_RP_RANGE } } : { name: "fixture", version };
+    const manifest = declaresGolfoRp ? { name: "fixture", version, devDependencies: { "@golfo/rp": FIXTURE_GOLFO_RP_RANGE } } : { name: "fixture", version };
     writeFileSync(path.join(repositoryRoot, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`);
     runGit(["add", "-A"], repositoryRoot);
     runGit(["commit", "--quiet", "--allow-empty", "-m", version], repositoryRoot);
@@ -124,7 +124,7 @@ function runIgnoreCommand(repositoryRoot: string, npxStubMode: NpxStubMode) {
       PATH: `${stubDirectory}${path.delimiter}${environment.PATH ?? ""}`,
       NPX_STUB_MODE: npxStubMode,
       NPX_ARGUMENTS_FILE: argumentsFile,
-      ASTRA_RP_BIN,
+      GOLFO_RP_BIN,
     },
   });
   const npxArguments = existsSync(argumentsFile) ? readFileSync(argumentsFile, "utf8").trim().split(/\r?\n/u) : null;
@@ -140,11 +140,11 @@ afterEach(() => {
 
 describe("vercel ignore command", () => {
   it(
-    "should run the @astra-kit/rp range declared in package.json and build the next stable version",
+    "should run the @golfo/rp range declared in package.json and build the next stable version",
     () => {
       const { exitCode, output, npxArguments } = runIgnoreCommand(createRepositoryWithVersions(["0.1.0", "0.2.0"]), "real");
 
-      expect(npxArguments).toEqual(["--yes", "--package", `@astra-kit/rp@${FIXTURE_ASTRA_RP_RANGE}`, "astra-rp", "ignore-build"]);
+      expect(npxArguments).toEqual(["--yes", "--package", `@golfo/rp@${FIXTURE_GOLFO_RP_RANGE}`, "golfo-rp", "ignore-build"]);
       expect(output).toContain("0.1.0 -> 0.2.0. Building.");
       expect(exitCode).toBe(BUILD_EXIT_CODE);
     },
@@ -173,7 +173,7 @@ describe("vercel ignore command", () => {
   );
 
   it(
-    "should skip the build without calling npx when package.json does not declare @astra-kit/rp",
+    "should skip the build without calling npx when package.json does not declare @golfo/rp",
     () => {
       const { exitCode, npxArguments } = runIgnoreCommand(createRepositoryWithVersions(["0.1.0", "0.2.0"], false), "real");
 

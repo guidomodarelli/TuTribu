@@ -11,7 +11,7 @@ import {
   ListIcon,
   RssIcon,
 } from "lucide-react";
-import { Button, cn, AnimatedCount, SPRING_LAYOUT } from "@astra-kit/ui";
+import { Button, cn, AnimatedCount, SPRING_LAYOUT } from "@golfo/ui";
 
 import type { MonthTransitionDirection } from "@/components/events/tribe-events-calendar/use-month-transition-direction";
 import { Link } from "@/components/navigation/link";
