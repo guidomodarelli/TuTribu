@@ -189,6 +189,28 @@ messaging, notices and activity).
 - Group consent and actions at the end of the block they confirm, primary
   first; recovery goes in a callout with a colored rule.
 - Share rhythm through `src/styles/_workspace-panel.scss` instead of local copies.
+- When a family needs setup before it works, the landing page shows a setup
+  guide (`components/academy-admissions/admission-setup-guide`): ordered steps
+  derived from server state, required versus optional, a quiet progress bar and
+  one primary link to the next step. Hide it once nothing is left.
+
+## Guided settings and write feedback
+
+- Settings that take several decisions use `components/forms/guided-steps`:
+  one decision per step, a numbered progress list, Back and Continue, and a
+  review step with a readable summary, a single confirmation and one final
+  action. Explain why Continue is blocked instead of disabling it silently.
+- A final action that needs several writes (create, save, check, activate)
+  runs them in sequence, names the current stage in a `role="status"` line and,
+  on failure, says what was already saved and retries only what is left.
+- Every button that writes uses `Button` `loading` while its request is in
+  flight: it keeps its label and keyboard focus, and the other write buttons of
+  the screen are disabled. Reads never change a write button's label.
+- Confirm each action with its own success message (`role="status"` plus a
+  success toast); never announce as saved what the server did not confirm.
+- Default to the recommended choice (for example grouped notices) and warn in
+  place when a choice silently disables the feature (a zero quota, omitted
+  notices, closed admissions).
 
 ## Multi-step workspaces
 

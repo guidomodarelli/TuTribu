@@ -6,6 +6,11 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- Solicitudes muestra al líder una guía de configuración con los pasos en orden (reglas, conexión, países y cupos, abrir las admisiones y avisos), cuáles ya están listos y un único botón hacia el siguiente; desaparece cuando todo está completo.
+- Reglas de admisión se configura en pasos chicos (cómo se admite, cómo se contactan, recibir solicitudes y revisión) y termina con una sola acción, «Guardar y activar admisiones», que guarda, revisa los requisitos y activa mostrando cada etapa; si falta algo, indica qué y dónde resolverlo sin perder lo elegido.
+- Con las admisiones activas, Reglas muestra si están abiertas o pausadas y ofrece pausar con motivo, reanudar y editar las reglas sin reabrirlas por error.
+- Avisos de admisión se configura en pasos: correo de la tribu, frecuencia (agrupada cada cinco minutos por defecto) y revisión con un solo «Guardar avisos»; al volver muestra un resumen de lo que vas a recibir y marca los cambios sin guardar.
+- Países y cupos se configura en pasos (países, códigos por día, avisos por día y revisión) con un resumen del uso actual; advierte cuando un cupo en cero o muy bajo impide enviar avisos.
 - Consumo e historial de admisión avisa cuando el mantenimiento lleva más de diez minutos sin ejecutarse, porque los avisos, vencimientos y reintentos pueden atrasarse.
 - Países y cupos muestra el consumo diario de códigos y avisos con un medidor de uso por cupo.
 - Las bandejas y listas vacías de admisión explican qué falta y cómo se completan.
@@ -99,6 +104,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
+- Todos los botones que guardan en admisión y mensajería muestran un indicador de carga mientras se guarda, conservan su texto y el foco, y bloquean las demás acciones de la pantalla hasta terminar; las consultas ya no cambian el texto de los botones.
+- Cada acción de Reglas confirma su propio resultado (activadas, pausadas, reanudadas o cambios guardados) en lugar de un mensaje genérico.
 - La conexión de mensajería guía el avance con un indicador de pasos: los pasos completados se pueden volver a abrir, los siguientes se habilitan al completar el actual y Seguridad y retiro queda como acción aparte.
 - Las pantallas de la plataforma usan todo el ancho disponible; los textos y formularios conservan un ancho cómodo de lectura.
 - Las páginas de admisión se rediseñaron con jerarquía más clara: la bandeja muestra estado y origen como insignias, el detalle agrupa los datos de la solicitud, las reglas empiezan por un resumen del estado actual, el historial se lee como línea de tiempo y los formularios separan datos, confirmación y acciones.
@@ -138,6 +145,11 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- Países y cupos ya no anuncia como guardados los valores elegidos cuando solo se creó la configuración inicial: crea la configuración y guarda lo elegido en la misma acción.
+- Reglas de admisión ya no muestra al líder el aviso de que la configuración es solo para el líder mientras guarda o después de un error.
+- Pausar las admisiones ya no deja preparado un guardado que las reabre sin querer.
+- Guardar una entrada de habilitados muestra que el cambio quedó guardado en lugar del mensaje de recuperación.
+- Aprobar o rechazar una solicitud ya no cambia el texto de los dos botones a «Guardando decisión…» al consultar o navegar.
 - El próximo paso de la conexión de mensajería ya no se frena por un canal no disponible cuando otro canal se puede usar.
 - Las páginas de admisión ya no fallan al cambiar de sección mientras la página termina de cargar.
 - Una prueba de canal con el código ya confirmado deja de mostrar el vencimiento, el campo de código y el reenvío; la confirmación sólo se aplica a la prueba que emitió ese código.
