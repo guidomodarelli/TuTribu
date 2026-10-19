@@ -1,20 +1,79 @@
+@use "../../../src/styles/workspace-panel";
+
 .AllowlistManagement {
   display: grid;
-  gap: 1.5rem;
-  width: 100%;
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
-  max-width: 64rem;
+  gap: 2rem;
   overflow-wrap: anywhere;
 
-  &__filters { display: flex; flex-wrap: wrap; align-items: end; gap: 0.75rem; }
-  &__field { display: grid; gap: 0.5rem; min-width: 0; flex: 1 1 16rem; }
-  &__entries { display: grid; gap: 1rem; }
-  &__list { display: grid; margin: 0; padding: 0; list-style: none; }
-  &__row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem; padding-block: 1rem; border-bottom: 1px solid var(--border); }
-  &__identity { display: grid; gap: 0.25rem; min-width: 0; flex: 1 1 16rem; }
-  &__form { display: grid; gap: 1rem; min-width: 0; max-width: 42rem; }
-  &__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
-  &__confirmation { display: flex; align-items: start; gap: 0.75rem; }
-  &__help { color: var(--muted-foreground); font-size: 0.875rem; line-height: 1.6; }
-  &__error { color: var(--destructive); line-height: 1.5; }
+  &__help {
+    @include workspace-panel.note;
+  }
+
+  &__filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    min-width: 0;
+    gap: 0.75rem;
+  }
+
+  &__field {
+    @include workspace-panel.field;
+
+    flex: 1 1 14rem;
+  }
+
+  &__entries {
+    @include workspace-panel.section;
+
+    & > h2 {
+      @include workspace-panel.title;
+    }
+  }
+
+  &__list {
+    @include workspace-panel.rows;
+  }
+
+  &__row {
+    @include workspace-panel.row;
+  }
+
+  &__identity {
+    @include workspace-panel.row-main;
+
+    & > strong {
+      @include workspace-panel.row-title;
+    }
+  }
+
+  &__form {
+    @include workspace-panel.block;
+    @include workspace-panel.form;
+
+    max-width: none;
+
+    & > h2 {
+      @include workspace-panel.title;
+    }
+
+    & > * {
+      max-width: 40rem;
+    }
+  }
+
+  &__actions {
+    @include workspace-panel.actions;
+  }
+
+  &__confirmation {
+    @include workspace-panel.consent;
+  }
+
+  &__error {
+    @include workspace-panel.feedback;
+    @include workspace-panel.feedback-alert;
+  }
 }

@@ -12,9 +12,8 @@ export type AdmissionReviewHistoryProps = { items: readonly AdmissionReviewHisto
 
 /** @param props - Safe visible facts, allowlisted links and route-owned current-access recovery. @returns A plain semantic timeline without private notes, actor ids or provider diagnostics. */
 export function AdmissionReviewHistory({ items, checking, refreshDisabled, errorMessage, backHref, olderHref, newestHref, onRefresh }: AdmissionReviewHistoryProps) {
-  return <section className={styles.AdmissionReviewHistory} aria-label={ADMISSION_REVIEW_HISTORY_COPY.title}>
-    <header className={styles.AdmissionReviewHistory__header}><h1 className={styles.AdmissionReviewHistory__title}>{ADMISSION_REVIEW_HISTORY_COPY.title}</h1><p className={styles.AdmissionReviewHistory__help}>{ADMISSION_REVIEW_HISTORY_COPY.description}</p></header>
-    <nav className={styles.AdmissionReviewHistory__actions} aria-label="Navegación del historial"><Link href={backHref}>{ADMISSION_REVIEW_HISTORY_COPY.back}</Link><Button type="button" variant="secondary" disabled={checking || refreshDisabled} onClick={onRefresh}>{ADMISSION_REVIEW_HISTORY_COPY.refresh}</Button></nav>
+  return <div className={styles.AdmissionReviewHistory}>
+    <nav className={styles.AdmissionReviewHistory__toolbar} aria-label="Navegación del historial"><Link className={styles.AdmissionReviewHistory__back} href={backHref}><span aria-hidden="true">←</span> {ADMISSION_REVIEW_HISTORY_COPY.back}</Link><Button type="button" variant="secondary" size="sm" disabled={checking || refreshDisabled} onClick={onRefresh}>{ADMISSION_REVIEW_HISTORY_COPY.refresh}</Button></nav>
     {checking && <p className={styles.AdmissionReviewHistory__help} role="status">{ADMISSION_REVIEW_HISTORY_COPY.checking}</p>}
     {errorMessage && <p className={styles.AdmissionReviewHistory__error} role="alert">{errorMessage}</p>}
     {!checking && !errorMessage && <>
@@ -28,7 +27,7 @@ export function AdmissionReviewHistory({ items, checking, refreshDisabled, error
           {event.resourceVersion !== null && <div className={styles.AdmissionReviewHistory__fact}><dt>{ADMISSION_REVIEW_HISTORY_COPY.version}</dt><dd>{event.resourceVersion}</dd></div>}
         </dl>
       </li>)}</ol>
-      {(olderHref || newestHref) && <nav className={styles.AdmissionReviewHistory__actions} aria-label="Páginas del historial">{olderHref && <Link href={olderHref}>{ADMISSION_REVIEW_HISTORY_COPY.older}</Link>}{newestHref && <Link href={newestHref}>{ADMISSION_REVIEW_HISTORY_COPY.newest}</Link>}</nav>}
+      {(olderHref || newestHref) && <nav className={styles.AdmissionReviewHistory__pages} aria-label="Páginas del historial">{newestHref && <Link className={styles.AdmissionReviewHistory__page} href={newestHref}>{ADMISSION_REVIEW_HISTORY_COPY.newest}</Link>}{olderHref && <Link className={styles.AdmissionReviewHistory__page} href={olderHref}>{ADMISSION_REVIEW_HISTORY_COPY.older}</Link>}</nav>}
     </>}
-  </section>;
+  </div>;
 }

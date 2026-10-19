@@ -40,10 +40,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
             const entries = [{ segment: "academia/admissions", capture: "notification-settings-entry" }, { segment: "academia/admissions/settings", capture: "notification-settings-policy-entry" }];
             for (const entry of entries) {
               await page.goto(`${origin}/${slug}/${entry.segment}`, { waitUntil: "domcontentloaded" });
-              const navigation = page.getByRole("navigation", { name: "Configuración de academia", exact: true });
-              await navigation.getByRole("link", { name: "Avisos de admisión", exact: true }).waitFor();
-              await captureAdmissionReview(page, entry.capture, forbidden, "notification-settings-entry-captures.json", { selector: 'nav[aria-label="Configuración de academia"]' });
-              await navigation.getByRole("link", { name: "Avisos de admisión", exact: true }).click();
+              const navigation = page.getByRole("navigation", { name: "Secciones de admisión", exact: true });
+              await navigation.getByRole("link", { name: "Avisos", exact: true }).waitFor();
+              await captureAdmissionReview(page, entry.capture, forbidden, "notification-settings-entry-captures.json", { selector: 'nav[aria-label="Secciones de admisión"]' });
+              await navigation.getByRole("link", { name: "Avisos", exact: true }).click();
               await page.waitForURL(`${origin}/${slug}/academia/admissions/notifications`);
               await page.getByRole("heading", { name: "Avisos de admisión", exact: true }).waitFor();
               await page.getByRole("form", { name: "Mi preferencia de correo", exact: true }).waitFor();

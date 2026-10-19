@@ -229,7 +229,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
               await page.getByRole("link", { name: "Configurar países y cupos de mensajería" }).click({ timeout: 90_000 });
               await page.getByRole("button", { name: "Iniciar configuración de uso" }).waitFor({ timeout: 90_000 });
               expect(await page.getByText(/todavía no está configurado/).count()).toBe(1);
-              await page.getByRole("link", { name: "Volver a las reglas de admisión" }).click();
+              await page.getByRole("navigation", { name: "Secciones de admisión" }).getByRole("link", { name: "Reglas", exact: true }).click();
               await page.getByRole("button", { name: "Preparar configuración" }).waitFor({ timeout: 90_000 });
               expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
               process.stdout.write(JSON.stringify({ phase: "usage_early_navigation_verified", engine }) + "\n");

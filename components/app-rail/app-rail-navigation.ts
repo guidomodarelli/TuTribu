@@ -12,12 +12,15 @@ import {
   ScrollTextIcon,
   SettingsIcon,
   SignpostBigIcon,
+  UserCheckIcon,
   UsersIcon,
   type LucideIcon,
 } from "lucide-react";
 
 import { ROUTES } from "@/src/constants/routes";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
+import { ADMISSION_NAVIGATION } from "@/src/modules/academy-admissions/constants/admission-navigation";
+import { ADMISSION_SECTION, ADMISSION_SECTION_AUDIENCE, ADMISSION_SECTIONS } from "@/src/modules/academy-admissions/constants/admission-sections";
 
 /**
  * Tribe navigation shared by the sidebar and the header breadcrumb, so both
@@ -272,15 +275,83 @@ const MEMBER_SECTION_ID = "member";
 const ADMIN_SECTION_ID = "admin";
 const TRIBES_SECTION_ID = "tribes";
 
-/** One row of the app rail. */
+/** One row of the app rail; a row with children is a disclosure group whose subsections are the destinations. */
 export type AppRailEntry = {
   badge?: string;
+  children?: AppRailEntry[];
   href: string;
   icon: LucideIcon;
   id: string;
   isActive: boolean;
   label: string;
 };
+
+/** Label of the admissions group in the management section of the rail. */
+export const ADMISSIONS_NAVIGATION_LABEL = "Admisiones";
+const ADMISSIONS_ENTRY_ID = "admissions";
+const ADMISSION_HISTORY_SEGMENT = "history";
+
+/**
+ * Whether the pathname belongs to one admission subsection. The review inbox owns
+ * its root route and the request history; every other subsection owns its route
+ * and nested routes (the CSV import belongs to the allowlist).
+ *
+ * @param pathname - Current pathname.
+ * @param tribeSlug - Slug of the active tribe.
+ * @param section - Admission subsection to compare against.
+ * @returns True when the subsection is the open page.
+ */
+function isAdmissionSectionActive(pathname: string, tribeSlug: string, section: (typeof ADMISSION_SECTIONS)[number]): boolean {
+  const routePath = `${ROUTES.tribes.bySlug(tribeSlug)}/${section.segment}`;
+  if (section.section === ADMISSION_SECTION.review) {
+    return pathname === routePath || isSameOrNestedPath(pathname, `${routePath}/${ADMISSION_HISTORY_SEGMENT}`);
+  }
+  return isSameOrNestedPath(pathname, routePath);
+}
+
+/**
+ * Admissions group of the management section: academy tribes only, with every
+ * subsection for the leader and the review subsections for guardians (the
+ * server authorizes each page again).
+ *
+ * @param pathname - Current pathname.
+ * @param tribe - Active tribe of the member.
+ * @returns The group entry, or undefined when the tribe has no admissions.
+ */
+function toAdmissionsEntry(pathname: string, tribe: MemberTribeListItemResult): AppRailEntry | undefined {
+  if (tribe.accessModel !== TRIBE_ACCESS_MODEL_ACADEMY || !canManageTribe(tribe)) return undefined;
+  const leader = tribe.role === TRIBE_ADMIN_ROLE.leader;
+  const children = ADMISSION_SECTIONS.filter((section) => leader || section.audience === ADMISSION_SECTION_AUDIENCE.reviewer).map((section) => ({
+    href: `${ROUTES.tribes.bySlug(tribe.slug)}/${section.segment}`,
+    icon: UserCheckIcon,
+    id: `${ADMISSIONS_ENTRY_ID}-${section.section}`,
+    isActive: isAdmissionSectionActive(pathname, tribe.slug, section),
+    label: section.label,
+  }));
+  return {
+    children,
+    href: `${ROUTES.tribes.bySlug(tribe.slug)}/${ADMISSION_NAVIGATION.reviewSegment}`,
+    icon: UserCheckIcon,
+    id: ADMISSIONS_ENTRY_ID,
+    isActive: false,
+    label: ADMISSIONS_NAVIGATION_LABEL,
+  };
+}
+
+/**
+ * Places the admissions group right after the academy management row.
+ *
+ * @param entries - Visible management rows.
+ * @param admissions - Admissions group, when the tribe has one.
+ * @param tribeSlug - Slug of the active tribe.
+ * @returns Rows in rail order.
+ */
+function withAdmissionsEntry(entries: AppRailEntry[], admissions: AppRailEntry | undefined, tribeSlug: string): AppRailEntry[] {
+  if (!admissions) return entries;
+  const managementIndex = entries.findIndex((entry) => entry.href === ROUTES.tribes.academyManage(tribeSlug));
+  const position = managementIndex === -1 ? 0 : managementIndex + 1;
+  return [...entries.slice(0, position), admissions, ...entries.slice(position)];
+}
 
 /** A group of rows, optionally under a heading that becomes a divider in the rail. */
 export type AppRailSection = {
@@ -338,8 +409,12 @@ export function resolveAppRailNavigation(
           id: MEMBER_SECTION_ID,
         },
         {
-          entries: getVisibleAdminNavigation(activeTribe).map((item) =>
-            toTribeEntry(item, pathname, activeTribe.slug)
+          entries: withAdmissionsEntry(
+            getVisibleAdminNavigation(activeTribe).map((item) =>
+              toTribeEntry(item, pathname, activeTribe.slug)
+            ),
+            toAdmissionsEntry(pathname, activeTribe),
+            activeTribe.slug
           ),
           heading: TRIBE_ADMIN_SECTION_LABEL,
           id: ADMIN_SECTION_ID,
@@ -371,15 +446,15 @@ export function resolveAppRailNavigation(
         },
       ];
   const visibleSections = sections.filter((section) => section.entries.length > 0);
-  const currentSection = visibleSections.find((section) =>
-    section.entries.some((entry) => entry.isActive)
-  );
-  const currentEntry = currentSection?.entries.find((entry) => entry.isActive);
+  const isOpenRow = (entry: AppRailEntry) => entry.isActive || Boolean(entry.children?.some((child) => child.isActive));
+  const currentSection = visibleSections.find((section) => section.entries.some(isOpenRow));
+  const currentEntry = currentSection?.entries.find(isOpenRow);
+  const currentChild = currentEntry?.children?.find((child) => child.isActive);
 
   return {
     activeTribe,
-    currentLabel: currentEntry?.label,
-    currentParent: activeTribe ? currentSection?.heading : undefined,
+    currentLabel: currentChild?.label ?? currentEntry?.label,
+    currentParent: activeTribe ? (currentChild ? currentEntry?.label : currentSection?.heading) : undefined,
     sections: visibleSections,
   };
 }

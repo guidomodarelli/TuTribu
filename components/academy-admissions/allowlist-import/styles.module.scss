@@ -1,21 +1,88 @@
+@use "../../../src/styles/workspace-panel";
+
 .AllowlistImport {
   display: grid;
-  gap: 1.5rem;
-  width: 100%;
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
-  max-width: 64rem;
+  gap: 2rem;
   overflow-wrap: anywhere;
 
-  &__section { display: grid; gap: 1rem; min-width: 0; }
-  &__form { display: grid; gap: 1rem; min-width: 0; }
-  &__field { display: grid; gap: 0.5rem; min-width: 0; max-width: 42rem; }
-  &__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
-  &__confirmation { display: flex; align-items: start; gap: 0.75rem; }
-  &__counts { display: flex; flex-wrap: wrap; gap: 1.5rem; margin: 0; }
-  &__rows { display: grid; margin: 0; padding: 0; list-style: none; }
-  &__row { display: flex; flex-wrap: wrap; align-items: start; gap: 0.75rem 1.5rem; padding-block: 1rem; border-bottom: 1px solid var(--border); }
-  &__selection { display: flex; align-items: center; gap: 0.75rem; flex: 0 1 12rem; }
-  &__identity { display: grid; gap: 0.25rem; min-width: 0; flex: 1 1 16rem; }
-  &__help { color: var(--muted-foreground); font-size: 0.875rem; line-height: 1.6; }
-  &__error { color: var(--destructive); line-height: 1.5; }
+  &__section {
+    @include workspace-panel.block;
+
+    & > h2 {
+      @include workspace-panel.title;
+    }
+  }
+
+  &__form {
+    @include workspace-panel.form;
+
+    max-width: 40rem;
+  }
+
+  &__field {
+    @include workspace-panel.field;
+  }
+
+  &__actions {
+    @include workspace-panel.actions;
+  }
+
+  &__confirmation {
+    @include workspace-panel.consent;
+  }
+
+  &__counts {
+    @include workspace-panel.summary;
+    @include workspace-panel.facts;
+
+    & > div {
+      display: grid;
+      gap: 0.25rem;
+    }
+
+    & dt {
+      @include workspace-panel.fact-term;
+    }
+
+    & dd {
+      @include workspace-panel.fact-value;
+
+      font-size: 1.25rem;
+    }
+  }
+
+  &__rows {
+    @include workspace-panel.rows;
+  }
+
+  &__row {
+    @include workspace-panel.row;
+
+    align-items: start;
+  }
+
+  &__selection {
+    display: flex;
+    flex: 0 1 12rem;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  &__identity {
+    @include workspace-panel.row-main;
+
+    & > strong {
+      @include workspace-panel.row-title;
+    }
+  }
+
+  &__help {
+    @include workspace-panel.note;
+  }
+
+  &__error {
+    @include workspace-panel.error;
+  }
 }

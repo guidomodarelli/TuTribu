@@ -3,16 +3,16 @@ import { Suspense } from "react";
 import { createAdmissionRequestModules } from "@/src/modules/setup";
 import { loadAdmissionReviewPageState } from "@/src/modules/academy-admissions/infrastructure/composition/admission-review-page";
 import { AdmissionReviewRouteContainer } from "./admission-review-route-container";
+import { ADMISSION_SECTION, ADMISSION_SECTION_AUDIENCE } from "@/src/modules/academy-admissions/constants/admission-sections";
 import Loading from "./loading";
 import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
-import { ADMISSION_NOTIFICATION_SETTINGS_SEGMENT } from "@/src/modules/notifications/constants/admission-notification-settings-page";
+import { ADMISSION_REVIEW_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-review-ui";
 
 /** @param props - Runtime route selection resolved inside the leaf boundary. @returns Only safe current authorized reviewer props. */
 async function ReviewContent({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const [route, query] = await Promise.all([params, searchParams]);
   const state = await loadAdmissionReviewPageState({ params: route, query }, async () => { const modules = await createAdmissionRequestModules(); return modules.reviews.createPage(modules.queries.resolveTribe); });
-  const links = state.kind === "ready" ? [{ href: `/${encodeURIComponent(state.slug)}/${ADMISSION_NOTIFICATION_SETTINGS_SEGMENT}`, label: "Avisos de admisión" }] : [];
-  return <AdmissionSettingsPage links={links}><AdmissionReviewRouteContainer initialState={state} /></AdmissionSettingsPage>;
+  return <AdmissionSettingsPage title={ADMISSION_REVIEW_UI_COPY.title} description={ADMISSION_REVIEW_UI_COPY.description} section={ADMISSION_SECTION.review} slug={state.kind === "ready" ? state.slug : undefined} audience={ADMISSION_SECTION_AUDIENCE.reviewer}><AdmissionReviewRouteContainer initialState={state} /></AdmissionSettingsPage>;
 }
 /** @param props - Unresolved framework runtime input. @returns A deterministic own leaf skeleton and server loader. */
 export default function AdmissionReviewPage(props: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {

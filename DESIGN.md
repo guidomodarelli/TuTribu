@@ -160,6 +160,26 @@ spacing, tokens, interaction patterns and SCSS Module conventions.
   that text, never next to an external `<label>` for the same trigger, which
   would announce the name twice.
 
+## Section workspaces
+
+Use this pattern for a family of related pages that share one subject (for
+example the academy admission pages: requests, rules, allowlist, invitations,
+messaging, notices and activity).
+
+- Wrap every page in one shared frame: a quiet return link, a page `h1` with a
+  one-line description, and a row of sibling sections where the current page
+  carries `aria-current="page"` and the raised highlight. Filter the row by
+  what the viewer may open; the server still authorizes each page.
+- Mirror the same family in the app rail as one disclosure group under its
+  heading; the group opens by itself on any of its pages.
+- Inside a page, separate blocks with a hairline and a 20px `h2`; start with a
+  compact summary of the current state (badges or labeled facts) before forms.
+- Lists use hairline rows: a medium-weight title, status badges and one quiet
+  meta line, with the row action on the trailing edge.
+- Group consent and actions at the end of the block they confirm, primary
+  first; recovery and reauthentication go in a callout with a colored rule.
+- Share rhythm through `src/styles/_workspace-panel.scss` instead of local copies.
+
 ## Multi-step workspaces
 
 Use this pattern for a tool page where one record moves through several steps

@@ -1,15 +1,15 @@
-@use "../../../src/styles/messaging-panel";
+@use "../../../src/styles/workspace-panel";
 
 .MessagingConnectionLifecycle {
-  @include messaging-panel.section;
+  @include workspace-panel.section;
   max-width: 40rem;
 
-  &__title { @include messaging-panel.title; }
-  &__field { @include messaging-panel.field; }
-  &__help { @include messaging-panel.lead; }
-  &__note { @include messaging-panel.note; }
-  &__consent { @include messaging-panel.consent; }
-  &__actions { @include messaging-panel.actions; }
-  &__reauthentication { @include messaging-panel.reauthentication; }
-  &__feedback { @include messaging-panel.lead; }
+  &__title { @include workspace-panel.title; }
+  &__field { @include workspace-panel.field; }
+  &__help { @include workspace-panel.lead; }
+  &__note { @include workspace-panel.note; }
+  &__consent { @include workspace-panel.consent; }
+  &__actions { @include workspace-panel.actions; }
+  &__reauthentication { @include workspace-panel.reauthentication; }
+  &__feedback { @include workspace-panel.lead; }
 }

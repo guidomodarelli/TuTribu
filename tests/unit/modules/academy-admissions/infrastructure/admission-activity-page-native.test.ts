@@ -47,7 +47,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native private act
                   stage = `${engine}_${width}_navigate_existing_usage`;
                   await runPrivateBrowserRequest("open_usage", () => page.goto(`${origin}/${slug}/academia/admissions/messaging`, { waitUntil: "commit" }));
                   await page.getByRole("spinbutton", { name: "Códigos por día" }).waitFor();
-                  await page.getByRole("link", { name: "Ver consumo e historial" }).click();
+                  await page.getByRole("navigation", { name: "Secciones de admisión" }).getByRole("link", { name: "Actividad", exact: true }).click();
                   await page.getByRole("button", { name: "Actualizar consumo e historial" }).waitFor();
                   expect(await page.getByRole("main").count()).toBe(1);
                   expect(snapshotRequests).toBe(0);
@@ -122,7 +122,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native private act
                   await page.getByRole("button", { name: "Reintentar", exact: true }).click();
                   await page.getByRole("button", { name: "Actualizar consumo e historial" }).waitFor();
                   stage = `${engine}_${width}_increase_and_usage_role_loss`;
-                  await page.getByRole("link", { name: "Volver a países y cupos" }).click();
+                  await page.getByRole("navigation", { name: "Secciones de admisión" }).getByRole("link", { name: "Países y cupos", exact: true }).click();
                   const input = page.getByRole("spinbutton", { name: "Códigos por día" });
                   await input.waitFor();
                   expect(await input.inputValue()).toBe(String(limit));
@@ -159,7 +159,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native private act
                 await runPrivateBrowserRequest("guardian_connections", () => page.goto(`${origin}/${slug}/academia/admissions/messaging/connections`, { waitUntil: "commit" }));
                 await page.getByRole("region", { name: "Estado de mensajería" }).waitFor({ timeout: VALIDATION.browserTimeoutMs });
                 expect(await page.getByRole("textbox").count()).toBe(0);
-                expect(await page.getByRole("link", { name: "Ver consumo e historial" }).count()).toBe(0);
+                expect(await page.getByRole("navigation", { name: "Secciones de admisión" }).count()).toBe(0);
                 expect(await page.getByRole("main").innerText()).not.toContain(fixture.userId);
               } finally { await guardianContext.close(); }
             } finally { await browser.close(); }

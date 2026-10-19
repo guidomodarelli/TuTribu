@@ -195,6 +195,53 @@ describe("AppRailShell", () => {
     expect(getTrail()).toEqual(["Matematica Pro", "Gestión", "Invitaciones"]);
   });
 
+  it("opens the admissions group on an admission page and marks the open subsection", async () => {
+    const user = userEvent.setup();
+    (usePathname as Mock).mockReturnValue("/matematica-pro/academia/admissions/settings");
+
+    renderShell({ memberTribes: [buildTribe({ accessModel: "academy", role: "leader" })] });
+
+    const group = screen.getByRole("button", { name: "Admisiones" });
+    expect(group).toHaveAttribute("aria-expanded", "true");
+    const subsections = screen.getByRole("list", { name: "Admisiones" });
+    expect(within(subsections).getAllByRole("button").map((row) => row.textContent)).toEqual([
+      "Solicitudes",
+      "Reglas",
+      "Habilitados",
+      "Invitaciones",
+      "Países y cupos",
+      "Conexión",
+      "Avisos",
+      "Actividad",
+    ]);
+    expect(within(subsections).getByRole("button", { name: "Reglas" })).toHaveAttribute("aria-current", "page");
+    expect(getTrail()).toEqual(["Matematica Pro", "Admisiones", "Reglas"]);
+
+    await user.click(within(subsections).getByRole("button", { name: "Países y cupos" }));
+    expect(pushMock).toHaveBeenCalledWith("/matematica-pro/academia/admissions/messaging");
+
+    await user.click(group);
+    expect(group).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("gives guardians only the review subsections and keeps the request history under the inbox", () => {
+    (usePathname as Mock).mockReturnValue("/matematica-pro/academia/admissions/history/request-1");
+
+    renderShell({ memberTribes: [buildTribe({ accessModel: "academy", role: "guardian" })] });
+
+    const subsections = screen.getByRole("list", { name: "Admisiones" });
+    expect(within(subsections).getAllByRole("button").map((row) => row.textContent)).toEqual(["Solicitudes", "Avisos"]);
+    expect(within(subsections).getByRole("button", { name: "Solicitudes" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it("leaves the admissions group out of classic tribes", () => {
+    (usePathname as Mock).mockReturnValue("/matematica-pro");
+
+    renderShell({ memberTribes: [buildTribe({ role: "leader" })] });
+
+    expect(screen.queryByRole("button", { name: "Admisiones" })).not.toBeInTheDocument();
+  });
+
   it("leaves the tribe as the current step on routes outside the sidebar", () => {
     (usePathname as Mock).mockReturnValue("/matematica-pro/suscripcion");
 

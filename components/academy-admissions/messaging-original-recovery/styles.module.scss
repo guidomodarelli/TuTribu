@@ -1,12 +1,12 @@
-@use "../../../src/styles/messaging-panel";
+@use "../../../src/styles/workspace-panel";
 
 .MessagingOriginalRecovery {
-  @include messaging-panel.section;
+  @include workspace-panel.section;
   max-width: 40rem;
   gap: 1rem;
 
-  &__explanation { @include messaging-panel.lead; }
-  &__confirmation { @include messaging-panel.consent; }
-  &__actions { @include messaging-panel.actions; }
-  &__action { @include messaging-panel.action; }
+  &__explanation { @include workspace-panel.lead; }
+  &__confirmation { @include workspace-panel.consent; }
+  &__actions { @include workspace-panel.actions; }
+  &__action { @include workspace-panel.action; }
 }

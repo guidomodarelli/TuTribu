@@ -1,16 +1,87 @@
+@use "../../../src/styles/workspace-panel";
+
 .InvitationManagement {
   display: grid;
-  gap: 2rem;
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
-  width: 100%;
-  &__help { color: var(--muted-foreground); overflow-wrap: anywhere; }
-  &__list { display: grid; gap: 1rem; list-style: none; padding: 0; margin: 1rem 0; }
-  &__row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; padding-block: 1rem; border-bottom: 1px solid var(--border); min-width: 0; }
-  &__identity { display: grid; gap: .35rem; min-width: 0; overflow-wrap: anywhere; }
-  &__actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
-  &__form { display: grid; gap: 1.25rem; width: min(100%, 46rem); min-width: 0; }
-  &__field { display: grid; gap: .5rem; min-width: 0; }
-  &__confirmation { display: flex; align-items: flex-start; gap: .65rem; min-width: 0; }
-  &__error { color: var(--destructive); overflow-wrap: anywhere; }
-  &__link { display: grid; gap: .75rem; min-width: 0; overflow-wrap: anywhere; }
+  gap: 2rem;
+  overflow-wrap: anywhere;
+
+  & > section {
+    @include workspace-panel.section;
+
+    & > h2 {
+      @include workspace-panel.title;
+    }
+  }
+
+  &__help {
+    @include workspace-panel.note;
+  }
+
+  &__link {
+    @include workspace-panel.callout;
+
+    & > h2 {
+      @include workspace-panel.title;
+    }
+
+    & > p {
+      @include workspace-panel.lead;
+    }
+  }
+
+  &__list {
+    @include workspace-panel.rows;
+  }
+
+  &__row {
+    @include workspace-panel.row;
+
+    align-items: start;
+  }
+
+  &__identity {
+    @include workspace-panel.row-main;
+
+    & > strong {
+      @include workspace-panel.row-title;
+    }
+
+    & > span {
+      font-size: 0.9375rem;
+      line-height: 1.45;
+    }
+  }
+
+  &__actions {
+    @include workspace-panel.actions;
+  }
+
+  &__form {
+    @include workspace-panel.block;
+
+    max-width: none;
+
+    & > h2 {
+      @include workspace-panel.title;
+    }
+
+    & > * {
+      max-width: 40rem;
+    }
+  }
+
+  &__field {
+    @include workspace-panel.field;
+  }
+
+  &__confirmation {
+    @include workspace-panel.consent;
+  }
+
+  &__error {
+    @include workspace-panel.feedback;
+    @include workspace-panel.feedback-alert;
+  }
 }

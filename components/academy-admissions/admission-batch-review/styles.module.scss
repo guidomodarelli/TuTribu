@@ -1,11 +1,30 @@
+@use "../../../src/styles/workspace-panel";
+
 .AdmissionBatchReview {
   display: grid;
-  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
+  gap: 1.5rem;
   overflow-wrap: anywhere;
 
-  &__section { display: grid; gap: 1rem; min-width: 0; }
-  &__title { font-size: 1.125rem; font-weight: 500; }
-  &__error { color: var(--destructive); line-height: 1.5; }
-  &__names { margin: 0; padding-inline-start: 1.5rem; }
+  &__section {
+    @include workspace-panel.block;
+
+    gap: 1rem;
+  }
+
+  &__title {
+    @include workspace-panel.title;
+  }
+
+  &__error {
+    @include workspace-panel.feedback;
+    @include workspace-panel.feedback-alert;
+  }
+
+  &__names {
+    margin: 0;
+    padding-inline-start: 1.25rem;
+    line-height: 1.6;
+  }
 }

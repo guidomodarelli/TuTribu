@@ -1,22 +1,110 @@
+@use "../../../src/styles/action-link";
+@use "../../../src/styles/workspace-panel";
+
 .AdmissionReviewHistory {
-  width: min(100%, 64rem);
-  margin-inline: auto;
-  padding: clamp(1rem, 4vw, 2.5rem);
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
-  gap: 1.5rem;
   min-width: 0;
+  gap: 1.5rem;
   overflow-wrap: anywhere;
 
-  &__header, &__event { display: grid; gap: 0.75rem; min-width: 0; }
-  &__title { font-family: var(--font-display); font-size: clamp(1.75rem, 4vw, 2.5rem); line-height: 1.2; }
-  &__eventTitle { font-size: 1.125rem; font-weight: 500; }
-  &__help { color: var(--muted-foreground); line-height: 1.6; }
-  &__error { color: var(--destructive); line-height: 1.5; }
-  &__actions, &__eventHeader { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; align-items: center; justify-content: space-between; }
-  &__actions { justify-content: flex-start; }
-  &__list { display: grid; gap: 0; list-style: none; padding: 0; margin: 0; }
-  &__event { padding-block: 1.25rem; border-block-end: 1px solid var(--border); }
-  &__facts { display: flex; flex-wrap: wrap; gap: 0.75rem 2rem; margin: 0; }
-  &__fact { display: grid; gap: 0.25rem; min-width: 0; }
+  &__toolbar {
+    @include workspace-panel.actions;
+
+    justify-content: space-between;
+  }
+
+  &__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.875rem;
+  }
+
+  &__help {
+    @include workspace-panel.note;
+  }
+
+  &__error {
+    @include workspace-panel.feedback;
+    @include workspace-panel.feedback-alert;
+  }
+
+  &__list {
+    position: relative;
+    display: grid;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  // Each event hangs from a vertical timeline rule with a dot at its heading.
+  &__event {
+    position: relative;
+    display: grid;
+    min-width: 0;
+    gap: 0.75rem;
+    padding-block: 0 1.5rem;
+    padding-inline-start: 1.5rem;
+    border-inline-start: 1px solid var(--border);
+
+    &:last-child {
+      padding-block-end: 0;
+    }
+
+    &::before {
+      position: absolute;
+      inset-block-start: 0.4rem;
+      inset-inline-start: -0.3125rem;
+      inline-size: 0.5625rem;
+      block-size: 0.5625rem;
+      border: 2px solid var(--accent, var(--primary));
+      border-radius: 50%;
+      background: var(--background);
+      content: "";
+    }
+  }
+
+  &__eventHeader {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    min-width: 0;
+    gap: 0.25rem 1rem;
+  }
+
+  &__eventTitle {
+    @include workspace-panel.row-title;
+  }
+
+  &__facts {
+    @include workspace-panel.facts;
+  }
+
+  &__fact {
+    display: grid;
+    min-width: 0;
+    gap: 0.25rem;
+
+    & > dt {
+      @include workspace-panel.fact-term;
+    }
+
+    & > dd {
+      margin: 0;
+      font-size: 0.9375rem;
+      line-height: 1.4;
+    }
+  }
+
+  &__pages {
+    @include workspace-panel.actions;
+  }
+
+  &__page {
+    @include action-link.action-link(secondary, sm);
+  }
 }

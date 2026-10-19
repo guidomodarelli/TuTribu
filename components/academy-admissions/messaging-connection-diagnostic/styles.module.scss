@@ -1,19 +1,19 @@
-@use "../../../src/styles/messaging-panel";
+@use "../../../src/styles/workspace-panel";
 
 .MessagingConnectionDiagnostic {
-  @include messaging-panel.section;
+  @include workspace-panel.section;
 
-  &__title { @include messaging-panel.title; }
-  &__subtitle { @include messaging-panel.subtitle; }
-  &__lead { @include messaging-panel.lead; }
-  &__note { @include messaging-panel.note; }
-  &__form { @include messaging-panel.form; }
-  &__field { @include messaging-panel.field; }
-  &__actions { @include messaging-panel.actions; }
-  &__action { @include messaging-panel.action; }
-  &__reauthentication { @include messaging-panel.reauthentication; }
-  &__error { @include messaging-panel.error; }
-  &__feedback { @include messaging-panel.lead; }
+  &__title { @include workspace-panel.title; }
+  &__subtitle { @include workspace-panel.subtitle; }
+  &__lead { @include workspace-panel.lead; }
+  &__note { @include workspace-panel.note; }
+  &__form { @include workspace-panel.form; }
+  &__field { @include workspace-panel.field; }
+  &__actions { @include workspace-panel.actions; }
+  &__action { @include workspace-panel.action; }
+  &__reauthentication { @include workspace-panel.reauthentication; }
+  &__error { @include workspace-panel.error; }
+  &__feedback { @include workspace-panel.lead; }
 
   &__current {
     display: grid;

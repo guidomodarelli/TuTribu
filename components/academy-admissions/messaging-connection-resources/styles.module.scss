@@ -1,26 +1,26 @@
-@use "../../../src/styles/messaging-panel";
+@use "../../../src/styles/workspace-panel";
 
 .MessagingConnectionResources {
-  @include messaging-panel.section;
+  @include workspace-panel.section;
 
-  &__title { @include messaging-panel.title; }
-  &__subtitle { @include messaging-panel.subtitle; padding: 0; }
-  &__lead { @include messaging-panel.lead; }
-  &__note { @include messaging-panel.note; }
-  &__form { @include messaging-panel.form; }
-  &__field { @include messaging-panel.field; }
+  &__title { @include workspace-panel.title; }
+  &__subtitle { @include workspace-panel.subtitle; padding: 0; }
+  &__lead { @include workspace-panel.lead; }
+  &__note { @include workspace-panel.note; }
+  &__form { @include workspace-panel.form; }
+  &__field { @include workspace-panel.field; }
   &__group {
-    @include messaging-panel.form;
-    @include messaging-panel.divider;
+    @include workspace-panel.form;
+    @include workspace-panel.divider;
     margin: 0;
     padding-inline: 0;
     padding-block-end: 0;
     border-inline: 0;
     border-block-end: 0;
   }
-  &__actions { @include messaging-panel.actions; }
-  &__action { @include messaging-panel.action; }
-  &__reauthentication { @include messaging-panel.reauthentication; }
-  &__error { @include messaging-panel.error; }
-  &__feedback { @include messaging-panel.lead; }
+  &__actions { @include workspace-panel.actions; }
+  &__action { @include workspace-panel.action; }
+  &__reauthentication { @include workspace-panel.reauthentication; }
+  &__error { @include workspace-panel.error; }
+  &__feedback { @include workspace-panel.lead; }
 }

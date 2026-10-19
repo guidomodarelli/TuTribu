@@ -1,14 +1,14 @@
-@use "../../../src/styles/messaging-panel";
+@use "../../../src/styles/workspace-panel";
 
 .MessagingConnections {
-  @include messaging-panel.section;
+  @include workspace-panel.section;
 
-  &__title { @include messaging-panel.title; }
-  &__lead { @include messaging-panel.lead; }
-  &__form { @include messaging-panel.form; }
-  &__consent { @include messaging-panel.field; }
-  &__actions { @include messaging-panel.actions; }
-  &__action { @include messaging-panel.action; }
-  &__reauthentication { @include messaging-panel.reauthentication; }
-  &__error { @include messaging-panel.error; }
+  &__title { @include workspace-panel.title; }
+  &__lead { @include workspace-panel.lead; }
+  &__form { @include workspace-panel.form; }
+  &__consent { @include workspace-panel.field; }
+  &__actions { @include workspace-panel.actions; }
+  &__action { @include workspace-panel.action; }
+  &__reauthentication { @include workspace-panel.reauthentication; }
+  &__error { @include workspace-panel.error; }
 }

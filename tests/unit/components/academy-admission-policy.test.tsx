@@ -21,6 +21,21 @@ function fixture(): AdmissionPolicyFormProps {
 }
 
 describe("policy controlled presentation", () => {
+  it("should summarize the current protection, intake and pending requests before the rules", () => {
+    const props = fixture();
+    const view = render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
+    const summary = screen.getByRole("region", { name: "Estado actual" });
+    expect(summary).toHaveTextContent("Control sin activar");
+    expect(summary).toHaveTextContent("Sin nuevas solicitudes");
+    expect(summary).toHaveTextContent("3 solicitudes pendientes");
+    expect(summary.compareDocumentPosition(screen.getByText("Reglas de ingreso")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    view.rerender(<AdmissionPolicyForm {...props} state={{ ...props.state, controlActivated: true, policy: props.state.policy && { ...props.state.policy, isOpen: true }, impact: { ...props.state.impact, pendingRequestCount: 1 } }} />);
+    expect(summary).toHaveTextContent("Control activo");
+    expect(summary).toHaveTextContent("Recibe solicitudes");
+    expect(summary).toHaveTextContent("1 solicitud pendiente");
+  });
+
   it("should edit the declared WhatsApp requirement without enabling code verification or a provider", () => {
     const props = fixture();
     render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });

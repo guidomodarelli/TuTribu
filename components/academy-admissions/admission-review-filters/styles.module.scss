@@ -1,16 +1,47 @@
-.AdmissionReviewFilters {
-  display: grid;
-  gap: 1rem;
-  padding-block: 1.25rem;
-  border-block-end: 1px solid var(--border);
-  min-width: 0;
+@use "../../../src/styles/workspace-panel";
 
-  &__heading { display: grid; gap: 0.5rem; }
-  &__title { font-size: 1.125rem; font-weight: 500; }
-  &__fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: 1rem; min-width: 0; }
-  &__field { display: grid; align-content: start; gap: 0.5rem; min-width: 0; font-weight: 500; }
-  &__control { width: 100%; min-width: 0; }
-  &__help { color: var(--muted-foreground); line-height: 1.6; }
-  &__error { color: var(--destructive); line-height: 1.5; }
-  &__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+.AdmissionReviewFilters {
+  @include workspace-panel.section;
+
+  gap: 1rem;
+  padding-block-end: 1.5rem;
+  border-block-end: 1px solid var(--border);
+
+  &__heading {
+    @include workspace-panel.heading;
+  }
+
+  &__title {
+    @include workspace-panel.title;
+  }
+
+  &__fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+    min-width: 0;
+    gap: 1rem;
+  }
+
+  &__field {
+    @include workspace-panel.field;
+
+    align-content: start;
+  }
+
+  &__control {
+    width: 100%;
+    min-width: 0;
+  }
+
+  &__help {
+    @include workspace-panel.note;
+  }
+
+  &__error {
+    @include workspace-panel.error;
+  }
+
+  &__actions {
+    @include workspace-panel.actions;
+  }
 }

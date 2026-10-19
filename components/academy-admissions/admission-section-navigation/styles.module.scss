@@ -1,0 +1,84 @@
+// Contains code adapted from Arc Pro (https://uiarc.dev), licensed under the
+// Arc Pro license (https://uiarc.dev/license). Not covered by this project's
+// license; do not redistribute it on its own.
+//
+// Section row of the Arc "Settings page" block in its narrow layout: quiet links,
+// and a raised surface with a hairline border under the current section.
+
+.AdmissionSectionNavigation {
+  min-width: 0;
+  margin-inline: -4px;
+
+  &__list {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    margin: 0;
+    padding: 2px 4px;
+    gap: 2px;
+    overflow-x: auto;
+    list-style: none;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  &__entry {
+    flex: none;
+  }
+
+  &__item {
+    position: relative;
+    display: flex;
+    min-height: 32px;
+    align-items: center;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 0 12px;
+    color: var(--text-secondary, var(--muted-foreground));
+    font-size: var(--text-sm, 0.875rem);
+    line-height: 1.2;
+    text-decoration: none;
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      color var(--duration-fast) var(--ease-standard),
+      background-color var(--duration-fast) var(--ease-standard);
+
+    &[aria-current="page"] {
+      border-color: var(--border);
+      background: var(--surface);
+      box-shadow: var(--shadow-resting);
+      color: var(--foreground);
+    }
+
+    &:not([aria-current]):focus-visible {
+      background: color-mix(in oklab, var(--surface-muted) 70%, transparent);
+      color: var(--foreground);
+    }
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .AdmissionSectionNavigation__item:hover {
+    color: var(--foreground);
+  }
+
+  .AdmissionSectionNavigation__item:not([aria-current]):hover {
+    background: color-mix(in oklab, var(--surface-muted) 70%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .AdmissionSectionNavigation__item {
+    transition: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .AdmissionSectionNavigation__item {
+    min-height: 40px;
+  }
+}

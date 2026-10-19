@@ -1,60 +1,45 @@
+@use "../../../src/styles/workspace-panel";
+
 .AdmissionNotificationSettings {
   display: grid;
-  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
-  max-width: 50rem;
+  gap: 2rem;
 
   &__section {
-    display: grid;
-    gap: 1rem;
-    min-width: 0;
-    padding-block: 1.25rem;
-    border-top: 1px solid var(--border);
+    @include workspace-panel.block;
+
+    & > * {
+      max-width: 40rem;
+    }
   }
 
   &__subtitle {
-    font-size: 1.25rem;
-    font-weight: 500;
+    @include workspace-panel.title;
   }
 
   &__field {
-    display: grid;
-    gap: 0.5rem;
-    min-width: 0;
-    width: 100%;
-    max-width: 36rem;
+    @include workspace-panel.field;
   }
 
   &__check {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
+    @include workspace-panel.consent;
   }
 
   &__actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.75rem 1rem;
+    @include workspace-panel.actions;
   }
 
   &__help {
-    color: var(--muted-foreground);
-    line-height: 1.6;
-    overflow-wrap: anywhere;
+    @include workspace-panel.note;
   }
 
   &__error {
-    color: var(--destructive);
-    line-height: 1.6;
-    overflow-wrap: anywhere;
+    @include workspace-panel.feedback;
+    @include workspace-panel.feedback-alert;
   }
 
   &__recovery {
-    display: grid;
-    justify-items: start;
-    gap: 0.75rem;
-    min-width: 0;
-    line-height: 1.6;
+    @include workspace-panel.callout;
   }
 }

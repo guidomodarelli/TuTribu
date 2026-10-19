@@ -22,14 +22,20 @@ export function MessagingUsage(props: MessagingUsageProps) {
   const instanceId = useId(), countryId = `${instanceId}-country`, verificationId = `${instanceId}-verification`, notificationId = `${instanceId}-notification`, confirmationId = `${instanceId}-confirmation`, validationId = `${instanceId}-validation`;
   const disabled = !props.canEdit || props.busy, policy = props.state.policy, canSubmit = !disabled && props.confirmed && !props.validationMessage, canInitialize = !disabled && props.confirmed;
   const countryName = (country: string) => props.countryChoices.find((choice) => choice.value === country)?.label ?? country;
-  return <section className={styles.MessagingUsage} aria-labelledby={`${instanceId}-title`}>
-    <header className={styles.MessagingUsage__header}><h2 id={`${instanceId}-title`} className={styles.MessagingUsage__title}>Países y cupos de mensajería</h2><p>Prepará el uso antes de conectar un canal o solicitar una prueba telefónica.</p></header>
-    <p className={styles.MessagingUsage__help}>El proveedor factura los envíos a la cuenta del líder. Los cupos de TuTribu no son una garantía monetaria exacta.</p>
-    <p className={styles.MessagingUsage__help}>El consumo se agrupa por día UTC y no se reinicia al cambiar países, cupos o conexión.</p>
-    {!policy && <p role="status">El uso todavía no está configurado. Los valores iniciales no se guardan al abrir esta pantalla.</p>}
-    <p role="status">{policy?.allowedCountries.length ? `Países guardados: ${policy.allowedCountries.map(countryName).join(", ")}.` : "Los países vacíos no habilitan envíos telefónicos. El correo conserva sus reglas independientes."}</p>
-    {policy && <p>{policy.consumption.verificationToday} códigos y {policy.consumption.notificationToday} avisos consumidos hoy. Cambiar cupos o países no reinicia ese consumo.</p>}
-    {policy && <p className={styles.MessagingUsage__help}>Configuración actual: versión {policy.version}. Máximos de la plataforma: {policy.platformMaximums.verificationDailyLimit} códigos y {policy.platformMaximums.notificationDailyLimit} avisos por día.</p>}
+  return <div className={styles.MessagingUsage}>
+    <section className={styles.MessagingUsage__header} aria-labelledby={`${instanceId}-title`}>
+      <h2 id={`${instanceId}-title`} className={styles.MessagingUsage__title}>Uso actual</h2>
+      {!policy && <p role="status">El uso todavía no está configurado. Los valores iniciales no se guardan al abrir esta pantalla.</p>}
+      <p role="status">{policy?.allowedCountries.length ? `Países guardados: ${policy.allowedCountries.map(countryName).join(", ")}.` : "Los países vacíos no habilitan envíos telefónicos. El correo conserva sus reglas independientes."}</p>
+      {policy && <dl className={styles.MessagingUsage__comparison}>
+        <div><dt>Códigos consumidos hoy</dt><dd>{policy.consumption.verificationToday} de {policy.verificationDailyLimit}</dd></div>
+        <div><dt>Avisos consumidos hoy</dt><dd>{policy.consumption.notificationToday} de {policy.notificationDailyLimit}</dd></div>
+      </dl>}
+      {policy && <p className={styles.MessagingUsage__help}>{policy.consumption.verificationToday} códigos y {policy.consumption.notificationToday} avisos consumidos hoy. Cambiar cupos o países no reinicia ese consumo.</p>}
+      {policy && <p className={styles.MessagingUsage__help}>Configuración actual: versión {policy.version}. Máximos de la plataforma: {policy.platformMaximums.verificationDailyLimit} códigos y {policy.platformMaximums.notificationDailyLimit} avisos por día.</p>}
+      <p className={styles.MessagingUsage__help}>El proveedor factura los envíos a la cuenta del líder. Los cupos de TuTribu no son una garantía monetaria exacta.</p>
+      <p className={styles.MessagingUsage__help}>El consumo se agrupa por día UTC y no se reinicia al cambiar países, cupos o conexión.</p>
+    </section>
     <form className={styles.MessagingUsage__form} aria-busy={props.busy} onSubmit={(event) => { event.preventDefault(); if (canSubmit && policy) props.onSave(); }}>
       <fieldset className={styles.MessagingUsage__fields} disabled={disabled}>
         <legend className={styles.MessagingUsage__legend}>Borrador de uso</legend>
@@ -59,5 +65,5 @@ export function MessagingUsage(props: MessagingUsageProps) {
       {props.reauthenticationRequired && <section className={styles.MessagingUsage__field} aria-label="Confirmación de Google"><p>Confirmá tu cuenta de Google para esta acción. El borrador y la operación original se conservan; al volver revisá el estado y confirmá nuevamente.</p>{props.reauthenticationHref ? <Link href={props.reauthenticationHref}>Continuar con la confirmación de Google</Link> : <Button type="button" variant="secondary" disabled={props.busy} onClick={props.onPrepareReauthentication}>Preparar confirmación con Google</Button>}</section>}
       {props.uncertain && <section className={styles.MessagingUsage__field} aria-label="Recuperar operación original"><p role="status">Todavía no podemos confirmar el guardado. Consultá la operación original antes de repetir.</p><Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReloadCurrent}>Consultar operación original</Button>{props.canRetry && <><div className={styles.MessagingUsage__confirmation}><Checkbox id={`${instanceId}-retry`} checked={props.confirmed} disabled={props.busy} onCheckedChange={(checked) => props.onConfirm(checked === true)} /><label htmlFor={`${instanceId}-retry`}>Confirmo reintentar el guardado con sus datos originales.</label></div><Button type="button" disabled={props.busy || !props.confirmed} onClick={props.onRetryOriginal}>Reintentar operación original</Button></>}</section>}
     </form>
-  </section>;
+  </div>;
 }

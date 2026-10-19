@@ -6,7 +6,6 @@ import type { AdmissionReviewHistoryPageState } from "@/src/modules/academy-admi
 import type { AdmissionBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
 import { AdmissionReviewHistory } from "@/components/academy-admissions/admission-review-history";
 import { AdmissionRouteError } from "@/components/academy-admissions/admission-route-error";
-import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
 import { admissionApiClient } from "@/lib/academy-admissions/admission-api-client";
 import { buildAdmissionReviewHistoryReturnRoute, buildAdmissionReviewHistoryRoute } from "@/lib/academy-admissions/admission-review-history-routes";
 import { ADMISSION_REVIEW_HISTORY_COPY } from "@/src/modules/academy-admissions/constants/admission-review-history-page";
@@ -17,7 +16,7 @@ type ReadyHistoryProps = { state: Extract<AdmissionReviewHistoryPageState, { kin
 /** @param props - Current owned SSR snapshot and optional own current-viewer transport. @returns A newly scoped history instance or safe recovery, without private application failures. */
 export function AdmissionReviewHistoryContainer({ initialState, client = admissionApiClient }: { initialState: AdmissionReviewHistoryPageState; client?: Pick<AdmissionBrowserClient, "viewer"> }) {
   const router = useRouter();
-  if (initialState.kind !== "ready") return <AdmissionSettingsPage title={ADMISSION_REVIEW_HISTORY_COPY.title}><AdmissionRouteError embedded message={initialState.message} reset={() => router.refresh()} /></AdmissionSettingsPage>;
+  if (initialState.kind !== "ready") return <AdmissionRouteError embedded message={initialState.message} reset={() => router.refresh()} />;
   return <CurrentHistory key={`${initialState.viewerId}:${initialState.renderedAt}:${initialState.page.admissionRequestId}:${initialState.page.items[0]?.id ?? ""}:${initialState.hasPrevious}`} state={initialState} client={client} />;
 }
 

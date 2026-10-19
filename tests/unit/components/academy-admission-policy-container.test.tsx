@@ -257,7 +257,7 @@ describe("policy route workflow", () => {
     data.client.viewer.mockResolvedValue({ status: "ready", value: { id: "different-leader" } });
     complete({ status: "ready", value: { type: "update_admission_policy", state: "started", operationId } });
     await waitFor(() => expect(screen.getByText(/La cuenta cambió/)).toBeInTheDocument());
-    expect(screen.queryByRole("heading", { name: "Configuración de admisión" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Estado actual" })).not.toBeInTheDocument();
     expect(data.client.updatePolicy).not.toHaveBeenCalled();
   });
 
