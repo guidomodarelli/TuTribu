@@ -4,7 +4,7 @@ import { type FormEvent, useLayoutEffect, useRef, useState } from "react";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 
-import { Button, Dialog, DialogContent, Input, AnimatedCollapse, AnimatedListItem } from "beez-ui";
+import { Button, Dialog, DialogContent, Input, AnimatedCollapse, AnimatedListItem } from "@astra-kit/ui";
 
 import type { TribeEventPostEventView } from "@/src/modules/events/application/results/tribe-event-post-event-public-dto-schemas";
 import { TRIBE_EVENT_POST_EVENT_LIMIT } from "@/src/modules/events/constants/tribe-event-post-event";

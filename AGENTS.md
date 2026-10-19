@@ -53,7 +53,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ### Changelog governance
 
 - Every change that alters product behavior, user-facing UI or copy, data handling, permissions, or deployed configuration must update `CHANGELOG.md` in the same work item.
-- Add entries only inside the `## [Unreleased]` block, never under an already released version. Never write the version or the date by hand: `pnpm create-version` renames `[Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` in the version commit and leaves an empty `[Unreleased]` block on top. The date uses Argentina time (`releaseTimeZone: "America/Argentina/Buenos_Aires"` in `astra-rp.config.mjs`). This is the behavior of astra-rp 0.10.0: the release stops when `[Unreleased]` is missing or has no entries, unless `changelogDraft` drafts them first.
+- Add entries only inside the `## [Unreleased]` block, never under an already released version. Never write the version or the date by hand: `pnpm create-version` renames `[Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` in the version commit and leaves an empty `[Unreleased]` block on top. The date uses Argentina time (`releaseTimeZone: "America/Argentina/Buenos_Aires"` in `astra-rp.config.mjs`). This is the behavior of `@astra-kit/rp` 1.0.0: the release stops when `[Unreleased]` is missing or has no entries, unless `changelogDraft` drafts them first.
 - Follow [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/): group entries only under these sections, in this order, omitting empty ones: `### Added`, `### Changed`, `### Deprecated`, `### Removed`, `### Fixed`, `### Security`.
 - Write one `- ` line per change, in Spanish, describing what changes for TuTribu users (members and tribe creators), without internal implementation details.
 - Changes with no effect for users (tests, internal refactors, local tooling, agent instructions) do not need an entry.
@@ -141,23 +141,23 @@ npx create-next-app@latest . --ts --eslint --tailwind --app --import-alias "@/*"
 
 ### UI baseline
 
-- Use `beez-ui` as the only shared component library consumed by product code. Exception: the platform shell is the Arc Pro "Sidebar rail" block adapted in `components/app-rail/app-rail-shell` (see "Arc Pro license"); it uses `radix-ui` primitives directly, on the same version `beez-ui` already installs. Do not use `radix-ui` elsewhere in product code.
-- Group named imports from `beez-ui` (the `beez-ui` package published to npm); do not use component-specific subpaths. General-purpose hooks (`useIsMobile`, `useIsHydrated`, `useViewerTimeZone`, `useHorizontalSwipe`) come from the `beez-ui/hooks` entrypoint.
-- `components/providers/app-providers/app-ui-provider.tsx` is the composition root allowed to import `BeezUIProvider` from `beez-ui/next`. Use `useTheme` from `beez-ui` for theme consumers and preserve the `tutribu-theme` storage key. Do not reintroduce document theme scripts or independent preference state.
-- The sibling `beez-ui` repository owns the extracted shadcn/ui components and their customizations.
+- Use `@astra-kit/ui` as the only shared component library consumed by product code. Exception: the platform shell is the Arc Pro "Sidebar rail" block adapted in `components/app-rail/app-rail-shell` (see "Arc Pro license"); it uses `radix-ui` primitives directly, on the same version `@astra-kit/ui` already installs. Do not use `radix-ui` elsewhere in product code.
+- Group named imports from `@astra-kit/ui` (the `@astra-kit/ui` package published to npm); do not use component-specific subpaths. General-purpose hooks (`useIsMobile`, `useIsHydrated`, `useViewerTimeZone`, `useHorizontalSwipe`) come from the `@astra-kit/ui/hooks` entrypoint.
+- `components/providers/app-providers/app-ui-provider.tsx` is the composition root allowed to import `AstraUIProvider` from `@astra-kit/ui/next`. Use `useTheme` from `@astra-kit/ui` for theme consumers and preserve the `tutribu-theme` storage key. Do not reintroduce document theme scripts or independent preference state.
+- The sibling `astra-ui` repository (package `@astra-kit/ui`) owns the extracted shadcn/ui components and their customizations.
 - Add new shadcn/ui components through its official CLI in that library, never in this application.
 - Do not reintroduce `components/ui` source copies or a local `components.json`.
 - Prefer composition of existing shared primitives before custom product components.
-- Import browser-ready `beez-ui/styles.css` once from the global stylesheet; do not add Tailwind compilation or `@source` in the consumer. It provides the Arc foundation (semantic color roles, concentric radii, control heights, shadows, keyboard-only focus outline, blue accent) in light and dark; product SCSS Modules use those tokens and explicit overrides stay here. Fonts come from `app/fonts` through `next/font/local`: Inter for text and controls, Geist for display headings; use only weights 400 and 500.
+- Import browser-ready `@astra-kit/ui/styles.css` once from the global stylesheet; do not add Tailwind compilation or `@source` in the consumer. It provides the Arc foundation (semantic color roles, concentric radii, control heights, shadows, keyboard-only focus outline, blue accent) in light and dark; product SCSS Modules use those tokens and explicit overrides stay here. Fonts come from `app/fonts` through `next/font/local`: Inter for text and controls, Geist for display headings; use only weights 400 and 500.
 - Use `Button` with Arc's API (`variant` `primary`, `secondary`, `ghost` or `danger`; `size` `sm`, `md` or `lg`; `loading`). It has no `asChild`: navigation that looks like a button stays a `Link`, `<a>` or `<label>` styled with the `action-link` mixin from `src/styles/_action-link.scss`. Icon-only buttons use `size="sm"` with an accessible name.
-- Use pnpm 12.6.0 and consume published `beez-ui` releases from the public npm registry with a caret range; no registry mapping or token is needed. Update package.json and pnpm-lock.yaml together; do not vendor local tarballs.
+- Use pnpm 12.14.0 and consume published `@astra-kit/ui` releases from the public npm registry with a caret range; no registry mapping or token is needed. Update package.json and pnpm-lock.yaml together; do not vendor local tarballs.
 - Follow `docs/architecture/shared-ui-library.htm` for package boundaries and distribution.
 
 ### Arc Pro license
 
 - Arc components and blocks marked Pro (uiarc.dev, the `@uiarc-pro` registry, or the Arc MCP server) are licensed under the Arc Pro license (https://uiarc.dev/license), not MIT. Read it before using any Pro source; Free Arc items are MIT and only need their copyright notice.
 - TuTribu is an end product, so Pro source may live here, adapted to the product, even though the repository is public. Every file that contains Pro source, copied or adapted (components, styles, SVG paths, timings), must start with this notice: `Contains code adapted from Arc Pro (https://uiarc.dev), licensed under the Arc Pro license (https://uiarc.dev/license). Not covered by this project's license; do not redistribute it on its own.` Never remove that notice.
-- Never move Pro source into `beez-ui` or any other package, registry, template, snippet collection or shared prompt: `beez-ui` is a component library published to npm, and redistributing Pro source as a library is forbidden. Build the shared primitive in `beez-ui` from its own design instead, or keep the Pro-derived code in this application.
+- Never move Pro source into `@astra-kit/ui` or any other package, registry, template, snippet collection or shared prompt: `@astra-kit/ui` is a component library published to npm, and redistributing Pro source as a library is forbidden. Build the shared primitive in `@astra-kit/ui` from its own design instead, or keep the Pro-derived code in this application.
 - Do not commit raw Pro source as a standalone reference (for example the unmodified block under `docs/` or a scratch folder); take only what the product needs and integrate it.
 - Use Pro source only with your own Arc Pro seat; do not share Pro tokens, and do not add them to the repository or to CI.
 - Structure rule for custom components :
@@ -176,7 +176,7 @@ components/<scope>/<component>/
 
 - Always use the shared `Link` component from `@/components/navigation/link` for in-app navigation. Never import `Link` from `next/link` directly in product code (`app`, `components`, and `src`).
 - The shared `Link` uses the provider's Next.js adapter with `prefetch` set to `false` by default. It accepts string hrefs and native anchor attributes. Prefetch is opt-in: pass `prefetch` explicitly only on routes that benefit from it.
-- `components/navigation/link/index.tsx` reexports `Link` and `LinkProps` from `beez-ui`. Product code must not import `next/link` directly; shared pagination uses the same provider automatically.
+- `components/navigation/link/index.tsx` reexports `Link` and `LinkProps` from `@astra-kit/ui`. Product code must not import `next/link` directly; shared pagination uses the same provider automatically.
 - For details and examples, see the navigation links convention guide at `docs/conventions/navigation-links.htm`.
 
 ### Product language policy
@@ -189,7 +189,7 @@ components/<scope>/<component>/
 
 ### Toast notifications baseline
 
-- Use `toast` and `ThemedToaster` from `beez-ui` (backed by Sonner) as the standard notification system for user-facing events. Do not mount the raw `Toaster`, and do not restyle toasts in the product.
+- Use `toast` and `ThemedToaster` from `@astra-kit/ui` (backed by Sonner) as the standard notification system for user-facing events. Do not mount the raw `Toaster`, and do not restyle toasts in the product.
 - Mount a global toaster once in `app/layout.tsx` or in a dedicated top-level providers component imported from that layout, and trigger notifications from client components or client-side handlers.
 - Select toast type by event intent:
   - `default`: neutral messages that acknowledge a relevant user action.
@@ -211,13 +211,13 @@ components/<scope>/<component>/
   - `src/styles/*` for global styles, tokens, mixins, and layout primitives
 - Avoid inline styles except for rare runtime-only values.
 - Tailwind utility classes are forbidden in product code (`app`, `components`, and `src` feature modules) and must be replaced with `SCSS` classes.
-- Tailwind compilation belongs exclusively to `beez-ui`; the application consumes precompiled CSS. Shared component sources and the shadcn CLI configuration live in that library.
+- Tailwind compilation belongs exclusively to `@astra-kit/ui`; the application consumes precompiled CSS. Shared component sources and the shadcn CLI configuration live in that library.
 
 ### Motion baseline
 
-- Use `motion` (`motion/react`) and the motion primitives exported by `beez-ui` (`PresenceSwap`, `AnimatedCount`, `AnimatedCollapse`, `AnimatedListItem`) for client-side state changes, and the mixins in `src/styles/_motion.scss` for CSS-only entrances of server-rendered content.
-- Animate only `transform` and `opacity` (height only through `AnimatedCollapse`), keep durations between 120 and 320 ms, take timing from the motion tokens exported by `beez-ui` (`MOTION_TIMING`, `MOTION_EASE`, springs and distances), and never hide server-rendered HTML behind a Motion `initial` state.
-- Do not re-animate `beez-ui` primitives, which already animate. Every animation must respect `prefers-reduced-motion`.
+- Use `motion` (`motion/react`) and the motion primitives exported by `@astra-kit/ui` (`PresenceSwap`, `AnimatedCount`, `AnimatedCollapse`, `AnimatedListItem`) for client-side state changes, and the mixins in `src/styles/_motion.scss` for CSS-only entrances of server-rendered content.
+- Animate only `transform` and `opacity` (height only through `AnimatedCollapse`), keep durations between 120 and 320 ms, take timing from the motion tokens exported by `@astra-kit/ui` (`MOTION_TIMING`, `MOTION_EASE`, springs and distances), and never hide server-rendered HTML behind a Motion `initial` state.
+- Do not re-animate `@astra-kit/ui` primitives, which already animate. Every animation must respect `prefers-reduced-motion`.
 - Scoped exception: `components/loaders/morph-loader` springs the geometry of its four SVG strokes and runs a continuous idle loop while loading; its durations still come from `MOTION_TIMING` within 120 to 320 ms. See the exception in `docs/conventions/motion.htm`.
 - Follow the motion convention guide at `docs/conventions/motion.htm`.
 
@@ -413,7 +413,7 @@ pnpm run dev
 
 - GitHub Actions owns the automatic quality gate in `.github/workflows/quality-gate.yml`. There are no product `pre-commit` or `pre-push` hooks: commits and pushes do not run local checks. The `prepare` script may install Husky wrappers, but they have no quality gate to invoke.
 - Do not disable the GitHub Actions quality gate to merge failing code. Fix accepted failures and wait for a successful run of the updated commit.
-- Every branch push, pull request update and manual workflow dispatch runs the full contract of `pnpm run ci` (split across jobs: `lint`, `typecheck` and `typecheck:tests` in a `parallel` group followed by `build`, and `test` in three Vitest shards; a final `Quality gate` job requires all of them; keep the workflow in sync when the `ci` script changes), after `pnpm install --frozen-lockfile` in clean GitHub-hosted runners. The contract runs `lint`, `typecheck`, `typecheck:tests`, `test`, and `build`. Branch pushes validate the pushed commit; pull requests validate the GitHub merge commit. Tags do not trigger this workflow. Node.js comes from `.nvmrc`, pnpm from `packageManager`, and `HUSKY=0` disables hook installation in CI. The workflow uses read-only repository permissions and no application secrets. Require the `Quality gate` check in branch protection when merges must be blocked on failures; creating a workflow alone does not change branch protection.
+- Every push to `main`, pull request update and manual workflow dispatch runs the full contract of `pnpm run ci` (split across jobs: `lint`, `typecheck` and `typecheck:tests` in a `parallel` group followed by `build`, and `test` in three Vitest shards; a final `Quality gate` job requires all of them; keep the workflow in sync when the `ci` script changes), after `pnpm install --frozen-lockfile` in clean GitHub-hosted runners. The contract runs `lint`, `typecheck`, `typecheck:tests`, `test`, and `build`. Pushes to `main` validate the pushed commit; pull requests validate the GitHub merge commit. Pushes to other branches do not trigger it, so a branch is validated through its pull request instead of twice. Tags do not trigger this workflow. Node.js comes from `.nvmrc`, pnpm from `packageManager`, and `HUSKY=0` disables hook installation in CI. The workflow uses read-only repository permissions and no application secrets. Require the `Quality gate` check in branch protection when merges must be blocked on failures; creating a workflow alone does not change branch protection.
 - `typecheck` and the `build` type check share the same scope (`tsconfig.typecheck.json`, wired through `typescript.tsconfigPath` in `next.config.ts`): product code under `app`, `components`, `hooks`, `lib`, `src` and the framework entrypoints. Vitest 5 suites run through Vite and are type-checked separately with `pnpm run typecheck:tests` and `tsconfig.test.json`. Product configurations must not include Vitest globals.
 - Agents must not duplicate the full gate in local Stop hooks; during a task, run validations relevant to the change (lint, type checks and the related Vitest suites) and rely on GitHub Actions for the automatic full gate.
 - The package manager is pnpm 12, pinned through `packageManager` (plus `engines.pnpm`). pnpm 12 enforces `minimumReleaseAge` (24 hours) by default and validates every lockfile entry, so a freshly published version is rejected until it is a day old: prefer versions older than 24 hours and always confirm with `pnpm install --frozen-lockfile`. Never regenerate the lockfile with `pnpm clean --lockfile` to get past that check; it re-resolves every caret range and drifts unrelated dependencies.
@@ -440,7 +440,7 @@ pnpm run dev
 
 ### Test tooling
 
-- Use pnpm 12.6.0 and the committed pnpm-lock.yaml. Install with `pnpm install --frozen-lockfile`.
+- Use pnpm 12.14.0 and the committed pnpm-lock.yaml. Install with `pnpm install --frozen-lockfile`.
 - Use Vitest 5 for unit and integration tests; `pnpm test` runs once and `pnpm test:watch` watches.
 - Run `pnpm typecheck:tests` against `tsconfig.test.json`; keep Vitest and Testing Library globals out of the application tsconfig.
 
@@ -450,4 +450,4 @@ pnpm run dev
 - TypeScript 7 is the project compiler for application tests and Next builds. Keep the separate `tsconfig.test.json` and run `pnpm typecheck:tests`.
 - Keep the root `typescript` dependency on version 7 and do not disable Next build type checking.
 - Lint runs with oxlint (`.oxlintrc.json`). Inline `eslint-disable` and `oxlint-disable` directives are rejected by `scripts/oxlint/no-lint-disable-plugin.mjs`.
-- The local runtime and GitHub Actions must match `.nvmrc` and `packageManager` (pnpm 12.6.0). Update runtime pins, Node types and lockfiles together.
+- The local runtime and GitHub Actions must match `.nvmrc` and `packageManager` (pnpm 12.14.0). Update runtime pins, Node types and lockfiles together.

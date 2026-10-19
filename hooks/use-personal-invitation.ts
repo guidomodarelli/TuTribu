@@ -1,7 +1,7 @@
 "use client";
 /** Owns account-bound personal confirmation and original reference recovery without automatic writes. @module use-personal-invitation */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "beez-ui";
+import { toast } from "@astra-kit/ui";
 import type { PersonalInvitationPageState } from "@/src/modules/academy-admissions/application/results/personal-invitation-page-state";
 import type { PersonalInvitationBrowserClient } from "@/src/modules/academy-admissions/application/ports/personal-invitation-browser-client";
 import type { AdmissionBrowserSubmission } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";

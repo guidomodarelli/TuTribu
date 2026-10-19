@@ -1,4 +1,4 @@
-/** Exercises real React, beez-ui, Motion and hydration with only owned transport ports replaced. @module academy-admissions-manual-tests */
+/** Exercises real React, @astra-kit/ui, Motion and hydration with only owned transport ports replaced. @module academy-admissions-manual-tests */
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { hydrateRoot } from "react-dom/client";

@@ -2,7 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 
-import { Button, Dialog, DialogContent, Input, Select, Textarea, AnimatedCollapse, PresenceSwap } from "beez-ui";
+import { Button, Dialog, DialogContent, Input, Select, Textarea, AnimatedCollapse, PresenceSwap } from "@astra-kit/ui";
 
 import { Link } from "@/components/navigation/link";
 import {

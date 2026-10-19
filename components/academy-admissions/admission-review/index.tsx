@@ -1,6 +1,6 @@
 /** Presents authorized review state and callbacks without importing auth or HTTP adapters. @module admission-review */
 import { useId, type ReactNode, type Ref } from "react";
-import { Button, Checkbox } from "beez-ui";
+import { Button, Checkbox } from "@astra-kit/ui";
 import { AdmissionDecisionForm } from "@/components/academy-admissions/admission-decision-form";
 import { Link } from "@/components/navigation/link";
 import type { AdmissionReviewDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";

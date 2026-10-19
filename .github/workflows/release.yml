@@ -73,7 +73,7 @@ jobs:
       - name: Configurar pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: '12.6.0'
+          version: '12.14.0'
       - name: Instalar dependencias
         run: pnpm install --frozen-lockfile
       - name: Instalar navegador requerido por los tests

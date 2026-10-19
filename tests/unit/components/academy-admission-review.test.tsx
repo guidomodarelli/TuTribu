@@ -1,4 +1,4 @@
-/** Exercises real React/beez-ui/Motion review interactions with doubles only of the owned client port. @module academy-admission-review-tests */
+/** Exercises real React/@astra-kit/ui/Motion review interactions with doubles only of the owned client port. @module academy-admission-review-tests */
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Activity, type ReactNode } from "react";
 import { renderToString } from "react-dom/server";

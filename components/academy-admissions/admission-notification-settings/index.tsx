@@ -1,6 +1,6 @@
 /** Presents personal frequency and leader-only email controls without session, transport or recovery storage dependencies. @module admission-notification-settings */
 import { useId } from "react";
-import { Button, Checkbox, Input, Select } from "beez-ui";
+import { Button, Checkbox, Input, Select } from "@astra-kit/ui";
 import { Link } from "@/components/navigation/link";
 import type { AdmissionNotificationPreferenceMode } from "@/src/modules/notifications/domain/entities/admission-notification-preference";
 import type { AdmissionNotificationPreferenceView, AdmissionNotificationEmailSettingsView } from "@/src/modules/notifications/application/results/admission-notification-settings-result";

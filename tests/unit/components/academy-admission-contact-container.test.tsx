@@ -17,7 +17,7 @@ import { writeAdmissionDraft } from "@/lib/academy-admissions/admission-draft";
 
 afterEach(() => window.sessionStorage.clear());
 
-/** Own ports emulate confirmed application results; beez-ui, browser state and validation remain real. */
+/** Own ports emulate confirmed application results; @astra-kit/ui, browser state and validation remain real. */
 function containerFixture() {
   const viewerId = randomUUID(), now = Date.now(), proofId = randomUUID(), challengeId = randomUUID();
   let request: AdmissionRequestDto | null = null;

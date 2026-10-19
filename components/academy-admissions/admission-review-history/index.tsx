@@ -1,5 +1,5 @@
 /** Presents only safe retained history facts and route-owned recovery/navigation callbacks. @module admission-review-history */
-import { Button } from "beez-ui";
+import { Button } from "@astra-kit/ui";
 import { Link } from "@/components/navigation/link";
 import type { AdmissionReviewHistoryItemDto } from "@/src/modules/academy-admissions/application/results/admission-review-history-result";
 import { ADMISSION_REVIEW_HISTORY_ACTOR_LABEL, ADMISSION_REVIEW_HISTORY_COPY, ADMISSION_REVIEW_HISTORY_EVENT_LABEL } from "@/src/modules/academy-admissions/constants/admission-review-history-page";

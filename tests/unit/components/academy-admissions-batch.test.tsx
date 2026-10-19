@@ -1,4 +1,4 @@
-/** Exercises explicit batch decisions through the real reviewer route and beez-ui. @module academy-admissions-batch-tests */
+/** Exercises explicit batch decisions through the real reviewer route and @astra-kit/ui. @module academy-admissions-batch-tests */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";

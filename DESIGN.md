@@ -24,7 +24,7 @@ Do not use Cards unless the user explicitly asks for cards.
 
 This applies to:
 
-- beez-ui's `Card` (Arc's content card with `title`, `description`, `media`,
+- @astra-kit/ui's `Card` (Arc's content card with `title`, `description`, `media`,
   `footer` and quick look).
 - Custom card-like wrappers with borders, elevated backgrounds, shadows, or
   framed sections.
@@ -37,10 +37,10 @@ with restrained spacing and typography.
 
 ## Component Library
 
-Use `beez-ui` as the shared component library. Group named imports from the
-package root, for example `import { Button, Dialog, Input } from "beez-ui"`.
+Use `@astra-kit/ui` as the shared component library. Group named imports from the
+package root, for example `import { Button, Dialog, Input } from "@astra-kit/ui"`.
 The library owns the shadcn/ui sources and all shared customizations. Add new
-upstream components with the official CLI in the `beez-ui` repository, then
+upstream components with the official CLI in the `@astra-kit/ui` repository, then
 version and distribute the package. Do not run the shadcn CLI in this app or
 reintroduce local copies under `components/ui`.
 
@@ -52,7 +52,7 @@ outline, in light and dark, with Arc's blue accent. Style product code with thos
 (`--primary`, `--muted`, `--muted-foreground`…) remain as aliases, and `--accent` is Arc's brand accent, not a hover
 grey. Keep page-specific
 styles and explicit overrides in this repository. Import shared component
-styles once through `beez-ui/styles.css`. Follow the integration contract in
+styles once through `@astra-kit/ui/styles.css`. Follow the integration contract in
 `docs/architecture/shared-ui-library.htm`.
 
 Only create a product-specific custom component when the shared library has
@@ -97,7 +97,7 @@ spacing, tokens, interaction patterns and SCSS Module conventions.
 
 ## Buttons and action links
 
-- Use `Button` from beez-ui for actions. It follows Arc's API: `variant`
+- Use `Button` from @astra-kit/ui for actions. It follows Arc's API: `variant`
   `primary` (one per surface), `secondary`, `ghost` or `danger`; `size` `sm`,
   `md` (default) or `lg`; and `loading` for short async work. It defaults to
   `type="button"`; pass `type="submit"` to submit a form.
@@ -114,7 +114,7 @@ spacing, tokens, interaction patterns and SCSS Module conventions.
 
 ## Form fields
 
-- Use `Input` and `Textarea` from beez-ui; they follow Arc's Input and
+- Use `Input` and `Textarea` from @astra-kit/ui; they follow Arc's Input and
   Textarea (44px controls, 110px textareas with vertical resize, border-only
   focus, `danger` border when invalid).
 - For a labelled field, pass `label`, plus `description` for helper copy and
@@ -186,9 +186,9 @@ Use this pattern for a tool page where one record moves through several steps
 
 ## Notifications
 
-- Notifications use `toast` and `ThemedToaster` from beez-ui, mounted once in
+- Notifications use `toast` and `ThemedToaster` from @astra-kit/ui, mounted once in
   `components/providers/app-providers`. Do not mount the raw `Toaster` and do
-  not restyle toasts: their surface, icons and theme come from beez-ui, and
+  not restyle toasts: their surface, icons and theme come from @astra-kit/ui, and
   their buttons stay usable, also with the keyboard (Alt+T), while a dialog
   is open.
 

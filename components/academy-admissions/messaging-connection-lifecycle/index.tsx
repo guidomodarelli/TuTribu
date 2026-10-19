@@ -1,6 +1,6 @@
 /** Presents explicit local connection safety/retirement controls without auth, transport or storage ownership. @module messaging-connection-lifecycle */
 import { useId } from "react";
-import { Button, Checkbox, Label, Select } from "beez-ui";
+import { Button, Checkbox, Label, Select } from "@astra-kit/ui";
 import type { MessagingConnectionSuspensionInput } from "@/src/modules/messaging/domain/repositories/messaging-connection-lifecycle";
 import { MESSAGING_CONNECTION_SECURITY_REASON } from "@/src/modules/messaging/constants/messaging-connection-security";
 import { MESSAGING_CONNECTION_LABEL } from "@/src/modules/messaging/constants/messaging-connection-presentation";

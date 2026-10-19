@@ -1,7 +1,7 @@
 "use client";
 /** Presents preserved issued references for explicit readonly recovery without owning storage, HTTP or destination/code. @module messaging-diagnostic-history */
 import {useId} from "react";
-import {Button} from "beez-ui";
+import {Button} from "@astra-kit/ui";
 import type {MessagingDiagnosticObservationReference} from "@/src/modules/messaging/application/ports/messaging-connections-intent-store";
 import {MESSAGING_CONNECTION_HISTORY_LIMIT} from "@/src/modules/messaging/constants/messaging-connections-browser";
 import {MESSAGING_CHANNEL_LABEL} from "@/src/modules/messaging/constants/messaging-connection-presentation";

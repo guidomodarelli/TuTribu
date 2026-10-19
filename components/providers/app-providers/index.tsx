@@ -2,7 +2,7 @@
 
 /** Composes the shared UI provider with application notifications and Siteping. */
 import { Suspense, type ReactNode } from "react";
-import { ThemedToaster, useTheme } from "beez-ui";
+import { ThemedToaster, useTheme } from "@astra-kit/ui";
 
 import { PrivateAwareSiteping } from "@/components/providers/private-aware-siteping";
 import { DARK_THEME_MODE, LIGHT_THEME_MODE } from "@/src/constants/theme-mode";

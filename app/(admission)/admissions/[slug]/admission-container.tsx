@@ -2,7 +2,7 @@
 
 /** Owns the single browser workflow, native viewer checks and durable local intent recovery. @module admission-container */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, toast } from "beez-ui";
+import { Button, toast } from "@astra-kit/ui";
 import { ContactVerification } from "@/components/academy-admissions/contact-verification";
 import { useAdmissionContactVerification } from "@/hooks/use-admission-contact-verification";
 import { useAdmissionNotificationRefresh } from "@/hooks/use-admission-notification-refresh";

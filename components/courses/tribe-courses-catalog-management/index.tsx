@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Input, Switch, Textarea, AnimatedCollapse, AnimatedListItem, cn } from "beez-ui";
+import { toast, Button, Input, Switch, Textarea, AnimatedCollapse, AnimatedListItem, cn } from "@astra-kit/ui";
 
 import { Link } from "@/components/navigation/link";
 import { ROUTES } from "@/src/constants/routes";

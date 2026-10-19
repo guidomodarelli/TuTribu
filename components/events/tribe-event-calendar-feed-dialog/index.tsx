@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CalendarPlusIcon, CopyIcon, ShieldAlertIcon } from "lucide-react";
-import { Button, Dialog, DialogContent, Input, PresenceSwap } from "beez-ui";
+import { Button, Dialog, DialogContent, Input, PresenceSwap } from "@astra-kit/ui";
 
 import {
   TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS,

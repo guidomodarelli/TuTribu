@@ -169,8 +169,8 @@
               "@/src/features/*",
               "src/features/*",
               "@/components/ui/*",
-              "beez-ui/*",
-              "!beez-ui/hooks"
+              "@astra-kit/ui/*",
+              "!@astra-kit/ui/hooks"
             ]
           }
         ]
@@ -188,9 +188,9 @@
               "@/src/features/*",
               "src/features/*",
               "@/components/ui/*",
-              "beez-ui/*",
-              "!beez-ui/hooks",
-              "!beez-ui/next"
+              "@astra-kit/ui/*",
+              "!@astra-kit/ui/hooks",
+              "!@astra-kit/ui/next"
             ]
           }
         ]
@@ -210,8 +210,8 @@
                   "@/src/features/*",
                   "src/features/*",
                   "@/components/ui/*",
-                  "beez-ui/*",
-                  "!beez-ui/hooks",
+                  "@astra-kit/ui/*",
+                  "!@astra-kit/ui/hooks",
                   "@/src/modules/setup",
                   "@/src/modules/setup.*",
                   "@/src/modules/*/setup",
@@ -244,8 +244,8 @@
                   "@/src/features/*",
                   "src/features/*",
                   "@/components/ui/*",
-                  "beez-ui/*",
-                  "!beez-ui/hooks",
+                  "@astra-kit/ui/*",
+                  "!@astra-kit/ui/hooks",
                   "@/src/modules/setup",
                   "@/src/modules/setup.*",
                   "@/src/modules/*/setup",

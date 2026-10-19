@@ -2,7 +2,7 @@
 
 import { BellOffIcon, CheckCheckIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { Button, AnimatedListItem, cn } from "beez-ui";
+import { Button, AnimatedListItem, cn } from "@astra-kit/ui";
 
 import { Link } from "@/components/navigation/link";
 import { describeNotification } from "@/lib/notifications/notification-presentation";

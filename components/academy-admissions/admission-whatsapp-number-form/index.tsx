@@ -1,6 +1,6 @@
 /** Presents an own pending correction without owning account, requests or recovery state. @module admission-whatsapp-number-form */
 import { useId } from "react";
-import { Button, Checkbox } from "beez-ui";
+import { Button, Checkbox } from "@astra-kit/ui";
 import { AdmissionWhatsappNumberField } from "@/components/academy-admissions/admission-whatsapp-number-field";
 import { ADMISSION_WHATSAPP_COPY } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
 import styles from "./styles.module.scss";

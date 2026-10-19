@@ -1,5 +1,5 @@
 /** Displays only owned request metadata and explicit cancellation callbacks. @module request-status */
-import { Button, Checkbox } from "beez-ui";
+import { Button, Checkbox } from "@astra-kit/ui";
 import { useId, type Ref } from "react";
 import { Link } from "@/components/navigation/link";
 import type { AdmissionRequestDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";

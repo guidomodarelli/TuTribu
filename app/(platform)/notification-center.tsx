@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useIsMobile, useIsHydrated } from "beez-ui/hooks";
+import { useIsMobile, useIsHydrated } from "@astra-kit/ui/hooks";
 
 import {
   NOTIFICATION_BELL_SURFACE,

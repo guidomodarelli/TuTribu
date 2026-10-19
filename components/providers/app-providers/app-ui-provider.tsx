@@ -2,8 +2,8 @@
 
 /** Composes shared Next adapters and the application's persisted theme contract. */
 import { useEffect, type ReactNode } from "react";
-import { useTheme } from "beez-ui";
-import { BeezUIProvider, type BeezUIProviderProps } from "beez-ui/next";
+import { useTheme } from "@astra-kit/ui";
+import { AstraUIProvider, type AstraUIProviderProps } from "@astra-kit/ui/next";
 import { isThemeMode } from "@/lib/theme-mode";
 import { SYSTEM_THEME_MODE, THEME_MODE_STORAGE_KEY } from "@/src/constants/theme-mode";
 
@@ -12,7 +12,7 @@ const APP_THEME_OPTIONS = {
   storageKey: THEME_MODE_STORAGE_KEY,
   defaultTheme: SYSTEM_THEME_MODE,
   enableSystem: true,
-} satisfies BeezUIProviderProps["themeOptions"];
+} satisfies AstraUIProviderProps["themeOptions"];
 
 /** Restores the system default for unsupported stored values without owning a second theme state. */
 function ThemePreferenceValidation() {
@@ -30,9 +30,9 @@ function ThemePreferenceValidation() {
  */
 export function AppUIProvider({ children }: { children: ReactNode }) {
   return (
-    <BeezUIProvider themeOptions={APP_THEME_OPTIONS}>
+    <AstraUIProvider themeOptions={APP_THEME_OPTIONS}>
       <ThemePreferenceValidation />
       {children}
-    </BeezUIProvider>
+    </AstraUIProvider>
   );
 }

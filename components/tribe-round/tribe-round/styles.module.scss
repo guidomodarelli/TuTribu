@@ -60,7 +60,7 @@ $media-viewer-overlay-opacity: 72%;
   }
 
   &__composerCard,
-  // Message surface: a plain element, since beez-ui's `Card` is a content
+  // Message surface: a plain element, since @astra-kit/ui's `Card` is a content
   // card with its own padded body and quick look.
   &__messageCard {
     display: flex;
@@ -225,7 +225,7 @@ $media-viewer-overlay-opacity: 72%;
     max-width: 38rem;
     max-height: min(42rem, calc(100svh - 2rem));
     gap: 1rem;
-    // Radius, surface, border and the 24px padding come from beez-ui's Arc
+    // Radius, surface, border and the 24px padding come from @astra-kit/ui's Arc
     // dialog surface; its footer bleeds through that padding to the edges.
     // Rows that must read as part of the panel, like the sticky author header
     // and the composer actions, paint the panel's raised surface through this
@@ -238,7 +238,7 @@ $media-viewer-overlay-opacity: 72%;
     }
   }
 
-  // beez-ui's `closeButtonPlacement="viewport"` centers this panel with auto margins
+  // @astra-kit/ui's `closeButtonPlacement="viewport"` centers this panel with auto margins
   // (no `translate`) and pins the close button to the viewport corner.
   &__composerDialog--messageDetails:global([data-slot="dialog-content"]) {
     // Centered by auto margins until `usePixelSnappedCentering` publishes whole-pixel
@@ -331,7 +331,7 @@ $media-viewer-overlay-opacity: 72%;
     }
   }
 
-  // Border, tint and padding come from the footer of beez-ui's `DialogContent`;
+  // Border, tint and padding come from the footer of @astra-kit/ui's `DialogContent`;
   // the composer only keeps its actions on one row at every width.
   &__composerFooter {
     flex-direction: row;
@@ -1255,7 +1255,7 @@ $media-viewer-overlay-opacity: 72%;
     }
   }
 
-  // Like (beez-ui `ReactionButton`, fixed `h-8`) and comment (`Button`, `md` min
+  // Like (@astra-kit/ui `ReactionButton`, fixed `h-8`) and comment (`Button`, `md` min
   // height) come from different controls; one shared box keeps their hover
   // backgrounds the same size.
   &__likeButton,
@@ -1982,7 +1982,7 @@ $media-viewer-overlay-opacity: 72%;
 
 }
 
-// The scrim and its blur (prefixed for WebKit) come from beez-ui's Arc dialog
+// The scrim and its blur (prefixed for WebKit) come from @astra-kit/ui's Arc dialog
 // overlay, so every dialog looks the same whichever page loaded this module.
 :global([data-slot="dialog-overlay"]) {
   // Prevent iOS rubber-band scroll from chaining to the page behind the overlay.

@@ -16,8 +16,8 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 - Next.js 16 (App Router) and React 19 with TypeScript 7
 - Better Auth with Google OAuth
 - Neon Postgres accessed through Drizzle ORM and `pg`
-- beez-ui shared components (customized shadcn/ui, Base UI and Radix UI)
-- SCSS Modules with BEM (Tailwind reserved for beez-ui base setup only)
+- @astra-kit/ui shared components (customized shadcn/ui, Base UI and Radix UI)
+- SCSS Modules with BEM (Tailwind reserved for @astra-kit/ui base setup only)
 - Sonner for toast notifications
 - Vitest + React Testing Library for unit/integration tests; Playwright for E2E
 
@@ -64,7 +64,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 | `pnpm run upload:cloudflare` | Build and upload a new Cloudflare Workers version without deploying it. |
 | `pnpm run cf-typegen` | Generate Cloudflare binding types from `wrangler.jsonc`. |
 | `pnpm start` | Run the production build locally. |
-| `pnpm run ci` | Run the full quality gate (also run by GitHub Actions on branch pushes and pull requests): lint, application/test type checks, Vitest, and Next.js build. |
+| `pnpm run ci` | Run the full quality gate (also run by GitHub Actions on pushes to `main` and on pull requests): lint, application/test type checks, Vitest, and Next.js build. |
 | `pnpm run lint` | Run oxlint across the repo (configured in `.oxlintrc.json`). |
 | `pnpm run typecheck` | Run `tsc --noEmit` over production code. |
 | `pnpm test` | Run Vitest unit and integration tests. |
@@ -175,7 +175,7 @@ pnpm run lint
 
 ## Deployment targets
 
-Commits and pushes run no local quality hooks. GitHub Actions runs the full `pnpm run ci` gate after a frozen-lockfile install on branch pushes (including `main`), pull requests and manual dispatches. Tags do not trigger the gate. The workflow installs Node.js from `.nvmrc` and pnpm from `packageManager`. Configure `Quality gate` as a required status check in branch protection to block merges on failures. Vercel remains the default Next.js deployment target and continues to use `pnpm run build` with deployment environment variables available.
+Commits and pushes run no local quality hooks. GitHub Actions runs the full `pnpm run ci` gate after a frozen-lockfile install on pushes to `main`, pull requests and manual dispatches; pushes to other branches are validated through their pull request. Tags do not trigger the gate. The workflow installs Node.js from `.nvmrc` and pnpm from `packageManager`. Configure `Quality gate` as a required status check in branch protection to block merges on failures. Vercel remains the default Next.js deployment target and continues to use `pnpm run build` with deployment environment variables available.
 
 Cloudflare Workers is supported through `@opennextjs/cloudflare` and `wrangler.jsonc`. Use the Cloudflare-specific scripts instead of invoking `wrangler` directly for the Next.js app:
 
@@ -203,8 +203,8 @@ Notes:
   - `application/` — use cases, commands, queries, results.
   - `infrastructure/` — adapters for auth, persistence, HTTP clients, and provider SDKs. Owns external DTOs and their mappers.
 - `src/modules/shared/*` — cross-module shared code (e.g. `infrastructure/database/`).
-- `beez-ui` — shared UI implementation, maintained in the sibling repository. Import named components from the package root.
-- `beez-ui@^3.0.0` — shared UI package installed from the public npm registry, with its exact version and integrity pinned in `pnpm-lock.yaml`; see [the shared UI contract](docs/architecture/shared-ui-library.htm).
+- `@astra-kit/ui` — shared UI implementation, maintained in the sibling repository. Import named components from the package root.
+- `@astra-kit/ui@^1.0.0` — shared UI package installed from the public npm registry, with its exact version and integrity pinned in `pnpm-lock.yaml`; see [the shared UI contract](docs/architecture/shared-ui-library.htm).
 - `components/<scope>/<component>/{index.tsx,styles.module.scss}` — custom presentational components.
 - `lib/*` — framework-safe helpers, UI utilities, and client-only adapters. Off-limits to `application` and `domain`.
 - `database/migrations/*` — versioned SQL migrations (source of truth for schema and RLS policies).

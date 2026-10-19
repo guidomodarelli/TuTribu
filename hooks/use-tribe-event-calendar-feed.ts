@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { toast, copyTextToClipboard } from "beez-ui";
+import { toast, copyTextToClipboard } from "@astra-kit/ui";
 
 import {
   fetchTribeEventCalendarFeedRequest,

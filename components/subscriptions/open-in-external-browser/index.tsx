@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { AnimatedCount } from "beez-ui";
+import { AnimatedCount } from "@astra-kit/ui";
 import { navigateToUrl } from "@/lib/browser-navigation";
 import styles from "./styles.module.scss";
 

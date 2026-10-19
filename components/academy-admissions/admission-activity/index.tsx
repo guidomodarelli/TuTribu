@@ -1,6 +1,6 @@
 /** Presents only the leader-authorized history and emits explicit filter/pagination reads. @module admission-activity */
 import { useId } from "react";
-import { Button, Input, Select } from "beez-ui";
+import { Button, Input, Select } from "@astra-kit/ui";
 import type { AdmissionActivityPage } from "@/src/modules/academy-admissions/application/results/admission-activity-result";
 import type { AdmissionActivityPageSelection } from "@/src/modules/academy-admissions/application/results/admission-activity-page-state";
 import type { AdmissionActivityFilterDraft } from "@/src/modules/academy-admissions/application/commands/admission-activity-filter-draft";

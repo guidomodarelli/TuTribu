@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { toast, Button, Dialog, DialogContent, Input, Select, type SelectOption, Textarea } from "beez-ui";
+import { toast, Button, Dialog, DialogContent, Input, Select, type SelectOption, Textarea } from "@astra-kit/ui";
 
 import { TRIBE_SUPPORT_CHANNEL } from "@/src/modules/tribes/constants/tribe-support";
 import type {

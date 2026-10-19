@@ -1,7 +1,7 @@
 "use client";
 /** Presents the Connection step: controlled credential entry or the candidate credential check, without auth, transport or storage ownership. @module messaging-connections-presenter */
 import {useId} from "react";
-import {Button,Checkbox,Input} from "beez-ui";
+import {Button,Checkbox,Input} from "@astra-kit/ui";
 import type {MessagingConfigurationResult} from "@/src/modules/messaging/application/results/messaging-configuration-result";
 import {MESSAGING_OPERATIONAL_ALERT_LABEL} from "@/src/modules/messaging/constants/messaging-connection-presentation";
 import {TRIBE_MEMBER_ROLE} from "@/src/modules/tribes/constants/tribe-member-role";

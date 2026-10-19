@@ -573,7 +573,7 @@ $app-rail-touch-target: 40px;
     top: 0;
     bottom: 0;
     left: 0;
-    // Same layer as its scrim and as beez-ui's floating layers (menus, popovers, tooltips, dialogs: z-index 50), so DOM
+    // Same layer as its scrim and as @astra-kit/ui's floating layers (menus, popovers, tooltips, dialogs: z-index 50), so DOM
     // order stacks them: the sheet paints over its scrim, and a layer opened from inside the sheet, portaled after it,
     // paints over the sheet. A higher value would hide the tribe switcher and every other menu opened from the sheet.
     z-index: 50;

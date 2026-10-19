@@ -1,6 +1,6 @@
 @use "../../../src/styles/motion";
 
-// Mirrors `MOBILE_BREAKPOINT` (768px) in `beez-ui/src/hooks/use-mobile.ts`.
+// Mirrors `MOBILE_BREAKPOINT` (768px) in `astra-ui/src/hooks/use-mobile.ts`.
 $tribe-events-calendar-mobile-max: 767px;
 // Horizontal travel of a month entering after the viewer changed month.
 $tribe-events-calendar-month-offset: 12px;
@@ -106,7 +106,7 @@ $tribe-events-calendar-view-duration: 220ms;
   }
 
   // Before hydration both views are in the DOM; the breakpoint mirrors
-  // `MOBILE_BREAKPOINT` in `beez-ui/src/hooks/use-mobile.ts` so the server-rendered page
+  // `MOBILE_BREAKPOINT` in `astra-ui/src/hooks/use-mobile.ts` so the server-rendered page
   // shows the same view the client will keep after `useIsMobile` resolves.
   // Element shared by both pre-hydration wrappers; the modifiers only decide
   // which view is hidden at each breakpoint.

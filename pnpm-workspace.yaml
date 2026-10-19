@@ -6,7 +6,8 @@ allowBuilds:
   unrs-resolver: true
   workerd: true
 minimumReleaseAgeExclude:
-  - "beez-ui"
+  - "@astra-kit/ui"
+  - "@astra-kit/cleaner"
   - "@astra-kit/rp"
   - react-dom@19.3.0
   - react@19.3.0

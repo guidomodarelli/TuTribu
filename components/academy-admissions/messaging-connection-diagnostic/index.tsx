@@ -1,7 +1,7 @@
 "use client";
 /** Presents the Tests step: the current issued test first, then explicit scoped input for a new one, without session, HTTP, provider or polling ownership. @module messaging-connection-diagnostic */
 import {useId} from "react";
-import {Badge,Button,Checkbox,Input,Select} from "beez-ui";
+import {Badge,Button,Checkbox,Input,Select} from "@astra-kit/ui";
 import {Link} from "@/components/navigation/link";
 import type {ConnectionDiagnosticIssueResult} from "@/src/modules/messaging/domain/repositories/connection-diagnostic-issuance";
 import type {MessagingUsagePolicyStateDto} from "@/src/modules/messaging/application/results/messaging-public-result-schemas";
