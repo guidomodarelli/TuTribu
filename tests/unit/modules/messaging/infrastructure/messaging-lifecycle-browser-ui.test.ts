@@ -7,6 +7,7 @@ import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { makeSignature } from "better-auth/crypto";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
+import {readMessagingHostingSecurityConfig} from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import { prepareMessagingConnectionCreation } from "@/tests/support/messaging-connection-fixture";
 import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
 import { captureAdmissionReview } from "@/tests/support/admission-review-capture";
@@ -15,7 +16,7 @@ import { messagingConnectionOperationRecoverySchema } from "@/src/modules/messag
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS!=="1")("native local lifecycle UI",()=>{
   it.each([{name:"chromium",engine:chromium,width:1280},{name:"chromium",engine:chromium,width:390},{name:"webkit",engine:webkit,width:1280},{name:"webkit",engine:webkit,width:390}])("should suspend then retire a candidate with fresh consent and recover a lost original on $name at $width",async({name,engine,width})=>{
     await withAcademyAdmissionDatabase(async(database)=>{
-      const fixture=await prepareMessagingConnectionCreation(database),tribeId=fixture.context.tribeId,slug=`connection-${tribeId}`,credential=randomUUID();
+      const fixture=await prepareMessagingConnectionCreation(database,await readMessagingHostingSecurityConfig()),tribeId=fixture.context.tribeId,slug=`connection-${tribeId}`,credential=randomUUID();
       for(const migration of["20261005093000_guard_academy_membership_sources.sql","20261007001000_read_public_admission_overview.sql","20261005100000_guard_messaging_secret_retirement.sql","20261006160000_purge_verification_delivery_material.sql","20261008161500_create_admission_email_settings.sql"])await database.applyMigration(migration);
       await database.withContext(fixture.fixture.own,(transaction)=>transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`));let providerRequests=0;
       await database.withServerEnvironment((environment)=>withAdmissionNextServer(environment,slug,async(origin,secret)=>{

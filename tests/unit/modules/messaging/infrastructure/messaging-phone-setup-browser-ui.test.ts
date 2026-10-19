@@ -7,6 +7,7 @@ import {sql} from "drizzle-orm";
 import {describe,expect,it} from "vitest";
 import {makeSignature} from "better-auth/crypto";
 import {withAcademyAdmissionDatabase} from "@/tests/support/academy-admission-database";
+import {readMessagingHostingSecurityConfig} from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import {prepareMessagingConnectionCreation} from "@/tests/support/messaging-connection-fixture";
 import {withAdmissionNextServer} from "@/tests/support/admission-next-server";
 import {captureAdmissionReview} from "@/tests/support/admission-review-capture";
@@ -14,7 +15,7 @@ import {captureAdmissionReview} from "@/tests/support/admission-review-capture";
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS!=="1")("native phone setup UI",()=>{
   it.each([{name:"chromium",engine:chromium,width:1280},{name:"chromium",engine:chromium,width:390},{name:"webkit",engine:webkit,width:1280},{name:"webkit",engine:webkit,width:390}])("should save countries through the UI before its first SMS diagnostic and activate only after receiving its code on $name at $width",async({name,engine,width})=>{
     await withAcademyAdmissionDatabase(async(database)=>{
-      const fixture=await prepareMessagingConnectionCreation(database),tribeId=fixture.context.tribeId,slug=`connection-${tribeId}`,credential=randomUUID(),senderId=randomUUID(),recipient="+5491155501234";
+      const fixture=await prepareMessagingConnectionCreation(database,await readMessagingHostingSecurityConfig()),tribeId=fixture.context.tribeId,slug=`connection-${tribeId}`,credential=randomUUID(),senderId=randomUUID(),recipient="+5491155501234";
       for(const migration of["20261005092500_guard_messaging_attempts.sql","20261005093000_guard_academy_membership_sources.sql","20261007001000_read_public_admission_overview.sql","20261005100000_guard_messaging_secret_retirement.sql","20261006120000_index_messaging_contact_windows.sql","20261006140000_claim_messaging_deliveries_fairly.sql","20261006160000_purge_verification_delivery_material.sql","20261006230000_bind_credential_validation_usage.sql","20261007050000_claim_scoped_diagnostic_delivery.sql","20261008161500_create_admission_email_settings.sql"])await database.applyMigration(migration);
       await database.withContext(fixture.fixture.own,(transaction)=>transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`));let providerRequests=0,receivedCode="";const dispatchObservations:{stage:string;code:string}[]=[];
       await database.withServerEnvironment((environment)=>withAdmissionNextServer(environment,slug,async(origin,secret)=>{

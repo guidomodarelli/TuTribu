@@ -2,6 +2,8 @@
 export const ADMISSION_NEON_PROJECT_ID = "cold-firefly-92947172";
 /** Bounds administrative HTTP calls without retrying an uncertain resource mutation. */
 export const NEON_ADMIN_TIMEOUT_MS = 15_000;
+/** Bounds the idempotent exact-id DELETE retries; the provider can refuse deletion while another branch operation runs. */
+export const OWNED_BRANCH_REMOVAL = { attempts: 5, retryDelayMs: 3_000 } as const;
 /** Keeps externally planned nonces inside the same disposable resource family. */
 export const ADMISSION_BRANCH_NAME_PREFIX = "codex-academy-admissions-";
 /** Rejects ambiguous ownership before any resource can be created, borrowed or removed. */
