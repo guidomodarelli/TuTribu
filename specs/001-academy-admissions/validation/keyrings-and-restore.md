@@ -72,6 +72,8 @@ La apertura original calibró un trabajo nativo de cifrado. Los cuatro perfiles 
 
 Los siete intentos devolvieron capacidades auditadas: inputs de compilación estables, material privado ausente y funciones retiradas. La consulta independiente confirmó ausentes padre y copia y conservadas las cuatro ramas persistentes. La evidencia acredita el protocolo del host Node; Workers y el cierre conjunto de T201/T203 y OG-02 siguen pendientes.
 
+El 2026-10-19 el usuario decidió no ejecutar la parte Workers y retirarla del alcance. T201/T203 y OG-02 se cierran con la evidencia Node; Workers no queda validado por esta decisión.
+
 ## Preflight de acceso
 
 La comprobación actual encontró Wrangler 4.128.0 instalado y `whoami --json` devolvió `loggedIn: false`. Chrome ya tiene una sesión de Cloudflare utilizada para los seis registros de correo autorizados. Ese acceso web y esos registros no conceden a Wrangler una capacidad persistente para administrar Workers. Los intentos OAuth no completados finalizaron sin acreditar una sesión, y no se crearon Workers, secretos ni bases para este ensayo.
