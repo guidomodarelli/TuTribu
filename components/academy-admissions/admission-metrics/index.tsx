@@ -12,7 +12,7 @@ import styles from "./styles.module.scss";
 type MetricValue = { label: string; value: number | string };
 /** @param values - Fixed labels and observed counters. @returns One compact semantic definition list. */
 function renderCounts(values: readonly MetricValue[]) {
-  return <dl className={styles.AdmissionMetrics__counts}>{values.map((item) => <div className={styles.AdmissionMetrics__count} key={item.label}><dt className={styles.AdmissionMetrics__label}>{item.label}</dt><dd className={styles.AdmissionMetrics__value}>{item.value}</dd></div>)}</dl>;
+  return <dl className={styles.AdmissionMetrics__counts}>{values.map((item) => <div className={styles.AdmissionMetrics__count} key={item.label}><dt className={styles.AdmissionMetrics__label}>{item.label}</dt><dd className={typeof item.value === "number" ? styles.AdmissionMetrics__value : `${styles.AdmissionMetrics__value} ${styles["AdmissionMetrics__value--text"]}`}>{item.value}</dd></div>)}</dl>;
 }
 
 /** Only own aggregate/settings props enter presentation; all authority and reads belong to the route. */

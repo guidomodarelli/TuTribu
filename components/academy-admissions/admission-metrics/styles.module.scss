@@ -41,7 +41,7 @@
     min-width: 0;
     gap: 0.25rem;
     border: 1px solid var(--border);
-    border-radius: var(--radius-surface, 12px);
+    border-radius: var(--radius-md, 0.75rem);
     padding: 0.75rem 0.875rem;
     background: var(--surface);
   }
@@ -58,6 +58,13 @@
     font-variant-numeric: tabular-nums;
     line-height: 1.2;
     overflow-wrap: anywhere;
+
+    // Durations and "no data" read as text, not as a figure.
+    &--text {
+      font-family: inherit;
+      font-size: 0.9375rem;
+      line-height: 1.4;
+    }
   }
 
   &__scroll {
