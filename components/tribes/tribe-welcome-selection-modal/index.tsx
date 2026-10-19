@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { ArrowUpRightIcon, LoaderCircleIcon } from "lucide-react";
-import { toast, Dialog, DialogContent } from "@astra-kit/ui";
+import { toast, Dialog, DialogContent } from "@golfo/ui";
 
 import type { TribeWelcomeLinkResult } from "@/src/modules/tribes/application/results/tribe-welcome-result";
 import { TRIBE_WELCOME_LINK_TYPE } from "@/src/modules/tribes/constants/tribe-welcome";

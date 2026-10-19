@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { LoaderIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 
-import { Button, DropdownMenu, WhatsappIcon, buttonClassName, cn } from "@astra-kit/ui";
+import { Button, DropdownMenu, WhatsappIcon, buttonClassName, cn } from "@golfo/ui";
 
 import { ROUTES } from "@/src/constants/routes";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";

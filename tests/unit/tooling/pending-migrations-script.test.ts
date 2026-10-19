@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import createVersionConfig from "../../../astra-rp.config.mjs";
+import createVersionConfig from "../../../golfo-rp.config.mjs";
 import {
   MIGRATION_STATUS,
   describeDatabaseHost,
@@ -74,7 +74,7 @@ function runGitOrThrow(gitArguments: string[], workingDirectory: string): string
   return result.stdout.trim();
 }
 
-/** Git reader with the contract `astra-rp create-version` passes to hooks. */
+/** Git reader with the contract `golfo-rp create-version` passes to hooks. */
 function createGitReader(repositoryRoot: string): HookContext["git"] {
   return {
     git: async (gitArguments) => runGitOrThrow(gitArguments, repositoryRoot),
@@ -188,7 +188,7 @@ describe("pending migrations", () => {
   );
 });
 
-describe("astra-rp create-version config", () => {
+describe("golfo-rp create-version config", () => {
   const migrations = createVersionConfig.migrations as unknown as MigrationsAdapter;
 
   it(

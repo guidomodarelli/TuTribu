@@ -8,7 +8,7 @@ import localFont from "next/font/local";
  */
 
 /**
- * Inter is the base sans-serif typeface of Arc, the design system @astra-kit/ui follows: body copy, controls, labels and
+ * Inter is the base sans-serif typeface of Arc, the design system @golfo/ui follows: body copy, controls, labels and
  * compact headings. The latin subset ships as a single variable WOFF2 covering the 400-500 weights Arc uses.
  */
 export const inter = localFont({

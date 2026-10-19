@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
-import { toast } from "@astra-kit/ui";
+import { toast } from "@golfo/ui";
 
 import {
   INITIAL_OCCURRENCES_FRESHNESS_STATE,

@@ -24,7 +24,7 @@ import {
   VideoIcon,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Input, Select, type SelectOption, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, AnimatedCount, AnimatedListItem, buttonClassName, cn } from "@astra-kit/ui";
+import { toast, Button, Input, Select, type SelectOption, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, AnimatedCount, AnimatedListItem, buttonClassName, cn } from "@golfo/ui";
 
 
 

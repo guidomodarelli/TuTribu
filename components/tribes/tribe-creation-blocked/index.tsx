@@ -1,4 +1,4 @@
-import { buttonClassName } from "@astra-kit/ui";
+import { buttonClassName } from "@golfo/ui";
 
 import { siteConfig } from "@/lib/site-config";
 import styles from "./styles.module.scss";

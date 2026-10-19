@@ -1,7 +1,7 @@
 "use client";
 
 import { ButtonLink } from "@/components/navigation/link";
-import { Button } from "@astra-kit/ui";
+import { Button } from "@golfo/ui";
 import { ROUTES } from "@/src/constants/routes";
 import styles from "./styles.module.scss";
 

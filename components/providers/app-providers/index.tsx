@@ -2,7 +2,7 @@
 
 /** Composes the shared UI provider with application notifications and Siteping. */
 import type { ReactNode } from "react";
-import { ThemedToaster, useTheme } from "@astra-kit/ui";
+import { ThemedToaster, useTheme } from "@golfo/ui";
 
 import { SitepingProvider } from "@/components/providers/siteping-provider";
 import { DARK_THEME_MODE, LIGHT_THEME_MODE } from "@/src/constants/theme-mode";

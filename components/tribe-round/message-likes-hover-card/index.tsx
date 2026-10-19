@@ -13,7 +13,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { Avatar, HoverCard, Popover, PopoverContent, PopoverTrigger } from "@astra-kit/ui";
+import { Avatar, HoverCard, Popover, PopoverContent, PopoverTrigger } from "@golfo/ui";
 
 import type { MessageLikerResult } from "@/src/modules/messages/application/results/tribe-round-result";
 

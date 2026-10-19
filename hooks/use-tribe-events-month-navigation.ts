@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { toast } from "@astra-kit/ui";
+import { toast } from "@golfo/ui";
 
 import { pushCurrentUrlSearchParams } from "@/lib/browser-navigation";
 import {

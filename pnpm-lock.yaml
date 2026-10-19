@@ -166,9 +166,6 @@ importers:
 
   .:
     dependencies:
-      '@astra-kit/ui':
-        specifier: ^1.1.0
-        version: 1.1.0(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@aws-sdk/client-s3':
         specifier: ^3.1063.0
         version: 3.1063.0
@@ -187,6 +184,9 @@ importers:
       '@github/relative-time-element':
         specifier: ^5.0.0
         version: 5.0.0
+      '@golfo/ui':
+        specifier: ^2.0.0
+        version: 2.0.0(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@next/env':
         specifier: ^16.3.4
         version: 16.3.4
@@ -233,18 +233,18 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
     devDependencies:
-      '@astra-kit/cleaner':
-        specifier: ^0.2.0
-        version: 0.2.0
-      '@astra-kit/rp':
-        specifier: ^1.0.0
-        version: 1.0.0
       '@commitlint/cli':
         specifier: ^21.0.2
         version: 21.0.2(@types/node@24.13.4)(conventional-commits-parser@6.4.0)(typescript@7.0.2)
       '@commitlint/config-conventional':
         specifier: ^21.0.2
         version: 21.0.2
+      '@golfo/cleaner':
+        specifier: ^1.0.0
+        version: 1.0.0
+      '@golfo/rp':
+        specifier: ^2.0.0
+        version: 2.0.0
       '@opennextjs/cloudflare':
         specifier: ^1.20.6
         version: 1.20.6(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(supports-color@10.2.2)(wrangler@4.128.0)
@@ -396,31 +396,6 @@ packages:
   '@ast-grep/napi@0.40.5':
     resolution: {integrity: sha512-hJA62OeBKUQT68DD2gDyhOqJxZxycqg8wLxbqjgqSzYttCMSDL9tiAQ9abgekBYNHudbJosm9sWOEbmCDfpX2A==}
     engines: {node: '>= 10'}
-
-  '@astra-kit/cleaner@0.2.0':
-    resolution: {integrity: sha512-5DvspC6K+xegMxARRGyxmkFyp8l/ejKene8xkzAfsgzcTziwu+YBnjqMolAKOgR8RQHvA8x+uTtQ1gOv1vO0Og==}
-    engines: {node: '>=20'}
-    hasBin: true
-
-  '@astra-kit/rp@1.0.0':
-    resolution: {integrity: sha512-26qDqVM/A36NImOa844Ia2X2kL79pp6D/1dKX/+58T/d6q9iwvpkq8IeovOrxMx8RW3FavFkpoNfmp3RBXeu1g==}
-    engines: {node: '>=22'}
-    hasBin: true
-
-  '@astra-kit/ui@1.1.0':
-    resolution: {integrity: sha512-YTcTTGHwyLVtzseD+b5K/+3Kw/NTy476t8oeTfJat8AhvmT2bxNKqy2oQ9rjAzV7uwwGMKf/WDvwF6/H1jOcoQ==}
-    engines: {node: '>=22', pnpm: '>=12 <13'}
-    peerDependencies:
-      '@tanstack/react-router': ^1.170.33
-      lucide-react: ^1.16.0
-      next: ^16.3.4
-      react: ^19.2.0
-      react-dom: ^19.2.0
-    peerDependenciesMeta:
-      '@tanstack/react-router':
-        optional: true
-      next:
-        optional: true
 
   '@aws-crypto/crc32@5.2.0':
     resolution: {integrity: sha512-nLbCWqQNgUiwwtFsen1AdzAtvuLRsQS8rYgMuxCrdKf9kOssamGLuPwyTY9wyYblNr9+1XM8v6zoDTPPSIeANg==}
@@ -1784,6 +1759,31 @@ packages:
 
   '@github/relative-time-element@5.0.0':
     resolution: {integrity: sha512-L/2r0DNR/rMbmHWcsdmhtOiy2gESoGOhItNFD4zJ3nZfHl79Dx3N18Vfx/pYr2lruMOdk1cJZb4wEumm+Dxm1w==}
+
+  '@golfo/cleaner@1.0.0':
+    resolution: {integrity: sha512-u/vLJhqplWH4bRkZpz+mEakTl0z1QkV4oNxfqAp2OGbw3kUKsEGntc95SyhM6zp/htQ4mxflxgklPLUx8Fi1Bw==}
+    engines: {node: '>=20'}
+    hasBin: true
+
+  '@golfo/rp@2.0.0':
+    resolution: {integrity: sha512-5JeZkpmco5+hRFhZuSmAQZtGS8foVCLuN+O+Wi7wev+HWo9dKeHk0RpJdxl88OgBjtrWjrUF7Ue41yjM30j27A==}
+    engines: {node: '>=22'}
+    hasBin: true
+
+  '@golfo/ui@2.0.0':
+    resolution: {integrity: sha512-zrXfEwkX6YRiRF/0Dk6yryvALJbzd8r78SR1JcpOHv00dfZ5DGHXLpHbqjBHQaBbqP63P4XkHwjOGrvYn0Rp/g==}
+    engines: {node: '>=22', pnpm: '>=12 <13'}
+    peerDependencies:
+      '@tanstack/react-router': ^1.170.33
+      lucide-react: ^1.16.0
+      next: ^16.3.4
+      react: ^19.2.0
+      react-dom: ^19.2.0
+    peerDependenciesMeta:
+      '@tanstack/react-router':
+        optional: true
+      next:
+        optional: true
 
   '@hono/node-server@1.19.11':
     resolution: {integrity: sha512-dr8/3zEaB+p0D2n/IUrlPF1HZm586qgJNXK1a9fhg/PzdtkK7Ksd5l312tJX2yBuALqDYBlG20QEbayqPyxn+g==}
@@ -6147,37 +6147,6 @@ snapshots:
       '@ast-grep/napi-win32-ia32-msvc': 0.40.5
       '@ast-grep/napi-win32-x64-msvc': 0.40.5
 
-  '@astra-kit/cleaner@0.2.0': {}
-
-  '@astra-kit/rp@1.0.0': {}
-
-  '@astra-kit/ui@1.1.0(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
-    dependencies:
-      '@base-ui/react': 1.9.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@tanstack/react-table': 8.21.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@unpic/react': 1.0.2(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      class-variance-authority: 0.7.1
-      cn: 0.2.6
-      embla-carousel-react: 8.6.0(react@19.3.0)
-      lucide-react: 1.16.0(react@19.3.0)
-      motion: 12.43.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      next-themes: 0.4.6(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      radix-ui: 1.8.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      react: 19.3.0
-      react-day-picker: 10.0.2(@types/react@19.3.0)(react@19.3.0)
-      react-dom: 19.3.0(react@19.3.0)
-      react-hook-form: 7.90.0(@types/react@19.3.0)(react@19.3.0)
-      rough-notation: 0.5.1
-      sonner: 2.0.8(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-    optionalDependencies:
-      next: 16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0)
-    transitivePeerDependencies:
-      - '@date-fns/tz'
-      - '@emotion/is-prop-valid'
-      - '@types/react'
-      - '@types/react-dom'
-      - date-fns
-
   '@aws-crypto/crc32@5.2.0':
     dependencies:
       '@aws-crypto/util': 5.2.0
@@ -7582,6 +7551,37 @@ snapshots:
   '@floating-ui/utils@0.2.12': {}
 
   '@github/relative-time-element@5.0.0': {}
+
+  '@golfo/cleaner@1.0.0': {}
+
+  '@golfo/rp@2.0.0': {}
+
+  '@golfo/ui@2.0.0(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+    dependencies:
+      '@base-ui/react': 1.9.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@tanstack/react-table': 8.21.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@unpic/react': 1.0.2(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      class-variance-authority: 0.7.1
+      cn: 0.2.6
+      embla-carousel-react: 8.6.0(react@19.3.0)
+      lucide-react: 1.16.0(react@19.3.0)
+      motion: 12.43.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      next-themes: 0.4.6(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      radix-ui: 1.8.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      react: 19.3.0
+      react-day-picker: 10.0.2(@types/react@19.3.0)(react@19.3.0)
+      react-dom: 19.3.0(react@19.3.0)
+      react-hook-form: 7.90.0(@types/react@19.3.0)(react@19.3.0)
+      rough-notation: 0.5.1
+      sonner: 2.0.8(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+    optionalDependencies:
+      next: 16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0)
+    transitivePeerDependencies:
+      - '@date-fns/tz'
+      - '@emotion/is-prop-valid'
+      - '@types/react'
+      - '@types/react-dom'
+      - date-fns
 
   '@hono/node-server@1.19.11(hono@4.12.8)':
     dependencies:

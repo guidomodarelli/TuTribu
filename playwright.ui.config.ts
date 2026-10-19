@@ -8,9 +8,9 @@ import { UI_TEST_ORIGIN, UI_TEST_PORT } from "./scripts/e2e/ui-test-environment.
 installExitedBrowserStdioRelease({ executablePaths: [webkit.executablePath()] });
 
 export default defineConfig({
-  // Closes WebKit processes left behind by aborted runs on Windows (see @astra-kit/cleaner).
-  globalSetup: "@astra-kit/cleaner/playwright/global-setup",
-  globalTeardown: "@astra-kit/cleaner/playwright/global-teardown",
+  // Closes WebKit processes left behind by aborted runs on Windows (see @golfo/cleaner).
+  globalSetup: "@golfo/cleaner/playwright/global-setup",
+  globalTeardown: "@golfo/cleaner/playwright/global-teardown",
   testDir: "./tests/e2e",
   testMatch: [
     "theme-provider.spec.ts",

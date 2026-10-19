@@ -2,7 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 
-import { Button, Dialog, DialogContent, Input, Select, Textarea, AnimatedCollapse, PresenceSwap } from "@astra-kit/ui";
+import { Button, Dialog, DialogContent, Input, Select, Textarea, AnimatedCollapse, PresenceSwap } from "@golfo/ui";
 
 import { ButtonLink } from "@/components/navigation/link";
 import {

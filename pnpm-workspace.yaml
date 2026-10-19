@@ -6,9 +6,9 @@ allowBuilds:
   unrs-resolver: true
   workerd: true
 minimumReleaseAgeExclude:
-  - "@astra-kit/ui"
-  - "@astra-kit/cleaner"
-  - "@astra-kit/rp"
+  - "@golfo/ui"
+  - "@golfo/cleaner"
+  - "@golfo/rp"
   - react-dom@19.3.0
   - react@19.3.0
   - scheduler@0.28.0

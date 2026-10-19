@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, PresenceSwap, buttonClassName } from "@astra-kit/ui";
+import { Button, PresenceSwap, buttonClassName } from "@golfo/ui";
 
 import { TribeEventAttendanceOptions } from "@/components/events/tribe-event-attendance-options";
 import { TribeEventAttendanceSummary } from "@/components/events/tribe-event-attendance-summary";

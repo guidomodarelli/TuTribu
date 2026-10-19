@@ -1,14 +1,14 @@
 /**
- * TuTribu configuration of `astra-rp create-version` (`pnpm create-version`,
+ * TuTribu configuration of `golfo-rp create-version` (`pnpm create-version`,
  * alias `pnpm cv`). The shared command diagnoses the repository, plans and
  * ships the release from `main`; this file only describes what is specific to
  * TuTribu: what each version type means for users,
  * the Postgres/Drizzle migrations adapter and the Vercel deploy line.
  *
- * It must not import `@astra-kit/rp` at runtime: every helper arrives through the
+ * It must not import `@golfo/rp` at runtime: every helper arrives through the
  * hook context, and the types are only referenced from JSDoc.
  *
- * @module astra-rp-config
+ * @module golfo-rp-config
  */
 
 import { checkPendingMigrations, readMigrationJournalAt } from "./scripts/release/pending-migrations.mjs";
@@ -23,7 +23,7 @@ import { MIGRATION_JOURNAL_REVISIONS, READ_ONLY_RELEASE_ENABLED_VALUE, READ_ONLY
  *   print: (text?: string) => void,
  *   fail: (message: string, hint: string) => never,
  * }} HookContext
- *   Mirrors `HookContext` of `@astra-kit/rp/create-version`.
+ *   Mirrors `HookContext` of `@golfo/rp/create-version`.
  */
 
 /** Lint, typecheck (source and tests), tests and build shared with CI; a failure stops the release before the bump. */
@@ -35,7 +35,7 @@ const MIGRATION_COMMAND = `"${process.execPath}" scripts/push-migrations.js`;
 /**
  * Checks which journal migrations the configured database still misses.
  *
- * @param {HookContext} context - Hook context from `astra-rp create-version`.
+ * @param {HookContext} context - Hook context from `golfo-rp create-version`.
  * @returns {Promise<MigrationCheck>} Migration state; `target` is the database host.
  */
 async function checkMigrations({ repositoryRoot, git }) {
@@ -46,7 +46,7 @@ async function checkMigrations({ repositoryRoot, git }) {
 /**
  * Applies pending migrations only when the release permits database mutations.
  *
- * @param {HookContext} context - Hook context from `astra-rp create-version`.
+ * @param {HookContext} context - Hook context from `golfo-rp create-version`.
  * @returns {Promise<void>}
  * @throws Stops the release before command execution when database writes are forbidden.
  */
@@ -62,7 +62,7 @@ async function applyMigrations({ run, fail }) {
   }
 }
 
-/** @type {import("@astra-kit/rp/create-version").CreateVersionConfig} */
+/** @type {import("@golfo/rp/create-version").CreateVersionConfig} */
 const createVersionConfig = {
   projectName: "TuTribu",
   /** IANA time zone for the `## [X.Y.Z] - YYYY-MM-DD` date written when `[Unreleased]` is closed. */

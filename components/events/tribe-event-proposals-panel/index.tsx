@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AnimatePresence } from "motion/react";
 
-import { Badge, Button, Dialog, DialogContent, Textarea, AnimatedCollapse, AnimatedListItem, PresenceSwap } from "@astra-kit/ui";
+import { Badge, Button, Dialog, DialogContent, Textarea, AnimatedCollapse, AnimatedListItem, PresenceSwap } from "@golfo/ui";
 
 import { TribeEventTypeBadge } from "@/components/events/tribe-event-type-badge";
 import {

@@ -32,7 +32,7 @@ import {
   UserRoundXIcon,
   UsersRoundIcon,
 } from "lucide-react";
-import { toast, Badge, Button, Checkbox, Input, Separator, Switch, Select, type SelectOption, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, AnimatedCount, cn } from "@astra-kit/ui";
+import { toast, Badge, Button, Checkbox, Input, Separator, Switch, Select, type SelectOption, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, AnimatedCount, cn } from "@golfo/ui";
 
 import type {
   TribeSubscriberDiagnosticsResult,

@@ -7,7 +7,7 @@
   align-items: center;
   padding: clamp(1.5rem, 6vw, 3rem) 1rem;
 
-  // Sign-in panel surface: a plain section, since @astra-kit/ui's `Card` is a
+  // Sign-in panel surface: a plain section, since @golfo/ui's `Card` is a
   // content card that reacts to hover.
   &__card {
     position: relative;

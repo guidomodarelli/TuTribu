@@ -8,7 +8,7 @@ import {
   TribeMemberList,
   type TribeMemberSelectionBadge,
 } from "@/components/tribes/tribe-member-list";
-import { Button, DropdownMenu, Input, cn } from "@astra-kit/ui";
+import { Button, DropdownMenu, Input, cn } from "@golfo/ui";
 
 import type { TribeMemberResult } from "@/src/modules/tribes/application/results/tribe-member-result";
 import {

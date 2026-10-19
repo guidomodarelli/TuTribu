@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState, type FormEvent } from "react";
-import { Button, Input, toast } from "@astra-kit/ui";
+import { Button, Input, toast } from "@golfo/ui";
 
 import { Link } from "@/components/navigation/link";
 import { requestMemberVerification } from "@/lib/academy/academy-api-client";

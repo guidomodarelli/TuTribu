@@ -2,7 +2,7 @@
 
 import { useId, useState, type FormEvent } from "react";
 
-import { Button, Input } from "@astra-kit/ui";
+import { Button, Input } from "@golfo/ui";
 import {
   DEV_SIGN_IN_RESULT,
   type DevSignInResult,

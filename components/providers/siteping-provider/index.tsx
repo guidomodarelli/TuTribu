@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { toast } from "@astra-kit/ui";
+import { toast } from "@golfo/ui";
 import type { BeezpingConfig, BeezpingInstance } from "@beezping/widget";
 import { SITEPING_API_ENDPOINT, SITEPING_IDENTITY_ENDPOINT } from "@/src/modules/siteping/constants/siteping";
 import type { SitepingIdentityResult } from "@/src/modules/siteping/application/results/siteping-feedback-result";
