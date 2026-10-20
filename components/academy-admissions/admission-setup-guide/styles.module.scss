@@ -142,6 +142,11 @@
     color: var(--text-muted);
     font-size: var(--text-xs, 0.75rem);
     font-weight: 400;
+
+    &--warning {
+      background: color-mix(in oklab, var(--warning) 12%, var(--surface));
+      color: var(--warning);
+    }
   }
 
   &__detail {

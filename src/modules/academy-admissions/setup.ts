@@ -227,7 +227,11 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
       const policy = new GetAdmissionPolicyUseCase(resolveContext, new PostgresAdmissionPolicyReader(executePolicy, usage), new PostgresAdmissionPolicyViewFactsReader(executePolicy, options.composePreparation));
       return { useCases: policy, createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">) { return new GetAdmissionPolicyPageUseCase(dependencies.accounts, { policy, resolveTribe }, dependencies.clock); } };
     },
-    /** @param options - Live security and a mandatory current SQL cutover owner; no preparation default exists. @returns Policy management through native authority/ledger/CAS and the sole country owner. */
+    /**
+     * @param options - Live security and a mandatory current SQL cutover owner; no preparation default exists.
+     * @returns Policy management through native authority/ledger/CAS and the sole country owner, plus the same preparation evaluator for
+     * the leader query, so a read lists the same activation requirements (channel, quota, countries) that the writer enforces.
+     */
     createPolicyModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig>; composePreflight: (database: RequestDatabase, context: AuthorizedAdmissionContext) => AdmissionActivationPreflightReader }) {
       const executePolicy = async <Result>(context: AuthorizedAdmissionContext, run: (database: RequestDatabase) => Promise<Result>) => {
         const account = await dependencies.accounts.getAuthenticatedAccount();
@@ -240,8 +244,9 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
         return true;
       };
       const usage = (database: RequestDatabase, context: AuthorizedAdmissionContext) => new AdmissionMessagingUsagePolicyReader(new PostgresMessagingUsageRepository(database, authorize(context)));
-      const writer = new PostgresAdmissionPolicyRepository(executePolicy, options.readSecurityConfig, (database, context) => new PostgresAdmissionPolicyPreparationReader(database, options.composePreflight(database, context), usage(database, context), new PostgresAdmissionVerificationReadinessReader(database, authorize(context), options.readSecurityConfig), options.readSecurityConfig));
-      return { useCases: new ManageAdmissionPolicyUseCases(resolveContext, new PostgresAdmissionPolicyReader(executePolicy, usage), writer) };
+      const composePreparation = (database: RequestDatabase, context: AuthorizedAdmissionContext): AdmissionPolicyPreparationReader => new PostgresAdmissionPolicyPreparationReader(database, options.composePreflight(database, context), usage(database, context), new PostgresAdmissionVerificationReadinessReader(database, authorize(context), options.readSecurityConfig), options.readSecurityConfig);
+      const writer = new PostgresAdmissionPolicyRepository(executePolicy, options.readSecurityConfig, composePreparation);
+      return { useCases: new ManageAdmissionPolicyUseCases(resolveContext, new PostgresAdmissionPolicyReader(executePolicy, usage), writer), composePreparation };
     },
     /** @param options - Live security for the original ledger. @returns The leader's review of memberships blocked by payment through the tribes owner functions. */
     createCommercialMembershipReviewModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {

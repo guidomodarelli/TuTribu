@@ -91,4 +91,28 @@ describe("deriveAdmissionSetupProgress", () => {
     const paused: AdmissionSetupFacts = { ...facts, policy: { ...facts.policy, paused: true } };
     expect(Object.fromEntries(deriveAdmissionSetupProgress(paused).steps.map((step) => [step.id, step])).open).toEqual({ id: "open", status: "pending", paused: true });
   });
+
+  it("flags a saved notice quota under twenty while the tribe sends email, even when the leader omits it", () => {
+    const facts: AdmissionSetupFacts = {
+      policy: { exists: true, open: true, paused: false, sendsCodes: false, verifiesPhone: false },
+      messaging: { connected: true, usage: { countryCount: 1, verificationDailyLimit: 10, notificationDailyLimit: 1 } },
+      notifications: { emailEnabled: true, receivesEmail: false },
+    };
+    const steps = Object.fromEntries(deriveAdmissionSetupProgress(facts).steps.map((step) => [step.id, step]));
+
+    expect(steps.usage).toEqual({ id: "usage", status: "done", lowNoticeQuota: true });
+    expect(steps.notifications).toEqual({ id: "notifications", status: "optional", emailOmitted: true });
+  });
+
+  it("keeps a clean usage step at twenty notices or when no admission email is sent", () => {
+    const facts: AdmissionSetupFacts = {
+      policy: { exists: true, open: true, paused: false, sendsCodes: false, verifiesPhone: false },
+      messaging: { connected: true, usage: { countryCount: 1, verificationDailyLimit: 10, notificationDailyLimit: 20 } },
+      notifications: { emailEnabled: true, receivesEmail: true },
+    };
+    const usage = (current: AdmissionSetupFacts) => deriveAdmissionSetupProgress(current).steps.find((step) => step.id === "usage");
+
+    expect(usage(facts)).toEqual({ id: "usage", status: "done" });
+    expect(usage({ ...facts, messaging: { connected: true, usage: { countryCount: 1, verificationDailyLimit: 10, notificationDailyLimit: 1 } }, notifications: { emailEnabled: false, receivesEmail: false } })).toEqual({ id: "usage", status: "done" });
+  });
 });

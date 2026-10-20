@@ -80,7 +80,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               const page = await context.newPage(); page.setDefaultTimeout(VALIDATION.browserTimeoutMs);
               const errors: string[] = [], listReads: string[] = [], writes: string[] = [];
               page.on("pageerror", (error) => errors.push(error.name));
-              page.on("request", (request) => { const route = new URL(request.url()); if (route.pathname.endsWith("/admissions/requests")) listReads.push(route.search); if (request.method() !== "GET" && route.pathname.includes("/admissions/")) writes.push(request.method()); });
+              /* The visible inbox refreshes its first page every fifteen seconds; only reads that continue the list (with a cursor) come from these actions, so slow loads cannot count a refresh as one. */
+              page.on("request", (request) => { const route = new URL(request.url()); if (route.pathname.endsWith("/admissions/requests") && route.searchParams.has("cursor")) listReads.push(route.search); if (request.method() !== "GET" && route.pathname.includes("/admissions/")) writes.push(request.method()); });
               const forbidden = [secret, token, sessionId, tribeId, guardianId, fixture.own.userId, fixture.own.email, ...applicants.flatMap((applicant) => [applicant.id, applicant.requestId])];
               const recordFrames = scenario.name === "chromium" && scenario.width === 1280;
               stage = "bounded_empty_initial_page";
@@ -172,7 +173,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set status='muted' where tribe_id=${tribeId} and user_id=${reviewerId}`));
               await page.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read, exact: true }).click();
               await expectBrowser(page.getByRole("button", { name: `${ADMISSION_REVIEW_UI_COPY.detail}: ${applicants[0].name}`, exact: true })).toHaveCount(0);
-              await expectBrowser(page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply, exact: true })).toBeDisabled();
+              /** A lost role hides the whole private inbox, filters included, behind the route error instead of leaving them disabled. */
+              await expectBrowser(page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply, exact: true })).toHaveCount(0);
               expect(errors).toEqual([]); expect(writes).toEqual([]);
               const effects = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select (select count(*)::int from public.academy_admission_operations where tribe_id=${tribeId}) as operations,(select count(*)::int from public.message_deliveries where tribe_id=${tribeId}) as deliveries,(select count(*)::int from public.academy_admission_requests where tribe_id=${tribeId} and status='pending' and version=1) as unchanged_requests`)).rows[0]);
               expect(effects).toEqual({ operations: 0, deliveries: 0, unchanged_requests: applicants.length });
@@ -182,7 +184,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
         }, { messagingSecurity }));
       });
     } catch (error) {
-      process.stdout.write(JSON.stringify({ phase: "native_review_filter_failure", engine: scenario.name, width: scenario.width, stage, errorName: error instanceof Error ? error.name : "unknown", sqlState: sqlFailureState(error) }) + "\n");
+      process.stdout.write(JSON.stringify({ phase: "native_review_filter_failure", engine: scenario.name, width: scenario.width, stage, errorName: error instanceof Error ? error.name : "unknown", detail: error instanceof Error ? error.message.split("\n")[0].replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "[synthetic-id]").slice(0, 300) : undefined, sqlState: sqlFailureState(error) }) + "\n");
       throw new Error("Native reviewer filter flow failed; inspect its safe stage diagnostic and owned fixture");
     }
   }, REVIEW_VALIDATION.testTimeoutMs);

@@ -507,7 +507,8 @@ export async function createAdmissionRequestModules(usage: DatabaseConnectionUsa
   const manualModule = admissionModule.createManualRequestModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
   const policyModule = admissionModule.createPolicyModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig(), composePreflight: (database, context) => new PostgresAdmissionActivationRepository(database, context, manualModule.runtime, async () => readMessagingHostingSecurityFacts().recoveryLocked) });
   const queryModule = admissionModule.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
-  const policyQueryModule = admissionModule.createPolicyQueryModule({ composePreparation: null });
+  // The rules page evaluates the same preparation as the activation, so a denied activation can name what is missing.
+  const policyQueryModule = admissionModule.createPolicyQueryModule({ composePreparation: policyModule.composePreparation });
   return {
     queries: queryModule,
     policyQuery: policyQueryModule.useCases,

@@ -16,7 +16,7 @@ import { admissionApiClient } from "@/lib/academy-admissions/admission-api-clien
 import { readAdmissionPolicyIntent, writeAdmissionPolicyIntent } from "@/lib/academy-admissions/admission-policy-intent";
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
 import { ADMISSION_POLICY_BROWSER_PHASE as PHASE, ADMISSION_POLICY_BROWSER_COPY as COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
-import { ADMISSION_POLICY_ACTION, ADMISSION_POLICY_FLOW_STAGE as STAGE, ADMISSION_POLICY_SELF_RESOLVED_REQUIREMENTS, type AdmissionPolicyAction, type AdmissionPolicyFlowStage } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
+import { ADMISSION_POLICY_ACTION, ADMISSION_POLICY_FLOW_STAGE as STAGE, ADMISSION_POLICY_PREFLIGHT_COVERED_REQUIREMENTS, ADMISSION_POLICY_SELF_RESOLVED_REQUIREMENTS, type AdmissionPolicyAction, type AdmissionPolicyFlowStage } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
 import { ADMISSION_POLICY_OPERATION, ADMISSION_POLICY_PUBLIC_STATE, ADMISSION_POLICY_CONFIGURATION_ERROR, ADMISSION_POLICY_EDITABLE_FIELDS } from "@/src/modules/academy-admissions/constants/admission-policy";
 import { admissionPolicyStateResultSchema } from "@/src/modules/academy-admissions/application/results/admission-policy-result-schemas";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
@@ -80,10 +80,16 @@ function hasCommercialReason(reasons: readonly AdmissionPolicyBlockReason[]): bo
 function blockReasons(block: AdmissionPolicyActivationBlock | null): AdmissionPolicyBlockReason[] {
   return block ? [...block.preflightReasons, ...block.requirements].filter((reason) => ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON[reason] !== ADMISSION_POLICY_BLOCK_RESOLUTION.selfResolved) : [];
 }
-/** @param preflight - Informational preflight. @returns A requirements block for an unprepared draft, or null. */
-function preflightBlock(preflight: AdmissionPolicyPreflightDto | null | undefined): AdmissionPolicyActivationBlock | null {
-  if (!preflight || preflight.prepared) return null;
-  const block = { message: COPY.activationIneligible, note: COPY.activationBlockedNote, preflightReasons: preflight.reasons, requirements: [], ...preflight.impact };
+/**
+ * @param preflight - Informational preflight.
+ * @param state - Current saved policy, whose evaluated requirements (channel, quota, countries) the preflight does not cover.
+ * @returns A requirements block for an unprepared saved draft, or null when nothing is missing.
+ */
+function draftBlock(preflight: AdmissionPolicyPreflightDto | null | undefined, state: AdmissionPolicyStateDto | null): AdmissionPolicyActivationBlock | null {
+  const preflightReasons = preflight && !preflight.prepared ? preflight.reasons : [];
+  const impact = preflight && !preflight.prepared ? preflight.impact : { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 };
+  const requirements = (state ? pendingRequirements(state) : []).filter((requirement) => !preflight || !ADMISSION_POLICY_PREFLIGHT_COVERED_REQUIREMENTS.includes(requirement));
+  const block = { message: COPY.activationIneligible, note: COPY.activationBlockedNote, preflightReasons, requirements, ...impact };
   return blockReasons(block).length ? block : null;
 }
 
@@ -105,7 +111,7 @@ export function AdmissionPolicyContainer({ initialState, client = admissionApiCl
   const [confirmed, setConfirmed] = useState(false), [retryConfirmed, setRetryConfirmed] = useState(false);
   const [pauseOpen, setPauseOpen] = useState(false), [pauseReason, setPauseReason] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null), [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [failure, setFailure] = useState<AdmissionPolicyFailure | null>(null), [activationBlock, setActivationBlock] = useState<AdmissionPolicyActivationBlock | null>(savedDraft ? preflightBlock(initialPreflight) : null);
+  const [failure, setFailure] = useState<AdmissionPolicyFailure | null>(null), [activationBlock, setActivationBlock] = useState<AdmissionPolicyActivationBlock | null>(savedDraft ? draftBlock(initialPreflight, ready?.policy ?? null) : null);
   const [stage, setStage] = useState<AdmissionPolicyFlowStage | null>(null), [pendingAction, setPendingAction] = useState<AdmissionPolicyAction | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [fresh, setFresh] = useState(false), [canRetry, setCanRetry] = useState(false);
