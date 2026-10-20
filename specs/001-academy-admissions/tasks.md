@@ -53,7 +53,7 @@ El dueño del producto eliminó el pedido de volver a autenticarse con Google en
 
 - T011, T031, T032 y T202 quedan **retiradas en su alcance de recencia**: no se borran y conservan su registro de cierre como historia, pero ya no describen un requisito vigente. Se eliminaron la página `/auth/reauthenticate`, la API `/api/auth/reauthentication/intents` y el flujo de intents/nonce.
 - OG-01 queda solo como evidencia de identidad base capturada al iniciar sesión con Google.
-- T018, T019 y T033 conservan el modelo de evidencia base; las tablas `recent_authentication_evidence` y `global_reauthentication_intents` que crearon quedan sin uso (borrado en una fase posterior, sin migración en esta fase).
+- T018, T019 y T033 conservan el modelo de evidencia base; las tablas `recent_authentication_evidence` y `global_reauthentication_intents` que crearon quedaron sin uso y se borraron en la fase B (migración `20261020190000_drop_recent_authentication_evidence`).
 - Las menciones a recencia, reautenticación, confirmación con Google, intenciones o nonce de confirmación en tareas y notas de avance cerradas son registro histórico; ninguna tarea abierta vuelve a exigirlas. `reauthentication_required` y `REAUTHENTICATION_OPERATION` se conservan solo por compatibilidad de auditoría.
 
 <a id="phase-01"></a>
@@ -244,7 +244,7 @@ El dueño del producto eliminó el pedido de volver a autenticarse con Google en
 
   Cierre de T031 sobre `dc9479db`: intención/nonce/consumo/recencia propios y sesión inicial/final revalidados, sin cambiar Google. Siete SQL+14locales verdes (216,98 s), 71 de regresión auth, build/tipos/lint y review de siete archivos sin hallazgos. Se reprodujo metadata de intención tras vencer sesión durante resource lookup y se corrigió con contexto/clock finales. Manuales/navegación en Chromium/WebKit 390/1280 verdes. T030/T011/T028 satisfechas; Google/Workers/OG-01 conservan gates. Ver `validation/auth-baseline.md`.
 
-  **Alcance retirado el 2026-10-19**: la intención de un uso, el nonce, la confirmación OAuth nueva y la API `/api/auth/reauthentication/intents` se eliminaron ([decisión](#decision-2026-10-19)). Las tablas `global_reauthentication_intents` y `recent_authentication_evidence` quedan sin uso hasta una fase posterior; este registro queda como historia.
+  **Alcance retirado el 2026-10-19**: la intención de un uso, el nonce, la confirmación OAuth nueva y la API `/api/auth/reauthentication/intents` se eliminaron ([decisión](#decision-2026-10-19)). Las tablas `global_reauthentication_intents` y `recent_authentication_evidence` se borraron en la fase B (migración `20261020190000_drop_recent_authentication_evidence`); este registro queda como historia.
 
 <a id="t032"></a>
 

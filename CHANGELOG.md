@@ -155,6 +155,9 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- La actividad de admisiones avisa que el mantenimiento está detenido cuando no completa una ejecución hace más de diez minutos o nunca completó una, aunque algunas tareas sueltas sigan avanzando, y muestra la última ejecución completa.
+- Los avisos agrupados de nuevas solicitudes ya no se atrasan cuando hay muchas solicitudes juntas o la bandeja del líder está abierta.
+- Los correos y SMS que el proveedor tarda en aceptar ya no quedan como «desconocidos»: se espera su respuesta y nunca se reenvían.
 - Países y cupos ya no anuncia como guardados los valores elegidos cuando solo se creó la configuración inicial: crea la configuración y guarda lo elegido en la misma acción.
 - Reglas de admisión ya no muestra al líder el aviso de que la configuración es solo para el líder mientras guarda o después de un error.
 - Pausar las admisiones ya no deja preparado un guardado que las reabre sin querer.
