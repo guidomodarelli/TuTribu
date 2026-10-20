@@ -34,7 +34,7 @@ describe("bounded complete admission email producer", () => {
     test.producer.readReadyGroups.mockImplementation(async (tribeId) => [{ tribeId, groupId: `${tribeId}-group`, expectedVersion: 1 }]);
     const result = await test.useCase.execute(test.deadline);
     expect(test.producer.selectNextTribe.mock.calls).toEqual([[[]], [["first"]], [["first", "second"]]]);
-    expect(test.progress.collectPage.mock.calls).toEqual([[{ tribeId: "first", operationId: "page-0", expectedVersion: 0 }], [{ tribeId: "second", operationId: "page-1", expectedVersion: 0 }]]);
+    expect(test.progress.collectPage.mock.calls).toEqual([[{ tribeId: "first", operationId: "page-0", expectedVersion: 0, softDeadlineAtMilliseconds: test.deadline }], [{ tribeId: "second", operationId: "page-1", expectedVersion: 0, softDeadlineAtMilliseconds: test.deadline }]]);
     expect(result.tribes.map((tribe) => tribe.preparation)).toEqual([{ status: "completed", count: 1, code: null }, { status: "completed", count: 1, code: null }]);
     expect(result).toMatchObject({ stoppedAtDeadline: false, limitReached: false, reminders: { status: "completed" } });
     expect(test.runtime.report).not.toHaveBeenCalled();
@@ -126,7 +126,7 @@ describe("bounded complete admission email producer", () => {
     test.progress.collectPage.mockRejectedValueOnce(new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete));
     const result = await test.useCase.execute(test.deadline);
     expect(result.tribes[0]).toMatchObject({ operationId: "page-0", hasContinuation: true, collection: { status: "failed", code: "connection_incomplete" } });
-    expect(test.progress.collectPage).toHaveBeenCalledExactlyOnceWith({ tribeId: "first", operationId: "page-0", expectedVersion: 1 });
+    expect(test.progress.collectPage).toHaveBeenCalledExactlyOnceWith({ tribeId: "first", operationId: "page-0", expectedVersion: 1, softDeadlineAtMilliseconds: test.deadline });
   });
 
   it("should mark continuation unknown after an uncertain page commit instead of asserting the previous cursor is current", async () => {

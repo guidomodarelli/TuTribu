@@ -111,6 +111,8 @@ export type MessagingWorkDependencies = {
   createNotificationSender?: (preparation: NotificationDeliveryPreparation) => MessageDeliverySender;
   /** Pins a current private workflow only for new claims, markers and preparation; original late receipts/observations remain recordable. */
   guardNewWork?: (database: RequestDatabase) => Promise<void>;
+  /** Guards the resource preparation of an already authorized delivery; defaults to `guardNewWork`. A caller with a softer deadline for new claims passes its hard-deadline guard here, so started work is not cut into an unknown. */
+  guardStartedWork?: (database: RequestDatabase) => Promise<void>;
   diagnosticScope?:Readonly<DiagnosticDeliveryDispatchScope>;
   focalScope?:Readonly<FocalDeliveryDispatchScope>;
 };
@@ -283,10 +285,11 @@ export function buildMessagingWorkModule(dependencies: MessagingWorkDependencies
     if (dependencies.guardNewWork && (operation === MESSAGE_STORAGE_OPERATION.claim || operation === MESSAGE_STORAGE_OPERATION.authorize || operation === MESSAGE_STORAGE_OPERATION.reconcile)) await dependencies.guardNewWork(database);
     return authorize();
   };
-  const executePreparation: MessagingWorkDependencies["execute"] = dependencies.guardNewWork ? async (actorUserId, run) => dependencies.execute(actorUserId, async (database) => {
-    await dependencies.guardNewWork!(database);
+  const guardPreparation = dependencies.guardStartedWork ?? dependencies.guardNewWork;
+  const executePreparation: MessagingWorkDependencies["execute"] = guardPreparation ? async (actorUserId, run) => dependencies.execute(actorUserId, async (database) => {
+    await guardPreparation(database);
     const result = await run(database);
-    await dependencies.guardNewWork!(database);
+    await guardPreparation(database);
     return result;
   }) : dependencies.execute;
   const resourceAuthority = createAdmissionNotificationResourceAuthority(dependencies.readSecurityConfig);
@@ -365,22 +368,31 @@ export function buildAdmissionMessagingMaintenanceModule(dependencies: Admission
   const progress = new PostgresAdmissionMessagingMaintenanceProgress(metadataExecute, dependencies.authorize, dependencies.readRecoveryLock, dependencies.readExternalScope, dependencies.runtime.now);
   /** @param run - Original acquired workflow. @param deadline - Original shared host deadline; it bounds every commit. @param signal - Original phase cancellation. @param phaseDeadline - Soft deadline after which owners start no new step. @returns Lazy real owners with no checkout spanning a phase or RPC. */
   const createOwners = (run: AdmissionMessagingMaintenanceRun, deadline: number, signal: AbortSignal, phaseDeadline: number) => {
-    /** @param database - Original business transaction, never a nested checkout. @returns Only while the same native workflow, purpose and deadline still permit starting work. */
-    const guardNewWork = async (database: RequestDatabase) => {
-      if (signal.aborted || dependencies.runtime.now() >= deadline) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached);
+    /** @param limit - Instant after which this guard rejects. @returns A guard that passes only while the same native workflow, purpose and that limit still permit the work. */
+    const guardUntil = (limit: number) => async (database: RequestDatabase) => {
+      if (signal.aborted || dependencies.runtime.now() >= limit) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached);
       await progress.guardWorkTransaction(database, run);
-      if (signal.aborted || dependencies.runtime.now() >= deadline) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached);
+      if (signal.aborted || dependencies.runtime.now() >= limit) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached);
     };
-    const executeNew: MessagingWorkDependencies["execute"] = (actorUserId, work) => dependencies.execute(actorUserId, async (database) => { await guardNewWork(database); const result = await work(database); await guardNewWork(database); return result; });
+    // The soft phase deadline only stops starting new work; work already started may still commit until the hard deadline,
+    // so a transaction that began in time is never rolled back just because the phase's fair share elapsed meanwhile.
+    const guardNewWork = guardUntil(Math.min(phaseDeadline, deadline)), guardCommit = guardUntil(deadline);
+    const executeNew: MessagingWorkDependencies["execute"] = (actorUserId, work) => dependencies.execute(actorUserId, async (database) => { await guardNewWork(database); const result = await work(database); await guardCommit(database); return result; });
+    /** Work that belongs to an already authorized delivery (its resource preparation) only needs the hard deadline, never the soft one. */
+    const executeStarted: MessagingWorkDependencies["execute"] = (actorUserId, work) => dependencies.execute(actorUserId, async (database) => { await guardCommit(database); const result = await work(database); await guardCommit(database); return result; });
     const execute = <Result>(work: (database: RequestDatabase) => Promise<Result>) => executeNew(null, work);
     /** @returns Current backend purpose only; original late receipt/observation writes do not require an unexpired acquisition window. */
     const authorize = async () => dependencies.authorize();
-    /** @returns A current prepared global worker bounded by the phase's soft deadline; provider lookup is guarded, while original late receipts retain the base executor. */
+    /**
+     * The soft phase deadline gates new claims and authorizations through `guardNewWork`; the run budget stays the hard deadline,
+     * so a send that already started is observed for its full window instead of being cut into an unknown at the phase's fair share.
+     * @returns A current prepared global worker; provider lookup is guarded, while original late receipts retain the base executor.
+     */
     const worker = () => {
-      const remaining = Math.floor(phaseDeadline - dependencies.runtime.now());
-      if (signal.aborted || remaining < 1) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached);
-      const senders = dependencies.createSenders(executeNew);
-      return buildMessagingWorkModule({ execute: dependencies.execute, authorize, guardNewWork, readSecurityConfig: dependencies.readSecurityConfig, runtime: dependencies.dispatchRuntime, settings: { runBudgetMs: remaining }, createSender: (preparation) => guardMaintenanceMessageDeliverySender(senders.createSender(preparation), signal, deadline, dependencies.runtime.now), createNotificationSender: (preparation) => guardMaintenanceMessageDeliverySender(senders.createNotificationSender(preparation), signal, deadline, dependencies.runtime.now) });
+      const remaining = Math.floor(deadline - dependencies.runtime.now());
+      if (signal.aborted || remaining < 1 || dependencies.runtime.now() >= phaseDeadline) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached);
+      const senders = dependencies.createSenders(executeStarted);
+      return buildMessagingWorkModule({ execute: dependencies.execute, authorize, guardNewWork, guardStartedWork: guardCommit, readSecurityConfig: dependencies.readSecurityConfig, runtime: dependencies.dispatchRuntime, settings: { runBudgetMs: remaining }, createSender: (preparation) => guardMaintenanceMessageDeliverySender(senders.createSender(preparation), signal, deadline, dependencies.runtime.now), createNotificationSender: (preparation) => guardMaintenanceMessageDeliverySender(senders.createNotificationSender(preparation), signal, deadline, dependencies.runtime.now) });
     };
     return {
       expireRequests: () => buildAdmissionExpirationModule({ execute, authorize }).useCases.expireRequests.execute(),

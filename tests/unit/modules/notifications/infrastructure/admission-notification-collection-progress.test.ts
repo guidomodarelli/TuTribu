@@ -119,15 +119,19 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission n
   }, ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS);
   it("should commit only the first chunk after an elapsed soft deadline and resume right after its last collected source", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
-      // Given four requests with two reviewers each: eight sources, more than one collection chunk but less than a page.
+      // Given four requests whose reviewer notices are more than one collection chunk but less than a page.
       const fixture = await prepareAdmissionNotificationCollectionProgress(database);
       await fixture.createSources(4);
+      // The base fixture already seeds its own notices, so the sweep covers every reviewer notice of the tribe, not only these four.
+      const sourceCount = await fixture.execute(async (transaction) => (await transaction.execute<{ count: number }>(sql`select count(*)::int as count from public.notifications notice join public.academy_admission_notification_obligations obligation on obligation.id=notice.admission_obligation_id and obligation.tribe_id=notice.tribe_id where notice.tribe_id=${fixture.tribeId}`)).rows[0].count);
+      expect(sourceCount).toBeGreaterThan(5);
+      expect(sourceCount).toBeLessThanOrEqual(25);
       // When the phase's soft deadline already elapsed, the page still collects one chunk and commits that partial progress.
       const cut = await fixture.repository.collectPage({ tribeId: fixture.tribeId, operationId: randomUUID(), expectedVersion: 0, softDeadlineAtMilliseconds: 0 });
       expect(cut).toMatchObject({ version: 1, examined: 5, sweepComplete: false });
       // Then the next page resumes after that exact source and finishes the sweep without examining any source twice.
       const rest = await fixture.repository.collectPage({ tribeId: fixture.tribeId, operationId: randomUUID(), expectedVersion: 1 });
-      expect(rest).toMatchObject({ version: 2, examined: 3, sweepComplete: true });
+      expect(rest).toMatchObject({ version: 2, examined: sourceCount - cut.examined, sweepComplete: true });
       const members = await fixture.execute(async (transaction) => (await transaction.execute<{ total: number; distinct_sources: number }>(sql`select count(*)::int as total,count(distinct (obligation_id,recipient_user_id))::int as distinct_sources from public.admission_notification_group_members where tribe_id=${fixture.tribeId}`)).rows[0]);
       expect(members.total).toBe(members.distinct_sources);
       expect(members.total).toBe(cut.collected + rest.collected);

@@ -14,6 +14,9 @@ import { MESSAGING_DISPATCH_DEFAULT } from "@/src/modules/messaging/constants/me
 import { MICROSECONDS_PER_SECOND } from "@/src/constants/time";
 import type { AdmissionNotificationEmailIntent } from "@/src/modules/notifications/domain/entities/admission-notification-email-intent";
 
+/** Upper bound of turns for one sweep: even a page cut to a single chunk per turn finishes these sources well before it. */
+const MAXIMUM_SWEEP_TURNS = 10;
+
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native protected whole admission notification producer", () => {
   it("should traverse every original page before freezing a whole closed window through the real composed producer without sending", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
@@ -30,17 +33,31 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native protected w
         expect(result.tribes.some((tribe) => tribe.tribeId === fixture.tribeId)).toBe(true);
         return result;
       };
+      /**
+       * A page may stop at the run's soft deadline on a distant database and resume in the next turn, so a sweep can take several turns.
+       * @returns The progress once the current sweep completed, after one genuine turn per committed page.
+       */
+      const turnUntilSweepComplete = async () => {
+        for (let turns = 0; turns < MAXIMUM_SWEEP_TURNS; turns++) {
+          await turn();
+          const progress = await fixture.repository.readProgress(fixture.tribeId);
+          if (!progress.hasContinuation) return progress;
+          expect(await producer.readReadyGroups(fixture.tribeId)).toEqual([]);
+        }
+        throw new Error("Native producer sweep did not complete within the bounded turns");
+      };
       await fixture.waitForCollectionWindow();
       const sourceCount = Math.ceil(ADMISSION_NOTIFICATION_SOURCE_PAGE_SIZE / 2);
       const created = await fixture.createSources(sourceCount);
       await turn();
       const first = await fixture.repository.readProgress(fixture.tribeId);
       expect(first).toMatchObject({ version: 1, hasContinuation: true, lastCertifiedThroughMicroseconds: null });
-      expect(first.lastPage).toMatchObject({ examined: ADMISSION_NOTIFICATION_SOURCE_PAGE_SIZE, sweepComplete: false, sweepHadUnavailable: false });
+      expect(first.lastPage).toMatchObject({ sweepComplete: false, sweepHadUnavailable: false });
+      expect(first.lastPage!.examined).toBeGreaterThan(0);
+      expect(first.lastPage!.examined).toBeLessThanOrEqual(ADMISSION_NOTIFICATION_SOURCE_PAGE_SIZE);
       expect(await producer.readReadyGroups(fixture.tribeId)).toEqual([]);
-      await turn();
-      const completed = await fixture.repository.readProgress(fixture.tribeId);
-      expect(completed).toMatchObject({ version: 2, hasContinuation: false, lastCertifiedThroughMicroseconds: first.lastPage!.sourceThroughMicroseconds });
+      const completed = await turnUntilSweepComplete();
+      expect(completed).toMatchObject({ hasContinuation: false, lastCertifiedThroughMicroseconds: first.lastPage!.sourceThroughMicroseconds });
       expect(completed.lastPage!.sourceThroughMicroseconds).toBe(first.lastPage!.sourceThroughMicroseconds);
       const group = await fixture.execute(async (transaction) => (await transaction.execute<{ id: string; closes: string; members: number }>(sql`select notification_group.id,(extract(epoch from notification_group.window_closes_at)*${MICROSECONDS_PER_SECOND})::bigint::text as closes,count(member.obligation_id)::int as members from public.admission_notification_groups notification_group join public.admission_notification_group_members member on member.group_id=notification_group.id where notification_group.tribe_id=${fixture.tribeId} and notification_group.recipient_user_id=${fixture.leaderId} group by notification_group.id order by notification_group.id`)).rows);
       expect(group).toHaveLength(1);
@@ -50,11 +67,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native protected w
       // Clock completion alone never authorizes a partial fresh sweep to freeze the old window.
       await turn();
       const partial = await fixture.repository.readProgress(fixture.tribeId);
-      expect(partial).toMatchObject({ version: 3, hasContinuation: true, lastCertifiedThroughMicroseconds: completed.lastCertifiedThroughMicroseconds });
+      expect(partial).toMatchObject({ version: completed.version + 1, hasContinuation: true, lastCertifiedThroughMicroseconds: completed.lastCertifiedThroughMicroseconds });
       expect(await producer.readReadyGroups(fixture.tribeId)).toEqual([]);
-      await turn();
-      const certified = await fixture.repository.readProgress(fixture.tribeId);
-      expect(certified).toMatchObject({ version: 4, hasContinuation: false });
+      const certified = await turnUntilSweepComplete();
+      expect(certified.version).toBeGreaterThan(partial.version);
       expect(certified.lastCertifiedThroughMicroseconds).toBeGreaterThanOrEqual(Number(group[0].closes));
       expect(await producer.readReadyGroups(fixture.tribeId)).toEqual([{ tribeId: fixture.tribeId, groupId: group[0].id, expectedVersion: 1 }]);
       const prepared = await turn();
