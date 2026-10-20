@@ -28,7 +28,14 @@ export class PostgresAdmissionNotificationProducer implements AdmissionNotificat
     catch (error) { if (error instanceof AdmissionOperationError) throw error; throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { cause: error }); }
   }
 
-  /** @param excludedTribeIds - Native tenants already examined in this bounded invocation. @returns A durably rotated locator even when that tenant's provider or keys are unavailable. */
+  /**
+   * Skips only tribes whose fence is held exclusively (a mutation or deletion in progress). `FOR SHARE` is compatible with the shared
+   * fence that every inbox/administrative read holds, so an open inbox no longer hides a due tribe from the producer; the collection
+   * and preparation transactions still take the exclusive fence and simply wait for those short reads. A skipped tribe keeps its
+   * older `last_selected_at`, so it is first in the next selection.
+   * @param excludedTribeIds - Native tenants already examined in this bounded invocation.
+   * @returns A durably rotated locator even when that tenant's provider or keys are unavailable.
+   */
   selectNextTribe(excludedTribeIds: readonly string[]): Promise<string | null> {
     if (excludedTribeIds.length > ADMISSION_NOTIFICATION_PRODUCER_LIMITS.tribes) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     return this.confirmed(async (database) => {
@@ -39,7 +46,7 @@ export class PostgresAdmissionNotificationProducer implements AdmissionNotificat
           exists(select 1 from public.admission_notification_groups notification_group where notification_group.tribe_id=tribe.id and notification_group.state=${ADMISSION_NOTIFICATION_GROUP_STATE.open})
           or exists(select 1 from public.academy_admission_notification_obligations obligation join public.admission_email_settings settings on settings.tribe_id=obligation.tribe_id and settings.enabled
             where obligation.tribe_id=tribe.id and obligation.created_at>clock_timestamp()-${ADMISSION_NOTIFICATION_TIMING.retryLimitMicroseconds}::bigint*interval '1 microsecond'))
-        order by progress.last_selected_at nulls first,tribe.id for update of tribe skip locked limit 1
+        order by progress.last_selected_at nulls first,tribe.id for share of tribe skip locked limit 1
       ) insert into public.admission_notification_producer_progress(tribe_id) select id from candidate
       on conflict (tribe_id) do update set version=admission_notification_producer_progress.version+1
       returning tribe_id`)).rows[0];

@@ -363,8 +363,8 @@ export type AdmissionMessagingMaintenanceDependencies = {
 export function buildAdmissionMessagingMaintenanceModule(dependencies: AdmissionMessagingMaintenanceDependencies) {
   const metadataExecute = <Result>(run: (database: RequestDatabase) => Promise<Result>) => dependencies.execute(null, run);
   const progress = new PostgresAdmissionMessagingMaintenanceProgress(metadataExecute, dependencies.authorize, dependencies.readRecoveryLock, dependencies.readExternalScope, dependencies.runtime.now);
-  /** @param run - Original acquired workflow. @param deadline - Original shared host deadline. @param signal - Original phase cancellation. @returns Lazy real owners with no checkout spanning a phase or RPC. */
-  const createOwners = (run: AdmissionMessagingMaintenanceRun, deadline: number, signal: AbortSignal) => {
+  /** @param run - Original acquired workflow. @param deadline - Original shared host deadline; it bounds every commit. @param signal - Original phase cancellation. @param phaseDeadline - Soft deadline after which owners start no new step. @returns Lazy real owners with no checkout spanning a phase or RPC. */
+  const createOwners = (run: AdmissionMessagingMaintenanceRun, deadline: number, signal: AbortSignal, phaseDeadline: number) => {
     /** @param database - Original business transaction, never a nested checkout. @returns Only while the same native workflow, purpose and deadline still permit starting work. */
     const guardNewWork = async (database: RequestDatabase) => {
       if (signal.aborted || dependencies.runtime.now() >= deadline) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached);
@@ -375,9 +375,9 @@ export function buildAdmissionMessagingMaintenanceModule(dependencies: Admission
     const execute = <Result>(work: (database: RequestDatabase) => Promise<Result>) => executeNew(null, work);
     /** @returns Current backend purpose only; original late receipt/observation writes do not require an unexpired acquisition window. */
     const authorize = async () => dependencies.authorize();
-    /** @returns A current prepared global worker; provider lookup is guarded, while original late receipts retain the base executor. */
+    /** @returns A current prepared global worker bounded by the phase's soft deadline; provider lookup is guarded, while original late receipts retain the base executor. */
     const worker = () => {
-      const remaining = Math.floor(deadline - dependencies.runtime.now());
+      const remaining = Math.floor(phaseDeadline - dependencies.runtime.now());
       if (signal.aborted || remaining < 1) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached);
       const senders = dependencies.createSenders(executeNew);
       return buildMessagingWorkModule({ execute: dependencies.execute, authorize, guardNewWork, readSecurityConfig: dependencies.readSecurityConfig, runtime: dependencies.dispatchRuntime, settings: { runBudgetMs: remaining }, createSender: (preparation) => guardMaintenanceMessageDeliverySender(senders.createSender(preparation), signal, deadline, dependencies.runtime.now), createNotificationSender: (preparation) => guardMaintenanceMessageDeliverySender(senders.createNotificationSender(preparation), signal, deadline, dependencies.runtime.now) });
@@ -387,11 +387,11 @@ export function buildAdmissionMessagingMaintenanceModule(dependencies: Admission
       purgeAdmission: () => buildAdmissionDataRetentionModule({ execute, authorize, readRecoveryLock: dependencies.readRecoveryLock }).useCases.purgeData.execute(),
       purgeMessaging: () => buildMessagingSecretRetentionModule({ execute, authorize, readRecoveryLock: dependencies.readRecoveryLock }).useCases.purgeSecrets.execute(),
       materializeReminders: () => buildAdmissionNotificationReminderModule({ execute, authorize, readRecoveryLock: dependencies.readRecoveryLock }).useCases.materializeReminders.execute(),
-      prepareNotifications: () => buildAdmissionNotificationProducerModule({ execute, authorize, readRecoveryLock: dependencies.readRecoveryLock, readSecurityConfig: dependencies.readSecurityConfig, publicAppBaseUrl: dependencies.publicAppBaseUrl(), runtime: { now: dependencies.runtime.now, createId: dependencies.runtime.createId, report: (error) => dependencies.runtime.report(error, { operation: ADMISSION_MESSAGING_MAINTENANCE_OPERATION.phase, runId: run.runId, phase: ADMISSION_MESSAGING_MAINTENANCE_PHASE.notifications }) } }).useCases.prepareEmailNotifications.prepareGroups(deadline),
+      prepareNotifications: () => buildAdmissionNotificationProducerModule({ execute, authorize, readRecoveryLock: dependencies.readRecoveryLock, readSecurityConfig: dependencies.readSecurityConfig, publicAppBaseUrl: dependencies.publicAppBaseUrl(), runtime: { now: dependencies.runtime.now, createId: dependencies.runtime.createId, report: (error) => dependencies.runtime.report(error, { operation: ADMISSION_MESSAGING_MAINTENANCE_OPERATION.phase, runId: run.runId, phase: ADMISSION_MESSAGING_MAINTENANCE_PHASE.notifications }) } }).useCases.prepareEmailNotifications.prepareGroups(phaseDeadline),
       dispatchOutbox: () => worker().useCases.dispatch.execute(),
       reconcileLeases: () => new PostgresMessageDeliveryRepository(executeNew, async () => authorize(), dependencies.readSecurityConfig).reconcileExpiredLeases(ADMISSION_MESSAGING_MAINTENANCE_RECONCILIATION_LIMIT),
     };
   };
-  const work = new OriginalAdmissionMessagingMaintenanceWork(createOwners, progress.assertRunnable.bind(progress), dependencies.readSecurityConfig, dependencies.runtime);
+  const work = new OriginalAdmissionMessagingMaintenanceWork(createOwners, dependencies.readSecurityConfig, dependencies.runtime);
   return { useCases: { runMaintenance: new RunAdmissionMessagingMaintenanceUseCase(work, progress, dependencies.runtime) } };
 }

@@ -42,12 +42,13 @@ describe("original maintenance sender lifetime", () => {
     expect(test.send).not.toHaveBeenCalled();
   });
 
-  it("should propagate shared cancellation to the same already-started original request without retrying it", async () => {
-    const test = fixture(), prepared = await test.guarded.prepare(test.context, new AbortController().signal);
-    await prepared.send(new AbortController().signal);
+  it("should keep an already-started original request alive when the shared workflow stops observing it", async () => {
+    const test = fixture(), prepared = await test.guarded.prepare(test.context, new AbortController().signal), request = new AbortController();
+    await prepared.send(request.signal);
     const originalSignal = test.send.mock.calls[0][0];
-    expect(originalSignal.aborted).toBe(false);
     test.controller.abort();
+    expect(originalSignal.aborted).toBe(false);
+    request.abort();
     expect(originalSignal.aborted).toBe(true);
     expect(test.send).toHaveBeenCalledTimes(1);
   });

@@ -7,6 +7,7 @@ import type { RunAdmissionMessagingMaintenanceUseCase } from "../../application/
 import { ADMISSION_MESSAGING_MAINTENANCE_HTTP_CODE, ADMISSION_MESSAGING_MAINTENANCE_LOG, ADMISSION_MESSAGING_MAINTENANCE_MESSAGE, ADMISSION_MESSAGING_MAINTENANCE_RUN_STATUS } from "../../constants/admission-messaging-maintenance";
 import { admissionMessagingMaintenanceErrorSchema, admissionMessagingMaintenanceInputSchema, admissionMessagingMaintenanceResponseSchema } from "./dto/admission-messaging-maintenance-schemas";
 import { ADMISSION_MAINTENANCE_TRIGGER } from "../../constants/admission-maintenance-trigger.mjs";
+import { admissionMaintenanceMadeProgress } from "../../application/use-cases/admission-messaging-maintenance-state";
 
 /** Contains only own machine-code failures; raw causes stay at the private boundary. */
 type MaintenanceHttpFailure = { readonly code: "maintenance_unauthorized" | "maintenance_invalid_input" | "maintenance_unavailable" };
@@ -24,7 +25,9 @@ export function createAdmissionMessagingMaintenanceHandler(dependencies: { autho
       const maintenance = await dependencies.create(request, boundary.requestContext);
       const result = await maintenance.useCases.runMaintenance.execute();
       if (!await dependencies.authorize(request)) return boundary.failure({ code: ADMISSION_MESSAGING_MAINTENANCE_HTTP_CODE.unauthorized });
-      const status = result.status === ADMISSION_MESSAGING_MAINTENANCE_RUN_STATUS.completed ? ADMISSION_MAINTENANCE_TRIGGER.completedHttpStatus : result.status === ADMISSION_MESSAGING_MAINTENANCE_RUN_STATUS.busy ? ADMISSION_MAINTENANCE_TRIGGER.busyHttpStatus : HTTP_STATUS.serviceUnavailable;
+      // A run that only ran out of its own budget after recording confirmed progress is a successful bounded invocation for the trigger;
+      // its body still says "incomplete", and health only advances with complete runs.
+      const status = result.status === ADMISSION_MESSAGING_MAINTENANCE_RUN_STATUS.completed || admissionMaintenanceMadeProgress(result) ? ADMISSION_MAINTENANCE_TRIGGER.completedHttpStatus : result.status === ADMISSION_MESSAGING_MAINTENANCE_RUN_STATUS.busy ? ADMISSION_MAINTENANCE_TRIGGER.busyHttpStatus : HTTP_STATUS.serviceUnavailable;
       return boundary.success(admissionMessagingMaintenanceResponseSchema, { ...result, message: ADMISSION_MESSAGING_MAINTENANCE_MESSAGE[result.status], requestId: boundary.requestContext.requestId }, status);
     } catch (error) { return boundary.unexpected(error); }
   };

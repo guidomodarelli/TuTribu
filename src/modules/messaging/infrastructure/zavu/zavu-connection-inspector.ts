@@ -4,7 +4,7 @@ import Zavu from "@zavudev/sdk";
 import type { MessagingConnectionInspector, MessagingCredentialInspection, MessagingSenderResource, MessagingTemplateResource } from "@/src/modules/messaging/domain/repositories/messaging-connection-inspector";
 import type { MessagingSecretResourceScope } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
-import { MESSAGING_DISPATCH_DEFAULT } from "@/src/modules/messaging/constants/messaging-dispatch";
+import { MESSAGING_PROVIDER_READ_TIMEOUT_MS } from "@/src/modules/messaging/constants/messaging-dispatch";
 import { ZAVU_DELIVERY_ENDPOINT, ZAVU_DELIVERY_HEADER, ZAVU_DELIVERY_TRANSPORT } from "@/src/modules/messaging/constants/zavu-delivery";
 import { ZAVU_INSPECTION_PATH, ZAVU_INSPECTION_PAGINATION, ZAVU_INSPECTION_TRANSPORT } from "@/src/modules/messaging/constants/zavu-inspection";
 import { messagingFailure } from "@/src/modules/messaging/application/results/messaging-errors";
@@ -18,7 +18,7 @@ export type ZavuInspectionScope = Pick<MessagingSecretResourceScope, "tribeId" |
 /** Creates a fresh client per read, without sending, provisioning or inferring a ready channel. */
 export class ZavuConnectionInspector implements MessagingConnectionInspector {
   /** @param scope - Explicit private connection and credential. @param fetch - Hosting or controlled own transport. @param timeoutMs - Per-request deadline in milliseconds. */
-  constructor(private readonly scope: ZavuInspectionScope, private readonly fetch: typeof globalThis.fetch, private readonly timeoutMs: number = MESSAGING_DISPATCH_DEFAULT.requestTimeoutMs) {
+  constructor(private readonly scope: ZavuInspectionScope, private readonly fetch: typeof globalThis.fetch, private readonly timeoutMs: number = MESSAGING_PROVIDER_READ_TIMEOUT_MS) {
     if (!scope.credential.trim()) throw new ZavuInspectionError("create", messagingFailure(MESSAGING_ERROR_CODE.invalidCredentials));
   }
 

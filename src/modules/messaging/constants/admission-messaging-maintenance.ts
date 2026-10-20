@@ -4,6 +4,12 @@ import type { AdmissionMessagingMaintenancePhase, AdmissionMessagingMaintenanceP
 
 /** Bounds the whole invocation by the existing dispatcher maximum, including observation time. */
 export const ADMISSION_MESSAGING_MAINTENANCE_BUDGET_MS = MESSAGING_DISPATCH_BOUND.maximumRunBudgetMs;
+/**
+ * Stops starting phases this long before the run deadline so the last observation and the final record still commit inside it.
+ * Both together are about a dozen sequential statements; at the ~165 ms round trip measured in the SC-015 pilot that is ~2 s.
+ * Smaller test budgets use a proportional share instead (see the use case).
+ */
+export const ADMISSION_MESSAGING_MAINTENANCE_FINISH_RESERVE_MS = 5_000;
 /** Leaves an original late operation a bounded grace period without authorizing a resend. */
 export const ADMISSION_MESSAGING_MAINTENANCE_LEASE_SECONDS = 90;
 /** Matches the existing bounded original-lease reconciliation owner, independently of dispatch batch size. */

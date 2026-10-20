@@ -136,10 +136,15 @@ export class DispatchMessageDeliveriesUseCase {
       const rpcRemaining = deadlineAt - this.runtime.now();
       if (stopNewWork || rpcRemaining <= 0) { controller.abort(); stopNewWork = true; result.deadlineReached ||= rpcRemaining <= 0; await this.record(unknown(value.context), result, deadlineAt); return; }
       const preparedSender=preparation.value;
+      // The request owns its full provider timeout. A shorter remaining run only ends this observation:
+      // aborting the request there would turn a provider answer that is merely slow into a permanent unknown.
+      const requestTimer = setTimeout(() => controller.abort(new MessagingDispatchDeadlineError(MESSAGING_DISPATCH_STAGE.send, this.settings.requestTimeoutMs)), this.settings.requestTimeoutMs);
       const sending = Promise.resolve().then(() => preparedSender.send(controller.signal));
+      const clearRequestTimer = () => clearTimeout(requestTimer);
+      sending.then(clearRequestTimer, clearRequestTimer);
       let observation: ObservedWithinDeadline<Omit<MessageDeliveryReceipt, "context">>;
       const rpcObservationMs=Math.min(this.settings.requestTimeoutMs,rpcRemaining);
-      try { observation = await observeWithin(sending, rpcObservationMs, () => controller.abort(new MessagingDispatchDeadlineError(MESSAGING_DISPATCH_STAGE.send, rpcObservationMs))); }
+      try { observation = await observeWithin(sending, rpcObservationMs); }
       catch (error) {
         stopNewWork = true; controller.abort();
         this.runtime.report({ stage: MESSAGING_DISPATCH_STAGE.send, deliveryId: value.context.deliveryId, attemptId: value.context.attemptId, cause: error });
@@ -149,7 +154,7 @@ export class DispatchMessageDeliveriesUseCase {
       if (!observation.settled) {
         // An uncooperative sender must not free capacity for additional POSTs after its timeout.
         stopNewWork = true; result.deadlineReached = this.runtime.now() >= deadlineAt;
-        this.runtime.report({stage:MESSAGING_DISPATCH_STAGE.send,deliveryId:value.context.deliveryId,attemptId:value.context.attemptId,cause:controller.signal.reason});
+        this.runtime.report({stage:MESSAGING_DISPATCH_STAGE.send,deliveryId:value.context.deliveryId,attemptId:value.context.attemptId,cause:controller.signal.aborted ? controller.signal.reason : new MessagingDispatchDeadlineError(MESSAGING_DISPATCH_STAGE.observation, rpcObservationMs)});
         await this.record(unknown(value.context), result, deadlineAt);
         this.retain(sending.then((late) => this.record({ ...late, context: value.context })), value.context);
         return;

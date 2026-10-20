@@ -70,6 +70,15 @@ describe("protected admission messaging maintenance HTTP boundary", () => {
     expect(body.phases[1]).toMatchObject({ status: "not_configured" });
   });
 
+  it("should answer a budget-only incomplete run with confirmed progress as a successful bounded invocation", async () => {
+    const test = fixture();
+    const partial: AdmissionMessagingMaintenanceResult = { ...test.value, status: "incomplete", deadlineReached: true, phases: test.value.phases.map((phase, index) => index === 4 ? { ...phase, status: "deferred", reason: "deadline_reached", hasRemainingWork: true } : index > 4 ? { ...phase, status: "not_run", reason: "deadline_reached", metrics: [], startedAtMilliseconds: null, durationMilliseconds: null, observation: "not_run" } : phase) };
+    test.execute.mockResolvedValueOnce(partial);
+    const response = await test.handler(test.request());
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ status: "incomplete", message: "El mantenimiento conservó sus avances y tiene pasos pendientes." });
+  });
+
   it("should reject private extra fields without exposing rejected values or raw causes", async () => {
     const test = fixture(), privateValue = randomUUID();
     test.execute.mockResolvedValueOnce(Object.assign({}, test.value, { credential: privateValue }));

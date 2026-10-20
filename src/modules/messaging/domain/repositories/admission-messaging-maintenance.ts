@@ -29,15 +29,15 @@ export type AdmissionMessagingMaintenanceResult = { readonly runId: string | nul
 
 /** Each phase composes existing original owners and confirms its own transaction before returning counts. */
 export interface AdmissionMessagingMaintenanceWork {
-  /** @param phase - One fixed server-owned workflow phase. @param deadlineAtMilliseconds - Original shared host deadline, never extended. @param signal - Cancellation for the same original work, never evidence of rollback. @param run - Original private acquisition and external scope; every phase must retain its scope across recovery changes. @returns Its confirmed minimal output, including mixed results and configuration omissions. */
-  runPhase(phase: AdmissionMessagingMaintenancePhase, deadlineAtMilliseconds: number, signal: AbortSignal, run: AdmissionMessagingMaintenanceRun): Promise<AdmissionMessagingMaintenancePhaseOutput>;
+  /** @param phase - One fixed server-owned workflow phase. @param deadlineAtMilliseconds - Original shared host deadline, never extended; it bounds every commit. @param signal - Cancellation for the same original work, never evidence of rollback. @param run - Original private acquisition and external scope; every phase must retain its scope across recovery changes. @param phaseDeadlineAtMilliseconds - Soft deadline of this phase: owners stop starting new steps after it, so one slow phase cannot consume the whole run. @returns Its confirmed minimal output, including mixed results and configuration omissions. */
+  runPhase(phase: AdmissionMessagingMaintenancePhase, deadlineAtMilliseconds: number, signal: AbortSignal, run: AdmissionMessagingMaintenanceRun, phaseDeadlineAtMilliseconds?: number): Promise<AdmissionMessagingMaintenancePhaseOutput>;
 }
 /** Stores one bounded current workflow and native health under current private authority. */
 export interface AdmissionMessagingMaintenanceProgress {
   /** @param runId - Fresh server correlation. @returns The confirmed original lease and phase turn, or a genuinely busy original. */
   begin(runId: string): Promise<AdmissionMessagingMaintenanceBeginning>;
-  /** @param run - Original acquired run. @param phase - Original settled or unresolved phase evidence. @returns After its observation commits; never starts or retries a business effect. */
-  recordPhase(run: AdmissionMessagingMaintenanceRun, phase: AdmissionMessagingMaintenancePhaseSnapshot): Promise<void>;
+  /** @param run - Original acquired run. @param phase - Original settled or unresolved phase evidence; a running snapshot is accepted only while the lease and native deadline are live. @param next - Optional next phase starting in the same commit. @returns After its observations commit; never starts or retries a business effect. */
+  recordPhase(run: AdmissionMessagingMaintenanceRun, phase: AdmissionMessagingMaintenancePhaseSnapshot, next?: AdmissionMessagingMaintenancePhaseSnapshot): Promise<void>;
   /** @param run - Original acquired run. @param phases - Original bounded observations. @param deadlineReached - Sticky original deadline evidence. @param observationBudgetMilliseconds - Remaining host budget at its original SQL clock receipt; storage may narrow its native deadline but never extend it. @returns Current native health after recording completion, without inferring success from missing phases. */
   finish(run: AdmissionMessagingMaintenanceRun, phases: readonly AdmissionMessagingMaintenancePhaseSnapshot[], deadlineReached: boolean, observationBudgetMilliseconds?: number): Promise<AdmissionMessagingMaintenanceFinish>;
 }

@@ -7,7 +7,7 @@ import { MessagingDeliveryStorageError } from "@/src/modules/messaging/domain/er
 import { MESSAGE_STORAGE_OPERATION } from "@/src/modules/messaging/constants/message-delivery";
 
 /**
- * Builds explicit portable runtime bounds, leaving lease headroom beyond the run deadline.
+ * Builds explicit portable runtime bounds, leaving lease headroom beyond the run deadline plus one full provider request.
  * @param input - Server deployment overrides, validated once during composition.
  * @returns Immutable bounded settings with the specification defaults.
  * @throws MessagingDeliveryStorageError for an invalid timeout, capacity or lease/run relationship.
@@ -20,6 +20,7 @@ export function createMessagingDispatchConfig(input: Partial<MessagingDispatchSe
     || settings.leaseSeconds > MESSAGING_DISPATCH_BOUND.maximumLeaseSeconds
     || settings.requestTimeoutMs > MESSAGING_DISPATCH_BOUND.maximumRequestTimeoutMs
     || settings.runBudgetMs > MESSAGING_DISPATCH_BOUND.maximumRunBudgetMs
-    || settings.leaseSeconds * MILLISECONDS_PER_SECOND <= settings.runBudgetMs) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.invalidInput, { operation: MESSAGE_STORAGE_OPERATION.claim });
+    // A request started at the end of the run keeps its own timeout so its late receipt still lands inside the claim lease.
+    || settings.leaseSeconds * MILLISECONDS_PER_SECOND <= settings.runBudgetMs + settings.requestTimeoutMs) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.invalidInput, { operation: MESSAGE_STORAGE_OPERATION.claim });
   return Object.freeze(settings);
 }
