@@ -32,6 +32,8 @@ export async function captureAdmissionReview(page: Page, name: string, forbidden
         for (const property of ["opacity", "transform", "filter"]) if (keyframes.some((keyframe) => property in keyframe)) target.style.setProperty(property, style.getPropertyValue(property));
       });
       if (omit) clone.querySelectorAll(omit).forEach((element) => element.remove());
+      // Generated ids can embed record identifiers (a row checkbox named after its request); redact them in every attribute, consistently, so labels still match.
+      [clone, ...clone.querySelectorAll("*")].forEach((element) => { for (const attribute of Array.from(element.attributes)) { if (attribute.name === "href" || attribute.name === "value") continue; let value = attribute.value; for (const privateValue of privateValues) if (privateValue && value.includes(privateValue)) value = value.split(privateValue).join("redacted"); if (value !== attribute.value) element.setAttribute(attribute.name, value); } });
       // Keep real labels while preventing a captured navigation target from retaining private route material.
       clone.querySelectorAll("a[href]").forEach((element) => { const href = element.getAttribute("href") ?? ""; if (privateValues.some((value) => value && (href.includes(value) || href.includes(encodeURIComponent(value))))) element.setAttribute("href", "#"); });
       // Preserve real controls while excluding a one-view link or private phone from the export.

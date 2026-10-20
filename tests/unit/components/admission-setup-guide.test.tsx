@@ -110,4 +110,21 @@ describe("AdmissionSetupGuide drafts", () => {
     expect(items[1]).toHaveTextContent("Borrador sin publicar");
     expect(screen.getByRole("link", { name: "Conectar mensajería" })).toHaveAttribute("href", "/tribu/academia/admissions/messaging/connections");
   });
+
+  it("warns about a very low notice quota and an omitted personal frequency instead of a clean «Listo»", () => {
+    const progress = deriveAdmissionSetupProgress({
+      policy: { exists: true, open: true, paused: false, sendsCodes: false, verifiesPhone: false },
+      messaging: { connected: true, usage: { countryCount: 1, verificationDailyLimit: 10, notificationDailyLimit: 1 } },
+      notifications: { emailEnabled: true, receivesEmail: false },
+    });
+    render(<AppUIProvider><AdmissionSetupGuide slug="tribu" progress={progress} /></AppUIProvider>);
+    const items = within(screen.getByRole("list", { name: "Pasos de la configuración" })).getAllByRole("listitem");
+    const usage = items.find((item) => item.textContent?.includes("Elegí países y cupos"));
+    const notifications = items.find((item) => item.textContent?.includes("Elegí cómo recibir los avisos"));
+    expect(usage).toHaveTextContent("Listo, pero con un cupo muy bajo");
+    expect(usage).toHaveTextContent("el cupo de avisos por día es menor a 20");
+    expect(notifications).toHaveTextContent("No recibís correos");
+    expect(notifications).toHaveTextContent("elegiste «Omitir correos de revisión»: no vas a recibir correos de las solicitudes nuevas.");
+    expect(screen.getByRole("link", { name: "Configurar los avisos" })).toHaveAttribute("href", "/tribu/academia/admissions/notifications");
+  });
 });
