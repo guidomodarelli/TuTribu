@@ -38,8 +38,9 @@ import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS } from "@/tests/support/cons
 import { expectAdmissionProofInvalidationAudits } from "@/tests/support/admission-proof-invalidation-audit-assertions";
 import { PostgresAdmissionActivityReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activity-reader";
 import { ADMISSION_WHATSAPP_SQL_TIMEOUT_MS } from "@/tests/support/constants/admission-whatsapp-number";
-import { COMMERCIAL_MEMBERSHIP_REVIEW_COPY, COMMERCIAL_MEMBERSHIP_REVIEW_LABEL, commercialMembershipReviewDoneMessage } from "@/src/modules/academy-admissions/constants/commercial-membership-review";
-import { ADMISSION_POLICY_DRAFT_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
+import { COMMERCIAL_MEMBERSHIP_DECISION_COPY, COMMERCIAL_MEMBERSHIP_REVIEW_COPY, COMMERCIAL_MEMBERSHIP_REVIEW_LABEL, commercialMembershipReviewDoneMessage } from "@/src/modules/academy-admissions/constants/commercial-membership-review";
+import { ADMISSION_POLICY_BROWSER_COPY, ADMISSION_POLICY_DRAFT_COPY, ADMISSION_POLICY_PLATFORM_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
+import { ADMISSION_SETUP_GUIDE_COPY, ADMISSION_SETUP_STEP_COPY } from "@/src/modules/academy-admissions/constants/admission-setup-guide";
 
 /** @param database - This run's owned branch with native pg/Drizzle. @param securityConfig - Hosting configuration a native server shares with the seed; in-process suites keep independent generated keys. @returns Current leader session, policy repository and preparation-port controls. */
 async function preparePolicy(database: AcademyAdmissionTestDatabase, securityConfig?: MessagingSecurityConfig) {
@@ -545,10 +546,10 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
       for (const migration of ["20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
       await data.initialize();
       await database.withContext(data.fixture.own, async (transaction) => {
-        const unknown = randomUUID(), guardian = randomUUID();
-        for (const userId of [unknown, guardian]) await transaction.execute(sql`insert into public."user"(id,name,email,"createdAt","updatedAt") values (${userId},'Synthetic preflight member',${`${userId}@example.test`},clock_timestamp(),clock_timestamp())`);
-        // Canonical commercial pairs only (removed + subscription_inactive, blocked + payment_blocked): the membership review lists exactly those.
-        await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason,commercial_recovery_status) values (${data.tribeId},${unknown},'tribemate','removed','subscription_inactive',null),(${data.tribeId},${guardian},'guardian','blocked','payment_blocked','muted')`);
+        const unknown = randomUUID(), crossed = randomUUID(), guardian = randomUUID();
+        for (const [userId, name] of [[unknown, "Integrante sintética A"], [crossed, "Integrante sintética B"], [guardian, "Guardián sintético"]]) await transaction.execute(sql`insert into public."user"(id,name,email,"createdAt","updatedAt") values (${userId},${name},${`${userId}@example.test`},clock_timestamp(),clock_timestamp())`);
+        // A canonical pair (removed + subscription_inactive), a crossed pair (blocked + subscription_inactive) and a guardian: the review lists every commercial combination.
+        await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason,commercial_recovery_status) values (${data.tribeId},${unknown},'tribemate','removed','subscription_inactive',null),(${data.tribeId},${crossed},'tribemate','blocked','subscription_inactive',null),(${data.tribeId},${guardian},'guardian','blocked','payment_blocked','muted')`);
       });
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
         const browser = await browserType.launch({ headless: true });
@@ -569,7 +570,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
               const impact = page.getByRole("region", { name: "Lo que falta resolver" });
               await impact.waitFor({ timeout: 90_000 });
               const desktop = width === 1280;
-              expect((await impact.textContent())?.includes("Membresías bloqueadas por pago sin revisar: 1.")).toBe(desktop);
+              expect((await impact.textContent())?.includes("Membresías bloqueadas por pago sin revisar: 2.")).toBe(desktop);
               expect(await impact.textContent()).toContain("Guardianes bloqueados por pago: 1.");
               /** The chained flow stops at the membership review: its continue action stays disabled and the final action is never offered. */
               await next.click({ timeout: 90_000 });
@@ -578,31 +579,153 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
               expect(await next.isDisabled()).toBe(true);
               expect(await page.getByRole("button", { name: "Guardar y activar admisiones", exact: true }).count()).toBe(0);
               const rows = page.getByRole("list", { name: COMMERCIAL_MEMBERSHIP_REVIEW_COPY.listLabel, exact: true }).locator(":scope > li");
-              expect(await rows.count()).toBe(desktop ? 2 : 1);
+              expect(await rows.count()).toBe(desktop ? 3 : 1);
               await expectGuidedFlowFits(page, "Configurar reglas de admisión");
               expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
               expect(runtimeErrors).toEqual([]);
               await page.screenshot({ path: join(process.cwd(), "user-guides/assets/academy-admissions", `${engine}-${width}-policy-preflight.png`), fullPage: true });
-              if (desktop) await captureAdmissionReview(page, "admission-policy-preflight", [data.fixture.userId, data.sessionId, data.sessionToken, secret], "preflight-captures.json", { selector: "form" });
-              /** Desktop decides the unknown history and mobile the remaining guardian, each through the real audited resolution. */
-              /** Rows share a creation instant, so desktop picks the unknown history by its badge and mobile gets the guardian that remains. */
-              const row = desktop ? rows.filter({ hasText: COMMERCIAL_MEMBERSHIP_REVIEW_LABEL.kind.unknown_history }) : rows.first();
-              await row.getByRole("radio").first().click();
-              await row.getByRole("checkbox", { name: COMMERCIAL_MEMBERSHIP_REVIEW_COPY.confirm, exact: true }).check();
-              const resolution = page.waitForResponse((result) => result.request().method() === "POST" && new URL(result.url()).pathname.endsWith("/resolution"));
-              await row.getByRole("button", { name: COMMERCIAL_MEMBERSHIP_REVIEW_COPY.submit, exact: true }).click();
-              expect((await resolution).status()).toBe(200);
+              const forbidden = [data.fixture.userId, data.sessionId, data.sessionToken, secret];
+              /** Each context writes its own export: a capture file holds only the captures of the page that wrote it. */
+              const capture = (name: string, outputFile: string) => captureAdmissionReview(page, name, forbidden, outputFile, { selector: 'section[aria-label="Reglas de admisión"]' });
+              if (desktop) await capture("admission-policy-preflight", "preflight-captures.json");
+              /**
+               * Decides one listed membership through the real audited resolution.
+               * @param row - Listed membership row. @param decision - Visible decision label. @param remaining - Rows expected afterwards.
+               */
+              const decide = async (row: ReturnType<typeof rows.first>, decision: string, remaining: number) => {
+                await row.getByRole("radio", { name: decision, exact: true }).click();
+                await row.getByRole("checkbox", { name: COMMERCIAL_MEMBERSHIP_REVIEW_COPY.confirm, exact: true }).check();
+                const resolution = page.waitForResponse((result) => result.request().method() === "POST" && new URL(result.url()).pathname.endsWith("/resolution"));
+                await row.getByRole("button", { name: COMMERCIAL_MEMBERSHIP_REVIEW_COPY.submit, exact: true }).click();
+                expect((await resolution).status()).toBe(200);
+                if (remaining > 0) await page.waitForFunction(({ label, count }) => document.querySelectorAll(`ul[aria-label="${label}"] > li`).length === count, { label: COMMERCIAL_MEMBERSHIP_REVIEW_COPY.listLabel, count: remaining });
+              };
+              /** Desktop decides both unknown histories (the canonical and the crossed pair); mobile retires the remaining guardian. */
               if (desktop) {
-                await page.waitForFunction((label) => document.querySelectorAll(`ul[aria-label="${label}"] > li`).length === 1, COMMERCIAL_MEMBERSHIP_REVIEW_COPY.listLabel);
+                const unknownRows = rows.filter({ hasText: COMMERCIAL_MEMBERSHIP_REVIEW_LABEL.kind.unknown_history });
+                await decide(unknownRows.first(), COMMERCIAL_MEMBERSHIP_DECISION_COPY.tribemate.recover_active, 2);
+                await capture("admission-policy-membership-decided", "preflight-captures.json");
+                await decide(rows.filter({ hasText: COMMERCIAL_MEMBERSHIP_REVIEW_LABEL.kind.unknown_history }).first(), COMMERCIAL_MEMBERSHIP_DECISION_COPY.tribemate.recover_muted, 1);
                 expect(await next.isDisabled()).toBe(true);
+                await capture("admission-policy-membership-guardian", "preflight-captures.json");
               } else {
+                await decide(rows.first(), COMMERCIAL_MEMBERSHIP_DECISION_COPY.guardian.retire, 0);
                 await page.getByText(commercialMembershipReviewDoneMessage(ADMISSION_POLICY_DRAFT_COPY.activateNow), { exact: true }).first().waitFor({ timeout: 90_000 });
                 await impact.waitFor({ state: "detached" });
                 await page.getByRole("button", { name: ADMISSION_POLICY_DRAFT_COPY.activateNow, exact: true }).waitFor();
+                await page.screenshot({ path: join(process.cwd(), "user-guides/assets/academy-admissions", `${engine}-${width}-policy-memberships-done.png`), fullPage: true });
+                await capture("admission-policy-memberships-done", "memberships-done-captures.json");
               }
               expect(activationRequests).toBe(0);
             } finally { await context.close(); }
           }
+        } finally { await browser.close(); }
+      }));
+    });
+  }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
+
+  it.each([{ engine: "chromium", browserType: chromium }, { engine: "webkit", browserType: webkit }])("should guide the setup, explain a platform block and open, pause, resume and edit admissions in $engine", async ({ engine, browserType }) => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const data = await preparePolicy(database, await readMessagingHostingSecurityConfig()), slug = `policy-${data.tribeId}`;
+      for (const migration of ["20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
+      /** Only the TuTribu team enables the admission evaluator; turning it off reproduces a block the leader cannot resolve. */
+      const setEvaluator = (enabled: boolean) => database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_academy_settings set admission_enabled=${enabled} where tribe_id=${data.tribeId}`));
+      await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
+        const browser = await browserType.launch({ headless: true });
+        try {
+          const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+          try {
+            await context.addCookies([{ name: "better-auth.session_token", value: encodeURIComponent(`${data.sessionToken}.${await makeSignature(data.sessionToken, secret)}`), url: origin, httpOnly: true, sameSite: "Lax" }]);
+            const page = await context.newPage(), runtimeErrors: string[] = [];
+            page.on("pageerror", () => runtimeErrors.push("page_error"));
+            page.on("console", (message) => { if (message.type() === "error" && /hydration|did not match/i.test(message.text())) runtimeErrors.push("hydration_error"); });
+            const forbidden = [data.fixture.userId, data.sessionId, data.sessionToken, secret];
+            const inbox = `${origin}/${slug}/academia/admissions`, settings = `${inbox}/settings`;
+            const guideSelector = 'section[aria-labelledby="admission-setup-guide-title"]', rulesSelector = 'section[aria-label="Reglas de admisión"]';
+            /** The same page is laid out at both widths, so each state is checked for overflow and screenshotted at 390 and 1280 px. */
+            const shot = async (name: string) => {
+              if (await page.locator(rulesSelector).count()) await page.locator(`${rulesSelector} [aria-busy="false"]`).first().waitFor({ timeout: 90_000 });
+              for (const width of [390, 1280]) {
+                await page.setViewportSize({ width, height: 900 });
+                await page.waitForTimeout(300);
+                expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+                await page.screenshot({ path: join(process.cwd(), "user-guides/assets/academy-admissions", `${engine}-${width}-${name}.png`), fullPage: true });
+              }
+            };
+            /** Rules captures wait for the initial account check, so no control is shown disabled by a read in flight. */
+            const capture = async (name: string, selector = rulesSelector) => {
+              if (selector === rulesSelector) await page.locator(`${rulesSelector} [aria-busy="false"]`).first().waitFor({ timeout: 90_000 });
+              await captureAdmissionReview(page, name, forbidden, "setup-captures.json", { selector });
+            };
+            const guide = page.getByRole("region", { name: ADMISSION_SETUP_GUIDE_COPY.title, exact: true });
+            const next = page.getByRole("button", { name: "Continuar", exact: true });
+            const confirmation = page.getByRole("checkbox", { name: "Revisé las reglas y quiero activar las admisiones.", exact: true });
+
+            /** Nothing configured: the guide lists the steps in order with a single action toward the rules. */
+            await page.goto(inbox, { waitUntil: "commit" });
+            await guide.waitFor({ timeout: 90_000 });
+            expect(await guide.getByRole("link").count()).toBe(1);
+            await shot("setup-guide"); await capture("admission-setup-guide", guideSelector);
+            await guide.getByRole("link", { name: ADMISSION_SETUP_STEP_COPY.rules.action }).click();
+            await next.waitFor({ timeout: 90_000 });
+            await shot("policy-step-admission"); await capture("admission-policy-step-admission");
+            await next.click();
+            await page.locator("legend", { hasText: "Cómo se contactan" }).waitFor();
+            await shot("policy-step-contact"); await capture("admission-policy-step-contact");
+            await next.click();
+            await page.locator("legend", { hasText: "Recibir solicitudes" }).waitFor();
+            await shot("policy-step-intake"); await capture("admission-policy-step-intake");
+            await next.click();
+            await confirmation.check({ timeout: 90_000 });
+            await shot("policy-step-review"); await capture("admission-policy-step-review");
+
+            /** A platform reason stops the chained action after saving: the rules stay as a draft and the guide stops offering to open. */
+            await setEvaluator(false);
+            await page.getByRole("button", { name: "Guardar y activar admisiones", exact: true }).click();
+            await page.getByRole("group", { name: ADMISSION_POLICY_PLATFORM_COPY.title, exact: true }).waitFor({ timeout: 90_000 });
+            await shot("policy-platform-block"); await capture("admission-policy-platform-block");
+            await page.goto(inbox, { waitUntil: "commit" });
+            await guide.getByText(ADMISSION_SETUP_STEP_COPY.open.platformBlocked, { exact: true }).waitFor({ timeout: 90_000 });
+            await shot("setup-guide-platform"); await capture("admission-setup-guide-platform", guideSelector);
+
+            /** Once the team enables admissions, the saved draft is published from its notice with «Activar ahora». */
+            await setEvaluator(true);
+            await page.goto(settings, { waitUntil: "commit" });
+            const reviewDraft = page.getByRole("button", { name: ADMISSION_POLICY_DRAFT_COPY.action, exact: true });
+            await reviewDraft.waitFor({ timeout: 90_000 });
+            await shot("policy-draft"); await capture("admission-policy-draft");
+            await reviewDraft.click();
+            const activateNow = page.getByRole("button", { name: ADMISSION_POLICY_DRAFT_COPY.activateNow, exact: true });
+            await activateNow.waitFor({ timeout: 90_000 });
+            await confirmation.check();
+            await capture("admission-policy-activate-now");
+            await activateNow.click();
+            await page.getByRole("heading", { name: "Admisiones abiertas", exact: true }).waitFor({ timeout: 90_000 });
+            await page.getByText(ADMISSION_POLICY_BROWSER_COPY.activatedOpen, { exact: true }).first().waitFor({ timeout: 90_000 });
+            await shot("policy-open"); await capture("admission-policy-open");
+
+            /** Pausing asks for an internal reason; resuming and editing never reopen the rules by mistake. */
+            await page.getByRole("button", { name: "Pausar admisiones", exact: true }).click();
+            await page.getByLabel("Motivo de la pausa", { exact: true }).fill("Pausa sintética para revisar la lista");
+            await capture("admission-policy-pause");
+            await page.getByRole("button", { name: "Confirmar pausa", exact: true }).click();
+            await page.getByRole("heading", { name: "Admisiones pausadas", exact: true }).waitFor({ timeout: 90_000 });
+            await shot("policy-paused"); await capture("admission-policy-paused");
+            await page.goto(inbox, { waitUntil: "commit" });
+            await guide.getByText(ADMISSION_SETUP_STEP_COPY.open.paused, { exact: true }).waitFor({ timeout: 90_000 });
+            await shot("setup-guide-paused"); await capture("admission-setup-guide-paused", guideSelector);
+            await page.goto(settings, { waitUntil: "commit" });
+            await page.getByRole("button", { name: "Reanudar admisiones", exact: true }).click({ timeout: 90_000 });
+            await page.getByText(ADMISSION_POLICY_BROWSER_COPY.resumed, { exact: true }).first().waitFor({ timeout: 90_000 });
+            await capture("admission-policy-resumed");
+            await page.getByRole("button", { name: "Editar reglas", exact: true }).click();
+            await next.click(); await next.click();
+            await page.getByRole("checkbox", { name: "Revisé las reglas y quiero guardar los cambios.", exact: true }).waitFor();
+            await shot("policy-edit-review"); await capture("admission-policy-edit-review");
+            await page.getByRole("button", { name: "Cancelar edición", exact: true }).click();
+            await page.getByRole("heading", { name: "Admisiones abiertas", exact: true }).waitFor();
+            expect(runtimeErrors).toEqual([]);
+          } finally { await context.close(); }
         } finally { await browser.close(); }
       }));
     });

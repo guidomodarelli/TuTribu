@@ -91,10 +91,13 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                 mutationsStarted = true;
                 // The guided flow leaves the tribe email untouched and saves only the personal frequency.
                 await page.getByRole("button", { name: "Continuar", exact: true }).click();
+                const captured = scenario.name === "chromium" && scenario.width === 1280;
+                if (captured) await capture(page, "notification-settings-frequency");
                 const daily = !(await page.getByRole("radio", { name: /^Resumen diario/ }).isChecked());
                 await page.getByRole("radio", { name: daily ? /^Resumen diario/ : /^Agrupar cada cinco minutos/ }).click();
                 await page.getByRole("button", { name: "Continuar", exact: true }).click();
                 await page.getByRole("checkbox", { name: "Revisé el resumen y quiero guardar estos avisos.", exact: true }).check();
+                if (captured) await capture(page, "notification-settings-review");
                 await page.getByRole("button", { name: "Guardar avisos", exact: true }).click();
                 await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor();
                 expect(preferenceWrites).toBe(1); expect(emailWrites).toBe(0);
@@ -125,6 +128,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                 await page.getByRole("checkbox", { name: "Habilitar correo de admisión", exact: true }).check();
                 stage = `${scenario.name}_${scenario.width}_email_timezone`;
                 await page.getByLabel("Zona horaria de la tribu", { exact: true }).fill("Asia/Kolkata");
+                if (captured) await capture(page, "notification-settings-tribe-email");
                 stage = `${scenario.name}_${scenario.width}_email_submit_control`;
                 await reviewAndSave();
                 if (lossScenario) {
@@ -153,6 +157,26 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                   expect(await fixture.repository.get(fixture.read)).toMatchObject({ enabled: true, version: recoveredVersion + 1 });
                   expect(await page.getByRole("button", { name: /Google/ }).count() + await page.getByRole("link", { name: /Google/ }).count()).toBe(0);
                   expect(emailWrites).toBe(2); await capture(page, "notification-settings-saved-after-recovery");
+
+                  stage = "partial_save_keeps_saved_email";
+                  const region = page.getByRole("region", { name: "Avisos de admisión", exact: true });
+                  await page.getByRole("button", { name: "Cambiar avisos", exact: true }).click();
+                  await page.getByLabel("Zona horaria de la tribu", { exact: true }).fill("America/Argentina/Buenos_Aires");
+                  await page.getByRole("button", { name: "Continuar", exact: true }).click();
+                  const individual = page.getByRole("radio", { name: /^Un correo por aviso/ });
+                  await (await individual.isChecked() ? page.getByRole("radio", { name: /^Agrupar cada cinco minutos/ }) : individual).click();
+                  /** The personal preference fails after the tribe email is confirmed, so the page reports what stayed saved. */
+                  await page.route("**/admissions/notification-preferences", (request) => request.request().method() === "PATCH" ? request.fulfill({ status: 503, contentType: "application/json", body: "{}" }) : request.continue());
+                  await reviewAndSave();
+                  await region.getByText("El correo de la tribu quedó guardado. Falta guardar tu preferencia.", { exact: true }).waitFor();
+                  expect(emailWrites).toBe(3); await capture(page, "notification-settings-partial");
+                  await page.unroute("**/admissions/notification-preferences");
+                  stage = "partial_retry_saves_only_the_preference";
+                  await page.getByRole("button", { name: "Consultar estado actual", exact: true }).click();
+                  await page.waitForFunction(() => [...document.querySelectorAll("button")].some((button) => button.textContent === "Consultar estado actual" && !button.disabled));
+                  await reviewAndSave();
+                  await region.getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor();
+                  expect(emailWrites).toBe(3);
                 } else {
                   stage = `${scenario.name}_${scenario.width}_email_confirmed_result`;
                   await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor();

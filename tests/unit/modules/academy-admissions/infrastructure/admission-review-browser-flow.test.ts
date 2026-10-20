@@ -82,6 +82,9 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native current
                 const mutationStarted = new Promise<void>((resolve) => { mutationEntered = resolve; });
                 let interceptionComplete!: () => void;
                 const interceptionFinished = new Promise<void>((resolve) => { interceptionComplete = resolve; });
+                /** Desktop holds the decision until the pressed button is captured with its loading state. */
+                let releaseDecision!: () => void;
+                const decisionReleased = new Promise<void>((resolve) => { releaseDecision = resolve; });
                 await context.route(`**/api/tribes/${slug}/admissions/requests/${applicant.requestId}/decision`, async (route) => {
                   writes += 1;
                   mutationEntered();
@@ -96,13 +99,19 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native current
                     } catch { interceptionFailed = true; }
                     await route.abort("failed").catch(() => undefined);
                   }
-                  else await route.continue();
+                  else { if (applicant.width === 1280) await decisionReleased; await route.continue(); }
                   } catch { interceptionFailed = true; }
                   finally { interceptionComplete(); }
                 });
                 stage = "decide_request";
                 await page.getByRole("button", { name: applicant.width === 390 ? ADMISSION_REVIEW_UI_COPY.approve : ADMISSION_REVIEW_UI_COPY.reject, exact: true }).click();
                 stage = "wait_decision";
+                if (applicant.width === 1280) {
+                  try {
+                    await mutationStarted;
+                    await captureAdmissionReview(page, "admission-review-saving", forbidden, "review-captures.json", { selector: 'section[aria-label="Detalle de la solicitud"] form' });
+                  } finally { releaseDecision(); }
+                }
                 if (engine === "chromium" && applicant.width === 390) {
                   await mutationStarted;
                   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })));

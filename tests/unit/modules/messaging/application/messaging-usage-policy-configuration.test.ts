@@ -22,6 +22,9 @@ import { chromium, webkit, type Page } from "@playwright/test";
 import { captureAdmissionReview } from "@/tests/support/admission-review-capture";
 import { join } from "node:path";
 
+/** The whole Países y cupos page region, so captures show the return action, the current usage and the open step together. */
+const USAGE_PAGE_SELECTOR = 'section[aria-label="Países y cupos de mensajería"]';
+
 /**
  * Seeds a current global session bound to Google and a canonical leader without a messaging connection or admission policy.
  * @param database - This run's checked disposable branch, with cleanup owned by the SQL helper.
@@ -288,15 +291,21 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
                 stage = "prepare_country";
                 const removeArgentina = page.getByRole("button", { name: "Quitar Argentina" });
                 if (!await removeArgentina.count()) { await page.getByRole("combobox", { name: "Agregar un país" }).click(); await page.getByRole("option", { name: "Argentina", exact: true }).click(); }
+                const forbidden = [fixture.userId, fixture.contexts.read.sessionId, fixture.sessionToken, secret];
+                /** Arriving from the rules requirement adds «Volver a Reglas para activar» above the steps. */
+                if (width === 1280) await captureAdmissionReview(page, "messaging-usage-step-countries", forbidden, "usage-captures.json", { selector: USAGE_PAGE_SELECTOR });
                 await continueStep.click();
                 const verificationInput = page.getByRole("spinbutton", { name: "Códigos por día" });
                 /** The review blocks unchanged saves, so each pass toggles the saved daily codes. */
                 const nextVerification = await verificationInput.inputValue() === "0" ? "1" : "0";
                 await verificationInput.fill(nextVerification);
-                await continueStep.click(); await continueStep.click();
+                if (width === 1280) await captureAdmissionReview(page, "messaging-usage-step-verification", forbidden, "usage-captures.json", { selector: USAGE_PAGE_SELECTOR });
+                await continueStep.click();
+                if (width === 1280) await captureAdmissionReview(page, "messaging-usage-step-notification", forbidden, "usage-captures.json", { selector: USAGE_PAGE_SELECTOR });
+                await continueStep.click();
                 await confirmation.waitFor({ timeout: 90_000 });
                 expect(await confirmation.isChecked()).toBe(false);
-                if (width === 1280) await captureAdmissionReview(page, "messaging-usage-draft", [fixture.userId, fixture.contexts.read.sessionId, fixture.sessionToken, secret], "usage-captures.json", { selector: 'section[class*="MessagingUsage"]' });
+                if (width === 1280) await captureAdmissionReview(page, "messaging-usage-draft", [fixture.userId, fixture.contexts.read.sessionId, fixture.sessionToken, secret], "usage-captures.json", { selector: USAGE_PAGE_SELECTOR });
                 stage = "save_country";
                 const savedResponse = page.waitForResponse((response) => response.url().endsWith(`/api/tribes/${slug}/messaging/usage-policy`) && response.request().method() === "PUT", { timeout: 90_000 });
                 await confirmation.check();
@@ -310,7 +319,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
                 await changeUsage.waitFor();
                 expect(await page.getByRole("definition").filter({ hasText: /^Argentina$/ }).count()).toBe(1);
                 expect(await page.getByRole("definition").filter({ hasText: new RegExp(`^${nextVerification}$`) }).count()).toBeGreaterThan(0);
-                if (width === 1280) await captureAdmissionReview(page, "messaging-usage-saved", [fixture.userId, fixture.contexts.read.sessionId, fixture.sessionToken, secret], "usage-captures.json", { selector: 'section[class*="MessagingUsage"]' });
+                if (width === 1280) await captureAdmissionReview(page, "messaging-usage-saved", [fixture.userId, fixture.contexts.read.sessionId, fixture.sessionToken, secret], "usage-captures.json", { selector: USAGE_PAGE_SELECTOR });
                 stage = "concurrent_conflict";
                 await changeUsage.click(); await continueStep.click(); await continueStep.click();
                 /** Each pass changes the saved daily notices, since the review blocks unchanged saves; zero also shows its warning. */
@@ -318,6 +327,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
                 const nextNotices = await noticesInput.inputValue() === "0" ? "1" : "0";
                 await noticesInput.fill(nextNotices);
                 if (nextNotices === "0") await page.getByText("Con 0 no se envía ningún aviso por correo o SMS.", { exact: true }).first().waitFor();
+                else await page.getByText(/^Es un cupo muy bajo/).first().waitFor();
+                if (width === 1280) await captureAdmissionReview(page, "messaging-usage-low-quota", [fixture.userId, fixture.contexts.read.sessionId, fixture.sessionToken, secret], "usage-captures.json", { selector: USAGE_PAGE_SELECTOR });
                 await continueStep.click();
                 await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.messaging_usage_policies set notification_daily_limit=case when notification_daily_limit=5 then 6 else 5 end,version=version+1 where tribe_id=${fixture.tribeId}`));
                 await confirmation.check(); await page.getByRole("button", { name: "Guardar países y cupos" }).click();
@@ -325,7 +336,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
                 await previousStep.click();
                 expect(await noticesInput.inputValue()).toBe(nextNotices);
                 await continueStep.click();
-                if (width === 1280) await captureAdmissionReview(page, "messaging-usage-conflict", [fixture.userId, fixture.contexts.read.sessionId, fixture.sessionToken, secret], "usage-captures.json", { selector: 'section[class*="MessagingUsage"]' });
+                if (width === 1280) await captureAdmissionReview(page, "messaging-usage-conflict", [fixture.userId, fixture.contexts.read.sessionId, fixture.sessionToken, secret], "usage-captures.json", { selector: USAGE_PAGE_SELECTOR });
                 stage = "read_current_and_save";
                 await page.getByRole("button", { name: "Consultar uso actual" }).click(); await confirmation.check({ timeout: 90_000 });
                 await page.getByRole("button", { name: "Guardar países y cupos" }).click();
