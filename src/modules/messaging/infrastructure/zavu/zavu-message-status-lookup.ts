@@ -6,7 +6,7 @@ import type { MessageStatusPreparation } from "./message-status-preparation";
 import { MESSAGE_ATTEMPT_STATE } from "../../constants/message-delivery";
 import { MESSAGE_STATUS_LOOKUP_OPERATION, MESSAGE_STATUS_PROVIDER_OPERATION } from "../../constants/message-reconciliation";
 import { MESSAGING_ERROR_CODE } from "../../constants/messaging-errors";
-import { MESSAGING_DISPATCH_DEFAULT } from "../../constants/messaging-dispatch";
+import { MESSAGING_PROVIDER_READ_TIMEOUT_MS } from "../../constants/messaging-dispatch";
 import { ZAVU_DELIVERY_ENDPOINT, ZAVU_DELIVERY_HEADER, ZAVU_DELIVERY_STATUS, ZAVU_DELIVERY_TRANSPORT, ZAVU_MESSAGE_DIRECTION } from "../../constants/zavu-delivery";
 import { normalizeMessagingProviderFailure } from "../api/messaging-route-http";
 import { messagingFailure } from "../../application/results/messaging-errors";
@@ -15,7 +15,7 @@ import { ZavuInspectionError } from "./zavu-inspection-error";
 /** A request-owned read adapter; a successful observation never creates a new delivery. */
 export class ZavuMessageStatusLookup implements MessageStatusLookup {
   /** @param preparation - Native authorization and transient original credential. @param fetch - Hosting HTTP runtime or owned real-SDK test transport. @param timeoutMs - Bounded read duration; no SDK retries. */
-  constructor(private readonly preparation: MessageStatusPreparation, private readonly fetch: typeof globalThis.fetch, private readonly timeoutMs: number = MESSAGING_DISPATCH_DEFAULT.requestTimeoutMs) {}
+  constructor(private readonly preparation: MessageStatusPreparation, private readonly fetch: typeof globalThis.fetch, private readonly timeoutMs: number = MESSAGING_PROVIDER_READ_TIMEOUT_MS) {}
 
   /** @param reference - Protected original identity, copied before any awaited preparation. @param signal - Exact lookup cancellation/deadline. @returns Transport only; no recipient, text, sender, secret or raw response. */
   async read(reference: MessageStatusReference, signal: AbortSignal): Promise<MessageStatusObservation> {

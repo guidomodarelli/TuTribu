@@ -15,12 +15,15 @@ export function guardMaintenanceMessageDeliverySender(sender: MessageDeliverySen
       const prepared = await sender.prepare(context, combined);
       combined.throwIfAborted();
       return {
-        /** @param requestSignal - Existing single provider-request deadline. @returns Only the original request, with no retry or intervening DB work. */
+        /**
+         * The workflow cancellation only prevents starting the request. Once started, the request keeps the dispatcher's own
+         * provider timeout, so a slow but accepted answer is recorded late instead of being cut into a permanent unknown.
+         * @param requestSignal - Existing single provider-request deadline. @returns Only the original request, with no retry or intervening DB work.
+         */
         async send(requestSignal) {
           if (signal.aborted || now() >= deadlineAtMilliseconds) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached);
-          const request = AbortSignal.any([signal, requestSignal]);
-          request.throwIfAborted();
-          return prepared.send(request);
+          requestSignal.throwIfAborted();
+          return prepared.send(requestSignal);
         },
       };
     },

@@ -40,8 +40,14 @@ function completed(metrics: readonly AdmissionMessagingMaintenanceMetric[], hasR
 
 /** Uses only own original owner entrypoints; provider lookup and sending remain outside every SQL transaction. */
 export class OriginalAdmissionMessagingMaintenanceWork implements AdmissionMessagingMaintenanceWork {
-  /** @param createOwners - Per-original composition with guarded independent executors. @param assertRunnable - Short current native lease/scope check, released before any RPC. @param readSecurityConfig - Local own input preflight for external-only phases, never a send permission. @param runtime - Current host deadline and safe private diagnostics. */
-  constructor(private readonly createOwners: (run: AdmissionMessagingMaintenanceRun, deadlineAtMilliseconds: number, signal: AbortSignal) => AdmissionMessagingMaintenanceOwners, private readonly assertRunnable: (run: AdmissionMessagingMaintenanceRun) => Promise<void>, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly runtime: AdmissionMessagingMaintenanceRuntime) {}
+  /**
+   * The phase's committed `running` observation already checked the native lease and deadline in its own transaction, and every owner
+   * transaction rechecks them, so no separate lease transaction is spent before the owners.
+   * @param createOwners - Per-original composition with guarded independent executors; it receives the hard and the soft phase deadline.
+   * @param readSecurityConfig - Local own input preflight for external-only phases, never a send permission.
+   * @param runtime - Current host deadline and safe private diagnostics.
+   */
+  constructor(private readonly createOwners: (run: AdmissionMessagingMaintenanceRun, deadlineAtMilliseconds: number, signal: AbortSignal, phaseDeadlineAtMilliseconds: number) => AdmissionMessagingMaintenanceOwners, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly runtime: AdmissionMessagingMaintenanceRuntime) {}
 
   /** @param error - Actual own failure, without forwarding raw exception text. @returns A closed configuration, authority or uncertain-phase result; a generic failure never proves rollback. */
   private failed(error: unknown): AdmissionMessagingMaintenancePhaseOutput {
@@ -80,14 +86,13 @@ export class OriginalAdmissionMessagingMaintenanceWork implements AdmissionMessa
     return completed(metrics, result.quotaDeferred > 0 || result.unresolved > 0 || result.unknown > 0 || result.claimed > 0);
   }
 
-  /** @param phase - Fixed actual owner. @param deadlineAtMilliseconds - Original shared host deadline. @param signal - The same original cancellation. @param run - Original acquired scope, rechecked before every owner transaction. @returns Confirmed own counters and explicit omitted/uncertain work without retrying a phase. */
-  async runPhase(phase: AdmissionMessagingMaintenancePhase, deadlineAtMilliseconds: number, signal: AbortSignal, run: AdmissionMessagingMaintenanceRun): Promise<AdmissionMessagingMaintenancePhaseOutput> {
+  /** @param phase - Fixed actual owner. @param deadlineAtMilliseconds - Original shared host deadline. @param signal - The same original cancellation. @param run - Original acquired scope, rechecked before every owner transaction. @param phaseDeadlineAtMilliseconds - Soft deadline for starting new owner steps, never later than the hard deadline. @returns Confirmed own counters and explicit omitted/uncertain work without retrying a phase. */
+  async runPhase(phase: AdmissionMessagingMaintenancePhase, deadlineAtMilliseconds: number, signal: AbortSignal, run: AdmissionMessagingMaintenanceRun, phaseDeadlineAtMilliseconds: number = deadlineAtMilliseconds): Promise<AdmissionMessagingMaintenancePhaseOutput> {
     try {
       if (signal.aborted || this.runtime.now() >= deadlineAtMilliseconds) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached);
-      await this.assertRunnable(run);
       if (phase === ADMISSION_MESSAGING_MAINTENANCE_PHASE.dispatch) await this.readSecurityConfig();
       if (signal.aborted || this.runtime.now() >= deadlineAtMilliseconds) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached);
-      const owners = this.createOwners(run, deadlineAtMilliseconds, signal);
+      const owners = this.createOwners(run, deadlineAtMilliseconds, signal, Math.min(phaseDeadlineAtMilliseconds, deadlineAtMilliseconds));
       switch (phase) {
         case ADMISSION_MESSAGING_MAINTENANCE_PHASE.expiration: { const result = await owners.expireRequests(); return completed([metric(ADMISSION_MESSAGING_MAINTENANCE_METRIC.expiredRequests, result.expired)], result.expired > 0); }
         case ADMISSION_MESSAGING_MAINTENANCE_PHASE.admissionRetention: { const result = await owners.purgeAdmission(); return completed([metric(ADMISSION_MESSAGING_MAINTENANCE_METRIC.purgedImportRows, result.importMaterial.purgedRows), metric(ADMISSION_MESSAGING_MAINTENANCE_METRIC.completedImports, result.importMaterial.completedImports), metric(ADMISSION_MESSAGING_MAINTENANCE_METRIC.minimizedRequests, result.privateData.requestsMinimized), metric(ADMISSION_MESSAGING_MAINTENANCE_METRIC.purgedAuditEvents, result.privateData.auditEventsPurged), metric(ADMISSION_MESSAGING_MAINTENANCE_METRIC.purgedArchivedAuditEvents, result.privateData.archivedAuditEventsPurged)], result.privateData.remainingRequests || result.privateData.remainingAuditEvents || result.importMaterial.purgedRows > 0); }

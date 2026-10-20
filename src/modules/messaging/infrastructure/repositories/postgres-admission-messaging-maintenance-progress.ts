@@ -11,6 +11,12 @@ import { MESSAGE_DELIVERY_STATE } from "../../constants/message-delivery";
 import { admissionMaintenanceCompleted, createUnstartedAdmissionMaintenancePhases } from "../../application/use-cases/admission-messaging-maintenance-state";
 import { admissionMaintenanceExternalScope, admissionMaintenanceRun, projectStoredAdmissionMaintenancePhases, type AdmissionMessagingMaintenanceRow } from "./admission-messaging-maintenance-mapper";
 
+/** @param current - Original row read in the caller's transaction. @param run - Exact original acquisition. @throws AdmissionMessagingMaintenanceError unless that same run may still start work. */
+function assertAdmissionMaintenanceLeaseLive(current: AdmissionMessagingMaintenanceRow | null, run: AdmissionMessagingMaintenanceRun): void {
+  if (!current || current.run_id !== run.runId || current.state !== ADMISSION_MESSAGING_MAINTENANCE_STORED_STATE.running) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved);
+  if (!current.deadline_live || !current.lease_live || current.deadline_reached) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached);
+}
+
 /** Owns each short commit-confirming metadata or business transaction without a nested checkout. */
 export type AdmissionMessagingMaintenanceExecutor = <Result>(run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
 
@@ -27,13 +33,14 @@ export class PostgresAdmissionMessagingMaintenanceProgress implements AdmissionM
     if (!await this.authorize()) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.authorityUnavailable);
   }
 
-  /** @param database - Original owner transaction after its row lock. @returns Minimal native columns, or genuine absence; no PostgreSQL schema validator is applied. */
-  private async row(database: RequestDatabase): Promise<AdmissionMessagingMaintenanceRow | null> {
+  /** @param database - Original owner transaction. @param lock - Row lock taken by this same statement, saving a separate locking round trip. @returns Minimal native columns, or genuine absence; no PostgreSQL schema validator is applied. */
+  private async row(database: RequestDatabase, lock: "update" | "share" | null = null): Promise<AdmissionMessagingMaintenanceRow | null> {
+    const locking = lock === "update" ? sql`for update` : lock === "share" ? sql`for share` : sql``;
     return (await database.execute<AdmissionMessagingMaintenanceRow>(sql`select run_id,version,state,external_environment,external_security_epoch,first_phase,next_phase,
       (extract(epoch from started_at)*${MILLISECONDS_PER_SECOND})::bigint::text as started_milliseconds,
       (extract(epoch from last_successful_at)*${MILLISECONDS_PER_SECOND})::bigint::text as last_successful_milliseconds,
       lease_until>clock_timestamp() as lease_live,deadline_at>clock_timestamp() as deadline_live,deadline_reached,phases
-      from public.admission_messaging_maintenance_progress where scope=${ADMISSION_MESSAGING_MAINTENANCE_STORAGE.scope}`)).rows[0] ?? null;
+      from public.admission_messaging_maintenance_progress where scope=${ADMISSION_MESSAGING_MAINTENANCE_STORAGE.scope} ${locking}`)).rows[0] ?? null;
   }
 
   /** @param database - Original metadata transaction. @param row - Actual current native workflow. @returns A single indexed oldest-queue observation, without contacts or an unbounded queue count. */
@@ -50,10 +57,8 @@ export class PostgresAdmissionMessagingMaintenanceProgress implements AdmissionM
   /** @param database - Original transaction. @param run - Exact original acquired workflow. @param forShare - Pins the lease across a DB-only business effect when true. @returns Only while the original private run still authorizes starting work; no provider call is made here. */
   async guardWorkTransaction(database: RequestDatabase, run: AdmissionMessagingMaintenanceRun, forShare = true): Promise<void> {
     await this.guard(run.externalScope);
-    if (forShare) await database.execute(sql`select scope from public.admission_messaging_maintenance_progress where scope=${ADMISSION_MESSAGING_MAINTENANCE_STORAGE.scope} for share`);
-    const current = (await database.execute<{ run_id: string; state: string; deadline_live: boolean; lease_live: boolean; deadline_reached: boolean }>(sql`select run_id,state,deadline_at>clock_timestamp() as deadline_live,lease_until>clock_timestamp() as lease_live,deadline_reached from public.admission_messaging_maintenance_progress where scope=${ADMISSION_MESSAGING_MAINTENANCE_STORAGE.scope}`)).rows[0];
-    if (!current || current.run_id !== run.runId || current.state !== ADMISSION_MESSAGING_MAINTENANCE_STORED_STATE.running) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved);
-    if (!current.deadline_live || !current.lease_live || current.deadline_reached) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached);
+    // One statement both pins the lease (when requested) and samples it with a fresh SQL clock.
+    assertAdmissionMaintenanceLeaseLive(await this.row(database, forShare ? "share" : null), run);
     await this.guard(run.externalScope);
   }
 
@@ -74,8 +79,7 @@ export class PostgresAdmissionMessagingMaintenanceProgress implements AdmissionM
         const inserted = (await database.execute(sql`insert into public.admission_messaging_maintenance_progress(scope,run_id,external_environment,external_security_epoch,phases)
           values (${ADMISSION_MESSAGING_MAINTENANCE_STORAGE.scope},${runId},${scope?.environment ?? null},${scope?.securityEpoch ?? null},${JSON.stringify(createUnstartedAdmissionMaintenancePhases())}::jsonb)
           on conflict(scope) do nothing returning scope`)).rows.length > 0;
-        await database.execute(sql`select scope from public.admission_messaging_maintenance_progress where scope=${ADMISSION_MESSAGING_MAINTENANCE_STORAGE.scope} for update`);
-        let current = (await this.row(database))!;
+        let current = (await this.row(database, "update"))!;
         let clockObserved = this.now();
         await this.guard(scope);
         const sameScope = sameAdmissionMaintenanceExternalScope(admissionMaintenanceExternalScope(current), scope);
@@ -97,25 +101,37 @@ export class PostgresAdmissionMessagingMaintenanceProgress implements AdmissionM
     } catch (error) { if (error instanceof AdmissionMessagingMaintenanceError) throw error; throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved, { cause: error }); }
   }
 
-  /** @param run - Original acquired workflow. @param phase - Original started/settled phase observation. @returns After the exact own observation commits; duplicates preserve its original version and completed runs stay immutable. */
-  async recordPhase(run: AdmissionMessagingMaintenanceRun, phase: AdmissionMessagingMaintenancePhaseSnapshot): Promise<void> {
-    if (!ADMISSION_MESSAGING_MAINTENANCE_PHASES.includes(phase.phase)) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.phaseFailed);
-    const snapshot = { ...projectStoredAdmissionMaintenancePhases([phase])[0], observation: ADMISSION_MESSAGING_MAINTENANCE_OBSERVATION.recorded };
+  /**
+   * A `running` observation is the authority to start that phase: it is only accepted while the original lease and native deadline are live.
+   * @param run - Original acquired workflow.
+   * @param phase - Original started/settled phase observation.
+   * @param next - Optional next phase starting in the same commit; settling one phase and starting the next share one transaction.
+   * @returns After the exact own observations commit; duplicates preserve their original version and completed runs stay immutable.
+   */
+  async recordPhase(run: AdmissionMessagingMaintenanceRun, phase: AdmissionMessagingMaintenancePhaseSnapshot, next?: AdmissionMessagingMaintenancePhaseSnapshot): Promise<void> {
+    const requested = next ? [phase, next] : [phase];
+    if (requested.some((value) => !ADMISSION_MESSAGING_MAINTENANCE_PHASES.includes(value.phase)) || next?.phase === phase.phase) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.phaseFailed);
+    const snapshots = requested.map((value) => ({ ...projectStoredAdmissionMaintenancePhases([value])[0], observation: ADMISSION_MESSAGING_MAINTENANCE_OBSERVATION.recorded }));
+    const starting = requested.some((value) => value.status === ADMISSION_MESSAGING_MAINTENANCE_RUNNING_PHASE);
     try {
       await this.guard(run.externalScope);
       await this.execute(async (database) => {
-        await database.execute(sql`select scope from public.admission_messaging_maintenance_progress where scope=${ADMISSION_MESSAGING_MAINTENANCE_STORAGE.scope} for update`);
-        const current = await this.row(database);
+        const current = await this.row(database, "update");
         await this.guard(run.externalScope);
         if (!current || current.run_id !== run.runId || !sameAdmissionMaintenanceExternalScope(admissionMaintenanceExternalScope(current), run.externalScope)) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved);
-        const position = current.phases.findIndex((stored) => stored.phase === phase.phase);
-        if (position < 0) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved);
-        const identical = (await database.execute<{ identical: boolean }>(sql`select phases->${position}::integer=${JSON.stringify(snapshot)}::jsonb as identical from public.admission_messaging_maintenance_progress where scope=${ADMISSION_MESSAGING_MAINTENANCE_STORAGE.scope}`)).rows[0].identical;
-        if (!identical) {
+        if (starting) assertAdmissionMaintenanceLeaseLive(current, run);
+        let phases = sql`phases`, changed = false;
+        for (const [index, snapshot] of snapshots.entries()) {
+          const position = current.phases.findIndex((stored) => stored.phase === snapshot.phase);
+          if (position < 0) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved);
           const original = current.phases[position];
-          if (current.state === ADMISSION_MESSAGING_MAINTENANCE_STORED_STATE.completed || current.state !== ADMISSION_MESSAGING_MAINTENANCE_STORED_STATE.running && !phase.late || original.observation === ADMISSION_MESSAGING_MAINTENANCE_OBSERVATION.recorded && original.status !== ADMISSION_MESSAGING_MAINTENANCE_RUNNING_PHASE && !(phase.late && original.status === ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.unresolved)) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved);
-          await database.execute(sql`update public.admission_messaging_maintenance_progress set version=version+1,phases=jsonb_set(phases,array[${String(position)}]::text[],${JSON.stringify(snapshot)}::jsonb,false) where scope=${ADMISSION_MESSAGING_MAINTENANCE_STORAGE.scope}`);
+          if (JSON.stringify(projectStoredAdmissionMaintenancePhases([original])[0]) === JSON.stringify(snapshot)) continue;
+          const late = requested[index].late;
+          if (current.state === ADMISSION_MESSAGING_MAINTENANCE_STORED_STATE.completed || current.state !== ADMISSION_MESSAGING_MAINTENANCE_STORED_STATE.running && !late || original.observation === ADMISSION_MESSAGING_MAINTENANCE_OBSERVATION.recorded && original.status !== ADMISSION_MESSAGING_MAINTENANCE_RUNNING_PHASE && !(late && original.status === ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.unresolved)) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved);
+          phases = sql`jsonb_set(${phases},array[${String(position)}]::text[],${JSON.stringify(snapshot)}::jsonb,false)`;
+          changed = true;
         }
+        if (changed) await database.execute(sql`update public.admission_messaging_maintenance_progress set version=version+1,phases=${phases} where scope=${ADMISSION_MESSAGING_MAINTENANCE_STORAGE.scope}`);
         await this.guard(run.externalScope);
       });
     } catch (error) { if (error instanceof AdmissionMessagingMaintenanceError) throw error; throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved, { cause: error }); }
@@ -127,8 +143,7 @@ export class PostgresAdmissionMessagingMaintenanceProgress implements AdmissionM
     try {
       await this.guard(run.externalScope);
       return await this.execute(async (database) => {
-        await database.execute(sql`select scope from public.admission_messaging_maintenance_progress where scope=${ADMISSION_MESSAGING_MAINTENANCE_STORAGE.scope} for update`);
-        let current = await this.row(database);
+        let current = await this.row(database, "update");
         await this.guard(run.externalScope);
         if (!current || current.run_id !== run.runId || !sameAdmissionMaintenanceExternalScope(admissionMaintenanceExternalScope(current), run.externalScope)) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved);
         const projected = projectStoredAdmissionMaintenancePhases(phases);
