@@ -25,6 +25,7 @@ import { ADMISSION_CONTACT_VERIFICATION_OPERATION, ADMISSION_CONTACT_TERMINAL_CH
 import { VERIFICATION_ISSUANCE_OPERATION } from "@/src/modules/academy-admissions/constants/verification-issuance";
 import { VERIFICATION_TRANSITION_OUTCOME } from "@/src/modules/academy-admissions/constants/verification-challenge";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
+import { startWriteToast, type WriteToast } from "@/lib/toasts/write-toast";
 import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/messaging-public-contract";
 import { MILLISECONDS_PER_SECOND } from "@/src/constants/time";
 
@@ -46,7 +47,9 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
   const [challengeFailureCode, setChallengeFailureCode] = useState<AdmissionErrorCode | null>(null);
   const [recoveryRequired, setRecoveryRequired] = useState(false);
   const [requiresReplacement, setRequiresReplacement] = useState(false);
-  const active = useRef(false), generation = useRef(0), busy = useRef(false), controller = useRef<AbortController | null>(null), deliveryControllers = useRef(new Set<AbortController>()), record = useRef<AdmissionContactIntent | null>(null);
+  const active = useRef(false), generation = useRef(0), busy = useRef(false), controller = useRef<AbortController | null>(null), deliveryControllers = useRef(new Set<AbortController>()), record = useRef<AdmissionContactIntent | null>(null), writeToast = useRef<WriteToast | null>(null);
+  /** A confirmed write is announced by its own toast; a restored result stays on screen as feedback. */
+  const confirmWrite = useCallback((message: string) => { if (writeToast.current) writeToast.current.announce({ kind: "success", message }); else setFeedback(message); }, []);
   const previousUnresolved = useRef<AdmissionContactIntent | null>(null);
   const restoring = useRef<{ original: AdmissionContactIntent; patch: Partial<AdmissionContactIntent> } | null>(null);
   const live = (scopeGeneration: number, signal: AbortSignal) => active.current && generation.current === scopeGeneration && !signal.aborted;
@@ -103,7 +106,7 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
       if (!save({ pending: null, issuedOperationId: selected ? null : original.operationId, verifiedOperationId: null, selectedOperationId: selected ? original.operationId : undefined })) return;
       for (const previousController of deliveryControllers.current) previousController.abort();
       deliveryControllers.current.clear();
-      setChallenge(parsed.data); setChallengeFailureCode(null); setProof(null); setCodeValue(""); setDelivery(null); setRequiresReplacement(selected); if (selected) setConfirmed(false); latest.current.onProof(null); setFeedback(selected ? ADMISSION_CONTACT_COPY.selected : ADMISSION_CONTACT_COPY.requested); setPhase(ADMISSION_CONTACT_PHASE.idle);
+      setChallenge(parsed.data); setChallengeFailureCode(null); setProof(null); setCodeValue(""); setDelivery(null); setRequiresReplacement(selected); if (selected) setConfirmed(false); latest.current.onProof(null); if (selected) setFeedback(ADMISSION_CONTACT_COPY.selected); else confirmWrite(ADMISSION_CONTACT_COPY.requested); setPhase(ADMISSION_CONTACT_PHASE.idle);
       void readDelivery(parsed.data); return;
     }
     if (intent.kind === ADMISSION_CONTACT_ACTION.verify) {
@@ -111,7 +114,7 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
       if (!parsed.success) throw new Error(ADMISSION_ERROR_CODE.publicContractUnusable);
       if (parsed.data.result === VERIFICATION_TRANSITION_OUTCOME.denied) { save({ pending: null, verifiedOperationId: null }); recordChallengeFailure(parsed.data.code); setErrorMessage(ADMISSION_ERROR_MESSAGE[parsed.data.code]); setPhase(ADMISSION_CONTACT_PHASE.idle); return; }
       if (!save({ pending: null, verifiedOperationId: original.operationId, issuedOperationId: record.current?.selectedOperationId ?? record.current?.issuedOperationId ?? null, selectedOperationId: undefined })) return;
-      setProof(parsed.data); latest.current.onProof(parsed.data); setCodeValue(""); setFeedback(ADMISSION_CONTACT_COPY.verified); setPhase(ADMISSION_CONTACT_PHASE.idle); return;
+      setProof(parsed.data); latest.current.onProof(parsed.data); setCodeValue(""); confirmWrite(ADMISSION_CONTACT_COPY.verified); setPhase(ADMISSION_CONTACT_PHASE.idle); return;
     }
     const parsed = admissionProofApplicationSnapshotSchema.safeParse(original.result), current = latest.current;
     if (!parsed.success) throw new Error(ADMISSION_ERROR_CODE.publicContractUnusable);
@@ -122,8 +125,8 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
     for (const previousController of deliveryControllers.current) previousController.abort();
     deliveryControllers.current.clear();
     setChallenge(null); setProof(null); setDelivery(null); setCodeValue(""); setConfirmed(false);
-    current.onApplied(parsed.data); setFeedback(ADMISSION_CONTACT_COPY.applied); setPhase(ADMISSION_CONTACT_PHASE.idle);
-  }, [readDelivery, recordChallengeFailure, save]);
+    current.onApplied(parsed.data); confirmWrite(ADMISSION_CONTACT_COPY.applied); setPhase(ADMISSION_CONTACT_PHASE.idle);
+  }, [confirmWrite, readDelivery, recordChallengeFailure, save]);
 
   /** Dispatches one exact mutation only after validation, native viewer checks and persisted original references. */
   const run = useCallback(async (intent: AdmissionContactPending, action: (signal: AbortSignal) => Promise<AdmissionContactBrowserResult<unknown>>, type: AdmissionOperationRecoveryDto["type"], actionPhase: ContactPhase) => {
@@ -137,6 +140,8 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
     }
     const scopeGeneration = generation.current, actionController = new AbortController(); controller.current = actionController;
     const timeout = window.setTimeout(() => actionController.abort(), ADMISSION_CONTACT_BROWSER_TIMEOUT_MS);
+    // Failures and unconfirmed originals stay next to the code fields; only a confirmed result becomes the success toast.
+    const notice = startWriteToast(actionPhase === ADMISSION_CONTACT_PHASE.verifying ? ADMISSION_CONTACT_COPY.checking : actionPhase === ADMISSION_CONTACT_PHASE.applying ? ADMISSION_CONTACT_COPY.applying : ADMISSION_CONTACT_COPY.sending); writeToast.current = notice;
     try {
       if (!await current.authorize(actionController.signal)) { if (live(scopeGeneration, actionController.signal)) { setPhase(ADMISSION_CONTACT_PHASE.idle); setErrorMessage(ADMISSION_ERROR_MESSAGE[ADMISSION_ERROR_CODE.authenticationRequired]); } return; }
       if (!live(scopeGeneration, actionController.signal)) return;
@@ -152,7 +157,7 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
       } else if (result.status === ADMISSION_CONTACT_BROWSER_STATUS.failed && !result.uncertain) { save({ pending: null }); if (intent.kind === ADMISSION_CONTACT_ACTION.verify) recordChallengeFailure(result.code); setErrorMessage(result.message); setPhase(ADMISSION_CONTACT_PHASE.idle); }
       else { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); }
     } catch { if (live(scopeGeneration, actionController.signal)) { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); } }
-    finally { window.clearTimeout(timeout); if (controller.current === actionController) { busy.current = false; controller.current = null; if (active.current && generation.current === scopeGeneration) { setPhase(record.current?.pending ? ADMISSION_CONTACT_PHASE.uncertain : ADMISSION_CONTACT_PHASE.idle); if (actionController.signal.aborted && record.current?.pending) setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); } } }
+    finally { window.clearTimeout(timeout); if (writeToast.current === notice) writeToast.current = null; notice.finish(); if (controller.current === actionController) { busy.current = false; controller.current = null; if (active.current && generation.current === scopeGeneration) { setPhase(record.current?.pending ? ADMISSION_CONTACT_PHASE.uncertain : ADMISSION_CONTACT_PHASE.idle); if (actionController.signal.aborted && record.current?.pending) setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); } } }
   }, [consume, ready, recoveryRequired, recordChallengeFailure, save]);
 
   /** Resolves durable references from the actual registry before treating any recovered result as usable UI data. */

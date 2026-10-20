@@ -8,7 +8,7 @@ export const ADMISSION_UI_COPY = {
   signIn: "Iniciar sesión", home: "Ir al inicio", submit: "Solicitar ingreso", submitting: "Enviando solicitud…",
   read: "Consultar estado", reading: "Consultando estado…", cancel: "Cancelar solicitud", cancelling: "Cancelando solicitud…",
   confirm: "Confirmo que quiero solicitar ingreso a esta academia", confirmCancel: "Confirmo que quiero cancelar esta solicitud",
-  confirmationRequired: "Confirmá la acción antes de continuar.", message: "Mensaje para los responsables (opcional)",
+  confirmationRequired: "Confirmá la acción antes de continuar.", contactRecovery: "La operación del código no quedó confirmada. Consultala antes de seguir.", message: "Mensaje para los responsables (opcional)",
   phone: "Teléfono", country: "País del teléfono", countryHelp: "Usá el código de dos letras del país y un número con su prefijo internacional.",
   declared: "Este contacto fue declarado y no está comprobado.", verified: "La comprobación del contacto tiene el alcance indicado por la academia.",
   email: "Se usa el correo de tu cuenta. Esta solicitud no lo convierte en un contacto comprobado.",

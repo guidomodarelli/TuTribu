@@ -3,7 +3,9 @@
 /** Owns the single browser workflow, native viewer checks and durable local intent recovery. @module admission-container */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, toast } from "@golfo/ui";
-import { ContactVerification } from "@/components/academy-admissions/contact-verification";
+import { AdmissionRequestSteps } from "@/components/academy-admissions/admission-request-steps";
+import { startWriteToast, type WriteToast } from "@/lib/toasts/write-toast";
+import { ADMISSION_REQUEST_FLOW_COPY, ADMISSION_REQUEST_FLOW_MODE, admissionRequestFlowSteps, type AdmissionRequestFlowStep } from "@/src/modules/academy-admissions/constants/admission-request-flow";
 import { useAdmissionContactVerification } from "@/hooks/use-admission-contact-verification";
 import { useAdmissionNotificationRefresh } from "@/hooks/use-admission-notification-refresh";
 import { useAdmissionViewFeedback } from "@/hooks/use-admission-view-feedback";
@@ -11,7 +13,7 @@ import { useReplacedActionFocus } from "@/hooks/use-replaced-action-focus";
 import { NOTIFICATION_REFRESH_OUTCOME } from "@/src/modules/notifications/constants/admission-notification-refresh";
 import type { AdmissionNotificationRefreshOutcome } from "@/src/modules/notifications/application/results/notification-refresh-state";
 import type { AdmissionContactBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-contact-browser-client";
-import { ADMISSION_CONTACT_PHASE, ADMISSION_CONTACT_COPY } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
+import { ADMISSION_CONTACT_PHASE } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
 import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/messaging-public-contract";
 import { AdmissionScreen } from "@/components/academy-admissions/admission-screen";
 import type { AdmissionPageState } from "@/src/modules/academy-admissions/application/results/admission-page-state";
@@ -60,7 +62,8 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
   const [now, setNow] = useState(initialState.kind === "ready" ? initialState.renderedAt : "");
   const currentState = useRef(initialState), currentDraft = useRef(draft), pending = useRef<AdmissionPendingIntent | null>(null);
   const active = useRef(false), busy = useRef(false), canRetryOriginal = useRef(false), controller = useRef<AbortController | null>(null);
-  const draftLoaded = useRef(false);
+  const draftLoaded = useRef(false), writeToast = useRef<WriteToast | null>(null);
+  const [step, setStep] = useState(0);
   const targetRequestId = requestPage && initialState.kind === "ready" ? initialState.request?.id : undefined;
   const { resultRef, captureActionFocus, finishActionFocus } = useReplacedActionFocus({
     scopeKey: state.kind === "ready" ? `${state.viewerId ?? ""}:${state.overview.tribe.slug}` : "",
@@ -169,7 +172,7 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
     if (operation.type === ADMISSION_OPERATION_TYPE.cancel && intent.kind === "cancel" && (operation.result.admissionRequestId !== intent.requestId || operation.result.status !== "cancelled")) { setErrorMessage(ADMISSION_UI_COPY.readFailed); setPhase(ADMISSION_UI_PHASE.uncertain); return; }
     if (operation.type === ADMISSION_WHATSAPP_OPERATION && (intent.kind !== ADMISSION_WHATSAPP_INTENT_KIND || operation.result.admissionRequestId !== intent.requestId.toLowerCase() || operation.result.version !== intent.input.expectedVersion + (operation.result.changed ? 1 : 0))) { setErrorMessage(ADMISSION_UI_COPY.readFailed); setPhase(ADMISSION_UI_PHASE.uncertain); return; }
     clearIntent(); setWhatsappConfirmed(false); whatsappConfirmation.current = null;
-    setFeedback(operation.type === ADMISSION_OPERATION_TYPE.submit ? operation.result.outcome === ADMISSION_OUTCOME.pending ? ADMISSION_UI_COPY.outcomePending : ADMISSION_UI_COPY.outcomeMember : operation.type === ADMISSION_WHATSAPP_OPERATION ? operation.result.changed ? ADMISSION_WHATSAPP_COPY.saved : ADMISSION_WHATSAPP_COPY.unchanged : ADMISSION_UI_COPY.cancelled);
+    toast.success(operation.type === ADMISSION_OPERATION_TYPE.submit ? operation.result.outcome === ADMISSION_OUTCOME.pending ? ADMISSION_UI_COPY.outcomePending : ADMISSION_UI_COPY.outcomeMember : operation.type === ADMISSION_WHATSAPP_OPERATION ? operation.result.changed ? ADMISSION_WHATSAPP_COPY.saved : ADMISSION_WHATSAPP_COPY.unchanged : ADMISSION_UI_COPY.cancelled);
     confirmOwnAction();
     if (await refresh(signal) === NOTIFICATION_REFRESH_OUTCOME.refreshed) clearRefreshFailure();
     if (active.current && !signal.aborted) setPhase(ADMISSION_UI_PHASE.idle);
@@ -180,26 +183,27 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
     if (!live(signal)) return;
     if (result.status === "aborted") { setPhase(ADMISSION_UI_PHASE.uncertain); return; }
     if (result.status === "failed") {
+      // A failed request, cancellation or correction stays on the page next to its form; the toast only closes.
       setErrorMessage(result.message);
-      if (result.uncertain) setPhase(ADMISSION_UI_PHASE.uncertain);
-      else { clearIntent(); if (intent.kind === ADMISSION_WHATSAPP_INTENT_KIND) { setWhatsappConfirmed(false); whatsappConfirmation.current = null; await refresh(signal); } if (live(signal)) setPhase(ADMISSION_UI_PHASE.idle); }
-      toast.error(result.message); return;
+      if (result.uncertain) { setPhase(ADMISSION_UI_PHASE.uncertain); return; }
+      clearIntent(); if (intent.kind === ADMISSION_WHATSAPP_INTENT_KIND) { setWhatsappConfirmed(false); whatsappConfirmation.current = null; await refresh(signal); } if (live(signal)) setPhase(ADMISSION_UI_PHASE.idle);
+      return;
     }
-    if ("state" in result.value) { setPhase(ADMISSION_UI_PHASE.uncertain); toast.info(ADMISSION_UI_COPY.uncertain); return; }
+    if ("state" in result.value) { setPhase(ADMISSION_UI_PHASE.uncertain); return; }
     const snapshot = currentState.current;
     if (snapshot.kind !== "ready") return;
     if ("outcome" in result.value) {
       const request = result.value.outcome === ADMISSION_OUTCOME.pending ? retainCurrentRequest(snapshot.request, result.value.request) : snapshot.request;
       applyState({ ...snapshot, request });
-      setFeedback(result.value.safeMessage); toast.success(result.value.safeMessage);
+      writeToast.current?.announce({ kind: "success", message: result.value.safeMessage });
     } else if ("changed" in result.value) {
       if (intent.kind !== ADMISSION_WHATSAPP_INTENT_KIND || result.value.admissionRequestId !== intent.requestId.toLowerCase() || result.value.version !== intent.input.expectedVersion + (result.value.changed ? 1 : 0)) { setErrorMessage(ADMISSION_UI_COPY.readFailed); setPhase(ADMISSION_UI_PHASE.uncertain); return; }
       if (snapshot.request?.id === result.value.admissionRequestId && result.value.version >= snapshot.request.version) applyState({ ...snapshot, request: { ...snapshot.request, whatsappNumber: intent.input.whatsappNumber, version: result.value.version } });
       const message = result.value.changed ? ADMISSION_WHATSAPP_COPY.saved : ADMISSION_WHATSAPP_COPY.unchanged;
-      setFeedback(message); toast.success(message);
+      writeToast.current?.announce({ kind: "success", message });
     } else if (snapshot.request?.id === result.value.admissionRequestId && result.value.version >= snapshot.request.version) {
       applyState({ ...snapshot, request: { ...snapshot.request, status: result.value.status, version: Math.max(snapshot.request.version, result.value.version) } });
-      setFeedback(ADMISSION_UI_COPY.cancelled); toast.success(ADMISSION_UI_COPY.cancelled);
+      writeToast.current?.announce({ kind: "success", message: ADMISSION_UI_COPY.cancelled });
     }
     clearIntent(); setConfirmed(false); setCancelConfirmed(false); setWhatsappConfirmed(false); whatsappConfirmation.current = null;
     confirmOwnAction();
@@ -215,7 +219,7 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
     captureActionFocus();
     busy.current = true; controller.current?.abort(); const request = new AbortController(); controller.current = request;
     setErrorMessage(null); setFeedback(null); canRetryOriginal.current = false; setRetryOriginal(false);
-    const notice = toast.loading(intent.kind === "submit" ? ADMISSION_UI_COPY.submitting : intent.kind === ADMISSION_WHATSAPP_INTENT_KIND ? ADMISSION_WHATSAPP_COPY.saving : ADMISSION_UI_COPY.cancelling);
+    const notice = startWriteToast(intent.kind === "submit" ? ADMISSION_UI_COPY.submitting : intent.kind === ADMISSION_WHATSAPP_INTENT_KIND ? ADMISSION_WHATSAPP_COPY.saving : ADMISSION_UI_COPY.cancelling); writeToast.current = notice;
     try {
       if (!await checkViewer(request.signal)) return;
       if (!persist(intent)) return;
@@ -224,7 +228,7 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
       if (intent.kind === ADMISSION_WHATSAPP_INTENT_KIND && !await checkViewer(request.signal)) { if (live(request.signal)) setPhase(ADMISSION_UI_PHASE.uncertain); return; }
       await completeWrite(intent, result, request.signal);
     } catch { if (live(request.signal)) { setErrorMessage(ADMISSION_UI_COPY.uncertain); setPhase(ADMISSION_UI_PHASE.uncertain); } }
-    finally { toast.dismiss(notice); if (controller.current === request) { busy.current = false; if (active.current) { setWritingWhatsapp(false); finishActionFocus(); } } }
+    finally { if (writeToast.current === notice) writeToast.current = null; notice.finish(); if (controller.current === request) { busy.current = false; if (active.current) { setWritingWhatsapp(false); finishActionFocus(); } } }
   }, [accountChanged, checkViewer, client, whatsappClient, completeWrite, persist, legacyInvitationToken, setErrorMessage, captureActionFocus, finishActionFocus]);
 
   const read = useCallback(async (restored = false) => {
@@ -254,8 +258,7 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
     applyState({ ...snapshot, request: appliedRequest, overview: { ...snapshot.overview, request: appliedRequest,
       safeMessage: getOwnAdmissionRequestMessage(appliedRequest) ?? ADMISSION_OVERVIEW_MESSAGE.pending } });
     // The incremental result confirms version/evidence; this own GET fills the newly attached masked contact without route refresh.
-    const viewerId = snapshot.viewerId;
-    void read().then(() => { const current = currentState.current; if (active.current && current.kind === "ready" && current.viewerId === viewerId && current.request?.id === result.requestId) setFeedback(ADMISSION_CONTACT_COPY.applied); });
+    void read();
   } });
   const contactBusy = contact.phase !== ADMISSION_CONTACT_PHASE.idle && contact.phase !== ADMISSION_CONTACT_PHASE.uncertain || contact.recoveryRequired && !contact.ready;
   const proofFresh = contact.proofFresh && !contact.recoveryRequired;
@@ -328,16 +331,33 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
   const returnPath = arrivalReturnPath ?? (state.kind === "ready" ? requestPage && state.request ? buildOwnAdmissionRequestRoute(state.overview.tribe.slug, state.request.id) : `${ADMISSION_NAVIGATION.publicPrefix}/${encodeURIComponent(state.overview.tribe.slug)}` : state.returnPath ?? ROUTES.home);
   const signInHref = `${ROUTES.auth.signIn}?${new URLSearchParams({ callbackUrl: returnPath })}`;
   const retryHref = state.kind === "ready" ? `${ADMISSION_NAVIGATION.publicPrefix}/${encodeURIComponent(state.overview.tribe.slug)}` : undefined;
-  const verification = showContact && contactOptions ? <>
-    <ContactVerification ready={contact.ready && !contact.recoveryRequired && formReady && !accountChanged} channel={contactOptions.channel} phone={draft.phone} country={draft.country} verificationCode={contact.code} confirmed={contact.confirmed} busy={contactBusy || phase === ADMISSION_UI_PHASE.writing || phase === ADMISSION_UI_PHASE.checking} canIssue={contact.ready && !contact.pending && !contact.challenge} canVerify={contact.ready && !contact.pending && !contact.proof} canResend={contact.ready && !contact.pending} canUseSmsAlternative={contactOptions.allowedAlternative === MESSAGING_PUBLIC_CHANNEL.sms && contact.ready && !contact.pending} contactLocked={Boolean(contact.challenge || contact.pending)} allowedCountries={contactOptions.allowedCountries} challenge={contact.challenge ? { ...contact.challenge, deliveryState: contact.delivery?.state ?? contact.challenge.deliveryState } : null} challengeUnavailable={contact.challengeUnavailable} requiresReplacement={contact.requiresReplacement} proofReady={proofFresh} proofExpired={Boolean(contact.proof && !proofFresh)} expiresInSeconds={contact.expiresInSeconds} resendInSeconds={contact.resendInSeconds} errorMessage={contact.errorMessage ?? contact.challengeMessage ?? contact.deliveryMessage} feedback={contact.feedback} fieldErrors={contact.fieldErrors} onPhoneChange={(phone) => { if (!contact.pending && !contactBusy) { contact.clearFieldFeedback(); changeDraft({ ...draft, phone }); } }} onCountryChange={(country) => { if (!contact.pending && !contactBusy) { contact.clearFieldFeedback(); changeDraft({ ...draft, country }); } }} onCodeChange={contact.setCode} onConfirm={contact.setConfirmed} onIssue={() => void contact.issue()} onResend={() => void contact.resend()} onVerify={() => void contact.verify()} onUseSmsAlternative={() => void contact.useSmsAlternative()} />
-    {(contact.pending || contact.recoveryRequired) && <Button type="button" variant="secondary" disabled={contactBusy} onClick={() => void contact.readOriginal()}>Consultar operación del código</Button>}
-    {contact.challenge?.deliveryId && <Button type="button" variant="secondary" disabled={contactBusy} onClick={() => void contact.readDelivery()}>Consultar envío del código</Button>}
-    {currentPending && proofFresh && <Button type="button" disabled={contactBusy || Boolean(contact.pending)} onClick={() => void contact.apply()}>Aplicar prueba a esta solicitud</Button>}
-  </> : undefined;
+  const hasVerification = Boolean(showContact && contactOptions);
+  // An unconfirmed code operation blocks the flow, so its read is the one next action; the delivery read stays collapsed.
+  const contactRecovery = hasVerification && (contact.pending || contact.recoveryRequired) ? <Button type="button" variant="secondary" disabled={contactBusy} onClick={() => void contact.readOriginal()}>Consultar operación del código</Button> : undefined;
+  const deliveryRead = hasVerification && contact.challenge?.deliveryId ? <Button type="button" variant="secondary" size="sm" disabled={contactBusy} onClick={() => void contact.readDelivery()}>Consultar envío del código</Button> : undefined;
+  const flowMode = currentPending && hasVerification ? ADMISSION_REQUEST_FLOW_MODE.apply : ADMISSION_REQUEST_FLOW_MODE.submit;
+  const flowSteps = admissionRequestFlowSteps(flowMode, hasVerification);
+  // A landed code write opens the next step; resuming opens the first step still pending.
+  const milestone: AdmissionRequestFlowStep | null = !hasVerification ? null : proofFresh ? "finish" : contact.challenge ? "verify" : null;
+  const [seenMilestone, setSeenMilestone] = useState<string | null>(null);
+  const milestoneKey = milestone ? `${flowMode}:${milestone}` : null;
+  if (milestoneKey !== seenMilestone) { setSeenMilestone(milestoneKey); if (milestone) setStep(flowSteps.indexOf(milestone)); }
+  const offersSubmission = contactState !== null && !requestPage && !currentPending && (contactState.overview.state === ADMISSION_OVERVIEW_STATE.available || contactState.overview.state === ADMISSION_OVERVIEW_STATE.verificationRequired && hasVerification) && contactState.request?.status !== ADMISSION_REQUEST_STATUS.pending;
+  // The data step checks the declared WhatsApp before moving on, so its message stays next to the field it explains.
+  const whatsappDraft = contactState?.overview.policy ? validateBrowserAdmissionWhatsappNumberDraft(draft.whatsappNumber, contactState.overview.policy.requiresWhatsappNumber ?? false) : null;
+  const detailsBlockedReason = whatsappDraft && !whatsappDraft.valid ? getAdmissionWhatsappNumberDraftMessage(whatsappDraft) : undefined;
+  const flowBlocked = phase !== ADMISSION_UI_PHASE.idle || accountChanged || !formReady || contactBusy;
+  const requestFlow = contactState && (offersSubmission || flowMode === ADMISSION_REQUEST_FLOW_MODE.apply) ? <AdmissionRequestSteps mode={flowMode} step={step} onStepChange={setStep} busy={flowBlocked}
+    issuing={contact.phase === ADMISSION_CONTACT_PHASE.issuing} verifying={contact.phase === ADMISSION_CONTACT_PHASE.verifying} verification={hasVerification && contactOptions ? { ready: contact.ready && !contact.recoveryRequired && formReady && !accountChanged, channel: contactOptions.channel, phone: draft.phone, country: draft.country, verificationCode: contact.code, confirmed: contact.confirmed, busy: contactBusy || phase === ADMISSION_UI_PHASE.writing || phase === ADMISSION_UI_PHASE.checking, canIssue: contact.ready && !contact.pending && !contact.challenge, canVerify: contact.ready && !contact.pending && !contact.proof, canResend: contact.ready && !contact.pending, canUseSmsAlternative: contactOptions.allowedAlternative === MESSAGING_PUBLIC_CHANNEL.sms && contact.ready && !contact.pending, contactLocked: Boolean(contact.challenge || contact.pending), allowedCountries: contactOptions.allowedCountries, challenge: contact.challenge ? { ...contact.challenge, deliveryState: contact.delivery?.state ?? contact.challenge.deliveryState } : null, challengeUnavailable: contact.challengeUnavailable, requiresReplacement: contact.requiresReplacement, proofReady: proofFresh, proofExpired: Boolean(contact.proof && !proofFresh), expiresInSeconds: contact.expiresInSeconds, resendInSeconds: contact.resendInSeconds, errorMessage: contact.errorMessage ?? contact.challengeMessage ?? contact.deliveryMessage, feedback: contact.feedback, fieldErrors: contact.fieldErrors, onPhoneChange: (phone) => { if (!contact.pending && !contactBusy) { contact.clearFieldFeedback(); changeDraft({ ...draft, phone }); } }, onCountryChange: (country) => { if (!contact.pending && !contactBusy) { contact.clearFieldFeedback(); changeDraft({ ...draft, country }); } }, onCodeChange: contact.setCode, onConfirm: contact.setConfirmed, onIssue: () => void contact.issue(), onResend: () => void contact.resend(), onVerify: () => void contact.verify(), onUseSmsAlternative: () => void contact.useSmsAlternative() } : null} recovery={deliveryRead}
+    form={{ draft, contactType: contactState.overview.policy?.contactType ?? "email", contactLocked: Boolean(contact.challenge || contact.pending), showWhatsappNumber: formReady && !accountChanged, requiresWhatsappNumber: contactState.overview.policy?.requiresWhatsappNumber ?? false, whatsappErrorMessage: state.kind === "ready" && whatsappValidationError !== null && whatsappValidationError.policyVersion === state.overview.policy?.version ? whatsappValidationError.message : null, confirmed, disabled: flowBlocked, busy: phase === ADMISSION_UI_PHASE.writing, errorMessage: null, onChange: changeDraft, onConfirm: (value) => { setConfirmed(value); setErrorMessage(null); } }}
+    finalAction={flowMode === ADMISSION_REQUEST_FLOW_MODE.apply
+      ? { label: ADMISSION_REQUEST_FLOW_COPY.applyAction, loading: contact.phase === ADMISSION_CONTACT_PHASE.applying, disabled: !proofFresh || Boolean(contact.pending) || contactBusy && contact.phase !== ADMISSION_CONTACT_PHASE.applying, onRun: () => void contact.apply() }
+      : { label: ADMISSION_UI_COPY.submit, loading: phase === ADMISSION_UI_PHASE.writing && !writingWhatsapp, disabled: !confirmed || flowBlocked && !(phase === ADMISSION_UI_PHASE.writing && !writingWhatsapp) || hasVerification && !canSubmitWithProof && contactState.overview.state !== ADMISSION_OVERVIEW_STATE.available, onRun: submit }}
+    detailsBlockedReason={detailsBlockedReason} finalBlockedReason={hasVerification && !proofFresh ? flowMode === ADMISSION_REQUEST_FLOW_MODE.apply ? ADMISSION_REQUEST_FLOW_COPY.applyProofRequired : ADMISSION_REQUEST_FLOW_COPY.proofRequired : undefined} /> : undefined;
   const whatsappErrorMessage = state.kind === "ready" && whatsappValidationError !== null && whatsappValidationError.policyVersion === state.overview.policy?.version ? whatsappValidationError.message : null;
   const currentWhatsappError = currentPending && whatsappEditError?.requestId === currentPending.id && whatsappEditError.version === currentPending.version && whatsappEditError.required === (currentPending.requiresWhatsappNumber ?? false) ? whatsappEditError.message : null;
   const whatsappEditor = formReady && !accountChanged && currentPending && (currentPending.requiresWhatsappNumber !== undefined || currentPending.whatsappNumber !== undefined) ? <AdmissionWhatsappNumberForm value={draft.whatsappNumber ?? currentPending.whatsappNumber ?? ""} currentNumber={currentPending.whatsappNumber ?? null} required={currentPending.requiresWhatsappNumber ?? false} confirmed={whatsappConfirmed} disabled={phase !== ADMISSION_UI_PHASE.idle || contactBusy || contact.recoveryRequired} busy={phase === ADMISSION_UI_PHASE.writing && writingWhatsapp} errorMessage={currentWhatsappError} onChange={(whatsappNumber) => changeDraft({ ...draft, whatsappNumber })} onConfirm={confirmWhatsapp} onSubmit={saveWhatsapp} /> : undefined;
-  return <AdmissionScreen state={state} requestStatusRef={resultRef} requestPage={requestPage} verification={verification} whatsappEditor={whatsappEditor} canSubmitWithProof={canSubmitWithProof} contactLocked={Boolean(contact.challenge || contact.pending)} draft={draft} whatsappErrorMessage={whatsappErrorMessage} confirmed={confirmed} cancelConfirmed={cancelConfirmed} phase={phase} now={now} errorMessage={errorMessage ?? (ownRequestRefreshUnavailable ? ADMISSION_UI_COPY.readFailed : null)} feedback={feedback} accountChanged={accountChanged} formReady={formReady && !contactBusy && !contact.recoveryRequired} retryOriginal={retryOriginal} signInHref={signInHref} retryHref={retryHref}
+  return <AdmissionScreen state={state} requestStatusRef={resultRef} requestPage={requestPage} requestFlow={requestFlow} contactRecovery={contactRecovery} whatsappEditor={whatsappEditor} canSubmitWithProof={canSubmitWithProof} contactLocked={Boolean(contact.challenge || contact.pending)} draft={draft} whatsappErrorMessage={whatsappErrorMessage} confirmed={confirmed} cancelConfirmed={cancelConfirmed} phase={phase} now={now} errorMessage={errorMessage ?? (ownRequestRefreshUnavailable ? ADMISSION_UI_COPY.readFailed : null)} feedback={feedback} accountChanged={accountChanged} formReady={formReady && !contactBusy && !contact.recoveryRequired} retryOriginal={retryOriginal} signInHref={signInHref} retryHref={retryHref}
     onChange={changeDraft} onConfirm={(value) => { setConfirmed(value); setErrorMessage(null); }} onCancelConfirm={(value) => { setCancelConfirmed(value); setErrorMessage(null); }} onSubmit={submit} onCancel={cancel} onRead={() => void read()} onRetryOriginal={() => { if (canRetryOriginal.current && pending.current) void write(pending.current); }}
     onReloadAccount={() => { window.location.reload(); /* An actual authentication change requires a fresh server snapshot. */ }} />;
 }
