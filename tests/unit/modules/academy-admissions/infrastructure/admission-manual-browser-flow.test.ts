@@ -12,7 +12,11 @@ import { makeSignature } from "better-auth/crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
+import { executeAdmissionMigrationCommand } from "@/tests/support/admission-migration-command";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
+import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
+import { registerMessagingPrivateMacKeyMaterial } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
+import { ADMISSION_OPERATION_MAC_KEY_PURPOSES } from "@/src/modules/academy-admissions/constants/admission-operation";
 import { ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";
 
 /** Reserves only this fixture's loopback port and closes its temporary listener. */
@@ -28,7 +32,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("manual admissi
   it(`should submit, recover a lost response, show own state and cancel without membership in ${selectedEngine} mobile and desktop`, async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       process.stdout.write(JSON.stringify({ phase: "owned_branch", engine: selectedEngine, branch: database.branch }) + "\n");
-      for (const migration of ["20261005090000_create_admission_identity_evidence.sql", "20261005091000_create_academy_admission_core.sql", "20261005091500_guard_admission_evidence_transitions.sql", "20261005092000_create_tenant_messaging.sql", "20261005092500_guard_messaging_attempts.sql", "20261005093000_guard_academy_membership_sources.sql", "20261005095000_guard_global_identity_context.sql", "20261005101000_guard_admission_operation_identity.sql", "20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261011024000_read_current_own_admission_eligibility.sql", "20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261007003000_read_admission_notification_subject.sql", "20261007004000_read_exact_own_admission_request.sql"]) await database.applyMigration(migration);
+      /** The pages read every current admission function, so the owned branch runs the real pending migration journal instead of a frozen subset. */
+      await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
       const leaderId = randomUUID(), tribeId = randomUUID(), slug = `manual-ui-${tribeId}`;
       const participants = Array.from({ length: 2 }, () => ({ userId: randomUUID(), sessionId: randomUUID(), token: randomUUID() }));
       await database.withContext({ userId: leaderId, email: null }, async (transaction) => {
@@ -46,7 +51,11 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("manual admissi
       await database.withServerEnvironment(async (environment) => {
         const port = await reservePort(), origin = `http://127.0.0.1:${port}`, secret = `${randomUUID()}${randomUUID()}`;
         const keyrings = Object.fromEntries(Object.values(MESSAGING_KEY_PURPOSE).map((purpose) => { const id = randomUUID(); return [purpose, { activeKeyId: id, keys: [{ id, materialBase64: randomBytes(32).toString("base64") }] }]; }));
-        const server = spawn(process.execPath, [join(process.cwd(), "node_modules/next/dist/bin/next"), "start", "--port", String(port)], { windowsHide: true, stdio: "ignore", env: { ...process.env, ...environment, BETTER_AUTH_SECRET: secret, BETTER_AUTH_URL: origin, GOOGLE_CLIENT_ID: randomUUID(), GOOGLE_CLIENT_SECRET: randomUUID(), SITEPING_ENABLED: "false", MESSAGING_SECURITY_ENVIRONMENT: "synthetic-ui", MESSAGING_SECURITY_EPOCH: randomUUID(), MESSAGING_RECOVERY_LOCK: "false", MESSAGING_KEYRINGS_JSON: JSON.stringify(keyrings) } });
+        /** The original-operation ledger only signs with MAC keys whose material the database already registered, so the server keyrings are registered before it starts. */
+        const messagingSecurity = { MESSAGING_SECURITY_ENVIRONMENT: "synthetic-ui", MESSAGING_SECURITY_EPOCH: randomUUID(), MESSAGING_RECOVERY_LOCK: "false", MESSAGING_KEYRINGS_JSON: JSON.stringify(keyrings) };
+        const securityConfig = await readMessagingHostingSecurityConfig(messagingSecurity);
+        await database.withContext({ userId: null, email: null }, async (transaction) => { for (const purpose of ADMISSION_OPERATION_MAC_KEY_PURPOSES) await registerMessagingPrivateMacKeyMaterial(transaction, securityConfig, purpose); });
+        const server = spawn(process.execPath, [join(process.cwd(), "node_modules/next/dist/bin/next"), "start", "--port", String(port)], { windowsHide: true, stdio: "ignore", env: { ...process.env, ...environment, BETTER_AUTH_SECRET: secret, BETTER_AUTH_URL: origin, GOOGLE_CLIENT_ID: randomUUID(), GOOGLE_CLIENT_SECRET: randomUUID(), SITEPING_ENABLED: "false", ...messagingSecurity } });
         const exited = once(server, "exit");
         try {
           let ready = false;
