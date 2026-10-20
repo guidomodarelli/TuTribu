@@ -96,7 +96,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                 await page.getByRole("button", { name: "Continuar", exact: true }).click();
                 await page.getByRole("checkbox", { name: "Revisé el resumen y quiero guardar estos avisos.", exact: true }).check();
                 await page.getByRole("button", { name: "Guardar avisos", exact: true }).click();
-                await page.getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor();
+                await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor();
                 expect(preferenceWrites).toBe(1); expect(emailWrites).toBe(0);
                 expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select mode from public.admission_notification_preferences where tribe_id=${tribeId} and recipient_user_id=${fixture.own.userId}`)).rows[0])).toEqual({ mode: daily ? "daily" : "grouped" });
                 if (scenario.name === "chromium" && scenario.width === 1280) await capture(page, "notification-settings-preference-saved");
@@ -131,14 +131,14 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                   stage = "wait_for_confirmed_commit_and_lost_reply";
                   await runPrivateBrowserRequest("wait_for_native_lost_settings_reply", () => lostReply!);
                   await page.waitForFunction(() => [...document.querySelectorAll("button")].some((button) => button.textContent === "Consultar estado actual" && !button.disabled));
-                  await page.getByText(/Conservamos el cambio original/).waitFor(); expect(forwardingFailed).toBe(false); expect(completionObserved).toBe(true);
+                  await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText(/Conservamos el cambio original/).waitFor(); expect(forwardingFailed).toBe(false); expect(completionObserved).toBe(true);
                   await capture(page, "notification-settings-response-lost");
                   const original = await fixture.repository.get(fixture.read); originalVersion = original.version;
                   expect(original).toMatchObject({ enabled: true, timeZone: "Asia/Kolkata" });
                   expect(await fixture.repository.change(fixture.change, fixture.command(original.version, false, "UTC"))).toMatchObject({ state: "completed" });
                   stage = "recover_original";
                   await page.getByRole("button", { name: "Consultar estado actual", exact: true }).click();
-                  await page.getByText("Recuperamos el resultado del cambio original. Los ajustes actuales se consultaron por separado.", { exact: true }).waitFor();
+                  await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Recuperamos el resultado del cambio original. Los ajustes actuales se consultaron por separado.", { exact: true }).waitFor();
                   await page.getByRole("button", { name: "Atrás", exact: true }).click(); await page.getByRole("button", { name: "Atrás", exact: true }).click();
                   expect(await page.getByRole("checkbox", { name: "Habilitar correo de admisión", exact: true }).isChecked()).toBe(false);
                   recoveredVersion = (await fixture.repository.get(fixture.read)).version;
@@ -149,13 +149,13 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                   await page.getByRole("checkbox", { name: "Habilitar correo de admisión", exact: true }).check();
                   expect(await page.getByLabel("Zona horaria de la tribu", { exact: true }).inputValue()).toBe("UTC");
                   await reviewAndSave();
-                  await page.getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor();
+                  await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor();
                   expect(await fixture.repository.get(fixture.read)).toMatchObject({ enabled: true, version: recoveredVersion + 1 });
                   expect(await page.getByRole("button", { name: /Google/ }).count() + await page.getByRole("link", { name: /Google/ }).count()).toBe(0);
                   expect(emailWrites).toBe(2); await capture(page, "notification-settings-saved-after-recovery");
                 } else {
                   stage = `${scenario.name}_${scenario.width}_email_confirmed_result`;
-                  await page.getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor();
+                  await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor();
                   stage = `${scenario.name}_${scenario.width}_verify_native_email_settings`;
                   expect(await fixture.repository.get(fixture.read)).toMatchObject({ enabled: true, timeZone: "Asia/Kolkata" }); expect(emailWrites).toBe(1);
                 }
@@ -210,7 +210,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               stage = "guardian_save_personal_preference";
               await page.getByRole("radio", { name: /^Resumen diario/ }).click();
               await page.getByRole("button", { name: "Guardar avisos", exact: true }).click();
-              await page.getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor();
+              await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor();
               expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select mode from public.admission_notification_preferences where tribe_id=${tribeId} and recipient_user_id=${guardianId}`)).rows[0])).toEqual({ mode: "daily" });
               stage = "guardian_preserve_inaccessible_original_after_save";
               expect(await page.evaluate((key) => sessionStorage.getItem(key), staleKey)).toBe(staleIntent); expect(privilegedGuardianReads).toBe(0);

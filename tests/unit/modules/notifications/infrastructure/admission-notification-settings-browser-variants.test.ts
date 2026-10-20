@@ -86,7 +86,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               });
               const observedAuthentication = page.waitForRequest((request) => new URL(request.url()).pathname.endsWith("/api/auth/get-session"));
               await page.goto(route, { waitUntil: "domcontentloaded" }); await observedAuthentication;
-              await page.getByText("Consultando los ajustes actuales…", { exact: true }).waitFor();
+              await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Consultando los ajustes actuales…", { exact: true }).waitFor();
               expect(await page.getByRole("button", { name: "Continuar", exact: true }).isDisabled()).toBe(true);
               await capture("notification-settings-loading");
               holdAuthentication = false; releaseAuthentication(); await ready();
@@ -111,7 +111,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await page.getByRole("button", { name: "Atrás", exact: true }).click();
               await page.getByRole("checkbox", { name: "Habilitar correo de admisión", exact: true }).check();
               await page.getByRole("textbox", { name: "Zona horaria de la tribu", exact: true }).fill("");
-              await page.getByText("Indicá una zona horaria para continuar.", { exact: true }).waitFor();
+              await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Indicá una zona horaria para continuar.", { exact: true }).waitFor();
               expect(await page.getByRole("button", { name: "Continuar", exact: true }).isDisabled()).toBe(true);
               await capture("notification-settings-invalid-zone");
               await page.getByRole("textbox", { name: "Zona horaria de la tribu", exact: true }).fill("Asia/Kolkata");
@@ -119,7 +119,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await mark("native_unprepared_email_capability");
               await reviewAndSave();
               await page.getByRole("alert").filter({ hasText: "Falta un correo preparado" }).waitFor(); await ready();
-              await page.getByText("Tu preferencia todavía no se guardó.", { exact: true }).waitFor();
+              await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Tu preferencia todavía no se guardó.", { exact: true }).waitFor();
               expect(await fixture.repository.get(fixture.read)).toMatchObject({ enabled: false, version: 0 });
               expect(await page.evaluate((key) => sessionStorage.getItem(key), storedKey)).toBeNull();
               await capture("notification-settings-capability-rejected");
@@ -146,7 +146,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await page.reload({ waitUntil: "domcontentloaded" }); await ready();
               await mark("observe_genuine_started_public_state");
               await page.getByRole("alert").filter({ hasText: "El cambio sigue pendiente." }).waitFor();
-              await page.getByText("Se reintenta el cambio pendiente", { exact: true }).waitFor();
+              await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Se reintenta el cambio pendiente", { exact: true }).waitFor();
               expect(await page.getByRole("button", { name: "Guardar avisos", exact: true }).isDisabled()).toBe(true);
               expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select version,lease_owner::text,lease_until::text from public.academy_admission_operations where tribe_id=${tribeId} and idempotency_key=${original.operationId}`)).rows[0])).toEqual(beforeRead);
               await capture("notification-settings-started");
@@ -161,7 +161,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`update public.academy_admission_operations set lease_until=clock_timestamp()-interval '1 second',version=version+1 where tribe_id=${tribeId} and idempotency_key=${original.operationId} and state='started' returning state`)).rows)).toEqual([{ state: "started" }]);
               await readCurrent(); await confirm();
               await page.getByRole("button", { name: "Guardar avisos", exact: true }).click();
-              await page.getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor(); await ready();
+              await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor(); await ready();
               expect(await fixture.repository.get(fixture.read)).toMatchObject({ version: 2, enabled: false, timeZone: "Asia/Kolkata" });
               expect(await page.evaluate((key) => sessionStorage.getItem(key), storedKey)).toBeNull(); await capture("notification-settings-resumed");
 
@@ -172,7 +172,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await page.getByRole("alert").filter({ hasText: "El cambio original todavía no aparece registrado." }).waitFor();
               expect(await page.getByRole("button", { name: "Guardar avisos", exact: true }).isDisabled()).toBe(true); await capture("notification-settings-original-absent");
               await confirm(); await page.getByRole("button", { name: "Guardar avisos", exact: true }).click();
-              await page.getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor(); await ready();
+              await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor(); await ready();
               expect(await fixture.repository.get(fixture.read)).toMatchObject({ version: 3, timeZone: "UTC" });
 
               await mark("owned_read_failure_and_explicit_retry");
@@ -190,7 +190,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await mark("review_without_changes_writes_nothing");
               await page.getByRole("button", { name: "Cambiar avisos", exact: true }).click();
               while (await page.getByRole("button", { name: "Continuar", exact: true }).count()) await page.getByRole("button", { name: "Continuar", exact: true }).click();
-              await page.getByText("No hay cambios para guardar.", { exact: true }).waitFor();
+              await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("No hay cambios para guardar.", { exact: true }).waitFor();
               expect(await page.getByRole("button", { name: "Guardar avisos", exact: true }).isDisabled()).toBe(true); expect(emailWrites).toBe(writesBeforeRecovery);
               expect(await fixture.repository.get(fixture.read)).toMatchObject({ version: 3, timeZone: "UTC" }); await capture("notification-settings-email-unchanged");
 
@@ -200,7 +200,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await page.getByRole("textbox", { name: "Zona horaria de la tribu", exact: true }).fill("Asia/Kolkata");
               await page.route("**/admissions/email-settings", (route) => route.request().method() === "POST" ? route.abort("failed") : route.fallback(), { times: 1 });
               await reviewAndSave();
-              await page.getByText(/Conservamos el cambio original/).waitFor(); await ready();
+              await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText(/Conservamos el cambio original/).waitFor(); await ready();
               expect(await page.getByRole("button", { name: /Google/ }).count() + await page.getByRole("link", { name: /Google/ }).count()).toBe(0);
               const pending = await page.evaluate((key) => sessionStorage.getItem(key), storedKey); expect(pending).not.toBeNull();
               forbidden.push(JSON.parse(pending!).input.operationId); await capture("notification-settings-lost-write-kept");
