@@ -7,6 +7,7 @@ import {sql} from "drizzle-orm";
 import {describe,expect,it} from "vitest";
 import {withAcademyAdmissionDatabase,type AcademyAdmissionTestDatabase} from "@/tests/support/academy-admission-database";
 import {createAdmissionGoogleTokenFixture} from "@/tests/support/admission-google-tokens";
+import {applyAdmissionMigrationJournal} from "@/tests/support/admission-migration-command";
 import {createAdmissionProviderTransport,withAdmissionProviderTransport} from "@/tests/support/admission-provider-transport";
 import {verifyGoogleIdTokenEvidence} from "@/src/modules/auth/infrastructure/better-auth/google-id-token-evidence-verifier";
 import {PostgresGlobalIdentityEvidenceRepository} from "@/src/modules/auth/infrastructure/repositories/postgres-global-identity-evidence-repository";
@@ -14,8 +15,7 @@ import {PostgresAuthenticatedAccountProvider} from "@/src/modules/auth/infrastru
 
 /** Creates only synthetic global auth records on the owned branch. */
 async function prepareIdentity(database:AcademyAdmissionTestDatabase) {
-  await database.applyMigration("20261005090000_create_admission_identity_evidence.sql");
-  await database.applyMigration("20261005095000_guard_global_identity_context.sql");
+  await applyAdmissionMigrationJournal(database);
   const userId=randomUUID();const otherUserId=randomUUID();const accountId=randomUUID();const sessionId=randomUUID();const subject=randomUUID();
   const email=`${userId}@gmail.com`;const own={userId,email};
   await database.withContext(own,async(transaction)=>{
@@ -40,7 +40,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("global identity evid
       expect(await fixture.repository.capture(fixture.command)).toMatchObject({status:"stored"});
       const provider=new PostgresAuthenticatedAccountProvider(async()=>({userId:fixture.userId,sessionId:fixture.sessionId}),(identity,run)=>database.withContext({userId:identity.userId,email:null},run));
       const account=await provider.getAuthenticatedAccount();
-      expect(account).toMatchObject({userId:fixture.userId,normalizedEmail:fixture.email,session:{id:fixture.sessionId},googleAccount:{id:fixture.accountId,subject:fixture.subject},identityEvidence:{classification:"gmail",accountId:fixture.accountId,subject:fixture.subject},recentAuthentication:[]});
+      expect(account).toMatchObject({userId:fixture.userId,normalizedEmail:fixture.email,session:{id:fixture.sessionId},googleAccount:{id:fixture.accountId,subject:fixture.subject},identityEvidence:{classification:"gmail",accountId:fixture.accountId,subject:fixture.subject}});
+      expect(account).not.toHaveProperty("recentAuthentication");
       for(const privateField of ["token","idToken","accessToken","refreshToken","role","nonce"]) expect(account).not.toHaveProperty(privateField);
       await database.grantTablesToNonBypass(["user","account","session","global_session_identity_bindings","global_identity_evidence"]);
       const protectedProvider=new PostgresAuthenticatedAccountProvider(async()=>({userId:fixture.userId,sessionId:fixture.sessionId}),(identity,run)=>database.withContext({userId:identity.userId,email:null},run,"non_bypass"));
@@ -79,7 +80,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("global identity evid
         await transaction.execute(sql`delete from public.account where id=${fixture.accountId}`);
       });
       const provider=new PostgresAuthenticatedAccountProvider(async()=>({userId:fixture.userId,sessionId:fixture.sessionId}),(identity,run)=>database.withContext({userId:identity.userId,email:null},run));
-      expect(await provider.getAuthenticatedAccount()).toMatchObject({userId:fixture.userId,session:{id:fixture.sessionId},googleAccount:null,identityEvidence:null,recentAuthentication:[]});
+      expect(await provider.getAuthenticatedAccount()).toMatchObject({userId:fixture.userId,session:{id:fixture.sessionId},googleAccount:null,identityEvidence:null});
       expect(await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select account_id,invalidated_at is not null as retired from public.global_session_identity_bindings where session_id=${fixture.sessionId}`)).rows)).toEqual([{account_id:null,retired:true}]);
     });
   },120_000);
@@ -132,6 +133,18 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("global identity evid
       const anotherContext=new PostgresGlobalIdentityEvidenceRepository((callback)=>database.withContext({userId:fixture.otherUserId,email:null},callback));
       expect(await anotherContext.getCurrent(fixture.command)).toBeNull();
       expect(await anotherContext.capture(fixture.command)).toEqual({status:"identity_mismatch"});
+    });
+  },120_000);
+
+  it("should leave no recency storage after the reauthentication removal while email changes still invalidate identity",async()=>{
+    await withAcademyAdmissionDatabase(async(database)=>{
+      const fixture=await prepareIdentity(database);
+      const leftovers=await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select to_regclass('public.recent_authentication_evidence') is null as evidence_dropped,to_regclass('public.global_reauthentication_intents') is null as intents_dropped,(select count(*)::int from pg_proc where proname in ('guard_recent_authentication_evidence','guard_global_reauthentication_intent_transition')) as guards`)).rows[0]);
+      expect(leftovers).toEqual({evidence_dropped:true,intents_dropped:true,guards:0});
+      expect(await fixture.repository.capture(fixture.command)).toMatchObject({status:"stored"});
+      // The email-change trigger no longer touches the dropped table, so the update commits and still invalidates captured identity.
+      await database.withContext(fixture.own,async(transaction)=>transaction.execute(sql`update public."user" set email=${`${randomUUID()}@gmail.com`} where id=${fixture.userId}`));
+      expect(await fixture.repository.getCurrent(fixture.command)).toBeNull();
     });
   },120_000);
 });

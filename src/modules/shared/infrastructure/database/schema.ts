@@ -128,49 +128,6 @@ export const globalIdentityEvidence = pgTable("global_identity_evidence", {
   invalidationCheck: check("global_identity_invalidation_check", sql`(${table.invalidatedAt} is null)=(${table.invalidationReason} is null)`),
 }));
 
-/** One-use server authorization intent; only a nonce hash is stored. */
-export const globalReauthenticationIntents = pgTable("global_reauthentication_intents", {
-  id: uuid("id").defaultRandom().primaryKey(), userId: text("user_id").notNull(),
-  originalSessionId: text("original_session_id").notNull(), accountId: text("account_id").notNull(), providerSubject: text("provider_subject").notNull(),
-  tribeId: uuid("tribe_id").notNull(), operation: text("operation").notNull(), resourceId: text("resource_id").notNull(), returnPath: text("return_path").notNull(),
-  nonceHash: binaryData("nonce_hash"), state: text("state").notNull().default("created"), version: integer("version").notNull().default(1),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(), consumedAt: timestamp("consumed_at", { withTimezone: true }),
-}, (table) => ({
-  userForeignKey: foreignKey({ columns: [table.userId], foreignColumns: [users.id], name: "reauthentication_user_fkey" }).onDelete("cascade"),
-  tribeForeignKey: foreignKey({ columns: [table.tribeId], foreignColumns: [tribes.id], name: "reauthentication_tribe_fkey" }).onDelete("cascade"),
-  sessionForeignKey: foreignKey({ columns: [table.originalSessionId,table.userId], foreignColumns: [sessions.id,sessions.userId], name: "reauthentication_original_session_fkey" }).onDelete("cascade"),
-  accountForeignKey: foreignKey({ columns: [table.accountId,table.userId,table.providerSubject], foreignColumns: [accounts.id,accounts.userId,accounts.accountId], name: "reauthentication_account_fkey" }).onDelete("cascade"),
-  scopeKey: unique("reauthentication_scope_key").on(table.id,table.userId,table.accountId,table.providerSubject,table.tribeId,table.operation,table.resourceId),
-  expiryIndex: index("reauthentication_expiry_idx").on(table.expiresAt).where(sql`${table.state} in ('created','authorizing')`),
-  versionCheck: check("reauthentication_version_check", sql`${table.version}>0`),
-  operationCheck: check("reauthentication_operation_check", sql`${table.operation}<>''`),
-  resourceCheck: check("reauthentication_resource_check", sql`${table.resourceId}<>''`),
-  returnPathCheck: check("reauthentication_return_path_check", sql`${table.returnPath} like '/%' and ${table.returnPath} not like '//%' and position(chr(92) in ${table.returnPath})=0 and ${table.returnPath} !~ '[[:cntrl:]]'`),
-  stateValuesCheck: check("reauthentication_state_values_check", sql`${table.state} in ('created','authorizing','consumed','expired')`),
-  timeCheck: check("reauthentication_time_check", sql`${table.expiresAt}>${table.createdAt}`),
-  nonceCheck: check("reauthentication_nonce_check", sql`${table.nonceHash} is null or octet_length(${table.nonceHash})=32`),
-  stateCheck: check("reauthentication_state_check", sql`(${table.state}='created' and ${table.nonceHash} is null and ${table.consumedAt} is null) or (${table.state}='authorizing' and ${table.nonceHash} is not null and ${table.consumedAt} is null) or (${table.state}='consumed' and ${table.nonceHash} is not null and ${table.consumedAt} is not null) or (${table.state}='expired' and ${table.consumedAt} is null)`),
-}));
-
-/** Operation-scoped signed recency; its window starts at authentication, not callback. */
-export const recentAuthenticationEvidence = pgTable("recent_authentication_evidence", {
-  id: uuid("id").defaultRandom().primaryKey(), intentId: uuid("intent_id").notNull(),
-  userId: text("user_id").notNull(),
-  accountId: text("account_id").notNull(), providerSubject: text("provider_subject").notNull(), sessionId: text("session_id").notNull(),
-  tribeId: uuid("tribe_id").notNull(), operation: text("operation").notNull(), resourceId: text("resource_id").notNull(),
-  authenticatedAt: timestamp("authenticated_at", { withTimezone: true }).notNull(), verifiedAt: timestamp("verified_at", { withTimezone: true }).notNull(),
-  validUntil: timestamp("valid_until", { withTimezone: true }).notNull(), invalidatedAt: timestamp("invalidated_at", { withTimezone: true }),
-}, (table) => ({
-  userForeignKey: foreignKey({ columns: [table.userId], foreignColumns: [users.id], name: "recent_authentication_user_fkey" }).onDelete("cascade"),
-  tribeForeignKey: foreignKey({ columns: [table.tribeId], foreignColumns: [tribes.id], name: "recent_authentication_tribe_fkey" }).onDelete("cascade"),
-  intentKey: unique("recent_authentication_intent_key").on(table.intentId),
-  intentForeignKey: foreignKey({ columns: [table.intentId,table.userId,table.accountId,table.providerSubject,table.tribeId,table.operation,table.resourceId], foreignColumns: [globalReauthenticationIntents.id,globalReauthenticationIntents.userId,globalReauthenticationIntents.accountId,globalReauthenticationIntents.providerSubject,globalReauthenticationIntents.tribeId,globalReauthenticationIntents.operation,globalReauthenticationIntents.resourceId], name: "recent_authentication_scope_fkey" }).onDelete("cascade"),
-  sessionForeignKey: foreignKey({ columns: [table.sessionId,table.userId], foreignColumns: [sessions.id,sessions.userId], name: "recent_authentication_session_fkey" }).onDelete("cascade"),
-  activeScopeIndex: index("recent_authentication_active_scope_idx").on(table.userId,table.sessionId,table.tribeId,table.operation,table.resourceId,table.validUntil).where(sql`${table.invalidatedAt} is null`),
-  windowCheck: check("recent_authentication_window_check", sql`${table.authenticatedAt}<=${table.verifiedAt} and ${table.validUntil}>${table.authenticatedAt} and ${table.validUntil}<=${table.authenticatedAt}+interval '10 minutes'`),
-}));
-
 export const tribeCreatorWhitelist = pgTable("tribe_creator_whitelist", {
   id: uuid("id").defaultRandom().primaryKey(),
   email: text("email").notNull(),
