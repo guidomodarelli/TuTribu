@@ -654,5 +654,1645 @@
         }
       ]
     }
-  ]
+  ],
+  "consolidatedGuard": {
+    "before": {
+      "revision": "1acd4ead",
+      "report": [
+        {
+          "label": "initialize_policy",
+          "durationMs": 15860,
+          "checkouts": 9,
+          "transactions": 7,
+          "commits": 7,
+          "rollbacks": 0,
+          "queries": 80,
+          "statements": 66,
+          "sequentialRoundTrips": 80,
+          "pending": 0,
+          "samples": [
+            {
+              "durationMs": 15860,
+              "checkouts": 9,
+              "transactions": 7,
+              "queries": 80,
+              "sequentialRoundTrips": 80
+            }
+          ]
+        },
+        {
+          "label": "save_policy",
+          "durationMs": 14858,
+          "checkouts": 9,
+          "transactions": 7,
+          "commits": 7,
+          "rollbacks": 0,
+          "queries": 79,
+          "statements": 65,
+          "sequentialRoundTrips": 79,
+          "pending": 0,
+          "samples": [
+            {
+              "durationMs": 14856,
+              "checkouts": 9,
+              "transactions": 7,
+              "queries": 79,
+              "sequentialRoundTrips": 79
+            },
+            {
+              "durationMs": 14931,
+              "checkouts": 9,
+              "transactions": 7,
+              "queries": 79,
+              "sequentialRoundTrips": 79
+            },
+            {
+              "durationMs": 14858,
+              "checkouts": 9,
+              "transactions": 7,
+              "queries": 79,
+              "sequentialRoundTrips": 79
+            }
+          ]
+        },
+        {
+          "label": "page_inbox",
+          "durationMs": 22960,
+          "checkouts": 56,
+          "transactions": 54,
+          "commits": 54,
+          "rollbacks": 0,
+          "queries": 431,
+          "statements": 323,
+          "sequentialRoundTrips": 136,
+          "pending": 0,
+          "samples": [
+            {
+              "durationMs": 23942,
+              "checkouts": 56,
+              "transactions": 54,
+              "queries": 432,
+              "sequentialRoundTrips": 140
+            },
+            {
+              "durationMs": 22960,
+              "checkouts": 56,
+              "transactions": 54,
+              "queries": 431,
+              "sequentialRoundTrips": 136
+            },
+            {
+              "durationMs": 22676,
+              "checkouts": 56,
+              "transactions": 54,
+              "queries": 431,
+              "sequentialRoundTrips": 136
+            }
+          ]
+        },
+        {
+          "label": "page_rules",
+          "durationMs": 22551,
+          "checkouts": 27,
+          "transactions": 25,
+          "commits": 25,
+          "rollbacks": 0,
+          "queries": 246,
+          "statements": 196,
+          "sequentialRoundTrips": 136,
+          "pending": 0,
+          "samples": [
+            {
+              "durationMs": 22467,
+              "checkouts": 27,
+              "transactions": 25,
+              "queries": 246,
+              "sequentialRoundTrips": 135
+            },
+            {
+              "durationMs": 23276,
+              "checkouts": 27,
+              "transactions": 25,
+              "queries": 247,
+              "sequentialRoundTrips": 136
+            },
+            {
+              "durationMs": 22551,
+              "checkouts": 27,
+              "transactions": 25,
+              "queries": 246,
+              "sequentialRoundTrips": 136
+            }
+          ]
+        },
+        {
+          "label": "page_notifications",
+          "durationMs": 14083,
+          "checkouts": 15,
+          "transactions": 13,
+          "commits": 13,
+          "rollbacks": 0,
+          "queries": 87,
+          "statements": 61,
+          "sequentialRoundTrips": 77,
+          "pending": 0,
+          "samples": [
+            {
+              "durationMs": 15177,
+              "checkouts": 15,
+              "transactions": 13,
+              "queries": 88,
+              "sequentialRoundTrips": 82
+            },
+            {
+              "durationMs": 14083,
+              "checkouts": 15,
+              "transactions": 13,
+              "queries": 87,
+              "sequentialRoundTrips": 77
+            },
+            {
+              "durationMs": 13832,
+              "checkouts": 15,
+              "transactions": 13,
+              "queries": 87,
+              "sequentialRoundTrips": 77
+            }
+          ]
+        },
+        {
+          "label": "page_usage",
+          "durationMs": 13007,
+          "checkouts": 16,
+          "transactions": 14,
+          "commits": 14,
+          "rollbacks": 0,
+          "queries": 83,
+          "statements": 55,
+          "sequentialRoundTrips": 73,
+          "pending": 0,
+          "samples": [
+            {
+              "durationMs": 12837,
+              "checkouts": 16,
+              "transactions": 14,
+              "queries": 83,
+              "sequentialRoundTrips": 73
+            },
+            {
+              "durationMs": 13046,
+              "checkouts": 16,
+              "transactions": 14,
+              "queries": 83,
+              "sequentialRoundTrips": 73
+            },
+            {
+              "durationMs": 13007,
+              "checkouts": 16,
+              "transactions": 14,
+              "queries": 83,
+              "sequentialRoundTrips": 73
+            }
+          ]
+        },
+        {
+          "label": "page_connections",
+          "durationMs": 28347,
+          "checkouts": 32,
+          "transactions": 30,
+          "commits": 30,
+          "rollbacks": 0,
+          "queries": 174,
+          "statements": 114,
+          "sequentialRoundTrips": 164,
+          "pending": 0,
+          "samples": [
+            {
+              "durationMs": 28391,
+              "checkouts": 32,
+              "transactions": 30,
+              "queries": 174,
+              "sequentialRoundTrips": 164
+            },
+            {
+              "durationMs": 28347,
+              "checkouts": 32,
+              "transactions": 30,
+              "queries": 174,
+              "sequentialRoundTrips": 164
+            },
+            {
+              "durationMs": 28301,
+              "checkouts": 32,
+              "transactions": 30,
+              "queries": 174,
+              "sequentialRoundTrips": 164
+            }
+          ]
+        },
+        {
+          "label": "read_policy",
+          "durationMs": 21324,
+          "checkouts": 11,
+          "transactions": 9,
+          "commits": 9,
+          "rollbacks": 0,
+          "queries": 127,
+          "statements": 109,
+          "sequentialRoundTrips": 127,
+          "pending": 0,
+          "samples": [
+            {
+              "durationMs": 22421,
+              "checkouts": 11,
+              "transactions": 9,
+              "queries": 128,
+              "sequentialRoundTrips": 128
+            },
+            {
+              "durationMs": 21324,
+              "checkouts": 11,
+              "transactions": 9,
+              "queries": 127,
+              "sequentialRoundTrips": 127
+            },
+            {
+              "durationMs": 21253,
+              "checkouts": 11,
+              "transactions": 9,
+              "queries": 127,
+              "sequentialRoundTrips": 127
+            }
+          ]
+        },
+        {
+          "label": "read_policy_preflight",
+          "durationMs": 10945,
+          "checkouts": 9,
+          "transactions": 7,
+          "commits": 7,
+          "rollbacks": 0,
+          "queries": 60,
+          "statements": 46,
+          "sequentialRoundTrips": 60,
+          "pending": 0,
+          "samples": [
+            {
+              "durationMs": 11731,
+              "checkouts": 9,
+              "transactions": 7,
+              "queries": 61,
+              "sequentialRoundTrips": 61
+            },
+            {
+              "durationMs": 10807,
+              "checkouts": 9,
+              "transactions": 7,
+              "queries": 60,
+              "sequentialRoundTrips": 60
+            },
+            {
+              "durationMs": 10945,
+              "checkouts": 9,
+              "transactions": 7,
+              "queries": 60,
+              "sequentialRoundTrips": 60
+            }
+          ]
+        },
+        {
+          "label": "activate_policy",
+          "durationMs": 20798,
+          "checkouts": 9,
+          "transactions": 7,
+          "commits": 7,
+          "rollbacks": 0,
+          "queries": 118,
+          "statements": 104,
+          "sequentialRoundTrips": 118,
+          "pending": 0,
+          "samples": [
+            {
+              "durationMs": 20798,
+              "checkouts": 9,
+              "transactions": 7,
+              "queries": 118,
+              "sequentialRoundTrips": 118
+            }
+          ]
+        }
+      ]
+    },
+    "after": {
+      "revision": "c60d163d",
+      "change": "public.authorize_admission_leader",
+      "report": [
+        {
+          "label": "initialize_policy",
+          "durationMs": 13308,
+          "checkouts": 9,
+          "transactions": 7,
+          "commits": 7,
+          "rollbacks": 0,
+          "queries": 62,
+          "statements": 48,
+          "sequentialRoundTrips": 62,
+          "pending": 0,
+          "samples": [
+            {
+              "durationMs": 13308,
+              "checkouts": 9,
+              "transactions": 7,
+              "queries": 62,
+              "sequentialRoundTrips": 62
+            }
+          ]
+        },
+        {
+          "label": "save_policy",
+          "durationMs": 12349,
+          "checkouts": 9,
+          "transactions": 7,
+          "commits": 7,
+          "rollbacks": 0,
+          "queries": 61,
+          "statements": 47,
+          "sequentialRoundTrips": 61,
+          "pending": 0,
+          "samples": [
+            {
+              "durationMs": 12349,
+              "checkouts": 9,
+              "transactions": 7,
+              "queries": 61,
+              "sequentialRoundTrips": 61
+            },
+            {
+              "durationMs": 12004,
+              "checkouts": 9,
+              "transactions": 7,
+              "queries": 61,
+              "sequentialRoundTrips": 61
+            },
+            {
+              "durationMs": 12480,
+              "checkouts": 9,
+              "transactions": 7,
+              "queries": 61,
+              "sequentialRoundTrips": 61
+            }
+          ]
+        },
+        {
+          "label": "page_inbox",
+          "durationMs": 13486,
+          "checkouts": 56,
+          "transactions": 54,
+          "commits": 54,
+          "rollbacks": 0,
+          "queries": 317,
+          "statements": 209,
+          "sequentialRoundTrips": 78,
+          "pending": 0,
+          "samples": [
+            {
+              "durationMs": 13656,
+              "checkouts": 56,
+              "transactions": 54,
+              "queries": 319,
+              "sequentialRoundTrips": 80
+            },
+            {
+              "durationMs": 13486,
+              "checkouts": 56,
+              "transactions": 54,
+              "queries": 317,
+              "sequentialRoundTrips": 78
+            },
+            {
+              "durationMs": 12016,
+              "checkouts": 56,
+              "transactions": 54,
+              "queries": 316,
+              "sequentialRoundTrips": 71
+            }
+          ]
+        },
+        {
+          "label": "page_rules",
+          "durationMs": 11088,
+          "checkouts": 27,
+          "transactions": 25,
+          "commits": 25,
+          "rollbacks": 0,
+          "queries": 147,
+          "statements": 97,
+          "sequentialRoundTrips": 65,
+          "pending": 0,
+          "samples": [
+            {
+              "durationMs": 11092,
+              "checkouts": 27,
+              "transactions": 25,
+              "queries": 145,
+              "sequentialRoundTrips": 65
+            },
+            {
+              "durationMs": 11088,
+              "checkouts": 27,
+              "transactions": 25,
+              "queries": 148,
+              "sequentialRoundTrips": 65
+            },
+            {
+              "durationMs": 11085,
+              "checkouts": 27,
+              "transactions": 25,
+              "queries": 147,
+              "sequentialRoundTrips": 65
+            }
+          ]
+        },
+        {
+          "label": "page_notifications",
+          "durationMs": 11797,
+          "checkouts": 15,
+          "transactions": 13,
+          "commits": 13,
+          "rollbacks": 0,
+          "queries": 73,
+          "statements": 47,
+          "sequentialRoundTrips": 63,
+          "pending": 0,
+          "samples": [
+            {
+              "durationMs": 12515,
+              "checkouts": 15,
+              "transactions": 13,
+              "queries": 74,
+              "sequentialRoundTrips": 66
+            },
+            {
+              "durationMs": 11293,
+              "checkouts": 15,
+              "transactions": 13,
+              "queries": 73,
+              "sequentialRoundTrips": 63
+            },
+            {
+              "durationMs": 11797,
+              "checkouts": 15,
+              "transactions": 13,
+              "queries": 73,
+              "sequentialRoundTrips": 63
+            }
+          ]
+        },
+        {
+          "label": "page_usage",
+          "durationMs": 13096,
+          "checkouts": 16,
+          "transactions": 14,
+          "commits": 14,
+          "rollbacks": 0,
+          "queries": 83,
+          "statements": 55,
+          "sequentialRoundTrips": 73,
+          "pending": 0,
+          "samples": [
+            {
+              "durationMs": 13096,
+              "checkouts": 16,
+              "transactions": 14,
+              "queries": 83,
+              "sequentialRoundTrips": 73
+            },
+            {
+              "durationMs": 12774,
+              "checkouts": 16,
+              "transactions": 14,
+              "queries": 83,
+              "sequentialRoundTrips": 73
+            },
+            {
+              "durationMs": 14266,
+              "checkouts": 16,
+              "transactions": 14,
+              "queries": 84,
+              "sequentialRoundTrips": 74
+            }
+          ]
+        },
+        {
+          "label": "page_connections",
+          "durationMs": 28121,
+          "checkouts": 32,
+          "transactions": 30,
+          "commits": 30,
+          "rollbacks": 0,
+          "queries": 174,
+          "statements": 114,
+          "sequentialRoundTrips": 164,
+          "pending": 0,
+          "samples": [
+            {
+              "durationMs": 28121,
+              "checkouts": 32,
+              "transactions": 30,
+              "queries": 174,
+              "sequentialRoundTrips": 164
+            },
+            {
+              "durationMs": 27821,
+              "checkouts": 32,
+              "transactions": 30,
+              "queries": 174,
+              "sequentialRoundTrips": 164
+            },
+            {
+              "durationMs": 29680,
+              "checkouts": 32,
+              "transactions": 30,
+              "queries": 175,
+              "sequentialRoundTrips": 165
+            }
+          ]
+        },
+        {
+          "label": "read_policy",
+          "durationMs": 10508,
+          "checkouts": 11,
+          "transactions": 9,
+          "commits": 9,
+          "rollbacks": 0,
+          "queries": 57,
+          "statements": 39,
+          "sequentialRoundTrips": 57,
+          "pending": 0,
+          "samples": [
+            {
+              "durationMs": 10620,
+              "checkouts": 11,
+              "transactions": 9,
+              "queries": 57,
+              "sequentialRoundTrips": 57
+            },
+            {
+              "durationMs": 10508,
+              "checkouts": 11,
+              "transactions": 9,
+              "queries": 57,
+              "sequentialRoundTrips": 57
+            },
+            {
+              "durationMs": 10345,
+              "checkouts": 11,
+              "transactions": 9,
+              "queries": 57,
+              "sequentialRoundTrips": 57
+            }
+          ]
+        },
+        {
+          "label": "read_policy_preflight",
+          "durationMs": 8578,
+          "checkouts": 9,
+          "transactions": 7,
+          "commits": 7,
+          "rollbacks": 0,
+          "queries": 46,
+          "statements": 32,
+          "sequentialRoundTrips": 46,
+          "pending": 0,
+          "samples": [
+            {
+              "durationMs": 10020,
+              "checkouts": 9,
+              "transactions": 7,
+              "queries": 47,
+              "sequentialRoundTrips": 47
+            },
+            {
+              "durationMs": 8538,
+              "checkouts": 9,
+              "transactions": 7,
+              "queries": 46,
+              "sequentialRoundTrips": 46
+            },
+            {
+              "durationMs": 8578,
+              "checkouts": 9,
+              "transactions": 7,
+              "queries": 46,
+              "sequentialRoundTrips": 46
+            }
+          ]
+        },
+        {
+          "label": "activate_policy",
+          "durationMs": 18007,
+          "checkouts": 9,
+          "transactions": 7,
+          "commits": 7,
+          "rollbacks": 0,
+          "queries": 100,
+          "statements": 86,
+          "sequentialRoundTrips": 100,
+          "pending": 0,
+          "samples": [
+            {
+              "durationMs": 18007,
+              "checkouts": 9,
+              "transactions": 7,
+              "queries": 100,
+              "sequentialRoundTrips": 100
+            }
+          ]
+        }
+      ]
+    },
+    "discarded": [
+      {
+        "change": "single viewer window for the request inbox and every guide area, without the consolidated guard",
+        "report": [
+          {
+            "label": "initialize_policy",
+            "durationMs": 16392,
+            "checkouts": 9,
+            "transactions": 7,
+            "commits": 7,
+            "rollbacks": 0,
+            "queries": 80,
+            "statements": 66,
+            "sequentialRoundTrips": 80,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 16392,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 80,
+                "sequentialRoundTrips": 80
+              }
+            ]
+          },
+          {
+            "label": "save_policy",
+            "durationMs": 15024,
+            "checkouts": 9,
+            "transactions": 7,
+            "commits": 7,
+            "rollbacks": 0,
+            "queries": 79,
+            "statements": 65,
+            "sequentialRoundTrips": 79,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 15024,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 79,
+                "sequentialRoundTrips": 79
+              },
+              {
+                "durationMs": 14978,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 79,
+                "sequentialRoundTrips": 79
+              },
+              {
+                "durationMs": 15066,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 79,
+                "sequentialRoundTrips": 79
+              }
+            ]
+          },
+          {
+            "label": "page_inbox",
+            "durationMs": 24233,
+            "checkouts": 50,
+            "transactions": 48,
+            "commits": 48,
+            "rollbacks": 0,
+            "queries": 407,
+            "statements": 311,
+            "sequentialRoundTrips": 142,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 24443,
+                "checkouts": 50,
+                "transactions": 48,
+                "queries": 406,
+                "sequentialRoundTrips": 136
+              },
+              {
+                "durationMs": 23744,
+                "checkouts": 50,
+                "transactions": 48,
+                "queries": 407,
+                "sequentialRoundTrips": 142
+              },
+              {
+                "durationMs": 24233,
+                "checkouts": 50,
+                "transactions": 48,
+                "queries": 407,
+                "sequentialRoundTrips": 143
+              }
+            ]
+          },
+          {
+            "label": "page_rules",
+            "durationMs": 22679,
+            "checkouts": 27,
+            "transactions": 25,
+            "commits": 25,
+            "rollbacks": 0,
+            "queries": 246,
+            "statements": 196,
+            "sequentialRoundTrips": 135,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 22679,
+                "checkouts": 27,
+                "transactions": 25,
+                "queries": 246,
+                "sequentialRoundTrips": 135
+              },
+              {
+                "durationMs": 22629,
+                "checkouts": 27,
+                "transactions": 25,
+                "queries": 246,
+                "sequentialRoundTrips": 135
+              },
+              {
+                "durationMs": 23916,
+                "checkouts": 27,
+                "transactions": 25,
+                "queries": 246,
+                "sequentialRoundTrips": 138
+              }
+            ]
+          },
+          {
+            "label": "page_notifications",
+            "durationMs": 13510,
+            "checkouts": 15,
+            "transactions": 13,
+            "commits": 13,
+            "rollbacks": 0,
+            "queries": 87,
+            "statements": 61,
+            "sequentialRoundTrips": 77,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 15160,
+                "checkouts": 15,
+                "transactions": 13,
+                "queries": 88,
+                "sequentialRoundTrips": 82
+              },
+              {
+                "durationMs": 13387,
+                "checkouts": 15,
+                "transactions": 13,
+                "queries": 87,
+                "sequentialRoundTrips": 77
+              },
+              {
+                "durationMs": 13510,
+                "checkouts": 15,
+                "transactions": 13,
+                "queries": 87,
+                "sequentialRoundTrips": 77
+              }
+            ]
+          },
+          {
+            "label": "page_usage",
+            "durationMs": 12767,
+            "checkouts": 16,
+            "transactions": 14,
+            "commits": 14,
+            "rollbacks": 0,
+            "queries": 83,
+            "statements": 55,
+            "sequentialRoundTrips": 73,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 12767,
+                "checkouts": 16,
+                "transactions": 14,
+                "queries": 83,
+                "sequentialRoundTrips": 73
+              },
+              {
+                "durationMs": 12742,
+                "checkouts": 16,
+                "transactions": 14,
+                "queries": 83,
+                "sequentialRoundTrips": 73
+              },
+              {
+                "durationMs": 13857,
+                "checkouts": 16,
+                "transactions": 14,
+                "queries": 84,
+                "sequentialRoundTrips": 74
+              }
+            ]
+          },
+          {
+            "label": "page_connections",
+            "durationMs": 27917,
+            "checkouts": 32,
+            "transactions": 30,
+            "commits": 30,
+            "rollbacks": 0,
+            "queries": 174,
+            "statements": 114,
+            "sequentialRoundTrips": 164,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 27678,
+                "checkouts": 32,
+                "transactions": 30,
+                "queries": 174,
+                "sequentialRoundTrips": 164
+              },
+              {
+                "durationMs": 28642,
+                "checkouts": 32,
+                "transactions": 30,
+                "queries": 175,
+                "sequentialRoundTrips": 165
+              },
+              {
+                "durationMs": 27917,
+                "checkouts": 32,
+                "transactions": 30,
+                "queries": 174,
+                "sequentialRoundTrips": 164
+              }
+            ]
+          },
+          {
+            "label": "read_policy",
+            "durationMs": 21868,
+            "checkouts": 11,
+            "transactions": 9,
+            "commits": 9,
+            "rollbacks": 0,
+            "queries": 127,
+            "statements": 109,
+            "sequentialRoundTrips": 127,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 21800,
+                "checkouts": 11,
+                "transactions": 9,
+                "queries": 127,
+                "sequentialRoundTrips": 127
+              },
+              {
+                "durationMs": 23052,
+                "checkouts": 11,
+                "transactions": 9,
+                "queries": 128,
+                "sequentialRoundTrips": 128
+              },
+              {
+                "durationMs": 21868,
+                "checkouts": 11,
+                "transactions": 9,
+                "queries": 127,
+                "sequentialRoundTrips": 127
+              }
+            ]
+          },
+          {
+            "label": "read_policy_preflight",
+            "durationMs": 10699,
+            "checkouts": 9,
+            "transactions": 7,
+            "commits": 7,
+            "rollbacks": 0,
+            "queries": 60,
+            "statements": 46,
+            "sequentialRoundTrips": 60,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 10699,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 60,
+                "sequentialRoundTrips": 60
+              },
+              {
+                "durationMs": 10686,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 60,
+                "sequentialRoundTrips": 60
+              },
+              {
+                "durationMs": 12339,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 61,
+                "sequentialRoundTrips": 61
+              }
+            ]
+          },
+          {
+            "label": "activate_policy",
+            "durationMs": 20813,
+            "checkouts": 9,
+            "transactions": 7,
+            "commits": 7,
+            "rollbacks": 0,
+            "queries": 118,
+            "statements": 104,
+            "sequentialRoundTrips": 118,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 20813,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 118,
+                "sequentialRoundTrips": 118
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "change": "single viewer window for the request inbox and every guide area, with the consolidated guard",
+        "report": [
+          {
+            "label": "initialize_policy",
+            "durationMs": 13304,
+            "checkouts": 9,
+            "transactions": 7,
+            "commits": 7,
+            "rollbacks": 0,
+            "queries": 62,
+            "statements": 48,
+            "sequentialRoundTrips": 62,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 13304,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 62,
+                "sequentialRoundTrips": 62
+              }
+            ]
+          },
+          {
+            "label": "save_policy",
+            "durationMs": 11967,
+            "checkouts": 9,
+            "transactions": 7,
+            "commits": 7,
+            "rollbacks": 0,
+            "queries": 61,
+            "statements": 47,
+            "sequentialRoundTrips": 61,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 11967,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 61,
+                "sequentialRoundTrips": 61
+              },
+              {
+                "durationMs": 12112,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 61,
+                "sequentialRoundTrips": 61
+              },
+              {
+                "durationMs": 11842,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 61,
+                "sequentialRoundTrips": 61
+              }
+            ]
+          },
+          {
+            "label": "page_inbox",
+            "durationMs": 14207,
+            "checkouts": 50,
+            "transactions": 48,
+            "commits": 48,
+            "rollbacks": 0,
+            "queries": 293,
+            "statements": 197,
+            "sequentialRoundTrips": 79,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 15139,
+                "checkouts": 50,
+                "transactions": 48,
+                "queries": 294,
+                "sequentialRoundTrips": 79
+              },
+              {
+                "durationMs": 14207,
+                "checkouts": 50,
+                "transactions": 48,
+                "queries": 293,
+                "sequentialRoundTrips": 79
+              },
+              {
+                "durationMs": 13582,
+                "checkouts": 50,
+                "transactions": 48,
+                "queries": 293,
+                "sequentialRoundTrips": 78
+              }
+            ]
+          },
+          {
+            "label": "page_rules",
+            "durationMs": 11119,
+            "checkouts": 27,
+            "transactions": 25,
+            "commits": 25,
+            "rollbacks": 0,
+            "queries": 147,
+            "statements": 97,
+            "sequentialRoundTrips": 65,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 11119,
+                "checkouts": 27,
+                "transactions": 25,
+                "queries": 147,
+                "sequentialRoundTrips": 66
+              },
+              {
+                "durationMs": 11363,
+                "checkouts": 27,
+                "transactions": 25,
+                "queries": 147,
+                "sequentialRoundTrips": 65
+              },
+              {
+                "durationMs": 11107,
+                "checkouts": 27,
+                "transactions": 25,
+                "queries": 147,
+                "sequentialRoundTrips": 65
+              }
+            ]
+          },
+          {
+            "label": "page_notifications",
+            "durationMs": 11776,
+            "checkouts": 15,
+            "transactions": 13,
+            "commits": 13,
+            "rollbacks": 0,
+            "queries": 73,
+            "statements": 47,
+            "sequentialRoundTrips": 63,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 13111,
+                "checkouts": 15,
+                "transactions": 13,
+                "queries": 73,
+                "sequentialRoundTrips": 68
+              },
+              {
+                "durationMs": 11769,
+                "checkouts": 15,
+                "transactions": 13,
+                "queries": 73,
+                "sequentialRoundTrips": 63
+              },
+              {
+                "durationMs": 11776,
+                "checkouts": 15,
+                "transactions": 13,
+                "queries": 73,
+                "sequentialRoundTrips": 63
+              }
+            ]
+          },
+          {
+            "label": "page_usage",
+            "durationMs": 13133,
+            "checkouts": 16,
+            "transactions": 14,
+            "commits": 14,
+            "rollbacks": 0,
+            "queries": 83,
+            "statements": 55,
+            "sequentialRoundTrips": 73,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 13091,
+                "checkouts": 16,
+                "transactions": 14,
+                "queries": 83,
+                "sequentialRoundTrips": 73
+              },
+              {
+                "durationMs": 13133,
+                "checkouts": 16,
+                "transactions": 14,
+                "queries": 83,
+                "sequentialRoundTrips": 73
+              },
+              {
+                "durationMs": 15549,
+                "checkouts": 16,
+                "transactions": 14,
+                "queries": 84,
+                "sequentialRoundTrips": 74
+              }
+            ]
+          },
+          {
+            "label": "page_connections",
+            "durationMs": 30244,
+            "checkouts": 32,
+            "transactions": 30,
+            "commits": 30,
+            "rollbacks": 0,
+            "queries": 174,
+            "statements": 114,
+            "sequentialRoundTrips": 164,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 31014,
+                "checkouts": 32,
+                "transactions": 30,
+                "queries": 174,
+                "sequentialRoundTrips": 164
+              },
+              {
+                "durationMs": 30244,
+                "checkouts": 32,
+                "transactions": 30,
+                "queries": 175,
+                "sequentialRoundTrips": 165
+              },
+              {
+                "durationMs": 28128,
+                "checkouts": 32,
+                "transactions": 30,
+                "queries": 174,
+                "sequentialRoundTrips": 164
+              }
+            ]
+          },
+          {
+            "label": "read_policy",
+            "durationMs": 10387,
+            "checkouts": 11,
+            "transactions": 9,
+            "commits": 9,
+            "rollbacks": 0,
+            "queries": 57,
+            "statements": 39,
+            "sequentialRoundTrips": 57,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 10387,
+                "checkouts": 11,
+                "transactions": 9,
+                "queries": 57,
+                "sequentialRoundTrips": 57
+              },
+              {
+                "durationMs": 10384,
+                "checkouts": 11,
+                "transactions": 9,
+                "queries": 57,
+                "sequentialRoundTrips": 57
+              },
+              {
+                "durationMs": 11682,
+                "checkouts": 11,
+                "transactions": 9,
+                "queries": 58,
+                "sequentialRoundTrips": 58
+              }
+            ]
+          },
+          {
+            "label": "read_policy_preflight",
+            "durationMs": 8419,
+            "checkouts": 9,
+            "transactions": 7,
+            "commits": 7,
+            "rollbacks": 0,
+            "queries": 46,
+            "statements": 32,
+            "sequentialRoundTrips": 46,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 8587,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 46,
+                "sequentialRoundTrips": 46
+              },
+              {
+                "durationMs": 8354,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 46,
+                "sequentialRoundTrips": 46
+              },
+              {
+                "durationMs": 8419,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 46,
+                "sequentialRoundTrips": 46
+              }
+            ]
+          },
+          {
+            "label": "activate_policy",
+            "durationMs": 18660,
+            "checkouts": 9,
+            "transactions": 7,
+            "commits": 7,
+            "rollbacks": 0,
+            "queries": 100,
+            "statements": 86,
+            "sequentialRoundTrips": 100,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 18660,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 100,
+                "sequentialRoundTrips": 100
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "change": "single viewer window for the guide areas only, inbox keeps its own window, with the consolidated guard",
+        "report": [
+          {
+            "label": "initialize_policy",
+            "durationMs": 13417,
+            "checkouts": 9,
+            "transactions": 7,
+            "commits": 7,
+            "rollbacks": 0,
+            "queries": 62,
+            "statements": 48,
+            "sequentialRoundTrips": 62,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 13417,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 62,
+                "sequentialRoundTrips": 62
+              }
+            ]
+          },
+          {
+            "label": "save_policy",
+            "durationMs": 12395,
+            "checkouts": 9,
+            "transactions": 7,
+            "commits": 7,
+            "rollbacks": 0,
+            "queries": 61,
+            "statements": 47,
+            "sequentialRoundTrips": 61,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 12460,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 61,
+                "sequentialRoundTrips": 61
+              },
+              {
+                "durationMs": 12395,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 61,
+                "sequentialRoundTrips": 61
+              },
+              {
+                "durationMs": 12095,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 61,
+                "sequentialRoundTrips": 61
+              }
+            ]
+          },
+          {
+            "label": "page_inbox",
+            "durationMs": 14159,
+            "checkouts": 52,
+            "transactions": 50,
+            "commits": 50,
+            "rollbacks": 0,
+            "queries": 300,
+            "statements": 200,
+            "sequentialRoundTrips": 80,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 14880,
+                "checkouts": 52,
+                "transactions": 50,
+                "queries": 302,
+                "sequentialRoundTrips": 80
+              },
+              {
+                "durationMs": 13422,
+                "checkouts": 52,
+                "transactions": 50,
+                "queries": 300,
+                "sequentialRoundTrips": 78
+              },
+              {
+                "durationMs": 14159,
+                "checkouts": 52,
+                "transactions": 50,
+                "queries": 300,
+                "sequentialRoundTrips": 82
+              }
+            ]
+          },
+          {
+            "label": "page_rules",
+            "durationMs": 10780,
+            "checkouts": 27,
+            "transactions": 25,
+            "commits": 25,
+            "rollbacks": 0,
+            "queries": 147,
+            "statements": 97,
+            "sequentialRoundTrips": 65,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 10780,
+                "checkouts": 27,
+                "transactions": 25,
+                "queries": 147,
+                "sequentialRoundTrips": 65
+              },
+              {
+                "durationMs": 10757,
+                "checkouts": 27,
+                "transactions": 25,
+                "queries": 147,
+                "sequentialRoundTrips": 65
+              },
+              {
+                "durationMs": 11162,
+                "checkouts": 27,
+                "transactions": 25,
+                "queries": 147,
+                "sequentialRoundTrips": 65
+              }
+            ]
+          },
+          {
+            "label": "page_notifications",
+            "durationMs": 11542,
+            "checkouts": 15,
+            "transactions": 13,
+            "commits": 13,
+            "rollbacks": 0,
+            "queries": 73,
+            "statements": 47,
+            "sequentialRoundTrips": 63,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 12621,
+                "checkouts": 15,
+                "transactions": 13,
+                "queries": 73,
+                "sequentialRoundTrips": 67
+              },
+              {
+                "durationMs": 11542,
+                "checkouts": 15,
+                "transactions": 13,
+                "queries": 73,
+                "sequentialRoundTrips": 63
+              },
+              {
+                "durationMs": 11287,
+                "checkouts": 15,
+                "transactions": 13,
+                "queries": 73,
+                "sequentialRoundTrips": 63
+              }
+            ]
+          },
+          {
+            "label": "page_usage",
+            "durationMs": 13831,
+            "checkouts": 16,
+            "transactions": 14,
+            "commits": 14,
+            "rollbacks": 0,
+            "queries": 83,
+            "statements": 55,
+            "sequentialRoundTrips": 73,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 13831,
+                "checkouts": 16,
+                "transactions": 14,
+                "queries": 83,
+                "sequentialRoundTrips": 73
+              },
+              {
+                "durationMs": 14664,
+                "checkouts": 16,
+                "transactions": 14,
+                "queries": 84,
+                "sequentialRoundTrips": 74
+              },
+              {
+                "durationMs": 13123,
+                "checkouts": 16,
+                "transactions": 14,
+                "queries": 83,
+                "sequentialRoundTrips": 73
+              }
+            ]
+          },
+          {
+            "label": "page_connections",
+            "durationMs": 28606,
+            "checkouts": 32,
+            "transactions": 30,
+            "commits": 30,
+            "rollbacks": 0,
+            "queries": 174,
+            "statements": 114,
+            "sequentialRoundTrips": 164,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 27971,
+                "checkouts": 32,
+                "transactions": 30,
+                "queries": 174,
+                "sequentialRoundTrips": 164
+              },
+              {
+                "durationMs": 29871,
+                "checkouts": 32,
+                "transactions": 30,
+                "queries": 175,
+                "sequentialRoundTrips": 165
+              },
+              {
+                "durationMs": 28606,
+                "checkouts": 32,
+                "transactions": 30,
+                "queries": 174,
+                "sequentialRoundTrips": 164
+              }
+            ]
+          },
+          {
+            "label": "read_policy",
+            "durationMs": 10853,
+            "checkouts": 11,
+            "transactions": 9,
+            "commits": 9,
+            "rollbacks": 0,
+            "queries": 57,
+            "statements": 39,
+            "sequentialRoundTrips": 57,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 10853,
+                "checkouts": 11,
+                "transactions": 9,
+                "queries": 57,
+                "sequentialRoundTrips": 57
+              },
+              {
+                "durationMs": 11807,
+                "checkouts": 11,
+                "transactions": 9,
+                "queries": 58,
+                "sequentialRoundTrips": 58
+              },
+              {
+                "durationMs": 10634,
+                "checkouts": 11,
+                "transactions": 9,
+                "queries": 57,
+                "sequentialRoundTrips": 57
+              }
+            ]
+          },
+          {
+            "label": "read_policy_preflight",
+            "durationMs": 8683,
+            "checkouts": 9,
+            "transactions": 7,
+            "commits": 7,
+            "rollbacks": 0,
+            "queries": 46,
+            "statements": 32,
+            "sequentialRoundTrips": 46,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 8615,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 46,
+                "sequentialRoundTrips": 46
+              },
+              {
+                "durationMs": 8683,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 46,
+                "sequentialRoundTrips": 46
+              },
+              {
+                "durationMs": 8787,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 46,
+                "sequentialRoundTrips": 46
+              }
+            ]
+          },
+          {
+            "label": "activate_policy",
+            "durationMs": 19006,
+            "checkouts": 9,
+            "transactions": 7,
+            "commits": 7,
+            "rollbacks": 0,
+            "queries": 100,
+            "statements": 86,
+            "sequentialRoundTrips": 100,
+            "pending": 0,
+            "samples": [
+              {
+                "durationMs": 19006,
+                "checkouts": 9,
+                "transactions": 7,
+                "queries": 100,
+                "sequentialRoundTrips": 100
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
 }
