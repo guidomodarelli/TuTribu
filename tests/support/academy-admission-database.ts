@@ -4,10 +4,10 @@
  * @module academy-admission-database
  */
 import { createHash, randomUUID } from "node:crypto";
-import { access, appendFile, readFile, realpath } from "node:fs/promises";
+import { appendFile, readFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { delimiter, join } from "node:path";
+import { join } from "node:path";
 import { loadEnvConfig } from "@next/env";
 import { sql } from "drizzle-orm";
 
@@ -20,6 +20,7 @@ import {
 } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import { getServerDatabaseEnvironment } from "@/src/modules/shared/infrastructure/database/server-environment";
 import { confirmOwnedBranchRemoval } from "./confirm-owned-branch-removal";
+import { resolveNeonCliEntrypoint } from "./neon-cli-entrypoint";
 import { withAcademyAdmissionRestoreCopy, type AcademyAdmissionRestoreCopy } from "./academy-admission-restore-copy";
 import { readPostgresTestDiagnostics, type PostgresTestDiagnostics } from "./postgres-test-diagnostics";
 import { normalizeUuid } from "@/src/modules/shared/application/validation/uuid";
@@ -78,30 +79,6 @@ export type AcademyAdmissionTestDatabase = {
   withRestorableCopy: <Result>(run: (copy: AcademyAdmissionRestoreCopy) => Promise<Result>) => Promise<Result>;
 };
 
-/**
- * Finds the installed native CLI without a repository dependency or user-specific path.
- *
- * @returns A verified JavaScript entrypoint for the installed Neon CLI.
- * @throws When no CLI is available and an explicit NEON_CLI_PATH is needed.
- */
-async function findNeonCliEntrypoint(): Promise<string> {
-  if (process.env.NEON_CLI_PATH) {
-    await access(process.env.NEON_CLI_PATH);
-    return process.env.NEON_CLI_PATH;
-  }
-  for (const directory of (process.env.PATH ?? process.env.Path ?? "").split(delimiter)) {
-    const entrypoint = join(directory, "node_modules", "neon", "dist", "cli.js");
-    try { await access(entrypoint); return entrypoint; } catch (error) {
-      if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") throw error;
-    }
-    if (process.platform !== "win32") {
-      try { return await realpath(join(directory, "neon")); } catch (error) {
-        if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") throw error;
-      }
-    }
-  }
-  throw new Error("AcademyAdmissionDatabase.authenticate failed: neon_cli_unavailable; set NEON_CLI_PATH or NEON_API_KEY");
-}
 
 /**
  * Rejects a branch that is not the uniquely named child created by this run.
@@ -164,7 +141,7 @@ export async function withAcademyAdmissionDatabase<Result>(
   async function adminRequest<Data>(path: string, init?: RequestInit): Promise<Data> {
     if (!options.authorization) {
       if (options.fetch) throw new Error("AcademyAdmissionDatabase.authenticate failed: explicit_transport_requires_authorization");
-      const entrypoint = await findNeonCliEntrypoint();
+      const entrypoint = await resolveNeonCliEntrypoint();
       const requestUrl = new URL(path, "https://console.neon.tech/api/v2");
       const argumentsList = [entrypoint, "api", requestUrl.pathname, "--profile", "DEFAULT", "--output", "json", "--method", init?.method ?? "GET"];
       for (const [name, value] of requestUrl.searchParams) argumentsList.push("--query", `${name}=${value}`);

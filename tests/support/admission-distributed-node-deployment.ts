@@ -10,6 +10,7 @@ import { ADMISSION_NEON_PROJECT_ID } from "./constants/academy-admission-databas
 import { ADMISSION_NODE_HOST } from "./constants/admission-node-host";
 import { ADMISSION_DISTRIBUTED_NODE, admissionDistributedHostInputSchema, type AdmissionDistributedHostInput } from "./constants/admission-distributed-node";
 import { MESSAGING_HOSTING_ENV } from "@/src/modules/messaging/constants/messaging-hosting";
+import { resolveNeonCliEntrypoint } from "./neon-cli-entrypoint";
 
 const execute = promisify(execFile);
 type FunctionMetadata = { slug: string; invocation_url?: string; branch_id?: string };
@@ -37,8 +38,7 @@ export type AdmissionDistributedNodeDeployment = {
  * @returns Public deployment identities and cleanup restricted to their original branch and names.
  */
 export async function deployAdmissionDistributedNodes(branch: AcademyAdmissionTestDatabase["branch"], operationId: string, token: string, hostingEnvironment: Record<string, string>, inputs: readonly AdmissionDistributedHostInput[], expectedComputeUnits: number): Promise<AdmissionDistributedNodeDeployment> {
-  const cli = process.env.NEON_CLI_PATH;
-  if (!cli) throw new Error("AdmissionDistributedDeployment.prepare failed: explicit_cli_path_required");
+  const cli = await resolveNeonCliEntrypoint();
   if (inputs.length !== ADMISSION_DISTRIBUTED_NODE.functionCount || inputs.some((input, index) => admissionDistributedHostInputSchema.parse(input).nodeIndex !== index)) throw new Error("AdmissionDistributedDeployment.prepare failed: inconsistent_host_inputs");
   if (Object.values(MESSAGING_HOSTING_ENV).some((name) => !hostingEnvironment[name]) || Object.keys(hostingEnvironment).some((name) => !Object.values<string>(MESSAGING_HOSTING_ENV).includes(name))) throw new Error("AdmissionDistributedDeployment.prepare failed: closed_hosting_environment_required");
   const workspace = process.cwd(), gitDirectory = (await execute("git", ["rev-parse", "--git-common-dir"], { windowsHide: true })).stdout.trim();

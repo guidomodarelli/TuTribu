@@ -11,6 +11,7 @@ import { ADMISSION_NODE_HOST } from "./constants/admission-node-host";
 import { OWNED_MESSAGING_NODE_DEPLOYMENT as DEPLOYMENT } from "./constants/owned-messaging-node-deployment";
 import { MESSAGING_HOSTING_ENV } from "@/src/modules/messaging/constants/messaging-hosting";
 import { createOwnedMessagingCommandFailure, createOwnedMessagingOutputFailure } from "./owned-messaging-command-failure";
+import { resolveNeonCliEntrypoint } from "./neon-cli-entrypoint";
 
 const execute = promisify(execFile);
 type FunctionMetadata = { slug: string; invocation_url?: string; branch_id?: string };
@@ -38,8 +39,7 @@ export type OwnedMessagingNodeDeployment = {
  * @returns Public deployment identities and cleanup restricted to their original branch and names.
  */
 export async function deployOwnedMessagingNodes(branch: AcademyAdmissionTestDatabase["branch"], operationId: string, token: string, hostingEnvironment: Record<string, string>, inputs: readonly Record<string, unknown>[], options: { entrypoint: string; privateInputVariable: string; supportingFiles: readonly string[]; expectedComputeUnits?: number; sensitiveValues?: readonly string[] }): Promise<OwnedMessagingNodeDeployment> {
-  const cli = process.env.NEON_CLI_PATH;
-  if (!cli) throw new Error("OwnedMessagingDeployment.prepare failed: explicit_cli_path_required");
+  const cli = await resolveNeonCliEntrypoint();
   if (!inputs.length || inputs.length > DEPLOYMENT.maximumFunctions || !DEPLOYMENT.environmentNamePattern.test(options.privateInputVariable) || DEPLOYMENT.reservedEnvironmentNames.some((reservedName) => reservedName === options.privateInputVariable)) throw new Error("OwnedMessagingDeployment.prepare failed: invalid_owned_host_inputs");
   if (Object.values(MESSAGING_HOSTING_ENV).some((name) => !hostingEnvironment[name]) || Object.keys(hostingEnvironment).some((name) => !Object.values<string>(MESSAGING_HOSTING_ENV).includes(name))) throw new Error("OwnedMessagingDeployment.prepare failed: closed_hosting_environment_required");
   const workspace = process.cwd(), gitDirectory = (await execute("git", ["rev-parse", "--git-common-dir"], { windowsHide: true })).stdout.trim();

@@ -11,6 +11,7 @@ import { ADMISSION_NODE_HOST } from "./constants/admission-node-host";
 import { ADMISSION_CPU_PROFILE } from "./constants/admission-cpu-profile";
 import { ADMISSION_SAMPLE } from "./constants/admission-sample";
 import { ADMISSION_DATABASE_OBSERVATION } from "./constants/admission-database-observation";
+import { resolveNeonCliEntrypoint } from "./neon-cli-entrypoint";
 
 const execute = promisify(execFile);
 /** Provider fields consumed only after exact branch selection; no provider DTO schema validation. */
@@ -27,8 +28,7 @@ export type AdmissionNodeDeployment = { url: URL; slug: string; bundleSha256: st
  * @returns Public invocation identity and exact resource cleanup.
  */
 export async function deployAdmissionNodeHost(branch: AcademyAdmissionTestDatabase["branch"], operationId: string, tokenSha256: string, expectedComputeUnits: number = ADMISSION_NODE_HOST.computeUnits): Promise<AdmissionNodeDeployment> {
-  const cli = process.env.NEON_CLI_PATH;
-  if (!cli) throw new Error("AdmissionNodeDeployment.prepare failed: explicit_cli_path_required");
+  const cli = await resolveNeonCliEntrypoint();
   const workspace = process.cwd();
   const gitRoot = (await execute("git", ["rev-parse", "--git-common-dir"], { cwd: workspace, windowsHide: true })).stdout.trim();
   const directory = await mkdtemp(join(resolve(workspace, gitRoot), ADMISSION_NODE_HOST.bundleDirectoryPrefix));
