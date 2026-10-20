@@ -116,7 +116,7 @@ export function buildAdmissionNotificationReminderModule(dependencies: { execute
 export function buildAdmissionNotificationProducerModule(dependencies: { execute: AdmissionNotificationCollectionExecutor; authorize: () => Promise<boolean>; readRecoveryLock: () => Promise<boolean>; readSecurityConfig: () => Promise<MessagingSecurityConfig>; publicAppBaseUrl: string; runtime: AdmissionNotificationProducerRuntime }) {
   const producer = new PostgresAdmissionNotificationProducer(dependencies.execute, dependencies.authorize, dependencies.readRecoveryLock);
   const authorize = async () => dependencies.authorize();
-  const progress = new PostgresAdmissionNotificationCollectionProgress(dependencies.execute, authorize, dependencies.readSecurityConfig);
+  const progress = new PostgresAdmissionNotificationCollectionProgress(dependencies.execute, authorize, dependencies.readSecurityConfig, dependencies.runtime.now);
   const preparation = new PostgresAdmissionNotificationGroupPreparation(dependencies.execute, authorize, dependencies.readSecurityConfig, dependencies.publicAppBaseUrl);
   return { useCases: { prepareEmailNotifications: new PrepareAdmissionEmailNotificationsUseCase(producer, progress, preparation, dependencies.runtime) } };
 }

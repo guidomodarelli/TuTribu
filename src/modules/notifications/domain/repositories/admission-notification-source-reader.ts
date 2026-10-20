@@ -21,6 +21,8 @@ export type AdmissionNotificationSourceCursor = {
 export type AdmissionNotificationSourcePage = {
   readonly throughMicroseconds: number;
   readonly sources: readonly AdmissionNotificationRecipientEmailScope[];
+  /** Exact native position of each source, aligned by index, so a page cut at a soft deadline resumes right after its last collected source. */
+  readonly positions: readonly AdmissionNotificationSourcePosition[];
   readonly continuation: AdmissionNotificationSourceCursor | null;
 };
 

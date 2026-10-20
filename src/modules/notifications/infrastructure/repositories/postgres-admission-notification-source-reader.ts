@@ -54,11 +54,14 @@ export class PostgresAdmissionNotificationSourceReader implements AdmissionNotif
       limit ${ADMISSION_NOTIFICATION_SOURCE_PAGE_SIZE + 1}
     `)).rows;
     await this.assertAuthorized(tribeId);
-    const selected = rows.slice(0, ADMISSION_NOTIFICATION_SOURCE_PAGE_SIZE), last = selected.at(-1);
+    const selected = rows.slice(0, ADMISSION_NOTIFICATION_SOURCE_PAGE_SIZE);
+    const positions = selected.map((source) => ({ createdAtMicroseconds: Number(source.created_at_microseconds), obligationId: source.obligation_id, recipientUserId: source.recipient_user_id, audience: source.audience }));
+    const last = positions.at(-1);
     return {
       throughMicroseconds,
       sources: selected.map((source) => ({ tribeId, obligationId: source.obligation_id, recipientUserId: source.recipient_user_id, audience: source.audience })),
-      continuation: rows.length > ADMISSION_NOTIFICATION_SOURCE_PAGE_SIZE && last ? { tribeId, throughMicroseconds, after: { createdAtMicroseconds: Number(last.created_at_microseconds), obligationId: last.obligation_id, recipientUserId: last.recipient_user_id, audience: last.audience } } : null,
+      positions,
+      continuation: rows.length > ADMISSION_NOTIFICATION_SOURCE_PAGE_SIZE && last ? { tribeId, throughMicroseconds, after: last } : null,
     };
   }
 }

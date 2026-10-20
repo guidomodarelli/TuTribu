@@ -117,4 +117,20 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission n
       await expect(fixture.repository.collectPage(command)).rejects.toMatchObject({ code: "permission_denied" });
     });
   }, ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS);
+  it("should commit only the first chunk after an elapsed soft deadline and resume right after its last collected source", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      // Given four requests with two reviewers each: eight sources, more than one collection chunk but less than a page.
+      const fixture = await prepareAdmissionNotificationCollectionProgress(database);
+      await fixture.createSources(4);
+      // When the phase's soft deadline already elapsed, the page still collects one chunk and commits that partial progress.
+      const cut = await fixture.repository.collectPage({ tribeId: fixture.tribeId, operationId: randomUUID(), expectedVersion: 0, softDeadlineAtMilliseconds: 0 });
+      expect(cut).toMatchObject({ version: 1, examined: 5, sweepComplete: false });
+      // Then the next page resumes after that exact source and finishes the sweep without examining any source twice.
+      const rest = await fixture.repository.collectPage({ tribeId: fixture.tribeId, operationId: randomUUID(), expectedVersion: 1 });
+      expect(rest).toMatchObject({ version: 2, examined: 3, sweepComplete: true });
+      const members = await fixture.execute(async (transaction) => (await transaction.execute<{ total: number; distinct_sources: number }>(sql`select count(*)::int as total,count(distinct (obligation_id,recipient_user_id))::int as distinct_sources from public.admission_notification_group_members where tribe_id=${fixture.tribeId}`)).rows[0]);
+      expect(members.total).toBe(members.distinct_sources);
+      expect(members.total).toBe(cut.collected + rest.collected);
+    });
+  }, ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS);
 });

@@ -70,7 +70,7 @@ export class PrepareAdmissionEmailNotificationsUseCase {
           if (this.runtime.now() >= deadlineAtMilliseconds) stoppedAtDeadline = true;
           else {
             operationId = this.runtime.createId();
-            const page = await this.progress.collectPage({ tribeId, operationId, expectedVersion: original.version });
+            const page = await this.progress.collectPage({ tribeId, operationId, expectedVersion: original.version, softDeadlineAtMilliseconds: deadlineAtMilliseconds });
             hasContinuation = !page.sweepComplete;
             collection = { status: page.sweepHadUnavailable ? ADMISSION_NOTIFICATION_PRODUCER_STEP_STATUS.deferred : ADMISSION_NOTIFICATION_PRODUCER_STEP_STATUS.completed, count: page.collected, code: page.sweepHadUnavailable ? ADMISSION_ERROR_CODE.connectionIncomplete : null };
           }

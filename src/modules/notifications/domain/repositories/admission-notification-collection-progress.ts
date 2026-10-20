@@ -1,7 +1,11 @@
 /** Defines atomic bounded collection with backend-owned progress and explicit stale-command rejection. @module admission-notification-collection-progress */
 
 /** Keeps an immutable server-generated page identity and the original expected checkpoint version. */
-export type AdmissionNotificationCollectionPageCommand = { readonly tribeId: string; readonly operationId: string; readonly expectedVersion: number };
+export type AdmissionNotificationCollectionPageCommand = {
+  readonly tribeId: string; readonly operationId: string; readonly expectedVersion: number;
+  /** Host instant after which no further source chunk starts; the page then commits what it collected and resumes after its last collected source. */
+  readonly softDeadlineAtMilliseconds?: number;
+};
 
 /** Separates examined references from actual new members and deliberate omissions. */
 export type AdmissionNotificationCollectionPageCounts = { readonly examined: number; readonly collected: number; readonly existing: number; readonly suppressed: number; readonly unavailable: number; readonly bucketClosed: number };

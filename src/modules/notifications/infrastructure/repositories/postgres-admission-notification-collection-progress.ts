@@ -10,6 +10,8 @@ import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants
 import { ADMISSION_NOTIFICATION_COLLECTED, ADMISSION_NOTIFICATION_COLLECTION_EXISTING, ADMISSION_NOTIFICATION_COLLECTION_UNAVAILABLE, ADMISSION_NOTIFICATION_COLLECTION_BUCKET_CLOSED } from "../../constants/admission-notification-collection";
 import { ADMISSION_NOTIFICATION_GROUP_REASON, ADMISSION_NOTIFICATION_SUPPRESSED_STATUS } from "../../constants/admission-notification-groups";
 import type { AdmissionNotificationCollectionProgress, AdmissionNotificationCollectionPageCommand, AdmissionNotificationCollectionPageResult, AdmissionNotificationCollectionProgressSnapshot } from "../../domain/repositories/admission-notification-collection-progress";
+import { ADMISSION_NOTIFICATION_COLLECTION_CHUNK_SIZE } from "../../constants/admission-notification-source-selection";
+import type { AdmissionNotificationCollectionResult } from "../../domain/repositories/admission-notification-repository";
 import { admissionNotificationTimestamp } from "../database/admission-notification-timestamp";
 import { PostgresAdmissionNotificationRepository } from "./postgres-admission-notification-repository";
 import { PostgresAdmissionNotificationSourceReader } from "./postgres-admission-notification-source-reader";
@@ -23,7 +25,7 @@ export type AdmissionNotificationCollectionAuthorizer = (database: RequestDataba
 /** Stores one checkpoint/latest receipt per live tribe, without a growing page ledger or public job framework. */
 export class PostgresAdmissionNotificationCollectionProgress implements AdmissionNotificationCollectionProgress {
   /** @param execute - Original commit-confirming guarded transaction owner. @param authorize - Current protected backend scope, never browser flags. @param readSecurityConfig - Live local external epoch/recovery guard; no provider call under locks. */
-  constructor(private readonly execute: AdmissionNotificationCollectionExecutor, private readonly authorize: AdmissionNotificationCollectionAuthorizer, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>) {}
+  constructor(private readonly execute: AdmissionNotificationCollectionExecutor, private readonly authorize: AdmissionNotificationCollectionAuthorizer, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly now: () => number = Date.now) {}
 
   /** @param database - Original owner transaction. @param tribeId - Exact native tenant. @returns After current private purpose authority is confirmed. @throws AdmissionOperationError on current permission denial. */
   private async assertAuthorized(database: RequestDatabase, tribeId: string): Promise<void> {
@@ -90,9 +92,18 @@ export class PostgresAdmissionNotificationCollectionProgress implements Admissio
         const reader = new PostgresAdmissionNotificationSourceReader(database, this.authorize);
         const collector = new PostgresAdmissionNotificationRepository(database, this.authorize, this.readSecurityConfig);
         const page = await reader.readPage(command.tribeId, collectionProgressCursor(original));
-        const counts = { examined: page.sources.length, collected: 0, existing: 0, suppressed: 0, unavailable: 0, bucketClosed: 0 };
+        // Chunks keep one page inside its phase: after the soft deadline no further chunk starts, and the checkpoint resumes
+        // right after the last collected source instead of discarding the whole page at the hard deadline.
+        const collected: AdmissionNotificationCollectionResult[] = [];
+        for (let start = 0; start < page.sources.length; start += ADMISSION_NOTIFICATION_COLLECTION_CHUNK_SIZE) {
+          if (start > 0 && command.softDeadlineAtMilliseconds !== undefined && this.now() >= command.softDeadlineAtMilliseconds) break;
+          collected.push(...await collector.collectMany(command.tribeId, page.sources.slice(start, start + ADMISSION_NOTIFICATION_COLLECTION_CHUNK_SIZE)));
+        }
+        const cutPosition = collected.length < page.sources.length ? page.positions[collected.length - 1] : null;
+        const cursor = cutPosition ? { tribeId: command.tribeId, throughMicroseconds: page.throughMicroseconds, after: cutPosition } : page.continuation;
+        const counts = { examined: collected.length, collected: 0, existing: 0, suppressed: 0, unavailable: 0, bucketClosed: 0 };
         let pageHadUnavailable = false;
-        for (const result of await collector.collectMany(command.tribeId, page.sources)) {
+        for (const result of collected) {
           if (result.status === ADMISSION_NOTIFICATION_COLLECTION_UNAVAILABLE || result.status === ADMISSION_NOTIFICATION_SUPPRESSED_STATUS && (result.reason === ADMISSION_NOTIFICATION_GROUP_REASON.capabilityUnavailable || result.reason === ADMISSION_NOTIFICATION_GROUP_REASON.windowUnavailable)) pageHadUnavailable = true;
           switch (result.status) {
             case ADMISSION_NOTIFICATION_COLLECTED: counts.collected++; break;
@@ -103,7 +114,6 @@ export class PostgresAdmissionNotificationCollectionProgress implements Admissio
           }
         }
         await this.assertCurrent(database, command.tribeId, originalConfig);
-        const cursor = page.continuation;
         await database.execute(sql`update public.admission_notification_collection_progress set version=version+1,
           last_page_through_at=${admissionNotificationTimestamp(page.throughMicroseconds)},
           page_had_unavailable=${pageHadUnavailable},
