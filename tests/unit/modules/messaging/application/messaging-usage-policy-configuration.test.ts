@@ -18,7 +18,7 @@ import { PostgresMessagingUsageOperationReader } from "@/src/modules/messaging/i
 import { messagingUsageOperationRecoverySchema } from "@/src/modules/messaging/application/results/messaging-usage-operation-result";
 import { buildMessagingModule } from "@/src/modules/messaging/setup";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
-import { chromium, webkit } from "@playwright/test";
+import { chromium, webkit, type Page } from "@playwright/test";
 import { captureAdmissionReview } from "@/tests/support/admission-review-capture";
 import { join } from "node:path";
 
@@ -205,6 +205,19 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging usage co
   }, 180_000);
 });
 
+/**
+ * Opens the contact step of the rules flow and chooses phone contact, where the link to countries and quotas lives.
+ * The first click can land while content above the flow is still settling, so it is repeated once the flow is still on its first step.
+ * @param page - Leader page already on the rules settings route.
+ * @returns After phone contact is chosen; choosing it writes nothing.
+ */
+async function openPhoneContactStep(page: Page): Promise<void> {
+  const continueStep = page.getByRole("button", { name: "Continuar", exact: true }), phone = page.getByRole("radio", { name: "Teléfono", exact: true });
+  await continueStep.click({ timeout: 90_000 });
+  if (!await phone.waitFor({ timeout: 5_000 }).then(() => true, () => false) && await page.getByRole("navigation", { name: /^Paso 1 de / }).count()) await continueStep.click();
+  await phone.click({ timeout: 30_000 });
+}
+
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early usage browser", () => {
   it("should open early usage from a truly absent admission policy without initializing either resource", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
@@ -222,9 +235,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
               const page = await context.newPage();
               process.stdout.write(JSON.stringify({ phase: "usage_early_navigation_begin", engine }) + "\n");
               await page.goto(`${origin}/${slug}/academia/admissions/settings`, { waitUntil: "commit" });
-              /** The rules flow offers countries and quotas in its contact step once phone contact is chosen; choosing it writes nothing. */
-              await page.getByRole("button", { name: "Continuar", exact: true }).click({ timeout: 90_000 });
-              await page.getByRole("radio", { name: "Teléfono", exact: true }).click();
+              await openPhoneContactStep(page);
               await page.getByRole("link", { name: "Configurar países y cupos de mensajería" }).click({ timeout: 90_000 });
               await page.getByRole("navigation", { name: "Paso 1 de 4" }).waitFor({ timeout: 90_000 });
               expect(await page.getByText(/Todavía no hay países ni cupos guardados/).count()).toBe(1);
@@ -266,9 +277,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
                 if (width === 1280) {
                   stage = "navigate_from_policy";
                   await page.goto(`${origin}/${slug}/academia/admissions/settings`, { waitUntil: "commit" });
-                  /** The rules flow links to countries and quotas from its contact step once phone contact is chosen. */
-                  await page.getByRole("button", { name: "Continuar", exact: true }).click({ timeout: 90_000 });
-                  await page.getByRole("radio", { name: "Teléfono", exact: true }).click();
+                  await openPhoneContactStep(page);
                   await page.getByRole("link", { name: "Configurar países y cupos de mensajería" }).click({ timeout: 90_000 });
                 } else await page.goto(`${origin}/${slug}/academia/admissions/messaging`, { waitUntil: "commit" });
                 const confirmation = page.getByRole("checkbox", { name: /Revisé los países/ });
