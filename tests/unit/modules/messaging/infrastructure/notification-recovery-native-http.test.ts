@@ -18,7 +18,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native notific
       const keyringsJson = JSON.stringify(keyrings), environment = "synthetic-recovery-http", securityEpoch = randomUUID();
       const config = await readMessagingHostingSecurityConfig({ MESSAGING_SECURITY_ENVIRONMENT: environment, MESSAGING_SECURITY_EPOCH: securityEpoch, MESSAGING_RECOVERY_LOCK: "false", MESSAGING_KEYRINGS_JSON: keyringsJson });
       const fixture = await prepareNotificationDeliveryRecovery(database, 3_600_000, config);
-      for (const migration of ["20261005093000_guard_academy_membership_sources.sql", "20261007001000_read_public_admission_overview.sql"]) await database.applyMigration(migration);
       const tribeId = fixture.context.tribeId, slug = `connection-${tribeId}`;
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`));
       let providerRequests = 0;
@@ -50,7 +49,10 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native notific
         }));
         expect(unchanged).toEqual({ original: { state: "cancelled", version: 2 }, effects: { children: 1, audits: 1, reservations: fixture.baselineUsage.reservations } });
         expect((await fetch(`${base}/notification-recovery-operations/${randomUUID()}`, { headers })).status).toBe(404);
-        expect((await fetch(recoverUrl, { method: "POST", headers, body: JSON.stringify({ ...input, operationId: randomUUID(), expectedVersion: 2 }) })).status).toBe(401);
+        // With the live leader session a new operation at the recovered version is a conflict, not an authentication failure.
+        const recovered = await fetch(recoverUrl, { method: "POST", headers, body: JSON.stringify({ ...input, operationId: randomUUID(), expectedVersion: 2 }) });
+        expect(recovered.status).toBe(409);
+        expect(await recovered.json()).toMatchObject({ code: "delivery_conflict" });
         expect(providerRequests).toBe(0);
       }, { preloadModules: [join(process.cwd(), "tests/support/native-zavu-provider-transport.mjs")], environment: { ADMISSION_TEST_ZAVU_CREDENTIAL: randomUUID() }, messagingSecurity: { environment, securityEpoch, keyringsJson }, onProviderRequest: () => { providerRequests += 1; } }));
     });

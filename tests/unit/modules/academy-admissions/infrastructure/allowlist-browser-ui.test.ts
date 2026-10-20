@@ -20,7 +20,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native allowli
       const messagingSecurity = { environment: "synthetic-allowlist-ui", securityEpoch: randomUUID(), keyringsJson: JSON.stringify(keyrings) };
       const config = await readMessagingHostingSecurityConfig({ MESSAGING_SECURITY_ENVIRONMENT: messagingSecurity.environment, MESSAGING_SECURITY_EPOCH: messagingSecurity.securityEpoch, MESSAGING_RECOVERY_LOCK: "false", MESSAGING_KEYRINGS_JSON: messagingSecurity.keyringsJson });
       const fixture = await prepareAllowlistManagement(database, config), slug = `allowlist-${fixture.tribeId}`;
-      for (const migration of ["20261005093000_guard_academy_membership_sources.sql", "20261007231500_bind_verification_operation_purpose.sql", "20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261008220000_scope_admission_operation_recovery.sql"]) await database.applyMigration(migration);
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
         for (const { name, engine, width } of [{ name: "chromium", engine: chromium, width: 1280 }, { name: "chromium", engine: chromium, width: 390 }, { name: "webkit", engine: webkit, width: 1280 }, { name: "webkit", engine: webkit, width: 390 }]) {
           console.info(JSON.stringify({ phase: "allowlist_ui_start", engine: name, width }));

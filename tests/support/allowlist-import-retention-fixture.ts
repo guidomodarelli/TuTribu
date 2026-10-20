@@ -8,7 +8,7 @@ import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admi
 import { MESSAGING_CRYPTO, MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { MILLISECONDS_PER_SECOND, SECONDS_PER_HOUR } from "@/src/constants/time";
 import { applyAdmissionRetentionHistoricalPrefix } from "./admission-retention-migration-prefix";
-import { executeAdmissionMigrationCommand } from "./admission-migration-command";
+import { applyAdmissionMigrationJournal } from "./admission-migration-command";
 import { registerMessagingPrivateMacKeyMaterial } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
 
 /** Names the original state and immutable identities used by SQL assertions. */
@@ -19,7 +19,7 @@ export async function prepareAllowlistImportRetention(database: AcademyAdmission
   await applyAdmissionRetentionHistoricalPrefix(database);
   const security = await seedContactVerificationDatabase(database);
   const fixture = await seedAllowlistImportRetention(database, security);
-  await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
+  await applyAdmissionMigrationJournal(database);
   await database.withContext({ userId: null, email: null }, async (transaction) => {
     await registerMessagingPrivateMacKeyMaterial(transaction, security.config, MESSAGING_KEY_PURPOSE.operationPayload);
     await registerMessagingPrivateMacKeyMaterial(transaction, security.config, MESSAGING_KEY_PURPOSE.contactFingerprint);

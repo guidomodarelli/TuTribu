@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
-import { executeAdmissionMigrationCommand } from "@/tests/support/admission-migration-command";
+import { applyAdmissionMigrationJournal } from "@/tests/support/admission-migration-command";
 import { ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS, ADMISSION_NOTIFICATION_STORAGE_TEST_CONCURRENT_TRANSACTIONS } from "@/tests/support/constants/admission-notification-validation";
 import { createPostgresAdmissionNotificationObligationWriter } from "@/src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer";
 import type { AdmissionNotificationObligation } from "@/src/modules/notifications/domain/entities/admission-notification";
@@ -18,7 +18,7 @@ import { ADMISSION_NOTIFICATION_AUDIENCE } from "@/src/modules/notifications/con
  * @returns Current actors and three original source identities; the reminder request is genuinely older than three days.
  */
 async function prepareWriter(database: AcademyAdmissionTestDatabase) {
-  await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
+  await applyAdmissionMigrationJournal(database);
   const tribeId = randomUUID(), otherTribeId = randomUUID();
   const leaderId = randomUUID(), guardianId = randomUUID(), mutedGuardianId = randomUUID(), memberId = randomUUID(), otherLeaderId = randomUUID();
   const own = { userId: leaderId, email: null };
@@ -93,7 +93,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission n
         (select count(*)::int from public.academy_admission_notification_obligations where tribe_id=${fixture.tribeId}) as obligations,
         (select count(*)::int from public.notifications where tribe_id=${fixture.tribeId}) as notices,
         (select count(*)::int from public.academy_admission_audit_events where tribe_id=${fixture.tribeId}) as audit`)).rows[0]);
-      await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
+      await applyAdmissionMigrationJournal(database);
       const afterReplay = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select
         (select count(*)::int from drizzle.__drizzle_migrations) as migrations,
         (select count(*)::int from public.academy_admission_notification_obligations where tribe_id=${fixture.tribeId}) as obligations,

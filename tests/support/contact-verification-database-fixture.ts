@@ -12,7 +12,7 @@ import type { VerificationChallengeScope } from "@/src/modules/academy-admission
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import {createMessagingSecretCipher} from "@/src/modules/messaging/infrastructure/encryption/messaging-secret-cipher";
 import { registerMessagingPrivateMacKeyMaterial } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
-import { executeAdmissionMigrationCommand } from "./admission-migration-command";
+import { applyAdmissionMigrationJournal } from "./admission-migration-command";
 
 /**
  * Applies actual feature artifacts exclusively to this run's owned branch.
@@ -21,7 +21,7 @@ import { executeAdmissionMigrationCommand } from "./admission-migration-command"
  * @returns Synthetic account/context and nonextractable, purpose-separated test keys.
  */
 export async function prepareContactVerificationDatabase(database: AcademyAdmissionTestDatabase, securityConfig?: MessagingSecurityConfig) {
-  await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
+  await applyAdmissionMigrationJournal(database);
   const fixture = await seedContactVerificationDatabase(database, securityConfig);
   await database.withContext({ userId: null, email: null }, async (transaction) => {
     await registerMessagingPrivateMacKeyMaterial(transaction, fixture.config, MESSAGING_KEY_PURPOSE.operationPayload);

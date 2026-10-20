@@ -19,7 +19,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native private
   it.each([{ name: "chromium", engine: chromium }, { name: "webkit", engine: webkit }])("should keep pending and terminal applicants outside private content and close a former guardian on $name", async ({ engine }) => {
     await withAcademyAdmissionDatabase(async (database) => {
       const { fixture, createApplicant, leader, guardian, privateDirectoryMarker } = await prepareAdmissionPrivateContent(database);
-      for (const migration of ["20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261007003000_read_admission_notification_subject.sql", "20261007004000_read_exact_own_admission_request.sql", "20261007010000_read_academy_admission_entry.sql", "20261011021000_expire_academy_admission_requests.sql"]) await database.applyMigration(migration);
       const slug = `allowlist-${fixture.tribeId}`, privateMarker = randomUUID();
       const messageId = randomUUID(), assetId = randomUUID(), courseId = randomUUID(), channelId = randomUUID(), eventId = randomUUID();
       await database.withContext(fixture.own, async (transaction) => {
@@ -61,6 +60,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native private
       const before = await snapshot();
       expect(applicants.every((applicant) => before.requests.some((request) => request.id === applicant.requestId && request.status === applicant.status))).toBe(true);
       expect(before.counts).toMatchObject({ members: 0 });
+      /** Synthetic attachment storage lets the download route reach its access check instead of answering storage-unavailable; denied downloads never sign or contact storage. */
+      const attachmentStorage = { CLOUDFLARE_ACCOUNT_ID: randomUUID(), CLOUDFLARE_R2_ACCESS_KEY_ID: randomUUID(), CLOUDFLARE_R2_SECRET_ACCESS_KEY: randomUUID(), CLOUDFLARE_R2_BUCKET_NAME: `synthetic-${randomUUID()}` };
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
         const leaderCookie = `better-auth.session_token=${encodeURIComponent(`${fixture.sessionToken}.${await makeSignature(fixture.sessionToken, secret)}`)}`;
         // Positive controls prove the actual endpoints can see the private resources for a current leader.
@@ -143,7 +144,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native private
             expect(await snapshot()).toEqual(before);
           } finally { await guardianContext.close(); }
         } finally { await browser.close(); }
-      }));
+      }, { environment: attachmentStorage }));
     });
   }, ADMISSION_SECURITY_TEST_TIMEOUT_MS);
 });

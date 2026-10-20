@@ -45,7 +45,6 @@ import { ADMISSION_SETUP_GUIDE_COPY, ADMISSION_SETUP_STEP_COPY } from "@/src/mod
 /** @param database - This run's owned branch with native pg/Drizzle. @param securityConfig - Hosting configuration a native server shares with the seed; in-process suites keep independent generated keys. @returns Current leader session, policy repository and preparation-port controls. */
 async function preparePolicy(database: AcademyAdmissionTestDatabase, securityConfig?: MessagingSecurityConfig) {
   const fixture = await prepareContactVerificationDatabase(database, securityConfig);
-  for (const migration of ["20261005092500_guard_messaging_attempts.sql", "20261005093000_guard_academy_membership_sources.sql", "20261005095000_guard_global_identity_context.sql", "20261005101000_guard_admission_operation_identity.sql", "20261006200000_scope_admission_audit_operations.sql"]) await database.applyMigration(migration);
   const tribeId = randomUUID(), accountId = randomUUID(), sessionId = randomUUID(), subject = randomUUID(), sessionToken = randomUUID();
   await database.withContext(fixture.own, async (transaction) => {
     const now = new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
@@ -477,7 +476,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
   it("should initialize, save and pause a draft with original recovery while an unprepared verification channel keeps activation closed", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database, await readMessagingHostingSecurityConfig()), slug = `policy-${data.tribeId}`;
-      for (const migration of ["20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
         const signedCookie = async (token: string) => `better-auth.session_token=${encodeURIComponent(`${token}.${await makeSignature(token, secret)}`)}`, base = `${origin}/api/tribes/${slug}/admissions`;
         let cookie = await signedCookie(data.sessionToken);
@@ -543,7 +541,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
   it.each([{ engine: "chromium", browserType: chromium }, { engine: "webkit", browserType: webkit }])("should stop the chained activation on memberships blocked by payment and clear it once each one is decided in $engine", async ({ engine, browserType }) => {
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database, await readMessagingHostingSecurityConfig()), slug = `policy-${data.tribeId}`;
-      for (const migration of ["20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
       await data.initialize();
       await database.withContext(data.fixture.own, async (transaction) => {
         const unknown = randomUUID(), crossed = randomUUID(), guardian = randomUUID();
@@ -627,7 +624,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
   it.each([{ engine: "chromium", browserType: chromium }, { engine: "webkit", browserType: webkit }])("should guide the setup, explain a platform block and open, pause, resume and edit admissions in $engine", async ({ engine, browserType }) => {
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database, await readMessagingHostingSecurityConfig()), slug = `policy-${data.tribeId}`;
-      for (const migration of ["20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
       /** Only the TuTribu team enables the admission evaluator; turning it off reproduces a block the leader cannot resolve. */
       const setEvaluator = (enabled: boolean) => database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_academy_settings set admission_enabled=${enabled} where tribe_id=${data.tribeId}`));
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
@@ -735,7 +731,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
     it(`should retain conflict drafts and use real guarded policy settings in ${engine} mobile/desktop`, async () => {
       await withAcademyAdmissionDatabase(async (database) => {
         const data = await preparePolicy(database, await readMessagingHostingSecurityConfig()), slug = `policy-${data.tribeId}`;
-        for (const migration of ["20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
         await data.initialize();
         await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
           const browser = await browserType.launch({ headless: true });
