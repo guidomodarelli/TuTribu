@@ -20,6 +20,7 @@ import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { PostgresAdmissionOperationRepository } from "./postgres-admission-operation-repository";
 import { admissionPolicyMutationResultSchema } from "../../application/results/admission-policy-result-schemas";
 import { admissionPolicyDatabaseNow, authorizeAdmissionPolicy } from "./postgres-admission-policy-authorizer";
+import { withReusedAdmissionLeaderAuthority } from "./postgres-admission-leader-authorizer";
 import { readAdmissionControlMarker, readAdmissionPolicy } from "./postgres-admission-policy-storage";
 import { createAdmissionPolicyAuditEvent } from "../../domain/entities/admission-audit-event";
 import { PostgresAdmissionAuditRepository } from "./postgres-admission-audit-repository";
@@ -71,7 +72,8 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
   /** Original replay precedes new CAS; every phase independently checks current leadership. */
   private async run(intent: PolicyIntent, operation: ReauthenticationOperation, commandIntent: AdmissionOperationCommand["intent"], mutate: (database: RequestDatabase, ledgerId: string) => Promise<AdmissionPolicyMutationResult>): Promise<AdmissionOperationResult<AdmissionPolicyMutationResult>> {
     const command: AdmissionOperationCommand = { actorUserId: intent.context.userId, tribeId: intent.context.tribeId, operationType: intent.type, idempotencyKey: intent.operationId, intent: commandIntent };
-    const ledger = new PostgresAdmissionOperationRepository((work) => this.execute(intent.context, work), async (database) => { await authorizeAdmissionPolicy(database, intent.context, operation); return true; }, this.readSecurityConfig);
+    // Each ledger transaction (claim, effect, recovery) lets its repeated leader checks reuse the locks of its first one; none uses a savepoint.
+    const ledger = new PostgresAdmissionOperationRepository((work) => this.execute(intent.context, (database) => withReusedAdmissionLeaderAuthority(database, () => work(database))), async (database) => { await authorizeAdmissionPolicy(database, intent.context, operation); return true; }, this.readSecurityConfig);
     try { return await ledger.run(command, admissionPolicyMutationResultSchema, async (database, ledgerId) => { await this.academy(database, intent.context.tribeId); return mutate(database, ledgerId); }); }
     catch (error) {
       if (error instanceof AdmissionOperationError && error.code === ADMISSION_ERROR_CODE.operationUnresolved) {

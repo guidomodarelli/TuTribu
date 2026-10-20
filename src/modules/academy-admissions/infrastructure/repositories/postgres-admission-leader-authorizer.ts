@@ -15,6 +15,36 @@ export async function admissionDatabaseNow(database: RequestDatabase): Promise<D
   return new Date((await database.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now);
 }
 
+/** Authority this transaction already locked and verified for one actor, session and tribe. */
+type HeldLeaderAuthority = { exclusive: boolean; sessionExpiresAt: Date };
+/** Only transactions opened through `withReusedAdmissionLeaderAuthority` register here; the entry dies with its scope. */
+const heldLeaderAuthority = new WeakMap<RequestDatabase, Map<string, HeldLeaderAuthority>>();
+
+/**
+ * Lets repeated leader checks of one savepoint-free transaction reuse the locks its first full check took.
+ *
+ * Inside the scope, a later check with the same actor, session and tribe skips re-reading rows this
+ * transaction still holds `FOR SHARE`/`FOR UPDATE` (tribe, user, session, Google account and binding),
+ * which nobody else can change or delete before COMMIT. It still re-runs, in one statement, the actor
+ * comparison, the canonical leadership lock (it re-counts leaders, so a concurrently promoted second
+ * leader is still detected) and the session expiry against the database clock. A check needing the
+ * exclusive tribe lock after only shared checks takes the full path.
+ *
+ * @param database - Transaction of a command owner that never rolls back to a savepoint, since that would release the locks.
+ * @param run - The owner's work in that transaction.
+ * @returns Its result; the held authority is forgotten when it settles.
+ */
+export async function withReusedAdmissionLeaderAuthority<Result>(database: RequestDatabase, run: () => Promise<Result>): Promise<Result> {
+  if (heldLeaderAuthority.has(database)) return run();
+  heldLeaderAuthority.set(database, new Map());
+  try { return await run(); } finally { heldLeaderAuthority.delete(database); }
+}
+
+/** @param context - Server-resolved scope. @returns Key of the authority held for this actor, session and tribe. */
+function heldLeaderAuthorityKey(context: AuthorizedAdmissionContext): string {
+  return `${context.userId}:${context.sessionId}:${context.tribeId}`;
+}
+
 /**
  * Holds tribe, native account/session and canonical leadership before policy/ledger resources.
  * @param database - Transaction whose actual application actor must match the context.
@@ -24,6 +54,8 @@ export async function admissionDatabaseNow(database: RequestDatabase): Promise<D
  */
 export async function authorizeAdmissionLeader(database: RequestDatabase, context: AuthorizedAdmissionContext, scope: { action: AdmissionAction; resourceId: string; operation?: ReauthenticationOperation }): Promise<void> {
   const operation = scope.operation;
+  const held = heldLeaderAuthority.get(database), reusable = held?.get(heldLeaderAuthorityKey(context));
+  if (reusable && (reusable.exclusive || !operation)) return reuseHeldLeaderAuthority(database, context, scope, reusable);
   const actor = (await database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
   if (actor !== context.userId || context.resourceId !== scope.resourceId
     || context.action !== scope.action
@@ -44,4 +76,21 @@ export async function authorizeAdmissionLeader(database: RequestDatabase, contex
   }
   const refreshed = await accounts.getAuthenticatedAccount(), now = await admissionDatabaseNow(database);
   if (!refreshed || !isAuthenticatedSessionLive(refreshed.session.expiresAt, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+  held?.set(heldLeaderAuthorityKey(context), { exclusive: Boolean(operation) || reusable?.exclusive === true, sessionExpiresAt: refreshed.session.expiresAt });
+}
+
+/**
+ * Revalidates, in one statement, what the held row locks cannot freeze: the transaction actor, canonical leadership and session expiry.
+ * @param database - Transaction that already holds this authority's locks.
+ * @param context - Server-resolved scope. @param scope - Requested action/resource/operation, compared exactly as the full path does.
+ * @param held - Authority verified earlier in this transaction.
+ * @returns Nothing while the same leader and live session remain valid.
+ */
+async function reuseHeldLeaderAuthority(database: RequestDatabase, context: AuthorizedAdmissionContext, scope: { action: AdmissionAction; resourceId: string; operation?: ReauthenticationOperation }, held: HeldLeaderAuthority): Promise<void> {
+  if (context.resourceId !== scope.resourceId || context.action !== scope.action
+    || scope.operation && context.sensitiveOperation !== scope.operation) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+  // The fenced subquery takes the leadership lock first, so the clock is sampled after any wait.
+  const current = (await database.execute<{ actor: string | null; locked: boolean | null; now: Date | string }>(sql`select held.actor,held.locked,clock_timestamp() as now from (select public.current_app_user_id() as actor,case when public.current_app_user_id()=${context.userId} then public.lock_admission_canonical_leader(${context.tribeId}) else false end as locked offset 0) held`)).rows[0];
+  if (current?.actor !== context.userId || current.locked !== true) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+  if (!isAuthenticatedSessionLive(held.sessionExpiresAt, new Date(current.now))) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
 }

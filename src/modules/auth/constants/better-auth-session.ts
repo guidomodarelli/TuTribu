@@ -12,3 +12,6 @@ export const CONNECTION_TIMEOUT_ERROR_SIGNATURE = "timeout exceeded when trying 
 export const BETTER_AUTH_SESSION_ERROR_CAUSE_MAX_DEPTH = 5;
 /** Server renders cannot update the browser cookie, so they must never renew the database session. */
 export const SERVER_RENDER_SESSION_QUERY = { disableRefresh: true } as const;
+
+/** Key of the one session lookup shared by the loaders of a single server render. */
+export const SERVER_RENDER_SESSION_MEMO_KEY = "auth:server-render-session";
