@@ -1611,6 +1611,8 @@ Cerrada el 2026-10-19 con el [ensayo de idempotencia](validation/zavu-idempotenc
 
 - [ ] T206 Verificar driver frecuente autorizado/activo en target elegido con catch-up/fallo visible y cola/capacidad saludables; medir disponibilidad→inbox/lista/avisos p95<30 s y ventana cerrada→aceptación de agrupado≤5 min, stock/pool y runs omitidos. OG-05 no pasa por cronfile/workflow simulado; no desplegar/contratar sin autorización. Archivos: `specs/001-academy-admissions/validation/notifications-and-scheduler.md`. Dependencias: `T191`, `T200`, `T197`. Trazabilidad: `SC-015`, `TC-027`, `RG-08`, `OG-05`.
 
+Medición del 2026-10-20 en el piloto local, sin acreditar. Solicitud y aviso interno visibles desde otra conexión con p95 de 3,7 s. Campana del líder con p95 de 14,3 s (n=9). La lista de la bandeja llegó a 31,4 s y su cota es de unos 32 s, porque la lectura tarda 17,2 s en p95. Los dos agrupados enviados quedaron `unknown` a los 5 min 52 s y 9 min 58 s del cierre, y el tercero se suprimió. El driver estuvo incompleto (503) en 36 de 42 corridas. Detalle, causas y período afectado en la [medición de SC-015](validation/notifications-and-scheduler.md#medición-de-sc-015-en-el-piloto-local-2026-10-20). T206 sigue pendiente.
+
 <a id="t207"></a>
 
 - [x] T207 Preparar y ejecutar un ensayo funcional automatizado con diez cuentas ficticias independientes y sesiones reales: al menos nueve completan solicitar/ingresar <2 min desde el enlace, con cuentas/canales preparados y excluyendo sólo la demora externa de entrega; registrar SC-014 sin atribuir usabilidad humana ni verificación real de Google/proveedor. Usar el acceso de desarrollo sin habilitar registro público o métodos nuevos en producción; conservar los controles de las acciones sensibles (los de recencia se retiraron el 2026-10-19). Archivos: `tests/e2e/admission-entry-sample.spec.ts`, `specs/001-academy-admissions/validation/admission-entry-sample.md`. Dependencias: `T198`, `T197`. Trazabilidad: `FR-133`, `SC-014`, `SC-018`.
@@ -1628,6 +1630,8 @@ Alcance actualizado el 2026-10-19 por decisión del usuario: la auditoría con l
 <a id="t209"></a>
 
 - [ ] T209 Ejecutar dataset/carga real en infraestructura sana, SC-013/SC-015/SC-021 y abandoned checkout/transaction/responsiveness/pool; medir warm-up/externo aparte, revisar ocurrencias equivalentes del pool y ajustar solo knobs técnicos preservando límites de producto. Archivos: `tests/performance/academy-admissions.performance.test.ts`, `specs/001-academy-admissions/validation/performance.md`. Dependencias: `T200`, `T197`. Trazabilidad: `SC-013`, `SC-015`.
+
+Parte SC-015: la [medición del 2026-10-20 en el piloto local](validation/notifications-and-scheduler.md#medición-de-sc-015-en-el-piloto-local-2026-10-20) no la acredita, porque el driver no estaba sano y la medición no corrió en un host cercano a la base. SC-013 y SC-021 conservan su estado.
 
 
 ### Documentación

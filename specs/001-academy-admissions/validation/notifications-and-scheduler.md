@@ -127,3 +127,93 @@ Esto acredita un driver autorizado en funcionamiento sobre el piloto. No mide SC
 ### Caída silenciosa y recuperación
 
 El proceso del driver dejó de existir después de la corrida de las 12:48:27 UTC (47 corridas, todas `status:200`, entre 42 y 44 s cada una) y no volvió a escribir hasta que se relanzó a las 18:13:00 UTC; la primera corrida tras el relanzamiento completó el catch-up con 200 en 42.315 ms. El proceso no dejó ningún error: la caída no fue visible desde el driver, sólo por la ausencia de líneas nuevas. Para OG-05 esto confirma que el piloto necesita una alerta de staleness del driver (por ejemplo, la última ejecución exitosa que ya publica la vista de actividad) antes de acreditar fallo visible; el hueco de unas cinco horas y media queda registrado como ventana sin ejecuciones.
+
+## Medición de SC-015 en el piloto local (2026-10-20)
+
+**Resultado: SC-015 no queda acreditado.** El driver de mantenimiento no estuvo sano durante la medición: terminó incompleto en casi todas las corridas desde las 13:30Z y seguía así al cierre. Por eso ninguna observación de esta sección cumple la condición «con infraestructura sana». Además, la lista de la bandeja no garantiza el objetivo en este entorno, y ningún correo agrupado tuvo aceptación confirmada del proveedor dentro de cinco minutos del cierre de su ventana. T206, la parte SC-015 de T209 y OG-05 siguen pendientes.
+
+### Condiciones
+
+- **Entorno.** Es el piloto local, no el target de producción. Corre un `next start` del build del piloto, con código de producto idéntico a `6cd0b6c0`, servido por portless en `https://dev.tutribu.app` y conectado a la rama Neon privada del piloto. Las 2.411 consultas del observador, de una sentencia cada una, midieron un RTT local→Neon de 158 ms mínimo, 167 ms p50 y 187 ms p95. El desfase entre el reloj de PostgreSQL y el local fue de 22 ms.
+- **Configuración.** No se tocaron la política, la conexión de Zavu ni los cupos (20 avisos y 10 códigos por día, país AR). Tampoco cambiaron la preferencia agrupada del líder ni el correo de admisión de la tribu. No se aplicaron migraciones.
+- **Solicitantes.** Se crearon dieciocho cuentas sintéticas del dominio reservado `.test`, igual que en T207: con el plugin de acceso de desarrollo y el adapter real de Better Auth y Drizzle, sin fabricar filas de sesión ni cookies. Cada cuenta presentó su solicitud desde la interfaz real, con un número de WhatsApp ficticio de AR que nunca se contactó. La interfaz la sirvió un `next dev` en loopback dentro del worktree propio `sc015-pilot-measurement` (`6cd0b6c0`), con el entorno del piloto inyectado sólo en memoria y sin `CRON_SECRET`.
+- **Cohortes.** Se armaron tres cohortes de seis solicitudes, una por cada ventana UTC de cinco minutos (13:30, 13:35 y 13:40). En cada ventana hubo una presentación cada 20 s a partir del segundo 10. Las dieciocho respondieron 201 con la solicitud pendiente. Entre el clic y la respuesta pasaron 9,2–21,5 s (p50 de 10,8 s), con `next dev` contra la base remota; este tramo no forma parte de SC-015.
+- **Observación.** Hubo tres fuentes de datos:
+  - Un observador de sólo lectura consultó PostgreSQL cada segundo para registrar la primera vez que la solicitud y el aviso interno del líder eran visibles desde otra conexión, junto con el estado de grupos y entregas.
+  - En la sesión real del líder en Chrome sobre el piloto, la página de solicitudes registró cuándo aparecía cada fila, la etiqueta de la campana y la duración de cada lectura periódica.
+  - El driver existente ejecutó el mantenimiento una vez por minuto, sin llamadas manuales.
+- **Instante de disponibilidad.** La medición conservadora parte de `submitted_at`, que precede a la respuesta en 2,5–2,9 s (p50 de 2,6 s). También se informa la medición desde la respuesta HTTP, que es posterior al commit.
+
+### Aparición en bandeja y avisos internos (driver no sano)
+
+| Medición | n | p50 | p95 | Máx. | Comentario |
+| --- | --- | --- | --- | --- | --- |
+| Fila de la solicitud y fila del aviso interno del líder visibles desde otra conexión, desde `submitted_at` | 18 | 3,1 s | 3,7 s | 3,7 s | Se escriben en la misma transacción y aparecieron en la misma observación. Desde la respuesta: p50 0,46 s y p95 0,98 s, con un observador que consulta cada 1 s y suma el RTT. |
+| Campana del líder en la UI (contador de avisos), desde `submitted_at` | 9 | 9,1 s | 14,3 s | 14,3 s | Cubre S01–S09. Desde la respuesta: p50 6,6 s y p95 11,7 s. A partir de la décima solicitud la etiqueta muestra «9+» y ya no distingue avisos nuevos. |
+| Fila en la lista de la bandeja (UI), desde `submitted_at` | 4 | — | — | 31,4 s | Cubre S01–S04: 29,0, 31,4, 19,5 y 12,6 s, y desde la respuesta 26,4, 28,8, 17,0 y 10,1 s. El líder abrió un detalle entre las 13:31:31 y las 13:32:12 y volvió a la lista a las 13:43:25, así que S05–S18 no tienen una medición válida en la lista. |
+
+Las lecturas periódicas medidas en Chrome sobre el piloto entre las 13:30 y las 13:43 fueron:
+
+- **Lista de la bandeja** (`/admissions/requests`, 46 lecturas): cada lectura tardó 11,0 s en p50, 17,2 s en p95 y 27,2 s como máximo. Entre refrescos completados pasaron 15,0 s en p50, 25,8 s en p95 y 35,2 s como máximo.
+- **Contador de avisos** (50 lecturas): cada lectura tardó 2,7 s en p50 y 4,1 s en p95, con un intervalo de 16,3 s en p95.
+
+Con el poll de 15 s de T188, la lista tarda como máximo el intervalo más la lectura: unos 32 s con la lectura p95 y 42 s con la máxima. Con esa cota, el p95 de la lista no baja de 30 s en este entorno, y la única observación de lista que superó 30 s (S02) es coherente con ella. La demora viene de la latencia del entorno: cada consulta secuencial suma unos 163 ms y una lectura hace varias transacciones de autorización, lectura y registro de exposición. En cambio, las filas confirmadas quedan disponibles en menos de 1 s, y la campana cumple con margen. Estos tramos no dependen del driver, porque la solicitud y el aviso se confirman en la misma transacción. Aun así se registraron con el driver no sano y no acreditan el objetivo.
+
+### Correos agrupados
+
+El mantenimiento materializa los grupos al recolectar las fuentes, así que cada hecho cae en la ventana vigente en el momento de la recolección. Las tres cohortes formaron tres grupos del líder (`reviewer`/`grouped`) con seis miembros cada uno.
+
+| Grupo | Ventana UTC | Cierre→congelado | Cierre→envío autorizado | Cierre→resultado | Resultado |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 13:30–13:35 | 2 min 42,7 s | 5 min 33,5 s | 5 min 52,5 s | `unknown` (`dispatch_result_unknown`), sin id del proveedor |
+| 2 | 13:35–13:40 | 4 min 42,0 s | 9 min 42,3 s | 9 min 57,6 s | `unknown` (`dispatch_result_unknown`), sin id del proveedor |
+| 3 | 13:40–13:45 | 1 min 32,6 s | — | — | Quedó `queued` con el turno diferido a las 13:59:07 y pasó a `suppressed` hacia las 14:06, después de cancelar las solicitudes |
+
+**No se cumple el plazo de cinco minutos desde el cierre:** ningún correo agrupado tuvo aceptación confirmada. En total:
+
+- dos llamadas reales al proveedor con resultado incierto, sin reenvío: cada entrega conserva una sola fila de intento, como exige OG-04;
+- ninguna aceptación confirmada;
+- una entrega suprimida sin envío.
+
+El cupo diario consumió 2 de los 20 avisos; los códigos no se usaron.
+
+### Salud del driver, cola y pool
+
+Entre las 13:29 y las 14:11 hubo 42 corridas del driver:
+
+- **Completas (200):** 3, a las 13:29, 13:36 y 13:41.
+- **Incompletas (503):** 36. El mantenimiento agotó su presupuesto de 45 s y conservó el avance para la corrida siguiente.
+- **Omitidas por ocupado (202):** 3, a las 13:58, 14:00 y 14:08, porque la corrida anterior seguía en curso.
+
+La última corrida completa terminó a las 13:41:41. Antes de la medición había una sola falla aislada, a las 13:23. Los períodos afectados son de 13:30 a 13:35, de 13:37 a 13:40 y desde las 13:42 en adelante, sin recuperación al cierre de este registro.
+
+Al terminar la medición no quedaba carga propia: a las 14:10 `pg_stat_activity` mostraba una sola conexión, la del mantenimiento, sin candados en espera. El servidor de desarrollo y el ensayo terminaron a las 14:05:31 y la pestaña del líder se cerró a las 14:07. Las causas observadas son estas:
+
+1. **El presupuesto no deja margen.** Sin carga, cada una de las siete fases tarda 3,6–4,3 s por la latencia hacia Neon, y una corrida vacía ocupa unos 42 de los 45 s. Con trabajo real, la preparación de avisos tardó 15,9 s y 36,4 s, y el despacho 17,1 s. Las corridas quedan incompletas, y la rotación de fases demora la preparación y el envío durante minutos.
+2. **La selección de tribu compite con la bandeja abierta.** El productor selecciona la tribu con `FOR UPDATE ... SKIP LOCKED`, mientras cada lectura de la bandeja mantiene `FOR SHARE` sobre esa misma fila durante 9–27 s, cada 15 s. La corrida completa de las 13:36 seleccionó cero tribus aunque la ventana 1 ya estaba cerrada y la bandeja del líder estaba abierta y enfocada. Esta causa se infiere del código y de esa corrida; el candado no se midió por separado.
+3. **El despacho deja de observar el envío antes de que responda el proveedor.** Entre la autorización y el `unknown` pasaron 19,0 s y 15,2 s. El despacho usa un `requestTimeoutMs` de 15 s, acotado además por el presupuesto restante. El diagnóstico de correo del piloto del 19/10 tardó 16,9 s entre la autorización y la aceptación.
+4. **La recolección no avanza desde las 14:05.** La limpieza (17 cancelaciones entre las 13:54 y las 14:03) y la aprobación del líder agregaron 18 obligaciones de solicitante, y la ventana de 24 h quedó con 36 fuentes. Desde las 14:06, cada corrida dedica 34–36 s a `prepare_notifications`, que termina `unresolved` porque alcanza el plazo. El checkpoint de recolección no cambia: sigue en la versión 18, con el último barrido completo a las 14:05:42. Las demás fases avanzan por rotación. Si la página de recolección no entra en el presupuesto, el atraso puede seguir hasta que esas obligaciones salgan de la ventana de 24 h; queda pendiente confirmarlo en las corridas siguientes.
+5. **El pool y la cola no se saturaron.** Durante la medición hubo 17 conexiones en p50, 28 en p95 y 37 como máximo, frente a un `max_connections` de 901. La cola terminó sin pendientes.
+6. **La vista de actividad no avisa este fallo.** «Última ejecución exitosa» se actualiza con cualquier fase completada (`academy_admission_worker_runs`, despachos y materializaciones). Por eso las corridas incompletas que completan alguna fase no disparan el aviso de diez minutos. El fallo de presupuesto sólo se ve en el registro del driver y en `admission_messaging_maintenance_progress`.
+
+### Limpieza y estado final
+
+- **Solicitudes.** Diecisiete quedaron `cancelled` mediante el flujo de cancelación de cada solicitante en la interfaz. PostgreSQL lo confirma, aunque la última aserción del script falló por un selector de texto ambiguo. S01 fue **aprobada por el líder** desde su sesión en Chrome durante la medición, sin intervención del script. Esa cuenta sintética es ahora integrante activa de `test`, y retirarla le corresponde al líder desde la aplicación.
+- **Avisos al solicitante.** Las 17 obligaciones de cancelación y la de aprobación no generaron correo, porque las cuentas `.test` no tienen correo confiable.
+- **Entregas.** Quedaron dos `unknown`, una `suppressed` y las dos de diagnóstico anteriores.
+- **Cuentas.** Las dieciocho cuentas sintéticas y sus sesiones permanecen en la base del piloto.
+- **Driver.** El driver sigue activo, pero incompleto.
+
+### Conclusión
+
+El producto confirma la solicitud y el aviso interno en la misma transacción, y ambos quedan disponibles en menos de un segundo después de la respuesta. Con la sesión real del líder, la campana aparece dentro de los 30 s.
+
+En este piloto local, en cambio, no cumplen ni la lista de la bandeja ni el agrupado. La latencia local→Neon convierte la lectura de la bandeja y cada fase del mantenimiento en operaciones de varios segundos, y eso agota el presupuesto de 45 s. A eso se suman tres factores: el posible bloqueo de la selección por las lecturas de la bandeja, una observación del envío más corta que la respuesta del proveedor, y una página de recolección que no entra en el presupuesto.
+
+Para cerrar SC-015 hace falta medir en un host cercano a la base y con el driver sano. Además hay que revisar, con autorización:
+
+- el presupuesto o la rotación del mantenimiento y el tamaño de la página de recolección;
+- la convivencia de `SKIP LOCKED` con el `FOR SHARE` de los lectores;
+- el `requestTimeoutMs` del despacho de correo.
+
+El resumen sanitizado del ensayo, con horarios y alias pero sin credenciales ni identificadores, quedó en el directorio temporal de la sesión. Ni ese resumen ni el script temporal se versionan.
