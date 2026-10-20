@@ -50,6 +50,13 @@ const DATABASE_POOL_OPERATION = {
   maintenanceIdleError: "maintenance_database_pool_idle_error",
 } as const;
 
+/**
+ * Opens the transaction and applies its local idle guard in one simple-protocol
+ * round trip. Both values are server constants, so no caller input is ever
+ * interpolated; request settings stay parameterized in their own statement.
+ */
+const GUARDED_TRANSACTION_BEGIN = `${DATABASE_TRANSACTION.begin}; select set_config('${DATABASE_TRANSACTION_SETTING.idleInTransactionSessionTimeout}', '${String(IDLE_IN_TRANSACTION_TIMEOUT_MILLISECONDS)}', true)`;
+
 type GlobalDatabase = typeof globalThis & {
   __tuTribuDatabasePool?: Pool;
   __tuTribuMaintenanceDatabasePool?: Pool;
@@ -136,12 +143,9 @@ export async function runWithGuardedTransaction<T>(
 
   try {
     client.on("error", handleCheckedOutClientError);
-    await client.query(DATABASE_TRANSACTION.begin);
+    await client.query(GUARDED_TRANSACTION_BEGIN);
 
     const database = createRequestDatabase(client);
-    await database.execute(
-      sql`select set_config(${DATABASE_TRANSACTION_SETTING.idleInTransactionSessionTimeout}, ${String(IDLE_IN_TRANSACTION_TIMEOUT_MILLISECONDS)}, true)`
-    );
 
     if (prepare) {
       await prepare(database);

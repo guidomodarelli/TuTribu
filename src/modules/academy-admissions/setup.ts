@@ -50,6 +50,8 @@ import type { AdmissionCommandScope } from "./domain/repositories/admission-repo
 import { GetAdmissionOverviewUseCase } from "./application/use-cases/get-admission-overview-use-case";
 import { PostgresAdmissionOverviewReader } from "./infrastructure/repositories/postgres-admission-overview-reader";
 import { ResolveAdmissionTribeUseCase } from "./application/use-cases/resolve-admission-tribe-use-case";
+import { memoizeForRequest } from "@/src/modules/shared/infrastructure/request-scope/request-memo";
+import { ADMISSION_REQUEST_MEMO_KEY } from "./constants/admission-request-memo";
 import { ReadAdmissionOperationUseCase } from "./application/use-cases/read-admission-operation-use-case";
 import { PostgresAdmissionOperationReader } from "./infrastructure/repositories/postgres-admission-operation-reader";
 import { ContactVerificationUseCases } from "./application/use-cases/contact-verification-use-cases";
@@ -297,7 +299,8 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
       const overviewReader = new PostgresAdmissionOverviewReader(options.executePublic, executeAccount, options.readRecoveryLock);
       const overview = new GetAdmissionOverviewUseCase(dependencies.accounts, overviewReader, dependencies.clock);
       const own = new GetOwnAdmissionUseCases(dependencies.accounts, new PostgresOwnAdmissionRequestReader(executeAccount, options.readRecoveryLock), dependencies.clock);
-      const resolveTribe = new ResolveAdmissionTribeUseCase(overviewReader);
+      /** The loaders of one render share the public slug lookup; route handlers and other requests read it again. */
+      const resolveTribe = new ResolveAdmissionTribeUseCase({ readIdentity: (query) => memoizeForRequest(`${ADMISSION_REQUEST_MEMO_KEY.tribeIdentity}:${query.slug}`, () => overviewReader.readIdentity(query)) });
       return { useCases: {
         overview, resolveTribe, own,
         page: new GetAdmissionPageUseCase(dependencies.accounts, { overview, resolveTribe, own, legacyInvitations: { findActiveByToken: (query) => executeAccount(query, (database) => new PostgresLegacyAdmissionInvitationReader(database).findActiveByToken(query)) } }, dependencies.clock),

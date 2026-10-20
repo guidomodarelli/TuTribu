@@ -81,9 +81,9 @@ describe("createServerDatabaseClient", () => {
     );
 
     expect(detectedOverlappingQuery).toBe(false);
-    // BEGIN + idle-in-transaction guard + one request-context statement + COMMIT.
-    expect(query).toHaveBeenCalledTimes(4);
-    expect(executedStatements[0]).toBe("BEGIN");
+    // BEGIN with its idle-in-transaction guard in one round trip + one request-context statement + COMMIT.
+    expect(query).toHaveBeenCalledTimes(3);
+    expect(executedStatements[0]).toMatch(/^BEGIN; select set_config\('idle_in_transaction_session_timeout', '\d+', true\)$/u);
     expect(executedStatements[executedStatements.length - 1]).toBe("COMMIT");
     expect(release).toHaveBeenCalledTimes(1);
   });
@@ -93,7 +93,7 @@ describe("createServerDatabaseClient", () => {
     let activeClient: EventEmitter | null = null;
     const release = vi.fn();
     const query = vi.fn(async (statement?: unknown) => {
-      if (statement === "BEGIN") {
+      if (typeof statement === "string" && statement.startsWith("BEGIN")) {
         activeClient?.emit("error", connectionError);
       }
 
@@ -175,9 +175,9 @@ describe("createServerDatabaseClient", () => {
       runWithGuardedTransaction(pool as never, async () => "done")
     ).resolves.toBe("done");
 
-    // BEGIN + idle-in-transaction guard + COMMIT, without request-context settings.
-    expect(query).toHaveBeenCalledTimes(3);
-    expect(executedStatements).toEqual(["BEGIN", "COMMIT"]);
+    // BEGIN with its idle-in-transaction guard in one round trip + COMMIT, without request-context settings.
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(executedStatements).toEqual([expect.stringMatching(/^BEGIN; select set_config\('idle_in_transaction_session_timeout', '\d+', true\)$/u), "COMMIT"]);
     expect(release).toHaveBeenCalledTimes(1);
     expect(release).toHaveBeenCalledWith(undefined);
   });

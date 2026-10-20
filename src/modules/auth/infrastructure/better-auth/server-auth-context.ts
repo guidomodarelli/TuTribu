@@ -5,8 +5,9 @@ import { headers } from "next/headers";
 
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import { resolvePrivateRequestContext } from "@/src/modules/shared/infrastructure/observability/private-request-context";
+import { memoizeForRequest } from "@/src/modules/shared/infrastructure/request-scope/request-memo";
 import { runWithBetterAuthLoggingContext } from "./better-auth-logger";
-import { BETTER_AUTH_DEPENDENCY, BETTER_AUTH_SESSION_FAILURE, BETTER_AUTH_SESSION_LOG_CONTEXT, BETTER_AUTH_SESSION_LOG_MESSAGE, CONNECTION_TIMEOUT_ERROR_SIGNATURE, BETTER_AUTH_SESSION_ERROR_CAUSE_MAX_DEPTH, SERVER_RENDER_SESSION_QUERY } from "../../constants/better-auth-session";
+import { BETTER_AUTH_DEPENDENCY, BETTER_AUTH_SESSION_FAILURE, BETTER_AUTH_SESSION_LOG_CONTEXT, BETTER_AUTH_SESSION_LOG_MESSAGE, CONNECTION_TIMEOUT_ERROR_SIGNATURE, BETTER_AUTH_SESSION_ERROR_CAUSE_MAX_DEPTH, SERVER_RENDER_SESSION_QUERY, SERVER_RENDER_SESSION_MEMO_KEY } from "../../constants/better-auth-session";
 
 import { auth } from "./auth";
 
@@ -111,9 +112,19 @@ function isRetryableBetterAuthSessionFailure(error: unknown) {
  * Resolves the Better Auth session for the current server request, retrying a
  * transient lookup failure once.
  *
+ * The parallel loaders of one server render share a single lookup: the cookie
+ * identity cannot change within the request, and the lookup never refreshes the
+ * session. Every account projection still revalidates the session in SQL.
+ * Route handlers and other non-render callers look it up on each call.
+ *
  * @returns The session of the signed-in member, or `null` for visitors.
  */
-export async function getServerBetterAuthSession(): Promise<BetterAuthSession> {
+export function getServerBetterAuthSession(): Promise<BetterAuthSession> {
+  return memoizeForRequest(SERVER_RENDER_SESSION_MEMO_KEY, readServerBetterAuthSession);
+}
+
+/** @returns The session read from Better Auth for the incoming request headers. */
+async function readServerBetterAuthSession(): Promise<BetterAuthSession> {
   const requestHeaders = await headers();
   const requestContext = resolvePrivateRequestContext(requestHeaders);
   const sessionLookup = {
