@@ -635,7 +635,7 @@ export async function createMessagingConfigurationRequestModule(usage:DatabaseCo
   const routing=buildAcademyAdmissionsModule(dependencies).createQueryModule({executePublic:(run)=>databaseClient.withRequestContext({userId:null,email:null},run),readRecoveryLock:async()=>readMessagingRecoveryLock()}).useCases;
   const configuration=buildMessagingModule(dependencies).createConfigurationModule({readSecurityFacts:async()=>readMessagingHostingSecurityFacts()});
   const providerAdapters=createRequestMessagingProviderAdapters(databaseClient);
-  return{configuration:configuration.useCases,resolveTribe:routing.resolveTribe,createPage:()=>configuration.createPage(routing.resolveTribe,{read:()=>providerAdapters.catalog.map((provider)=>({id:provider.id,channels:[...provider.channels]}))})};
+  return{configuration:configuration.useCases,resolveTribe:routing.resolveTribe,createPage:()=>configuration.createPage(routing.resolveTribe,{read:()=>providerAdapters.catalog.map((provider)=>({id:provider.id,channels:[...provider.channels]}))}),createSummaryPage:()=>configuration.createSummaryPage(routing.resolveTribe,{read:()=>providerAdapters.catalog.map((provider)=>({id:provider.id,channels:[...provider.channels]}))})};
 }
 
 /** @returns Own preference and independent leader email settings with native owner transactions, current session authority and canonical routing; no provider adapters or sends are composed. */

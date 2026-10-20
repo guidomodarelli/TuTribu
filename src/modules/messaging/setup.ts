@@ -180,6 +180,8 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
       return{useCases:configuration,
         /** @param resolveTribe - Canonical native routing. @param providers - Actual deployed registry metadata without SQL, keys or provider RPC. @returns One current server entrypoint for the wizard. */
         createPage(resolveTribe:Pick<ResolveAdmissionTribeUseCase,"execute">,providers:MessagingProviderCatalogReader){return new GetMessagingConnectionsPageUseCase(dependencies.accounts,{configuration,resolveTribe,catalog,providers},dependencies.clock);},
+        /** Same guarded configuration read without the notification delivery catalog, for summaries that only need connection and usage state. */
+        createSummaryPage(resolveTribe:Pick<ResolveAdmissionTribeUseCase,"execute">,providers:MessagingProviderCatalogReader){return new GetMessagingConnectionsPageUseCase(dependencies.accounts,{configuration,resolveTribe,providers},dependencies.clock);},
       };
     },
     /** @returns Minimal leader/challenge-owner transport reads without keyrings, provider calls or mutation. */
