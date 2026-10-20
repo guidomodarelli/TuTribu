@@ -79,81 +79,19 @@
     line-height: 1.55;
   }
 
-  // Saved candidate that is not active yet: one callout with the action that opens its pending step.
-  &__draft {
-    display: grid;
-    justify-items: start;
-    gap: 0.5rem;
-    padding-inline-start: 0.875rem;
-    border-inline-start: 2px solid var(--warning, var(--accent));
-  }
-
-  &__draftTitle {
-    margin: 0;
-    color: var(--foreground);
-    font-weight: 500;
-  }
-
-  &__nextStep {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem 1rem;
-    padding-inline-start: 0.875rem;
-    border-inline-start: 2px solid var(--accent, var(--primary));
-
-    &--done {
-      border-inline-start-color: var(--success, var(--border));
-    }
-  }
-
-  &__nextStepText {
-    display: grid;
-    min-width: 0;
-    margin: 0;
-    gap: 0.125rem;
-    color: var(--foreground);
-    line-height: 1.5;
-  }
-
-  &__nextStepLabel {
-    color: var(--text-secondary, var(--muted-foreground));
-    font-size: 0.8125rem;
-  }
-
-  &__result {
-    display: grid;
-    justify-items: start;
-    gap: 0.5rem;
-  }
-
-  &__feedback {
-    margin: 0;
-    max-width: 65ch;
-    padding-inline-start: 0.875rem;
-    border-inline-start: 2px solid var(--border-strong, var(--border));
-    color: var(--foreground);
-    line-height: 1.55;
-    overflow-wrap: anywhere;
-
-    &--alert {
-      border-inline-start-color: var(--danger, var(--destructive));
-      color: var(--danger, var(--destructive));
-    }
-  }
-
-
-
-  &__steps {
+  // The single highlighted action sits between the summary and the steps, full width on every screen.
+  &__nextAction {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     min-width: 0;
-    gap: 0.75rem;
   }
 
-  &__stepper {
+  // The guided flow and its collapsed recovery share the page width on every screen.
+  &__flow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
     min-width: 0;
+    gap: 1.5rem;
   }
 
   &__stepActions {
@@ -178,6 +116,14 @@
     gap: 1rem;
     padding-inline-start: 0.875rem;
     border-inline-start: 2px solid var(--warning, var(--border-strong, var(--border)));
+  }
+
+  &__attentionNotice {
+    margin: 0;
+    max-width: 65ch;
+    color: var(--foreground);
+    line-height: 1.55;
+    overflow-wrap: anywhere;
   }
 
   &__preserved {

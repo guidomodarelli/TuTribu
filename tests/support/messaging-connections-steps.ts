@@ -1,22 +1,50 @@
-/** Opens a section of the messaging connection workspace in a real browser the way a person does. @module messaging-connections-steps */
+/** Moves through the linear messaging connection flow in a real browser the way a person does. @module messaging-connections-steps */
 import type { Page } from "@playwright/test";
-import { MESSAGING_CONNECTIONS_STEPPER_COPY, MESSAGING_CONNECTIONS_TAB_LABEL } from "@/src/modules/messaging/constants/messaging-connections-workspace";
+import { MESSAGING_CONNECTIONS_FLOW_COPY } from "@/src/modules/messaging/constants/messaging-connections-workspace";
+
+/** Visible title prefix of the collapsed preserved tests, followed by their count. */
+const PRESERVED_TESTS_TITLE = "Pruebas conservadas";
+/** Prefix of the per-channel test steps ("Probar Correo"). */
+const TEST_STEP_PREFIX = "Probar ";
+/** Upper bound of Atrás/Siguiente presses; the flow has at most eight steps. */
+const MAXIMUM_MOVES = 12;
+/** Accessible name of the progress list, "Paso N de M". */
+const PROGRESS_NAME = /^Paso \d+ de \d+$/;
 
 /**
- * Completed steps open from the stepper, the current step from the summary's "Ir a" button, and Security from its own
- * action; an open section is left as it is.
+ * Opens a step with Atrás and Siguiente, or Security from its own toggle. "Pruebas" means the first channel test step.
  * @param page - Page showing the connection workspace.
- * @param name - Visible name of the section, such as "Pruebas" or "Seguridad".
- * @returns Once the section's region is visible.
+ * @param name - Visible step title ("Clave", "Credencial", "Canales", "Probar SMS", "Activación"), "Pruebas" or "Seguridad".
+ * @returns Once that step (or the security region) is visible; Siguiente stays disabled on a step whose write has not finished.
  */
 export async function openConnectionsStep(page: Page, name: string): Promise<void> {
-  const region = page.getByRole("region", { name, exact: true });
-  if (await region.isVisible()) return;
-  if (name === MESSAGING_CONNECTIONS_TAB_LABEL.security) await page.getByRole("button", { name: MESSAGING_CONNECTIONS_STEPPER_COPY.security, exact: true }).click();
-  else {
-    const step = page.getByRole("navigation", { name: MESSAGING_CONNECTIONS_STEPPER_COPY.label, exact: true }).getByRole("button", { name: new RegExp(`^${name}`) });
-    if (await step.getAttribute("aria-disabled") === "true") await page.getByRole("button", { name: `Ir a ${name}`, exact: true }).click();
-    else await step.click();
+  const toggle = page.getByRole("button", { name: new RegExp(`^(${MESSAGING_CONNECTIONS_FLOW_COPY.security}|${MESSAGING_CONNECTIONS_FLOW_COPY.steps})$`) });
+  if (name === MESSAGING_CONNECTIONS_FLOW_COPY.securityRegion) {
+    if (await toggle.getAttribute("aria-pressed") !== "true") await toggle.click();
+    await page.getByRole("region", { name, exact: true }).waitFor({ state: "visible" });
+    return;
   }
-  await region.waitFor({ state: "visible" });
+  if (await toggle.getAttribute("aria-pressed") === "true") await toggle.click();
+  for (let moves = 0; moves < MAXIMUM_MOVES; moves += 1) {
+    const progress = page.getByRole("navigation", { name: PROGRESS_NAME });
+    const labels = await progress.locator("[data-label]").evaluateAll((elements) => elements.map((element) => element.getAttribute("data-label") ?? ""));
+    const current = await progress.getByRole("listitem").evaluateAll((items) => items.findIndex((item) => item.getAttribute("aria-current") === "step"));
+    const target = name === "Pruebas" ? labels.findIndex((label) => label.startsWith(TEST_STEP_PREFIX)) : labels.indexOf(name);
+    if (target < 0) throw new Error(`The connection flow has no step named ${name}: ${labels.join(", ")}`);
+    if (target === current) { await page.getByRole("group", { name: labels[target], exact: true }).waitFor({ state: "visible" }); return; }
+    await page.getByRole("button", { name: target > current ? MESSAGING_CONNECTIONS_FLOW_COPY.next : "Atrás", exact: true }).click();
+    await page.waitForFunction((previous) => Array.from(document.querySelectorAll(`nav[aria-label^="Paso "] li`)).findIndex((item) => item.getAttribute("aria-current") === "step") !== previous, current);
+  }
+  throw new Error(`Could not reach the connection step ${name}`);
+}
+
+/**
+ * Expands the collapsed recovery of preserved tests, as a person does before looking up an earlier emission.
+ * @param page - Page showing the connection flow.
+ * @returns Once the preserved references are visible; an expanded list is left as it is.
+ */
+export async function openPreservedTests(page: Page): Promise<void> {
+  const disclosure = page.locator("details").filter({ hasText: PRESERVED_TESTS_TITLE });
+  if (await disclosure.getAttribute("open") === null) await disclosure.locator("summary").click();
+  await disclosure.getByRole("list").waitFor({ state: "visible" });
 }

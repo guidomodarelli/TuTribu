@@ -1,20 +1,63 @@
-/** Names the connection workspace tabs and their advisory next steps. @module messaging-connections-workspace */
-/** Workspace sections in operational order; security and recovery stay secondary and last. */
-export type MessagingConnectionsTab="connection"|"channels"|"tests"|"activation"|"security";
-export const MESSAGING_CONNECTIONS_TAB={connection:"connection",channels:"channels",tests:"tests",activation:"activation",security:"security"} as const satisfies Record<MessagingConnectionsTab,MessagingConnectionsTab>;
-export const MESSAGING_CONNECTIONS_TAB_ORDER=[MESSAGING_CONNECTIONS_TAB.connection,MESSAGING_CONNECTIONS_TAB.channels,MESSAGING_CONNECTIONS_TAB.tests,MESSAGING_CONNECTIONS_TAB.activation,MESSAGING_CONNECTIONS_TAB.security] as const satisfies readonly MessagingConnectionsTab[];
-export const MESSAGING_CONNECTIONS_TAB_LABEL={connection:"Conexión",channels:"Canales",tests:"Pruebas",activation:"Activación",security:"Seguridad"} as const satisfies Record<MessagingConnectionsTab,string>;
-
-/** Ordered steps shown in the stepper; security is a secondary section outside the progress. */
-export const MESSAGING_CONNECTIONS_STEP_ORDER=[MESSAGING_CONNECTIONS_TAB.connection,MESSAGING_CONNECTIONS_TAB.channels,MESSAGING_CONNECTIONS_TAB.tests,MESSAGING_CONNECTIONS_TAB.activation] as const satisfies readonly MessagingConnectionsTab[];
-export const MESSAGING_CONNECTIONS_STEP_DESCRIPTION={connection:"Guardá y comprobá la clave de Zavu.",channels:"Elegí remitentes y plantillas.",tests:"Probá cada canal con un código.",activation:"Revisá los requisitos y activá."} as const satisfies Record<(typeof MESSAGING_CONNECTIONS_STEP_ORDER)[number],string>;
-/** Copy of the stepper and its secondary actions. */
-export const MESSAGING_CONNECTIONS_STEPPER_COPY={label:"Pasos de la conexión",complete:"Conexión activa para la academia",security:"Seguridad y retiro",steps:"Volver a los pasos"} as const;
-/** Unpublished-draft notice: a saved candidate that is not the active connection yet. */
-export const MESSAGING_CONNECTIONS_DRAFT_COPY={title:"Tenés una conexión guardada sin activar",description:"Todavía no se usa para enviar códigos ni avisos. Seguí desde el paso pendiente para activarla.",action:"Continuar donde quedó"} as const;
-
+/** Names the linear connection flow steps, their copy and the advisory next action. @module messaging-connections-workspace */
+/** Kinds of step in the linear flow; a test step exists once per configured channel. Security and recovery stay outside the flow. */
+export type MessagingConnectionsStepKind="key"|"credential"|"channels"|"test"|"activation";
+export const MESSAGING_CONNECTIONS_STEP_KIND={key:"key",credential:"credential",channels:"channels",test:"test",activation:"activation"} as const satisfies Record<MessagingConnectionsStepKind,MessagingConnectionsStepKind>;
+/** Short title and one-sentence description of each step; a test step names its channel. */
+export const MESSAGING_CONNECTIONS_STEP_COPY={
+  key:{title:"Clave",description:"Guardá la clave de Zavu como conexión candidata."},
+  credential:{title:"Credencial",description:"Comprobá el acceso y el tipo de cuenta en Zavu."},
+  channels:{title:"Canales",description:"Elegí el remitente y, en WhatsApp, la plantilla de cada canal que vas a usar."},
+  /** @param channel - Visible channel label. */
+  test:(channel:string)=>({title:`Probar ${channel}`,description:`Enviá un código de prueba por ${channel} y confirmá el que recibiste.`}),
+  activation:{title:"Activación",description:"Revisá los requisitos y activá la conexión para la academia."},
+} as const;
+/** Copy of the flow shell, its blocked reasons and the secondary security section. */
+export const MESSAGING_CONNECTIONS_FLOW_COPY={
+  label:"Pasos de la conexión",next:"Siguiente",activate:"Activar conexión",replace:"Reemplazar conexión seleccionada",active:"Conexión activa",
+  busy:"Esperá a que termine la operación en curso.",
+  keyRequired:"Guardá la clave de Zavu para seguir.",
+  credentialRequired:"Comprobá la credencial para seguir.",
+  channelRequired:"Guardá al menos un canal para seguir.",
+  /** @param channel - Visible channel label. */
+  testRequired:(channel:string)=>`Confirmá el código de ${channel} para seguir.`,
+  savedKey:"La clave quedó guardada como conexión candidata. Para usar otra clave, retirá esta conexión desde Seguridad y retiro.",
+  security:"Seguridad y retiro",steps:"Volver a los pasos",securityRegion:"Seguridad",
+} as const;
 /** Advisory progress derived from own metadata; the server still decides every requirement at commit time. */
 export type MessagingConnectionsNextStep="saveCandidate"|"validateCredential"|"prepareChannel"|"testChannel"|"activate"|"active";
 export const MESSAGING_CONNECTIONS_NEXT_STEP={saveCandidate:"saveCandidate",validateCredential:"validateCredential",prepareChannel:"prepareChannel",testChannel:"testChannel",activate:"activate",active:"active"} as const satisfies Record<MessagingConnectionsNextStep,MessagingConnectionsNextStep>;
-export const MESSAGING_CONNECTIONS_NEXT_STEP_TAB={saveCandidate:"connection",validateCredential:"connection",prepareChannel:"channels",testChannel:"tests",activate:"activation",active:"activation"} as const satisfies Record<MessagingConnectionsNextStep,MessagingConnectionsTab>;
-export const MESSAGING_CONNECTIONS_NEXT_STEP_COPY={saveCandidate:"Guardá la clave de Zavu para crear una conexión candidata.",validateCredential:"Comprobá la credencial de la candidata.",prepareChannel:"Prepará al menos un canal con sus recursos de Zavu.",testChannel:"Enviá una prueba y confirmá el código recibido.",activate:"Revisá los requisitos y activá la candidata.",active:"La conexión candidata es la seleccionada para la academia."} as const satisfies Record<MessagingConnectionsNextStep,string>;
+/** Destination of the single highlighted action: a flow step (a test step names its channel), the security section, or the usage page. */
+export type MessagingConnectionsNextActionTarget={kind:"step";step:MessagingConnectionsStepKind}|{kind:"security"}|{kind:"usage"};
+/** Copy of the single next action; every sentence says what is missing and why. Channel names come from the presentation labels. */
+export const MESSAGING_CONNECTIONS_NEXT_ACTION_COPY={
+  region:"Próxima acción",
+  saveCandidate:{title:"Guardá la clave de Zavu",reason:"Todavía no hay una conexión candidata para probar y activar.",action:"Ir a Clave"},
+  suspendedCandidate:{title:"La candidata está suspendida",reason:"Una conexión suspendida o desconectada no puede activarse. Revisá su estado en Seguridad y retiro.",action:"Ir a Seguridad y retiro"},
+  credentialNotValidated:{title:"Comprobá la credencial",reason:"La clave quedó guardada, pero todavía no se comprobó con Zavu.",action:"Ir a Credencial"},
+  credentialInvalid:{title:"Revisá la clave de Zavu",reason:"Zavu rechazó la clave guardada. Guardá una clave nueva o volvé a comprobarla.",action:"Ir a Credencial"},
+  credentialUnavailable:{title:"Volvé a comprobar la credencial",reason:"No pudimos comprobar la clave con Zavu. Reintentá la comprobación.",action:"Ir a Credencial"},
+  productionRequired:{title:"Usá una cuenta de producción",reason:"La clave comprobada es de una cuenta de prueba de Zavu. Para activar hace falta una cuenta de producción.",action:"Ir a Credencial"},
+  noChannel:{title:"Prepará un canal",reason:"Ningún canal tiene remitente configurado todavía.",action:"Ir a Canales"},
+  /** @param channels - Unavailable channel labels already joined. */
+  unavailableChannels:(channels:string)=>({title:`Revisá ${channels} en Canales`,reason:`Zavu no tiene disponible ${channels}. La activación necesita comprobar todos los canales configurados.`,action:"Ir a Canales"}),
+  /** @param channels - Pending channel labels already joined. */
+  testTitle:(channels:string)=>`Falta probar ${channels}`,
+  /** @param channel - The first pending channel, preselected in Pruebas. */
+  testAction:(channel:string)=>`Probá ${channel}`,
+  /** @param channels - Verified channel labels. @param plural - Whether more than one channel is verified. */
+  verified:(channels:string,plural:boolean)=>`${channels} ya ${plural?"están comprobados":"está comprobado"}.`,
+  /** @param channels - Channels without a confirmed code. */
+  untested:(channels:string)=>`Falta ${channels}: todavía no se confirmó un código de prueba.`,
+  /** @param channels - Channels whose last test is older than 24 hours. */
+  stale:(channels:string)=>`${channels} necesita una prueba nueva: la anterior tiene más de 24 horas.`,
+  /** @param channels - Phone channel labels. */
+  countries:(channels:string)=>({title:"Guardá los países permitidos",reason:`${channels} necesita los países guardados antes de activar.`,action:"Preparar países y cupos"}),
+  activateTitle:"Todo listo para activar",
+  /** @param channels - Every verified channel. @param plural - Whether more than one channel is verified. */
+  activateReason:(channels:string,plural:boolean)=>`${channels} ${plural?"están comprobados":"está comprobado"}. Activá la conexión para usarla en la academia.`,
+  /** @param name - Current selection that the candidate replaces. */
+  replaces:(name:string)=>`Reemplaza a ${name}.`,
+  activateAction:"Activar conexión",
+  activeTitle:"Conexión activa",
+  activeReason:"La candidata es la conexión seleccionada para la academia.",
+} as const;
