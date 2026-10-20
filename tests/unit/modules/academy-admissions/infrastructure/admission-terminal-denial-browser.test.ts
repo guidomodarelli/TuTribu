@@ -12,6 +12,7 @@ import { captureAdmissionReview } from "@/tests/support/admission-review-capture
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import { ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";
+import { continueToAdmissionSubmission } from "@/tests/support/admission-contact-browser-actions";
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native terminal admission denial recovery", () => {
   it("should recover the actual completed rejection, retain the draft and avoid another POST, membership or route refresh across both engines and widths", async () => {
@@ -43,6 +44,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native termina
             await page.goto(`${origin}/admissions/${slug}`, { waitUntil: "networkidle" });
             const explanation = "Conservá mi explicación para una nueva confirmación.";
             await page.getByLabel(ADMISSION_UI_COPY.message).fill(explanation);
+            await continueToAdmissionSubmission(page);
             await expect.poll(() => page.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }).isEnabled()).toBe(true);
             await page.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }).check();
             await page.getByRole("button", { name: ADMISSION_UI_COPY.submit }).click();

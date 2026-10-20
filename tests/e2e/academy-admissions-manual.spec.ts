@@ -9,6 +9,7 @@ import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
 import { ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";
 import { MESSAGING_CRYPTO, MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
+import { continueToAdmissionSubmission } from "@/tests/support/admission-contact-browser-actions";
 
 test("should keep manual pending outside membership and open only basic academy access after a real decision", async ({ page, context }) => {
   await withAcademyAdmissionDatabase(async (database) => {
@@ -43,6 +44,7 @@ test("should keep manual pending outside membership and open only basic academy 
       await expect(page.getByRole("link", { name: ADMISSION_UI_COPY.signIn })).toHaveAttribute("href", new RegExp(encodeURIComponent(`/admissions/${slug}`)), { timeout: 90_000 });
       await context.addCookies([{ name: "better-auth.session_token", value: encodeURIComponent(`${applicantToken}.${await makeSignature(applicantToken, secret)}`), url: origin, httpOnly: true, sameSite: "Lax" }]);
       await page.goto(`${origin}/admissions/${slug}`, { waitUntil: "commit" });
+      await continueToAdmissionSubmission(page);
       await page.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }).check({ timeout: 90_000 });
       await page.getByRole("button", { name: ADMISSION_UI_COPY.submit, exact: true }).click();
       await expect(page.getByText(ADMISSION_UI_COPY.pending, { exact: true }).first()).toBeVisible({ timeout: 90_000 });

@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
 import { prepareAdmissionContactVerification } from "@/tests/support/admission-contact-verification-fixture";
 import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
-import { enterAdmissionVerificationCode } from "@/tests/support/admission-contact-browser-actions";
+import { continueToAdmissionCode, enterAdmissionVerificationCode } from "@/tests/support/admission-contact-browser-actions";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import { ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
@@ -40,6 +40,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native applica
         page.on("requestfailed", (request) => { if (request.method() === "POST" && request.url() === `${origin}/api/tribes/${slug}/admissions/challenges`) { issueFailedAfterMs = Date.now() - issueStartedAt; const failure = request.failure()?.errorText ?? ""; issueFailures.push(/cancel|abort/iu.test(failure) ? "aborted" : /cors|access control/iu.test(failure) ? "cors" : /timeout/iu.test(failure) ? "timeout" : /connection/iu.test(failure) ? "connection" : "other"); } });
         try {
           await page.goto(`${origin}/admissions/${slug}`, { waitUntil: "domcontentloaded" });
+          await continueToAdmissionCode(page);
           await page.getByLabel("Teléfono para este ingreso", { exact: true }).waitFor({ state: "visible" });
           await page.waitForFunction(() => Array.from(document.querySelectorAll('section[aria-labelledby][aria-busy] button[role="checkbox"]')).some((element) => !element.hasAttribute("disabled")));
           expect(providerRequests).toBe(0);
@@ -71,11 +72,11 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native applica
           await expect.poll(() => /^\d{6}$/u.test(receivedCode), { timeout: 180_000 }).toBe(true);
           expect(providerRequests).toBe(1);
           expect(/^\d{6}$/u.test(receivedCode)).toBe(true);
-          expect(await page.getByLabel("Teléfono para este ingreso").isDisabled()).toBe(true);
+          // The code step no longer offers the contact field: the sent code fixed it.
+          expect(await page.getByLabel("Teléfono para este ingreso").count()).toBe(0);
           await enterAdmissionVerificationCode(page, receivedCode);
           await page.getByRole("button", { name: "Comprobar código", exact: true }).click();
           await page.getByText("Código comprobado para este ingreso.", { exact: true }).waitFor({ state: "visible" });
-          expect(await page.getByLabel("Teléfono", { exact: true }).isDisabled()).toBe(true);
           await page.getByRole("checkbox", { name: "Confirmo que quiero solicitar ingreso a esta academia", exact: true }).click();
           await page.getByRole("button", { name: "Solicitar ingreso", exact: true }).click();
           await page.getByText("La solicitud está pendiente de revisión.", { exact: true }).waitFor({ state: "visible" });

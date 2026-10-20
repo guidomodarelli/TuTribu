@@ -42,28 +42,32 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native allowli
             await page.waitForFunction(() => Array.from(document.querySelectorAll('section[aria-label="Gestión de lista de habilitados"] button')).some((button) => button.textContent === "Editar" && !button.hasAttribute("disabled")));
             if (capture) await captureAdmissionReview(page, "allowlist-list", forbidden, "allowlist-captures.json", { selector: 'section[aria-label="Gestión de lista de habilitados"]' });
             await edit.click();
-            expect(await page.getByLabel("Correo de la entrada", { exact: true }).isDisabled()).toBe(true);
+            // Editing opens the name and status step: the fixed contact has no input.
+            expect(await page.getByLabel("Correo de la entrada", { exact: true }).count()).toBe(0);
             await page.getByLabel("Nombre orientativo (opcional)", { exact: true }).fill("Mi borrador");
+            await page.getByRole("button", { name: "Continuar", exact: true }).click();
             await fixture.writer.update({ context: editContext, operationId: randomUUID(), confirmed: true, entryId, expectedVersion: 1, patch: { displayName: "Cambio concurrente" } });
             await page.getByRole("checkbox", { name: "Confirmo el cambio de esta entrada de lista", exact: true }).click();
             await page.getByRole("button", { name: "Guardar entrada", exact: true }).click();
             const readCurrent = page.getByRole("button", { name: "Consultar versión actual", exact: true }); await readCurrent.waitFor({ state: "visible" });
-            expect(await page.getByLabel("Nombre orientativo (opcional)").inputValue()).toBe("Mi borrador");
+            const draftSummary = page.locator("dd").filter({ hasText: /^Mi borrador$/ });
+            expect(await draftSummary.count()).toBe(1);
             expect(await page.getByRole("button", { name: "Guardar entrada", exact: true }).isDisabled()).toBe(true);
             if (capture) await captureAdmissionReview(page, "allowlist-conflict", forbidden, "allowlist-captures.json", { selector: 'section[aria-label="Gestión de lista de habilitados"]' });
             await readCurrent.click(); await selectedRow.getByText("Cambio concurrente", { exact: true }).waitFor({ state: "visible" });
-            expect(await page.getByLabel("Nombre orientativo (opcional)").inputValue()).toBe("Mi borrador");
+            expect(await draftSummary.count()).toBe(1);
             expect(await page.getByRole("checkbox", { name: "Confirmo el cambio de esta entrada de lista", exact: true }).isChecked()).toBe(false);
             await page.getByRole("checkbox", { name: "Confirmo el cambio de esta entrada de lista", exact: true }).click(); await page.getByRole("button", { name: "Guardar entrada", exact: true }).click();
             await selectedRow.getByText("Mi borrador", { exact: true }).waitFor({ state: "visible" });
             expect(writes.slice(0, 2).map((write) => write.expectedVersion)).toEqual([1, 2]); expect(writes[0].operationId).not.toBe(writes[1].operationId);
             await fixture.confirm(REAUTHENTICATION_OPERATION.createAllowlistEntry);
-            await page.getByRole("button", { name: "Nueva entrada", exact: true }).click();
+            // A landed save starts the flow over at the contact of a new entry.
             const newIdentity = `nuevo.${name}.${width}@example.test`;
             await page.getByLabel("Correo de la entrada", { exact: true }).fill(newIdentity);
             let loseReply = true;
             await page.route(`**/api/tribes/${slug}/admissions/allowlist`, async (route) => { if (loseReply && route.request().method() === "POST") { loseReply = false; try { await route.fetch({ timeout: 180_000 }); } catch { await route.abort().catch(() => {}); throw new Error("Synthetic authenticated allowlist request did not complete"); } await route.fulfill({ status: 502, contentType: "application/json", body: "{}" }); } else await route.continue(); });
-            await page.getByRole("checkbox", { name: "Confirmo el cambio de esta entrada de lista", exact: true }).click(); await page.getByRole("button", { name: "Guardar entrada", exact: true }).click();
+            await page.getByRole("button", { name: "Continuar", exact: true }).click(); await page.getByRole("button", { name: "Continuar", exact: true }).click();
+            await page.getByRole("checkbox", { name: "Confirmo el cambio de esta entrada de lista", exact: true }).click(); await page.getByRole("button", { name: "Agregar entrada", exact: true }).click();
             const original = page.getByRole("button", { name: "Consultar operación original", exact: true }); await original.waitFor({ state: "visible" });
             if (capture) await captureAdmissionReview(page, "allowlist-uncertain", forbidden, "allowlist-captures.json", { selector: 'section[aria-label="Gestión de lista de habilitados"]' });
             await original.click(); await page.getByText(newIdentity, { exact: true }).waitFor({ state: "visible" });

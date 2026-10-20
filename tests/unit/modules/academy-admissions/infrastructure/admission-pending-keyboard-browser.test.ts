@@ -125,7 +125,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native pending
             await apply.waitFor({ state: "visible" });
             await tabToControl(page, apply);
             await page.keyboard.press("Enter");
-            await page.getByRole("status").filter({ hasText: "La prueba quedó aplicada a tu solicitud pendiente." }).waitFor({ state: "visible" });
+            // The confirmed write is announced once, in its own toast.
+            await page.getByText("La prueba quedó aplicada a tu solicitud pendiente.", { exact: true }).first().waitFor({ state: "visible" });
             const query = page.getByRole("button", { name: "Consultar estado", exact: true });
             await database.withContext(fixture.fixture.own, (transaction) => transaction.execute(sql`update public.academy_admission_policies set is_open=false,version=version+1 where tribe_id=${fixture.context.tribeId}`));
             await tabToControl(page, query);
@@ -157,6 +158,11 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native pending
             await tabToControl(page, retry);
             await page.keyboard.press("Enter");
             await page.waitForURL(`${origin}/admissions/${slug}`);
+            // A new presentation starts at the data step; the keyboard moves on to the code step.
+            const next = page.getByRole("button", { name: "Continuar", exact: true });
+            await expect.poll(() => next.isEnabled(), { timeout: 180_000 }).toBe(true);
+            await tabToControl(page, next);
+            await page.keyboard.press("Enter");
             const nextConsent = page.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i });
             await nextConsent.waitFor({ state: "visible" });
             expect(await nextConsent.isChecked()).toBe(false);

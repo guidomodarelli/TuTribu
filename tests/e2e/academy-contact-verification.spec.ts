@@ -7,7 +7,7 @@ import { sql } from "drizzle-orm";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
 import { prepareAdmissionContactVerification } from "@/tests/support/admission-contact-verification-fixture";
 import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
-import { enterAdmissionVerificationCode, enterAdmissionVerificationPhone } from "@/tests/support/admission-contact-browser-actions";
+import { continueToAdmissionCode, enterAdmissionVerificationCode, enterAdmissionVerificationPhone, openAdmissionCodeOptions } from "@/tests/support/admission-contact-browser-actions";
 import { captureAdmissionReview } from "@/tests/support/admission-review-capture";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
@@ -47,6 +47,7 @@ test(`should retain a confirmed ${channel} terminal challenge failure until an e
         if (path.endsWith("/resend")) resendRequests++;
       });
       await page.goto(`${origin}/admissions/${slug}`, { waitUntil: "domcontentloaded" });
+      await continueToAdmissionCode(page);
       const consent = page.getByRole("checkbox", { name: "Confirmo el contacto y el envío del código para este ingreso.", exact: true });
       await expect(consent).toBeEnabled({ timeout: ADMISSION_CONTACT_BROWSER_TIMEOUT_MS });
       if (channel !== "email") {
@@ -95,6 +96,7 @@ test(`should retain a confirmed ${channel} terminal challenge failure until an e
       if (channel === "email" && test.info().project.name === "chromium-desktop") await captureAdmissionReview(page, "contact-attempts-exhausted", [fixture.context.userId, fixture.sessionToken, fixture.fixture.credential, fixture.own.email, secret, receivedCode], "contact-terminal-feedback-captures.json", { selector: 'section[aria-labelledby][aria-busy]', omit: 'input[autocomplete="one-time-code"]' });
       expect(verifyRequests).toBe(ADMISSION_LIMIT.verificationChallengeFailureCount + 1);
       expect(await fixture.counts()).toMatchObject({ challenges: 1, deliveries: 1, proofs: 0, memberships: 0 });
+      await openAdmissionCodeOptions(page);
       const resend = page.getByRole("button", { name: "Reenviar código", exact: true });
       await expect(resend).toBeEnabled({ timeout: ADMISSION_LIMIT.verificationResendWaitMs + ADMISSION_CONTACT_BROWSER_TIMEOUT_MS });
       expect(resendRequests).toBe(0);

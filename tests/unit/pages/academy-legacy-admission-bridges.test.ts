@@ -16,6 +16,7 @@ import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infr
 import { ADMISSION_POLICY_MODE } from "@/src/modules/academy-admissions/constants/admission-policy";
 import { ADMISSION_REQUEST_SOURCE, ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
 import { LEGACY_ADMISSION_TOKEN_BYTE_LENGTH } from "@/tests/support/constants/legacy-admission-entry";
+import { continueToAdmissionSubmission } from "@/tests/support/admission-contact-browser-actions";
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native historical academy arrival", () => {
   it("should route academy, history and historical invitation entry through common policy while rejecting direct paid flags on Chromium/WebKit desktop and mobile", async () => {
@@ -81,6 +82,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native histori
             await page.goto(`${origin}/${encodeURIComponent(slug)}/invitar/${encodeURIComponent(token)}`, { waitUntil: "domcontentloaded" });
             await page.getByRole("button", { name: "Comenzar", exact: true }).click();
             await page.waitForURL((url) => url.pathname === path, { waitUntil: "domcontentloaded" });
+            await continueToAdmissionSubmission(page);
             const confirmation = page.getByRole("checkbox", { name: "Confirmo que quiero solicitar ingreso a esta academia", exact: true });
             await confirmation.waitFor({ state: "visible" });
             await page.waitForFunction(() => Array.from(document.querySelectorAll('button[role="checkbox"],input[type="checkbox"]')).some((element) => !element.hasAttribute("disabled")));

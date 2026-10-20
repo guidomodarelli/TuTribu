@@ -10,7 +10,7 @@ import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-
 import { prepareAdmissionContactVerification } from "@/tests/support/admission-contact-verification-fixture";
 import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
 import { captureAdmissionReview } from "@/tests/support/admission-review-capture";
-import { enterAdmissionVerificationCode } from "@/tests/support/admission-contact-browser-actions";
+import { continueToAdmissionCode, enterAdmissionVerificationCode } from "@/tests/support/admission-contact-browser-actions";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 
@@ -36,6 +36,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native applica
         const forbidden = [fixture.context.userId, fixture.sessionToken, fixture.fixture.credential, fixture.own.email, secret];
         try {
           await page.goto(`${origin}/admissions/${slug}`, { waitUntil: "domcontentloaded" });
+          await continueToAdmissionCode(page);
           const confirmation = page.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i });
           await confirmation.waitFor({ state: "visible" });
           await page.waitForFunction(() => Array.from(document.querySelectorAll('section[aria-labelledby][aria-busy] button[role="checkbox"]')).some((element) => !element.hasAttribute("disabled")));

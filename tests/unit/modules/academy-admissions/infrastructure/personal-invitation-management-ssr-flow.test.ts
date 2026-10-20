@@ -22,7 +22,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native persona
             expect(response.status).toBe(200);
             const markup = await response.text();
             // A failed assertion never serializes private HTML into the report.
-            for (const fragment of ["Nueva invitación", "Nombre interno", "Correo destinatario", "</body>", "</html>"]) expect(markup.includes(fragment)).toBe(true);
+            for (const fragment of ["Emitir invitación personal", "Nombre interno", "Correo destinatario", "</body>", "</html>"]) expect(markup.includes(fragment)).toBe(true);
             for (const privateValue of [fixture.sessionToken, secret, cookie]) expect(markup.includes(privateValue)).toBe(false);
             process.stdout.write(JSON.stringify({ phase: "personal_management_ssr", browser, stage: "document_completed", elapsedMs: Math.round(performance.now() - startedAt), bytes: Buffer.byteLength(markup) }) + "\n");
             const contextResponse = await fetch(`${origin}/api/tribes/${slug}/admissions/invitations/context`, { headers, signal: AbortSignal.timeout(180_000) });

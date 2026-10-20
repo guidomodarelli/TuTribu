@@ -18,3 +18,26 @@ export async function enterAdmissionVerificationPhone(page: Page, phone: string)
     throw new Error("Contact UI phone entry was unavailable");
   }
 }
+
+/** Time the applicant flow may take to confirm the native viewer before its first step can continue. */
+const ADMISSION_FLOW_READY_TIMEOUT_MS = 180_000;
+
+/** @param page - Actual owned browser page. @returns After the applicant's data step hands over to the code step. */
+export async function continueToAdmissionCode(page: Page): Promise<void> {
+  const next = page.getByRole("button", { name: "Continuar", exact: true });
+  await next.waitFor({ state: "visible" });
+  await page.waitForFunction(() => Array.from(document.querySelectorAll("button")).some((button) => button.textContent?.trim() === "Continuar" && !button.disabled), undefined, { timeout: ADMISSION_FLOW_READY_TIMEOUT_MS });
+  await next.click();
+}
+
+/** @param page - Actual owned browser page. @returns With the code step's collapsed resend and delivery reads open. */
+export async function openAdmissionCodeOptions(page: Page): Promise<void> {
+  const summary = page.getByText("¿No te llegó el código?", { exact: true });
+  await summary.waitFor({ state: "visible" });
+  if (!await summary.evaluate((element) => element.parentElement instanceof HTMLDetailsElement && element.parentElement.open)) await summary.click();
+}
+
+/** @param page - Actual owned browser page. @returns After the applicant's data step hands over to the submission step of a flow without a code. */
+export async function continueToAdmissionSubmission(page: Page): Promise<void> {
+  await continueToAdmissionCode(page);
+}
