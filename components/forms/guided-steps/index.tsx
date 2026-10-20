@@ -7,7 +7,9 @@
  * owner, the last step runs the owner's asynchronous action through the shared
  * Button `loading` state, copy is in Spanish, styles are a BEM SCSS module and
  * timings come from the motion tokens exported by @golfo/ui. The shell does not
- * spring its height; steps only slide and fade.
+ * spring its height; steps only slide and fade. TuTribu extensions: a step can
+ * own a write that must land before it advances, and secondary actions
+ * (recoveries, optional reads) stay collapsed under a native disclosure.
  */
 
 "use client";
@@ -30,16 +32,27 @@ export type GuidedStep = {
   content: ReactNode;
   /** Explains why the person cannot continue yet; when present, Continue is disabled and this text is shown. */
   blockedReason?: string;
+  /**
+   * A write this step must finish before the flow moves on. Its button replaces Continue; the owner advances
+   * `current` once the server confirms it, so a failed or pending write keeps the person on this step.
+   */
+  action?: GuidedStepsAction;
+  /** Optional reads or recoveries of this step, collapsed under a disclosure so the main path keeps one next action. */
+  secondary?: ReactNode;
+  /** Summary of the collapsed secondary actions; defaults to «Más opciones». */
+  secondaryLabel?: string;
 };
 
-/** The asynchronous action that the last step runs, owned by the container. */
-export type GuidedStepsFinalAction = {
+/** An asynchronous write owned by the container: the button shows its spinner and keeps keyboard focus while `loading`. */
+export type GuidedStepsAction = {
   label: string;
-  /** True while the action is in flight: the button shows its spinner and keeps keyboard focus. */
   loading?: boolean;
   disabled?: boolean;
   onRun: () => void;
 };
+
+/** The asynchronous action that the last step runs, owned by the container. */
+export type GuidedStepsFinalAction = GuidedStepsAction;
 
 export type GuidedStepsProps = {
   /** Accessible name of the whole flow. */
@@ -55,6 +68,24 @@ export type GuidedStepsProps = {
   /** Content shown under the actions, such as the saved or error status of the last action. */
   footer?: ReactNode;
 };
+
+/** Summary of a collapsed group of secondary actions when the owner does not name it. */
+const DEFAULT_SECONDARY_LABEL = "Más opciones";
+
+/**
+ * Keeps optional reads and recoveries out of the main path behind a native disclosure.
+ *
+ * @param props - Summary text and the collapsed actions.
+ * @returns A `details` element that keyboard and screen reader users can open like any disclosure.
+ */
+export function GuidedStepsDisclosure({ summary = DEFAULT_SECONDARY_LABEL, children }: { summary?: string; children: ReactNode }) {
+  return (
+    <details className={styles.GuidedStepsDisclosure}>
+      <summary className={styles.GuidedStepsDisclosure__summary}>{summary}</summary>
+      <div className={styles.GuidedStepsDisclosure__content}>{children}</div>
+    </details>
+  );
+}
 
 /** Horizontal travel of a step that enters or leaves, in pixels; enough to show the direction. */
 const STEP_SLIDE_DISTANCE_PX = 20;
@@ -92,15 +123,17 @@ export function GuidedSteps({ label, steps, current, onCurrentChange, finalActio
   if (!steps.length) return null;
   const step = steps[active];
   const last = active === steps.length - 1;
+  // The last step always runs the flow's final action; an earlier step may own its own write.
+  const stepAction = last ? finalAction : step.action;
   const slide = reduced ? { duration: 0 } : { x: SPRING_PANEL, opacity: { duration: MOTION_TIMING.standard, ease: MOTION_EASE } };
 
   /** Moves to another step and remembers that focus should follow it. */
   const go = (index: number) => { moved.current = true; setDirection(index >= active ? 1 : -1); onCurrentChange(index); };
-  /** Enter advances like Continue; on the last step it runs the owner's action. */
+  /** Enter advances like Continue; a step that owns a write (and the last step) runs it instead, and focus follows the step it opens. */
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (busy || step.blockedReason) return;
-    if (last) { if (!finalAction.disabled && !finalAction.loading) finalAction.onRun(); return; }
+    if (stepAction) { if (!stepAction.disabled && !stepAction.loading) { moved.current = true; stepAction.onRun(); } return; }
     go(active + 1);
   };
 
@@ -137,6 +170,7 @@ export function GuidedSteps({ label, steps, current, onCurrentChange, finalActio
             <legend ref={legendRef} tabIndex={-1} className={styles.GuidedSteps__legend}>{step.title}</legend>
             {step.description && <p className={styles.GuidedSteps__description}>{step.description}</p>}
             <div className={styles.GuidedSteps__content}>{step.content}</div>
+            {step.secondary && <GuidedStepsDisclosure summary={step.secondaryLabel}>{step.secondary}</GuidedStepsDisclosure>}
           </motion.fieldset>
         </AnimatePresence>
       </div>
@@ -144,8 +178,8 @@ export function GuidedSteps({ label, steps, current, onCurrentChange, finalActio
       {step.blockedReason && <p id={blockedId} className={styles.GuidedSteps__blocked}>{step.blockedReason}</p>}
       <div className={styles.GuidedSteps__actions}>
         {active > 0 && <Button variant="secondary" size="md" onClick={() => go(active - 1)} disabled={busy}><ArrowLeftIcon aria-hidden="true" />Atrás</Button>}
-        {last
-          ? <Button type="submit" variant="primary" size="md" loading={finalAction.loading} disabled={finalAction.disabled || Boolean(step.blockedReason) || (busy && !finalAction.loading)} aria-describedby={step.blockedReason ? blockedId : undefined}>{finalAction.label}</Button>
+        {stepAction
+          ? <Button type="submit" variant="primary" size="md" loading={stepAction.loading} disabled={stepAction.disabled || Boolean(step.blockedReason) || (busy && !stepAction.loading)} aria-describedby={step.blockedReason ? blockedId : undefined}>{stepAction.label}</Button>
           : <Button type="submit" variant="primary" size="md" disabled={busy || Boolean(step.blockedReason)} aria-describedby={step.blockedReason ? blockedId : undefined}>{nextLabel}<ArrowRightIcon aria-hidden="true" /></Button>}
       </div>
       {footer}

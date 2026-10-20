@@ -200,6 +200,14 @@ messaging, notices and activity).
   one decision per step, a numbered progress list, Back and Continue, and a
   review step with a readable summary, a single confirmation and one final
   action. Explain why Continue is blocked instead of disabling it silently.
+- A step that must write before the flow moves on (create a preview, send a
+  code, check it) passes its write as the step `action`: its button replaces
+  Continue, uses `loading`, and the container advances the step only after the
+  server confirms the write. Resuming opens the first step that is still
+  pending.
+- Optional reads and recoveries of a step go in its `secondary` slot, or in a
+  `GuidedStepsDisclosure` under the flow, collapsed behind one summary, so the
+  main path always shows a single next action.
 - A final action that needs several writes (create, save, check, activate)
   runs them in sequence, names the current stage in a `role="status"` line and,
   on failure, says what was already saved and retries only what is left.
