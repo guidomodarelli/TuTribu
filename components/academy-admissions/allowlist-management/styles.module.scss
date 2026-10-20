@@ -49,27 +49,38 @@
     }
   }
 
-  &__form {
-    @include workspace-panel.block;
-    @include workspace-panel.form;
-
-    max-width: none;
+  &__editor {
+    @include workspace-panel.section;
 
     & > h2 {
       @include workspace-panel.title;
     }
+  }
 
-    & > * {
-      max-width: 40rem;
-    }
+  &__callout {
+    @include workspace-panel.callout;
+  }
+
+  &__facts {
+    @include workspace-panel.facts;
+  }
+
+  &__fact {
+    display: grid;
+    min-width: 0;
+    gap: 0.25rem;
+  }
+
+  &__term {
+    @include workspace-panel.fact-term;
+  }
+
+  &__value {
+    @include workspace-panel.fact-value;
   }
 
   &__actions {
     @include workspace-panel.actions;
-  }
-
-  &__confirmation {
-    @include workspace-panel.consent;
   }
 
   &__error {
