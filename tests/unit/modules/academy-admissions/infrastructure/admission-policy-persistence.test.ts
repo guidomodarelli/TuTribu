@@ -5,6 +5,8 @@ import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
 import { prepareContactVerificationDatabase } from "@/tests/support/contact-verification-database-fixture";
+import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
+import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { PostgresAdmissionPolicyRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository";
 import { PostgresAdmissionPolicyReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-reader";
 import { AdmissionMessagingUsagePolicyReader } from "@/src/modules/academy-admissions/infrastructure/verification/messaging-usage-policy-reader";
@@ -37,9 +39,9 @@ import { expectAdmissionProofInvalidationAudits } from "@/tests/support/admissio
 import { PostgresAdmissionActivityReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activity-reader";
 import { ADMISSION_WHATSAPP_SQL_TIMEOUT_MS } from "@/tests/support/constants/admission-whatsapp-number";
 
-/** @param database - This run's owned branch with native pg/Drizzle. @returns Current leader session, policy repository and preparation-port controls. */
-async function preparePolicy(database: AcademyAdmissionTestDatabase) {
-  const fixture = await prepareContactVerificationDatabase(database);
+/** @param database - This run's owned branch with native pg/Drizzle. @param securityConfig - Hosting configuration a native server shares with the seed; in-process suites keep independent generated keys. @returns Current leader session, policy repository and preparation-port controls. */
+async function preparePolicy(database: AcademyAdmissionTestDatabase, securityConfig?: MessagingSecurityConfig) {
+  const fixture = await prepareContactVerificationDatabase(database, securityConfig);
   for (const migration of ["20261005092500_guard_messaging_attempts.sql", "20261005093000_guard_academy_membership_sources.sql", "20261005095000_guard_global_identity_context.sql", "20261005101000_guard_admission_operation_identity.sql", "20261006200000_scope_admission_audit_operations.sql"]) await database.applyMigration(migration);
   const tribeId = randomUUID(), accountId = randomUUID(), sessionId = randomUUID(), subject = randomUUID(), sessionToken = randomUUID();
   await database.withContext(fixture.own, async (transaction) => {
@@ -51,6 +53,16 @@ async function preparePolicy(database: AcademyAdmissionTestDatabase) {
     await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${fixture.userId},${sessionToken},${new Date(now.getTime()+3_600_000)},${now},${now})`);
     await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${sessionId},${fixture.userId},${accountId},${subject},${fixture.own.email})`);
   });
+  /** Better Auth deletes an expired session the first time it reads it, so a later sign-in is a new session bound to the same Google identity. @returns The new session id and raw token. */
+  const signInAgain = async () => {
+    const renewed = { sessionId: randomUUID(), sessionToken: randomUUID() };
+    await database.withContext(fixture.own, async (transaction) => {
+      const now = new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
+      await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${renewed.sessionId},${fixture.userId},${renewed.sessionToken},${new Date(now.getTime()+3_600_000)},${now},${now})`);
+      await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${renewed.sessionId},${fixture.userId},${accountId},${subject},${fixture.own.email})`);
+    });
+    return renewed;
+  };
   const base = { userId: fixture.userId, sessionId, tribeId, requestId: randomUUID(), role: "leader" as const, membershipStatus: "active" as const, resourceId: tribeId };
   const readContext: AuthorizedAdmissionContext = { ...base, action: "read_policy" };
   const context = (operation: ReauthenticationOperation): AuthorizedAdmissionContext => ({ ...base, action: "configure_policy", sensitiveOperation: operation });
@@ -70,7 +82,7 @@ async function preparePolicy(database: AcademyAdmissionTestDatabase) {
   } }));
   const reader = new PostgresAdmissionPolicyReader(execute, (transaction, current) => new AdmissionMessagingUsagePolicyReader(new PostgresMessagingUsageRepository(transaction, async (database, requestedTribeId) => { if (requestedTribeId !== current.tribeId) return false; await authorizeAdmissionPolicy(database, current); return true; })));
   const initialize = (operationId = randomUUID()) => repository.initialize({ context: context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy), operationId, confirmed: true, type: "initialize_admission_policy" });
-  return { fixture, tribeId, sessionId, sessionToken, repository, reader, context, readContext, initialize, preparationCount: () => preparationCalls, setPreflight: (value: boolean) => { preflightComplete = value; }, setPreparationFailure: (value: boolean) => { failPreparation = value; }, loseNextReply: () => { loseReply = true; }, setPrepared: (value: boolean) => { channelPrepared = value; }, retirePreparedAfterRead: () => { channelPrepared = true; retireReadinessAfterRead = true; } };
+  return { fixture, tribeId, sessionId, sessionToken, signInAgain, repository, reader, context, readContext, initialize, preparationCount: () => preparationCalls, setPreflight: (value: boolean) => { preflightComplete = value; }, setPreparationFailure: (value: boolean) => { failPreparation = value; }, loseNextReply: () => { loseReply = true; }, setPrepared: (value: boolean) => { channelPrepared = value; }, retirePreparedAfterRead: () => { channelPrepared = true; retireReadinessAfterRead = true; } };
 }
 
 describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admission policy persistence", () => {
@@ -461,10 +473,11 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy command HTTP", () => {
   it("should initialize, save and pause a draft with original recovery while an unprepared verification channel keeps activation closed", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
-      const data = await preparePolicy(database), slug = `policy-${data.tribeId}`;
+      const data = await preparePolicy(database, await readMessagingHostingSecurityConfig()), slug = `policy-${data.tribeId}`;
       for (const migration of ["20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
-        const cookie = `better-auth.session_token=${encodeURIComponent(`${data.sessionToken}.${await makeSignature(data.sessionToken, secret)}`)}`, base = `${origin}/api/tribes/${slug}/admissions`;
+        const signedCookie = async (token: string) => `better-auth.session_token=${encodeURIComponent(`${token}.${await makeSignature(token, secret)}`)}`, base = `${origin}/api/tribes/${slug}/admissions`;
+        let cookie = await signedCookie(data.sessionToken);
         const request = (method: string, path: string, body?: object) => fetch(`${base}${path}`, { method, headers: { cookie, origin, "content-type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
         const absent = await request("GET", "/policy");
         expect(absent.status).toBe(200);
@@ -499,7 +512,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
         expect((await request("POST", "/policy", { operationId: expiredSessionId, confirmed: true, hasRecentAuthentication: true })).status).toBe(400);
         await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${data.sessionId}`));
         expect((await request("POST", "/policy", { operationId: expiredSessionId, confirmed: true })).status).toBe(401);
-        await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()+interval '1 hour' where id=${data.sessionId}`));
+        expect(await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::int as sessions from public.session where id=${data.sessionId}`)).rows)).toEqual([{ sessions: 0 }]);
+        cookie = await signedCookie((await data.signInAgain()).sessionToken);
         expect((await request("GET", "/policy")).status).toBe(200);
         expect((await request("GET", `/operations/${initOperationId}`)).status).toBe(200);
         expect(await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::int as registered from public.academy_admission_operations where tribe_id=${data.tribeId} and idempotency_key=${expiredSessionId}`)).rows)).toEqual([{ registered: 0 }]);
@@ -516,7 +530,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy settings browser", () => {
   it.each([{ engine: "chromium", browserType: chromium }, { engine: "webkit", browserType: webkit }])("should stop the chained activation on actual unresolved membership preflight and clear it after an edit in $engine", async ({ engine, browserType }) => {
     await withAcademyAdmissionDatabase(async (database) => {
-      const data = await preparePolicy(database), slug = `policy-${data.tribeId}`;
+      const data = await preparePolicy(database, await readMessagingHostingSecurityConfig()), slug = `policy-${data.tribeId}`;
       for (const migration of ["20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
       await data.initialize();
       await database.withContext(data.fixture.own, async (transaction) => {
@@ -568,7 +582,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
   for (const [engine, browserType] of [["chromium", chromium], ["webkit", webkit]] as const) {
     it(`should retain conflict drafts and use real guarded policy settings in ${engine} mobile/desktop`, async () => {
       await withAcademyAdmissionDatabase(async (database) => {
-        const data = await preparePolicy(database), slug = `policy-${data.tribeId}`;
+        const data = await preparePolicy(database, await readMessagingHostingSecurityConfig()), slug = `policy-${data.tribeId}`;
         for (const migration of ["20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
         await data.initialize();
         await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
@@ -587,7 +601,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
                 await next.waitFor({ timeout: 90_000 });
                 await next.click();
                 const verification = page.getByRole("checkbox", { name: "Comprobar el contacto con un código" });
-                await verification.setChecked(!(await verification.isChecked()));
+                /** The desktop pass turns codes on and saves them; the mobile pass starts from that saved draft. Codes stay on so the unprepared channel keeps activation blocked. */
+                await verification.setChecked(true);
                 while (await next.count()) await next.click();
                 const confirmation = page.getByRole("checkbox", { name: /Revisé las reglas/ });
                 const final = page.getByRole("button", { name: "Guardar y activar admisiones", exact: true });
@@ -618,8 +633,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
                 expect(runtimeErrors).toEqual([]);
                 if (width === 1280) await captureAdmissionReview(page, "admission-policy-saved", [data.fixture.userId, data.sessionId, data.sessionToken, secret], "policy-captures.json", { selector: "form" });
                 process.stdout.write(JSON.stringify({ phase: "policy_browser_verified", engine, width }) + "\n");
-              } catch {
-                process.stdout.write(JSON.stringify({ phase: "policy_browser_failure", engine, width, stage }) + "\n");
+              } catch (error) {
+                process.stdout.write(JSON.stringify({ phase: "policy_browser_failure", engine, width, stage, errorName: error instanceof Error ? error.name : "unknown" }) + "\n");
                 throw new Error("Native policy settings failed; inspect the safe stage diagnostic");
               } finally { await context.close(); }
             }
