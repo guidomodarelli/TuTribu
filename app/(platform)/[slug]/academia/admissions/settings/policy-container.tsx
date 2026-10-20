@@ -23,9 +23,29 @@ import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants
 import { ALLOWLIST_SETTINGS_SEGMENT } from "@/src/modules/academy-admissions/constants/allowlist-browser";
 import { MESSAGING_USAGE_SETTINGS_SEGMENT } from "@/src/modules/messaging/constants/messaging-usage";
 import { MESSAGING_CONNECTIONS_SETTINGS_SEGMENT } from "@/src/modules/messaging/constants/messaging-connections-browser";
+import type { AdmissionPolicyPreflightDto } from "@/src/modules/academy-admissions/application/ports/admission-policy-browser-client";
+import type { CommercialMembershipReviewBrowserClient } from "@/src/modules/academy-admissions/application/ports/commercial-membership-review-browser-client";
+import type { CommercialMembershipReviewPageState } from "@/src/modules/academy-admissions/application/results/commercial-membership-review-page-state";
+import { ADMISSION_POLICY_BLOCK_RESOLUTION, ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON, ADMISSION_POLICY_ENTRY_STEP, ADMISSION_POLICY_STEP, isAdmissionPolicyPlatformReason, type AdmissionPolicyBlockReason, type AdmissionPolicyEntryStep } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
+import { ADMISSION_POLICY_DRAFT_COPY, ADMISSION_POLICY_PLATFORM_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
+import { COMMERCIAL_MEMBERSHIP_REVIEW_COPY, commercialMembershipReviewDoneMessage } from "@/src/modules/academy-admissions/constants/commercial-membership-review";
+import { withPolicyReviewReturn } from "@/src/modules/academy-admissions/constants/admission-settings-navigation";
+import { ROUTES } from "@/src/constants/routes";
+import { CommercialMembershipReview } from "@/components/academy-admissions/commercial-membership-review";
+import { admissionPolicyStepIds } from "@/components/academy-admissions/admission-policy-form";
+import { useCommercialMembershipReview } from "./use-commercial-membership-review";
 
 /** Only application props and own ports enter the workflow; no SDK identity is serialized. */
-type PolicyContainerProps = { initialState: AdmissionPolicyPageState; client?: AdmissionPolicyBrowserClient };
+type PolicyContainerProps = {
+  initialState: AdmissionPolicyPageState; client?: AdmissionPolicyBrowserClient;
+  /** Server-read review of memberships blocked by payment; absent where the page does not load it. */
+  initialCommercialReview?: CommercialMembershipReviewPageState;
+  /** Server-read informational preflight of a saved, not activated draft; null when it could not be read. */
+  initialPreflight?: AdmissionPolicyPreflightDto | null;
+  /** Allowlisted step opened by a link (guide, return from another settings page). */
+  entryStep?: AdmissionPolicyEntryStep | null;
+  reviewClient?: CommercialMembershipReviewBrowserClient;
+};
 type PolicyPhase = typeof PHASE[keyof typeof PHASE];
 /** How one write of a chain ended: a definitive failure is retryable, an uncertain one waits for its original. */
 type WriteOutcome = "completed" | "failed" | "uncertain" | "stopped";
@@ -52,17 +72,40 @@ function pendingRequirements(state: AdmissionPolicyStateDto): AdmissionPolicyAct
   return [...new Set([...state.preparation.requirements, ...(state.policy?.requirements ?? [])])].filter((requirement) => !ADMISSION_POLICY_SELF_RESOLVED_REQUIREMENTS.includes(requirement));
 }
 
+/** @param reasons - Reasons of a block. @returns Whether any of them is resolved in the membership review. */
+function hasCommercialReason(reasons: readonly AdmissionPolicyBlockReason[]): boolean {
+  return reasons.some((reason) => ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON[reason] === ADMISSION_POLICY_BLOCK_RESOLUTION.commercialReview);
+}
+/** @param block - Current block. @returns Its reasons that still need work, without the ones the flow resolves itself. */
+function blockReasons(block: AdmissionPolicyActivationBlock | null): AdmissionPolicyBlockReason[] {
+  return block ? [...block.preflightReasons, ...block.requirements].filter((reason) => ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON[reason] !== ADMISSION_POLICY_BLOCK_RESOLUTION.selfResolved) : [];
+}
+/** @param preflight - Informational preflight. @returns A requirements block for an unprepared draft, or null. */
+function preflightBlock(preflight: AdmissionPolicyPreflightDto | null | undefined): AdmissionPolicyActivationBlock | null {
+  if (!preflight || preflight.prepared) return null;
+  const block = { message: COPY.activationIneligible, note: COPY.activationBlockedNote, preflightReasons: preflight.reasons, requirements: [], ...preflight.impact };
+  return blockReasons(block).length ? block : null;
+}
+
 /** @param props - Safe SSR state and an optional own transport port. @returns A current account-scoped guided flow that retains draft/UUID through conflict and uncertainty. */
-export function AdmissionPolicyContainer({ initialState, client = admissionApiClient }: PolicyContainerProps) {
+export function AdmissionPolicyContainer({ initialState, client = admissionApiClient, initialCommercialReview, initialPreflight, entryStep = null, reviewClient = admissionApiClient }: PolicyContainerProps) {
   const ready = initialState.kind === "ready" ? initialState : null;
+  const savedDraft = Boolean(ready?.policy.policy) && !ready?.policy.controlActivated;
+  const initialReviewList = initialCommercialReview?.kind === "ready" ? initialCommercialReview.list : null;
+  const initialMemberships = savedDraft && (initialReviewList?.pendingCount ?? 0) > 0;
+  const initialStepIds = admissionPolicyStepIds(false, initialMemberships);
+  const initialStep = savedDraft && entryStep ? initialStepIds.indexOf(entryStep === ADMISSION_POLICY_ENTRY_STEP.memberships && initialMemberships ? ADMISSION_POLICY_STEP.memberships : ADMISSION_POLICY_STEP.review) : 0;
   const [state, setState] = useState(ready?.policy ?? null);
   const [draft, setDraft] = useState<AdmissionPolicyDraft | null>(ready ? createInitialDraft(ready.policy) : null);
   const [phase, setPhase] = useState<PolicyPhase>(PHASE.checking);
-  const [step, setStep] = useState(0), [editing, setEditing] = useState(false);
+  const [step, setStep] = useState(initialStep), [editing, setEditing] = useState(false);
+  /** True while saved rules are being published from the draft notice, a return link or the membership review. */
+  const [publishing, setPublishing] = useState(savedDraft && entryStep !== null);
+  const [rechecking, setRechecking] = useState(false);
   const [confirmed, setConfirmed] = useState(false), [retryConfirmed, setRetryConfirmed] = useState(false);
   const [pauseOpen, setPauseOpen] = useState(false), [pauseReason, setPauseReason] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null), [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [failure, setFailure] = useState<AdmissionPolicyFailure | null>(null), [activationBlock, setActivationBlock] = useState<AdmissionPolicyActivationBlock | null>(null);
+  const [failure, setFailure] = useState<AdmissionPolicyFailure | null>(null), [activationBlock, setActivationBlock] = useState<AdmissionPolicyActivationBlock | null>(savedDraft ? preflightBlock(initialPreflight) : null);
   const [stage, setStage] = useState<AdmissionPolicyFlowStage | null>(null), [pendingAction, setPendingAction] = useState<AdmissionPolicyAction | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [fresh, setFresh] = useState(false), [canRetry, setCanRetry] = useState(false);
@@ -70,6 +113,21 @@ export function AdmissionPolicyContainer({ initialState, client = admissionApiCl
   const stateRef = useRef(state), freshRef = useRef(false);
   const pending = useRef<AdmissionPolicyBrowserIntent | null>(null), loaded = useRef(false), busy = useRef(false);
   const mounted = useRef(false);
+  /** Final index of the flow with the membership review step; the review step only exists before activation. */
+  const finalStepWithMemberships = admissionPolicyStepIds(false, true).length - 1;
+  const review = useCommercialMembershipReview({
+    slug: ready?.slug ?? "", viewerId: ready?.viewerId ?? "", client: reviewClient, initialList: initialReviewList,
+    initialError: initialCommercialReview?.kind === "unavailable" ? initialCommercialReview.message : null,
+    onAllResolved: useCallback(() => {
+      setActivationBlock((current) => {
+        if (!current) return null;
+        const next = { ...current, preflightReasons: current.preflightReasons.filter((reason) => !hasCommercialReason([reason])), unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 };
+        return blockReasons(next).length ? next : null;
+      });
+      setPublishing(true); setStep(finalStepWithMemberships); setErrorMessage(null);
+      setStatusMessage(commercialMembershipReviewDoneMessage(ADMISSION_POLICY_DRAFT_COPY.activateNow));
+    }, [finalStepWithMemberships]),
+  });
   const readController = useRef<AbortController | null>(null), writeController = useRef<AbortController | null>(null);
 
   /** Keeps the chained writes on the latest confirmed state instead of a render closure. */
@@ -92,7 +150,9 @@ export function AdmissionPolicyContainer({ initialState, client = admissionApiCl
   /** Retrieves original identity first; historical results never replace today's configuration. */
   const readCurrent = useCallback(async (signal: AbortSignal, restore = false) => {
     if (!ready || signal.aborted) return;
-    setPhase(PHASE.reading); markFresh(false); setConfirmed(false); setRetryConfirmed(false); setCanRetry(false); setFailure(null); setActivationBlock(null);
+    setPhase(PHASE.reading); markFresh(false); setConfirmed(false); setRetryConfirmed(false); setCanRetry(false); setFailure(null);
+    /** The first restore keeps the server-read requirements; explicit reads start without stale ones. */
+    if (!restore) setActivationBlock(null);
     let recovered = false;
     try {
       if (!await checkViewer(signal)) return;
@@ -251,7 +311,20 @@ export function AdmissionPolicyContainer({ initialState, client = admissionApiCl
   const unavailable = state.state === ADMISSION_POLICY_PUBLIC_STATE.unavailable;
   const savedRules = state.policy ? createAdmissionPolicyDraft(state) : draft;
   const routeBase = `/${encodeURIComponent(ready.slug)}`;
-  const links = { usage: `${routeBase}/${MESSAGING_USAGE_SETTINGS_SEGMENT}`, connection: `${routeBase}/${MESSAGING_CONNECTIONS_SETTINGS_SEGMENT}`, allowlist: `${routeBase}/${ALLOWLIST_SETTINGS_SEGMENT}` };
+  /** Before activation, channel and quota pages offer the way back to the final step. */
+  const returning = (path: string) => state.controlActivated ? path : withPolicyReviewReturn(path);
+  const links = { usage: returning(`${routeBase}/${MESSAGING_USAGE_SETTINGS_SEGMENT}`), connection: returning(`${routeBase}/${MESSAGING_CONNECTIONS_SETTINGS_SEGMENT}`), allowlist: `${routeBase}/${ALLOWLIST_SETTINGS_SEGMENT}`, academy: ROUTES.tribes.academyManage(ready.slug) };
+  const currentReasons = blockReasons(activationBlock);
+  const platformBlocked = currentReasons.some(isAdmissionPolicyPlatformReason);
+  /** The membership review joins the flow while memberships wait for a decision or were just decided. */
+  const membershipsVisible = !state.controlActivated && !editing && ((review.list?.pendingCount ?? 0) > 0 || review.resolvedThisSession > 0 || hasCommercialReason(currentReasons));
+  const stepIds = admissionPolicyStepIds(editing, membershipsVisible);
+  const membershipStep = membershipsVisible ? {
+    blockedReason: (review.list?.pendingCount ?? 0) > 0 || review.phase === "failed" ? COMMERCIAL_MEMBERSHIP_REVIEW_COPY.pendingBlocked : null,
+    content: <CommercialMembershipReview phase={review.phase} list={review.list} drafts={review.drafts} pendingMemberId={review.pendingMemberId} busy={review.busy || isBusy} uncertain={review.uncertain}
+      statusMessage={review.statusMessage} errorMessage={review.errorMessage} doneMessage={commercialMembershipReviewDoneMessage(ADMISSION_POLICY_DRAFT_COPY.activateNow)}
+      onDraftChange={review.setDraft} onResolve={review.resolve} onReload={review.reload} onReadOriginal={review.readOriginal} />,
+  } : null;
   /** New writes stay closed while an original is unresolved or the configuration needs authorized review. */
   const writesOpen = !isBusy && !uncertain && !unavailable;
 
@@ -286,6 +359,8 @@ export function AdmissionPolicyContainer({ initialState, client = admissionApiCl
       if (!preflight.value.prepared) {
         setErrorMessage(null); setFailure(null);
         setActivationBlock({ message: COPY.activationIneligible, note: COPY.activationBlockedNote, preflightReasons: preflight.value.reasons, requirements: [], ...preflight.value.impact });
+        /** Memberships blocked by payment are decided in their own step, inserted just before the final one. */
+        if (hasCommercialReason(preflight.value.reasons)) { setStep(admissionPolicyStepIds(false, true).indexOf(ADMISSION_POLICY_STEP.memberships)); review.reload(); }
         return;
       }
       setStage(STAGE.activating);
@@ -349,10 +424,39 @@ export function AdmissionPolicyContainer({ initialState, client = admissionApiCl
   /** Clears feedback that described the previous draft. */
   const clearFeedback = () => { setErrorMessage(null); setStatusMessage(null); setFailure(null); setActivationBlock(null); };
 
+  /** Volver a comprobar: rereads the configuration and the requirements, without writing or asking for another decision. */
+  const recheck = () => {
+    if (busy.current || !writesOpen) return;
+    busy.current = true; readController.current?.abort(); const controller = new AbortController(); readController.current = controller;
+    setRechecking(true); setStatusMessage(null); setErrorMessage(null);
+    void (async () => {
+      try {
+        if (!await checkViewer(controller.signal)) return;
+        const current = await client.readPolicy(ready.slug, controller.signal);
+        if (controller.signal.aborted || current.status === "aborted" || !await checkViewer(controller.signal)) return;
+        if (current.status === "failed") { noteFailureCode(current.code); setErrorMessage(current.message); return; }
+        commitState(current.value); markFresh(true);
+        const requirements = pendingRequirements(current.value);
+        const preflight = current.value.controlActivated ? null : await client.readPreflight(ready.slug, controller.signal);
+        if (controller.signal.aborted || preflight?.status === "aborted" || !await checkViewer(controller.signal)) return;
+        if (preflight?.status === "failed") { noteFailureCode(preflight.code); setErrorMessage(preflight.message); return; }
+        const preflightValue = preflight?.status === "ready" ? preflight.value : null;
+        const next = { message: current.value.controlActivated ? COPY.resumeIneligible : COPY.activationIneligible, note: current.value.controlActivated ? COPY.resumeBlockedNote : COPY.activationBlockedNote,
+          preflightReasons: preflightValue && !preflightValue.prepared ? preflightValue.reasons : [], requirements, unknownCommercialMemberCount: preflightValue?.impact.unknownCommercialMemberCount ?? 0, privilegedCommercialMemberCount: preflightValue?.impact.privilegedCommercialMemberCount ?? 0 };
+        if (blockReasons(next).length) { setActivationBlock(next); setStatusMessage(ADMISSION_POLICY_PLATFORM_COPY.rechecked); if (hasCommercialReason(next.preflightReasons)) review.reload(); }
+        else { setActivationBlock(null); setStatusMessage(ADMISSION_POLICY_PLATFORM_COPY.recheckedReady); }
+      } catch { if (!controller.signal.aborted) setErrorMessage(COPY.storageFailed); }
+      finally { if (readController.current === controller) { busy.current = false; setRechecking(false); } }
+    })();
+  };
+
   return <AdmissionPolicyForm state={state} draft={draft} savedRules={savedRules} editing={editing} step={step} confirmed={confirmed} busy={isBusy} stage={stage} pendingAction={pendingAction}
     validationMessage={validationMessage} statusMessage={statusMessage} errorMessage={errorMessage} failure={failure} activationBlock={activationBlock} permissionDenied={permissionDenied} links={links}
     pauseOpen={pauseOpen} pauseReason={pauseReason} uncertain={uncertain} canRetryOriginal={canRetry && fresh} retryConfirmed={retryConfirmed}
-    onChange={(next) => { setDraft(next); setConfirmed(false); clearFeedback(); }}
+    membershipStep={membershipStep} finalLabel={publishing && state.policy && !editing ? ADMISSION_POLICY_DRAFT_COPY.activateNow : undefined} platformBlocked={platformBlocked} rechecking={rechecking}
+    onReviewDraft={() => { setDraft(createAdmissionPolicyDraft(state)); setConfirmed(false); setPublishing(true); setStep(stepIds.length - 1); setErrorMessage(null); setStatusMessage(null); setFailure(null); }}
+    onReviewCommercial={membershipsVisible ? () => setStep(stepIds.indexOf(ADMISSION_POLICY_STEP.memberships)) : undefined} onRecheck={recheck}
+    onChange={(next) => { setDraft(next); setConfirmed(false); setPublishing(false); clearFeedback(); }}
     onStepChange={setStep} onConfirm={setConfirmed} onRunFinal={() => runFinal()}
     onEdit={() => { setEditing(true); setStep(0); setDraft(createAdmissionPolicyDraft(state)); setConfirmed(false); setPauseOpen(false); clearFeedback(); }}
     onCancelEdit={() => { setEditing(false); setStep(0); setDraft(createAdmissionPolicyDraft(state)); setConfirmed(false); clearFeedback(); }}

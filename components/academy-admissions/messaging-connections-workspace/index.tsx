@@ -4,7 +4,7 @@ import {useId,type ReactNode} from "react";
 import {Badge,Button,Stepper,type BadgeTone} from "@golfo/ui";
 import type {MessagingConfigurationConnection} from "@/src/modules/messaging/application/results/messaging-configuration-result";
 import {MESSAGING_CAPABILITY_LABEL,MESSAGING_CHANNEL_LABEL,MESSAGING_CONNECTION_LABEL,MESSAGING_CREDENTIAL_LABEL,MESSAGING_CREDENTIAL_MODE_LABEL} from "@/src/modules/messaging/constants/messaging-connection-presentation";
-import {MESSAGING_CONNECTIONS_NEXT_STEP,MESSAGING_CONNECTIONS_NEXT_STEP_COPY,MESSAGING_CONNECTIONS_NEXT_STEP_TAB,MESSAGING_CONNECTIONS_TAB,MESSAGING_CONNECTIONS_TAB_LABEL,MESSAGING_CONNECTIONS_TAB_ORDER,MESSAGING_CONNECTIONS_STEP_ORDER,MESSAGING_CONNECTIONS_STEP_DESCRIPTION,MESSAGING_CONNECTIONS_STEPPER_COPY,type MessagingConnectionsNextStep,type MessagingConnectionsTab} from "@/src/modules/messaging/constants/messaging-connections-workspace";
+import {MESSAGING_CONNECTIONS_NEXT_STEP,MESSAGING_CONNECTIONS_NEXT_STEP_COPY,MESSAGING_CONNECTIONS_NEXT_STEP_TAB,MESSAGING_CONNECTIONS_TAB,MESSAGING_CONNECTIONS_TAB_LABEL,MESSAGING_CONNECTIONS_TAB_ORDER,MESSAGING_CONNECTIONS_STEP_ORDER,MESSAGING_CONNECTIONS_STEP_DESCRIPTION,MESSAGING_CONNECTIONS_STEPPER_COPY,MESSAGING_CONNECTIONS_DRAFT_COPY,type MessagingConnectionsNextStep,type MessagingConnectionsTab} from "@/src/modules/messaging/constants/messaging-connections-workspace";
 import styles from "./styles.module.scss";
 
 /** Lifecycle, credential, account and capability facts keep distinct tones so a ready candidate never reads as active. */
@@ -56,6 +56,8 @@ export function MessagingConnectionsWorkspace(props:MessagingConnectionsWorkspac
   // The stepper shows progress from the advisory next step; the open section may be an earlier, completed step, and "Ir a" in the summary returns to the current one.
   const nextStepIndex=MESSAGING_CONNECTIONS_STEP_ORDER.findIndex((step)=>step===nextTab),progress=done?MESSAGING_CONNECTIONS_STEP_ORDER.length:Math.max(0,nextStepIndex);
   const security=props.activeTab===MESSAGING_CONNECTIONS_TAB.security;
+  /** A saved candidate that is not the selected connection is a draft waiting to be published. */
+  const draftCandidate=!done&&props.candidate!==null&&props.candidate.id!==props.selected?.id;
   return<div className={styles.MessagingConnectionsWorkspace} data-beezping-ignore="true">
     <section className={styles.MessagingConnectionsWorkspace__overview} aria-labelledby={overviewId}>
       <div className={styles.MessagingConnectionsWorkspace__overviewHeader}>
@@ -68,6 +70,11 @@ export function MessagingConnectionsWorkspace(props:MessagingConnectionsWorkspac
         {!done&&props.activeTab!==nextTab&&<Button variant="secondary" size="sm" onClick={()=>props.onTabChange(nextTab)}>{`Ir a ${MESSAGING_CONNECTIONS_TAB_LABEL[nextTab]}`}</Button>}
       </div>
     </section>
+    {draftCandidate&&<div className={styles.MessagingConnectionsWorkspace__draft} role="group" aria-label={MESSAGING_CONNECTIONS_DRAFT_COPY.title}>
+      <p className={styles.MessagingConnectionsWorkspace__draftTitle}>{MESSAGING_CONNECTIONS_DRAFT_COPY.title}</p>
+      <p className={styles.MessagingConnectionsWorkspace__empty}>{MESSAGING_CONNECTIONS_DRAFT_COPY.description}</p>
+      {props.activeTab!==nextTab&&<Button variant="secondary" size="sm" disabled={props.busy} onClick={()=>props.onTabChange(nextTab)}>{MESSAGING_CONNECTIONS_DRAFT_COPY.action}</Button>}
+    </div>}
     {props.attention}
     <div className={styles.MessagingConnectionsWorkspace__steps}>
       <Stepper className={styles.MessagingConnectionsWorkspace__stepper} label={MESSAGING_CONNECTIONS_STEPPER_COPY.label} completeLabel={MESSAGING_CONNECTIONS_STEPPER_COPY.complete} details="current" current={progress} onStepSelect={(index)=>{const step=MESSAGING_CONNECTIONS_STEP_ORDER[index];if(step)props.onTabChange(step);}}

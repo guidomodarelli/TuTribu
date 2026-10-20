@@ -40,30 +40,30 @@ export const ADMISSION_POLICY_BROWSER_COPY = {
   smsAlternative: "La alternativa SMS requiere teléfono, códigos activados y el canal WhatsApp.",
 } as const;
 
-/** Explains public cutover reasons without exposing database metadata or member identities. */
+/** Explains each cutover reason in plain language without exposing database metadata or member identities. */
 export const ADMISSION_POLICY_PREFLIGHT_REASON_COPY = {
-  preflight_scope_mismatch: "La comprobación no corresponde a esta tribu. Volvé a consultar la configuración actual.",
-  preflight_academy_unavailable: "La tribu no tiene disponible el modo academia.",
-  preflight_policy_unavailable: "Falta la política de admisión. Prepará la configuración antes de volver a comprobarla.",
-  preflight_marker_inconsistent: "La activación registrada no coincide con la política actual. Requiere revisión autorizada.",
-  preflight_storage_unavailable: "La protección de los datos de admisión requiere preparación del equipo responsable.",
-  preflight_ingress_unprotected: "Todavía falta proteger alguna vía de ingreso. Requiere revisión del equipo responsable.",
-  preflight_unknown_commercial_history: "Hay membresías con historial comercial desconocido. Su resolución requiere autorización y registro del responsable de membresías.",
-  preflight_privileged_commercial_membership: "Hay membresías comerciales restringidas con rol de líder o guardián. Su resolución requiere autorización y registro del responsable de membresías.",
-  preflight_runtime_unavailable: "Todavía no están preparados todos los recorridos de admisión.",
-  preflight_evaluator_disabled: "La admisión está deshabilitada en esta academia.",
-  preflight_recovery_locked: "La admisión está cerrada por el bloqueo de recuperación de la plataforma.",
+  preflight_scope_mismatch: "La comprobación no corresponde a esta tribu. Volvé a comprobar para revisarla con la configuración actual.",
+  preflight_academy_unavailable: "Primero hay que activar el modo academia en esta tribu.",
+  preflight_policy_unavailable: "Falta guardar las reglas de admisión. Al tocar el botón final las guardamos antes de activar.",
+  preflight_marker_inconsistent: "La activación registrada no coincide con las reglas guardadas y el equipo tiene que revisarla.",
+  preflight_storage_unavailable: "La plataforma todavía no terminó de preparar la protección de los datos de admisión.",
+  preflight_ingress_unprotected: "La plataforma todavía no protegió todas las formas de entrar a la academia.",
+  preflight_unknown_commercial_history: "Hay membresías bloqueadas por pago de las que no sabemos si estaban activas o silenciadas. Decidí cómo vuelve cada una si regulariza el pago.",
+  preflight_privileged_commercial_membership: "Hay guardianes bloqueados por pago. Decidí si vuelven como integrantes, sin su rol, o si quedan retirados.",
+  preflight_runtime_unavailable: "La plataforma todavía no preparó todos los recorridos de admisión.",
+  preflight_evaluator_disabled: "La plataforma todavía no habilitó la admisión para esta academia.",
+  preflight_recovery_locked: "La plataforma pausó las admisiones mientras recupera un servicio.",
 } satisfies Record<AdmissionPreflightReason, string>;
 
-/** Keeps policy/channel preparation separate from the protected-ingress inventory. */
+/** Keeps policy/channel preparation separate from the protected-ingress inventory, in plain language. */
 export const ADMISSION_POLICY_ACTIVATION_REQUIREMENT_COPY = {
   policy_unavailable: "Falta preparar la política de admisión.",
-  academy_unavailable: "El modo academia no está disponible.",
-  admission_preflight_incomplete: "Las protecciones de admisión todavía no están preparadas.",
-  admission_evaluator_unavailable: "La admisión de la academia no está habilitada.",
-  admission_recovery_locked: "La plataforma mantiene el bloqueo de recuperación.",
-  admission_clock_invalid: "No pudimos comprobar la vigencia de la configuración. Volvé a consultarla.",
-  policy_scope_mismatch: "La configuración no corresponde a esta tribu. Volvé a consultarla.",
+  academy_unavailable: "Primero hay que activar el modo academia en esta tribu.",
+  admission_preflight_incomplete: "La plataforma todavía no terminó de preparar las protecciones de admisión.",
+  admission_evaluator_unavailable: "La plataforma todavía no habilitó la admisión para esta academia.",
+  admission_recovery_locked: "La plataforma pausó las admisiones mientras recupera un servicio.",
+  admission_clock_invalid: "No pudimos comprobar la vigencia de la configuración. Volvé a comprobar.",
+  policy_scope_mismatch: "La configuración no corresponde a esta tribu. Volvé a comprobar.",
   contact_type_locked: "El tipo de contacto quedó fijado al activar el control.",
   phone_allowlist_verification_required: "La lista por teléfono requiere comprobar el contacto con un código.",
   verification_unavailable: "El canal para comprobar el contacto todavía no está preparado.",
@@ -74,3 +74,47 @@ export const ADMISSION_POLICY_ACTIVATION_REQUIREMENT_COPY = {
   sms_alternative_invalid: "La alternativa SMS requiere WhatsApp y la comprobación por código.",
   sms_alternative_unavailable: "La alternativa SMS todavía no está preparada.",
 } satisfies Record<AdmissionPolicyActivationReason, string>;
+
+/** Copy of the callout for reasons only the TuTribu team can resolve. */
+export const ADMISSION_POLICY_PLATFORM_COPY = {
+  title: "Depende del equipo de TuTribu",
+  explanation: "Esto no es algo que puedas cambiar desde tu academia. Lo que ya elegiste quedó guardado como borrador.",
+  diagnosticLabel: "Código de diagnóstico",
+  copy: "Copiar código",
+  copied: "Código copiado.",
+  copyFailed: "No pudimos copiar el código. Seleccionalo y copialo a mano.",
+  recheck: "Volver a comprobar",
+  report: "Reportar el problema",
+  reportUnavailable: "No pudimos abrir el reporte. Escribile al equipo de TuTribu e incluí el código de diagnóstico.",
+  rechecked: "Volvimos a comprobar: todavía falta resolver lo que se indica.",
+  recheckedReady: "Volvimos a comprobar y ya no hay bloqueos. Podés activar las admisiones.",
+} as const;
+
+/** Copy of the actions that resolve a reason on another page or step. */
+export const ADMISSION_POLICY_DESTINATION_COPY = {
+  usage: "Ir a Países y cupos",
+  connection: "Ir a Conexión",
+  contactStep: "Revisar «Cómo se contactan»",
+  academy: "Ir a Gestionar academia",
+  commercialReview: "Revisar membresías bloqueadas por pago",
+  recheck: "Volver a comprobar",
+} as const;
+
+/** Copy of the unpublished-draft notice of the rules page. */
+export const ADMISSION_POLICY_DRAFT_COPY = {
+  title: "Tenés reglas guardadas sin publicar",
+  description: "Las admisiones todavía no reciben solicitudes. Revisá lo que guardaste y activalas.",
+  action: "Revisar y activar",
+  platformBlocked: "Por ahora no se pueden activar: depende del equipo de TuTribu.",
+  activateNow: "Activar ahora",
+  returnToRules: "Volver a Reglas para activar",
+} as const;
+
+/** @param count - Unknown commercial histories. @returns The count line of the requirements callout. */
+export function unknownCommercialMembershipCountCopy(count: number): string {
+  return `Membresías bloqueadas por pago sin revisar: ${count}.`;
+}
+/** @param count - Privileged commercial memberships. @returns The count line of the requirements callout. */
+export function privilegedCommercialMembershipCountCopy(count: number): string {
+  return `Guardianes bloqueados por pago: ${count}.`;
+}

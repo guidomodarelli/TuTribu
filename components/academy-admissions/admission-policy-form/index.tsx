@@ -5,14 +5,16 @@ import { useId } from "react";
 import type { AdmissionPolicyDraft } from "@/src/modules/academy-admissions/application/commands/admission-policy-draft";
 import type { AdmissionPolicyStateDto } from "@/src/modules/academy-admissions/application/results/admission-policy-result-schemas";
 import { ADMISSION_POLICY_PUBLIC_STATE } from "@/src/modules/academy-admissions/constants/admission-policy";
-import { ADMISSION_POLICY_BROWSER_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
+import { ADMISSION_POLICY_BROWSER_COPY, ADMISSION_POLICY_DRAFT_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 import { ADMISSION_POLICY_ACTION, ADMISSION_POLICY_STEP, type AdmissionPolicyAction, type AdmissionPolicyFlowStage } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
 import { PolicyActionFeedback, type AdmissionPolicyActivationBlock, type AdmissionPolicyFailure, type AdmissionPolicySettingsLinks } from "./policy-action-feedback";
-import { PolicyRulesSteps, admissionPolicyStepIds } from "./policy-rules-steps";
+import { PolicyRulesSteps, admissionPolicyStepIds, type PolicyMembershipStep } from "./policy-rules-steps";
 import { PolicyStatusPanel } from "./policy-status-panel";
 import styles from "./styles.module.scss";
 
 export type { AdmissionPolicyActivationBlock, AdmissionPolicyFailure, AdmissionPolicySettingsLinks } from "./policy-action-feedback";
+export type { PolicyMembershipStep } from "./policy-rules-steps";
+export { admissionPolicyStepIds } from "./policy-rules-steps";
 
 /** Preparation and safe messages come from the route container; they are never authority supplied by a form. */
 export type AdmissionPolicyFormProps = {
@@ -32,6 +34,19 @@ export type AdmissionPolicyFormProps = {
   onChange: (draft: AdmissionPolicyDraft) => void; onStepChange: (step: number) => void; onConfirm: (confirmed: boolean) => void; onRunFinal: () => void;
   onEdit: () => void; onCancelEdit: () => void; onPauseOpen: (open: boolean) => void; onPauseReason: (reason: string) => void; onPause: () => void; onResume: () => void;
   onRetry: () => void; onReloadCurrent: () => void; onRetryConfirm: (confirmed: boolean) => void; onRetryOriginal: () => void;
+  /** Membership review step inserted before the final step; null when no membership needs a decision. */
+  membershipStep?: PolicyMembershipStep | null;
+  /** Final action label override while saved rules are being published. */
+  finalLabel?: string;
+  /** A reason only the TuTribu team can resolve is known: the draft notice explains it instead of offering to publish. */
+  platformBlocked?: boolean;
+  rechecking?: boolean;
+  /** Opens the final step with the saved rules, to publish them. */
+  onReviewDraft?: () => void;
+  /** Opens the membership review step. */
+  onReviewCommercial?: () => void;
+  /** Rereads the configuration and checks the requirements again. */
+  onRecheck?: () => void;
 };
 
 /** Badge copy and tone for each public lifecycle state. */
@@ -54,9 +69,12 @@ export function AdmissionPolicyForm(props: AdmissionPolicyFormProps) {
   const badge = STATE_BADGE[props.state.state];
   const pending = props.state.impact.pendingRequestCount;
   const lockedReason = unavailable ? ADMISSION_POLICY_BROWSER_COPY.unavailable : props.uncertain ? ADMISSION_POLICY_BROWSER_COPY.originalPending : null;
-  const contactStep = admissionPolicyStepIds(props.editing).indexOf(ADMISSION_POLICY_STEP.contact);
+  const stepIds = admissionPolicyStepIds(props.editing, Boolean(props.membershipStep));
+  const contactStep = stepIds.indexOf(ADMISSION_POLICY_STEP.contact), finalStep = stepIds.length - 1;
+  const draftUnpublished = Boolean(props.state.policy) && !props.state.controlActivated && !unavailable;
   const feedback = <PolicyActionFeedback stage={props.stage} errorMessage={props.errorMessage} failure={props.failure} activationBlock={props.activationBlock} links={props.links} busy={props.busy} allowReload={!props.uncertain}
-    retrying={props.pendingAction === ADMISSION_POLICY_ACTION.retry} onRetry={props.onRetry} onReloadCurrent={props.onReloadCurrent} onReviewContact={showStatus ? undefined : () => props.onStepChange(contactStep)} />;
+    retrying={props.pendingAction === ADMISSION_POLICY_ACTION.retry} rechecking={props.rechecking} onRetry={props.onRetry} onReloadCurrent={props.onReloadCurrent} onRecheck={props.onRecheck}
+    onReviewContact={showStatus ? undefined : () => props.onStepChange(contactStep)} onReviewCommercial={showStatus ? undefined : props.onReviewCommercial} />;
 
   return <div className={styles.AdmissionPolicyForm} aria-busy={props.busy}>
     <section className={styles.AdmissionPolicyForm__summary} aria-label="Estado actual">
@@ -64,9 +82,12 @@ export function AdmissionPolicyForm(props: AdmissionPolicyFormProps) {
         <li><Badge tone={badge.tone}>{badge.label}</Badge></li>
         <li><Badge tone="neutral">{pending === 1 ? "1 solicitud pendiente" : `${pending} solicitudes pendientes`}</Badge></li>
       </ul>
-      {!props.state.controlActivated && !unavailable && <p className={styles.AdmissionPolicyForm__lead}>{props.state.policy
-        ? "Tenés reglas guardadas como borrador, pero las admisiones todavía no están activas. Revisá los pasos y activalas al final."
-        : "Todavía no hay reglas de admisión. Completá los pasos: al final guardamos las reglas y activamos las admisiones en una sola acción."}</p>}
+      {!props.state.controlActivated && !unavailable && !props.state.policy && <p className={styles.AdmissionPolicyForm__lead}>Todavía no hay reglas de admisión. Completá los pasos: al final guardamos las reglas y activamos las admisiones en una sola acción.</p>}
+      {draftUnpublished && <div className={styles.AdmissionPolicyForm__draft} role="group" aria-label={ADMISSION_POLICY_DRAFT_COPY.title}>
+        <p className={styles.AdmissionPolicyForm__draftTitle}>{ADMISSION_POLICY_DRAFT_COPY.title}</p>
+        <p className={styles.AdmissionPolicyForm__lead}>{props.platformBlocked ? ADMISSION_POLICY_DRAFT_COPY.platformBlocked : ADMISSION_POLICY_DRAFT_COPY.description}</p>
+        {!props.platformBlocked && props.onReviewDraft && props.step !== finalStep && <Button variant="secondary" size="sm" disabled={props.busy || props.uncertain} onClick={props.onReviewDraft}>{ADMISSION_POLICY_DRAFT_COPY.action}</Button>}
+      </div>}
       {props.permissionDenied && <p role="alert" className={`${styles.AdmissionPolicyForm__feedback} ${styles["AdmissionPolicyForm__feedback--alert"]}`}>{ADMISSION_POLICY_BROWSER_COPY.permissionDenied}</p>}
       {unavailable && <p role="alert" className={`${styles.AdmissionPolicyForm__feedback} ${styles["AdmissionPolicyForm__feedback--alert"]}`}>{ADMISSION_POLICY_BROWSER_COPY.unavailable}</p>}
       {props.statusMessage && <p role="status" className={styles.AdmissionPolicyForm__feedback}>{props.statusMessage}</p>}
@@ -90,7 +111,7 @@ export function AdmissionPolicyForm(props: AdmissionPolicyFormProps) {
           {props.editing && <Button variant="ghost" size="sm" disabled={props.busy} onClick={props.onCancelEdit}>Cancelar edición</Button>}
         </div>
         <PolicyRulesSteps state={props.state} draft={props.draft} editing={props.editing} step={props.step} confirmed={props.confirmed} busy={props.busy} finalLoading={props.pendingAction === ADMISSION_POLICY_ACTION.final}
-          lockedReason={lockedReason} validationMessage={props.validationMessage} links={props.links} feedback={feedback}
+          lockedReason={lockedReason} validationMessage={props.validationMessage} links={props.links} feedback={feedback} membershipStep={props.editing ? null : props.membershipStep} finalLabel={props.finalLabel}
           onChange={props.onChange} onStepChange={props.onStepChange} onConfirm={props.onConfirm} onRunFinal={props.onRunFinal} />
       </section>)}
   </div>;

@@ -53,4 +53,12 @@ describe("messaging connections workspace",()=>{
     const props=workspaceProps();render(<MessagingConnectionsWorkspace {...props} selected={props.candidate} nextStep="active" />);
     expect(screen.getByText("Conexión seleccionada y candidata")).toBeVisible();expect(screen.getAllByText("Candidata de prueba")).toHaveLength(1);expect(screen.getByText("Listo")).toBeVisible();expect(screen.queryByRole("button",{name:/^Ir a /})).not.toBeInTheDocument();
   });
+  it("should point a saved candidate that is not active yet to its pending step, and hide the notice once active",async()=>{
+    const props=workspaceProps(),user=userEvent.setup(),view=render(<MessagingConnectionsWorkspace {...props} />);
+    const notice=screen.getByRole("group",{name:"Tenés una conexión guardada sin activar"});
+    expect(notice).toHaveTextContent("Todavía no se usa para enviar códigos ni avisos.");
+    await user.click(within(notice).getByRole("button",{name:"Continuar donde quedó"}));expect(props.onTabChange).toHaveBeenCalledWith("tests");
+    view.rerender(<MessagingConnectionsWorkspace {...props} selected={props.candidate} nextStep="active" />);
+    expect(screen.queryByRole("group",{name:"Tenés una conexión guardada sin activar"})).not.toBeInTheDocument();
+  });
 });

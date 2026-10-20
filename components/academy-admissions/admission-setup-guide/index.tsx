@@ -12,7 +12,8 @@
 import { ArrowRightIcon, CheckIcon } from "lucide-react";
 import { ButtonLink } from "@/components/navigation/link";
 import type { AdmissionSetupProgress } from "@/src/modules/academy-admissions/application/queries/admission-setup-progress";
-import { ADMISSION_SETUP_GUIDE_COPY as COPY, ADMISSION_SETUP_STEP, ADMISSION_SETUP_STEP_COPY as STEP_COPY, ADMISSION_SETUP_STEP_SEGMENT, ADMISSION_SETUP_STEP_STATUS as STATUS, type AdmissionSetupStepId } from "@/src/modules/academy-admissions/constants/admission-setup-guide";
+import { ADMISSION_SETUP_GUIDE_COPY as COPY, ADMISSION_SETUP_STEP, ADMISSION_SETUP_STEP_COPY as STEP_COPY, ADMISSION_SETUP_STEP_POLICY_ENTRY, ADMISSION_SETUP_STEP_SEGMENT, ADMISSION_SETUP_STEP_STATUS as STATUS, type AdmissionSetupStepId } from "@/src/modules/academy-admissions/constants/admission-setup-guide";
+import { admissionPolicyStepHref } from "@/src/modules/academy-admissions/constants/admission-settings-navigation";
 import styles from "./styles.module.scss";
 
 export type AdmissionSetupGuideProps = { slug: string; progress: AdmissionSetupProgress };
@@ -28,7 +29,11 @@ const PERCENT = 100;
  */
 export function AdmissionSetupGuide({ slug, progress }: AdmissionSetupGuideProps) {
   if (progress.next === null) return null;
-  const href = (id: AdmissionSetupStepId) => `/${encodeURIComponent(slug)}/${ADMISSION_SETUP_STEP_SEGMENT[id]}`;
+  /** Draft rules and the membership review open the exact rules step; other steps open their page. */
+  const href = (id: AdmissionSetupStepId, draft: boolean) => {
+    const entry = id === ADMISSION_SETUP_STEP.memberships || (id === ADMISSION_SETUP_STEP.open && draft) ? ADMISSION_SETUP_STEP_POLICY_ENTRY[id] : null;
+    return entry ? admissionPolicyStepHref(slug, entry) : `/${encodeURIComponent(slug)}/${ADMISSION_SETUP_STEP_SEGMENT[id]}`;
+  };
   const ratio = progress.required === 0 ? 1 : progress.completed / progress.required;
   const allRequiredDone = progress.completed === progress.required;
   const numbers = new Map(progress.steps.filter((step) => step.status !== STATUS.optional).map((step, index) => [step.id, index + 1]));
@@ -56,6 +61,7 @@ export function AdmissionSetupGuide({ slug, progress }: AdmissionSetupGuideProps
           const optional = step.status === STATUS.optional;
           const isNext = step.id === progress.next;
           const detail = done ? copy.done
+            : step.id === ADMISSION_SETUP_STEP.open && step.platformBlocked ? STEP_COPY.open.platformBlocked
             : step.id === ADMISSION_SETUP_STEP.open && step.paused ? STEP_COPY.open.paused
             : optional && "optional" in copy ? copy.optional : copy.pending;
           return (
@@ -64,12 +70,13 @@ export function AdmissionSetupGuide({ slug, progress }: AdmissionSetupGuideProps
               <div className={styles.AdmissionSetupGuide__copy}>
                 <span className={styles.AdmissionSetupGuide__stepTitle}>
                   {copy.title}
-                  {done && <span className={styles.AdmissionSetupGuide__badge}>{COPY.doneBadge}</span>}
+                  {step.draft ? <span className={styles.AdmissionSetupGuide__badge}>{COPY.draftBadge}</span> : done && <span className={styles.AdmissionSetupGuide__badge}>{COPY.doneBadge}</span>}
+                  {step.platformBlocked && <span className={styles.AdmissionSetupGuide__badge}>{COPY.platformBadge}</span>}
                   {optional && <span className={styles.AdmissionSetupGuide__badge}>{COPY.optionalBadge}</span>}
                 </span>
                 <span className={styles.AdmissionSetupGuide__detail}>{detail}</span>
               </div>
-              {isNext && <ButtonLink className={styles.AdmissionSetupGuide__action} href={href(step.id)} variant="primary" size="sm">{copy.action}<ArrowRightIcon aria-hidden="true" /></ButtonLink>}
+              {isNext && !step.platformBlocked && <ButtonLink className={styles.AdmissionSetupGuide__action} href={href(step.id, Boolean(step.draft))} variant="primary" size="sm">{copy.action}<ArrowRightIcon aria-hidden="true" /></ButtonLink>}
             </li>
           );
         })}
