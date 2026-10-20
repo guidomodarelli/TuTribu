@@ -1373,6 +1373,13 @@
       "when": 1792522800000,
       "tag": "20261020190000_drop_recent_authentication_evidence",
       "breakpoints": true
+    },
+    {
+      "idx": 196,
+      "version": "7",
+      "when": 1792526400000,
+      "tag": "20261020200000_consolidate_admission_leader_guard",
+      "breakpoints": true
     }
   ]
 }

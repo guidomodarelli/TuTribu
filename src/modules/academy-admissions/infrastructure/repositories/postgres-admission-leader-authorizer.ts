@@ -4,11 +4,11 @@ import { sql } from "drizzle-orm";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { AuthorizedAdmissionContext } from "../../domain/repositories/admission-authorization-reader";
 import type { ReauthenticationOperation } from "@/src/modules/auth/constants/reauthentication-resources";
-import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import type { AdmissionAction } from "../../domain/policies/admission-eligibility";
+import { ADMISSION_LEADER_GUARD_DENIAL, ADMISSION_LEADER_GUARD_OUTCOME, type AdmissionLeaderGuardDenialOutcome } from "../../constants/admission-leader-guard";
 
 /** @param database - Original guarded transaction. @returns Authoritative time sampled after preceding waits. */
 export async function admissionDatabaseNow(database: RequestDatabase): Promise<Date> {
@@ -47,6 +47,11 @@ function heldLeaderAuthorityKey(context: AuthorizedAdmissionContext): string {
 
 /**
  * Holds tribe, native account/session and canonical leadership before policy/ledger resources.
+ *
+ * The full path is one call to `public.authorize_admission_leader`, which keeps the former
+ * sequential guard's lock order (tribe, user, session, account projection, canonical leadership,
+ * and for a sensitive operation the Google account and its session binding), re-projects the
+ * account after every wait and samples the database clock last.
  * @param database - Transaction whose actual application actor must match the context.
  * @param context - Private server-resolved request scope, never a client role.
  * @param scope - Server-selected action/resource and optional exact mutation purpose; a mutation locks the tribe exclusively.
@@ -56,27 +61,13 @@ export async function authorizeAdmissionLeader(database: RequestDatabase, contex
   const operation = scope.operation;
   const held = heldLeaderAuthority.get(database), reusable = held?.get(heldLeaderAuthorityKey(context));
   if (reusable && (reusable.exclusive || !operation)) return reuseHeldLeaderAuthority(database, context, scope, reusable);
-  const actor = (await database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
-  if (actor !== context.userId || context.resourceId !== scope.resourceId
-    || context.action !== scope.action
+  if (context.resourceId !== scope.resourceId || context.action !== scope.action
     || operation && context.sensitiveOperation !== operation) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
-  const tribe = (await database.execute(sql`select id from public.tribes where id=${context.tribeId} ${operation ? sql`for update` : sql`for share`}`)).rows[0];
-  if (!tribe) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-  await database.execute(sql`select id from public."user" where id=${actor} for share`);
-  const session = (await database.execute(sql`select id from public.session where id=${context.sessionId} and "userId"=${actor} for share`)).rows[0];
-  if (!session) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-  const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: context.userId, sessionId: context.sessionId }), (_identity, run) => run(database));
-  const current = await accounts.getAuthenticatedAccount();
-  if (!current) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-  const leadership = (await database.execute<{ locked: boolean }>(sql`select public.lock_admission_canonical_leader(${context.tribeId}) as locked`)).rows[0];
-  if (leadership?.locked !== true) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
-  if (operation && current.googleAccount) {
-    await database.execute(sql`select id from public.account where id=${current.googleAccount.id} and "userId"=${actor} for share`);
-    await database.execute(sql`select session_id from public.global_session_identity_bindings where session_id=${context.sessionId} and user_id=${actor} for share`);
-  }
-  const refreshed = await accounts.getAuthenticatedAccount(), now = await admissionDatabaseNow(database);
-  if (!refreshed || !isAuthenticatedSessionLive(refreshed.session.expiresAt, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-  held?.set(heldLeaderAuthorityKey(context), { exclusive: Boolean(operation) || reusable?.exclusive === true, sessionExpiresAt: refreshed.session.expiresAt });
+  const guard = (await database.execute<{ outcome: string; session_expires_at: Date | string | null }>(sql`select outcome,session_expires_at from public.authorize_admission_leader(${context.tribeId},${context.userId},${context.sessionId},${Boolean(operation)})`)).rows[0];
+  const denial = guard && Object.hasOwn(ADMISSION_LEADER_GUARD_DENIAL, guard.outcome) ? ADMISSION_LEADER_GUARD_DENIAL[guard.outcome as AdmissionLeaderGuardDenialOutcome] : undefined;
+  if (denial) throw new AdmissionOperationError(denial);
+  if (guard?.outcome !== ADMISSION_LEADER_GUARD_OUTCOME.authorized || !guard.session_expires_at) throw new Error(`authorizeAdmissionLeader failed: unknown guard outcome for tribe ${context.tribeId}`);
+  held?.set(heldLeaderAuthorityKey(context), { exclusive: Boolean(operation) || reusable?.exclusive === true, sessionExpiresAt: new Date(guard.session_expires_at) });
 }
 
 /**

@@ -28,5 +28,5 @@ export const ADMISSION_STATEMENT_OBJECTS = [
   "read_own_admission_operations", "read_own_admission_request_eligibility", "read_own_admission_request_summary", "read_public_admission_overview",
   "record_academy_admission_administrative_exposure", "record_academy_admission_authorized_exposure", "resolve_paid_admission_request", "tenant_messaging_connections", "verification_code_envelopes",
   "assert_authorized_messaging_key_material_proof", "assert_messaging_key_material_proof", "check_messaging_key_material_proof", "messaging_key_material_context_is_current",
-  "current_app_user_id", "read_admission_reviewer_context", "lock_admission_canonical_leader", "set_config", "pg_advisory_xact_lock", "pg_advisory_xact_lock_shared", "pg_try_advisory_xact_lock", "pg_sleep", "current_setting", "clock_timestamp", "transaction_timestamp",
+  "current_app_user_id", "read_admission_reviewer_context", "lock_admission_canonical_leader", "authorize_admission_leader", "set_config", "pg_advisory_xact_lock", "pg_advisory_xact_lock_shared", "pg_try_advisory_xact_lock", "pg_sleep", "current_setting", "clock_timestamp", "transaction_timestamp",
 ] as const;
