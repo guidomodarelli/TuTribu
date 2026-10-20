@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ResolveAdmissionContextUseCase } from "@/src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case";
 import { ManageCommercialMembershipReviewsUseCases } from "@/src/modules/academy-admissions/application/use-cases/manage-commercial-membership-reviews-use-cases";
 import { createCommercialMembershipReviewHandlers } from "@/src/modules/academy-admissions/infrastructure/api/commercial-membership-review-handlers";
-import { allowedCommercialMembershipDecisions, classifyCommercialMembershipReview, commercialMembershipExpectedState, type CommercialMembershipReviewCase } from "@/src/modules/academy-admissions/domain/entities/commercial-membership-review";
+import { allowedCommercialMembershipDecisions, classifyCommercialMembershipReview, commercialMembershipExpectedState, isCommercialMembershipState, type CommercialMembershipReviewCase } from "@/src/modules/academy-admissions/domain/entities/commercial-membership-review";
 import type { CommercialMembershipReviewRepository } from "@/src/modules/academy-admissions/domain/repositories/commercial-membership-review-repository";
 import type { AuthenticatedAccount } from "@/src/modules/auth/domain/entities/authenticated-account";
 import type { AdmissionActorFacts } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
@@ -37,6 +37,16 @@ describe("commercial membership review domain rules", () => {
     expect(allowedCommercialMembershipDecisions(guardianCase)).toEqual(["recover_active", "recover_muted", "retire"]);
     expect(commercialMembershipExpectedState(guardianCase)).toEqual({ role: "guardian", status: "removed", statusReason: "subscription_inactive", recoveryStatus: "muted" });
   });
+
+  it("should treat the four commercial combinations, crossed pairs included, as the shared commercial criterion", () => {
+    for (const status of ["blocked", "removed"]) for (const statusReason of ["payment_blocked", "subscription_inactive"]) expect(isCommercialMembershipState({ status, statusReason })).toBe(true);
+    expect(isCommercialMembershipState({ status: "blocked", statusReason: "conduct_blocked" })).toBe(false);
+    expect(isCommercialMembershipState({ status: "removed", statusReason: "none" })).toBe(false);
+    expect(isCommercialMembershipState({ status: "active", statusReason: "payment_blocked" })).toBe(false);
+    const crossedCase: CommercialMembershipReviewCase = { ...unknownCase, status: "removed", statusReason: "payment_blocked" };
+    expect(allowedCommercialMembershipDecisions(crossedCase)).toEqual(["recover_active", "recover_muted"]);
+    expect(commercialMembershipExpectedState(crossedCase)).toEqual({ role: "tribemate", status: "removed", statusReason: "payment_blocked", recoveryStatus: null });
+  });
 });
 
 describe("commercial membership review use cases", () => {
@@ -47,6 +57,19 @@ describe("commercial membership review use cases", () => {
     const guardian = fixture("guardian");
     expect(await guardian.useCases.read({ tribeId: guardian.tribeId, requestId: randomUUID() })).toMatchObject({ ok: false, failure: { code: "permission_denied" } });
     expect(guardian.repository.read).not.toHaveBeenCalled();
+  });
+
+  it("should publish crossed commercial pairs listed by the owner with the facts the decision compares", async () => {
+    const data = fixture();
+    const crossed: CommercialMembershipReviewCase[] = [
+      { ...unknownCase, memberId: randomUUID(), status: "removed", statusReason: "payment_blocked" },
+      { ...guardianCase, memberId: randomUUID(), status: "blocked", statusReason: "subscription_inactive" },
+    ];
+    data.repository.read.mockResolvedValueOnce({ cases: crossed, pendingCount: 2, resolvedCount: 0 });
+    expect(await data.useCases.read({ tribeId: data.tribeId, requestId: randomUUID() })).toEqual({ ok: true, value: { cases: crossed, pendingCount: 2, resolvedCount: 0 } });
+    const operationId = randomUUID();
+    await data.useCases.resolve({ tribeId: data.tribeId, requestId: randomUUID(), operationId, confirmed: true, memberId: crossed[0].memberId, decision: "recover_active", expected: commercialMembershipExpectedState(crossed[0]), reason: null });
+    expect(data.repository.resolve.mock.calls[0][1]).toMatchObject({ expected: { role: "tribemate", status: "removed", statusReason: "payment_blocked", recoveryStatus: null } });
   });
 
   it("should reject an unusable list instead of publishing it", async () => {

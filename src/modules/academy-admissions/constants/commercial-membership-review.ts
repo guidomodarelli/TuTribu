@@ -15,7 +15,7 @@ export const COMMERCIAL_MEMBERSHIP_REVIEW_KIND = { unknownHistory: "unknown_hist
 /** Roles that can be listed; the canonical leader row is never a case of this review. */
 export type CommercialMembershipReviewRole = "tribemate" | "guardian";
 export const COMMERCIAL_MEMBERSHIP_REVIEW_ROLES = [TRIBE_MEMBER_ROLE.tribemate, TRIBE_MEMBER_ROLE.guardian] as const satisfies readonly CommercialMembershipReviewRole[];
-/** Commercial states of a listed membership. */
+/** Commercial states and reasons of a listed membership; any status combines with any reason (`isCommercialMembershipState`, `public.is_commercial_membership_state`). */
 export type CommercialMembershipReviewStatus = "blocked" | "removed";
 export const COMMERCIAL_MEMBERSHIP_REVIEW_STATUSES = [TRIBE_MEMBERSHIP_STATUS.blocked, TRIBE_MEMBERSHIP_STATUS.removed] as const satisfies readonly CommercialMembershipReviewStatus[];
 export type CommercialMembershipReviewStatusReason = "payment_blocked" | "subscription_inactive";

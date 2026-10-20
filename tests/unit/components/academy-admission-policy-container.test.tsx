@@ -1,5 +1,5 @@
 /** Exercises the guided policy route with real shared controls and doubles only of owned ports. @module academy-admission-policy-container-tests */
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Activity, type ReactNode } from "react";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -467,6 +467,20 @@ describe("guided policy route workflow", () => {
       await waitFor(() => expect(screen.getByRole("button", { name: "Activar ahora" })).toBeInTheDocument());
       expect(data.reviewClient.resolveCommercialReview).toHaveBeenCalledOnce();
       expect(readCommercialMembershipReviewIntent(viewerId, slug)).toBeNull();
+    });
+
+    it("should label a crossed commercial pair with its own status and reason and send them as the observed facts", async () => {
+      const data = fixture();
+      const crossedCase: CommercialMembershipReviewCase = { ...unknownCase, memberId: "7d2e4f60-1a3b-4c5d-8e9f-0a1b2c3d4e5f", displayName: "Integrante cruzada", status: "removed", statusReason: "payment_blocked" };
+      data.reviewClient.readCommercialReviews.mockResolvedValue({ status: "ready", value: { cases: [], pendingCount: 0, resolvedCount: 1 } });
+      render(<AdmissionPolicyContainer initialState={data.state} client={data.client} reviewClient={data.reviewClient} initialCommercialReview={{ kind: "ready", list: { cases: [crossedCase], pendingCount: 1, resolvedCount: 0 } }} entryStep="memberships" />, { wrapper: Providers });
+      const facts = await screen.findByRole("list", { name: "Estado de Integrante cruzada" });
+      expect(within(facts).getAllByRole("listitem").map((item) => item.textContent)).toEqual(["Dada de baja", "Pago bloqueado", "Estado anterior desconocido"]);
+      fireEvent.click(screen.getByRole("radio", { name: "Al regularizar el pago vuelve como integrante activa" }));
+      fireEvent.click(screen.getByRole("checkbox", { name: /Confirmo esta decisión/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Guardar decisión" }));
+      await waitFor(() => expect(data.reviewClient.resolveCommercialReview).toHaveBeenCalledWith(slug, crossedCase.memberId, expect.objectContaining({ decision: "recover_active", expected: { role: "tribemate", status: "removed", statusReason: "payment_blocked", recoveryStatus: null } }), expect.any(AbortSignal)));
+      await waitFor(() => expect(data.reviewClient.readCommercialReviews).toHaveBeenCalled());
     });
 
     it("should explain a rejected decision and refresh the list", async () => {

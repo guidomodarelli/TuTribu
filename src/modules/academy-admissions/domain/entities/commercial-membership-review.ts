@@ -1,6 +1,6 @@
 /** Models the leader's review of memberships blocked by payment whose recovery cannot be decided automatically. @module commercial-membership-review */
 import {
-  COMMERCIAL_MEMBERSHIP_DECISION, COMMERCIAL_MEMBERSHIP_REVIEW_KIND,
+  COMMERCIAL_MEMBERSHIP_DECISION, COMMERCIAL_MEMBERSHIP_REVIEW_KIND, COMMERCIAL_MEMBERSHIP_REVIEW_STATUSES, COMMERCIAL_MEMBERSHIP_REVIEW_STATUS_REASONS,
   type CommercialMembershipDecision, type CommercialMembershipRecoveryStatus, type CommercialMembershipRejection, type CommercialMembershipReviewKind,
   type CommercialMembershipReviewRole, type CommercialMembershipReviewStatus, type CommercialMembershipReviewStatusReason,
 } from "../../constants/commercial-membership-review";
@@ -33,6 +33,21 @@ export type CommercialMembershipResolution = {
 /** An expected business rejection, kept as the original result so retries never repeat a different decision. */
 export type CommercialMembershipResolutionRejection = { status: "rejected"; memberId: string; reason: CommercialMembershipRejection };
 export type CommercialMembershipResolutionResult = CommercialMembershipResolution | CommercialMembershipResolutionRejection;
+
+/** Status facts of any membership row, before knowing whether it is commercial. */
+export type CommercialMembershipStateFacts = { status: string; statusReason: string };
+
+/**
+ * Single commercial criterion shared by the activation preflight and the review, mirrored in SQL by
+ * `public.is_commercial_membership_state`: any commercial status with any commercial reason, crossed pairs included.
+ *
+ * @param facts - Persisted status and status reason of one membership.
+ * @returns Whether the membership counts as blocked by payment.
+ */
+export function isCommercialMembershipState(facts: CommercialMembershipStateFacts): facts is { status: CommercialMembershipReviewStatus; statusReason: CommercialMembershipReviewStatusReason } {
+  return COMMERCIAL_MEMBERSHIP_REVIEW_STATUSES.some((status) => status === facts.status)
+    && COMMERCIAL_MEMBERSHIP_REVIEW_STATUS_REASONS.some((statusReason) => statusReason === facts.statusReason);
+}
 
 /**
  * @param item - Listed membership.

@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
 import { prepareContactVerificationDatabase } from "@/tests/support/contact-verification-database-fixture";
+import { PostgresAdmissionActivationRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activation-repository";
 import { PostgresCommercialMembershipReviewRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository";
 import { commercialMembershipExpectedState } from "@/src/modules/academy-admissions/domain/entities/commercial-membership-review";
 import type { AuthorizedAdmissionContext } from "@/src/modules/academy-admissions/domain/repositories/admission-authorization-reader";
@@ -42,7 +43,16 @@ async function prepareReview(database: AcademyAdmissionTestDatabase) {
   const execute = <Result>(_context: AuthorizedAdmissionContext, work: (transaction: RequestDatabase) => Promise<Result>) => database.withContext(fixture.own, work);
   const repository = new PostgresCommercialMembershipReviewRepository(execute, async () => fixture.config);
   const row = async (key: keyof typeof members) => database.withContext(fixture.own, async (transaction) => (await transaction.execute<MemberRow>(sql`select role,status,status_reason,commercial_recovery_status from public.tribe_members where id=${memberIds[key]}`)).rows[0]);
-  return { fixture, tribeId, memberIds, readContext, writeContext, repository, row };
+  /** Seeds one more membership in the same tribe, for the crossed commercial pairs the base fixture does not cover. */
+  const addMember = async (role: string, status: string, reason: string, recovery: string | null) => database.withContext(fixture.own, async (transaction) => {
+    const userId = randomUUID();
+    await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${userId},'Synthetic crossed member',${`${userId}@example.test`},false,clock_timestamp(),clock_timestamp())`);
+    return (await transaction.execute<{ id: string }>(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason,commercial_recovery_status) values (${tribeId},${userId},${role},${status},${reason},${recovery}) returning id`)).rows[0].id;
+  });
+  const memberRow = async (memberId: string) => database.withContext(fixture.own, async (transaction) => (await transaction.execute<MemberRow>(sql`select role,status,status_reason,commercial_recovery_status from public.tribe_members where id=${memberId}`)).rows[0]);
+  /** Real activation preflight inventory over the same leader scope. */
+  const preflight = () => database.withContext(fixture.own, (transaction) => new PostgresAdmissionActivationRepository(transaction, readContext, { isPrepared: async () => true }, async () => false).read(readContext));
+  return { fixture, tribeId, memberIds, readContext, writeContext, repository, row, addMember, memberRow, preflight };
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("commercial membership review SQL owner", () => {
@@ -82,6 +92,48 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("commercial members
         { decision: "retire", basis: "prospective_leader_decision", actor_user_id: data.fixture.userId, reason: null },
         { decision: "recover_active", basis: "prospective_leader_decision", actor_user_id: data.fixture.userId, reason: null },
       ]);
+    });
+  }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
+
+  it("should list and resolve crossed commercial pairs exactly as the activation preflight counts them", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const data = await prepareReview(database);
+      const crossedTribemate = await data.addMember("tribemate", "removed", "payment_blocked", null);
+      const crossedGuardian = await data.addMember("guardian", "blocked", "subscription_inactive", null);
+      const crossedKnown = await data.addMember("tribemate", "blocked", "subscription_inactive", "active");
+      expect(await data.preflight()).toMatchObject({ unknownCommercialMemberCount: 4, privilegedCommercialMemberCount: 2 });
+      const list = await data.repository.read(data.readContext);
+      expect(list.pendingCount).toBe(5);
+      const listed = list.cases.map((item) => item.memberId);
+      expect([...listed].sort()).toEqual([data.memberIds.unknown, data.memberIds.removed, data.memberIds.guardian, crossedTribemate, crossedGuardian].sort());
+      expect(listed).not.toContain(data.memberIds.conduct);
+      expect(listed).not.toContain(crossedKnown);
+      const caseOf = (memberId: string) => list.cases.find((item) => item.memberId === memberId)!;
+      expect(caseOf(crossedTribemate)).toMatchObject({ role: "tribemate", status: "removed", statusReason: "payment_blocked", recoveryStatus: null });
+      expect(caseOf(crossedGuardian)).toMatchObject({ role: "guardian", status: "blocked", statusReason: "subscription_inactive", recoveryStatus: null });
+      const decide = (memberId: string, decision: "recover_active" | "recover_muted" | "retire", expected = commercialMembershipExpectedState(caseOf(memberId))) =>
+        data.repository.resolve(data.writeContext, { operationId: randomUUID(), confirmed: true, memberId, decision, expected, reason: null });
+      expect(await decide(crossedTribemate, "retire")).toMatchObject({ state: "completed", result: { status: "rejected", reason: "decision_not_allowed" } });
+      expect(await decide(crossedTribemate, "recover_muted", { ...commercialMembershipExpectedState(caseOf(crossedTribemate)), status: "blocked" })).toMatchObject({ state: "completed", result: { status: "rejected", reason: "membership_changed" } });
+      expect(await decide(crossedKnown, "recover_active", { role: "tribemate", status: "blocked", statusReason: "subscription_inactive", recoveryStatus: "active" })).toMatchObject({ state: "completed", result: { status: "rejected", reason: "membership_already_resolved" } });
+      expect(await decide(data.memberIds.conduct, "recover_active", { role: "tribemate", status: "blocked", statusReason: "payment_blocked", recoveryStatus: null })).toMatchObject({ state: "completed", result: { status: "rejected", reason: "membership_not_commercial" } });
+      expect(await decide(crossedTribemate, "recover_muted")).toMatchObject({ state: "completed", result: { status: "resolved", resultingStatus: "removed", resultingRecoveryStatus: "muted" } });
+      expect(await data.memberRow(crossedTribemate)).toEqual({ role: "tribemate", status: "removed", status_reason: "payment_blocked", commercial_recovery_status: "muted" });
+      expect(await decide(crossedGuardian, "retire")).toMatchObject({ state: "completed", result: { status: "resolved", decision: "retire", resultingRole: "tribemate", resultingStatus: "removed" } });
+      expect(await data.memberRow(crossedGuardian)).toEqual({ role: "tribemate", status: "removed", status_reason: "none", commercial_recovery_status: null });
+      for (const memberId of [data.memberIds.unknown, data.memberIds.removed, data.memberIds.guardian]) expect(await decide(memberId, "recover_active")).toMatchObject({ state: "completed", result: { status: "resolved" } });
+      expect(await data.row("guardian")).toEqual({ role: "tribemate", status: "blocked", status_reason: "payment_blocked", commercial_recovery_status: "active" });
+      expect(await data.repository.read(data.readContext)).toEqual({ cases: [], pendingCount: 0, resolvedCount: 5 });
+      expect(await data.preflight()).toMatchObject({ unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 });
+      const audit = await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute<{ member_id: string; previous_role: string; previous_status: string; previous_status_reason: string }>(sql`select member_id,previous_role,previous_status,previous_status_reason from public.tribe_member_commercial_resolutions where tribe_id=${data.tribeId} and member_id in (${crossedTribemate},${crossedGuardian}) order by decided_at`)).rows);
+      expect(audit).toEqual([
+        { member_id: crossedTribemate, previous_role: "tribemate", previous_status: "removed", previous_status_reason: "payment_blocked" },
+        { member_id: crossedGuardian, previous_role: "guardian", previous_status: "blocked", previous_status_reason: "subscription_inactive" },
+      ]);
+      await database.grantTablesToNonBypass(["tribe_member_commercial_resolutions", "tribe_members"]);
+      const countAudit = (context: { userId: string; email: string }) => database.withContext(context, async (transaction) => (await transaction.execute<{ count: number }>(sql`select count(*)::int as count from public.tribe_member_commercial_resolutions where tribe_id=${data.tribeId}`)).rows[0].count, "non_bypass");
+      expect(await countAudit(data.fixture.own)).toBe(5);
+      expect(await countAudit({ userId: randomUUID(), email: "stranger@example.test" })).toBe(0);
     });
   }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
 

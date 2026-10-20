@@ -8,7 +8,7 @@ import { evaluateAdmissionActivationPreflight, type AdmissionActivationInventory
 import { ADMISSION_PREFLIGHT_STORAGE_TRIGGERS, ADMISSION_PREFLIGHT_INGRESS_TRIGGERS, ADMISSION_PREFLIGHT_ENABLED_TRIGGER_MODES, ADMISSION_PREFLIGHT_STORAGE_CONSTRAINTS, ADMISSION_PREFLIGHT_OWNER_FUNCTIONS, ADMISSION_PREFLIGHT_INGRESS_POLICY, ADMISSION_PREFLIGHT_RLS_TABLES, ADMISSION_PREFLIGHT_FUNCTION_SEARCH_PATHS } from "../../constants/admission-preflight";
 import { authorizeAdmissionPolicy } from "./postgres-admission-policy-authorizer";
 import { TRIBE_ACCESS_MODEL } from "@/src/modules/product-access/constants/product-access";
-import { TRIBE_MEMBERSHIP_STATUS, TRIBE_MEMBERSHIP_STATUS_REASON } from "@/src/modules/tribes/constants/tribe-page-access";
+import { isCommercialMembershipState } from "../../domain/entities/commercial-membership-review";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
@@ -32,7 +32,7 @@ export class PostgresAdmissionActivationRepository implements AdmissionActivatio
     const functions = (await this.database.execute<{ name: string; signature: string; owner_execution: boolean; configuration: string[] | null; public_execution: boolean }>(sql`select procedure.proname as name,oidvectortypes(procedure.proargtypes) as signature,procedure.prosecdef as owner_execution,procedure.proconfig as configuration,exists(select 1 from aclexplode(coalesce(procedure.proacl,acldefault('f',procedure.proowner))) permission where permission.grantee=0 and permission.privilege_type='EXECUTE') as public_execution from pg_catalog.pg_proc procedure join pg_catalog.pg_namespace namespace on namespace.oid=procedure.pronamespace where namespace.nspname='public' and procedure.proname=any(${sql.param(ADMISSION_PREFLIGHT_OWNER_FUNCTIONS.map((procedure) => procedure.name))}::text[])`)).rows;
     const ingressPolicy = (await this.database.execute(sql`select policyname from pg_catalog.pg_policies where schemaname='public' and tablename='tribe_members' and policyname=${ADMISSION_PREFLIGHT_INGRESS_POLICY}`)).rows[0];
     const members = (await this.database.execute<{ role: string; status: string; status_reason: string; commercial_recovery_status: string | null }>(sql`select role,status,status_reason,commercial_recovery_status from public.tribe_members where tribe_id=${context.tribeId} order by id for share`)).rows;
-    const commercial = members.filter((member) => (member.status === TRIBE_MEMBERSHIP_STATUS.removed || member.status === TRIBE_MEMBERSHIP_STATUS.blocked) && (member.status_reason === TRIBE_MEMBERSHIP_STATUS_REASON.subscriptionInactive || member.status_reason === TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked));
+    const commercial = members.filter((member) => isCommercialMembershipState({ status: member.status, statusReason: member.status_reason }));
     const runtimePrepared = await this.runtime.isPrepared(context.tribeId);
     const recoveryLocked = await this.readRecoveryLock();
     await authorizeAdmissionPolicy(this.database, context, context.sensitiveOperation);

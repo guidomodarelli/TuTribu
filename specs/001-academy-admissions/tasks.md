@@ -1778,6 +1778,10 @@ Cierre T217: [evidencia vigente](validation/whatsapp-number.md#cierre-vigente-de
 
   Cierre de T218: Vitest de dominio, casos de uso, HTTP, presenter, container y guía; suite SQL opt-in `commercial-membership-review-sql.test.ts` (`RUN_ADMISSION_SQL_TESTS=1`) aprobada en ramas Neon propias, y validación manual de la migración tal como se commitea en una rama efímera (28/28 escenarios: lector, denegaciones, CAS, replay, conflicto de idempotencia, retiro de guardián, guard del snapshot, append-only, RLS con rol sin bypass, concurrencia). No acredita la aplicación al piloto ni a producción, ni los manuales de `user-guides/`.
 
+- [x] T219 Alinear la revisión de membresías bloqueadas por pago con el criterio del preflight de activación, sin relajarlo: las cuatro combinaciones de estado (`blocked`/`removed`) y motivo (`payment_blocked`/`subscription_inactive`) se listan y se resuelven, con predicado SQL único `public.is_commercial_membership_state` (lector, writer y check de la auditoría) y predicado TypeScript `isCommercialMembershipState` compartido por el preflight y la revisión. Conserva líder canónico y sesión vigentes, CAS, idempotencia por operación, auditoría append-only, RLS y guardianes sin privilegio recuperable. Archivos: `database/migrations/20261020120000_align_commercial_membership_review_criterion.sql`, `database/migrations/meta/_journal.json`, `src/modules/academy-admissions/domain/entities/commercial-membership-review.ts`, `src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activation-repository.ts`, `tests/unit/modules/academy-admissions/`, `tests/unit/components/academy-admission-policy-container.test.tsx`, `docs/architecture/academy-admissions.htm`. Dependencias: `T218`. Trazabilidad: `FR-123`, `FR-138`–`FR-140`, `US-10-AC-06`, `OG-06`.
+
+  Cierre de T219: Vitest del criterio común, casos de uso con pares cruzados y contenedor (etiquetas «Dada de baja» + «Pago bloqueado» y hechos enviados al CAS); suite SQL opt-in con pares cruzados, control no comercial y comparación con el inventario real del preflight en una rama Neon propia, y validación manual de la migración en una rama efímera. No acredita la aplicación al piloto ni a producción. Límite: las vías de pago, ingreso gratuito e invitación siguen recuperando sólo los pares canónicos.
+
 Motivos de bloqueo y quién los resuelve:
 
 | Motivo | Significado | Quién lo resuelve y dónde | Decisión o auditoría |
@@ -1786,7 +1790,7 @@ Motivos de bloqueo y quién los resuelve:
 | `verification_quota_unavailable`, `recipient_countries_not_configured`, `recipient_countries_restricted` | Falta cupo o países habilitados. | Líder, en Países y cupos (retorno a Reglas). | Auditoría de uso existente. |
 | `phone_channel_required`, `phone_allowlist_verification_required`, `sms_alternative_invalid`, `contact_type_locked` | Elección de contacto inválida. | Líder, en el paso «Cómo se contactan». | Auditoría de política al guardar. |
 | `academy_unavailable`, `preflight_academy_unavailable` | La tribu no está en modo academia. | Líder, en Gestionar academia. | Auditoría de academia existente. |
-| `preflight_unknown_commercial_history` | Tribemate bloqueada por pago con estado anterior desconocido. | Líder, en el paso «Revisá membresías bloqueadas por pago». | `recover_active`/`recover_muted` en `tribe_member_commercial_resolutions`. |
+| `preflight_unknown_commercial_history` | Tribemate bloqueada o dada de baja por pago (cualquier combinación de estado y motivo comercial, T219) con estado anterior desconocido. | Líder, en el paso «Revisá membresías bloqueadas por pago». | `recover_active`/`recover_muted` en `tribe_member_commercial_resolutions`. |
 | `preflight_privileged_commercial_membership` | Guardián con bloqueo comercial. | Líder, en el mismo paso. | Vuelve como integrante sin rol (`recover_*`) o retirado (`retire`), auditado. |
 | `policy_scope_mismatch`, `preflight_scope_mismatch`, `admission_clock_invalid` | Comprobación desfasada. | Líder, con «Volver a comprobar». | Ninguna; lectura. |
 | `policy_unavailable`, `preflight_policy_unavailable` | Falta guardar la política. | El flujo la crea antes de activar. | Auditoría de política. |
@@ -1812,8 +1816,8 @@ Motivos de bloqueo y quién los resuelve:
 | US12 | 6 | T192–T197 |
 | Fase 15 | 15 | T198–T212 |
 | WhatsApp para revisión humana | 5 | T213–T217 |
-| Membresías bloqueadas por pago | 1 | T218 |
-| Total | 218 | T001–T218 |
+| Membresías bloqueadas por pago | 2 | T218–T219 |
+| Total | 219 | T001–T219 |
 
 Las pruebas se distribuyen por fase e historia; los marcadores individuales son la fuente de cierre. Las 212 identidades anteriores y sus aprobaciones se conservan, con T213–T217 y FR-143–FR-146 añadidos para WhatsApp.
 

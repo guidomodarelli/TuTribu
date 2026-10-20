@@ -6,7 +6,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
-- Reglas incorpora el paso «Revisá membresías bloqueadas por pago»: el líder ve cada integrante bloqueada o dada de baja por falta de pago cuyo estado anterior se desconoce y decide, con confirmación y un motivo opcional, si al regularizar el pago vuelve como integrante activa o silenciada. La decisión queda registrada con su autor y fecha, vale de acá en adelante y no reactiva a nadie en el momento.
+- Reglas incorpora el paso «Revisá membresías bloqueadas por pago»: el líder ve cada integrante bloqueada o dada de baja por falta de pago cuyo estado anterior se desconoce y decide, con confirmación y un motivo opcional, si al regularizar el pago vuelve como integrante activa o silenciada. La decisión queda registrada con su autor y fecha, vale de acá en adelante y no reactiva a nadie en el momento. Cada fila muestra por separado si quedó bloqueada o dada de baja y si fue por pago bloqueado o por suscripción inactiva, y aparecen todas las que impiden activar, cualquiera sea esa combinación.
 - En ese mismo paso, cada guardián bloqueado por pago puede volver como integrante activa o silenciada, siempre sin su rol de guardián, o quedar retirado («No vuelve por pago: queda retirada»); un pago nunca devuelve un rol ni lo conserva.
 - Cuando la activación encuentra membresías bloqueadas por pago sin decidir, el paso aparece antes de «Revisá y activá»; al terminar las decisiones vuelve al paso final con «Activar ahora», sin perder lo elegido.
 - Reglas avisa «Tenés reglas guardadas sin publicar» con la acción «Revisar y activar», que abre directamente el paso final con lo guardado.
