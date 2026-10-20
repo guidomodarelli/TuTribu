@@ -7,6 +7,7 @@ import { ADMISSION_NODE_HOST } from "./constants/admission-node-host";
 import { ADMISSION_STATEMENT_PROFILE } from "./constants/admission-statement-profile";
 import { projectAdmissionStatementProfile } from "./admission-statement-profile";
 import { readPostgresTestDiagnostics } from "./postgres-test-diagnostics";
+import { resolveNeonCliEntrypoint } from "./neon-cli-entrypoint";
 
 const execute = promisify(execFile);
 /**
@@ -16,8 +17,8 @@ const execute = promisify(execFile);
  */
 export async function inspectAdmissionDatabaseStatements(database: AcademyAdmissionTestDatabase) {
   try {
-    const cli = process.env.NEON_CLI_PATH;
-    if (!cli || database.branch.isDefault !== false) throw new Error("Native inspector owned scope unavailable");
+    const cli = await resolveNeonCliEntrypoint();
+    if (database.branch.isDefault !== false) throw new Error("Native inspector owned scope unavailable");
     return await database.withServerEnvironment(async (environment) => {
       const selected = new URL(environment.DATABASE_URL);
       const result = await execute(process.execPath, [cli, "inspect", "db", "outliers", "--project-id", ADMISSION_NEON_PROJECT_ID, "--branch", database.branch.id, "--database-name", decodeURIComponent(selected.pathname.slice(1)), "--role-name", decodeURIComponent(selected.username), "--profile", "DEFAULT", "--output", "json"], { windowsHide: true, timeout: ADMISSION_NODE_HOST.deploymentTimeoutMs, maxBuffer: ADMISSION_STATEMENT_PROFILE.maximumOutputBytes });
