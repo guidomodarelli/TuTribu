@@ -11,7 +11,7 @@ import { selectAdmissionPolicyAuditSnapshot, type AdmissionPolicyAuditSnapshot }
 /** Only consumed private storage fields belong here; none becomes a permission marker. */
 export type AdmissionActivityStorageRow = { id: string; tribe_id: string; actor_user_id: string | null; operation_id: string | null; tribe_lifecycle_operation_id: string | null; resource_type: string; resource_id: string | null; event_type: string; rule: string | null; cause: string | null; resource_version: number | null; metadata: Record<string, unknown>; created_at: Date | string; cursor_at: string };
 /** Storage dates are consumed as dates, independently of the own millisecond DTO contract. */
-export type AdmissionMetricsStorage = Omit<AdmissionMetricsResult, "asOf" | "usage" | "lastSuccessfulRun"> & { asOf: string; usage: Omit<AdmissionMetricsResult["usage"], "dayStartUtc"> & { dayStartUtc: string }; lastSuccessfulRun: { operation: AdmissionMetricRunOperation; at: string } | null };
+export type AdmissionMetricsStorage = Omit<AdmissionMetricsResult, "asOf" | "usage" | "lastSuccessfulRun" | "maintenance"> & { asOf: string; usage: Omit<AdmissionMetricsResult["usage"], "dayStartUtc"> & { dayStartUtc: string }; lastSuccessfulRun: { operation: AdmissionMetricRunOperation; at: string } | null; maintenance: { lastCompletedAt: string | null } | null };
 
 /** @param tribeId - Already authorized exact scope. @param rows - Bounded original storage rows. @param nextCursor - Exact original SQL timestamp/id tuple. @returns Safe owned history without descriptive notes, contacts, payload or arbitrary labels. */
 export function mapAdmissionActivityStorage(tribeId: string, rows: readonly AdmissionActivityStorageRow[], nextCursor: string | null) {
@@ -43,6 +43,7 @@ export function mapAdmissionMetricsStorage(row: AdmissionMetricsStorage, tribeId
     attempts: { inFlight: row.attempts.inFlight, accepted: row.attempts.accepted, delivered: row.attempts.delivered, rejected: row.attempts.rejected, unknown: row.attempts.unknown },
     usage: { policyVersion: row.usage.policyVersion, dayStartUtc: new Date(row.usage.dayStartUtc).toISOString(), verificationToday: row.usage.verificationToday, notificationToday: row.usage.notificationToday },
     errors: row.errors.map((value) => ({ code: value.code, count: value.count })), lastSuccessfulRun: row.lastSuccessfulRun ? { operation: row.lastSuccessfulRun.operation, at: new Date(row.lastSuccessfulRun.at).toISOString() } : null,
+    maintenance: row.maintenance ? { lastCompletedAt: row.maintenance.lastCompletedAt === null ? null : new Date(row.maintenance.lastCompletedAt).toISOString() } : null,
     durations: row.durations.map((value) => ({ phase: value.phase, sampleCount: value.sampleCount, p95Ms: value.p95Ms })),
   }, tribeId);
 }

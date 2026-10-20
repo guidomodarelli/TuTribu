@@ -5,7 +5,7 @@ import { admissionMetricsResultSchema, parseAdmissionMetricsResult } from "@/src
 
 /** @returns A scoped aggregate with only closed dimensions and UTC boundaries; no account/contact labels. */
 function metricsFixture(tribeId = randomUUID()) {
-  return { tribeId, asOf: "2026-10-12T20:00:00.000Z", requests: { pending: 3, approved: 2, rejected: 1, cancelled: 0, expired: 1, oldestPendingAgeMs: 10_000 }, reviews: { automatic: 1, manual: 2 }, verification: [{ channel: "email", issued: 2, verified: 1, invalidated: 0, expired: 0, failedAttempts: 1 }], deliveries: { queued: 2, accepted: 1, delivered: 1, failed: 0, unknown: 1, suppressed: 0, cancelled: 1, inFlightLeases: 1, oldestQueuedAgeMs: 5_000 }, attempts: { inFlight: 1, accepted: 1, delivered: 1, rejected: 0, unknown: 1 }, usage: { policyVersion: 4, dayStartUtc: "2026-10-12T00:00:00.000Z", verificationToday: 3, notificationToday: 2 }, errors: [{ code: "delivery_unknown", count: 1 }], lastSuccessfulRun: { operation: "messaging_dispatch", at: "2026-10-12T19:59:00.000Z" }, durations: [{ phase: "dispatch", sampleCount: 2, p95Ms: 1_000 }] };
+  return { tribeId, asOf: "2026-10-12T20:00:00.000Z", requests: { pending: 3, approved: 2, rejected: 1, cancelled: 0, expired: 1, oldestPendingAgeMs: 10_000 }, reviews: { automatic: 1, manual: 2 }, verification: [{ channel: "email", issued: 2, verified: 1, invalidated: 0, expired: 0, failedAttempts: 1 }], deliveries: { queued: 2, accepted: 1, delivered: 1, failed: 0, unknown: 1, suppressed: 0, cancelled: 1, inFlightLeases: 1, oldestQueuedAgeMs: 5_000 }, attempts: { inFlight: 1, accepted: 1, delivered: 1, rejected: 0, unknown: 1 }, usage: { policyVersion: 4, dayStartUtc: "2026-10-12T00:00:00.000Z", verificationToday: 3, notificationToday: 2 }, errors: [{ code: "delivery_unknown", count: 1 }], lastSuccessfulRun: { operation: "messaging_dispatch", at: "2026-10-12T19:59:00.000Z" }, maintenance: { lastCompletedAt: "2026-10-12T19:58:00.000Z" }, durations: [{ phase: "dispatch", sampleCount: 2, p95Ms: 1_000 }] };
 }
 
 describe("safe admission aggregate contract", () => {
@@ -47,6 +47,8 @@ describe("safe admission aggregate contract", () => {
   it("should reject future success or budget periods and duration measurements without real samples", () => {
     const value = metricsFixture();
     expect(admissionMetricsResultSchema.safeParse({ ...value, lastSuccessfulRun: { ...value.lastSuccessfulRun, at: "2026-10-13T00:00:00.000Z" } }).success).toBe(false);
+    expect(admissionMetricsResultSchema.safeParse({ ...value, maintenance: { lastCompletedAt: "2026-10-13T00:00:00.000Z" } }).success).toBe(false);
+    expect(admissionMetricsResultSchema.safeParse({ ...value, maintenance: { lastCompletedAt: null } }).success).toBe(true);
     expect(admissionMetricsResultSchema.safeParse({ ...value, usage: { ...value.usage, dayStartUtc: "2026-10-13T00:00:00.000Z" } }).success).toBe(false);
     expect(admissionMetricsResultSchema.safeParse({ ...value, durations: [{ phase: "dispatch", sampleCount: 0, p95Ms: 1_000 }] }).success).toBe(false);
     expect(admissionMetricsResultSchema.safeParse({ ...value, durations: [value.durations[0], value.durations[0]] }).success).toBe(false);

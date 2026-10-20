@@ -61,7 +61,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native usage and w
       let authorityReads = 0;
       const interrupted = buildAdmissionExpirationModule({ execute: (run) => database.withContext(own, run), authorize: async () => { authorityReads += 1; return authorityReads === 1; } });
       await expect(interrupted.useCases.expireRequests.execute({ limit: 1 })).rejects.toMatchObject({ code: "permission_denied" });
-      expect(await reader.readMetrics(scope)).toMatchObject({ requests: { pending: 2, expired: 0 }, lastSuccessfulRun: null, durations: [] });
+      expect(await reader.readMetrics(scope)).toMatchObject({ requests: { pending: 2, expired: 0 }, lastSuccessfulRun: null, maintenance: null, durations: [] });
       await database.withContext(own, async (transaction) => {
         expect((await transaction.execute(sql`select count(*)::integer as count from public.academy_admission_worker_runs where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ count: 0 }]);
         expect((await transaction.execute(sql`select count(*)::integer as count from public.academy_admission_decisions where tribe_id=${fixture.tribeId} and outcome='expired'`)).rows).toEqual([{ count: 0 }]);

@@ -15,7 +15,7 @@ export function createAdmissionActivityPageFixture(): AdmissionActivityReadyPage
       deliveries: { queued: 2, accepted: 1, delivered: 1, failed: 0, unknown: 1, suppressed: 0, cancelled: 1, inFlightLeases: 1, oldestQueuedAgeMs: 5000 },
       attempts: { inFlight: 1, accepted: 1, delivered: 1, rejected: 0, unknown: 1 },
       usage: { policyVersion: 6, dayStartUtc: "2026-10-14T00:00:00.000Z", verificationToday: 8, notificationToday: 3 },
-      errors: [{ code: "delivery_unknown", count: 1 }], lastSuccessfulRun: { operation: "messaging_dispatch", at: "2026-10-14T19:59:00.000Z" },
+      errors: [{ code: "delivery_unknown", count: 1 }], lastSuccessfulRun: { operation: "messaging_dispatch", at: "2026-10-14T19:59:00.000Z" }, maintenance: null,
       durations: [{ phase: "dispatch", sampleCount: 2, p95Ms: 1000 }],
     },
     activity: { tribeId, items: [{ id: randomUUID(), actorUserId: viewerId, operationId: randomUUID(), tribeLifecycleOperationId: null, resourceType: "messaging_usage_policy", resourceId: tribeId, eventType: "update_messaging_usage", rule: "update_messaging_usage", cause: null, resourceVersion: 2, changes: { previousVersion: 1, allowedCountries: ["AR"], verificationDailyLimit: 50, notificationDailyLimit: 100 }, createdAt: "2026-10-13T12:00:00.000Z" }], nextCursor: null },

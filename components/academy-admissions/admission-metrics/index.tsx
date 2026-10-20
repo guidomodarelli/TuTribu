@@ -6,7 +6,7 @@ import { ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/consta
 import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/messaging-public-contract";
 import { ADMISSION_METRIC_PHASE_LABELS, ADMISSION_METRIC_RUN_LABELS, ADMISSION_OBSERVATION_COPY } from "@/src/modules/academy-admissions/constants/admission-activity-labels";
 import { formatAdmissionObservationDuration, formatAdmissionObservationTime } from "@/lib/academy-admissions/admission-observation-format";
-import { ADMISSION_MAINTENANCE_STALE_AFTER_MS } from "@/src/modules/academy-admissions/constants/admission-maintenance-health";
+import { resolveAdmissionMaintenanceStaleness } from "@/lib/academy-admissions/admission-maintenance-staleness";
 import styles from "./styles.module.scss";
 
 /** Values are computed from the current own DTO; no private dimension is accepted as a label. */
@@ -23,9 +23,7 @@ export function AdmissionMetrics({ metrics, currentUsage, usageHref }: Admission
   const currentPolicy = currentUsage.policy;
   const changedConfiguration = (currentPolicy?.version ?? null) !== metrics.usage.policyVersion;
   const requests = metrics.requests, deliveries = metrics.deliveries, attempts = metrics.attempts;
-  // Measured against the server observation time, so the server and the first client render agree.
-  const lastRunAgeMs = metrics.lastSuccessfulRun ? new Date(metrics.asOf).getTime() - new Date(metrics.lastSuccessfulRun.at).getTime() : null;
-  const maintenanceStaleMs = lastRunAgeMs !== null && lastRunAgeMs > ADMISSION_MAINTENANCE_STALE_AFTER_MS ? lastRunAgeMs : null;
+  const maintenanceStaleness = resolveAdmissionMaintenanceStaleness(metrics);
   return <div className={styles.AdmissionMetrics}>
     <p className={styles.AdmissionMetrics__help}>Datos observados el <time dateTime={metrics.asOf}>{formatAdmissionObservationTime(metrics.asOf)}</time>. Cada consulta conserva su fecha y sus versiones.</p>
     <section className={styles.AdmissionMetrics__section} aria-label="Consumo del día UTC">
@@ -57,7 +55,9 @@ export function AdmissionMetrics({ metrics, currentUsage, usageHref }: Admission
     </section>
     <section className={styles.AdmissionMetrics__section} aria-label="Procesos y errores registrados">
       <h2 className={styles.AdmissionMetrics__title}>Procesos y errores registrados</h2>
-      {maintenanceStaleMs !== null && <p role="alert" className={styles.AdmissionMetrics__stale}>El mantenimiento no se ejecuta desde hace {formatAdmissionObservationDuration(maintenanceStaleMs)}. Los avisos, los vencimientos y los reintentos pueden atrasarse hasta que vuelva a ejecutarse.</p>}
+      {maintenanceStaleness?.kind === "stale" && <p role="alert" className={styles.AdmissionMetrics__stale}>El mantenimiento no completa una ejecución desde hace {formatAdmissionObservationDuration(maintenanceStaleness.ageMs)}. Los avisos, los vencimientos y los reintentos pueden atrasarse hasta que vuelva a completarse.</p>}
+      {maintenanceStaleness?.kind === "never" && <p role="alert" className={styles.AdmissionMetrics__stale}>El mantenimiento todavía no completó ninguna ejecución. Los avisos, los vencimientos y los reintentos pueden atrasarse hasta que lo haga.</p>}
+      {metrics.maintenance?.lastCompletedAt && <p>Última ejecución completa del mantenimiento: <time dateTime={metrics.maintenance.lastCompletedAt}>{formatAdmissionObservationTime(metrics.maintenance.lastCompletedAt)}</time>.</p>}
       {metrics.lastSuccessfulRun ? <p>Última ejecución exitosa: {ADMISSION_METRIC_RUN_LABELS[metrics.lastSuccessfulRun.operation]}, <time dateTime={metrics.lastSuccessfulRun.at}>{formatAdmissionObservationTime(metrics.lastSuccessfulRun.at)}</time>.</p> : <p>Todavía no hay una ejecución exitosa registrada.</p>}
       {metrics.durations.length ? <div className={styles.AdmissionMetrics__scroll} role="region" aria-label="Tabla de tiempos observados" tabIndex={0}><table className={styles.AdmissionMetrics__table}><caption className={styles.AdmissionMetrics__caption}>Tiempos de las fases con muestras reales</caption><thead><tr><th scope="col">Fase</th><th scope="col">Muestras</th><th scope="col">Percentil 95</th></tr></thead><tbody>{metrics.durations.map((row) => <tr key={row.phase}><th scope="row">{ADMISSION_METRIC_PHASE_LABELS[row.phase]}</th><td>{row.sampleCount}</td><td>{formatAdmissionObservationDuration(row.p95Ms)}</td></tr>)}</tbody></table></div> : <p>No hay muestras de duración registradas.</p>}
       {metrics.errors.length ? <ul className={styles.AdmissionMetrics__errors}>{metrics.errors.map((error) => <li key={error.code}>{ADMISSION_ERROR_MESSAGE[error.code]} Cantidad: {error.count}.</li>)}</ul> : <p>No hay errores agregados registrados.</p>}

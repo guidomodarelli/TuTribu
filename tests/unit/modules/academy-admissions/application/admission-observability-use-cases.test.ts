@@ -24,7 +24,7 @@ function prepareObservation() {
       observe(scope);
       return { tribeId: state.projectedTribeId, asOf: "2026-10-14T13:00:00.000Z", requests: { pending: 0, approved: 0, rejected: 0, cancelled: 0, expired: 0, oldestPendingAgeMs: null }, reviews: { automatic: 0, manual: 0 }, verification: [],
         deliveries: { queued: 0, accepted: 0, delivered: 0, failed: 0, unknown: 0, suppressed: 0, cancelled: 0, inFlightLeases: 0, oldestQueuedAgeMs: null }, attempts: { inFlight: 0, accepted: 0, delivered: 0, rejected: 0, unknown: 0 },
-        usage: { policyVersion: null, dayStartUtc: "2026-10-14T00:00:00.000Z", verificationToday: 0, notificationToday: 0 }, errors: [], lastSuccessfulRun: null, durations: [] };
+        usage: { policyVersion: null, dayStartUtc: "2026-10-14T00:00:00.000Z", verificationToday: 0, notificationToday: 0 }, errors: [], lastSuccessfulRun: null, maintenance: null, durations: [] };
     },
   });
   const query = { tribeId, requestId: randomUUID(), limit: 1 };

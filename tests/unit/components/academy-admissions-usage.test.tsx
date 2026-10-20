@@ -45,9 +45,23 @@ describe("admission usage and historical presentation", () => {
     const state = createAdmissionActivityPageFixture(), asOf = new Date(state.metrics.asOf).getTime();
     state.metrics.lastSuccessfulRun = { operation: "messaging_dispatch", at: new Date(asOf - 11 * 60_000).toISOString() };
     const view = render(<AdmissionMetrics metrics={state.metrics} currentUsage={{ state: "not_configured", policy: null }} usageHref="/usage" />, { wrapper: Providers });
-    expect(screen.getByRole("alert")).toHaveTextContent(/El mantenimiento no se ejecuta desde hace/);
+    expect(screen.getByRole("alert")).toHaveTextContent(/El mantenimiento no completa una ejecución desde hace/);
 
     view.rerender(<AdmissionMetrics metrics={{ ...state.metrics, lastSuccessfulRun: { operation: "messaging_dispatch", at: new Date(asOf - 60_000).toISOString() } }} currentUsage={{ state: "not_configured", policy: null }} usageHref="/usage" />);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+  it("should warn when recent loose phases hide a maintenance that has not completed a run for more than ten minutes", () => {
+    const state = createAdmissionActivityPageFixture(), asOf = new Date(state.metrics.asOf).getTime();
+    state.metrics.lastSuccessfulRun = { operation: "messaging_dispatch", at: new Date(asOf - 60_000).toISOString() };
+    state.metrics.maintenance = { lastCompletedAt: new Date(asOf - 12 * 60_000).toISOString() };
+    const view = render(<AdmissionMetrics metrics={state.metrics} currentUsage={{ state: "not_configured", policy: null }} usageHref="/usage" />, { wrapper: Providers });
+    expect(screen.getByRole("alert")).toHaveTextContent(/El mantenimiento no completa una ejecución desde hace 720 s/);
+    expect(screen.getByText(/Última ejecución completa del mantenimiento/)).toBeInTheDocument();
+
+    view.rerender(<AdmissionMetrics metrics={{ ...state.metrics, maintenance: { lastCompletedAt: null } }} currentUsage={{ state: "not_configured", policy: null }} usageHref="/usage" />);
+    expect(screen.getByRole("alert")).toHaveTextContent("El mantenimiento todavía no completó ninguna ejecución.");
+
+    view.rerender(<AdmissionMetrics metrics={{ ...state.metrics, maintenance: { lastCompletedAt: new Date(asOf - 2 * 60_000).toISOString() } }} currentUsage={{ state: "not_configured", policy: null }} usageHref="/usage" />);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
   it("should explain absent worker observations and unconfigured usage without inventing zero historical consumption", () => {

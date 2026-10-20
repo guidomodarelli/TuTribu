@@ -26,10 +26,13 @@ export const admissionMetricsResultSchema = z.strictObject({
   usage: z.strictObject({ policyVersion: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).nullable(), dayStartUtc: dayStartUtcSchema, verificationToday: metricCountSchema, notificationToday: metricCountSchema }),
   errors: z.array(z.strictObject({ code: z.enum(ADMISSION_ERROR_CODE), count: metricCountSchema })).refine((values) => new Set(values.map((value) => value.code)).size === values.length),
   lastSuccessfulRun: z.strictObject({ operation: z.enum(ADMISSION_METRIC_RUN_OPERATION), at: metricTimestampSchema }).nullable(),
+  /** Global bounded maintenance: null when it never started in this deployment; `lastCompletedAt` only advances with a run that completed every phase. */
+  maintenance: z.strictObject({ lastCompletedAt: metricTimestampSchema.nullable() }).nullable(),
   durations: z.array(z.strictObject({ phase: z.enum(ADMISSION_METRIC_PHASE), sampleCount: z.number().int().positive().max(Number.MAX_SAFE_INTEGER), p95Ms: metricCountSchema })).refine((values) => new Set(values.map((value) => value.phase)).size === values.length),
 }).refine((value) => {
   const asOf = new Date(value.asOf), midnight = new Date(value.asOf);
   midnight.setUTCHours(0, 0, 0, 0);
   return new Date(value.usage.dayStartUtc).getTime() === midnight.getTime()
-    && (!value.lastSuccessfulRun || new Date(value.lastSuccessfulRun.at).getTime() <= asOf.getTime());
+    && (!value.lastSuccessfulRun || new Date(value.lastSuccessfulRun.at).getTime() <= asOf.getTime())
+    && (!value.maintenance?.lastCompletedAt || new Date(value.maintenance.lastCompletedAt).getTime() <= asOf.getTime());
 });
