@@ -5,6 +5,8 @@ import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
 import { prepareContactVerificationDatabase } from "@/tests/support/contact-verification-database-fixture";
+import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
+import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { PostgresMessagingUsageOperations } from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operations";
 import { messagingUsagePolicyUpdateSchema } from "@/src/modules/messaging/infrastructure/api/messaging-request-schemas";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
@@ -16,17 +18,18 @@ import { PostgresMessagingUsageOperationReader } from "@/src/modules/messaging/i
 import { messagingUsageOperationRecoverySchema } from "@/src/modules/messaging/application/results/messaging-usage-operation-result";
 import { buildMessagingModule } from "@/src/modules/messaging/setup";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
-import { chromium, webkit } from "@playwright/test";
+import { chromium, webkit, type Page } from "@playwright/test";
 import { captureAdmissionReview } from "@/tests/support/admission-review-capture";
 import { join } from "node:path";
 
 /**
  * Seeds a current global session bound to Google and a canonical leader without a messaging connection or admission policy.
  * @param database - This run's checked disposable branch, with cleanup owned by the SQL helper.
+ * @param securityConfig - Hosting configuration a native server shares with the seed; in-process suites keep independent generated keys.
  * @returns Actual guarded operation composition and the exact private contexts.
  */
-async function prepareUsage(database: AcademyAdmissionTestDatabase) {
-  const fixture = await prepareContactVerificationDatabase(database);
+async function prepareUsage(database: AcademyAdmissionTestDatabase, securityConfig?: MessagingSecurityConfig) {
+  const fixture = await prepareContactVerificationDatabase(database, securityConfig);
   await database.applyMigration("20261005095000_guard_global_identity_context.sql");
   await database.applyMigration("20261005101000_guard_admission_operation_identity.sql");
   const tribeId = randomUUID(), accountId = randomUUID(), sessionId = randomUUID(), subject = randomUUID(), sessionToken = randomUUID();
@@ -202,10 +205,23 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging usage co
   }, 180_000);
 });
 
+/**
+ * Opens the contact step of the rules flow and chooses phone contact, where the link to countries and quotas lives.
+ * The first click can land while content above the flow is still settling, so it is repeated once the flow is still on its first step.
+ * @param page - Leader page already on the rules settings route.
+ * @returns After phone contact is chosen; choosing it writes nothing.
+ */
+async function openPhoneContactStep(page: Page): Promise<void> {
+  const continueStep = page.getByRole("button", { name: "Continuar", exact: true }), phone = page.getByRole("radio", { name: "Teléfono", exact: true });
+  await continueStep.click({ timeout: 90_000 });
+  if (!await phone.waitFor({ timeout: 5_000 }).then(() => true, () => false) && await page.getByRole("navigation", { name: /^Paso 1 de / }).count()) await continueStep.click();
+  await phone.click({ timeout: 30_000 });
+}
+
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early usage browser", () => {
   it("should open early usage from a truly absent admission policy without initializing either resource", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
-      const fixture = await prepareUsage(database), slug = `usage-${fixture.tribeId}`;
+      const fixture = await prepareUsage(database, await readMessagingHostingSecurityConfig()), slug = `usage-${fixture.tribeId}`;
       await database.applyMigration("20261005093000_guard_academy_membership_sources.sql");
       await database.applyMigration("20261007001000_read_public_admission_overview.sql");
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${fixture.tribeId},'academy',true)`));
@@ -219,14 +235,13 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
               const page = await context.newPage();
               process.stdout.write(JSON.stringify({ phase: "usage_early_navigation_begin", engine }) + "\n");
               await page.goto(`${origin}/${slug}/academia/admissions/settings`, { waitUntil: "commit" });
-              /** The rules flow offers countries and quotas in its contact step once phone contact is chosen; choosing it writes nothing. */
-              await page.getByRole("button", { name: "Continuar", exact: true }).click({ timeout: 90_000 });
-              await page.getByRole("radio", { name: "Teléfono", exact: true }).click();
+              await openPhoneContactStep(page);
               await page.getByRole("link", { name: "Configurar países y cupos de mensajería" }).click({ timeout: 90_000 });
               await page.getByRole("navigation", { name: "Paso 1 de 4" }).waitFor({ timeout: 90_000 });
               expect(await page.getByText(/Todavía no hay países ni cupos guardados/).count()).toBe(1);
               await page.getByRole("navigation", { name: "Secciones de admisión" }).getByRole("link", { name: "Reglas", exact: true }).click();
-              await page.getByRole("radio", { name: "Revisión manual", exact: true }).waitFor({ timeout: 90_000 });
+              /** The client router may keep the rules flow on the step the leader left, so the flow itself is the stable landmark. */
+              await page.getByRole("form", { name: "Configurar reglas de admisión", exact: true }).waitFor({ timeout: 90_000 });
               expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
               process.stdout.write(JSON.stringify({ phase: "usage_early_navigation_verified", engine }) + "\n");
             } finally { process.stdout.write(JSON.stringify({ phase: "usage_context_close_begin", engine, connected: browser.isConnected() }) + "\n"); await context.close(); process.stdout.write(JSON.stringify({ phase: "usage_context_closed", engine }) + "\n"); }
@@ -240,7 +255,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
   for (const [engine, browserType] of [["chromium", chromium], ["webkit", webkit]] as const) {
     it(`should configure a saved country before any connection and preserve conflict drafts in ${engine} mobile/desktop`, async () => {
       await withAcademyAdmissionDatabase(async (database) => {
-        const fixture = await prepareUsage(database), slug = `usage-${fixture.tribeId}`;
+        const fixture = await prepareUsage(database, await readMessagingHostingSecurityConfig()), slug = `usage-${fixture.tribeId}`;
         await database.applyMigration("20261005093000_guard_academy_membership_sources.sql");
         await database.applyMigration("20261007001000_read_public_admission_overview.sql");
         await database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${fixture.tribeId},'academy',true)`));
@@ -262,6 +277,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
                 if (width === 1280) {
                   stage = "navigate_from_policy";
                   await page.goto(`${origin}/${slug}/academia/admissions/settings`, { waitUntil: "commit" });
+                  await openPhoneContactStep(page);
                   await page.getByRole("link", { name: "Configurar países y cupos de mensajería" }).click({ timeout: 90_000 });
                 } else await page.goto(`${origin}/${slug}/academia/admissions/messaging`, { waitUntil: "commit" });
                 const confirmation = page.getByRole("checkbox", { name: /Revisé los países/ });
@@ -297,14 +313,17 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
                 if (width === 1280) await captureAdmissionReview(page, "messaging-usage-saved", [fixture.userId, fixture.contexts.read.sessionId, fixture.sessionToken, secret], "usage-captures.json", { selector: 'section[class*="MessagingUsage"]' });
                 stage = "concurrent_conflict";
                 await changeUsage.click(); await continueStep.click(); await continueStep.click();
-                await page.getByRole("spinbutton", { name: "Avisos por día" }).fill("0");
-                await page.getByText("Con 0 no se envía ningún aviso por correo o SMS.", { exact: true }).first().waitFor();
+                /** Each pass changes the saved daily notices, since the review blocks unchanged saves; zero also shows its warning. */
+                const noticesInput = page.getByRole("spinbutton", { name: "Avisos por día" });
+                const nextNotices = await noticesInput.inputValue() === "0" ? "1" : "0";
+                await noticesInput.fill(nextNotices);
+                if (nextNotices === "0") await page.getByText("Con 0 no se envía ningún aviso por correo o SMS.", { exact: true }).first().waitFor();
                 await continueStep.click();
-                await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.messaging_usage_policies set notification_daily_limit=notification_daily_limit+1,version=version+1 where tribe_id=${fixture.tribeId}`));
+                await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.messaging_usage_policies set notification_daily_limit=case when notification_daily_limit=5 then 6 else 5 end,version=version+1 where tribe_id=${fixture.tribeId}`));
                 await confirmation.check(); await page.getByRole("button", { name: "Guardar países y cupos" }).click();
                 await page.getByRole("button", { name: "Consultar uso actual" }).waitFor({ timeout: 90_000 });
                 await previousStep.click();
-                expect(await page.getByRole("spinbutton", { name: "Avisos por día" }).inputValue()).toBe("0");
+                expect(await noticesInput.inputValue()).toBe(nextNotices);
                 await continueStep.click();
                 if (width === 1280) await captureAdmissionReview(page, "messaging-usage-conflict", [fixture.userId, fixture.contexts.read.sessionId, fixture.sessionToken, secret], "usage-captures.json", { selector: 'section[class*="MessagingUsage"]' });
                 stage = "read_current_and_save";
@@ -364,7 +383,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
 
   it("should configure countries before any connection or admission policy using the real leader session, CAS and original replay", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
-      const fixture = await prepareUsage(database), slug = `usage-${fixture.tribeId}`;
+      const fixture = await prepareUsage(database, await readMessagingHostingSecurityConfig()), slug = `usage-${fixture.tribeId}`;
       await database.applyMigration("20261005093000_guard_academy_membership_sources.sql");
       await database.applyMigration("20261007001000_read_public_admission_overview.sql");
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${fixture.tribeId},'academy',true)`));

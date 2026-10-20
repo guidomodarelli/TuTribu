@@ -8,7 +8,11 @@ import { makeSignature } from "better-auth/crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
+import { executeAdmissionMigrationCommand } from "@/tests/support/admission-migration-command";
 import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
+import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
+import { registerMessagingPrivateMacKeyMaterial } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
+import { ADMISSION_OPERATION_MAC_KEY_PURPOSES } from "@/src/modules/academy-admissions/constants/admission-operation";
 import { ADMISSION_REVIEW_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-review-ui";
 import { setTimeout as delay } from "node:timers/promises";
 import { captureAdmissionReview } from "@/tests/support/admission-review-capture";
@@ -19,7 +23,11 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native current
     it(`should approve/reject from a current guardian and reconcile the original decision in ${engine} mobile/desktop`, async () => {
       await withAcademyAdmissionDatabase(async (database) => {
         process.stdout.write(JSON.stringify({ phase: "owned_branch", engine, branch: database.branch }) + "\n");
-        for (const migration of ["20261005090000_create_admission_identity_evidence.sql", "20261005091000_create_academy_admission_core.sql", "20261005091500_guard_admission_evidence_transitions.sql", "20261005092000_create_tenant_messaging.sql", "20261005092500_guard_messaging_attempts.sql", "20261005093000_guard_academy_membership_sources.sql", "20261005095000_guard_global_identity_context.sql", "20261005101000_guard_admission_operation_identity.sql", "20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261011024000_read_current_own_admission_eligibility.sql", "20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261007003000_read_admission_notification_subject.sql", "20261007004000_read_exact_own_admission_request.sql", "20261007005000_read_admission_reviews.sql"]) await database.applyMigration(migration);
+        /** The pages read every current admission function, so the owned branch runs the real pending migration journal instead of a frozen subset. */
+        await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
+        /** Decisions sign their original operation with MAC keys the database must already hold; the server inherits this process's synthetic hosting keyrings. */
+        const securityConfig = await readMessagingHostingSecurityConfig();
+        await database.withContext({ userId: null, email: null }, async (transaction) => { for (const purpose of ADMISSION_OPERATION_MAC_KEY_PURPOSES) await registerMessagingPrivateMacKeyMaterial(transaction, securityConfig, purpose); });
         const tribeId = randomUUID(), leaderId = randomUUID(), guardianId = randomUUID(), sessionId = randomUUID(), token = randomUUID(), slug = `review-ui-${tribeId}`;
         const applicants = [1280, 390].map((width) => ({ userId: randomUUID(), requestId: randomUUID(), width, email: `solicitante-${width}-${randomUUID()}@example.test`, name: width === 390 ? "Solicitante de ejemplo A" : "Solicitante de ejemplo B" }));
         await database.withContext({ userId: leaderId, email: null }, async (transaction) => {

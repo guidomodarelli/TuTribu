@@ -4,6 +4,9 @@
 
 .GuidedSteps {
   display: grid;
+  // Zero track minimums keep the unwrapped progress list and wide step content (rows, long options)
+  // inside the panel on narrow screens; the progress list scrolls on its own instead of widening the form.
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   gap: 1.25rem;
   border: 1px solid var(--border);
@@ -122,12 +125,14 @@
 
   &__viewport {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     min-width: 0;
   }
 
   &__step {
     display: grid;
     grid-area: 1 / 1;
+    grid-template-columns: minmax(0, 1fr);
     min-width: 0;
     gap: 0.5rem;
     margin: 0;
@@ -160,6 +165,7 @@
 
   &__content {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     min-width: 0;
     gap: 1rem;
     margin-top: 0.75rem;
@@ -191,6 +197,11 @@
 
     &__count {
       order: -1;
+    }
+
+    // In the stacked bar the list takes the bar's width and scrolls, instead of growing to all its step titles.
+    &__list {
+      align-self: stretch;
     }
 
     &__actions {
