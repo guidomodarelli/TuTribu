@@ -7,6 +7,8 @@ import type { MessagingMacKeyPurpose } from "../../domain/value-objects/messagin
 import { MESSAGING_CRYPTO, MESSAGING_CRYPTO_ERROR } from "../../constants/messaging-cryptography";
 import { MESSAGING_KEY_MATERIAL_CONTINUITY } from "../../constants/messaging-key-material-continuity";
 import { MessagingCryptographyError } from "../encryption/messaging-cryptography-error";
+import { MESSAGING_KEY_MATERIAL_DIAGNOSTIC } from "../../constants/messaging-key-enrollment";
+import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 /** Contains only a domain-separated verifier, never exportable key material. */
 type MessagingMacKeyMaterialProof = { key_id: string; verifier: string };
@@ -49,8 +51,32 @@ export async function assertMessagingAuthenticatedMacKeyMaterials(database: Requ
   for (const purpose of purposes) {
     for (const proof of await createMaterialProofs(config, purpose)) proofs.push({ ...proof, purpose });
   }
-  const matches = (await database.execute<{ matches: boolean }>(sql`with proofs as materialized (select source.purpose,source.key_id,source.verifier from jsonb_to_recordset(${JSON.stringify(proofs)}::jsonb) as source(purpose text,key_id text,verifier text) order by source.purpose,source.key_id) select coalesce(bool_and(public.assert_authorized_messaging_key_material_proof(proofs.purpose,proofs.key_id,decode(proofs.verifier,'hex'))),false) as matches from proofs`)).rows[0].matches;
-  if (!matches) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.keyContinuityUnproven);
+  const results = (await database.execute<{ purpose: MessagingMacKeyPurpose; matches: boolean }>(sql`with proofs as materialized (select source.purpose,source.key_id,source.verifier from jsonb_to_recordset(${JSON.stringify(proofs)}::jsonb) as source(purpose text,key_id text,verifier text) order by source.purpose,source.key_id) select proofs.purpose,coalesce(bool_and(public.assert_authorized_messaging_key_material_proof(proofs.purpose,proofs.key_id,decode(proofs.verifier,'hex'))),false) as matches from proofs group by proofs.purpose`)).rows;
+  const unverified = [...new Set(purposes)].filter((purpose) => !results.some((result) => result.purpose === purpose && result.matches));
+  if (results.length === 0) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.keyContinuityUnproven);
+  if (unverified.length > 0) {
+    reportUnverifiedMacKeyMaterial(config, unverified);
+    throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.keyContinuityUnproven);
+  }
+}
+
+/**
+ * Logs which purposes lack a matching enrolled proof, so operators can tell a missing enrollment from other closed failures.
+ * Request roles cannot read the proof inventory, so an absent proof and a replaced key under an existing id share this event;
+ * the private enrollment command tells them apart (it enrolls the first and refuses the second).
+ * @param config - Current hosting keyrings; only key ids (routing metadata) are logged, never material or verifiers.
+ * @param purposes - Purposes whose active or retained ids did not match an enrolled proof.
+ */
+function reportUnverifiedMacKeyMaterial(config: MessagingSecurityConfig, purposes: readonly MessagingMacKeyPurpose[]): void {
+  createServerLogger({ feature: MESSAGING_KEY_MATERIAL_DIAGNOSTIC.feature, operation: MESSAGING_KEY_MATERIAL_DIAGNOSTIC.operation, requestId: MESSAGING_KEY_MATERIAL_DIAGNOSTIC.requestId }).error({
+    message: MESSAGING_KEY_MATERIAL_DIAGNOSTIC.unverifiedMessage,
+    metadata: {
+      code: MESSAGING_CRYPTO_ERROR.keyContinuityUnproven,
+      environment: config.environment,
+      purposes: purposes.map((purpose) => ({ purpose, activeKeyId: config.keyrings[purpose].activeKeyId, keyIds: [...config.keyrings[purpose].keys.keys()].sort() })),
+      remediation: MESSAGING_KEY_MATERIAL_DIAGNOSTIC.remediation,
+    },
+  });
 }
 
 /** @param database - Explicit owner-only backend rotation transaction. @param config - Current external HMAC keys. @param purpose - Fixed original-intent or contact purpose. @returns Only after native backend context and immutable attestations pass. @throws MessagingCryptographyError before key selection for a human/request context. */

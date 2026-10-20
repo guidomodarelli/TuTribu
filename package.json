@@ -29,6 +29,7 @@
     "db:migrate": "node scripts/push-migrations.js",
     "db:migrate:force": "node scripts/push-migrations.js --force",
     "db:sandbox": "node scripts/dev-database-sandbox.mjs",
+    "messaging:enroll-keys": "node scripts/enroll-messaging-key-materials.mjs",
     "test:e2e": "playwright test",
     "test:ui": "pnpm build && node scripts/e2e/run-ui-tests.mjs",
     "test:e2e:ui": "playwright test --ui",
