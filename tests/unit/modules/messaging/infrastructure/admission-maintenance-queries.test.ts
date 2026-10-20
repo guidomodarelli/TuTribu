@@ -13,6 +13,7 @@ import { createAdmissionRequestMeasurement, findAdmissionBudgetOverruns, signedA
 import { ADMISSION_REQUEST_MEASUREMENT } from "@/tests/support/constants/admission-request-measurement";
 import { ADMISSION_MAINTENANCE_QUERY_BUDGET as BUDGET, ADMISSION_MAINTENANCE_QUERY_VALIDATION as VALIDATION } from "@/tests/support/constants/admission-maintenance-queries";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
+import { ADMISSION_MESSAGING_MAINTENANCE_PHASES } from "@/src/modules/messaging/constants/admission-messaging-maintenance";
 
 const SAMPLES = ADMISSION_REQUEST_MEASUREMENT.samples;
 /** Phase summary kept as evidence: status and metrics only, never identifiers. */
@@ -48,9 +49,11 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
         const { send, measure } = measurement.connect({ origin });
         const api = `/api/tribes/${slug}/admissions`, maintenance = { path: VALIDATION.maintenancePath, headers: { authorization: `Bearer ${cronSecret}` } };
         const leaderCookie = await signedAdmissionSessionCookie(leader.sessionToken, secret, makeSignature);
-        /** @param label - Report label. @param text - Maintenance response whose phase summary is kept as evidence. */
+        /** @param label - Report label. @param text - Maintenance response whose phase summary is kept as evidence. @throws When the run is an error DTO, busy, unresolved or skipped a phase, so it measured no complete invocation. */
         const keepPhases = (label: string, text: string) => {
-          const body = JSON.parse(text) as { phases?: PhaseSummary[] };
+          const body = JSON.parse(text) as { status?: string; code?: string; phases?: PhaseSummary[] };
+          const measuredRun = { status: body.status, code: body.code ?? null, phases: (body.phases ?? []).map(({ phase }) => phase) };
+          expect({ label, run: measuredRun.status !== undefined && (VALIDATION.measuredRunStatuses as readonly string[]).includes(measuredRun.status), code: measuredRun.code, phases: measuredRun.phases }).toEqual({ label, run: true, code: null, phases: [...ADMISSION_MESSAGING_MAINTENANCE_PHASES] });
           phases.push({ label, phases: (body.phases ?? []).map(({ phase, status: phaseStatus, metrics }) => ({ phase, status: phaseStatus, metrics })) });
         };
         // Leader email notices are on, so new requests produce notices for the producer and the outbox.

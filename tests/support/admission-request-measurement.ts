@@ -15,11 +15,12 @@ export type AdmissionMeasurementSample = { path: string; body?: object; cookie?:
 /** Maximum median transactions, statements and sequential round trips accepted for one label. */
 export type AdmissionRequestBudget = { transactions: number; queries: number; sequentialRoundTrips: number };
 
-/** @param samples - Observations of one request label. @returns The median of every field, rounding down between the two central samples. */
+/** @param samples - Observations of one request label. @returns The median of every field; with an even count, the mean of the two central samples rounded down. */
 function summarize(samples: readonly AdmissionRequestQueryCount[]): MeasuredAdmissionRequest["median"] {
   return Object.fromEntries(MEASURED_FIELDS.map((field) => {
     const sorted = samples.map((sample) => sample[field]).sort((left, right) => left - right);
-    return [field, sorted[Math.floor((sorted.length - 1) / 2)]];
+    const upper = Math.floor(sorted.length / 2);
+    return [field, sorted.length % 2 === 1 ? sorted[upper] : Math.floor((sorted[upper - 1] + sorted[upper]) / 2)];
   })) as MeasuredAdmissionRequest["median"];
 }
 
@@ -97,12 +98,14 @@ export function createAdmissionRequestMeasurement(redactions: Readonly<Record<st
 /**
  * @param measured - Medians of one run.
  * @param budget - Accepted maxima per label; every measured label must have one.
- * @returns The labels that are unbudgeted or exceed any limit, with their medians, so an assertion against `[]` names the regression.
+ * @returns The labels that are unbudgeted, exceed any limit or left a statement pending after the settle window (an incomplete count), with their medians, so an assertion against `[]` names the regression.
  */
 export function findAdmissionBudgetOverruns(measured: readonly MeasuredAdmissionRequest[], budget: Readonly<Record<string, AdmissionRequestBudget>>) {
-  return measured.flatMap(({ label, median }) => {
+  return measured.flatMap(({ label, median, samples }) => {
     const limit = budget[label], actual = { transactions: median.transactions, queries: median.queries, sequentialRoundTrips: median.sequentialRoundTrips };
     if (!limit) return [{ label, reason: "unbudgeted", actual }];
+    const pending = samples.reduce((total, sample) => total + sample.pending, 0);
+    if (pending > 0) return [{ label, reason: "pending_queries", actual, pending }];
     return limit.transactions < actual.transactions || limit.queries < actual.queries || limit.sequentialRoundTrips < actual.sequentialRoundTrips ? [{ label, reason: "over_budget", actual, limit }] : [];
   });
 }

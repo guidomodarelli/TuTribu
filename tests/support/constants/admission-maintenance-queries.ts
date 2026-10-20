@@ -3,8 +3,10 @@ import type { AdmissionRequestBudget } from "../admission-request-measurement";
 
 export const ADMISSION_MAINTENANCE_QUERY_VALIDATION = {
   maintenancePath: "/api/maintenance/admission-messaging",
-  /** Completed or progressed, busy, or incomplete: every outcome is a measured invocation. */
-  maintenanceStatuses: [200, 202, 503],
+  /** A completed run answers 200 and an incomplete one 503; busy (202) never happens in this single-process scenario and fails the suite. */
+  maintenanceStatuses: [200, 503],
+  /** Run outcomes that measured every phase; busy, unresolved and error DTOs are rejected. */
+  measuredRunStatuses: ["completed", "incomplete"],
   timeoutMs: 1_200_000,
   reportEnvironmentVariable: "ADMISSION_MAINTENANCE_QUERY_REPORT",
 } as const;

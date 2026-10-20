@@ -839,7 +839,7 @@
       },
       {
         "label": "issue_verification_code",
-        "durationMs": 77005,
+        "durationMs": 77081,
         "checkouts": 25,
         "transactions": 23,
         "commits": 23,
@@ -895,7 +895,7 @@
       },
       {
         "label": "verify_verification_code",
-        "durationMs": 32980,
+        "durationMs": 33279,
         "checkouts": 12,
         "transactions": 10,
         "commits": 10,

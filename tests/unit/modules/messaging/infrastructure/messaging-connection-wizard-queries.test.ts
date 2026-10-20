@@ -17,7 +17,7 @@ import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infr
 /** @param text - JSON command response. @returns Its original result. */
 const resultOf = (text: string) => (JSON.parse(text) as { result: Record<string, unknown> }).result;
 
-describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native messaging connection wizard query counts", () => {
+describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native messaging connection wizard query counts", () => {
   it("should keep every wizard step within its per-request database budget without real provider traffic", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const leader = await prepareAdmissionLeader(database, { sessionLifetimeMs: VALIDATION.sessionLifetimeMs, securityConfig: await readMessagingHostingSecurityConfig() });

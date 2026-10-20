@@ -21,7 +21,7 @@ Excepciones al muestreo:
 
 - **Inicializar Países y cupos:** una muestra, porque solo se inicializa una vez por tribu.
 - **Diagnóstico de conexión:** emitir, verificar y activar tienen una muestra, porque el diagnóstico tiene un límite por líder. Crear, configurar y validar tienen tres muestras, en tres rondas, y la candidata se desconecta entre una ronda y otra.
-- **Código de verificación:** emitir y verificar tienen 6 muestras (3 solicitudes comunes y 3 por invitación).
+- **Código de verificación:** emitir y verificar tienen 6 muestras (3 solicitudes comunes y 3 por invitación). Con una cantidad par, la mediana es el promedio de las dos muestras centrales, redondeado hacia abajo.
 
 Como en la línea base anterior, los comandos dan cifras idénticas o a una sentencia de diferencia entre muestras. Una segunda corrida completa de las cuatro suites, en paralelo y con los presupuestos activos, pasó con transacciones idénticas y una diferencia máxima de 3 viajes secuenciales por flujo (páginas Lista e Importaciones).
 
@@ -69,8 +69,8 @@ Como en la línea base anterior, los comandos dan cifras idénticas o a una sent
 
 | Flujo | Transacciones | Sentencias | Viajes secuenciales | ms |
 |---|---|---|---|---|
-| Emitir código de verificación | 23 | 452 | 447 | 77.005 |
-| Verificar código | 10 | 189 | 189 | 32.980 |
+| Emitir código de verificación | 23 | 452 | 447 | 77.081 |
+| Verificar código | 10 | 189 | 189 | 33.279 |
 | Canjear invitación (envío con token) | 4 | 89 | 89 | 16.990 |
 | Enviar solicitud | 4 | 79 | 79 | 15.017 |
 | Página de entrada por invitación | 6 | 54 | 54 | 11.916 |
