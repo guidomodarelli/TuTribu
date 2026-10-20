@@ -159,6 +159,11 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - La actividad de admisiones avisa que el mantenimiento está detenido cuando no completa una ejecución hace más de diez minutos o nunca completó una, aunque algunas tareas sueltas sigan avanzando, y muestra la última ejecución completa.
 - Los avisos agrupados de nuevas solicitudes ya no se atrasan cuando hay muchas solicitudes juntas o la bandeja del líder está abierta.
 - Los correos y SMS que el proveedor tarda en aceptar ya no quedan como «desconocidos»: se espera su respuesta y nunca se reenvían.
+- Reglas explica por qué no se pueden activar las admisiones cuando los códigos están encendidos y el canal todavía no está preparado: muestra «El canal para comprobar el contacto todavía no está preparado.» con «Ir a Conexión», también al abrir reglas guardadas sin activar.
+- Las membresías bloqueadas por pago pendientes de decisión ya no se presentan además como un bloqueo que depende del equipo de TuTribu.
+- Avisos de admisión usa todo el ancho de la pantalla, como Reglas y Países y cupos.
+- Los lectores de pantalla leen una sola vez y completa la ayuda de la zona horaria («09:00») y de los cupos diarios, sin partir los números en dígitos.
+- La guía de configuración ya no muestra un «Listo» limpio en Países y cupos cuando el cupo de avisos por día es menor a 20 («Listo, pero con un cupo muy bajo») y avisa en Avisos que no vas a recibir correos si el correo de la tribu está habilitado y elegiste «Omitir correos de revisión».
 - Países y cupos ya no anuncia como guardados los valores elegidos cuando solo se creó la configuración inicial: crea la configuración y guarda lo elegido en la misma acción.
 - Reglas de admisión ya no muestra al líder el aviso de que la configuración es solo para el líder mientras guarda o después de un error.
 - Pausar las admisiones ya no deja preparado un guardado que las reabre sin querer.

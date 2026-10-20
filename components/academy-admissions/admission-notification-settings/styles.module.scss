@@ -4,7 +4,6 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   min-width: 0;
-  max-width: 44rem;
   gap: 1.25rem;
 
   &__lead {
@@ -71,6 +70,18 @@
 
   &__note {
     @include workspace-panel.note;
+  }
+
+  &__zone {
+    display: grid;
+    min-width: 0;
+  }
+
+  &__help {
+    @include workspace-panel.note;
+
+    margin: 0;
+    padding-top: 0.5rem;
   }
 
   &__success {

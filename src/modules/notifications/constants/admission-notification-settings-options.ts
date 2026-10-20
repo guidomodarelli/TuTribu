@@ -32,3 +32,6 @@ export const ADMISSION_NOTIFICATION_EMAIL_PLAN_LABEL = {
 
 /** Marker of the personal frequency row in the review step. */
 export const ADMISSION_NOTIFICATION_PREFERENCE_PLAN_LABEL = { changed: "Se guarda", unchanged: "Sin cambios" } as const;
+
+/** Help of the tribe time zone field; read as plain text, so the 09:00 summary time is announced whole. */
+export const ADMISSION_NOTIFICATION_TIME_ZONE_HELP = "Se usa para el resumen diario de las 09:00. Por ejemplo, America/Argentina/Buenos_Aires.";
