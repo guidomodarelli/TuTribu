@@ -14,8 +14,8 @@
 
 "use client";
 
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { AnimatePresence, motion, useReducedMotion, type Variants } from "motion/react";
+import { useEffect, useId, useRef, useState, type ComponentProps, type FormEvent, type ReactNode } from "react";
+import { AnimatePresence, motion, useIsPresent, useReducedMotion, type Variants } from "motion/react";
 import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import { Button, MOTION_EASE, MOTION_EASE_STANDARD, MOTION_TIMING, SPRING_PANEL, SPRING_POP } from "@golfo/ui";
 import styles from "./styles.module.scss";
@@ -85,6 +85,18 @@ export function GuidedStepsDisclosure({ summary = DEFAULT_SECONDARY_LABEL, child
       <div className={styles.GuidedStepsDisclosure__content}>{children}</div>
     </details>
   );
+}
+
+/**
+ * A step that is sliding out still renders its previous state for a moment; it becomes inert and disabled so
+ * neither the keyboard, the pointer nor assistive technology can edit that stale copy.
+ *
+ * @param props - The step fieldset's own props.
+ * @returns The animated fieldset of one step.
+ */
+function GuidedStepPanel({ disabled, ...props }: ComponentProps<typeof motion.fieldset>) {
+  const present = useIsPresent();
+  return <motion.fieldset {...props} disabled={disabled || !present} inert={!present} aria-hidden={present ? undefined : true} />;
 }
 
 /** Horizontal travel of a step that enters or leaves, in pixels; enough to show the direction. */
@@ -166,12 +178,12 @@ export function GuidedSteps({ label, steps, current, onCurrentChange, finalActio
 
       <div className={styles.GuidedSteps__viewport}>
         <AnimatePresence initial={false} custom={direction} mode="popLayout">
-          <motion.fieldset key={step.id} className={styles.GuidedSteps__step} custom={direction} variants={stepVariants} initial={reduced ? false : "enter"} animate="center" exit={reduced ? undefined : "exit"} transition={slide} disabled={busy}>
+          <GuidedStepPanel key={step.id} className={styles.GuidedSteps__step} custom={direction} variants={stepVariants} initial={reduced ? false : "enter"} animate="center" exit={reduced ? undefined : "exit"} transition={slide} disabled={busy}>
             <legend ref={legendRef} tabIndex={-1} className={styles.GuidedSteps__legend}>{step.title}</legend>
             {step.description && <p className={styles.GuidedSteps__description}>{step.description}</p>}
             <div className={styles.GuidedSteps__content}>{step.content}</div>
             {step.secondary && <GuidedStepsDisclosure summary={step.secondaryLabel}>{step.secondary}</GuidedStepsDisclosure>}
-          </motion.fieldset>
+          </GuidedStepPanel>
         </AnimatePresence>
       </div>
 
