@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { AdmissionSetupGuide } from "@/components/academy-admissions/admission-setup-guide";
 import { deriveAdmissionSetupProgress } from "@/src/modules/academy-admissions/application/queries/admission-setup-progress";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
+import { AdmissionSetupGuideFallback } from "@/components/academy-admissions/admission-setup-guide-fallback";
+import { AdmissionWorkspaceRoute, buildAdmissionMemberTribe } from "@/tests/support/admission-workspace-route";
 
 const draftOnly = deriveAdmissionSetupProgress({
   policy: { exists: true, open: false, paused: false, sendsCodes: false, verifiesPhone: false },
@@ -54,5 +56,21 @@ describe("AdmissionSetupGuide", () => {
 
     expect(screen.queryByRole("region", { name: "Configurá las admisiones" })).not.toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Pasos de la configuración" })).not.toBeInTheDocument();
+  });
+});
+
+describe("AdmissionSetupGuideFallback", () => {
+  const route = "/tribu/academia/admissions";
+
+  it("shows the leader a loading placeholder while the guide is read", () => {
+    render(<AppUIProvider><AdmissionWorkspaceRoute pathname={route} slug="tribu" memberTribes={[buildAdmissionMemberTribe({ role: "leader" })]}><AdmissionSetupGuideFallback /></AdmissionWorkspaceRoute></AppUIProvider>);
+
+    expect(screen.getByRole("status", { name: "Cargando la guía de configuración" })).toBeInTheDocument();
+  });
+
+  it("shows nothing to a guardian, who never gets a guide", () => {
+    render(<AppUIProvider><AdmissionWorkspaceRoute pathname={route} slug="tribu" memberTribes={[buildAdmissionMemberTribe({ role: "guardian" })]}><AdmissionSetupGuideFallback /></AdmissionWorkspaceRoute></AppUIProvider>);
+
+    expect(screen.queryByRole("status", { name: "Cargando la guía de configuración" })).not.toBeInTheDocument();
   });
 });

@@ -58,5 +58,5 @@ export const ADMISSION_SETUP_GUIDE_COPY = {
   progressLabel: "Avance de la configuración",
   optionalBadge: "Opcional",
   doneBadge: "Listo",
-  nextPrefix: "Siguiente paso:",
+  loading: "Cargando la guía de configuración",
 } as const;

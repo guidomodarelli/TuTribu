@@ -6,6 +6,7 @@ import { AdmissionReviewRouteContainer } from "./admission-review-route-containe
 import Loading from "./loading";
 import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
 import { AdmissionSetupGuide } from "@/components/academy-admissions/admission-setup-guide";
+import { AdmissionSetupGuideFallback } from "@/components/academy-admissions/admission-setup-guide-fallback";
 import { loadAdmissionSetupGuideState } from "@/src/modules/academy-admissions/infrastructure/composition/admission-setup-guide-page";
 
 /** @param props - Route slug only; each settings loader repeats its own leader check. @returns The leader's setup checklist, or nothing for other viewers or a finished setup. */
@@ -22,7 +23,7 @@ async function SetupGuideContent({ route }: { route: { slug: string } }) {
 async function ReviewContent({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const [route, query] = await Promise.all([params, searchParams]);
   const state = await loadAdmissionReviewPageState({ params: route, query }, async () => { const modules = await createAdmissionRequestModules(); return modules.reviews.createPage(modules.queries.resolveTribe); });
-  return <AdmissionSettingsPage page="review"><Suspense fallback={null}><SetupGuideContent route={route} /></Suspense><AdmissionReviewRouteContainer initialState={state} /></AdmissionSettingsPage>;
+  return <AdmissionSettingsPage page="review"><Suspense fallback={<AdmissionSetupGuideFallback />}><SetupGuideContent route={route} /></Suspense><AdmissionReviewRouteContainer initialState={state} /></AdmissionSettingsPage>;
 }
 /** @param props - Unresolved framework runtime input. @returns A deterministic own leaf skeleton and server loader. */
 export default function AdmissionReviewPage(props: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
