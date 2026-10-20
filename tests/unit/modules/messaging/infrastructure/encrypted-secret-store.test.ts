@@ -10,7 +10,7 @@ import { createMessagingSecretCipher } from "@/src/modules/messaging/infrastruct
 import { PostgresEncryptedSecretStore } from "@/src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store";
 import { PostgresMessagingResourceExposureRecorder } from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-authorized-exposure";
 import type { AuthorizedDeliveryMessagingContext, AuthorizedMessagingContext, MessagingAuthenticatedAccount } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
-import { executeAdmissionMigrationCommand } from "@/tests/support/admission-migration-command";
+import { applyAdmissionMigrationJournal } from "@/tests/support/admission-migration-command";
 import { MESSAGING_INITIAL_PROVIDER_ID } from "@/src/modules/messaging/constants/messaging-public-contract";
 import { ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS } from "@/tests/support/constants/admission-notification-validation";
 
@@ -139,7 +139,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("encrypted messagin
 
   it("should require a current marker, consumed reservation and exact live lease for worker material", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
-      await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
+      await applyAdmissionMigrationJournal(database);
       const fixture = await prepareStore(database);
       const deliveryId = randomUUID(), leaseToken = randomUUID();
       const accountLookup = vi.fn(async () => null);

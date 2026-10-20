@@ -20,14 +20,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native termina
       const messagingSecurity = { environment: "synthetic-terminal-denial-ui", securityEpoch: randomUUID(), keyringsJson: JSON.stringify(keyrings) };
       const config = await readMessagingHostingSecurityConfig({ MESSAGING_SECURITY_ENVIRONMENT: messagingSecurity.environment, MESSAGING_SECURITY_EPOCH: messagingSecurity.securityEpoch, MESSAGING_RECOVERY_LOCK: "false", MESSAGING_KEYRINGS_JSON: messagingSecurity.keyringsJson });
       const { fixture, applicant: createApplicant } = await prepareAllowlistAdmission(database, config), slug = `allowlist-${fixture.tribeId}`;
-      for (const migration of ["20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261007004000_read_exact_own_admission_request.sql", "20261008220000_scope_admission_operation_recovery.sql"]) await database.applyMigration(migration);
-      // Reproduce the missing prerequisite with only safe PostgreSQL metadata;
-      // the real function references the immutable verification purpose column.
-      const unprepared = await database.withContext(fixture.own, (transaction) => transaction.execute(sql`select * from public.read_own_admission_operations(${fixture.tribeId},${fixture.sessionId},${randomUUID()})`)).then(() => null, (error: unknown) => error);
-      const postgresError = unprepared instanceof Error && unprepared.cause && typeof unprepared.cause === "object" && "code" in unprepared.cause ? unprepared.cause.code : null;
-      expect(postgresError).toBe("42703");
-      process.stdout.write(JSON.stringify({ phase: "native_recovery_prerequisite", postgresCode: postgresError }) + "\n");
-      await database.applyMigration("20261007231500_bind_verification_operation_purpose.sql");
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.academy_admission_policies set allow_common_exceptions=false,version=version+1 where tribe_id=${fixture.tribeId}`));
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
         for (const { name, engine, width } of [{ name: "chromium", engine: chromium, width: 1280 }, { name: "chromium", engine: chromium, width: 390 }, { name: "webkit", engine: webkit, width: 1280 }, { name: "webkit", engine: webkit, width: 390 }]) {

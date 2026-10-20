@@ -24,7 +24,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native histori
       const messagingSecurity = { environment: "synthetic-historical-arrival-ui", securityEpoch: randomUUID(), keyringsJson: JSON.stringify(keyrings) };
       const config = await readMessagingHostingSecurityConfig({ MESSAGING_SECURITY_ENVIRONMENT: messagingSecurity.environment, MESSAGING_SECURITY_EPOCH: messagingSecurity.securityEpoch, MESSAGING_RECOVERY_LOCK: "false", MESSAGING_KEYRINGS_JSON: messagingSecurity.keyringsJson });
       const { fixture, applicant } = await prepareAllowlistAdmission(database, config);
-      for (const migration of ["20261011143000_read_locked_legacy_admission_arrival.sql", "20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261008220000_scope_admission_operation_recovery.sql", "20261008230000_read_admission_contact_choices.sql", "20261007010000_read_academy_admission_entry.sql", "20261011210000_preserve_admission_entry_marker.sql"]) await database.applyMigration(migration);
       const token = randomBytes(LEGACY_ADMISSION_TOKEN_BYTE_LENGTH).toString("base64url"), invitationId = randomUUID();
       const slug = await database.withContext(fixture.own, async (transaction) => {
         const integrationId = randomUUID();

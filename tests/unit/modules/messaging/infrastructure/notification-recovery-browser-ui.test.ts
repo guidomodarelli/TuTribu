@@ -22,7 +22,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native notific
       const keyringsJson = JSON.stringify(keyrings), environment = "synthetic-notification-recovery-ui", securityEpoch = randomUUID();
       const config = await readMessagingHostingSecurityConfig({ MESSAGING_SECURITY_ENVIRONMENT: environment, MESSAGING_SECURITY_EPOCH: securityEpoch, MESSAGING_RECOVERY_LOCK: "false", MESSAGING_KEYRINGS_JSON: keyringsJson });
       const fixture = await prepareNotificationDeliveryRecovery(database, 3_600_000, config);
-      for (const migration of ["20261005093000_guard_academy_membership_sources.sql", "20261007001000_read_public_admission_overview.sql"]) await database.applyMigration(migration);
       const tribeId = fixture.context.tribeId, slug = `connection-${tribeId}`;
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`));
       let providerRequests = 0;

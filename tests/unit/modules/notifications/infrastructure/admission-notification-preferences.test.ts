@@ -4,14 +4,14 @@ import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
-import { executeAdmissionMigrationCommand } from "@/tests/support/admission-migration-command";
+import { applyAdmissionMigrationJournal } from "@/tests/support/admission-migration-command";
 import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS } from "@/tests/support/constants/membership-lifecycle-validation";
 import { PostgresAdmissionNotificationPreferenceRepository } from "@/src/modules/notifications/infrastructure/repositories/postgres-admission-notification-preference-repository";
 import type { AdmissionNotificationPreferenceScope } from "@/src/modules/notifications/domain/repositories/admission-notification-preference-repository";
 
 /** @param database - Owned real branch. @returns Independent active reviewers and a session-bound real repository. */
 async function preparePreferences(database: AcademyAdmissionTestDatabase) {
-  await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
+  await applyAdmissionMigrationJournal(database);
   const tribeId = randomUUID(), otherTribeId = randomUUID();
   const leader = { userId: randomUUID(), sessionId: randomUUID(), tribeId };
   const guardian = { userId: randomUUID(), sessionId: randomUUID(), tribeId };

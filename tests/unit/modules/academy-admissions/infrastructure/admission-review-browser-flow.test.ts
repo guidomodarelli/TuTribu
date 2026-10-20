@@ -8,11 +8,10 @@ import { makeSignature } from "better-auth/crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
-import { executeAdmissionMigrationCommand } from "@/tests/support/admission-migration-command";
+import { applyAdmissionMigrationJournal } from "@/tests/support/admission-migration-command";
 import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
-import { registerMessagingPrivateMacKeyMaterial } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
-import { ADMISSION_OPERATION_MAC_KEY_PURPOSES } from "@/src/modules/academy-admissions/constants/admission-operation";
+import { registerAdmissionOperationMacKeys } from "@/tests/support/admission-operation-mac-keys";
 import { ADMISSION_REVIEW_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-review-ui";
 import { setTimeout as delay } from "node:timers/promises";
 import { captureAdmissionReview } from "@/tests/support/admission-review-capture";
@@ -24,10 +23,10 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native current
       await withAcademyAdmissionDatabase(async (database) => {
         process.stdout.write(JSON.stringify({ phase: "owned_branch", engine, branch: database.branch }) + "\n");
         /** The pages read every current admission function, so the owned branch runs the real pending migration journal instead of a frozen subset. */
-        await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
+        await applyAdmissionMigrationJournal(database);
         /** Decisions sign their original operation with MAC keys the database must already hold; the server inherits this process's synthetic hosting keyrings. */
         const securityConfig = await readMessagingHostingSecurityConfig();
-        await database.withContext({ userId: null, email: null }, async (transaction) => { for (const purpose of ADMISSION_OPERATION_MAC_KEY_PURPOSES) await registerMessagingPrivateMacKeyMaterial(transaction, securityConfig, purpose); });
+        await registerAdmissionOperationMacKeys(database, securityConfig);
         const tribeId = randomUUID(), leaderId = randomUUID(), guardianId = randomUUID(), sessionId = randomUUID(), token = randomUUID(), slug = `review-ui-${tribeId}`;
         const applicants = [1280, 390].map((width) => ({ userId: randomUUID(), requestId: randomUUID(), width, email: `solicitante-${width}-${randomUUID()}@example.test`, name: width === 390 ? "Solicitante de ejemplo A" : "Solicitante de ejemplo B" }));
         await database.withContext({ userId: leaderId, email: null }, async (transaction) => {

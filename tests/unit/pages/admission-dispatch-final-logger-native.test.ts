@@ -27,7 +27,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native connect
         const messagingSecurity = { environment: "synthetic-final-logger", securityEpoch: randomUUID(), keyringsJson: JSON.stringify(keyrings) };
         const config = await readMessagingHostingSecurityConfig({ MESSAGING_SECURITY_ENVIRONMENT: messagingSecurity.environment, MESSAGING_SECURITY_EPOCH: messagingSecurity.securityEpoch, MESSAGING_RECOVERY_LOCK: "false", MESSAGING_KEYRINGS_JSON: messagingSecurity.keyringsJson });
         const fixture = await prepareAdmissionContactVerification(database, false, config, true);
-        for (const migration of ["20261005092500_guard_messaging_attempts.sql", "20261005100000_guard_messaging_secret_retirement.sql", "20261006140000_claim_messaging_deliveries_fairly.sql", "20261006160000_purge_verification_delivery_material.sql", "20261008210000_claim_scoped_admission_delivery.sql", "20261007001000_read_public_admission_overview.sql"]) await database.applyMigration(migration);
         const canary = randomUUID(), requestId = randomUUID(), traceId = randomUUID();
         await database.withContext(fixture.fixture.own, async (transaction) => {
           await transaction.execute(sql`update public.messaging_usage_policies set allowed_countries=ARRAY['AR'],version=version+1 where tribe_id=${fixture.context.tribeId}`);

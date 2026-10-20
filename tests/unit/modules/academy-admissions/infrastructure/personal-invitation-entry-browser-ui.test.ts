@@ -21,7 +21,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native persona
       const messagingSecurity = { environment: "synthetic-personal-entry-ui", securityEpoch: randomUUID(), keyringsJson: JSON.stringify(keyrings) };
       const config = await readMessagingHostingSecurityConfig({ MESSAGING_SECURITY_ENVIRONMENT: messagingSecurity.environment, MESSAGING_SECURITY_EPOCH: messagingSecurity.securityEpoch, MESSAGING_RECOVERY_LOCK: "false", MESSAGING_KEYRINGS_JSON: messagingSecurity.keyringsJson });
       const { fixture, applicant } = await prepareAllowlistAdmission(database, config), recipient = await applicant(), other = await applicant(), slug = `allowlist-${fixture.tribeId}`;
-      for (const migration of ["20261009130000_add_personal_invitation_context_digest.sql", "20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261008220000_scope_admission_operation_recovery.sql"]) await database.applyMigration(migration);
       const invitations = new PostgresPersonalInvitationRepository((_scope, run) => database.withContext(fixture.own, run), async () => fixture.config);
       const context = { ...await fixture.confirm(REAUTHENTICATION_OPERATION.createPersonalInvitation), action: "manage_invitations" as const };
       const created = await invitations.create({ context, operationId: randomUUID(), confirmed: true, contact: { type: "email", value: recipient.email }, internalName: "Invitación personal de prueba", requiresAllowlist: false, allowlistExemptionAcknowledged: true });

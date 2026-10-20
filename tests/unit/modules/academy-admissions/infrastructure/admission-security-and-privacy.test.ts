@@ -13,7 +13,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission s
   it("should reject crossed request resources and arbitrary send fields before effects through the actual routes", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await preparePersonalInvitationManagementDatabase(database);
-      for (const migration of ["20261007004000_read_exact_own_admission_request.sql", "20261007005000_read_admission_reviews.sql"]) await database.applyMigration(migration);
       const ownSlug = `allowlist-${fixture.tribeId}`, otherTribeId = randomUUID(), otherSlug = `security-${otherTribeId}`;
       const applicantId = randomUUID(), otherRequestId = randomUUID(), ownRequestId = randomUUID();
       const privateMarker = randomUUID();

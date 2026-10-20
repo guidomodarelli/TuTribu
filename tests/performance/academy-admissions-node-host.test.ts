@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
-import { executeAdmissionMigrationCommand } from "@/tests/support/admission-migration-command";
+import { applyAdmissionMigrationJournal } from "@/tests/support/admission-migration-command";
 import { deployAdmissionNodeHost, type AdmissionNodeDeployment } from "@/tests/support/admission-node-deployment";
 import { ADMISSION_NODE_HOST, ADMISSION_NODE_RUN_STATE, admissionNodeStatusSchema } from "@/tests/support/constants/admission-node-host";
 import { ADMISSION_PERFORMANCE } from "@/tests/support/constants/admission-performance";
@@ -23,7 +23,7 @@ describe.skipIf(process.env.RUN_ADMISSION_NODE_HOST_TESTS !== "1")("colocated na
     let observed: unknown;
     const computeUnits = Number(process.env[ADMISSION_NODE_HOST.computeUnitsVariable] ?? ADMISSION_NODE_HOST.computeUnits);
     await withAcademyAdmissionDatabase(async (database) => {
-      await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
+      await applyAdmissionMigrationJournal(database);
       const operationId = randomUUID(), token = randomBytes(ADMISSION_NODE_HOST.tokenBytes).toString("base64url");
       await database.withContext({ userId: null, email: null }, async (transaction) => {
         await transaction.execute(sql`create extension if not exists pg_stat_statements`);

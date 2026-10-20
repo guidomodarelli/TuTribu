@@ -2,7 +2,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
-import { executeAdmissionMigrationCommand } from "./admission-migration-command";
+import { applyAdmissionMigrationJournal } from "./admission-migration-command";
 import { MESSAGING_CRYPTO } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { createMessagingSecurityConfig, type MessagingKeyringInput, type MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { createAdmissionContactFingerprint } from "@/src/modules/academy-admissions/infrastructure/verification/admission-contact-fingerprint";
@@ -11,7 +11,7 @@ import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messagi
 
 /** @param database - Verified owned branch; both migration URLs remain private and branch-scoped. @param securityConfig - Optional explicit synthetic configuration shared with an earlier migration-stage fixture. @param declaredWhatsappNumber - Optional synthetic canonical group number seeded before each terminal transition. @returns Live/retired scopes, an original binding and independently aged request/decision pairs. */
 export async function prepareAdmissionPrivateRetention(database: AcademyAdmissionTestDatabase, securityConfig?: MessagingSecurityConfig, declaredWhatsappNumber?: string) {
-  await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
+  await applyAdmissionMigrationJournal(database);
   const managerId = randomUUID(), tribeId = randomUUID(), archivedTribeId = randomUUID();
   const boundUserId = randomUUID(), unboundUserId = randomUUID(), freshUserId = randomUUID(), pendingUserId = randomUUID(), sessionId = randomUUID();
   const evidenceId = randomUUID(), accountId = randomUUID(), subject = randomUUID(), bindingId = randomUUID();

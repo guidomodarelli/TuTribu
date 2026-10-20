@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
 import { prepareContactVerificationDatabase } from "@/tests/support/contact-verification-database-fixture";
 import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
+import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import { chromium } from "@playwright/test";
 import { captureAdmissionReview } from "@/tests/support/admission-review-capture";
 
@@ -14,8 +15,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native histori
   it("should return real pending/replay/already_member and preserve unprotected direct entry without granting from an old protected body", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       process.stdout.write(JSON.stringify({ phase: "owned_branch", branch: database.branch }) + "\n");
-      const fixture = await prepareContactVerificationDatabase(database);
-      for (const migration of ["20261005093000_guard_academy_membership_sources.sql", "20261005095000_guard_global_identity_context.sql", "20261005101000_guard_admission_operation_identity.sql", "20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261011024000_read_current_own_admission_eligibility.sql", "20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261007005000_read_admission_reviews.sql", "20261007010000_read_academy_admission_entry.sql"]) await database.applyMigration(migration);
+      /** The server inherits this process's synthetic hosting keyrings, so the seed registers that same MAC material for the original-operation ledger. */
+      const fixture = await prepareContactVerificationDatabase(database, await readMessagingHostingSecurityConfig());
       const tribeId = randomUUID(), historicalTribeId = randomUUID(), applicantId = randomUUID(), sessionId = randomUUID(), token = randomUUID(), leaderSessionId = randomUUID(), leaderToken = randomUUID(), slug = `entry-http-${tribeId}`, historicalSlug = `old-entry-${historicalTribeId}`;
       await database.withContext(fixture.own, async (transaction) => {
         const now = (await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now;

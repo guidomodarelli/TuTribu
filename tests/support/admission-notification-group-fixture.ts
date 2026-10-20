@@ -2,7 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
-import { executeAdmissionMigrationCommand } from "./admission-migration-command";
+import { applyAdmissionMigrationJournal } from "./admission-migration-command";
 import { createAdmissionRequestSnapshotFixture } from "./admission-request-snapshot-fixture";
 import { MICROSECONDS_PER_SECOND, MILLISECONDS_PER_SECOND, SECONDS_PER_DAY, SECONDS_PER_HOUR } from "@/src/constants/time";
 import { ADMISSION_NOTIFICATION_TIMING } from "@/src/modules/notifications/constants/admission-notification-groups";
@@ -16,7 +16,7 @@ export function notificationFixtureTimestamp(microseconds: number) {
 
 /** @param database - Verified owned branch. @param allExpired - Seeds a coherent older collection whose two original deadlines elapsed. @returns Native source facts and a historical collection valid before its original window closed; no persisted dates are rewritten. */
 export async function prepareAdmissionNotificationGroup(database: AcademyAdmissionTestDatabase, allExpired = false) {
-  await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
+  await applyAdmissionMigrationJournal(database);
   const tribeId = randomUUID(), otherTribeId = randomUUID(), leaderId = randomUUID(), otherLeaderId = randomUUID();
   const applicantIds = [randomUUID(), randomUUID(), randomUUID()], requestIds = applicantIds.map(() => randomUUID()), obligationIds = applicantIds.map(() => randomUUID());
   const own = { userId: leaderId, email: null };

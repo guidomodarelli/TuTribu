@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
-import { executeAdmissionMigrationCommand } from "@/tests/support/admission-migration-command";
+import { applyAdmissionMigrationJournal } from "@/tests/support/admission-migration-command";
 import { ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS } from "@/tests/support/constants/admission-notification-validation";
 import { createAdmissionMaintenanceResultFixture } from "@/tests/support/admission-messaging-maintenance-fixture";
 import { createUnstartedAdmissionMaintenancePhases } from "@/src/modules/messaging/application/use-cases/admission-messaging-maintenance-state";
@@ -16,7 +16,7 @@ import { MILLISECONDS_PER_SECOND } from "@/src/constants/time";
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission messaging maintenance progress", () => {
   it("should preserve one original acquisition, rotate phases, retain late evidence and reset health on an actual scope change", async ({ task }) => {
     await withAcademyAdmissionDatabase(async (database) => {
-      await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
+      await applyAdmissionMigrationJournal(database);
       const execute: AdmissionMessagingMaintenanceExecutor = (run) => database.withContext({ userId: null, email: null }, run);
       const secret = randomUUID();
       let currentSecret = secret, recoveryLocked = false;

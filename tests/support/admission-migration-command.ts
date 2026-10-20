@@ -1,6 +1,7 @@
 /** Runs an owned migration fixture without propagating private child-process output. @module admission-migration-command */
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
 
 /**
  * Runs the exact migration command with explicit owned environment and bounded observation.
@@ -18,4 +19,14 @@ export async function executeAdmissionMigrationCommand(environment: Readonly<Rec
     const safeCause = new Error(`Owned migration process failed: exit=${String(processCode)}`);
     throw new Error(`Owned feature migration command failed: exit=${String(processCode)}`, { cause: safeCause });
   }
+}
+
+/**
+ * Applies the real pending migration journal to an owned branch, so native suites read every current SQL function instead of a frozen subset.
+ * @param database - Verified owned branch; its private connection is reused as the migration URL and stays in memory.
+ * @returns Nothing after the actual migration entrypoint registered every journal entry on that branch.
+ * @throws The observation-safe migration failure from {@link executeAdmissionMigrationCommand}.
+ */
+export function applyAdmissionMigrationJournal(database: Pick<AcademyAdmissionTestDatabase, "withServerEnvironment">): Promise<void> {
+  return database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
 }

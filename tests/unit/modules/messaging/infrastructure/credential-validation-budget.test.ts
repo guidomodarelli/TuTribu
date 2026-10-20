@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
 import { prepareContactVerificationDatabase, seedContactVerificationDatabase } from "@/tests/support/contact-verification-database-fixture";
 import { applyAdmissionRetentionHistoricalPrefix } from "@/tests/support/admission-retention-migration-prefix";
-import { executeAdmissionMigrationCommand } from "@/tests/support/admission-migration-command";
+import { applyAdmissionMigrationJournal } from "@/tests/support/admission-migration-command";
 import { ADMISSION_RETENTION_COMPOSITION_FIXTURE } from "@/tests/support/constants/admission-retention-composition";
 import { ADMISSION_SECURITY_TEST_TIMEOUT_MS } from "@/tests/support/constants/admission-security";
 import type { AuthorizedMessagingContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
@@ -186,7 +186,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("credential validat
         await transaction.execute(sql`insert into public.messaging_usage_events(tribe_id,actor_user_id,purpose,event_type,operation_id,occurred_at) select ${originalResource.scope.tribeId},${historicalActorId},'validate_messaging_connection','credential_validation',gen_random_uuid(),clock_timestamp()-interval '2 minutes' from generate_series(1,10)`);
         return (await transaction.execute(sql`select id,tribe_id,actor_user_id,operation_id,occurred_at from public.messaging_usage_events where tribe_id=${originalResource.scope.tribeId} order by id`)).rows;
       });
-      await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
+      await applyAdmissionMigrationJournal(database);
       const fixture = await prepareCredentialValidation(database, originalResource);
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`delete from public."user" where id=${historicalActorId}`));
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select id,tribe_id,actor_user_id,operation_id,occurred_at from public.messaging_usage_events where tribe_id=${fixture.scope.tribeId} order by id`)).rows)).toEqual(original.map((event) => ({ ...event, actor_user_id: null })));

@@ -20,7 +20,6 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native common 
       const messagingSecurity = { environment: "synthetic-common-list-ui", securityEpoch: randomUUID(), keyringsJson: JSON.stringify(keyrings) };
       const config = await readMessagingHostingSecurityConfig({ MESSAGING_SECURITY_ENVIRONMENT: messagingSecurity.environment, MESSAGING_SECURITY_EPOCH: messagingSecurity.securityEpoch, MESSAGING_RECOVERY_LOCK: "false", MESSAGING_KEYRINGS_JSON: messagingSecurity.keyringsJson });
       const { fixture, applicant } = await prepareAllowlistAdmission(database, config);
-      for (const migration of ["20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261008220000_scope_admission_operation_recovery.sql", "20261008230000_read_admission_contact_choices.sql"]) await database.applyMigration(migration);
       const slug = `allowlist-${fixture.tribeId}`;
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
         for (const { engine, width } of [{ engine: chromium, width: 1280 }, { engine: chromium, width: 390 }, { engine: webkit, width: 1280 }, { engine: webkit, width: 390 }]) {

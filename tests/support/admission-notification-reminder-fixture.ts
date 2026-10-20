@@ -2,7 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
-import { executeAdmissionMigrationCommand } from "./admission-migration-command";
+import { applyAdmissionMigrationJournal } from "./admission-migration-command";
 
 /**
  * Creates two due scopes, one young request and one expired request without rewriting persisted dates.
@@ -10,7 +10,7 @@ import { executeAdmissionMigrationCommand } from "./admission-migration-command"
  * @returns Original identities and an unauthenticated maintenance context; no email configuration or credentials exist.
  */
 export async function prepareAdmissionNotificationReminders(database: AcademyAdmissionTestDatabase) {
-  await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
+  await applyAdmissionMigrationJournal(database);
   const tribeId = randomUUID(), otherTribeId = randomUUID();
   const leaderId = randomUUID(), guardianId = randomUUID(), mutedGuardianId = randomUUID(), otherLeaderId = randomUUID();
   const applicantIds = [randomUUID(), randomUUID(), randomUUID(), randomUUID()], requestIds = applicantIds.map(() => randomUUID());

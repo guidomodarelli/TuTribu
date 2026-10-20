@@ -3,7 +3,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
 import { prepareHistoricalAdmissionEvidence } from "./admission-evidence-historical-fixture";
-import { executeAdmissionMigrationCommand } from "./admission-migration-command";
+import { applyAdmissionMigrationJournal } from "./admission-migration-command";
 import { createAdmissionRequestSnapshotFixture } from "./admission-request-snapshot-fixture";
 import type { AdmissionNotificationRecipientEmailScope } from "@/src/modules/notifications/domain/entities/admission-notification-recipient-email";
 
@@ -60,7 +60,7 @@ export async function prepareAdmissionNotificationRecipientEmails(database: Acad
     await transaction.execute(sql`insert into public.academy_admission_notification_obligations(id,tribe_id,request_id,applicant_user_id,event_type) values (${reviewObligationId},${tribeId},${reviewRequestId},${reviewApplicantId},'pending_created')`);
     await transaction.execute(sql`select public.enqueue_admission_notification(${reviewObligationId},${guardianId},'reviewer')`);
   }));
-  await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
+  await applyAdmissionMigrationJournal(database);
   const scopes: AdmissionNotificationRecipientEmailScope[] = obligationIds.map((obligationId, index) => ({ tribeId: index === 3 ? otherTribeId : tribeId, obligationId, recipientUserId: applicantIds[index], audience: "applicant" }));
   const reviewScope: AdmissionNotificationRecipientEmailScope = { tribeId, obligationId: reviewObligationId, recipientUserId: guardianId, audience: "reviewer" };
   return { tribeId, otherTribeId, leaderId, guardianId, applicantIds, requestIds, obligationIds, accountIds, emails, scopes, reviewScope, runtime, proofIds, own, system };

@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
-import { executeAdmissionMigrationCommand } from "@/tests/support/admission-migration-command";
+import { applyAdmissionMigrationJournal } from "@/tests/support/admission-migration-command";
 import { deployAdmissionNodeHost, type AdmissionNodeDeployment } from "@/tests/support/admission-node-deployment";
 import { ADMISSION_NODE_HOST, ADMISSION_NODE_RUN_STATE, admissionNodeStatusSchema } from "@/tests/support/constants/admission-node-host";
 import { HTTP_STATUS } from "@/src/constants/http-status";
@@ -15,7 +15,7 @@ import { ADMISSION_SAMPLE } from "@/tests/support/constants/admission-sample";
 describe.skipIf(process.env.RUN_ADMISSION_SAMPLE_TESTS !== "1")("native thousand-contact admission sample", () => {
   it("should admit eight hundred distinct enabled accounts and leave two hundred unlisted accounts pending exactly once", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
-      await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
+      await applyAdmissionMigrationJournal(database);
       const operationId = randomUUID(), token = randomBytes(ADMISSION_NODE_HOST.tokenBytes).toString("base64url");
       await database.withContext({ userId: null, email: null }, async (transaction) => {
         await transaction.execute(sql.raw(await readFile(join(process.cwd(), "tests/support/sql/20261018053000_create_admission_node_probe.sql"), "utf8")));

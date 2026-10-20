@@ -11,6 +11,7 @@ import { makeSignature } from "better-auth/crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
+import { applyAdmissionMigrationJournal } from "@/tests/support/admission-migration-command";
 
 /** Reserves only this fixture's free loopback port, without altering another server. */
 async function reservePort(): Promise<number> {
@@ -26,7 +27,8 @@ async function reservePort(): Promise<number> {
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("admission native query routes", () => {
   it("should allow public overview and a current nonmember's own query in Chromium/WebKit without admission or messaging effects", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
-      for (const migration of ["20261005090000_create_admission_identity_evidence.sql", "20261005091000_create_academy_admission_core.sql", "20261005091500_guard_admission_evidence_transitions.sql", "20261005092000_create_tenant_messaging.sql", "20261005093000_guard_academy_membership_sources.sql", "20261005095000_guard_global_identity_context.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261011024000_read_current_own_admission_eligibility.sql", "20261007001000_read_public_admission_overview.sql"]) await database.applyMigration(migration);
+      /** The routes read every current admission function, so the owned branch runs the real pending migration journal instead of a frozen subset. */
+      await applyAdmissionMigrationJournal(database);
       const userId = randomUUID(), tribeId = randomUUID(), sessionId = randomUUID(), sessionToken = randomUUID(), requestId = randomUUID(), slug = `query-${tribeId}`, email = `${userId}@example.test`;
       const own = { userId, email };
       await database.withContext(own, async (transaction) => {
