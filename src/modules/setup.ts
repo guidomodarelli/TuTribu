@@ -517,6 +517,7 @@ export async function createAdmissionRequestModules(usage: DatabaseConnectionUsa
     reviews: admissionModule.createReviewQueryModule({ readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases,
     observations: admissionModule.createActivityQueryModule().useCases,
     manual: manualModule.useCases,
+    commercialReviews: admissionModule.createCommercialMembershipReviewModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() }).useCases,
   };
 }
 
