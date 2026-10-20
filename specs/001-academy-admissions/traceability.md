@@ -314,6 +314,8 @@ El identificador corto de “Tema” es únicamente una etiqueta de trazabilidad
 
 ## Registro de evidencia posterior
 
+T218 (FR-123, FR-138–FR-140, US-10-AC-06, OG-06): la resolución autorizada y auditada de historial comercial desconocido y membresías privilegiadas existe (owner `tribes`, migración `20261019120000_resolve_commercial_membership_reviews.sql`). Evidencia: `tests/unit/modules/academy-admissions/application/commercial-membership-review.test.ts`, `tests/unit/modules/academy-admissions/application/admission-activation-blockers.test.ts`, `tests/unit/components/academy-admission-policy*.test.tsx`, `tests/unit/components/admission-setup-guide.test.tsx` y la suite SQL opt-in `tests/unit/modules/academy-admissions/infrastructure/commercial-membership-review-sql.test.ts` en ramas Neon propias. La tabla de motivos de bloqueo vive en [tasks.md](tasks.md) (T218) y en `docs/architecture/academy-admissions.htm#activation-blockers`. Pendiente: aplicar la migración al piloto/producción con autorización explícita y actualizar `user-guides/`.
+
 Al generar tareas, extender cada fila con: identificador de tarea, tipo de prueba, nombre/ruta de prueba, precondiciones, resultado esperado, resultado observado, entorno/commit y documento actualizado. El estado inicial de ejecución es pendiente. No inventar una prueba aprobada para llenar la matriz.
 
 Los ensayos de Zavu deben distinguir correo, SMS y WhatsApp; éxito de un canal no habilita los demás. Un ensayo no autorizado o sin recursos reales se registra como pendiente, no como éxito inferido de un mock. Las pruebas de reglas y contratos propias pueden ejecutarse con dobles en los bordes que el repositorio permita.

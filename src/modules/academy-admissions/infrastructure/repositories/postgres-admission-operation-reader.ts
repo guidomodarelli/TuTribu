@@ -45,7 +45,7 @@ export class PostgresAdmissionOperationReader implements AdmissionOperationReade
       const leader = row.member_status === TRIBE_MEMBERSHIP_STATUS.active && row.member_role === TRIBE_MEMBER_ROLE.leader;
       const reviewer = row.member_status === TRIBE_MEMBERSHIP_STATUS.active && (row.member_role === TRIBE_MEMBER_ROLE.leader || row.member_role === TRIBE_MEMBER_ROLE.guardian);
       if (ADMISSION_POLICY_RECOVERABLE_OPERATIONS.includes(row.operation_type) && !leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
-      if (row.operation_type === REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings) {
+      if (row.operation_type === REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings || row.operation_type === REAUTHENTICATION_OPERATION.resolveCommercialMembershipReview) {
         if (!leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
         await authorizeAdmissionPolicy(database, { ...scope, action: ADMISSION_ACTION.readPolicy, role: TRIBE_MEMBER_ROLE.leader, membershipStatus: TRIBE_MEMBERSHIP_STATUS.active, resourceId: scope.tribeId });
       }

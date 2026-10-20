@@ -43,6 +43,31 @@
     @include workspace-panel.note;
   }
 
+  // Reasons only the TuTribu team resolves: a hairline group inside the same callout, never a nested container.
+  &__platform {
+    display: grid;
+    gap: 0.5rem;
+    padding-block-start: 0.75rem;
+    border-block-start: 1px solid var(--border);
+  }
+
+  &__diagnostic {
+    margin-inline-end: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+  }
+
+  &__code {
+    font-family: var(--font-mono, monospace);
+    overflow-wrap: anywhere;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
   &__recovery {
     @include workspace-panel.callout;
 

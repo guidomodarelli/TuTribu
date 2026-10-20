@@ -29,6 +29,9 @@ import { OPERATION_STATE } from "@/src/constants/operation-state";
 import type { AdmissionWhatsappNumberBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-whatsapp-number-browser-client";
 import { admissionWhatsappNumberResultSchema } from "@/src/modules/academy-admissions/application/results/admission-writer-result-schemas";
 import { ADMISSION_WHATSAPP_ROUTE_SEGMENT } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
+import type { CommercialMembershipReviewBrowserClient } from "@/src/modules/academy-admissions/application/ports/commercial-membership-review-browser-client";
+import { commercialMembershipResolutionResultSchema, commercialMembershipReviewListSchema } from "@/src/modules/academy-admissions/application/results/commercial-membership-review-schemas";
+import { COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH } from "@/src/modules/academy-admissions/constants/commercial-membership-review";
 
 /** Own public progress cannot carry an unconfirmed result. */
 const startedSchema = z.object({ state: z.literal("started"), operationId: z.uuid() });
@@ -41,7 +44,7 @@ const ACADEMY_ENTRY_SEGMENT = "academy/join";
 export type AcademyAdmissionBrowserEntry = { submitAcademyEntry(slug: string, input: AdmissionBrowserSubmission, signal: AbortSignal): Promise<AdmissionBrowserResult<AdmissionOutcomeDto | AdmissionStartedResponse>> };
 
 /** @param options - Explicit own HTTP transport; the default viewer uses the installed native SDK. @returns A same-origin application client with cancellation and safe owned contracts. */
-export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fetch; viewer?: AdmissionBrowserClient["viewer"] } = {}): AdmissionBrowserClient & AdmissionReviewBrowserClient & AcademyAdmissionBrowserEntry & AdmissionPolicyBrowserClient & AdmissionWhatsappNumberBrowserClient {
+export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fetch; viewer?: AdmissionBrowserClient["viewer"] } = {}): AdmissionBrowserClient & AdmissionReviewBrowserClient & AcademyAdmissionBrowserEntry & AdmissionPolicyBrowserClient & AdmissionWhatsappNumberBrowserClient & CommercialMembershipReviewBrowserClient {
   const transport = options.fetch ?? globalThis.fetch;
   const auth = options.viewer ? null : createAuthClient();
   /** Converts a native rejection to safe copy without exposing a cause or claiming accepted work. */
@@ -113,6 +116,14 @@ export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fe
       const operation = result.value;
       if (operation.operationId !== input.operationId.toLowerCase() || operation.state === OPERATION_STATE.completed && (operation.result.admissionRequestId.toLowerCase() !== requestId.toLowerCase() || operation.result.version !== input.expectedVersion + (operation.result.changed ? 1 : 0))) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
       return { status: "ready", value: operation.state === OPERATION_STATE.completed ? operation.result : operation };
+    },
+    readCommercialReviews: (slug, signal) => request(`${base(slug)}/${COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH.list}`, commercialMembershipReviewListSchema, signal),
+    resolveCommercialReview: async (slug, memberId, input, signal) => {
+      const result = await request(`${base(slug)}/${COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH.list}/${encodeURIComponent(memberId)}/${COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH.resolutionSegment}`, createAdmissionOperationStateSchema(commercialMembershipResolutionResultSchema), signal, input);
+      if (result.status !== "ready") return result;
+      const operation = result.value;
+      if (operation.operationId !== input.operationId.toLowerCase() || operation.state === OPERATION_STATE.completed && operation.result.memberId !== memberId.toLowerCase()) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
+      return result;
     },
     operation: (slug, operationId, signal) => request(`${base(slug)}/operations/${encodeURIComponent(operationId)}`, admissionOperationRecoverySchema, signal),
     submit: async (slug, input, signal) => {

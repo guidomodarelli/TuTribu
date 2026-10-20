@@ -28,7 +28,9 @@ describe("AdmissionSetupGuide", () => {
     expect(items[3]).toHaveAttribute("aria-current", "step");
     expect(within(items[1]).getByText("Opcional")).toBeInTheDocument();
     expect(screen.getAllByRole("link")).toHaveLength(1);
-    expect(screen.getByRole("link", { name: "Abrir las admisiones" })).toHaveAttribute("href", "/mi%20tribu/academia/admissions/settings");
+    expect(screen.getByRole("link", { name: "Abrir las admisiones" })).toHaveAttribute("href", "/mi%20tribu/academia/admissions/settings?step=review");
+    expect(items[0]).toHaveTextContent("Borrador sin publicar");
+    expect(items[3]).toHaveTextContent("Borrador sin publicar");
     expect(screen.getByRole("progressbar", { name: "Avance de la configuración" })).toHaveAttribute("aria-valuenow", "1");
     expect(screen.getByText("1 de 2 pasos necesarios listos")).toBeInTheDocument();
   });
@@ -72,5 +74,40 @@ describe("AdmissionSetupGuideFallback", () => {
     render(<AppUIProvider><AdmissionWorkspaceRoute pathname={route} slug="tribu" memberTribes={[buildAdmissionMemberTribe({ role: "guardian" })]}><AdmissionSetupGuideFallback /></AdmissionWorkspaceRoute></AppUIProvider>);
 
     expect(screen.queryByRole("status", { name: "Cargando la guía de configuración" })).not.toBeInTheDocument();
+  });
+
+  it("adds the membership review before opening and links to its own step", () => {
+    const progress = deriveAdmissionSetupProgress({
+      policy: { exists: true, open: false, paused: false, sendsCodes: false, verifiesPhone: false },
+      messaging: null, notifications: null, memberships: { pendingCount: 1, resolvedCount: 0 },
+    });
+    render(<AppUIProvider><AdmissionSetupGuide slug="tribu" progress={progress} /></AppUIProvider>);
+    const items = within(screen.getByRole("list", { name: "Pasos de la configuración" })).getAllByRole("listitem");
+    expect(items.map((item) => item.textContent)).toEqual(expect.arrayContaining([expect.stringContaining("Revisá membresías bloqueadas por pago")]));
+    expect(screen.getByRole("link", { name: "Revisar membresías" })).toHaveAttribute("href", "/tribu/academia/admissions/settings?step=memberships");
+    expect(screen.getByText("1 de 3 pasos necesarios listos")).toBeInTheDocument();
+  });
+
+  it("explains a platform block on the opening step instead of linking to a screen that would fail again", () => {
+    const progress = deriveAdmissionSetupProgress({
+      policy: { exists: true, open: false, paused: false, sendsCodes: false, verifiesPhone: false },
+      messaging: null, notifications: null, activation: { platformBlocked: true },
+    });
+    render(<AppUIProvider><AdmissionSetupGuide slug="tribu" progress={progress} /></AppUIProvider>);
+    expect(screen.getByText(/Depende del equipo de TuTribu: la plataforma todavía no permite activar/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Abrir las admisiones" })).not.toBeInTheDocument();
+  });
+});
+
+describe("AdmissionSetupGuide drafts", () => {
+  it("marks a saved candidate connection as an unpublished draft", () => {
+    const progress = deriveAdmissionSetupProgress({
+      policy: { exists: true, open: true, paused: false, sendsCodes: true, verifiesPhone: false },
+      messaging: { connected: false, candidatePending: true, usage: null }, notifications: null,
+    });
+    render(<AppUIProvider><AdmissionSetupGuide slug="tribu" progress={progress} /></AppUIProvider>);
+    const items = within(screen.getByRole("list", { name: "Pasos de la configuración" })).getAllByRole("listitem");
+    expect(items[1]).toHaveTextContent("Borrador sin publicar");
+    expect(screen.getByRole("link", { name: "Conectar mensajería" })).toHaveAttribute("href", "/tribu/academia/admissions/messaging/connections");
   });
 });

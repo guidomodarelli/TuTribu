@@ -6,6 +6,14 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- Reglas incorpora el paso «Revisá membresías bloqueadas por pago»: el líder ve cada integrante bloqueada o dada de baja por falta de pago cuyo estado anterior se desconoce y decide, con confirmación y un motivo opcional, si al regularizar el pago vuelve como integrante activa o silenciada. La decisión queda registrada con su autor y fecha, vale de acá en adelante y no reactiva a nadie en el momento.
+- En ese mismo paso, cada guardián bloqueado por pago puede volver como integrante activa o silenciada, siempre sin su rol de guardián, o quedar retirado («No vuelve por pago: queda retirada»); un pago nunca devuelve un rol ni lo conserva.
+- Cuando la activación encuentra membresías bloqueadas por pago sin decidir, el paso aparece antes de «Revisá y activá»; al terminar las decisiones vuelve al paso final con «Activar ahora», sin perder lo elegido.
+- Reglas avisa «Tenés reglas guardadas sin publicar» con la acción «Revisar y activar», que abre directamente el paso final con lo guardado.
+- Conexión avisa «Tenés una conexión guardada sin activar» con la acción «Continuar donde quedó», que lleva al paso pendiente.
+- Los bloqueos que dependen del equipo de TuTribu se muestran aparte, en lenguaje simple, con un código de diagnóstico para copiar, «Volver a comprobar» y «Reportar el problema».
+- La guía de configuración incorpora el paso «Revisá membresías bloqueadas por pago» cuando hay casos sin decidir, marca como «Borrador sin publicar» las reglas guardadas sin activar y la conexión candidata sin activar, y su botón lleva directo al punto de publicación.
+- Países y cupos y Conexión ofrecen «Volver a Reglas para activar» cuando se llega desde un requisito de Reglas.
 - Solicitudes muestra al líder una guía de configuración con los pasos en orden (reglas, conexión, países y cupos, abrir las admisiones y avisos), cuáles ya están listos y un único botón hacia el siguiente; desaparece cuando todo está completo.
 - Reglas de admisión se configura en pasos chicos (cómo se admite, cómo se contactan, recibir solicitudes y revisión) y termina con una sola acción, «Guardar y activar admisiones», que guarda, revisa los requisitos y activa mostrando cada etapa; si falta algo, indica qué y dónde resolverlo sin perder lo elegido.
 - Con las admisiones activas, Reglas muestra si están abiertas o pausadas y ofrece pausar con motivo, reanudar y editar las reglas sin reabrirlas por error.
@@ -104,6 +112,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
+- «Lo que falta resolver» explica cada bloqueo de la activación en lenguaje claro e indica dónde se resuelve: Conexión, Países y cupos, el paso «Cómo se contactan», Gestionar academia (para activar primero el modo academia), la revisión de membresías bloqueadas por pago o «Volver a comprobar»; deja de pedir una «revisión autorizada» sin explicar qué hacer.
+- Si la plataforma bloquea la activación, la guía de configuración lo indica en «Abrí las admisiones» («Depende del equipo de TuTribu») en lugar de mandar a Reglas a intentarlo de nuevo, y Reglas deja de ofrecer publicar hasta que se resuelva.
 - Todos los botones que guardan en admisión y mensajería muestran un indicador de carga mientras se guarda, conservan su texto y el foco, y bloquean las demás acciones de la pantalla hasta terminar; las consultas ya no cambian el texto de los botones.
 - Cada acción de Reglas confirma su propio resultado (activadas, pausadas, reanudadas o cambios guardados) en lugar de un mensaje genérico.
 - La conexión de mensajería guía el avance con un indicador de pasos: los pasos completados se pueden volver a abrir, los siguientes se habilitan al completar el actual y Seguridad y retiro queda como acción aparte.

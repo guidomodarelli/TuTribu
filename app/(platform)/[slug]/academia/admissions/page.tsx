@@ -15,6 +15,8 @@ async function SetupGuideContent({ route }: { route: { slug: string } }) {
     policy: async () => (await createAdmissionRequestModules()).policyPage,
     notifications: async () => (await createAdmissionNotificationSettingsRequestModule()).page,
     messaging: async () => (await createMessagingConfigurationRequestModule()).createPage(),
+    reviews: async () => { const modules = await createAdmissionRequestModules(); return { resolveTribe: modules.queries.resolveTribe, reviews: modules.commercialReviews }; },
+    preflight: async () => { const modules = await createAdmissionRequestModules(); return { resolveTribe: modules.queries.resolveTribe, preflight: modules.policyPreflight }; },
   });
   return state ? <AdmissionSetupGuide slug={state.slug} progress={state.progress} /> : null;
 }

@@ -69,4 +69,26 @@ describe("deriveAdmissionSetupProgress", () => {
 
     expect(statuses(omitted).notifications).toBe("optional");
   });
+
+  it("requires the membership review only while memberships blocked by payment wait for a decision before opening", () => {
+    const draft: AdmissionSetupFacts = { ...empty, policy: { ...empty.policy, exists: true }, memberships: { pendingCount: 2, resolvedCount: 0 } };
+    expect(deriveAdmissionSetupProgress(draft)).toMatchObject({ next: "memberships", completed: 1, required: 3 });
+    expect(statuses(draft)).toMatchObject({ memberships: "pending", open: "pending" });
+    const decided: AdmissionSetupFacts = { ...draft, memberships: { pendingCount: 0, resolvedCount: 2 } };
+    expect(deriveAdmissionSetupProgress(decided)).toMatchObject({ next: "open", completed: 2, required: 3 });
+    const none: AdmissionSetupFacts = { ...draft, memberships: { pendingCount: 0, resolvedCount: 0 } };
+    expect(deriveAdmissionSetupProgress(none).steps.map((step) => step.id)).not.toContain("memberships");
+    const activated: AdmissionSetupFacts = { ...draft, policy: { ...draft.policy, open: true } };
+    expect(deriveAdmissionSetupProgress(activated).steps.map((step) => step.id)).not.toContain("memberships");
+  });
+
+  it("flags unpublished drafts and a platform block on the opening step", () => {
+    const facts: AdmissionSetupFacts = { ...empty, policy: { ...empty.policy, exists: true }, messaging: { connected: false, candidatePending: true, usage: null }, activation: { platformBlocked: true } };
+    const steps = Object.fromEntries(deriveAdmissionSetupProgress(facts).steps.map((step) => [step.id, step]));
+    expect(steps.rules).toEqual({ id: "rules", status: "done", draft: true });
+    expect(steps.connection).toEqual({ id: "connection", status: "optional", draft: true });
+    expect(steps.open).toEqual({ id: "open", status: "pending", draft: true, platformBlocked: true });
+    const paused: AdmissionSetupFacts = { ...facts, policy: { ...facts.policy, paused: true } };
+    expect(Object.fromEntries(deriveAdmissionSetupProgress(paused).steps.map((step) => [step.id, step])).open).toEqual({ id: "open", status: "pending", paused: true });
+  });
 });

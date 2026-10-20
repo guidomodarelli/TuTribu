@@ -1772,6 +1772,26 @@ Asignar owner por archivo compartido y usar lotes `[P]` preparados. Respetar por
 
 Cierre T217: [evidencia vigente](validation/whatsapp-number.md#cierre-vigente-de-t217-con-main-integrado) y [reporte sanitizado](validation/whatsapp-browser-summary.json). Cuatro perfiles y veinte capturas con el código integrado en main, 121 casos actuales de interfaz, veinte vistas documentales y cinco capturas revisadas, con 71 templates preservados, source-trace actual y limpieza independiente confirmada. La ampliación no acredita el lector ni los gates externos de la feature.
 
+## Ampliación: revisión autorizada de membresías bloqueadas por pago
+
+- [x] T218 Implementar la resolución autorizada y auditada del owner `tribes` para membresías con historial comercial desconocido o privilegiadas: migración `20261019120000_resolve_commercial_membership_reviews.sql` (auditoría append-only con RLS forzado, lector y writer `SECURITY DEFINER` idempotente por operación, CAS y excepción del guard del snapshot sólo para una resolución de la misma transacción), casos de uso, rutas `GET/POST /api/tribes/[slug]/admissions/commercial-memberships[/[memberId]/resolution]`, recuperación del original por el ledger, paso «Revisá membresías bloqueadas por pago» dentro de Reglas y de la guía, clasificación exhaustiva de motivos de bloqueo (líder, paso, plataforma), patrón de borradores sin publicar y retorno con allowlist. Archivos: `database/migrations/20261019120000_resolve_commercial_membership_reviews.sql`, `src/modules/academy-admissions/`, `app/api/tribes/[slug]/admissions/commercial-memberships/`, `app/(platform)/[slug]/academia/admissions/`, `components/academy-admissions/`, `lib/academy-admissions/`, `lib/siteping/siteping-report-launcher.ts`, `docs/architecture/academy-admissions.htm`, `docs/architecture/academy-access.htm`, `DESIGN.md`, `CHANGELOG.md`. Dependencias: `T023`, `T161`. Trazabilidad: `FR-123`, `FR-138`–`FR-140`, `US-10-AC-06`, `OG-06`.
+
+  Cierre de T218: Vitest de dominio, casos de uso, HTTP, presenter, container y guía; suite SQL opt-in `commercial-membership-review-sql.test.ts` (`RUN_ADMISSION_SQL_TESTS=1`) aprobada en ramas Neon propias, y validación manual de la migración tal como se commitea en una rama efímera (28/28 escenarios: lector, denegaciones, CAS, replay, conflicto de idempotencia, retiro de guardián, guard del snapshot, append-only, RLS con rol sin bypass, concurrencia). No acredita la aplicación al piloto ni a producción, ni los manuales de `user-guides/`.
+
+Motivos de bloqueo y quién los resuelve:
+
+| Motivo | Significado | Quién lo resuelve y dónde | Decisión o auditoría |
+| --- | --- | --- | --- |
+| `verification_unavailable`, `sms_alternative_unavailable` | Canal de comprobación o alternativa SMS sin preparar. | Líder, en Conexión (retorno a Reglas). | Auditoría de conexión existente. |
+| `verification_quota_unavailable`, `recipient_countries_not_configured`, `recipient_countries_restricted` | Falta cupo o países habilitados. | Líder, en Países y cupos (retorno a Reglas). | Auditoría de uso existente. |
+| `phone_channel_required`, `phone_allowlist_verification_required`, `sms_alternative_invalid`, `contact_type_locked` | Elección de contacto inválida. | Líder, en el paso «Cómo se contactan». | Auditoría de política al guardar. |
+| `academy_unavailable`, `preflight_academy_unavailable` | La tribu no está en modo academia. | Líder, en Gestionar academia. | Auditoría de academia existente. |
+| `preflight_unknown_commercial_history` | Tribemate bloqueada por pago con estado anterior desconocido. | Líder, en el paso «Revisá membresías bloqueadas por pago». | `recover_active`/`recover_muted` en `tribe_member_commercial_resolutions`. |
+| `preflight_privileged_commercial_membership` | Guardián con bloqueo comercial. | Líder, en el mismo paso. | Vuelve como integrante sin rol (`recover_*`) o retirado (`retire`), auditado. |
+| `policy_scope_mismatch`, `preflight_scope_mismatch`, `admission_clock_invalid` | Comprobación desfasada. | Líder, con «Volver a comprobar». | Ninguna; lectura. |
+| `policy_unavailable`, `preflight_policy_unavailable` | Falta guardar la política. | El flujo la crea antes de activar. | Auditoría de política. |
+| `preflight_storage_unavailable`, `admission_preflight_incomplete`, `preflight_ingress_unprotected`, `preflight_marker_inconsistent`, `preflight_runtime_unavailable`, `preflight_evaluator_disabled`, `admission_evaluator_unavailable`, `preflight_recovery_locked`, `admission_recovery_locked` | Preparación o habilitación de plataforma. | Equipo de TuTribu («Depende del equipo de TuTribu», código copiable, «Volver a comprobar», «Reportar el problema»). | Ninguna desde la academia; las reglas quedan como borrador. |
+
 ## Resumen de tareas
 
 | Bloque | Cantidad | Rango |
@@ -1792,7 +1812,8 @@ Cierre T217: [evidencia vigente](validation/whatsapp-number.md#cierre-vigente-de
 | US12 | 6 | T192–T197 |
 | Fase 15 | 15 | T198–T212 |
 | WhatsApp para revisión humana | 5 | T213–T217 |
-| Total | 217 | T001–T217 |
+| Membresías bloqueadas por pago | 1 | T218 |
+| Total | 218 | T001–T218 |
 
 Las pruebas se distribuyen por fase e historia; los marcadores individuales son la fuente de cierre. Las 212 identidades anteriores y sus aprobaciones se conservan, con T213–T217 y FR-143–FR-146 añadidos para WhatsApp.
 

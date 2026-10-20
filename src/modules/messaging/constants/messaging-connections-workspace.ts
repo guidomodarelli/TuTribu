@@ -10,6 +10,8 @@ export const MESSAGING_CONNECTIONS_STEP_ORDER=[MESSAGING_CONNECTIONS_TAB.connect
 export const MESSAGING_CONNECTIONS_STEP_DESCRIPTION={connection:"Guardá y comprobá la clave de Zavu.",channels:"Elegí remitentes y plantillas.",tests:"Probá cada canal con un código.",activation:"Revisá los requisitos y activá."} as const satisfies Record<(typeof MESSAGING_CONNECTIONS_STEP_ORDER)[number],string>;
 /** Copy of the stepper and its secondary actions. */
 export const MESSAGING_CONNECTIONS_STEPPER_COPY={label:"Pasos de la conexión",complete:"Conexión activa para la academia",security:"Seguridad y retiro",steps:"Volver a los pasos"} as const;
+/** Unpublished-draft notice: a saved candidate that is not the active connection yet. */
+export const MESSAGING_CONNECTIONS_DRAFT_COPY={title:"Tenés una conexión guardada sin activar",description:"Todavía no se usa para enviar códigos ni avisos. Seguí desde el paso pendiente para activarla.",action:"Continuar donde quedó"} as const;
 
 /** Advisory progress derived from own metadata; the server still decides every requirement at commit time. */
 export type MessagingConnectionsNextStep="saveCandidate"|"validateCredential"|"prepareChannel"|"testChannel"|"activate"|"active";

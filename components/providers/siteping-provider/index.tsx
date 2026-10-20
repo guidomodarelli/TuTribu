@@ -6,6 +6,7 @@ import type { BeezpingConfig, BeezpingInstance } from "@beezping/widget";
 import { SITEPING_API_ENDPOINT, SITEPING_IDENTITY_ENDPOINT } from "@/src/modules/siteping/constants/siteping";
 import type { SitepingIdentityResult } from "@/src/modules/siteping/application/results/siteping-feedback-result";
 import { SITEPING_IDENTITY_REQUEST_RESULT, fetchSitepingIdentityRequest } from "@/lib/siteping/siteping-identity-api-client";
+import { registerSitepingReportLauncher } from "@/lib/siteping/siteping-report-launcher";
 import "./siteping-overlay.scss";
 
 /** TuTribu mounts the published widget with its own authenticated backend. */
@@ -29,18 +30,22 @@ function BeezpingWidgetMount({ config }: { config: SitepingIdentityResult }) {
   useEffect(() => {
     let isActive = true;
     let instance: BeezpingInstance | null = null;
+    let unregister: (() => void) | null = null;
     const options: BeezpingConfig = {
       ...BEEZPING_PROVIDER_CONFIG,
       endpoint: SITEPING_API_ENDPOINT, forceShow: config.enabled,
       identity: config.identity ?? undefined, projectName: config.projectName,
     };
     void import("@beezping/widget").then(({ initBeezping }) => {
-      if (isActive) instance = initBeezping(options);
+      if (!isActive) return;
+      const mounted = initBeezping(options);
+      instance = mounted;
+      unregister = registerSitepingReportLauncher(() => mounted.open());
     }).catch((error: unknown) => {
       if (isActive) console.error("BeezpingProvider: widget initialization failed", { errorName: error instanceof Error ? error.name : "UnknownError" });
       if (isActive) toast.error(BEEZPING_PROVIDER_NOTIFICATION.widgetError, { id: BEEZPING_PROVIDER_NOTIFICATION.id });
     });
-    return () => { isActive = false; instance?.destroy(); };
+    return () => { isActive = false; unregister?.(); instance?.destroy(); };
   }, [config]);
   return null;
 }

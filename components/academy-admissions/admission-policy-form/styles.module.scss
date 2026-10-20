@@ -38,6 +38,18 @@
     @include workspace-panel.callout;
   }
 
+  // Saved rules that were never activated: one callout with the action that opens the final step.
+  &__draft {
+    @include workspace-panel.callout;
+
+    gap: 0.5rem;
+    border-inline-start-color: var(--warning, var(--accent));
+  }
+
+  &__draftTitle {
+    @include workspace-panel.subtitle;
+  }
+
   &__editor {
     @include workspace-panel.section;
   }

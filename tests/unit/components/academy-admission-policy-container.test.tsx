@@ -10,6 +10,9 @@ import type { AdmissionPolicyPageState } from "@/src/modules/academy-admissions/
 import type { AdmissionPolicyStateDto } from "@/src/modules/academy-admissions/application/results/admission-policy-result-schemas";
 import { readAdmissionPolicyIntent, writeAdmissionPolicyIntent } from "@/lib/academy-admissions/admission-policy-intent";
 import { createAdmissionPolicyDraft } from "@/src/modules/academy-admissions/application/commands/admission-policy-browser-intent";
+import type { CommercialMembershipReviewBrowserClient } from "@/src/modules/academy-admissions/application/ports/commercial-membership-review-browser-client";
+import type { CommercialMembershipReviewCase } from "@/src/modules/academy-admissions/domain/entities/commercial-membership-review";
+import { readCommercialMembershipReviewIntent } from "@/lib/academy-admissions/commercial-membership-review-intent";
 
 const tribeId = "83ecbfaf-0e7c-4afb-aefc-62b62800d367", viewerId = "synthetic-leader", slug = "synthetic-academy", activatedAt = "2026-10-07T10:00:00Z";
 const router = { back: vi.fn(), bfcacheId: "policy-container-test", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: vi.fn(), replace: vi.fn() } satisfies AppRouterInstance;
@@ -40,7 +43,13 @@ function fixture(lifecycle: "draft" | "not_configured" | "active" | "paused" = "
     activatePolicy: vi.fn<AdmissionPolicyBrowserClient["activatePolicy"]>(async (_slug, input) => mutation(input.operationId, input.expectedVersion + 1, true)),
     pausePolicy: vi.fn<AdmissionPolicyBrowserClient["pausePolicy"]>(async (_slug, input) => mutation(input.operationId, input.expectedVersion + 1, true)),
   };
-  return { policy, state, client, node: <AdmissionPolicyContainer initialState={state} client={client} /> };
+  const reviewClient = {
+    viewer: client.viewer,
+    operation: vi.fn<CommercialMembershipReviewBrowserClient["operation"]>(async () => ({ status: "failed", code: "resource_unavailable", message: "La operación no está disponible.", uncertain: false })),
+    readCommercialReviews: vi.fn<CommercialMembershipReviewBrowserClient["readCommercialReviews"]>(async () => ({ status: "ready", value: { cases: [], pendingCount: 0, resolvedCount: 0 } })),
+    resolveCommercialReview: vi.fn<CommercialMembershipReviewBrowserClient["resolveCommercialReview"]>(async (_slug, memberId, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { status: "resolved", memberId, decision: input.decision, resultingRole: "tribemate", resultingStatus: input.expected.status, resultingRecoveryStatus: input.decision === "recover_muted" ? "muted" : "active", decidedAt: "2026-10-19T12:00:00.000Z" } } })),
+  };
+  return { policy, state, client, reviewClient, node: <AdmissionPolicyContainer initialState={state} client={client} reviewClient={reviewClient} /> };
 }
 
 /** Waits for the initial account check, then walks every step up to the review. */
@@ -92,9 +101,9 @@ describe("guided policy route workflow", () => {
 
   it("should stop before activating when requirements are missing, explain them and keep every choice", async () => {
     const data = fixture();
-    data.client.readPreflight.mockResolvedValueOnce({ status: "ready", value: { prepared: false, reasons: ["preflight_unknown_commercial_history", "preflight_evaluator_disabled"], impact: { unknownCommercialMemberCount: 2, privilegedCommercialMemberCount: 1 } } });
+    data.client.readPreflight.mockResolvedValueOnce({ status: "ready", value: { prepared: false, reasons: ["preflight_evaluator_disabled"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } });
     render(data.node, { wrapper: Providers });
-    expect(screen.getByText(/Tenés reglas guardadas como borrador/)).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Tenés reglas guardadas sin publicar" })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: "Continuar" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Comprobar el contacto con un código" }));
@@ -102,9 +111,9 @@ describe("guided policy route workflow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Guardar y activar admisiones" }));
     const block = await screen.findByRole("region", { name: "Lo que falta resolver" });
     expect(block).toHaveTextContent("Todavía falta un requisito para activar las admisiones.");
-    expect(block).toHaveTextContent("La admisión está deshabilitada en esta academia.");
-    expect(block).toHaveTextContent("Membresías con historial comercial desconocido: 2.");
-    expect(block).toHaveTextContent("Membresías comerciales restringidas con rol de líder o guardián: 1.");
+    expect(block).toHaveTextContent("La plataforma todavía no habilitó la admisión para esta academia.");
+    expect(block).toHaveTextContent("Código de diagnóstico: preflight_evaluator_disabled");
+    expect(screen.getByRole("group", { name: "Tenés reglas guardadas sin publicar" })).toHaveTextContent("Por ahora no se pueden activar: depende del equipo de TuTribu.");
     expect(block).toHaveTextContent("Tus reglas quedaron guardadas como borrador.");
     expect(data.client.updatePolicy.mock.calls[0][1]).toMatchObject({ expectedVersion: 3, requiresAdditionalVerification: true });
     expect(data.client.activatePolicy).not.toHaveBeenCalled();
@@ -122,7 +131,7 @@ describe("guided policy route workflow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Guardar y activar admisiones" }));
     const block = await screen.findByRole("region", { name: "Lo que falta resolver" });
     expect(block).toHaveTextContent("El canal para comprobar el contacto todavía no está preparado.");
-    expect(screen.getByRole("link", { name: "Ir a Conexión" })).toHaveAttribute("href", `/${slug}/academia/admissions/messaging/connections`);
+    expect(screen.getByRole("link", { name: "Ir a Conexión" })).toHaveAttribute("href", `/${slug}/academia/admissions/messaging/connections?return=policy-review`);
     expect(screen.queryByText("Falta un requisito actual para resolver el ingreso.")).not.toBeInTheDocument();
     expect(data.client.updatePolicy).not.toHaveBeenCalled();
   });
@@ -394,5 +403,121 @@ describe("guided policy route workflow", () => {
     expect(screen.queryByRole("checkbox", { name: /Confirmo reintentar/ })).not.toBeInTheDocument();
     expect(readAdmissionPolicyIntent(viewerId, slug)).not.toBeNull();
     expect(data.client.updatePolicy).not.toHaveBeenCalled();
+  });
+
+  describe("memberships blocked by payment", () => {
+    const unknownCase: CommercialMembershipReviewCase = { memberId: "0b9f6c8e-2f4f-4b8e-9d11-0d6f6a0c2a11", displayName: "Integrante sintética", role: "tribemate", status: "blocked", statusReason: "payment_blocked", recoveryStatus: null, joinedAt: "2026-05-07T12:00:00.000Z" };
+    const guardianCase: CommercialMembershipReviewCase = { memberId: "5c3c1f0e-8d7a-4f0b-9a7e-2b1d3c4e5f60", displayName: "Guardiana sintética", role: "guardian", status: "removed", statusReason: "subscription_inactive", recoveryStatus: "active", joinedAt: "2025-11-02T12:00:00.000Z" };
+
+    it("should insert the review before the final step when activation is blocked, record each decision and return to «Activar ahora»", async () => {
+      const data = fixture();
+      data.client.readPreflight.mockResolvedValueOnce({ status: "ready", value: { prepared: false, reasons: ["preflight_unknown_commercial_history", "preflight_privileged_commercial_membership"], impact: { unknownCommercialMemberCount: 1, privilegedCommercialMemberCount: 1 } } });
+      data.reviewClient.readCommercialReviews.mockResolvedValueOnce({ status: "ready", value: { cases: [unknownCase, guardianCase], pendingCount: 2, resolvedCount: 0 } })
+        .mockResolvedValueOnce({ status: "ready", value: { cases: [guardianCase], pendingCount: 1, resolvedCount: 1 } })
+        .mockResolvedValueOnce({ status: "ready", value: { cases: [], pendingCount: 0, resolvedCount: 2 } });
+      render(data.node, { wrapper: Providers });
+      await goToReview(); await confirm();
+      fireEvent.click(screen.getByRole("button", { name: "Guardar y activar admisiones" }));
+      const list = await screen.findByRole("list", { name: "Membresías por revisar" });
+      expect(screen.getByRole("group", { name: "Revisá membresías bloqueadas por pago" })).toBeInTheDocument();
+      expect(screen.getByRole("navigation", { name: "Paso 4 de 5" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
+      expect(list).toHaveTextContent("Integrante sintética");
+      expect(list).toHaveTextContent("Alta: 07/05/2026");
+      expect(screen.queryByRole("radio", { name: "No vuelve por pago: queda retirada" })).toBeInTheDocument();
+      const save = screen.getAllByRole("button", { name: "Guardar decisión" })[0];
+      expect(save).toBeDisabled();
+      fireEvent.click(screen.getByRole("radio", { name: "Al regularizar el pago vuelve como integrante silenciada" }));
+      fireEvent.change(screen.getAllByLabelText("Motivo (opcional)")[0], { target: { value: "  Acordado con la tribu  " } });
+      fireEvent.click(screen.getAllByRole("checkbox", { name: /Confirmo esta decisión/ })[0]);
+      fireEvent.click(save);
+      await waitFor(() => expect(screen.getByText("Listo: registramos la decisión para Integrante sintética.")).toBeInTheDocument());
+      expect(data.reviewClient.resolveCommercialReview).toHaveBeenCalledWith(slug, unknownCase.memberId, expect.objectContaining({ confirmed: true, decision: "recover_muted", reason: "Acordado con la tribu", expected: { role: "tribemate", status: "blocked", statusReason: "payment_blocked", recoveryStatus: null } }), expect.any(AbortSignal));
+      expect(readCommercialMembershipReviewIntent(viewerId, slug)).toBeNull();
+      fireEvent.click(screen.getByRole("radio", { name: "No vuelve por pago: queda retirada" }));
+      fireEvent.click(screen.getByRole("checkbox", { name: /Confirmo esta decisión/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Guardar decisión" }));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Activar ahora" })).toBeInTheDocument());
+      expect(data.reviewClient.resolveCommercialReview.mock.calls[1][2]).toMatchObject({ decision: "retire", expected: { role: "guardian", recoveryStatus: "active" } });
+      expect(screen.getByText("No quedan membresías por revisar; ya podés volver a «Activar ahora».")).toHaveAttribute("role", "status");
+      expect(screen.queryByRole("region", { name: "Lo que falta resolver" })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Activar ahora" }));
+      await waitFor(() => expect(data.client.activatePolicy).toHaveBeenCalledOnce());
+    });
+
+    it("should keep an uncertain decision and read its original result instead of sending it again", async () => {
+      const data = fixture();
+      data.client.readPreflight.mockResolvedValueOnce({ status: "ready", value: { prepared: false, reasons: ["preflight_unknown_commercial_history"], impact: { unknownCommercialMemberCount: 1, privilegedCommercialMemberCount: 0 } } });
+      data.reviewClient.readCommercialReviews.mockResolvedValue({ status: "ready", value: { cases: [unknownCase], pendingCount: 1, resolvedCount: 0 } });
+      data.reviewClient.resolveCommercialReview.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos confirmar la decisión.", uncertain: true });
+      render(data.node, { wrapper: Providers });
+      await goToReview(); await confirm();
+      fireEvent.click(screen.getByRole("button", { name: "Guardar y activar admisiones" }));
+      await screen.findByRole("list", { name: "Membresías por revisar" });
+      fireEvent.click(screen.getByRole("radio", { name: "Al regularizar el pago vuelve como integrante activa" }));
+      fireEvent.click(screen.getByRole("checkbox", { name: /Confirmo esta decisión/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Guardar decisión" }));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Consultar resultado" })).toBeInTheDocument());
+      const pending = readCommercialMembershipReviewIntent(viewerId, slug);
+      expect(pending?.input.decision).toBe("recover_active");
+      expect(screen.getByRole("button", { name: "Guardar decisión" })).toBeDisabled();
+      data.reviewClient.operation.mockResolvedValueOnce({ status: "ready", value: { type: "resolve_commercial_membership_review", state: "completed", operationId: pending!.input.operationId, replayed: true, result: { status: "resolved", memberId: unknownCase.memberId, decision: "recover_active", resultingRole: "tribemate", resultingStatus: "blocked", resultingRecoveryStatus: "active", decidedAt: "2026-10-19T12:00:00.000Z" } } });
+      data.reviewClient.readCommercialReviews.mockResolvedValue({ status: "ready", value: { cases: [], pendingCount: 0, resolvedCount: 1 } });
+      fireEvent.click(screen.getByRole("button", { name: "Consultar resultado" }));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Activar ahora" })).toBeInTheDocument());
+      expect(data.reviewClient.resolveCommercialReview).toHaveBeenCalledOnce();
+      expect(readCommercialMembershipReviewIntent(viewerId, slug)).toBeNull();
+    });
+
+    it("should explain a rejected decision and refresh the list", async () => {
+      const data = fixture();
+      data.reviewClient.resolveCommercialReview.mockImplementationOnce(async (_slug, memberId, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { status: "rejected", memberId, reason: "membership_changed" } } }));
+      data.reviewClient.readCommercialReviews.mockResolvedValue({ status: "ready", value: { cases: [unknownCase], pendingCount: 1, resolvedCount: 0 } });
+      render(<AdmissionPolicyContainer initialState={data.state} client={data.client} reviewClient={data.reviewClient} initialCommercialReview={{ kind: "ready", list: { cases: [unknownCase], pendingCount: 1, resolvedCount: 0 } }} entryStep="memberships" />, { wrapper: Providers });
+      await screen.findByRole("list", { name: "Membresías por revisar" });
+      fireEvent.click(screen.getByRole("radio", { name: "Al regularizar el pago vuelve como integrante activa" }));
+      fireEvent.click(screen.getByRole("checkbox", { name: /Confirmo esta decisión/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Guardar decisión" }));
+      await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("La membresía cambió mientras decidías. Actualizamos la lista: revisala y volvé a decidir."));
+      expect(data.reviewClient.readCommercialReviews).toHaveBeenCalled();
+    });
+  });
+
+  describe("unpublished drafts", () => {
+    it("should open the final step from the draft notice with «Activar ahora»", async () => {
+      const data = fixture();
+      render(data.node, { wrapper: Providers });
+      await waitFor(() => expect(screen.getByRole("button", { name: "Revisar y activar" })).toBeEnabled());
+      fireEvent.click(screen.getByRole("button", { name: "Revisar y activar" }));
+      expect(screen.getByRole("navigation", { name: "Paso 4 de 4" })).toBeInTheDocument();
+      await confirm();
+      fireEvent.click(screen.getByRole("button", { name: "Activar ahora" }));
+      await waitFor(() => expect(data.client.activatePolicy).toHaveBeenCalledOnce());
+      expect(data.client.updatePolicy).not.toHaveBeenCalled();
+    });
+
+    it("should open the final step from a return link", async () => {
+      const data = fixture();
+      render(<AdmissionPolicyContainer initialState={data.state} client={data.client} reviewClient={data.reviewClient} entryStep="review" />, { wrapper: Providers });
+      expect(screen.getByRole("navigation", { name: "Paso 4 de 4" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Activar ahora" })).toBeDisabled();
+    });
+
+    it("should not offer to publish while a platform block is known, and recheck without asking for another decision", async () => {
+      const data = fixture();
+      render(<AdmissionPolicyContainer initialState={data.state} client={data.client} reviewClient={data.reviewClient} initialPreflight={{ prepared: false, reasons: ["preflight_recovery_locked"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } }} />, { wrapper: Providers });
+      const notice = screen.getByRole("group", { name: "Tenés reglas guardadas sin publicar" });
+      expect(notice).toHaveTextContent("Por ahora no se pueden activar: depende del equipo de TuTribu.");
+      expect(screen.queryByRole("button", { name: "Revisar y activar" })).not.toBeInTheDocument();
+      expect(screen.getByRole("group", { name: "Depende del equipo de TuTribu" })).toHaveTextContent("Código de diagnóstico: preflight_recovery_locked");
+      await waitFor(() => expect(screen.getByRole("button", { name: "Volver a comprobar" })).toBeEnabled());
+      fireEvent.click(screen.getByRole("button", { name: "Volver a comprobar" }));
+      await waitFor(() => expect(screen.getByText("Volvimos a comprobar y ya no hay bloqueos. Podés activar las admisiones.")).toBeInTheDocument());
+      expect(data.client.readPolicy).toHaveBeenCalledOnce();
+      expect(data.client.readPreflight).toHaveBeenCalledOnce();
+      expect(data.client.updatePolicy).not.toHaveBeenCalled();
+      expect(data.client.activatePolicy).not.toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: "Revisar y activar" })).toBeInTheDocument();
+    });
   });
 });

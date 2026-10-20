@@ -211,6 +211,21 @@ messaging, notices and activity).
 - Default to the recommended choice (for example grouped notices) and warn in
   place when a choice silently disables the feature (a zero quota, omitted
   notices, closed admissions).
+- Unpublished drafts: when settings are saved but not published (rules saved
+  but never activated, a candidate connection that is not active), show one
+  callout at the top ("Tenés reglas guardadas sin publicar", "Tenés una
+  conexión guardada sin activar") with a single action that opens the exact
+  publication point (the final step, or the pending step). The setup guide
+  marks those steps "Borrador sin publicar" and links to the same point.
+- When publishing is blocked, group the reasons by who resolves them. Reasons
+  the leader resolves elsewhere link to that page with an allowlisted return
+  (`?return=policy-review`, never a free URL), and that page offers "Volver a
+  Reglas para activar". A decision the flow needs (for example memberships
+  blocked by payment) becomes its own guided step just before the final one,
+  and the flow returns to the final step when it is done. Reasons only the
+  TuTribu team resolves go in a "Depende del equipo de TuTribu" group: plain
+  language, a copyable diagnostic code, "Volver a comprobar" and "Reportar el
+  problema"; never offer to publish while one is known.
 
 ## Multi-step workspaces
 

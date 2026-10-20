@@ -1,5 +1,7 @@
 /** Composes implemented admission use cases and protected transaction collaborators. @module academy-admissions-setup */
 import "server-only";
+import { ManageCommercialMembershipReviewsUseCases } from "./application/use-cases/manage-commercial-membership-reviews-use-cases";
+import { PostgresCommercialMembershipReviewRepository } from "./infrastructure/repositories/postgres-commercial-membership-review-repository";
 import { UpdateAdmissionWhatsappNumberUseCase } from "./application/use-cases/update-admission-whatsapp-number-use-case";
 import { PurgeAdmissionDataUseCase } from "./application/use-cases/purge-admission-data-use-case";
 import { PostgresAdmissionRetentionRepository } from "./infrastructure/repositories/postgres-admission-retention-repository";
@@ -240,6 +242,15 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
       const usage = (database: RequestDatabase, context: AuthorizedAdmissionContext) => new AdmissionMessagingUsagePolicyReader(new PostgresMessagingUsageRepository(database, authorize(context)));
       const writer = new PostgresAdmissionPolicyRepository(executePolicy, options.readSecurityConfig, (database, context) => new PostgresAdmissionPolicyPreparationReader(database, options.composePreflight(database, context), usage(database, context), new PostgresAdmissionVerificationReadinessReader(database, authorize(context), options.readSecurityConfig), options.readSecurityConfig));
       return { useCases: new ManageAdmissionPolicyUseCases(resolveContext, new PostgresAdmissionPolicyReader(executePolicy, usage), writer) };
+    },
+    /** @param options - Live security for the original ledger. @returns The leader's review of memberships blocked by payment through the tribes owner functions. */
+    createCommercialMembershipReviewModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
+      const executeReview = async <Result>(context: AuthorizedAdmissionContext, run: (database: RequestDatabase) => Promise<Result>) => {
+        const account = await dependencies.accounts.getAuthenticatedAccount();
+        if (!account || account.userId !== context.userId || account.session.id !== context.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+        return dependencies.execute(account, run);
+      };
+      return { useCases: new ManageCommercialMembershipReviewsUseCases(resolveContext, new PostgresCommercialMembershipReviewRepository(executeReview, options.readSecurityConfig)) };
     },
     /** @param options - Explicit public lookup and live server security; no legacy writer is used for an explicit request. @returns A native admission entry port for the tribe compatibility use case. */
     createAcademyEntryModule(options: { executePublic: <Result>(run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>; readRecoveryLock: () => Promise<boolean>; readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
