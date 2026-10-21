@@ -2,7 +2,7 @@
 import "server-only";
 import { sql } from "drizzle-orm";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
-import type { AuthorizedDeliveryMessagingContext, MessagingSecretAccessContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
+import type { MessagingSecretAccessContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import { MessagingSecretAccessError, type MessagingSecretAccessErrorCode } from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
 import { MESSAGING_AUTHORIZATION_PURPOSE, MESSAGING_CREDENTIAL_USABLE_STATES } from "@/src/modules/messaging/constants/messaging-connection";
@@ -16,23 +16,27 @@ type DatabaseInstant = string | Date;
 /** Contains only scope/lifetime facts; ciphertext is read separately after authorization. A human scope also keeps its locked session deadline. */
 export type LockedMessagingSecret = { notBefore: readonly Date[]; expiresAt: readonly Date[]; sessionExpiresAt?: Date; environment: string; securityEpoch: string; keyId: string; providerId: string };
 
-/** Only transactions opened through `withReusedMessagingSecretAuthority` register here; each entry maps a worker attempt key to the facts its full check locked, and dies with its scope. */
-const heldMessagingSecretAuthority = new WeakMap<RequestDatabase, Map<string, LockedMessagingSecret>>();
+/** Facts a reusable check locked, plus the identity binding email a human check matched. */
+type HeldMessagingSecretAuthority = { facts: LockedMessagingSecret; normalizedEmail?: string };
+/** Only transactions opened through `withReusedMessagingSecretAuthority` register here; each entry maps a human or worker scope key to the facts its full check locked, and dies with its scope. */
+const heldMessagingSecretAuthority = new WeakMap<RequestDatabase, Map<string, HeldMessagingSecretAuthority>>();
 
 /**
- * Lets repeated worker checks of one transaction reuse the locks its first full check took.
+ * Lets repeated checks of one transaction reuse the locks its first full check took.
  *
- * A full worker check locks, `FOR SHARE` and in this order, the tribe, its active leaders, the
- * connection, the connection version, the delivery, the attempt, the usage reservation and the
- * secret envelope. Nobody else can update or delete those rows before COMMIT, so a later check of
- * the same attempt re-reads, in one statement, only what the locks cannot freeze: the transaction
+ * A full check locks, `FOR SHARE` and in this order, the human identity (user, Google account,
+ * session and its identity binding) when it is a human check, then the tribe, its active leaders,
+ * the connection, the connection version, the worker's delivery, attempt and usage reservation, and
+ * the secret envelope. Nobody else can update or delete those rows before COMMIT, so a later check of
+ * the same scope re-reads, in one statement, only what the locks cannot freeze: the transaction
  * actor, the leadership (a new active leader row is not blocked by the existing row locks) and the
- * delivery lease against the database clock. Only ungrouped worker attempts register: a grouped
- * notification keeps running its injected business guard on every check, and human or write-locked
- * checks never reuse. The scope must not contain a savepoint: a `ROLLBACK TO SAVEPOINT` would release
- * locks taken after it.
+ * lifetime that runs against the database clock, the delivery lease for a worker and the session
+ * expiry for a human. A human reuse also re-reads that its identity binding was not invalidated,
+ * which a write of the same transaction could do. A grouped notification keeps running its injected
+ * business guard on every check, and write-locked checks never reuse. The scope must not contain a
+ * savepoint: a `ROLLBACK TO SAVEPOINT` would release locks taken after it.
  *
- * @param database - Transaction of a worker owner, without savepoints.
+ * @param database - Transaction of the owner, without savepoints.
  * @param run - The owner's work in that transaction.
  * @returns Its result; the held authority is forgotten when it settles.
  */
@@ -42,32 +46,53 @@ export async function withReusedMessagingSecretAuthority<Result>(database: Reque
   try { return await run(); } finally { heldMessagingSecretAuthority.delete(database); }
 }
 
-/** Where a worker check of a reuse scope finds or registers its held facts. */
-type HeldMessagingSecretSlot = { entries: Map<string, LockedMessagingSecret>; key: string; context: AuthorizedDeliveryMessagingContext };
+/** Where a check of a reuse scope finds or registers its held facts. */
+type HeldMessagingSecretSlot = { entries: Map<string, HeldMessagingSecretAuthority>; key: string };
 
 /**
  * @param database - Current transaction.
- * @param context - Worker attempt scope.
- * @returns The scope's slot for this attempt, keyed by every fact the full check compares against locked rows, or null outside a reuse scope.
+ * @param context - Human or worker scope.
+ * @returns The scope's slot for this context, keyed by every fact the full check compares against locked rows, or null outside a reuse scope.
  */
-function readHeldMessagingSecretSlot(database: RequestDatabase, context: AuthorizedDeliveryMessagingContext): HeldMessagingSecretSlot | null {
+function readHeldMessagingSecretSlot(database: RequestDatabase, context: MessagingSecretAccessContext): HeldMessagingSecretSlot | null {
   const entries = heldMessagingSecretAuthority.get(database);
-  return entries ? { entries, context, key: JSON.stringify([context.contributingLeaderUserId, context.tribeId, context.connectionId, context.connectionVersion, context.environment, context.securityEpoch, context.secretRef, context.deliveryId, context.deliveryPurpose, context.notificationGroupId, context.attemptId, context.attemptVersion, context.leaseToken, context.sendAuthorizedAt.getTime(), context.authorizedUsagePolicyVersion, context.operation]) } : null;
+  if (!entries) return null;
+  const resource = [context.tribeId, context.connectionId, context.connectionVersion, context.environment, context.securityEpoch, context.secretRef, context.operation];
+  const key = context.authorizationPurpose === MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader
+    ? JSON.stringify([context.authorizationPurpose, context.actorUserId, context.sessionId, context.accountId, context.subject, context.resourceId, ...resource])
+    : JSON.stringify([context.authorizationPurpose, context.contributingLeaderUserId, ...resource, context.deliveryId, context.deliveryPurpose, context.notificationGroupId, context.attemptId, context.attemptVersion, context.leaseToken, context.sendAuthorizedAt.getTime(), context.authorizedUsagePolicyVersion]);
+  return { entries, key };
+}
+
+/**
+ * @param context - Human or worker scope.
+ * @param actorUserId - Actor the full check matched.
+ * @param held - Facts locked by the full check.
+ * @returns A boolean SQL expression for the lifetime the locks cannot freeze: a live session with its binding still valid, or a live delivery lease.
+ */
+function heldLifetimeIsLive(context: MessagingSecretAccessContext, actorUserId: string, held: HeldMessagingSecretAuthority) {
+  if (context.authorizationPurpose === MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader) return sql`(select session."expiresAt">clock_timestamp() and exists(select 1 from public.global_session_identity_bindings binding where binding.session_id=session.id and binding.user_id=${actorUserId} and binding.account_id=${context.accountId} and binding.provider_subject=${context.subject} and binding.normalized_email=${held.normalizedEmail ?? null} and binding.invalidated_at is null) from public.session session where session.id=${context.sessionId} and session."userId"=${actorUserId})`;
+  return sql`(select delivery.lease_until>clock_timestamp() from public.message_deliveries delivery where delivery.id=${context.deliveryId} and delivery.tribe_id=${context.tribeId} and delivery.lease_token=${context.leaseToken})`;
 }
 
 /**
  * Revalidates, in one statement, what the held row locks cannot freeze.
- * @param database - Transaction that already holds this attempt's locks.
- * @param context - Worker attempt scope.
+ * @param database - Transaction that already holds this scope's locks.
+ * @param context - Human or worker scope.
  * @param held - Facts locked by the full check.
  * @returns The held facts.
- * @throws MessagingSecretAccessError for another actor, a changed leadership or an expired lease.
+ * @throws MessagingSecretAccessError for another actor, an ended session or invalidated binding, a changed leadership or an expired lease.
  */
-async function reuseHeldMessagingSecretAuthority(database: RequestDatabase, context: AuthorizedDeliveryMessagingContext, held: LockedMessagingSecret): Promise<LockedMessagingSecret> {
-  const current = (await database.execute<{ actor: string | null; leaders: string[] | null; lease_live: boolean | null }>(sql`select public.current_app_user_id() as actor,(select array_agg(member.user_id order by member.user_id) from public.tribe_members member where member.tribe_id=${context.tribeId} and member.role=${TRIBE_MEMBER_ROLE.leader} and member.status=${TRIBE_MEMBERSHIP_STATUS.active}) as leaders,(select delivery.lease_until>clock_timestamp() from public.message_deliveries delivery where delivery.id=${context.deliveryId} and delivery.tribe_id=${context.tribeId} and delivery.lease_token=${context.leaseToken}) as lease_live`)).rows[0];
-  if (current?.actor !== context.contributingLeaderUserId || current.leaders?.length !== 1 || current.leaders[0] !== context.contributingLeaderUserId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
-  if (current.lease_live !== true) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
-  return held;
+async function reuseHeldMessagingSecretAuthority(database: RequestDatabase, context: MessagingSecretAccessContext, held: HeldMessagingSecretAuthority): Promise<LockedMessagingSecret> {
+  const human = context.authorizationPurpose === MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader;
+  const actorUserId = human ? context.actorUserId : context.contributingLeaderUserId;
+  const current = (await database.execute<{ actor: string | null; leaders: string[] | null; live: boolean | null }>(sql`select public.current_app_user_id() as actor,(select array_agg(member.user_id order by member.user_id) from public.tribe_members member where member.tribe_id=${context.tribeId} and member.role=${TRIBE_MEMBER_ROLE.leader} and member.status=${TRIBE_MEMBERSHIP_STATUS.active}) as leaders,${heldLifetimeIsLive(context, actorUserId, held)} as live`)).rows[0];
+  if (current?.actor !== actorUserId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
+  // The full check verifies the human identity before the leadership, so an ended session wins over a lost role here too.
+  if (human && current.live !== true) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
+  if (current.leaders?.length !== 1 || current.leaders[0] !== actorUserId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
+  if (current.live !== true) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
+  return held.facts;
 }
 
 /** Converts the consumed timestamp without revalidating the PostgreSQL row schema. */
@@ -101,9 +126,9 @@ export function messagingSecretLifetimeFailure(authorization: LockedMessagingSec
 export async function authorizeMessagingSecret(database: RequestDatabase, context: MessagingSecretAccessContext, lockResourcesForWrite = false, authorizeDeliveryResource?: MarkedMessageDeliveryResourceAuthority): Promise<LockedMessagingSecret> {
   const human = context.authorizationPurpose === MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader;
   const actorUserId = human ? context.actorUserId : context.contributingLeaderUserId;
-  const slot = context.authorizationPurpose === MESSAGING_AUTHORIZATION_PURPOSE.authorizedDelivery && !lockResourcesForWrite ? readHeldMessagingSecretSlot(database, context) : null;
-  const heldFacts = slot?.entries.get(slot.key);
-  if (slot && heldFacts) return reuseHeldMessagingSecretAuthority(database, slot.context, heldFacts);
+  const slot = lockResourcesForWrite ? null : readHeldMessagingSecretSlot(database, context);
+  const held = slot?.entries.get(slot.key);
+  if (held) return reuseHeldMessagingSecretAuthority(database, context, held);
   let grouped = false;
   const actor = (await database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
   if (actor !== actorUserId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
@@ -119,13 +144,14 @@ export async function authorizeMessagingSecret(database: RequestDatabase, contex
   }
   const expiresAt: Date[] = [];
   const notBefore: Date[] = [];
-  let sessionExpiresAt: Date | undefined;
+  let sessionExpiresAt: Date | undefined, normalizedEmail: string | undefined;
   if (human) {
     const user = (await database.execute<{ email: string }>(sql`select email from public."user" where id=${actorUserId} for share`)).rows[0];
     const account = (await database.execute<{ subject: string }>(sql`select "accountId" as subject from public.account where id=${context.accountId} and "userId"=${actorUserId} and "providerId"=${GOOGLE_IDENTITY_PROVIDER} for share`)).rows[0];
     const session = (await database.execute<{ expires_at: DatabaseInstant }>(sql`select "expiresAt" as expires_at from public.session where id=${context.sessionId} and "userId"=${actorUserId} for share`)).rows[0];
     if (!user || !session || account?.subject !== context.subject) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
-    const binding = (await database.execute(sql`select session_id from public.global_session_identity_bindings where session_id=${context.sessionId} and user_id=${actorUserId} and account_id=${context.accountId} and provider_subject=${context.subject} and normalized_email=${user.email.trim().toLowerCase()} and invalidated_at is null for share`)).rows[0];
+    normalizedEmail = user.email.trim().toLowerCase();
+    const binding = (await database.execute(sql`select session_id from public.global_session_identity_bindings where session_id=${context.sessionId} and user_id=${actorUserId} and account_id=${context.accountId} and provider_subject=${context.subject} and normalized_email=${normalizedEmail} and invalidated_at is null for share`)).rows[0];
     // The binding is created at Google sign-in; without it this session cannot reach credentials.
     if (!binding) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
     sessionExpiresAt = instant(session.expires_at);
@@ -158,6 +184,6 @@ export async function authorizeMessagingSecret(database: RequestDatabase, contex
   if (!envelope) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
   const facts: LockedMessagingSecret = { environment: envelope.environment, securityEpoch: envelope.security_epoch, keyId: envelope.key_id, providerId: connection.provider, expiresAt, notBefore, ...(sessionExpiresAt ? { sessionExpiresAt } : {}) };
   // A grouped notification keeps its injected business guard on every check, so it never registers.
-  if (slot && !grouped) slot.entries.set(slot.key, facts);
+  if (slot && !grouped) slot.entries.set(slot.key, { facts, ...(normalizedEmail === undefined ? {} : { normalizedEmail }) });
   return facts;
 }
