@@ -104,7 +104,12 @@ export function useAllowlistImportWorkflow(options: { initialState: AllowlistImp
   /** @param intent - Immutable original proposal. @param value - Actual original state. @param signal - Action scope. @param scope - Render generation. @returns After original/current reconciliation, without overwriting rows from historical counts. */
   const consume = useCallback(async (intent: AllowlistImportBrowserIntent, value: { operationId: string; state: "started" | "completed"; result?: unknown }, signal: AbortSignal, scope: number, originalRead = false) => {
     if (value.operationId !== intent.operationId) { setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); return; }
-    if (value.state === OPERATION_STATE.started) { setOriginalChecked(originalRead); setErrorMessage(COPY.started); if (intent.type === OPERATION.confirmAllowlistImport) await fetchCurrent(intent.importId, signal, scope); return; }
+    if (value.state === OPERATION_STATE.started) {
+      setOriginalChecked(originalRead); setErrorMessage(COPY.started);
+      // The partial results are row outcomes, so the review step shows them before the pending rows are resumed.
+      if (intent.type === OPERATION.confirmAllowlistImport && await fetchCurrent(intent.importId, signal, scope)) setStep(ALLOWLIST_IMPORT_STEP.review);
+      return;
+    }
     const denial = allowlistImportDenialSchema.safeParse(value.result);
     if (denial.success) {
       if (!persist({ ...current.current, pending: null, unresolved: current.current.unresolved.filter((original) => original.operationId !== intent.operationId) })) return;
