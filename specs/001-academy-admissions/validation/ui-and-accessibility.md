@@ -49,3 +49,11 @@ Los ocho recorridos nativos de mensajería (`tests/unit/modules/messaging/infras
 Las capturas sintéticas de los ocho estados principales no muestran desbordes ni errores de página en ambos motores y anchos; la de WebKit a 390 px detectó un desborde del panel corregido en `9923c810`. El manual de mensajería se recapturó con el diseño nuevo y su verificación renderizada aprobó 33 marcos sin puntos desubicados, recortes ni desbordes en Chromium/WebKit 390/1280.
 
 Esta evidencia no reemplaza la auditoría integral con lector de pantalla de T198/T208 ni la matriz canónica de admisión, que se registra por separado.
+
+## Suite enfocada después de los pasos guiados
+
+Sobre `0f5551d7` (pasos guiados de Habilitados, importación, invitaciones personales y solicitud del aspirante, integrados después en `7272c0da`), `pnpm exec playwright test -c playwright.admissions.config.ts` aprobó 28 de 28 casos en `chromium-mobile`, `chromium-desktop`, `webkit-mobile` y `webkit-desktop` (390 y 1280 px), en 2,1 h, con `next build` propio, una rama Neon por spec y transporte de proveedor cerrado. Cubre la decisión administrativa mixta e incierta con teclado, la revisión manual sin membresía hasta decidir, el reintento con otro contacto tras cancelar, el código nuevo para el mismo contacto y la falla terminal confirmada de correo, SMS y WhatsApp.
+
+La corrida terminó con exit 1 por un error ajeno a los casos: Playwright forzó el cierre de su worker tras la última spec (`worker-3 process did not exit within 300000ms after stop`). La rama Neon de esa spec ya estaba borrada. Ningún caso envió mensajes reales.
+
+T198/T208 siguen abiertas: esta suite no recorre todos los estados ON/OFF/cuenta equivocada/parcial/desconocido ni la matriz de permisos completa que piden esas tareas.
