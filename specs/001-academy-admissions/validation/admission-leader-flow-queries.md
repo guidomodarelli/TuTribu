@@ -89,7 +89,50 @@ Se probó un caso de uso compuesto con una única proyección de cuenta inicial 
 
 Antes del guard consolidado, la variante con bandeja y guía también empeoraba: de 136 a 142 viajes secuenciales y de 22.960 a 24.233 ms. Las dos variantes ahorran transacciones, pero ninguna baja los viajes secuenciales y la mediana sube unos 700 ms. La revalidación final tiene que esperar la lectura más larga del grupo y suma su transacción al final de esa cadena. La hipótesis, compatible con la traza pero no medida por cadena, es que esa lectura es la comprobación previa o la revisión de membresías, que antes no tenían revalidación final propia. La variante con bandeja, además, hace que la bandeja espere a la guía. Por eso no se integró.
 
+## Tercera ronda: guards de mensajería
+
+Mismo protocolo. Línea base: la revisión `d3cc82b7`. Después: `e3075403`, con dos cambios medidos uno por uno. Datos completos en `messagingGuards` de [admission-leader-flow-queries.json](admission-leader-flow-queries.json).
+
+| Request | Transacciones | Sentencias | Viajes secuenciales | ms |
+|---|---|---|---|---|
+| Inicializar reglas (POST /policy) | 7 → 7 | 62 → 61 (-2 %) | 62 → 61 (-2 %) | 12.939 → 12.686 (-2 %) |
+| Guardar reglas (PUT /policy) | 7 → 7 | 61 → 61 | 61 → 61 | 12.032 → 12.287 (+2 %) |
+| Solicitudes con guía | 54 → 51 (-6 %) | 336 → 308 (-8 %) | 83 → 83 | 13.922 → 13.905 (+0 %) |
+| Reglas | 25 → 25 | 166 → 166 | 83 → 83 | 14.186 → 14.140 (+0 %) |
+| Avisos | 13 → 13 | 73 → 73 | 63 → 63 | 11.218 → 11.370 (+1 %) |
+| Países y cupos | 14 → 12 (-14 %) | 83 → 55 (-34 %) | 73 → 45 (-38 %) | 13.386 → 8.507 (-36 %) |
+| Conexión de mensajería | 30 → 22 (-27 %) | 175 → 98 (-44 %) | 165 → 88 (-47 %) | 29.396 → 15.254 (-48 %) |
+| Lectura de reglas (GET /policy) | 9 → 9 | 75 → 75 | 75 → 75 | 13.622 → 13.451 (-1 %) |
+| Comprobación previa (GET /policy/preflight) | 7 → 7 | 46 → 46 | 46 → 46 | 8.701 → 8.474 (-3 %) |
+| Activar (POST /policy/activate) | 7 → 7 | 100 → 100 | 100 → 100 | 17.940 → 18.561 (+3 %) |
+
+Solicitudes baja transacciones y sentencias porque su guía lee el resumen de mensajería. Su cadena más larga sigue siendo la de admisiones, así que los viajes no cambian. Las escrituras de reglas y la comprobación previa no pasan por estos guards: sus diferencias de milisegundos están dentro del ruido.
+
+La línea base `d3cc82b7` ya tenía unas 18 sentencias más que la segunda ronda en Reglas, en la lectura de reglas (`GET /policy`) y, por la guía, en Solicitudes. Las agregó `5473d9ad`, que hace que la lectura del líder evalúe la misma preparación que la activación para nombrar el requisito pendiente. Es un cambio de funcionalidad y no de rendimiento: los presupuestos de esas tres requests se ajustaron a ese valor.
+
+### Atribución
+
+1. **Guards de mensajería en SQL** (`6e035942`, migración `20261021120000_consolidate_messaging_leader_guards.sql`): `getCurrentLeadership` hacía 5 sentencias, el guard del lector de configuración otras 5 y `authorizeMessagingTribeManagement` entre 6 y 9. Ahora cada uno es una llamada: `read_messaging_leadership`, `authorize_messaging_configuration_reader` y `authorize_messaging_tribe_management`. En Conexión, las sentencias de guard bajan de 54 a 10 y los viajes, de 165 a 120. En Países y cupos, de 24 a 4 y de 73 a 53.
+2. **Lectores guardados sin proyección previa** (`e3075403`): el liderazgo, la configuración y el catálogo de avisos abren su transacción con la identidad de la sesión (`readCurrentFeatureSessionContext`), porque su primera sentencia ya revalida actor, sesión vigente y liderazgo canónico en SQL. Cada uno ahorra una transacción completa (unos 4 viajes). En Conexión, las proyecciones de cuenta bajan de 19 a 11, las transacciones de 30 a 22 y los viajes de 120 a 88. En Países y cupos, 8 → 6, 14 → 12 y 53 → 45.
+
+### Seguridad y paridad
+
+`tests/unit/modules/messaging/infrastructure/messaging-leader-guard-parity.test.ts` corre contra Postgres real y pasó igual con los guards secuenciales (`d3cc82b7`) y con las funciones:
+
+- **Liderazgo:** devuelve los hechos del líder y del guardián vigente. Devuelve `null` con otro actor, una tribu inexistente, una sesión ajena o vencida y un líder degradado o bloqueado.
+- **Configuración:** `leader` y `guardian` según la audiencia. Un guardián que pide la audiencia de líder, otro actor, una tribu inexistente, un líder degradado o bloqueado dan `permission_denied`. Una sesión ajena o vencida da `authentication_required`.
+- **Gestión de la tribu:** cubre lecturas y operaciones sensibles: uso, suspensión de conexión, credenciales y recuperación de un aviso inexistente. Cubre también un subject equivocado, un vínculo invalidado, un recurso cruzado y una sesión vencida.
+- **Orden de locks**, con sondas `FOR UPDATE NOWAIT` mientras el guard espera cada fila:
+  - Liderazgo: tribu, sesión y líder.
+  - Configuración: sesión, tribu y líder.
+  - Gestión: usuario, sesión, tribu y líder; en operaciones sensibles, también cuenta de Google y vínculo antes de la tribu.
+  - Una sonda `FOR SHARE NOWAIT` confirma que las operaciones de conexión toman la tribu `FOR UPDATE`.
+
+El arnés de orden de locks pasó a `tests/support/guard-lock-order.ts` y lo comparte con `admission-leader-guard-parity.test.ts`, que sigue pasando.
+
+Quitar la proyección previa de los lectores guardados no debilita la detección de una sesión revocada o de un cambio de usuario. Cada caso de uso conserva su proyección inicial y su revalidación final, y la primera sentencia de cada transacción vuelve a comprobar en SQL el actor, la sesión vigente y el liderazgo. Las escrituras siguen con `executeActor`, que compara la cuenta de Google en las operaciones sensibles. El correo del contexto de request solo lo consumen las suscripciones, no estas lecturas.
+
 ## Próximos pasos
 
-- Conexión de mensajería (164 viajes) y Países y cupos (73) no usan el guard de admisiones. Sus lecturas de mensajería tienen su propio guard secuencial y son ahora las páginas más lentas del flujo.
-- En Solicitudes, identificar con una traza por cadena qué lectura es la más larga (hipótesis: la comprobación previa o la revisión de membresías) y reducir sus viajes propios, sin tocar la garantía de revocación.
+- Conexión de mensajería sigue siendo la página más lenta (88 viajes). Sus 11 proyecciones de cuenta, de los casos de uso anidados (página, configuración y catálogo), siguen en serie, a unos 4 viajes cada una.
+- En Solicitudes y Reglas, la cadena más larga es la de admisiones. Identificar con una traza por cadena qué lectura es la más larga (hipótesis: la comprobación previa o la revisión de membresías) y reducir sus viajes propios.
