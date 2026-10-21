@@ -17,8 +17,7 @@ import { getAdmissionRetryAllowedAt } from "../../domain/entities/admission-requ
 import type {AdmissionOperationCommand,AdmissionOperationResult} from "../../domain/entities/admission-operation";
 import type {AdmissionProofApplicationOperations,AdmissionProofApplicationIntent} from "../../domain/repositories/admission-verification-proof-repository";
 import type {MessagingSecurityConfig} from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
-import {PostgresAuthenticatedAccountProvider} from "@/src/modules/auth/infrastructure/authenticated-account-provider";
-import {isAuthenticatedSessionLive} from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
+import {authorizeAdmissionApplicant,withAdmissionApplicantSavepointSection,withReusedAdmissionApplicantAuthority} from "./postgres-admission-applicant-authority";
 import {PostgresAdmissionOperationRepository} from "./postgres-admission-operation-repository";
 import {PostgresAdmissionAuditRepository} from "./postgres-admission-audit-repository";
 import {PostgresContactVerificationIssuer} from "./postgres-contact-verification-issuer";
@@ -30,7 +29,7 @@ import {admissionIssuanceSnapshotSchema,admissionChallengeVerificationSnapshotSc
 import {admissionProofApplicationSnapshotSchema} from "../../application/results/admission-proof-application-schemas";
 import {PostgresAdmissionVerificationProofWriter} from "./postgres-admission-verification-proof-writer";
 import {ADMISSION_PROOF_OPERATION,ADMISSION_PROOF_CREATION_AUDIT_EVENT} from "../../constants/admission-proof";
-import {readAdmissionPolicy,readAdmissionControlMarker} from "./postgres-admission-policy-storage";
+import {readLockedAdmissionPolicyGate} from "./postgres-admission-policy-storage";
 import {AdmissionOperationError} from "../../domain/errors/admission-operation-error";
 import {ADMISSION_ERROR_CODE} from "../../constants/admission-errors";
 import {ADMISSION_VERIFICATION_PURPOSE} from "../../constants/admission-eligibility";
@@ -62,24 +61,25 @@ type PreparedAdmissionIssuance={scope:VerificationChallengeScope;personal:Resolv
 /** Owns metadata, budgets and proof effects; no method decrypts a BYOK credential or invokes SDK. */
 export class PostgresAdmissionContactVerificationOperations implements AdmissionContactVerificationOperations,AdmissionProofApplicationOperations,AdmissionCurrentChallengeReader{
   /** @param execute - Current native request actor checkout. @param readSecurityConfig - Explicit current server keyrings/environment without an outbound call. @param createLegacyInvitations - Optional own attribution adapter composed on the original transaction; absence keeps legacy closed. */
-  constructor(private readonly execute:AdmissionVerificationDatabaseExecutor,private readonly readSecurityConfig:()=>Promise<MessagingSecurityConfig>,private readonly createLegacyInvitations?:(database:RequestDatabase)=>LegacyAdmissionInvitationReader){}
-
-  /** @param database - Current guarded transaction. @param context - Original server-derived account/session/tribe. @returns Current native account after shared scope locks and fresh SQL session time. */
-  private async authorize(database:RequestDatabase,context:AdmissionVerificationAccountScope){
-    const actor=(await database.execute<{actor:string|null}>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
-    if(actor!==context.userId||context.purpose!==ADMISSION_VERIFICATION_PURPOSE.admission)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
-    if(!(await database.execute(sql`select id from public.tribes where id=${context.tribeId} for share`)).rows[0])throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-    await database.execute(sql`select id from public."user" where id=${context.userId} for share`);
-    await database.execute(sql`select id from public.session where id=${context.sessionId} and "userId"=${context.userId} for share`);
-    const accounts=new PostgresAuthenticatedAccountProvider(async()=>({userId:context.userId,sessionId:context.sessionId}),(_identity,run)=>run(database)),account=await accounts.getAuthenticatedAccount(),now=new Date((await database.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now);
-    if(!account||account.userId!==context.userId||account.session.id!==context.sessionId||!isAuthenticatedSessionLive(account.session.expiresAt,now))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-    return account;
+  constructor(execute:AdmissionVerificationDatabaseExecutor,private readonly readSecurityConfig:()=>Promise<MessagingSecurityConfig>,private readonly createLegacyInvitations?:(database:RequestDatabase)=>LegacyAdmissionInvitationReader){
+    // Every transaction this owner opens (preflight, ledger claim, effect and recovery) lets its repeated applicant checks reuse the locks of its first one.
+    this.execute=(scope,run)=>execute(scope,(database)=>withReusedAdmissionApplicantAuthority(database,()=>run(database)));
   }
+  /** Current native request actor checkout, scoped for applicant authority reuse. */
+  private readonly execute:AdmissionVerificationDatabaseExecutor;
+
+  /** @param database - Current guarded transaction. @param context - Original server-derived account/session/tribe. @returns Current native account facts after shared scope locks and fresh SQL session time, reusing this transaction's held locks after its first check. */
+  private authorize(database:RequestDatabase,context:AdmissionVerificationAccountScope){return authorizeAdmissionApplicant(database,context);}
 
   /** @param database - Original authorized transaction. @param context - Exact native scope. @param sending - Whether current opening is needed for a new outbound obligation. @returns Current ON policy without initializing or enabling any setting. */
   private async policy(database:RequestDatabase,context:AdmissionVerificationAccountScope,sending:boolean):Promise<AdmissionPolicy>{
     await this.authorize(database,context);
-    const settings=(await database.execute<{access_model:string;admission_enabled:boolean}>(sql`select access_model,admission_enabled from public.tribe_academy_settings where tribe_id=${context.tribeId} for share`)).rows[0],policy=await readAdmissionPolicy(database,context.tribeId,false),marker=await readAdmissionControlMarker(database,context.tribeId);
+    return this.currentPolicy(database,context,sending);
+  }
+
+  /** @param database - Transaction whose applicant authority was just checked, with no other read in between. @param context - Exact native scope. @param sending - Whether current opening is needed for a new outbound obligation. @returns Current ON policy without initializing or enabling any setting. */
+  private async currentPolicy(database:RequestDatabase,context:AdmissionVerificationAccountScope,sending:boolean):Promise<AdmissionPolicy>{
+    const {settings,policy,marker}=await readLockedAdmissionPolicyGate(database,context.tribeId);
     if(!settings||settings.access_model!==TRIBE_ACCESS_MODEL.academy||!settings.admission_enabled||!marker||!policy?.activatedAt)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionsPaused);
     if(!policy.requiresAdditionalVerification)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     if(sending&&!policy.isOpen)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionsPaused);
@@ -103,7 +103,7 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
 
   /** @param database - Original transaction. @param input - Confirmed current contact and source proposal. @returns Actual chosen resource scope after the policy version and native email are checked. */
   private async issuanceScope(database:RequestDatabase,input:Omit<AdmissionChallengeIssuanceIntent,"operationId">):Promise<PreparedAdmissionIssuance>{
-    const account=await this.authorize(database,input),policy=await this.policy(database,input,true);
+    const account=await this.authorize(database,input),policy=await this.currentPolicy(database,input,true);
     if(policy.version!==input.expectedPolicyVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
     if(!MANUAL_ADMISSION_EXECUTION_CAPABILITIES.sources.includes(input.source.kind))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationUnavailable);
     if(!input.confirmed||input.contact.type!==policy.contactType)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
@@ -152,23 +152,26 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
 
   /** @param database - Native authorized transaction. @param context - Exact own account. @param challengeId - Original resource whose immutable contact cannot be replaced by the caller. @returns Original scope without taking an early shared challenge lock that would need an upgrade. */
   private async challengeScope(database:RequestDatabase,context:AdmissionVerificationAccountScope,challengeId:string):Promise<VerificationChallengeScope>{
-    const account=await this.authorize(database,context),policy=await this.policy(database,context,false),row=(await database.execute<ChallengeScopeRow>(sql`select challenge.id,challenge.user_id,challenge.tribe_id,challenge.purpose,challenge.contact_type,challenge.normalized_contact,delivery.recipient_country,challenge.channel,challenge.verification_epoch,challenge.connection_id,challenge.connection_version,challenge.security_epoch from public.contact_verification_challenges challenge join public.message_deliveries delivery on delivery.id=challenge.delivery_id and delivery.tribe_id=challenge.tribe_id where challenge.id=${challengeId} and challenge.user_id=${context.userId} and challenge.tribe_id=${context.tribeId}`)).rows[0];
+    const account=await this.authorize(database,context),policy=await this.currentPolicy(database,context,false),row=(await database.execute<ChallengeScopeRow>(sql`select challenge.id,challenge.user_id,challenge.tribe_id,challenge.purpose,challenge.contact_type,challenge.normalized_contact,delivery.recipient_country,challenge.channel,challenge.verification_epoch,challenge.connection_id,challenge.connection_version,challenge.security_epoch from public.contact_verification_challenges challenge join public.message_deliveries delivery on delivery.id=challenge.delivery_id and delivery.tribe_id=challenge.tribe_id where challenge.id=${challengeId} and challenge.user_id=${context.userId} and challenge.tribe_id=${context.tribeId}`)).rows[0];
     if(!row||row.purpose!==ADMISSION_VERIFICATION_PURPOSE.admission||row.verification_epoch!==policy.verificationEpoch||row.contact_type!==policy.contactType||row.contact_type===ADMISSION_CONTACT_TYPE.email&&row.normalized_contact!==account.normalizedEmail)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.challengeInvalidated);
     if(row.contact_type===ADMISSION_CONTACT_TYPE.phone&&!row.recipient_country)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     return{userId:context.userId,tribeId:context.tribeId,purpose:ADMISSION_VERIFICATION_PURPOSE.admission,verificationEpoch:row.verification_epoch,connectionId:row.connection_id,connectionVersion:row.connection_version,securityEpoch:row.security_epoch,channel:row.channel,contact:row.contact_type===ADMISSION_CONTACT_TYPE.email?{type:ADMISSION_CONTACT_TYPE.email,value:row.normalized_contact}:{type:ADMISSION_CONTACT_TYPE.phone,value:row.normalized_contact,country:row.recipient_country!}};
   }
 
-  /** @param database - Original guarded effect. @param context - Native request identity. @param scope - Immutable code context. @returns A mandatory scope callback rechecking actor/session/policy after waits and crypto. */
-  private ownsScope(database:RequestDatabase,context:AdmissionVerificationAccountScope,scope:VerificationChallengeScope){return async(current:RequestDatabase,candidate:VerificationChallengeScope)=>{await this.authorize(current,context);const policy=await this.policy(current,context,false);return current===database&&candidate.userId===scope.userId&&candidate.tribeId===scope.tribeId&&candidate.purpose===scope.purpose&&candidate.connectionId===scope.connectionId&&candidate.connectionVersion===scope.connectionVersion&&candidate.verificationEpoch===policy.verificationEpoch;};}
+  /** @param database - Original guarded effect. @param context - Native request identity. @param scope - Immutable code context. @returns A mandatory scope callback rechecking actor/session (through `policy`) and policy after waits and crypto. */
+  private ownsScope(database:RequestDatabase,context:AdmissionVerificationAccountScope,scope:VerificationChallengeScope){return async(current:RequestDatabase,candidate:VerificationChallengeScope)=>{const policy=await this.policy(current,context,false);return current===database&&candidate.userId===scope.userId&&candidate.tribeId===scope.tribeId&&candidate.purpose===scope.purpose&&candidate.connectionId===scope.connectionId&&candidate.connectionVersion===scope.connectionVersion&&candidate.verificationEpoch===policy.verificationEpoch;};}
 
   /** @param database - Original operation transaction. @param context - Native actor. @param scope - Actual current policy/resource/contact. @param operationId - Original client UUID. @param ledgerId - Already committed claim identity. @param previous - Exact original challenge for explicit replacement only. @returns Minimal public issuance after shared budgets and private outbox commit together. */
   private async issueInside(database:RequestDatabase,context:AdmissionVerificationAccountScope&{admissionRequestId?:string|null},scope:VerificationChallengeScope,operationId:string,ledgerId:string,previous:string|null,personalInvitationId?:string){
+    // A denial rolls back to the savepoint, which releases locks taken inside it: checks inside the section reuse only authority held before it.
+    return withAdmissionApplicantSavepointSection(database,async()=>{
     await database.execute(sql.raw(ADMISSION_ISSUANCE_EFFECT_SQL.begin));
     const nativeOwns=this.ownsScope(database,context,scope),owns=async(current:RequestDatabase,candidate:VerificationChallengeScope)=>{if(!await nativeOwns(current,candidate))return false;if(personalInvitationId)await authorizePersonalContactIssuance(current,context,personalInvitationId,scope.contact,await this.readSecurityConfig());else if(context.admissionRequestId)await this.assertPendingIssuance(current,context,context.admissionRequestId,scope.contact);return true;},contacts=new PostgresMessagingContactBudgetRepository(database,(current)=>owns(current,scope),this.readSecurityConfig),budget=new PostgresVerificationRequestBudget(database,(current,command)=>owns(current,command.scope),contacts),result=await new PostgresContactVerificationIssuer(database,owns,this.readSecurityConfig,budget).issue({scope,operationId,ledgerId,expectedCurrentChallengeId:previous,...(personalInvitationId?{personalInvitationId,...(context.admissionRequestId?{personalRequestId:context.admissionRequestId}:{})}:{})});
     if(result.outcome!==VERIFICATION_ISSUANCE_OUTCOME.issued){await database.execute(sql.raw(ADMISSION_ISSUANCE_EFFECT_SQL.rollback));await database.execute(sql.raw(ADMISSION_ISSUANCE_EFFECT_SQL.release));return{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,result:VERIFICATION_TRANSITION_OUTCOME.denied,code:result.code};}
     await database.execute(sql.raw(ADMISSION_ISSUANCE_EFFECT_SQL.release));
     const maskedDestination=scope.contact.type===ADMISSION_CONTACT_TYPE.phone?`${ADMISSION_CONTACT_MASK}${scope.contact.value.slice(-ADMISSION_PHONE_VISIBLE_SUFFIX_LENGTH)}`:`${Array.from(scope.contact.value)[0]??""}${ADMISSION_CONTACT_MASK}@${scope.contact.value.split("@").at(-1)??""}`;
     return{challengeId:result.challengeId,deliveryId:result.deliveryId,purpose:ADMISSION_VERIFICATION_PURPOSE.admission,channel:scope.channel,maskedDestination,expiresAt:result.expiresAt.toISOString(),resendAllowedAt:result.resendAllowedAt.toISOString(),deliveryState:MESSAGE_DELIVERY_STATE.queued};
+    });
   }
 
   /** @param original - Guarded actual ledger snapshot after commit/read. @returns Only a granted challenge or registered progress. @throws A completed own denial with its original identity, without fabricating a challenge or dispatch. */

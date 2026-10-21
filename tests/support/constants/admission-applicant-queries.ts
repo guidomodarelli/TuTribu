@@ -8,15 +8,15 @@ export const ADMISSION_APPLICANT_QUERY_VALIDATION = {
   reportEnvironmentVariable: "ADMISSION_APPLICANT_QUERY_REPORT",
 } as const;
 
-/** Per-request maxima from the baseline on 1acd4ead: the largest sample of each label, plus two statements and two round trips of headroom for pool warm-up. A change that adds transactions, statements or sequential round trips fails here. */
+/** Per-request maxima after the applicant authority reuse (see `specs/001-academy-admissions/validation/admission-applicant-flow-queries.md`): the largest sample of each label, plus two statements and two round trips of headroom for pool warm-up. A change that adds transactions, statements or sequential round trips fails here. */
 export const ADMISSION_APPLICANT_QUERY_BUDGET = {
-  page_public_entry: { transactions: 6, queries: 37, sequentialRoundTrips: 37 },
-  page_invitation_entry: { transactions: 6, queries: 56, sequentialRoundTrips: 56 },
-  read_invitation_overview: { transactions: 6, queries: 56, sequentialRoundTrips: 56 },
-  issue_verification_code: { transactions: 23, queries: 454, sequentialRoundTrips: 449 },
-  verify_verification_code: { transactions: 10, queries: 192, sequentialRoundTrips: 192 },
-  submit_request: { transactions: 4, queries: 82, sequentialRoundTrips: 82 },
-  redeem_invitation: { transactions: 4, queries: 91, sequentialRoundTrips: 91 },
-  read_own_request: { transactions: 5, queries: 30, sequentialRoundTrips: 30 },
+  page_public_entry: { transactions: 1, queries: 22, sequentialRoundTrips: 22 },
+  page_invitation_entry: { transactions: 1, queries: 40, sequentialRoundTrips: 40 },
+  read_invitation_overview: { transactions: 1, queries: 39, sequentialRoundTrips: 39 },
+  issue_verification_code: { transactions: 17, queries: 278, sequentialRoundTrips: 273 },
+  verify_verification_code: { transactions: 5, queries: 102, sequentialRoundTrips: 102 },
+  submit_request: { transactions: 3, queries: 79, sequentialRoundTrips: 79 },
+  redeem_invitation: { transactions: 3, queries: 89, sequentialRoundTrips: 89 },
+  read_own_request: { transactions: 2, queries: 21, sequentialRoundTrips: 21 },
   page_own_request: { transactions: 0, queries: 4, sequentialRoundTrips: 4 },
 } as const satisfies Record<string, AdmissionRequestBudget>;
