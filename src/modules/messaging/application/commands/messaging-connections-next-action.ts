@@ -39,6 +39,9 @@ export function isMessagingCapabilityFreshlyTested(capability:ConnectionCapabili
   return Number.isFinite(age)&&age>=0&&age<=MESSAGING_CONNECTION_DIAGNOSTIC_MAXIMUM_AGE_MS;
 }
 
+/** @param selected - Current selection. @param candidate - Current candidate. @returns Whether the candidate is exactly the selected configuration. */
+export const isExactActiveSelection=(selected:MessagingConfigurationConnection|null,candidate:MessagingConfigurationConnection|null)=>Boolean(candidate&&selected?.id===candidate.id&&selected.configurationVersion===candidate.configurationVersion);
+
 /** @param step - Advisory progress. @param copy - Title, reason and action label. @param target - Where it is resolved. @returns An action that opens that place. */
 const actionAt=(step:MessagingConnectionsNextStep,copy:{title:string;reason:string;action:string},target:MessagingConnectionsNextActionTarget):MessagingConnectionsNextAction=>({step,...copy,target,channel:null});
 /** Targets of the flow steps and the secondary security section. */
@@ -59,9 +62,11 @@ export function resolveMessagingConnectionsNextAction(input:{selected:MessagingC
   const unavailable=candidate.capabilities.filter((capability)=>capability.state===MESSAGING_CAPABILITY_PUBLIC_STATE.unavailable).map((capability)=>capability.channel);
   const usable=candidate.capabilities.filter((capability)=>capability.state!==MESSAGING_CAPABILITY_PUBLIC_STATE.unavailable);
   if(usable.length===0)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.prepareChannel,unavailable.length?COPY.unavailableChannels(joinChannels(unavailable)):COPY.noChannel,TARGET.channels);
-  const verified=usable.filter((capability)=>isMessagingCapabilityFreshlyTested(capability,nowMs)).map((capability)=>capability.channel);
+  // The 24-hour window applies to activating a candidate; the unchanged active selection is not retested daily.
+  const activeSelection=isExactActiveSelection(selected,candidate);
+  const verified=usable.filter((capability)=>activeSelection?capability.state===MESSAGING_CAPABILITY_PUBLIC_STATE.prepared:isMessagingCapabilityFreshlyTested(capability,nowMs)).map((capability)=>capability.channel);
   const untested=usable.filter((capability)=>capability.state===MESSAGING_CAPABILITY_PUBLIC_STATE.unprepared).map((capability)=>capability.channel);
-  const stale=usable.filter((capability)=>capability.state===MESSAGING_CAPABILITY_PUBLIC_STATE.prepared&&!isMessagingCapabilityFreshlyTested(capability,nowMs)).map((capability)=>capability.channel);
+  const stale=activeSelection?[]:usable.filter((capability)=>capability.state===MESSAGING_CAPABILITY_PUBLIC_STATE.prepared&&!isMessagingCapabilityFreshlyTested(capability,nowMs)).map((capability)=>capability.channel);
   const[firstPending]=[...untested,...stale];
   if(firstPending){
     const reason=[verified.length?COPY.verified(joinChannels(verified),verified.length>1):"",untested.length?COPY.untested(joinChannels(untested)):"",stale.length?COPY.stale(joinChannels(stale)):""].filter(Boolean).join(" ");
@@ -72,7 +77,7 @@ export function resolveMessagingConnectionsNextAction(input:{selected:MessagingC
   if(candidate.credentialMode!==MESSAGING_CREDENTIAL_MODE.production)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.validateCredential,COPY.productionRequired,TARGET.credential);
   const phone=verified.filter((channel)=>channel!==MESSAGING_PUBLIC_CHANNEL.email);
   if(phone.length&&!usage.policy?.allowedCountries.length)return{step:MESSAGING_CONNECTIONS_NEXT_STEP.activate,...COPY.countries(joinChannels(phone)),target:{kind:"usage"},channel:null};
-  if(selected?.id===candidate.id&&selected.configurationVersion===candidate.configurationVersion)return{step:MESSAGING_CONNECTIONS_NEXT_STEP.active,title:COPY.activeTitle,reason:COPY.activeReason,action:null,target:null,channel:null};
+  if(activeSelection)return{step:MESSAGING_CONNECTIONS_NEXT_STEP.active,title:COPY.activeTitle,reason:COPY.activeReason,action:null,target:null,channel:null};
   const reason=[COPY.activateReason(joinChannels(verified),verified.length>1),selected?COPY.replaces(selected.name):""].filter(Boolean).join(" ");
   return{step:MESSAGING_CONNECTIONS_NEXT_STEP.activate,title:COPY.activateTitle,reason,action:COPY.activateAction,target:TARGET.activation,channel:null};
 }

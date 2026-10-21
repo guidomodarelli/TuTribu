@@ -315,7 +315,7 @@ export function MessagingConnectionsContainer({initialState,client=messagingConn
   // A test whose channel was already confirmed after it was issued no longer waits for its code.
   const diagnosticSettled=Boolean(diagnosticController.diagnostic&&isMessagingDiagnosticSettled(diagnosticController.diagnostic,candidate));
   const action=nextAction??resolveMessagingConnectionsNextAction({selected:configuration.selected,candidate,usage:configuration.usage,observedAt});
-  const flow=resolveMessagingConnectionsFlow({candidate,observedAt});
+  const flow=resolveMessagingConnectionsFlow({selected:configuration.selected,candidate,observedAt});
   // A step that left the flow (a channel reconfigured away) falls back to the step the next action points to.
   const actionStepId=messagingConnectionsActionStepId(action),foundIndex=flow.findIndex((step)=>step.id===currentStepId),currentIndex=foundIndex>=0?foundIndex:Math.max(0,flow.findIndex((step)=>step.id===actionStepId));
   const currentStep=flow[currentIndex];

@@ -432,6 +432,8 @@ describe("connection wizard first container step",()=>{
     await waitFor(()=>expect(fixture.client.operation).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole("combobox",{name:"Canal de la prueba"})).not.toBeInTheDocument();expect(screen.queryByText("Esperando el código")).not.toBeInTheDocument();expect(screen.queryByLabelText("Código recibido")).not.toBeInTheDocument();
     expect(screen.getByRole("button",{name:"Siguiente"})).toBeDisabled();expect(screen.getByText("Confirmá el código de SMS para seguir.")).toBeVisible();
+    // Restoring the settled email test keeps the SMS form, so its test can be sent right away.
+    await waitFor(()=>expect(screen.getByLabelText("Destino de la prueba")).toHaveAttribute("type","tel"));await user.click(screen.getByRole("combobox",{name:"País guardado del teléfono"}));await user.click(screen.getByRole("option",{name:"AR"}));await user.type(screen.getByLabelText("Destino de la prueba"),"+5491155501234");await user.click(screen.getByRole("checkbox",{name:/Confirmo el destino y el consumo/i}));expect(screen.getByRole("button",{name:"Enviar código de prueba"})).toBeEnabled();
     // The email step shows the restored test as confirmed, without a countdown or a code field.
     await user.click(screen.getByRole("button",{name:"Atrás"}));
     const email=await screen.findByRole("group",{name:"Probar Correo"});

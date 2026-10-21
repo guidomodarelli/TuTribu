@@ -55,6 +55,11 @@ describe("messaging connections next action",()=>{
     expect(resolve(candidate,{...candidate,configurationVersion:1}).step).toBe("activate");
     expect(resolve(candidate,candidate)).toMatchObject({step:"active",action:null,target:null});
   });
+  it("should keep the unchanged active selection active when its tests are older than 24 hours",()=>{
+    const active=connection({state:"active",capabilities:[{channel:"email",state:"prepared",checkedAt:expired,testedAt:expired}]});
+    expect(resolve(active,active)).toMatchObject({step:"active",action:null});
+    expect(resolve(active,{...active,configurationVersion:1})).toMatchObject({step:"testChannel",channel:"email"});
+  });
 });
 
 describe("messaging diagnostic settlement",()=>{

@@ -26,6 +26,11 @@ describe("messaging connections flow",()=>{
     expect(flow(connection({capabilities:[{channel:"email",state:"prepared",checkedAt:expired,testedAt:expired}]}))).toContainEqual(["test:email","Confirmá el código de Correo para seguir."]);
     expect(flow(connection({capabilities:[]}))).toContainEqual(["channels","Guardá al menos un canal para seguir."]);
   });
+  it("should not block the unchanged active selection on tests older than 24 hours",()=>{
+    const active=connection({state:"active",capabilities:[{channel:"email",state:"prepared",checkedAt:expired,testedAt:expired}]});
+    expect(resolveMessagingConnectionsFlow({selected:active,candidate:active,observedAt}).find((step)=>step.id==="test:email")?.blockedReason).toBeNull();
+    expect(resolveMessagingConnectionsFlow({selected:null,candidate:active,observedAt}).find((step)=>step.id==="test:email")?.blockedReason).toBe("Confirmá el código de Correo para seguir.");
+  });
   it("should resume at the step of the next action",()=>{
     const resume=(candidate:MessagingConfigurationConnection|null)=>messagingConnectionsActionStepId(resolveMessagingConnectionsNextAction({selected:null,candidate,usage,observedAt}));
     expect(resume(null)).toBe("key");expect(resume(connection({credentialState:"not_validated"}))).toBe("credential");expect(resume(connection({capabilities:[]}))).toBe("channels");expect(resume(connection())).toBe("test:sms");
