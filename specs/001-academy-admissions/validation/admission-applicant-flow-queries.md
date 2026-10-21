@@ -65,5 +65,5 @@ Una segunda corrida de la revisión final, con los presupuestos nuevos activos, 
 
 ## Próximos pasos
 
-1. **Cadena de autoridad de la entrega de mensajería en el despacho del código.** En las transacciones de intento, unas 12 sentencias (entrega, tribu, líderes, conexión, versión, intento, reserva y sobre) corren dos veces por transacción. Es el mismo patrón, pero su owner es `src/modules/messaging`.
+1. **Cadena de autoridad de la entrega de mensajería en el despacho del código.** Resuelto: ver [messaging-delivery-authority-queries.md](messaging-delivery-authority-queries.md).
 2. **Proyección de cuenta entre pasos del ledger.** Hoy corre fuera de transacción, entre lectura, preflight, claim y efecto. Por la restricción de no memoizarla entre llamadas, queda como está.
