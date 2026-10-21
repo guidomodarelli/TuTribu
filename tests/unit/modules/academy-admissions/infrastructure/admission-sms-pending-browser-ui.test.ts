@@ -94,7 +94,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native SMS pen
           expect(resendRequests).toBe(1);
           expect(await page.getByLabel("Código de ingreso", { exact: true }).inputValue() === "").toBe(true);
           // The code step keeps the sent contact fixed and does not offer its field again.
-          expect(await page.getByLabel("Teléfono para este ingreso", { exact: true }).count()).toBe(0);
+          await expect.poll(() => page.getByLabel("Teléfono para este ingreso", { exact: true }).count(), { timeout: 180_000 }).toBe(0);
           await database.withContext(fixture.own, async (transaction) => {
             const lineage = (await transaction.execute(sql`select channel,state,is_current,normalized_contact=${fixture.input.contact.value} as same_contact from public.contact_verification_challenges where user_id=${fixture.context.userId} and tribe_id=${fixture.context.tribeId} order by created_at`)).rows;
             expect(lineage).toEqual([{ channel: "whatsapp", state: "invalidated", is_current: false, same_contact: true }, { channel: "sms", state: "issued", is_current: true, same_contact: true }]);

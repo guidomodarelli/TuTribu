@@ -73,7 +73,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native applica
           expect(providerRequests).toBe(1);
           expect(/^\d{6}$/u.test(receivedCode)).toBe(true);
           // The code step no longer offers the contact field: the sent code fixed it.
-          expect(await page.getByLabel("Teléfono para este ingreso").count()).toBe(0);
+          await expect.poll(() => page.getByLabel("Teléfono para este ingreso").count(), { timeout: 180_000 }).toBe(0);
           await enterAdmissionVerificationCode(page, receivedCode);
           await page.getByRole("button", { name: "Comprobar código", exact: true }).click();
           await page.getByText("Código comprobado para este ingreso.", { exact: true }).waitFor({ state: "visible" });

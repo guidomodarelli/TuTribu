@@ -1,5 +1,6 @@
 /** Owns private code entry in native applicant tests without exposing Playwright call logs. @module admission-contact-browser-actions */
 import type { Page } from "@playwright/test";
+import { settleGuidedStep } from "@/tests/support/guided-steps-browser";
 
 /** @param page - Actual owned browser page. @param code - Ephemeral received code, never retained in diagnostics. @returns After entering the code. @throws A fixed safe error without the private instrumentation cause. */
 export async function enterAdmissionVerificationCode(page: Page, code: string): Promise<void> {
@@ -28,6 +29,7 @@ export async function continueToAdmissionCode(page: Page): Promise<void> {
   await next.waitFor({ state: "visible" });
   await page.waitForFunction(() => Array.from(document.querySelectorAll("button")).some((button) => button.textContent?.trim() === "Continuar" && !button.disabled), undefined, { timeout: ADMISSION_FLOW_READY_TIMEOUT_MS });
   await next.click();
+  await settleGuidedStep(page);
 }
 
 /** @param page - Actual owned browser page. @returns With the code step's collapsed resend and delivery reads open. */

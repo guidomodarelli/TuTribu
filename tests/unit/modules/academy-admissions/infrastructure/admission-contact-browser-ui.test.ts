@@ -44,7 +44,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native applica
           expect(providerRequests).toBe(0);
           expect(await page.getByText("Los códigos se envían con el servicio de mensajería conectado por el líder de esta academia.", { exact: true }).isVisible()).toBe(true);
           expect(await page.getByText("Comprobar el contacto no acredita tu identidad civil ni tu pertenencia a un grupo de WhatsApp. El envío depende de la cuenta de mensajería de la academia.", { exact: true }).isVisible()).toBe(true);
-          if (name === "chromium" && width === 1280) await captureAdmissionReview(page, "contact-before-code", forbidden, "contact-verification-captures.json", { selector: 'section[aria-labelledby][aria-busy]' });
+          if (name === "chromium" && width === 1280) await captureAdmissionReview(page, "contact-before-code", forbidden, "contact-verification-captures.json", { selector: 'form[aria-label="Solicitar ingreso a la academia"]' });
           await page.route(`**/api/tribes/${slug}/admissions/challenges`, async (route) => { if (loseIssue && route.request().method() === "POST") { loseIssue = false; try { await route.fetch({ timeout: 180_000 }); } catch { await route.abort().catch(() => {}); return; } await route.fulfill({ status: 502, contentType: "application/json", body: "{}" }); } else await route.continue(); });
           await confirmation.click();
           await page.getByRole("button", { name: "Enviar código de ingreso", exact: true }).click();
@@ -57,13 +57,13 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native applica
           await page.getByLabel("Código de ingreso", { exact: true }).waitFor({ state: "visible" });
           await page.waitForFunction(() => Array.from(document.querySelectorAll('section[aria-labelledby][aria-busy]')).some((element) => element.querySelector('input[autocomplete="one-time-code"]') && element.getAttribute("aria-busy") === "false"));
           expect(providerRequests).toBe(1);
-          if (name === "chromium" && width === 1280) await captureAdmissionReview(page, "contact-code-issued", [...forbidden, receivedCode], "contact-verification-captures.json", { selector: 'section[aria-labelledby][aria-busy]' });
+          if (name === "chromium" && width === 1280) await captureAdmissionReview(page, "contact-code-issued", [...forbidden, receivedCode], "contact-verification-captures.json", { selector: 'form[aria-label="Solicitar ingreso a la academia"]' });
           await enterAdmissionVerificationCode(page, receivedCode);
           await page.getByRole("button", { name: "Comprobar código", exact: true }).click();
           await page.waitForFunction(() => Boolean(Array.from(document.querySelectorAll('[role="status"]')).find((element) => element.textContent === "Código comprobado para este ingreso.")) || Array.from(document.querySelectorAll('[role="alert"]')).some((element) => element.textContent?.trim())).catch(async () => { const state = await page.evaluate(() => ({ hasCodeField: Boolean(document.querySelector('input[autocomplete="one-time-code"]')), busy: Array.from(document.querySelectorAll('section[aria-labelledby][aria-busy]')).map((element) => element.getAttribute("aria-busy")), alerts: document.querySelectorAll('[role="alert"]').length })); throw new Error(`Contact UI verification did not reach a public terminal state ${JSON.stringify({ verifyRequests, verifyStatuses, ...state })}`); });
           expect((await page.getByRole("alert").allTextContents()).filter((message) => message.trim())).toEqual([]);
           await page.getByText("Código comprobado para este ingreso.", { exact: true }).waitFor({ state: "visible" });
-          if (name === "chromium" && width === 1280) await captureAdmissionReview(page, "contact-code-verified", [...forbidden, receivedCode], "contact-verification-captures.json", { selector: 'section[aria-labelledby][aria-busy]' });
+          if (name === "chromium" && width === 1280) await captureAdmissionReview(page, "contact-code-verified", [...forbidden, receivedCode], "contact-verification-captures.json", { selector: 'form[aria-label="Solicitar ingreso a la academia"]' });
           await page.getByRole("checkbox", { name: "Confirmo que quiero solicitar ingreso a esta academia", exact: true }).click();
           await page.getByRole("button", { name: "Solicitar ingreso", exact: true }).click();
           await page.getByText("La solicitud está pendiente de revisión.", { exact: true }).waitFor({ state: "visible" });
