@@ -168,6 +168,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Los líderes de tribu ya no necesitan confirmar su cuenta con Google para operaciones sensibles de admisiones, mensajería, salida del modo academia o borrado de la tribu; desaparecen el botón y la pantalla de confirmación.
 
 ### Fixed
+- Si falla la carga de las reglas de admisión, la lista de habilitados, la importación de CSV o los avisos de admisiones, el aviso de error aparece con el título de esa página y no con el de la bandeja de revisión.
 
 - Al descargar o quitar un archivo de una lección que no existe o que no podés ver, se informa que no se encontró el archivo, aunque el almacenamiento de archivos no esté disponible, en lugar de un error al preparar la descarga.
 - Al descargar o quitar un adjunto de un mensaje que no existe o que no podés ver, se informa que no se encontró el archivo, aunque el almacenamiento de archivos no esté disponible, en lugar de un error al preparar la descarga.
