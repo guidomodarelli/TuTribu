@@ -246,7 +246,7 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
         return true;
       };
       const usage = (database: RequestDatabase, context: AuthorizedAdmissionContext) => new AdmissionMessagingUsagePolicyReader(new PostgresMessagingUsageRepository(database, authorize(context)));
-      const composePreparation = (database: RequestDatabase, context: AuthorizedAdmissionContext): AdmissionPolicyPreparationReader => new PostgresAdmissionPolicyPreparationReader(database, options.composePreflight(database, context), usage(database, context), new PostgresAdmissionVerificationReadinessReader(database, authorize(context), options.readSecurityConfig), options.readSecurityConfig);
+      const composePreparation = (database: RequestDatabase, context: AuthorizedAdmissionContext): AdmissionPolicyPreparationReader => new PostgresAdmissionPolicyPreparationReader(options.composePreflight(database, context), usage(database, context), new PostgresAdmissionVerificationReadinessReader(database, authorize(context), options.readSecurityConfig), options.readSecurityConfig);
       const writer = new PostgresAdmissionPolicyRepository(executePolicy, options.readSecurityConfig, composePreparation);
       return { useCases: new ManageAdmissionPolicyUseCases(resolveContext, new PostgresAdmissionPolicyReader(executePolicy, usage), writer), composePreparation };
     },

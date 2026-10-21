@@ -22,6 +22,7 @@ import { PostgresAdmissionRequestRepository } from "@/src/modules/academy-admiss
 import { createAcademyApprovedMembershipWriter } from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
 import { lockAcademyAdmissionMembershipScope } from "@/src/modules/tribes/infrastructure/repositories/lock-academy-admission-membership-scope";
 import { createPostgresAdmissionNotificationObligationWriter } from "@/src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer";
+import { createTenantRowsPreflight } from "@/tests/support/admission-tenant-rows-preflight";
 
 /**
  * Creates a live native session bound to Google for the already canonical synthetic leader.
@@ -64,7 +65,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native proof appli
         /** @param current - Native preparation transaction. @param tribeId - Exact own policy tribe. @returns Current scoped authority after native session and leader checks. */
         const authorize = async (current: RequestDatabase, tribeId: string) => { if (tribeId !== authority.tribeId) return false; await authorizeAdmissionPolicy(current, authority, authority.sensitiveOperation); return true; };
         // The preflight port is separately verified; usage, readiness, security and policy authority stay native.
-        return new PostgresAdmissionPolicyPreparationReader(transaction, { isPrepared: async () => true }, new AdmissionMessagingUsagePolicyReader(new PostgresMessagingUsageRepository(transaction, authorize)), new PostgresAdmissionVerificationReadinessReader(transaction, authorize, async () => fixture.fixture.config), async () => fixture.fixture.config);
+        return new PostgresAdmissionPolicyPreparationReader(createTenantRowsPreflight(transaction, () => true), new AdmissionMessagingUsagePolicyReader(new PostgresMessagingUsageRepository(transaction, authorize)), new PostgresAdmissionVerificationReadinessReader(transaction, authorize, async () => fixture.fixture.config), async () => fixture.fixture.config);
       });
       expect(await policy.update({ context, operationId: randomUUID(), type: "update_admission_policy", confirmed: true, expectedVersion: 1, patch: { requiresAdditionalVerification: true } })).toMatchObject({ state: "completed", result: { version: 2, verificationEpoch: 2 } });
       const decision = { userId: context.userId, sessionId: context.sessionId, tribeId: context.tribeId, requestId: randomUUID(), operationId: randomUUID(), type: "decide_admission_request" as const, confirmed: true as const, admissionRequestId: requestId, expectedVersion: 1, decision: "approve" as const, internalReason: "Revisión explícita de nueva época", externalMessage: null };
@@ -113,7 +114,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native proof appli
         const authorize = async (current: RequestDatabase, tribeId: string) => { if (tribeId !== context.tribeId) return false; await authorizeAdmissionPolicy(current, context, context.sensitiveOperation); return true; };
         // Preflight belongs to a separately tested owner; current native scope,
         // usage, readiness, session, ledger and invalidation remain real here.
-        const writer = new PostgresAdmissionPolicyRepository((_context, run) => run(transaction), async () => fixture.fixture.config, (current) => new PostgresAdmissionPolicyPreparationReader(current, { isPrepared: async () => true }, new AdmissionMessagingUsagePolicyReader(new PostgresMessagingUsageRepository(current, authorize)), new PostgresAdmissionVerificationReadinessReader(current, authorize, async () => fixture.fixture.config), async () => fixture.fixture.config));
+        const writer = new PostgresAdmissionPolicyRepository((_context, run) => run(transaction), async () => fixture.fixture.config, (current) => new PostgresAdmissionPolicyPreparationReader(createTenantRowsPreflight(current, () => true), new AdmissionMessagingUsagePolicyReader(new PostgresMessagingUsageRepository(current, authorize)), new PostgresAdmissionVerificationReadinessReader(current, authorize, async () => fixture.fixture.config), async () => fixture.fixture.config));
         if (change === "epoch") {
           expect(await writer.update({ context, operationId: randomUUID(), type: "update_admission_policy", confirmed: true, expectedVersion: 2, patch: { requiresAdditionalVerification: false } })).toMatchObject({ state: "completed" });
           expect(await writer.update({ context, operationId: randomUUID(), type: "update_admission_policy", confirmed: true, expectedVersion: 3, patch: { requiresAdditionalVerification: true } })).toMatchObject({ state: "completed" });

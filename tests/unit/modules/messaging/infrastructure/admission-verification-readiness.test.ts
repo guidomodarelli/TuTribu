@@ -9,6 +9,7 @@ import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messagi
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { PostgresAdmissionPolicyPreparationReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-preparation-reader";
 import { createDefaultAdmissionPolicy } from "@/src/modules/academy-admissions/domain/entities/admission-policy";
+import { createTenantRowsPreflight } from "@/tests/support/admission-tenant-rows-preflight";
 
 describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native tested admission readiness", () => {
   it.each(["credential-key", "security-epoch"])("should close policy preparation when %s changes between readiness and its final local security read", async (change) => {
@@ -22,7 +23,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native tested 
       const readSecurity = async () => ++reads === 1 ? fixture.config : retired;
       const preparation = await database.withContext(fixture.own, async (transaction) => {
         const readiness = new PostgresAdmissionVerificationReadinessReader(transaction, async (_database, requestedTribeId) => requestedTribeId === tribeId, readSecurity);
-        return new PostgresAdmissionPolicyPreparationReader(transaction, { isPrepared: async () => true }, { readForTribe: async () => null }, readiness, readSecurity).read({ ...createDefaultAdmissionPolicy({ id: tribeId, tribeId }), requiresAdditionalVerification: true, messagingConnectionId: fixture.scope.connectionId, messagingConnectionVersion: 1 });
+        return new PostgresAdmissionPolicyPreparationReader(createTenantRowsPreflight(transaction, () => true), { readForTribe: async () => null }, readiness, readSecurity).read({ ...createDefaultAdmissionPolicy({ id: tribeId, tribeId }), requiresAdditionalVerification: true, messagingConnectionId: fixture.scope.connectionId, messagingConnectionVersion: 1 });
       });
       expect(reads).toBe(2);
       expect(preparation).toMatchObject({ recoveryLocked: false, preflightComplete: true, configuration: { channelPrepared: false, verificationQuotaPositive: true } });
