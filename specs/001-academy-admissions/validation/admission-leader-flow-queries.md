@@ -166,7 +166,43 @@ Además comprueba que dentro de la transacción de otro actor, o de una sin acto
 
 La detección de una sesión revocada o de un cambio de usuario no cambia: cada caso de uso sigue proyectando la cuenta al principio y al final, y cada proyección se hace sobre la base en el momento en que corre.
 
+## Quinta ronda: Activar
+
+Mismo protocolo. Línea base: la revisión `72b01991`, medida como «después» de la cuarta ronda sobre el mismo código. Después: esta rama. Datos completos en `activationInventory` de [admission-leader-flow-queries.json](admission-leader-flow-queries.json).
+
+| Request | Transacciones | Sentencias | Viajes secuenciales | ms |
+|---|---|---|---|---|
+| Inicializar reglas (POST /policy) | 4 → 4 | 52 → 52 | 52 → 52 | 10.522 → 10.558 (+0 %) |
+| Guardar reglas (PUT /policy) | 4 → 4 | 52 → 52 | 52 → 52 | 10.468 → 10.612 (+1 %) |
+| Solicitudes con guía | 23 → 23 | 224 → 214 (-4 %) | 65 → 60 (-8 %) | 10.987 → 10.269 (-7 %) |
+| Reglas | 13 → 13 | 130 → 120 (-8 %) | 65 → 60 (-8 %) | 10.845 → 10.363 (-4 %) |
+| Avisos | 7 → 7 | 55 → 55 | 45 → 45 | 8.351 → 8.189 (-2 %) |
+| Países y cupos | 6 → 6 | 34 → 34 | 26 → 26 | 4.404 → 4.310 (-2 %) |
+| Conexión de mensajería | 11 → 11 | 65 → 65 | 55 → 55 | 10.007 → 10.054 (+0 %) |
+| Lectura de reglas (GET /policy) | 5 → 5 | 63 → 58 (-8 %) | 63 → 58 (-8 %) | 11.425 → 10.703 (-6 %) |
+| Comprobación previa (GET /policy/preflight) | 4 → 4 | 37 → 32 (-14 %) | 37 → 32 (-14 %) | 7.133 → 6.349 (-11 %) |
+| Activar (POST /policy/activate) | 4 → 4 | 92 → 81 (-12 %) | 92 → 81 (-12 %) | 18.149 → 16.400 (-10 %) |
+
+### Atribución
+
+En Activar, 68 de las 92 sentencias caen en la transacción de efecto. Esa transacción evalúa la preparación dos veces: antes de escribir y, con `assertCurrentPreparation`, después de escribir, para validar el estado final, incluido el marcador recién escrito. La segunda evaluación se mantiene. Dentro de cada evaluación, el inventario de activación (`PostgresAdmissionActivationRepository.read`) leía el marcador y cinco consultas de catálogo una por una: triggers, RLS forzada, constraints validadas, funciones del dueño y la política de ingreso. Ninguna toma locks. Ahora son una sola sentencia, ubicada entre las dos lecturas que bloquean (configuración de la academia y membresías), así que el orden de locks no cambia. Son 5 sentencias menos por evaluación: 10 en Activar y 5 en Reglas, en la lectura de reglas, en la comprobación previa y, por la guía, en Solicitudes.
+
+### Seguridad y paridad
+
+`tests/unit/modules/academy-admissions/infrastructure/admission-activation-inventory-parity.test.ts` corre contra Postgres real y pasó igual con las consultas separadas (`72b01991`) y con la sentencia única. Fija el inventario en el estado base. También comprueba que se cierra con cada cambio que inspecciona, aplicado dentro de una transacción revertida:
+
+- Trigger de almacenamiento o de ingreso deshabilitado.
+- Política de ingreso borrada.
+- RLS no forzada.
+- `search_path` de una función del dueño reseteado.
+- `EXECUTE` público sobre una función que no lo admite.
+- Evaluador deshabilitado.
+
+### Descartado
+
+- **La lectura del actor en el ledger** (`select public.current_app_user_id()` antes de cada autorización, 3 por Activar) se mantiene. Es la comprobación independiente del ledger genérico de operaciones, que no puede asumir que cada callback de autorización compare el actor.
+- **La verificación de claves MAC** son dos sentencias (contexto vigente y pruebas) que no se unen, porque la segunda invoca una función de aserción que no debe correr si la primera falla.
+
 ## Próximos pasos
 
-- Activar (92 viajes) es ahora la request más lenta. Su costo está en la transacción de efecto del ledger y en la preparación de activación.
-- En Solicitudes y Reglas, la cadena más larga sigue siendo la de admisiones (65 viajes). Identificar con una traza por cadena qué lectura es la más larga (hipótesis: la comprobación previa o la revisión de membresías).
+- Activar (81 viajes): las revalidaciones de autoridad reutilizada (15, de una sentencia cada una) acompañan cada lectura de la preparación, con el reloj de la base. Reducirlas exige agrupar lecturas sin waits entre medio, sin perder la revalidación de vencimiento de la sesión.

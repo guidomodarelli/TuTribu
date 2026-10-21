@@ -1,64 +1,73 @@
-/** Exercises the connection workspace summary, next step and stepper with real shared UI and controlled props. @module messaging-connections-workspace-tests */
-import {render,screen,waitFor,within} from "@testing-library/react";
+/** Exercises the connection workspace summary, single next action and linear guided flow with real shared UI and controlled props. @module messaging-connections-workspace-tests */
+import {render,screen,within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {describe,expect,it,vi} from "vitest";
-import {MessagingConnectionsWorkspace,type MessagingConnectionsWorkspaceProps} from "@/components/academy-admissions/messaging-connections-workspace";
+import {MessagingConnectionsAttention,MessagingConnectionsWorkspace,type MessagingConnectionsWorkspaceProps} from "@/components/academy-admissions/messaging-connections-workspace";
+import {resolveMessagingConnectionsNextAction} from "@/src/modules/messaging/application/commands/messaging-connections-next-action";
+import {resolveMessagingConnectionsFlow} from "@/src/modules/messaging/application/commands/messaging-connections-flow";
 
 const now=new Date().toISOString();
-/** @returns A tested candidate, controlled tab and simple labelled panels, without session, provider or storage. */
-function workspaceProps():MessagingConnectionsWorkspaceProps{
-  return{selected:null,candidate:{id:"00000000-0000-4000-8000-000000000001",name:"Candidata de prueba",version:3,configurationVersion:2,state:"ready",credentialState:"valid",credentialMode:"production",maskedCredential:"••••••••",capabilities:[{channel:"email",state:"prepared",checkedAt:now,testedAt:now},{channel:"sms",state:"unprepared",checkedAt:now,testedAt:null}]},
-    activeTab:"connection",nextStep:"testChannel",busy:false,message:null,onTabChange:vi.fn(),onReadCurrent:vi.fn(),
-    panels:{connection:<p>Panel de conexión</p>,channels:<p>Panel de canales</p>,tests:<p>Panel de pruebas</p>,activation:<p>Panel de activación</p>,security:<p>Panel de seguridad</p>}};
+const candidate={id:"00000000-0000-4000-8000-000000000001",name:"Candidata de prueba",version:3,configurationVersion:2,state:"ready" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,capabilities:[{channel:"email" as const,state:"prepared" as const,checkedAt:now,testedAt:now},{channel:"sms" as const,state:"unprepared" as const,checkedAt:now,testedAt:null}]};
+const usage={state:"configured" as const,policy:{version:1,allowedCountries:["AR"],verificationDailyLimit:100,notificationDailyLimit:200,platformMaximums:{verificationDailyLimit:1000,notificationDailyLimit:5000},consumption:{verificationToday:0,notificationToday:0}}};
+
+/** @param connections - Selected and candidate metadata that decide the steps and the next action. @param current - Open step. @returns Controlled props with labelled step contents, without session, provider or storage. */
+function workspaceProps(connections:{selected:MessagingConnectionsWorkspaceProps["selected"];candidate:MessagingConnectionsWorkspaceProps["candidate"]}={selected:null,candidate},current=0):MessagingConnectionsWorkspaceProps{
+  const flow=resolveMessagingConnectionsFlow({candidate:connections.candidate,observedAt:now});
+  return{...connections,nextAction:resolveMessagingConnectionsNextAction({...connections,usage,observedAt:now}),nextActionInView:false,usageHref:"/academia/admissions/messaging",busy:false,
+    steps:flow.map((step)=>({id:step.id,title:step.title,description:step.description,content:<p>{`Contenido de ${step.title}`}</p>,blockedReason:step.blockedReason??undefined})),current,onCurrentChange:vi.fn(),
+    finalAction:{label:"Activar conexión",disabled:true,onRun:vi.fn()},security:<p>Panel de seguridad</p>,securityOpen:false,onSecurityToggle:vi.fn(),onNextAction:vi.fn(),onReadCurrent:vi.fn()};
 }
 
 describe("messaging connections workspace",()=>{
-  it("should summarize the candidate once with separate state facts and highlight the next step",async()=>{
+  it("should summarize the candidate once and highlight the single pending channel test with its reason",async()=>{
     const props=workspaceProps(),user=userEvent.setup();render(<MessagingConnectionsWorkspace {...props} />);
     expect(screen.getAllByText("Candidata de prueba")).toHaveLength(1);
     const facts=screen.getByRole("list",{name:"Estado de Candidata de prueba"});
-    expect(within(facts).getByText("Credencial comprobada")).toBeInTheDocument();expect(within(facts).getByText("Correo: Canal comprobado")).toBeInTheDocument();expect(within(facts).getByText("SMS: Prueba pendiente")).toBeInTheDocument();
-    expect(screen.getByText("Enviá una prueba y confirmá el código recibido.")).toBeVisible();
-    await user.click(screen.getByRole("button",{name:"Ir a Pruebas"}));expect(props.onTabChange).toHaveBeenCalledWith("tests");
+    expect(within(facts).getByText("Correo: Canal comprobado")).toBeInTheDocument();expect(within(facts).getByText("SMS: Prueba pendiente")).toBeInTheDocument();
+    const next=screen.getByRole("group",{name:"Próxima acción"});
+    expect(next).toHaveTextContent("Falta probar SMS");expect(next).toHaveTextContent("Correo ya está comprobado. Falta SMS: todavía no se confirmó un código de prueba.");
+    await user.click(within(next).getByRole("button",{name:"Probá SMS"}));expect(props.onNextAction).toHaveBeenCalledTimes(1);
   });
-  it("should show progress in a stepper, open completed steps from it and keep Security as a separate action",async()=>{
+  it("should show one small step at a time in a linear flow with a test step per configured channel",async()=>{
     const props=workspaceProps(),user=userEvent.setup();render(<MessagingConnectionsWorkspace {...props} />);
-    const stepper=screen.getByRole("navigation",{name:"Pasos de la conexión"});
-    const steps=within(stepper).getAllByRole("button");
-    expect(steps.map((step)=>step.textContent?.match(/Conexión|Canales|Pruebas|Activación/)?.[0])).toEqual(["Conexión","Canales","Pruebas","Activación"]);
-    expect(within(stepper).getByRole("button",{name:/^Pruebas/})).toHaveAttribute("aria-current","step");
-    expect(within(stepper).getByRole("button",{name:/^Activación/})).toHaveAttribute("aria-disabled","true");
-    expect(screen.getByRole("region",{name:"Conexión"})).toBeVisible();expect(screen.queryByRole("region",{name:"Pruebas"})).not.toBeInTheDocument();expect(screen.getByText("Panel de seguridad")).not.toBeVisible();
-    await user.click(within(stepper).getByRole("button",{name:/^Canales/}));expect(props.onTabChange).toHaveBeenCalledWith("channels");
-    await user.click(within(stepper).getByRole("button",{name:/^Activación/}));expect(props.onTabChange).not.toHaveBeenCalledWith("activation");
-    await user.click(screen.getByRole("button",{name:"Seguridad y retiro"}));expect(props.onTabChange).toHaveBeenCalledWith("security");expect(props.onReadCurrent).not.toHaveBeenCalled();
+    const progress=screen.getByRole("navigation",{name:"Paso 1 de 6"});
+    expect(within(progress).getAllByRole("listitem").map((item)=>item.querySelector("[data-label]")?.getAttribute("data-label"))).toEqual(["Clave","Credencial","Canales","Probar Correo","Probar SMS","Activación"]);
+    expect(screen.getByRole("group",{name:"Clave"})).toHaveTextContent("Contenido de Clave");expect(screen.queryByText("Contenido de Credencial")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button",{name:/Atrás/})).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button",{name:"Siguiente"}));expect(props.onCurrentChange).toHaveBeenCalledWith(1);
   });
-  it("should explain a step that needs a candidate instead of showing an empty form",async()=>{
-    const props=workspaceProps(),user=userEvent.setup();render(<MessagingConnectionsWorkspace {...props} candidate={null} nextStep="saveCandidate" activeTab="channels" panels={{...props.panels,channels:null}} />);
-    expect(screen.getByText("Todavía no hay conexiones guardadas.")).toBeVisible();
-    await waitFor(()=>expect(screen.getByText(/Este paso necesita una conexión candidata/)).toBeVisible(),{timeout:5000});
-    await user.click(within(screen.getByRole("region",{name:"Canales"})).getByRole("button",{name:"Ir a Conexión"}));expect(props.onTabChange).toHaveBeenCalledWith("connection");
+  it("should keep Siguiente disabled with its reason until the step's write has finished",()=>{
+    const props=workspaceProps(undefined,4);render(<MessagingConnectionsWorkspace {...props} nextActionInView />);
+    expect(screen.getByRole("group",{name:"Probar SMS"})).toBeVisible();expect(screen.getByRole("button",{name:"Siguiente"})).toBeDisabled();expect(screen.getByText("Confirmá el código de SMS para seguir.")).toBeVisible();
+    expect(within(screen.getByRole("group",{name:"Próxima acción"})).queryByRole("button")).not.toBeInTheDocument();
   });
-  it("should announce feedback by severity and keep pending recovery above the tabs",()=>{
-    const props=workspaceProps(),view=render(<MessagingConnectionsWorkspace {...props} message={{kind:"alert",text:"No pudimos confirmar la prueba."}} attention={<button type="button">Consultar guardado</button>} />);
-    expect(screen.getByRole("alert")).toHaveTextContent("No pudimos confirmar la prueba.");expect(screen.getByRole("button",{name:"Consultar guardado"})).toBeVisible();
-    view.rerender(<MessagingConnectionsWorkspace {...props} message={{kind:"status",text:"La configuración quedó guardada."}} />);expect(screen.getByRole("status")).toHaveTextContent("La configuración quedó guardada.");expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  it("should run activation from the last step's own button",async()=>{
+    const tested={...candidate,capabilities:candidate.capabilities.map((capability)=>({...capability,state:"prepared" as const,testedAt:now}))},props=workspaceProps({selected:null,candidate:tested},5),user=userEvent.setup();
+    render(<MessagingConnectionsWorkspace {...props} nextActionInView finalAction={{...props.finalAction,disabled:false}} />);
+    expect(screen.getByRole("group",{name:"Próxima acción"})).toHaveTextContent("Correo y SMS están comprobados. Activá la conexión para usarla en la academia.");
+    await user.click(screen.getByRole("button",{name:"Activar conexión"}));expect(props.finalAction.onRun).toHaveBeenCalledTimes(1);
   });
-  it("should place the result inside the active step, next to the action that produced it",()=>{
-    const props=workspaceProps();render(<MessagingConnectionsWorkspace {...props} activeTab="tests" message={{kind:"status",text:"La prueba quedó enviada."}} />);
-    const panel=screen.getByRole("region",{name:"Pruebas"});
-    expect(within(panel).getByRole("status")).toHaveTextContent("La prueba quedó enviada.");expect(screen.queryByRole("link",{name:/Google/})).not.toBeInTheDocument();
-  });
-  it("should show a calm completed state when the candidate is already the selection",()=>{
-    const props=workspaceProps();render(<MessagingConnectionsWorkspace {...props} selected={props.candidate} nextStep="active" />);
-    expect(screen.getByText("Conexión seleccionada y candidata")).toBeVisible();expect(screen.getAllByText("Candidata de prueba")).toHaveLength(1);expect(screen.getByText("Listo")).toBeVisible();expect(screen.queryByRole("button",{name:/^Ir a /})).not.toBeInTheDocument();
-  });
-  it("should point a saved candidate that is not active yet to its pending step, and hide the notice once active",async()=>{
+  it("should keep Security outside the flow and mounted while hidden",async()=>{
     const props=workspaceProps(),user=userEvent.setup(),view=render(<MessagingConnectionsWorkspace {...props} />);
-    const notice=screen.getByRole("group",{name:"Tenés una conexión guardada sin activar"});
-    expect(notice).toHaveTextContent("Todavía no se usa para enviar códigos ni avisos.");
-    await user.click(within(notice).getByRole("button",{name:"Continuar donde quedó"}));expect(props.onTabChange).toHaveBeenCalledWith("tests");
-    view.rerender(<MessagingConnectionsWorkspace {...props} selected={props.candidate} nextStep="active" />);
-    expect(screen.queryByRole("group",{name:"Tenés una conexión guardada sin activar"})).not.toBeInTheDocument();
+    expect(screen.getByText("Panel de seguridad")).not.toBeVisible();await user.click(screen.getByRole("button",{name:"Seguridad y retiro"}));expect(props.onSecurityToggle).toHaveBeenCalledTimes(1);
+    view.rerender(<MessagingConnectionsWorkspace {...props} securityOpen />);
+    expect(screen.getByRole("region",{name:"Seguridad"})).toBeVisible();expect(screen.getByRole("form",{name:"Pasos de la conexión",hidden:true})).not.toBeVisible();expect(screen.getByRole("button",{name:"Volver a los pasos"})).toHaveAttribute("aria-pressed","true");
+  });
+  it("should keep a pending original's persistent explanation above the flow",()=>{
+    const props=workspaceProps();render(<MessagingConnectionsWorkspace {...props} attention={<MessagingConnectionsAttention notice="No pudimos confirmar la prueba."><button type="button">Consultar guardado</button></MessagingConnectionsAttention>} />);
+    const attention=screen.getByRole("region",{name:"Acciones pendientes"});
+    expect(within(attention).getByRole("alert")).toHaveTextContent("No pudimos confirmar la prueba.");expect(within(attention).getByRole("button",{name:"Consultar guardado"})).toBeVisible();
+    expect(within(screen.getByRole("group",{name:"Clave"})).queryByRole("alert")).not.toBeInTheDocument();
+  });
+  it("should show a calm completed state without an action when the candidate is already the selection",()=>{
+    const tested={...candidate,capabilities:candidate.capabilities.map((capability)=>({...capability,state:"prepared" as const,testedAt:now}))},props=workspaceProps({selected:tested,candidate:tested},5);render(<MessagingConnectionsWorkspace {...props} />);
+    expect(screen.getByText("Conexión seleccionada y candidata")).toBeVisible();
+    const next=screen.getByRole("group",{name:"Próxima acción"});expect(next).toHaveTextContent("Conexión activa");expect(within(next).queryByRole("button")).not.toBeInTheDocument();
+  });
+  it("should link a phone channel without saved countries to the usage page",()=>{
+    const tested={...candidate,capabilities:candidate.capabilities.map((capability)=>({...capability,state:"prepared" as const,testedAt:now}))},props=workspaceProps({selected:null,candidate:tested},5);
+    render(<MessagingConnectionsWorkspace {...props} nextAction={resolveMessagingConnectionsNextAction({selected:null,candidate:tested,usage:{state:"not_configured",policy:null},observedAt:now})} />);
+    const next=screen.getByRole("group",{name:"Próxima acción"});expect(next).toHaveTextContent("SMS necesita los países guardados antes de activar.");
+    expect(within(next).getByRole("link",{name:"Preparar países y cupos"})).toHaveAttribute("href","/academia/admissions/messaging");
   });
 });

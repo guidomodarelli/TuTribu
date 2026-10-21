@@ -1,10 +1,13 @@
 "use client";
-/** Presents the connection summary, the advisory next step, global feedback a stepper over the workflow steps, without owning auth, transport or storage. @module messaging-connections-workspace */
+/** Presents the connection summary, the single advisory next action and the linear guided flow (one small step per decision), without owning auth, transport, storage or operation feedback (toasts). @module messaging-connections-workspace */
 import {useId,type ReactNode} from "react";
-import {Badge,Button,Stepper,type BadgeTone} from "@golfo/ui";
+import {Alert,Badge,Button,type BadgeTone} from "@golfo/ui";
+import {ButtonLink} from "@/components/navigation/link";
+import {GuidedSteps,type GuidedStep,type GuidedStepsFinalAction} from "@/components/forms/guided-steps";
+import type {MessagingConnectionsNextAction} from "@/src/modules/messaging/application/commands/messaging-connections-next-action";
 import type {MessagingConfigurationConnection} from "@/src/modules/messaging/application/results/messaging-configuration-result";
 import {MESSAGING_CAPABILITY_LABEL,MESSAGING_CHANNEL_LABEL,MESSAGING_CONNECTION_LABEL,MESSAGING_CREDENTIAL_LABEL,MESSAGING_CREDENTIAL_MODE_LABEL} from "@/src/modules/messaging/constants/messaging-connection-presentation";
-import {MESSAGING_CONNECTIONS_NEXT_STEP,MESSAGING_CONNECTIONS_NEXT_STEP_COPY,MESSAGING_CONNECTIONS_NEXT_STEP_TAB,MESSAGING_CONNECTIONS_TAB,MESSAGING_CONNECTIONS_TAB_LABEL,MESSAGING_CONNECTIONS_TAB_ORDER,MESSAGING_CONNECTIONS_STEP_ORDER,MESSAGING_CONNECTIONS_STEP_DESCRIPTION,MESSAGING_CONNECTIONS_STEPPER_COPY,MESSAGING_CONNECTIONS_DRAFT_COPY,type MessagingConnectionsNextStep,type MessagingConnectionsTab} from "@/src/modules/messaging/constants/messaging-connections-workspace";
+import {MESSAGING_CONNECTIONS_FLOW_COPY,MESSAGING_CONNECTIONS_NEXT_ACTION_COPY,MESSAGING_CONNECTIONS_NEXT_STEP} from "@/src/modules/messaging/constants/messaging-connections-workspace";
 import styles from "./styles.module.scss";
 
 /** Lifecycle, credential, account and capability facts keep distinct tones so a ready candidate never reads as active. */
@@ -12,15 +15,6 @@ const CONNECTION_STATE_TONE={draft:"neutral",ready:"info",active:"success",degra
 const CREDENTIAL_STATE_TONE={not_validated:"neutral",valid:"success",invalid:"danger",unavailable:"warning"} as const satisfies Record<keyof typeof MESSAGING_CREDENTIAL_LABEL,BadgeTone>;
 const CREDENTIAL_MODE_TONE={production:"neutral",test:"warning",unknown:"neutral"} as const satisfies Record<keyof typeof MESSAGING_CREDENTIAL_MODE_LABEL,BadgeTone>;
 const CAPABILITY_STATE_TONE={unprepared:"neutral",prepared:"success",unavailable:"danger"} as const satisfies Record<keyof typeof MESSAGING_CAPABILITY_LABEL,BadgeTone>;
-
-/** The container owns every request, consent and recovery; panels arrive already wired. A null panel means the step needs a candidate first. */
-export type MessagingConnectionsWorkspaceProps={
-  selected:MessagingConfigurationConnection|null;candidate:MessagingConfigurationConnection|null;
-  activeTab:MessagingConnectionsTab;nextStep:MessagingConnectionsNextStep;busy:boolean;
-  message:{kind:"status"|"alert";text:string}|null;attention?:ReactNode;
-  panels:Record<MessagingConnectionsTab,ReactNode|null>;
-  onTabChange:(tab:MessagingConnectionsTab)=>void;onReadCurrent:()=>void;
-};
 
 /** @param props - One current connection and its role in the academy. @returns A compact row with its name and separately toned facts. */
 function ConnectionRow({connection,role}:{connection:MessagingConfigurationConnection;role:string}){
@@ -37,9 +31,14 @@ function ConnectionRow({connection,role}:{connection:MessagingConfigurationConne
   </li>;
 }
 
-/** @param props - Pending-original controls supplied by the container. @returns A named region above the tabs, because it blocks every step. */
-export function MessagingConnectionsAttention({children}:{children:ReactNode}){
-  return<section className={styles.MessagingConnectionsWorkspace__attention} aria-label="Acciones pendientes">{children}</section>;
+/** @param props - Persistent explanation (null while the original's own write still runs) and pending-original controls supplied by the container. @returns A named region above the tabs, because it blocks every step; its notice stays until the state resolves, unlike operation toasts. */
+export function MessagingConnectionsAttention({notice,children}:{notice:string|null;children?:ReactNode}){
+  return<section className={styles.MessagingConnectionsWorkspace__attention} aria-label="Acciones pendientes">{notice&&<p className={styles.MessagingConnectionsWorkspace__attentionNotice} role="alert">{notice}</p>}{children}</section>;
+}
+
+/** @param props - Why a step has nothing to decide yet. @returns A quiet note in place of an empty form, inside the guided step. */
+export function MessagingConnectionsStepNote({children}:{children:ReactNode}){
+  return<p className={styles.MessagingConnectionsWorkspace__empty}>{children}</p>;
 }
 
 /** @param props - Restore buttons for archived originals. @returns A secondary list that explains that archiving neither cancelled nor repeated anything. */
@@ -47,17 +46,40 @@ export function MessagingConnectionsPreservedAttempts({children}:{children:React
   return<section className={styles.MessagingConnectionsWorkspace__preserved} aria-label="Intentos conservados"><h2 className={styles.MessagingConnectionsWorkspace__preservedTitle}>Intentos conservados</h2><p className={styles.MessagingConnectionsWorkspace__empty}>Estas referencias siguen disponibles para consultar el resultado original. Guardarlas no canceló ni repitió operaciones.</p><div className={styles.MessagingConnectionsWorkspace__preservedActions}>{children}</div></section>;
 }
 
-/** @param props - Current own metadata, controlled tab and pre-wired panels. @returns A summary followed by tabs; changing tabs never sends, saves or activates anything. */
+/** The container owns every request, consent, recovery and toast; steps arrive already wired with their blocked reasons. */
+export type MessagingConnectionsWorkspaceProps={
+  selected:MessagingConfigurationConnection|null;candidate:MessagingConfigurationConnection|null;
+  /** The one highlighted action and why it is next. */
+  nextAction:MessagingConnectionsNextAction;
+  /** True when the open step already shows that action, so the highlight drops its button instead of competing with the step's own action. */
+  nextActionInView:boolean;
+  /** Messaging usage page, for actions resolved there (allowed countries). */
+  usageHref:string;
+  busy:boolean;attention?:ReactNode;
+  /** Linear steps in server order: key, credential, channels, one test per configured channel, activation. */
+  steps:readonly GuidedStep[];current:number;onCurrentChange:(index:number)=>void;
+  /** Activation, run by the last step's button. */
+  finalAction:GuidedStepsFinalAction;
+  /** Secondary, collapsed recovery shown under the flow (preserved tests). */
+  recovery?:ReactNode;
+  /** Security and retirement: outside the flow, always mounted so its drafts and observations survive. */
+  security:ReactNode;securityOpen:boolean;onSecurityToggle:()=>void;
+  onNextAction:()=>void;onReadCurrent:()=>void;
+};
+
+/** @param props - The resolved next action and where it is resolved. @returns The highlighted button, or nothing when the open step already shows it or nothing is left. */
+function NextActionButton({nextAction,inView,busy,usageHref,onNextAction}:{nextAction:MessagingConnectionsNextAction;inView:boolean;busy:boolean;usageHref:string;onNextAction:()=>void}){
+  if(!nextAction.action||!nextAction.target||inView)return null;
+  if(nextAction.target.kind==="usage")return<ButtonLink href={usageHref} variant="secondary" size="sm">{nextAction.action}</ButtonLink>;
+  return<Button variant="secondary" size="sm" disabled={busy} onClick={onNextAction}>{nextAction.action}</Button>;
+}
+
+/** @param props - Current own metadata and the wired guided flow. @returns A summary, one highlighted next action and the linear steps; moving between steps never sends, saves or activates anything. */
 export function MessagingConnectionsWorkspace(props:MessagingConnectionsWorkspaceProps){
-  const instanceId=useId(),overviewId=`${instanceId}-overview`,nextTab=MESSAGING_CONNECTIONS_NEXT_STEP_TAB[props.nextStep];
+  const instanceId=useId(),overviewId=`${instanceId}-overview`;
   const shared=props.selected&&props.candidate&&props.selected.id===props.candidate.id?props.selected:null;
   const rows=shared?[{connection:shared,role:"Conexión seleccionada y candidata"}]:[...(props.selected?[{connection:props.selected,role:"Conexión seleccionada"}]:[]),...(props.candidate?[{connection:props.candidate,role:"Conexión candidata"}]:[])];
-  const done=props.nextStep===MESSAGING_CONNECTIONS_NEXT_STEP.active;
-  // The stepper shows progress from the advisory next step; the open section may be an earlier, completed step, and "Ir a" in the summary returns to the current one.
-  const nextStepIndex=MESSAGING_CONNECTIONS_STEP_ORDER.findIndex((step)=>step===nextTab),progress=done?MESSAGING_CONNECTIONS_STEP_ORDER.length:Math.max(0,nextStepIndex);
-  const security=props.activeTab===MESSAGING_CONNECTIONS_TAB.security;
-  /** A saved candidate that is not the selected connection is a draft waiting to be published. */
-  const draftCandidate=!done&&props.candidate!==null&&props.candidate.id!==props.selected?.id;
+  const done=props.nextAction.step===MESSAGING_CONNECTIONS_NEXT_STEP.active;
   return<div className={styles.MessagingConnectionsWorkspace} data-beezping-ignore="true">
     <section className={styles.MessagingConnectionsWorkspace__overview} aria-labelledby={overviewId}>
       <div className={styles.MessagingConnectionsWorkspace__overviewHeader}>
@@ -65,29 +87,20 @@ export function MessagingConnectionsWorkspace(props:MessagingConnectionsWorkspac
         <Button variant="ghost" size="sm" disabled={props.busy} onClick={props.onReadCurrent}>Consultar conexión actual</Button>
       </div>
       {rows.length>0?<ul className={styles.MessagingConnectionsWorkspace__connections}>{rows.map((row)=><ConnectionRow key={`${row.role}:${row.connection.id}`} {...row} />)}</ul>:<p className={styles.MessagingConnectionsWorkspace__empty}>Todavía no hay conexiones guardadas.</p>}
-      <div className={`${styles.MessagingConnectionsWorkspace__nextStep} ${done?styles["MessagingConnectionsWorkspace__nextStep--done"]:""}`}>
-        <p className={styles.MessagingConnectionsWorkspace__nextStepText}><span className={styles.MessagingConnectionsWorkspace__nextStepLabel}>{done?"Listo":"Próximo paso"}</span>{MESSAGING_CONNECTIONS_NEXT_STEP_COPY[props.nextStep]}</p>
-        {!done&&props.activeTab!==nextTab&&<Button variant="secondary" size="sm" onClick={()=>props.onTabChange(nextTab)}>{`Ir a ${MESSAGING_CONNECTIONS_TAB_LABEL[nextTab]}`}</Button>}
-      </div>
     </section>
-    {draftCandidate&&<div className={styles.MessagingConnectionsWorkspace__draft} role="group" aria-label={MESSAGING_CONNECTIONS_DRAFT_COPY.title}>
-      <p className={styles.MessagingConnectionsWorkspace__draftTitle}>{MESSAGING_CONNECTIONS_DRAFT_COPY.title}</p>
-      <p className={styles.MessagingConnectionsWorkspace__empty}>{MESSAGING_CONNECTIONS_DRAFT_COPY.description}</p>
-      {props.activeTab!==nextTab&&<Button variant="secondary" size="sm" disabled={props.busy} onClick={()=>props.onTabChange(nextTab)}>{MESSAGING_CONNECTIONS_DRAFT_COPY.action}</Button>}
-    </div>}
-    {props.attention}
-    <div className={styles.MessagingConnectionsWorkspace__steps}>
-      <Stepper className={styles.MessagingConnectionsWorkspace__stepper} label={MESSAGING_CONNECTIONS_STEPPER_COPY.label} completeLabel={MESSAGING_CONNECTIONS_STEPPER_COPY.complete} details="current" current={progress} onStepSelect={(index)=>{const step=MESSAGING_CONNECTIONS_STEP_ORDER[index];if(step)props.onTabChange(step);}}
-        steps={MESSAGING_CONNECTIONS_STEP_ORDER.map((step)=>({id:step,label:MESSAGING_CONNECTIONS_TAB_LABEL[step],description:MESSAGING_CONNECTIONS_STEP_DESCRIPTION[step]}))} />
-      <div className={styles.MessagingConnectionsWorkspace__stepActions}>
-        <Button variant="ghost" size="sm" aria-pressed={security} onClick={()=>props.onTabChange(security?nextTab:MESSAGING_CONNECTIONS_TAB.security)}>{security?MESSAGING_CONNECTIONS_STEPPER_COPY.steps:MESSAGING_CONNECTIONS_STEPPER_COPY.security}</Button>
-      </div>
+    {/* What is missing and why; its button jumps to the step that resolves it when the flow shows another one. */}
+    <div className={styles.MessagingConnectionsWorkspace__nextAction} role="group" aria-label={MESSAGING_CONNECTIONS_NEXT_ACTION_COPY.region}>
+      <Alert tone={done?"success":"info"} title={props.nextAction.title} action={<NextActionButton nextAction={props.nextAction} inView={props.nextActionInView} busy={props.busy} usageHref={props.usageHref} onNextAction={props.onNextAction} />}>{props.nextAction.reason}</Alert>
     </div>
-    {/* Each step is a region named after it; only the open one renders, and Security stays mounted so its drafts survive. */}
-    {MESSAGING_CONNECTIONS_TAB_ORDER.map((tab)=>(props.activeTab===tab||tab===MESSAGING_CONNECTIONS_TAB.security)&&<section key={tab} aria-label={MESSAGING_CONNECTIONS_TAB_LABEL[tab]} hidden={props.activeTab!==tab} className={styles.MessagingConnectionsWorkspace__panel}>
-      {props.panels[tab]??<div className={styles.MessagingConnectionsWorkspace__blocked}><p className={styles.MessagingConnectionsWorkspace__empty}>Este paso necesita una conexión candidata. Guardá la clave de Zavu en Conexión para continuar.</p><Button variant="secondary" size="sm" onClick={()=>props.onTabChange(MESSAGING_CONNECTIONS_TAB.connection)}>Ir a Conexión</Button></div>}
-      {/* The result sits next to the actions that produce it, so it stays in view on narrow screens. */}
-      {props.activeTab===tab&&props.message&&<div className={styles.MessagingConnectionsWorkspace__result}><p className={`${styles.MessagingConnectionsWorkspace__feedback} ${props.message.kind==="alert"?styles["MessagingConnectionsWorkspace__feedback--alert"]:""}`} role={props.message.kind} aria-live={props.message.kind==="alert"?"assertive":"polite"}>{props.message.text}</p></div>}
-    </section>)}
+    {props.attention}
+    <div className={styles.MessagingConnectionsWorkspace__stepActions}>
+      <Button variant="ghost" size="sm" aria-pressed={props.securityOpen} onClick={props.onSecurityToggle}>{props.securityOpen?MESSAGING_CONNECTIONS_FLOW_COPY.steps:MESSAGING_CONNECTIONS_FLOW_COPY.security}</Button>
+    </div>
+    {/* The flow stays mounted under Security so drafts survive; one step at a time, Siguiente only after its write finished. */}
+    <div className={styles.MessagingConnectionsWorkspace__flow} hidden={props.securityOpen}>
+      <GuidedSteps label={MESSAGING_CONNECTIONS_FLOW_COPY.label} steps={props.steps} current={props.current} onCurrentChange={props.onCurrentChange} finalAction={props.finalAction} nextLabel={MESSAGING_CONNECTIONS_FLOW_COPY.next} />
+      {props.recovery}
+    </div>
+    <section aria-label={MESSAGING_CONNECTIONS_FLOW_COPY.securityRegion} hidden={!props.securityOpen} className={styles.MessagingConnectionsWorkspace__panel}>{props.security}</section>
   </div>;
 }

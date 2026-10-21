@@ -12,6 +12,4 @@
   &__requirementsBlock { display: grid; gap: 0.5rem; }
   &__requirements { display: grid; gap: 0.25rem; margin: 0; padding-inline-start: 1.25rem; line-height: 1.5; }
   &__form { @include workspace-panel.form; }
-  &__actions { @include workspace-panel.actions; }
-  &__button { @include workspace-panel.action; }
 }

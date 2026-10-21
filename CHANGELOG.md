@@ -10,7 +10,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - En ese mismo paso, cada guardián bloqueado por pago puede volver como integrante activa o silenciada, siempre sin su rol de guardián, o quedar retirado («No vuelve por pago: queda retirada»); un pago nunca devuelve un rol ni lo conserva.
 - Cuando la activación encuentra membresías bloqueadas por pago sin decidir, el paso aparece antes de «Revisá y activá»; al terminar las decisiones vuelve al paso final con «Activar ahora», sin perder lo elegido.
 - Reglas avisa «Tenés reglas guardadas sin publicar» con la acción «Revisar y activar», que abre directamente el paso final con lo guardado.
-- Conexión avisa «Tenés una conexión guardada sin activar» con la acción «Continuar donde quedó», que lleva al paso pendiente.
+- Conexión de mensajería destaca una sola próxima acción según el estado real, con qué falta y por qué: por ejemplo «Falta probar SMS» con «Probá SMS», o «Todo listo para activar» cuando todos los canales configurados están comprobados.
 - Los bloqueos que dependen del equipo de TuTribu se muestran aparte, en lenguaje simple, con un código de diagnóstico para copiar, «Volver a comprobar» y «Reportar el problema».
 - La guía de configuración incorpora el paso «Revisá membresías bloqueadas por pago» cuando hay casos sin decidir, marca como «Borrador sin publicar» las reglas guardadas sin activar y la conexión candidata sin activar, y su botón lleva directo al punto de publicación.
 - Países y cupos y Conexión ofrecen «Volver a Reglas para activar» cuando se llega desde un requisito de Reglas.
@@ -113,10 +113,14 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 ### Changed
 
 - Pedir el código de verificación de una solicitud de admisión tarda alrededor de un tercio menos, y confirmarlo, alrededor de un 40 % menos.
+- Conexión de mensajería se configura en pasos cortos, uno por decisión, con «Atrás», «Siguiente» y «Activar conexión»: clave, credencial, canales, una prueba por cada canal y activación. Cada paso deja seguir recién cuando su operación terminó, y al volver se abre directamente el primer paso pendiente.
+- En Conexión de mensajería, el resultado de guardar, comprobar, configurar un canal, enviar una prueba, confirmar un código, activar y las consultas aparece como notificación en lugar de texto al pie de la pantalla; lo que sigue pendiente queda en «Acciones pendientes».
+- Una prueba cuyo canal ya quedó comprobado se muestra como confirmada en lugar de «Esperando el código», y las pruebas conservadas quedan plegadas debajo de los pasos como recuperación secundaria.
 - Guardar y activar las reglas de admisión tarda menos (activar, alrededor de la mitad), y las páginas de Solicitudes, Reglas, Avisos, Países y cupos y Conexión de mensajería cargan más rápido.
 - Solicitudes y Reglas cargan bastante más rápido (Reglas, en alrededor de la mitad del tiempo), y Avisos, guardar, activar y la comprobación previa a la activación también tardan menos.
 - Conexión de mensajería carga en alrededor de la mitad del tiempo y Países y cupos, en cerca de un tercio menos.
 - Todas las páginas de admisión y mensajería del líder cargan más rápido: Países y cupos, en alrededor de la mitad del tiempo; Conexión, en un tercio menos, y Solicitudes, Reglas y Avisos, en alrededor de un 20 a 25 % menos.
+- Activar las admisiones tarda alrededor de un 10 % menos, y la comprobación previa, la lectura de las reglas y Reglas también cargan más rápido.
 - «Lo que falta resolver» explica cada bloqueo de la activación en lenguaje claro e indica dónde se resuelve: Conexión, Países y cupos, el paso «Cómo se contactan», Gestionar academia (para activar primero el modo academia), la revisión de membresías bloqueadas por pago o «Volver a comprobar»; deja de pedir una «revisión autorizada» sin explicar qué hacer.
 - Si la plataforma bloquea la activación, la guía de configuración lo indica en «Abrí las admisiones» («Depende del equipo de TuTribu») en lugar de mandar a Reglas a intentarlo de nuevo, y Reglas deja de ofrecer publicar hasta que se resuelva.
 - Todos los botones que guardan en admisión y mensajería muestran un indicador de carga mientras se guarda, conservan su texto y el foco, y bloquean las demás acciones de la pantalla hasta terminar; las consultas ya no cambian el texto de los botones.

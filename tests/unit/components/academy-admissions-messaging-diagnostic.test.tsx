@@ -5,7 +5,7 @@ import {describe,expect,it,vi} from "vitest";
 import {MessagingConnectionDiagnostic} from "@/components/academy-admissions/messaging-connection-diagnostic";
 
 /** @returns Controlled proposals and safe own state; provider, session and persistence belong to the route. */
-function diagnosticFixture(){return{channel:"email" as const,recipient:"",country:"",verificationCode:"",confirmed:false,busy:false,canIssue:false,canVerify:false,allowedCountries:[],usage:{state:"not_configured" as const,policy:null},diagnostic:null,delivery:null,message:null,fieldErrors:{},onChannelChange:vi.fn(),onRecipientChange:vi.fn(),onCountryChange:vi.fn(),onCodeChange:vi.fn(),onConfirm:vi.fn(),onIssue:vi.fn(),onResend:vi.fn(),onVerify:vi.fn(),onReadDelivery:vi.fn()};}
+function diagnosticFixture(){return{channel:"email" as const,recipient:"",country:"",verificationCode:"",confirmed:false,busy:false,canIssue:false,canVerify:false,allowedCountries:[],usage:{state:"not_configured" as const,policy:null},diagnostic:null,delivery:null,fieldErrors:{},onChannelChange:vi.fn(),onRecipientChange:vi.fn(),onCountryChange:vi.fn(),onCodeChange:vi.fn(),onConfirm:vi.fn(),onIssue:vi.fn(),onResend:vi.fn(),onVerify:vi.fn(),onReadDelivery:vi.fn()};}
 
 describe("connection diagnostic presentation",()=>{
   it("should disclose the destination and consumption before an explicit issue action without issuing on render",async()=>{

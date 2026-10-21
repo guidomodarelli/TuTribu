@@ -12,7 +12,6 @@
   &__actions { @include workspace-panel.actions; }
   &__action { @include workspace-panel.action; }
   &__error { @include workspace-panel.error; }
-  &__feedback { @include workspace-panel.lead; }
 
   &__current {
     display: grid;
