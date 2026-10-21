@@ -1380,6 +1380,13 @@
       "when": 1792526400000,
       "tag": "20261020200000_consolidate_admission_leader_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 197,
+      "version": "7",
+      "when": 1792584000000,
+      "tag": "20261021120000_consolidate_messaging_leader_guards",
+      "breakpoints": true
     }
   ]
 }

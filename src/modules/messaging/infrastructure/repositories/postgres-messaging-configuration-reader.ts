@@ -12,6 +12,7 @@ import {MESSAGING_CONNECTION_STATE} from "@/src/modules/messaging/constants/mess
 import {TRIBE_MEMBER_ROLE} from "@/src/modules/tribes/constants/tribe-member-role";
 import {TRIBE_MEMBERSHIP_STATUS} from "@/src/modules/tribes/constants/tribe-page-access";
 import {readMessagingUsageSnapshot} from "./postgres-messaging-usage-projection";
+import {MESSAGING_GUARD_OUTCOME} from "@/src/modules/messaging/constants/messaging-leader-guard";
 import type {MessagingSecurityFacts} from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 
 /** Each callback uses the actual current native account's protected transaction. */
@@ -25,14 +26,12 @@ export class PostgresMessagingConfigurationReader implements MessagingConfigurat
   constructor(private readonly execute:MessagingConfigurationExecutor,private readonly readSecurityFacts:()=>Promise<MessagingSecurityFacts>){}
   /** @param database - Existing protected transaction. @param context - Server-derived audience and exact scope. @returns Current canonical leader after session/audience checks, locked for this projection. */
   private async authorize(database:RequestDatabase,context:MessagingConfigurationContext):Promise<string>{
-    const actor=(await database.execute<{actor:string|null}>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
-    if(actor!==context.actorUserId)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.permissionDenied);
-    const session=(await database.execute(sql`select id from public.session where id=${context.sessionId} and "userId"=${actor} and "expiresAt">clock_timestamp() for share`)).rows[0];
-    if(!session)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.authenticationRequired);
-    if(!(await database.execute(sql`select id from public.tribes where id=${context.tribeId} for share`)).rows[0])throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.permissionDenied);
-    const members=(await database.execute<{user_id:string;role:string;status:string}>(sql`select user_id,role,status from public.tribe_members where tribe_id=${context.tribeId} and (user_id=${actor} or role=${TRIBE_MEMBER_ROLE.leader}) order by user_id for share`)).rows;
+    // One call keeps the former order: actor, live session, tribe and memberships FOR SHARE, then liveness again.
+    const checked=(await database.execute<{outcome:string;members:{user_id:string;role:string;status:string}[]|null}>(sql`select outcome,members from public.authorize_messaging_configuration_reader(${context.tribeId},${context.actorUserId},${context.sessionId})`)).rows[0];
+    if(checked?.outcome===MESSAGING_GUARD_OUTCOME.authenticationRequired)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.authenticationRequired);
+    if(checked?.outcome!==MESSAGING_GUARD_OUTCOME.checked||!checked.members)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.permissionDenied);
+    const actor=context.actorUserId,members=checked.members;
     const leaders=members.filter((member)=>member.role===TRIBE_MEMBER_ROLE.leader&&member.status===TRIBE_MEMBERSHIP_STATUS.active),membership=members.find((member)=>member.user_id===actor);
-    if(!(await database.execute(sql`select id from public.session where id=${context.sessionId} and "userId"=${actor} and "expiresAt">clock_timestamp()`)).rows[0])throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.authenticationRequired);
     if(context.audience!==TRIBE_MEMBER_ROLE.leader&&context.audience!==TRIBE_MEMBER_ROLE.guardian)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.permissionDenied);
     const role=context.audience===TRIBE_MEMBER_ROLE.leader?TRIBE_MEMBER_ROLE.leader:TRIBE_MEMBER_ROLE.guardian;
     if(leaders.length!==1||!membership||membership.role!==role||membership.status!==TRIBE_MEMBERSHIP_STATUS.active||context.audience===TRIBE_MEMBER_ROLE.leader&&leaders[0].user_id!==actor)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.permissionDenied);

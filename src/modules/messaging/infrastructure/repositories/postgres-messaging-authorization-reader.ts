@@ -11,7 +11,7 @@ import { MESSAGING_RESOURCE_SELECTION } from "../../constants/messaging-connecti
 type MessagingResourceSelection = "selected" | "candidate" | "management";
 
 /** Keeps only consumed role and lifetime facts; backend rows are not schema revalidated. */
-type MemberRow = {user_id:string;role:NonNullable<MessagingLeadershipFacts["membership"]>["role"];status:NonNullable<MessagingLeadershipFacts["membership"]>["status"]};
+type LeadershipRow = {is_current:boolean;leader_user_id:string|null;member_role:NonNullable<MessagingLeadershipFacts["membership"]>["role"]|null;member_status:NonNullable<MessagingLeadershipFacts["membership"]>["status"]|null};
 
 /** Resolves canonical current leadership without consulting historical tribe ownership or credential bytes. */
 export class PostgresMessagingAuthorizationReader implements MessagingAuthorizationReader {
@@ -28,21 +28,15 @@ export class PostgresMessagingAuthorizationReader implements MessagingAuthorizat
   }
 
   /**
-   * Locks tenant/session/actor and canonical active leader in the shared inward order.
+   * Locks tenant/session/actor and canonical active leader in the shared inward order, in one call to `public.read_messaging_leadership`.
    * @param tribeId - Exact tenant already selected by the inbound adapter.
    * @param userId - Server account identity that must match the guarded database actor.
    * @returns Current leadership facts or null for missing, expired, crossed or ambiguous authority.
    */
   async getCurrentLeadership(tribeId:string,userId:string):Promise<MessagingLeadershipFacts|null>{
-    const actor=(await this.database.execute<{actor:string|null}>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
-    if(!actor||actor!==userId)return null;
-    if(!(await this.database.execute(sql`select id from public.tribes where id=${tribeId} for share`)).rows[0])return null;
-    if(!(await this.database.execute(sql`select id from public.session where id=${this.sessionId} and "userId"=${userId} for share`)).rows[0])return null;
-    const members=(await this.database.execute<MemberRow>(sql`select user_id,role,status from public.tribe_members where tribe_id=${tribeId} and (user_id=${userId} or role=${TRIBE_MEMBER_ROLE.leader}) order by user_id for share`)).rows;
-    const leaders=members.filter((member)=>member.role===TRIBE_MEMBER_ROLE.leader&&member.status===TRIBE_MEMBERSHIP_STATUS.active);
-    if(leaders.length!==1||!await this.sessionIsLive(userId))return null;
-    const membership=members.find((member)=>member.user_id===userId);
-    return {tribeId,leaderUserId:leaders[0].user_id,membership:membership?{userId:membership.user_id,role:membership.role,status:membership.status}:null};
+    const facts=(await this.database.execute<LeadershipRow>(sql`select is_current,leader_user_id,member_role,member_status from public.read_messaging_leadership(${tribeId},${userId},${this.sessionId})`)).rows[0];
+    if(!facts?.is_current||!facts.leader_user_id)return null;
+    return {tribeId,leaderUserId:facts.leader_user_id,membership:facts.member_role&&facts.member_status?{userId,role:facts.member_role,status:facts.member_status}:null};
   }
 
   /**
