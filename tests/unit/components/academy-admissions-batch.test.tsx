@@ -12,6 +12,7 @@ import type { AdmissionReviewPageState } from "@/src/modules/academy-admissions/
 import { DEFAULT_ADMISSION_REVIEW_SELECTION } from "@/src/modules/academy-admissions/constants/admission-review-selection";
 import { readAdmissionReviewIntent, writeAdmissionReviewIntent } from "@/lib/academy-admissions/admission-review-intent";
 import { ADMISSION_OPERATION_TYPE } from "@/src/modules/academy-admissions/constants/admission-request";
+import { ADMISSION_REVIEW_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-review-ui";
 
 type BatchInput = Parameters<AdmissionReviewBrowserClient["decideBatch"]>[1];
 const viewerId = "synthetic-batch-reviewer", slug = "batch-review";
@@ -57,7 +58,7 @@ async function confirmBatch(names = ["Persona 1", "Persona 2"]) {
   }
   const form = screen.getByRole("region", { name: "Decidir solicitudes seleccionadas" });
   for (const name of names) await waitFor(() => expect(within(form).getByText(name)).toBeVisible());
-  fireEvent.change(within(form).getByLabelText("Motivo interno"), { target: { value: "Revisión explícita del lote" } });
+  fireEvent.change(within(form).getByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason), { target: { value: "Revisión explícita del lote" } });
   fireEvent.click(within(form).getByRole("checkbox", { name: "Confirmo esta decisión sobre todas las solicitudes enumeradas" }));
 }
 
@@ -244,7 +245,7 @@ describe("explicit reviewer batch decisions", () => {
     const retry = screen.getByRole("button", { name: "Reintentar el mismo lote" });
     expect(retry).toBeDisabled();
     const form = screen.getByRole("region", { name: "Decidir solicitudes seleccionadas" });
-    expect(within(form).getByLabelText("Motivo interno")).toBeDisabled();
+    expect(within(form).getByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason)).toBeDisabled();
     fireEvent.click(within(form).getByRole("checkbox", { name: "Confirmo esta decisión sobre todas las solicitudes enumeradas" }));
     let resolveRetry!: (value: AdmissionBrowserResult<AdmissionBatchResultDto>) => void;
     data.client.decideBatch.mockImplementationOnce(async () => new Promise((resolve) => { resolveRetry = resolve; }));
@@ -305,7 +306,7 @@ describe("visible batch selection freshness", () => {
     const data = fixture();
     await act(async () => { render(data.node, { wrapper: Providers }); });
     await confirmBatch();
-    const form = screen.getByRole("region", { name: "Decidir solicitudes seleccionadas" }), reason = within(form).getByLabelText("Motivo interno");
+    const form = screen.getByRole("region", { name: "Decidir solicitudes seleccionadas" }), reason = within(form).getByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason);
     act(() => reason.focus());
     await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
     expect(reason).toHaveValue("Revisión explícita del lote");

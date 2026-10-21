@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { createAdmissionRouteBoundary } from "@/src/modules/academy-admissions/infrastructure/api/admission-route-http";
 import { admissionRequestSchema, admissionReviewSchema, admissionOutcomeSchema, admissionBatchResultSchema, createAdmissionOperationStateSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
-import { admissionTribeParamsSchema, admissionReviewQuerySchema, admissionSubmissionSchema, admissionBatchDecisionSchema } from "@/src/modules/academy-admissions/infrastructure/api/admission-request-schemas";
+import { admissionTribeParamsSchema, admissionReviewQuerySchema, admissionSubmissionSchema, admissionBatchDecisionSchema, admissionDecisionSchema } from "@/src/modules/academy-admissions/infrastructure/api/admission-request-schemas";
 
 /** Builds a synthetic own request with no provider or storage credentials. */
 function ownRequest() {
@@ -66,6 +66,15 @@ describe("admission flow contracts", () => {
     const command = { operationId: randomUUID(), confirmed: true, decision: "reject", internalReason: "Synthetic reason", items: [{ requestId: id, expectedVersion: 1 }, { requestId: id.toUpperCase(), expectedVersion: 1 }] };
     expect((await boundary(command).readBody(admissionBatchDecisionSchema)).usable).toBe(false);
     expect((await boundary({ ...command, items: Array.from({ length: 51 }, () => ({ requestId: randomUUID(), expectedVersion: 1 })) }).readBody(admissionBatchDecisionSchema)).usable).toBe(false);
+  });
+
+  it("should accept an approval without an internal reason but reject a rejection that omits it", async () => {
+    const individual = { operationId: randomUUID(), confirmed: true, expectedVersion: 1, decision: "approve", internalReason: "  " };
+    expect((await boundary(individual).readBody(admissionDecisionSchema)).usable).toBe(true);
+    expect((await boundary({ ...individual, decision: "reject" }).readBody(admissionDecisionSchema)).usable).toBe(false);
+    const batch = { operationId: randomUUID(), confirmed: true, decision: "approve", internalReason: "", items: [{ requestId: randomUUID(), expectedVersion: 1 }] };
+    expect((await boundary(batch).readBody(admissionBatchDecisionSchema)).usable).toBe(true);
+    expect((await boundary({ ...batch, decision: "reject" }).readBody(admissionBatchDecisionSchema)).usable).toBe(false);
   });
 
   it("should reject a batch that claims unconfirmed progress while preserving mixed confirmed results", async () => {

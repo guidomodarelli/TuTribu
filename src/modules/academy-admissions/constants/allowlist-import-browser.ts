@@ -5,6 +5,8 @@ export const ALLOWLIST_IMPORT_FILE_NAME_CHARACTERS = 255;
 export const ALLOWLIST_IMPORT_DOWNLOAD_RETENTION_MS = 30_000;
 export const ALLOWLIST_IMPORT_VISIBLE_ROW_COUNT = 50;
 export const ALLOWLIST_IMPORT_FILE_ACCEPT = ".csv,text/csv";
+/** Zero-based steps of the guided import: upload the file, review the preview and its errors, confirm and import. */
+export const ALLOWLIST_IMPORT_STEP = { upload: 0, review: 1, confirm: 2 } as const;
 /** The import write the leader pressed: only that control shows progress while the other writes stay disabled. */
 export type AllowlistImportWriteAction = "preview" | "confirm" | "resume" | "reconcile";
 /** Resuming pending rows and reconciling earlier confirmations replay a preserved original, unlike a fresh confirmation. */
@@ -18,9 +20,12 @@ export const ALLOWLIST_IMPORT_BROWSER_COPY = {
   uncertain: "La respuesta no quedó confirmada. Conservamos el borrador y la referencia; consultá la operación original antes de continuar.", absent: "La operación todavía no aparece. Conservamos su referencia y no repetimos la escritura.", started: "La operación original sigue en proceso. Consultá el progreso actual; sólo se pueden retomar filas sin resultado.",
   conflict: "La importación cambió. Conservamos tu selección: consultá el progreso actual y confirmá nuevamente las filas pendientes.", policyConflict: "La configuración cambió. Conservamos el archivo: consultá la configuración actual antes de crear otra vista previa.",
   storage: "No pudimos conservar este borrador en el navegador. Revisá el espacio disponible antes de continuar.", account: "La cuenta o el acceso cambió. Volvé a cargar esta página para continuar.",
-  noPolicy: "Guardá la configuración de admisión antes de importar contactos.", expired: "La vista previa venció. Elegí nuevamente el archivo para preparar otra importación.",
+  noPolicy: "La importación usa el tipo de contacto de las reglas de admisión. Guardalas primero y después importá el CSV.", noPolicyTitle: "Primero guardá las reglas de admisión", noPolicyAction: "Ir a Reglas", expired: "La vista previa venció. Elegí nuevamente el archivo para preparar otra importación.",
   downloaded: "Se preparó la descarga privada.", empty: "El archivo no contiene filas de datos. Elegí otro CSV para importar.",
   historical: "La operación original quedó confirmada. Sus filas temporales ya no están disponibles; podés elegir otro archivo sin repetir esa escritura.",
   currentReadFailed: "La operación original quedó confirmada. No pudimos consultar el progreso actual; volvé a consultarlo antes de confirmar otro cambio.",
   missingDraft: "El archivo local ya no está disponible. Conservamos las referencias de operaciones; consultá su resultado antes de elegir otro archivo.",
+  fileRequired: "Elegí un archivo CSV para continuar.", previewConfirmRequired: "Marcá la confirmación para crear la vista previa.", selectionRequired: "Elegí al menos una fila válida para continuar.",
+  importConfirmRequired: "Marcá la confirmación para importar las filas elegidas.", pendingBlocked: "Hay una confirmación anterior sin resultado. Consultá la operación original antes de seguir.", pendingStepBlocked: "Primero consultá la operación original.",
+  conflictBlocked: "Consultá el progreso actual antes de importar.", policyConflictBlocked: "Consultá la configuración actual antes de crear otra vista previa.", finished: "Esta importación terminó. Elegí otro archivo para importar más contactos.",
 } as const;

@@ -53,32 +53,32 @@ describe("personal invitation page workflow", () => {
   it("should invalidate the private draft before an Activity reactivation awaits native account validation", async () => {
     const data = fixture(), content = (mode: "hidden" | "visible") => <Activity mode={mode}>{data.element()}</Activity>;
     const view = render(content("visible"));
-    fireEvent.change(await screen.findByRole("textbox", { name: "WhatsApp del grupo (opcional)" }), { target: { value: "+14155552671" } });
+    fireEvent.change(await screen.findByRole("textbox", { name: "Teléfono (opcional)" }), { target: { value: "+14155552671" } });
     view.rerender(content("hidden"));
     vi.mocked(data.client.viewer).mockResolvedValue({ status: "failed", code: "dependency_unavailable", message: "No pudimos validar la cuenta reactivada.", uncertain: false });
     view.rerender(content("visible"));
     await screen.findByText("No pudimos validar la cuenta reactivada.");
-    expect(screen.queryByRole("textbox", { name: "WhatsApp del grupo (opcional)" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Teléfono (opcional)" })).not.toBeInTheDocument();
     expect(data.client.submit).not.toHaveBeenCalled();
     vi.mocked(data.client.viewer).mockResolvedValue({ status: "ready", value: { id: data.viewerId } });
     vi.mocked(data.client.overview).mockResolvedValue({ status: "ready", value: { viewerId: data.viewerId, preview: data.preview } });
     fireEvent.click(screen.getByRole("button", { name: "Consultar estado" }));
-    expect(await screen.findByRole("textbox", { name: "WhatsApp del grupo (opcional)" })).toHaveValue("+14155552671");
+    expect(await screen.findByRole("textbox", { name: "Teléfono (opcional)" })).toHaveValue("+14155552671");
     expect(data.client.submit).not.toHaveBeenCalled();
   });
   it("should conceal the personal WhatsApp draft until the restored native account is validated", async () => {
     const data = fixture();
     render(data.element());
-    fireEvent.change(await screen.findByRole("textbox", { name: "WhatsApp del grupo (opcional)" }), { target: { value: "+14155552671" } });
+    fireEvent.change(await screen.findByRole("textbox", { name: "Teléfono (opcional)" }), { target: { value: "+14155552671" } });
     vi.mocked(data.client.viewer).mockResolvedValue({ status: "failed", code: "dependency_unavailable", message: "No pudimos comprobar la cuenta.", uncertain: false });
     fireEvent(window, new PageTransitionEvent("pageshow", { persisted: true }));
     await screen.findByText("No pudimos comprobar la cuenta.");
-    expect(screen.queryByRole("textbox", { name: "WhatsApp del grupo (opcional)" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Teléfono (opcional)" })).not.toBeInTheDocument();
     expect(data.client.submit).not.toHaveBeenCalled();
     vi.mocked(data.client.viewer).mockResolvedValue({ status: "ready", value: { id: data.viewerId } });
     vi.mocked(data.client.overview).mockResolvedValue({ status: "ready", value: { viewerId: data.viewerId, preview: data.preview } });
     fireEvent.click(screen.getByRole("button", { name: "Consultar estado" }));
-    expect(await screen.findByRole("textbox", { name: "WhatsApp del grupo (opcional)" })).toHaveValue("+14155552671");
+    expect(await screen.findByRole("textbox", { name: "Teléfono (opcional)" })).toHaveValue("+14155552671");
     expect(data.client.submit).not.toHaveBeenCalled();
   });
   it("should validate declared WhatsApp before personal confirmation without asking for the account name", async () => {
@@ -86,11 +86,11 @@ describe("personal invitation page workflow", () => {
     if (data.state.kind !== "ready" || data.state.preview.state !== "available" || !data.state.preview.overview.policy) throw new Error("Expected a personal policy");
     data.state.preview.overview.policy.requiresWhatsappNumber = true;
     render(data.element());
-    const input = await screen.findByRole("textbox", { name: "WhatsApp del grupo" });
+    const input = await screen.findByRole("textbox", { name: "Teléfono" });
     await waitFor(() => expect(screen.getByRole("checkbox", { name: /Confirmo que quiero usar esta invitación/ })).toBeEnabled());
     fireEvent.click(screen.getByRole("checkbox", { name: /Confirmo que quiero usar esta invitación/ }));
     fireEvent.click(screen.getByRole("button", { name: "Confirmar invitación" }));
-    expect(await screen.findByText("Completá el número de WhatsApp que usás en el grupo para continuar.")).toBeVisible();
+    expect(await screen.findByText("Completá tu teléfono para continuar.")).toBeVisible();
     expect(data.client.submit).not.toHaveBeenCalled();
     expect(screen.queryByRole("textbox", { name: /^(Nombre|Apellido)$/i })).not.toBeInTheDocument();
     fireEvent.change(input, { target: { value: "+1 (415) 555-2671" } });

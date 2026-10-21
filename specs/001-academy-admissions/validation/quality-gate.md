@@ -243,3 +243,13 @@ El [Quality gate de `247cb4f8`](https://github.com/guidomodarelli/TuTribu/action
 El [Quality gate de `e381b383fcced17a8709cbbc96d9d7a607a47d7b`](https://github.com/guidomodarelli/TuTribu/actions/runs/39177676850) terminó aprobado después de integrar el cambio de foco y el publicador actualizado. La comprobación local del árbol integrado pasó 130 casos relevantes en nueve archivos, tipos y build real de Next con 56 páginas. El [ensayo independiente de Orca](linux-reader-product-journeys.md#ocho-superficies-aprobadas-después-de-corregir-el-foco) aprobó las ocho superficies de cancelación y aprobación sobre `1e32976d`; producto, esquema y dependencias coinciden con el árbol integrado. Son evidencias separadas: no se usa el CI general para certificar el lector ni estos dos recorridos para cerrar toda la feature. No se modifican las casillas pendientes de T198/T208/T211 ni los gates operativos.
 
 El [Quality gate de `6d3b04de40044eb11164cc6634afbe2457735270`](https://github.com/guidomodarelli/TuTribu/actions/runs/39180912178) aprobó la confirmación OAuth elegida por el usuario. Su [evidencia específica](google-authentication.md) conserva 197 locales aprobados con 30 Native omitidos, diez SQL y cuatro casos de navegador aprobados sin omisiones, tipos/lint y build de 56 páginas. El piloto real confirmó la cuenta sin cerrar Google y guardó países/cupos versión 2; no envió códigos. El manual posterior conserva 28 vistas, cuatro recorridos y 217 destinos locales con fuentes estables. Ese resultado no completa Workers, la matriz integral de identidades, recepción por canales ni T211.
+
+El [Quality gate de `e775b59a`](https://github.com/guidomodarelli/TuTribu/actions/runs/39648096231) aprobó la rama del PR después de integrar tres cosas: las ramas de mantenimiento y suites de navegador, la optimización medida del flujo del líder (#138 a #146) y el rediseño guiado de Conexión. La comprobación local fue en dos tandas:
+- Sobre `a0cbdc1d`, el árbol de #144: lint, tipos de producto y de pruebas y Vitest completo, con 593 archivos y 6.328 casos aprobados y 348 archivos y 936 casos omitidos.
+- Sobre `e775b59a`: `next build` real, en un worktree sin `.env` y con entorno sintético.
+
+Las suites nativas de los cambios integrados se validaron por separado, sobre ramas Neon efímeras:
+- mantenimiento, recolección, métricas, retención y fase B: 11 archivos y 49 casos;
+- navegador en Chromium y WebKit, a 390 y 1280: corridas aisladas.
+
+Los fallos que aparecieron solo bajo carga paralela, con unos 165 ms de RTT hacia Neon, pasaron al repetirlos aislados. Este gate no confirma I1/U1 en los tres recursos ni los ensayos operativos, así que T211 conserva su estado pendiente.

@@ -42,7 +42,7 @@ function fixture(selected = true) {
 /** Enables only after the native viewer/current detail reads have settled. */
 async function confirmDecision() {
   await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm })).toBeEnabled());
-  fireEvent.change(screen.getByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason), { target: { value: "Revisión manual registrada" } });
+  fireEvent.change(screen.getByLabelText(new RegExp(`^${ADMISSION_REVIEW_UI_COPY.internalReasonRequired}`)), { target: { value: "Revisión manual registrada" } });
   fireEvent.change(screen.getByLabelText(ADMISSION_REVIEW_UI_COPY.externalMessage), { target: { value: "Tu ingreso fue aprobado." } });
   fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm }));
 }
@@ -566,12 +566,13 @@ describe("native reviewer container", () => {
     expect(await screen.findByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read })).toBeEnabled();
   });
 
-  it("should disable a decision without a reason and explicit confirmation before calling the writer", async () => {
+  it("should require explicit confirmation for any decision and a reason only to reject before calling the writer", async () => {
     const data = fixture(); render(data.node, { wrapper: Providers });
     await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm })).toBeEnabled());
     expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })).toBeDisabled();
     fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm }));
-    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })).toBeDisabled();
+    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })).toBeEnabled();
+    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.reject })).toBeDisabled();
     expect(data.client.decide).not.toHaveBeenCalled();
   });
 

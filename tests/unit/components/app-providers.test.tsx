@@ -5,6 +5,10 @@ import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks
 import type { ReactNode } from "react";
 
 import { AppProviders } from "@/components/providers/app-providers";
+import { APP_TOAST_DURATION_MS } from "@/src/constants/toast";
+
+/** Sonner closes a toast after this time when no duration is configured. */
+const SONNER_DEFAULT_DURATION_MS = 4_000;
 
 const fetchMock = vi.fn();
 
@@ -86,5 +90,17 @@ describe("AppProviders", () => {
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/siteping/identity", { signal: expect.any(AbortSignal) })
     );
+  });
+
+  it("keeps a notification readable past Sonner's default and closes it after the application duration", async () => {
+    render(<RouteContext><AppProviders isSitepingEnabled={false}><Button onClick={() => toast.success("Prueba enviada.")}>Enviar</Button></AppProviders></RouteContext>);
+    act(() => screen.getByRole("button", { name: "Enviar" }).click());
+    await screen.findByText("Prueba enviada.");
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(SONNER_DEFAULT_DURATION_MS + 1_000); });
+    expect(screen.getByText("Prueba enviada.")).toBeInTheDocument();
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(APP_TOAST_DURATION_MS); });
+    await waitFor(() => expect(screen.queryByText("Prueba enviada.")).not.toBeInTheDocument());
   });
 });

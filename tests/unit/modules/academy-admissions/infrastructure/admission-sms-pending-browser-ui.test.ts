@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
 import { prepareAdmissionContactVerification } from "@/tests/support/admission-contact-verification-fixture";
 import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
-import { enterAdmissionVerificationCode } from "@/tests/support/admission-contact-browser-actions";
+import { enterAdmissionVerificationCode, openAdmissionCodeOptions } from "@/tests/support/admission-contact-browser-actions";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
@@ -75,6 +75,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native SMS pen
           await expect.poll(() => /^\d{6}$/u.test(receivedCode), { timeout: 180_000 }).toBe(true);
           expect(providerRequests).toBe(1);
           expect(issueRequests).toBe(1);
+          await openAdmissionCodeOptions(page);
           const alternative = page.getByRole("button", { name: "Usar SMS para el mismo teléfono", exact: true });
           await alternative.waitFor({ state: "visible" });
           const cooldown = ADMISSION_LIMIT.verificationResendWaitMs + MILLISECONDS_PER_SECOND * SECONDS_PER_MINUTE;
@@ -92,8 +93,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native SMS pen
           }
           expect(resendRequests).toBe(1);
           expect(await page.getByLabel("Código de ingreso", { exact: true }).inputValue() === "").toBe(true);
-          expect(await page.getByLabel("Teléfono para este ingreso", { exact: true }).isDisabled()).toBe(true);
-          expect(await page.getByLabel("Teléfono para este ingreso", { exact: true }).inputValue() === fixture.input.contact.value).toBe(true);
+          // The code step keeps the sent contact fixed and does not offer its field again.
+          await expect.poll(() => page.getByLabel("Teléfono para este ingreso", { exact: true }).count(), { timeout: 180_000 }).toBe(0);
           await database.withContext(fixture.own, async (transaction) => {
             const lineage = (await transaction.execute(sql`select channel,state,is_current,normalized_contact=${fixture.input.contact.value} as same_contact from public.contact_verification_challenges where user_id=${fixture.context.userId} and tribe_id=${fixture.context.tribeId} order by created_at`)).rows;
             expect(lineage).toEqual([{ channel: "whatsapp", state: "invalidated", is_current: false, same_contact: true }, { channel: "sms", state: "issued", is_current: true, same_contact: true }]);
@@ -114,7 +115,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native SMS pen
           await page.getByRole("button", { name: "Comprobar código", exact: true }).click();
           await page.getByText("Código comprobado para este ingreso.", { exact: true }).waitFor({ state: "visible" });
           await page.getByRole("button", { name: "Aplicar prueba a esta solicitud", exact: true }).click();
-          await page.getByText("La prueba quedó aplicada a tu solicitud pendiente.", { exact: true }).waitFor({ state: "visible" });
+          await page.getByText("La prueba quedó aplicada a tu solicitud pendiente.", { exact: true }).first().waitFor({ state: "visible" });
           await page.getByRole("heading", { name: "Comprobar contacto para el ingreso", exact: true }).waitFor({ state: "hidden" });
           expect(applyRequests).toBe(1);
           expect(submitRequests).toBe(0);

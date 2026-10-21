@@ -37,7 +37,7 @@ export const ADMISSION_REVIEW_PENDING_ACTION = { approve: "approve", reject: "re
 export const ADMISSION_REVIEW_UI_COPY = {
   title: "Solicitudes de ingreso", description: "Revisá las solicitudes más antiguas primero. Aprobar concede la membresía básica de la academia.",
   empty: "No hay solicitudes para estos filtros.", read: "Consultar estado actual", loadMore: "Ver más solicitudes", detail: "Revisar solicitud", close: "Volver a la bandeja",
-  internalReason: "Motivo interno", externalMessage: "Mensaje para el solicitante (opcional)", internalHelp: "Este motivo sólo lo ven quienes revisan las solicitudes.",
+  internalReason: "Motivo interno (opcional al aprobar)", internalReasonRequired: "Motivo interno", internalOptionalHelp: "Hace falta para rechazar.", internalRequiredHelp: "Hace falta para aprobar esta excepción y para rechazar.", externalMessage: "Mensaje para el solicitante (opcional)", internalHelp: "Este motivo sólo lo ven quienes revisan las solicitudes.",
   externalHelp: "El solicitante podrá ver este mensaje. No incluyas datos privados.", confirm: "Confirmo esta decisión sobre la solicitud seleccionada",
   approve: "Aprobar ingreso", reject: "Rechazar solicitud", reading: "Consultando…",
   invalid: "Escribí un motivo interno y confirmá la decisión. Respetá los límites indicados.",

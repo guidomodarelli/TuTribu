@@ -64,6 +64,14 @@ describe("manual admission lifecycle", () => {
     if (proposal.allowed) expect(proposal.membershipEffect).toEqual({ role: "tribemate", status: "active" });
   });
 
+  it("should approve without an internal reason but deny a rejection that omits it", () => {
+    const facts = manualFacts(), request = pending(facts), reviewer = { userId: randomUUID(), tribeId: facts.tribe.id, role: "leader" as const, status: "active" as const };
+    const review = { ...facts, request: { id: request.id, userId: request.userId, expiresAt: request.expiresAt, source: facts.source, attachedEvidence: null }, reviewer };
+    const input = { request, expectedVersion: 1, decisionId: randomUUID(), actor: reviewer, review, internalReason: "   ", externalMessage: null, now: facts.now };
+    expect(proposeAdmissionDecision({ ...input, decision: "approve" })).toMatchObject({ allowed: true, request: { status: "approved" }, decision: { internalReason: null } });
+    expect(proposeAdmissionDecision({ ...input, decision: "reject" })).toEqual({ allowed: false, code: "invalid_input" });
+  });
+
   it("should deny self approval and pending access to privileged grants without inventing membership", () => {
     const facts = manualFacts(), request = pending(facts), reviewer = { userId: request.userId, tribeId: facts.tribe.id, role: "leader" as const, status: "active" as const };
     expect(proposeAdmissionDecision({ request, expectedVersion: 1, decisionId: randomUUID(), decision: "approve", actor: reviewer, review: { ...facts, request: { id: request.id, userId: request.userId, expiresAt: request.expiresAt, source: facts.source, attachedEvidence: null }, reviewer }, internalReason: "Mi ingreso", externalMessage: null, now: facts.now })).toMatchObject({ allowed: false, code: "permission_denied" });

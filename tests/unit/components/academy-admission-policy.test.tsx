@@ -64,11 +64,18 @@ describe("guided policy presentation", () => {
     expect(screen.getByRole("link", { name: "Cargar personas en Habilitados" })).toHaveAttribute("href", props.links.allowlist);
   });
 
+  it("should explain that the allowlist opens after saving instead of linking to it before the first save", () => {
+    const props = fixture(); props.draft = { ...props.draft, mode: "allowlist" }; props.state = { ...props.state, state: "not_configured", policy: null };
+    render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
+    expect(screen.queryByRole("link", { name: "Cargar personas en Habilitados" })).not.toBeInTheDocument();
+    expect(screen.getByText("Después de guardar las reglas vas a poder cargar personas en Habilitados.")).toBeVisible();
+  });
+
   it("should edit contact choices without enabling codes, notices or a provider", () => {
     const props = fixture(); props.step = 1;
     render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
     expect(screen.getByRole("group", { name: "Cómo se contactan" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Exigir el número de WhatsApp del grupo" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Exigir el teléfono del solicitante" }));
     expect(props.onChange).toHaveBeenCalledWith({ ...props.draft, requiresWhatsappNumber: true });
     fireEvent.click(screen.getByRole("checkbox", { name: "Comprobar el contacto con un código" }));
     expect(props.onChange).toHaveBeenLastCalledWith({ ...props.draft, requiresAdditionalVerification: true });

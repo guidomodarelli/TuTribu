@@ -10,6 +10,7 @@ import type { AdmissionPolicyPageState } from "@/src/modules/academy-admissions/
 import type { AdmissionPolicyStateDto } from "@/src/modules/academy-admissions/application/results/admission-policy-result-schemas";
 import { readAdmissionPolicyIntent, writeAdmissionPolicyIntent } from "@/lib/academy-admissions/admission-policy-intent";
 import { createAdmissionPolicyDraft } from "@/src/modules/academy-admissions/application/commands/admission-policy-browser-intent";
+import { ADMISSION_POLICY_ACTIVATION_REQUIREMENT_COPY, ADMISSION_POLICY_BROWSER_COPY, ADMISSION_POLICY_DESTINATION_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 import type { CommercialMembershipReviewBrowserClient } from "@/src/modules/academy-admissions/application/ports/commercial-membership-review-browser-client";
 import type { CommercialMembershipReviewCase } from "@/src/modules/academy-admissions/domain/entities/commercial-membership-review";
 import { readCommercialMembershipReviewIntent } from "@/lib/academy-admissions/commercial-membership-review-intent";
@@ -221,6 +222,27 @@ describe("guided policy route workflow", () => {
     expect(screen.queryByText(/sólo está disponible para el líder activo/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
     await waitFor(() => expect(screen.getByText("La configuración sólo está disponible para el líder activo de esta academia.")).toBeInTheDocument());
+  });
+
+  it("should explain that codes need a prepared channel when saving active rules is denied, keeping the saved rules", async () => {
+    const data = fixture("active");
+    data.client.updatePolicy.mockResolvedValueOnce({ status: "failed", code: "admission_ineligible", message: "Falta un requisito actual para resolver el ingreso.", uncertain: false });
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Editar reglas" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Editar reglas" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Continuar" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Comprobar el contacto con un código" }));
+    await goToReview(); await confirm();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => expect(screen.getByText(ADMISSION_POLICY_BROWSER_COPY.saveIneligible)).toBeInTheDocument());
+    expect(screen.getByText(ADMISSION_POLICY_BROWSER_COPY.saveBlockedNote)).toBeInTheDocument();
+    expect(screen.getByText(ADMISSION_POLICY_ACTIVATION_REQUIREMENT_COPY.verification_unavailable)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: ADMISSION_POLICY_DESTINATION_COPY.connection })).toHaveAttribute("href", `/${slug}/academia/admissions/messaging/connections`);
+    expect(screen.queryByText("Falta un requisito actual para resolver el ingreso.")).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Revisé las reglas/ })).not.toBeChecked();
+    expect(data.client.updatePolicy).toHaveBeenCalledOnce();
   });
 
   it("should pause with its reason, close the saved draft and edit without reopening admissions", async () => {

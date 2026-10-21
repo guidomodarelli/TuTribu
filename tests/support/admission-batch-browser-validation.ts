@@ -69,7 +69,7 @@ export async function validateAdmissionBatchBrowser(input: AdmissionBatchBrowser
     }
     const form = page.getByRole("region", { name: COPY.title, exact: true });
     for (const row of rows) await current(form.getByText(row.name, { exact: true })).toBeVisible();
-    await actions.fill(form.getByLabel(ADMISSION_REVIEW_UI_COPY.internalReason, { exact: true }), "Revisión explícita de prueba controlada");
+    await actions.fill(form.getByLabel(new RegExp(`^${ADMISSION_REVIEW_UI_COPY.internalReasonRequired}`)), "Revisión explícita de prueba controlada");
     const confirmation = form.getByRole("checkbox", { name: COPY.confirmation, exact: true });
     if (keyboard) await current(confirmation).not.toBeChecked();
     await actions.check(confirmation);

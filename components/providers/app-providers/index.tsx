@@ -6,6 +6,7 @@ import { ThemedToaster, useTheme } from "@golfo/ui";
 
 import { PrivateAwareSiteping } from "@/components/providers/private-aware-siteping";
 import { DARK_THEME_MODE, LIGHT_THEME_MODE } from "@/src/constants/theme-mode";
+import { APP_TOAST_DURATION_MS } from "@/src/constants/toast";
 import { AppUIProvider } from "./app-ui-provider";
 
 import styles from "./styles.module.scss";
@@ -15,6 +16,7 @@ const APP_PROVIDERS_TOASTER = {
   closeButton: true,
   position: "top-center",
   richColors: true,
+  toastOptions: { duration: APP_TOAST_DURATION_MS },
 } as const;
 
 type AppProvidersProps = {

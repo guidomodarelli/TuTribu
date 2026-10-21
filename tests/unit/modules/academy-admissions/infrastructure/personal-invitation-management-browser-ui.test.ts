@@ -1,7 +1,7 @@
 /** @vitest-environment node */
 /** Exercises real administrative UI with the live session only and lost-reply recovery across both engines and sizes. @module personal-invitation-management-browser-ui-tests */
 import { randomBytes, randomUUID } from "node:crypto";
-import { chromium, webkit } from "@playwright/test";
+import { chromium, webkit, type Page } from "@playwright/test";
 import { makeSignature } from "better-auth/crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
@@ -12,6 +12,22 @@ import { captureAdmissionReview } from "@/tests/support/admission-review-capture
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
+import { settleGuidedStep } from "@/tests/support/guided-steps-browser";
+
+/** Time the guided step may take to accept Continue after its fields change. */
+const CONTINUE_READY_TIMEOUT_MS = 60_000;
+
+/** @param page - Actual owned browser page. @returns After pressing Continue; a blocked step fails with its own explanation. */
+async function continueStep(page: Page): Promise<void> {
+  const next = page.getByRole("button", { name: "Continuar", exact: true });
+  try { await expect.poll(() => next.isEnabled(), { timeout: CONTINUE_READY_TIMEOUT_MS }).toBe(true); }
+  catch {
+    const state = await page.evaluate(() => ({ titles: Array.from(document.querySelectorAll("h2")).map((element) => element.textContent), legends: Array.from(document.querySelectorAll("legend")).map((element) => element.textContent), names: Array.from(document.querySelectorAll("input")).map((element) => `${element.id}=${element.value.length}`), reasons: Array.from(document.querySelectorAll("[class*=GuidedSteps__blocked]")).map((element) => element.textContent) }));
+    throw new Error(`Guided step stayed blocked: ${JSON.stringify(state)}`);
+  }
+  await next.click();
+  await settleGuidedStep(page);
+}
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native personal invitation management UI", () => {
   it.concurrent.each([false, true])("should create, rename, reemit once after lost reply and revoke on real browser engines phone=%s", async (phone) => {
@@ -47,26 +63,31 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native persona
           try {
             await fixture.confirm(REAUTHENTICATION_OPERATION.createPersonalInvitation);
             try { await page.goto(`${origin}/${slug}/academia/admissions/invitations`, { waitUntil: "commit" }); } catch (error) { const errorName = error instanceof Error ? error.name : "Unknown"; throw new Error(`Personal management UI navigation failed engine=${name} width=${width} phone=${phone} errorName=${errorName}`); }
-            await page.getByRole("button", { name: "Nueva invitación", exact: true }).waitFor({ state: "visible" });
-            await page.waitForFunction(() => Array.from(document.querySelectorAll("button")).some((button) => button.textContent === "Nueva invitación" && !button.disabled));
+            // The first step's field is enabled once the native viewer is confirmed.
+            await page.getByLabel("Nombre interno", { exact: true }).waitFor({ state: "visible" });
+            await expect.poll(() => page.getByLabel("Nombre interno", { exact: true }).isEnabled(), { timeout: 180_000 }).toBe(true);
             expect(writes).toHaveLength(0); completed("ready");
             const capture = !phone && name === "chromium" && width === 1280;
             if (capture) await captureAdmissionReview(page, "management-initial", [fixture.userId, fixture.sessionToken, fixture.own.email, secret], "personal-management-captures.json");
             await page.getByLabel("Nombre interno", { exact: true }).fill(label); await page.getByLabel(phone ? "Teléfono destinatario" : "Correo destinatario", { exact: true }).fill(identity);
-            await page.getByRole("checkbox", { name: /Reconozco la dispensa/ }).check(); await page.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal.", exact: true }).check();
-            await page.getByRole("button", { name: "Guardar acción", exact: true }).click();
+            await continueStep(page); await page.getByRole("checkbox", { name: /Reconozco la dispensa/ }).check(); await continueStep(page); await continueStep(page);
+            await page.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal.", exact: true }).check(); await page.getByRole("button", { name: "Emitir invitación", exact: true }).click();
             await page.getByLabel("Enlace personal", { exact: true }).waitFor({ state: "visible" }); rawUrl = await page.getByLabel("Enlace personal", { exact: true }).inputValue();
             expect(new URL(rawUrl).origin === origin).toBe(true); completed("issued");
             if (capture) await captureAdmissionReview(page, "management-issued", [fixture.userId, fixture.sessionToken, fixture.own.email, secret, rawUrl, new URL(rawUrl).pathname.split("/").at(-1)!], "personal-management-captures.json");
             await page.getByRole("button", { name: `Renombrar ${label}`, exact: true }).waitFor({ state: "visible" });
             await fixture.confirm(REAUTHENTICATION_OPERATION.renamePersonalInvitation, firstId);
-            await page.getByRole("button", { name: `Renombrar ${label}`, exact: true }).click(); await page.getByLabel("Nombre interno", { exact: true }).fill(updatedLabel);
-            await page.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal.", exact: true }).check(); await page.getByRole("button", { name: "Guardar acción", exact: true }).click();
+            await page.getByRole("button", { name: `Renombrar ${label}`, exact: true }).click(); await settleGuidedStep(page);
+            await page.getByRole("heading", { name: "Renombrar invitación", exact: true }).waitFor({ state: "visible" });
+            await page.getByLabel("Nombre interno", { exact: true }).fill(updatedLabel); await continueStep(page);
+            await page.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal.", exact: true }).check(); await page.getByRole("button", { name: "Guardar nombre", exact: true }).click();
             await page.getByRole("button", { name: `Reemitir ${updatedLabel}`, exact: true }).waitFor({ state: "visible" }); completed("renamed");
             await fixture.confirm(REAUTHENTICATION_OPERATION.createPersonalInvitation);
-            await page.getByRole("button", { name: `Reemitir ${updatedLabel}`, exact: true }).click();
-            await page.getByRole("checkbox", { name: /Reconozco la dispensa/ }).check(); await page.getByRole("checkbox", { name: "Sin vencimiento", exact: true }).check(); await page.getByRole("checkbox", { name: /Reconozco que el enlace seguirá/ }).check(); await page.getByRole("checkbox", { name: /Confirmo revocar/ }).check(); await page.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal.", exact: true }).check();
-            lost = true; await page.getByRole("button", { name: "Guardar acción", exact: true }).click();
+            await page.getByRole("button", { name: `Reemitir ${updatedLabel}`, exact: true }).click(); await settleGuidedStep(page);
+            await continueStep(page); await page.getByRole("checkbox", { name: /Reconozco la dispensa/ }).check(); await continueStep(page);
+            await page.getByRole("checkbox", { name: "Sin vencimiento", exact: true }).check(); await page.getByRole("checkbox", { name: /Reconozco que el enlace seguirá/ }).check(); await continueStep(page);
+            await page.getByRole("checkbox", { name: /Confirmo revocar/ }).check(); await page.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal.", exact: true }).check();
+            lost = true; await page.getByRole("button", { name: "Reemitir invitación", exact: true }).click();
             await page.getByRole("button", { name: "Consultar operación original", exact: true }).waitFor({ state: "visible" }); completed("uncertain");
             if (capture) await captureAdmissionReview(page, "management-response-lost", [fixture.userId, fixture.sessionToken, fixture.own.email, secret, rawUrl], "personal-management-captures.json");
             await page.getByRole("button", { name: "Consultar operación original", exact: true }).click();
@@ -74,8 +95,9 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native persona
             await page.getByRole("button", { name: `Revocar ${updatedLabel}`, exact: true }).waitFor({ state: "visible" }); completed("recovered");
             expect(writes.filter((write) => write.method === "POST")).toHaveLength(2); expect(latestId !== firstId).toBe(true);
             await fixture.confirm(REAUTHENTICATION_OPERATION.revokePersonalInvitation, latestId);
-            await page.getByRole("button", { name: `Revocar ${updatedLabel}`, exact: true }).click(); await page.getByLabel("Motivo interno", { exact: true }).fill("Retiro de ejemplo"); await page.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal.", exact: true }).check(); await page.getByRole("button", { name: "Guardar acción", exact: true }).click();
-            await page.getByRole("button", { name: "Guardar acción", exact: true }).waitFor({ state: "visible" }); await page.waitForFunction(() => !Array.from(document.querySelectorAll("button")).some((button) => button.getAttribute("aria-busy") === "true")); completed("revoked");
+            await page.getByRole("button", { name: `Revocar ${updatedLabel}`, exact: true }).click(); await settleGuidedStep(page); await page.getByLabel("Motivo interno", { exact: true }).fill("Retiro de ejemplo"); await continueStep(page); await page.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal.", exact: true }).check(); await page.getByRole("button", { name: "Revocar invitación", exact: true }).click();
+            // A landed revocation starts the flow over at a new invitation's first step.
+            await page.getByLabel("Nombre interno", { exact: true }).waitFor({ state: "visible" }); await page.waitForFunction(() => !Array.from(document.querySelectorAll("button")).some((button) => button.getAttribute("aria-busy") === "true")); completed("revoked");
             const persisted = await page.evaluate(() => JSON.stringify(Object.fromEntries(Object.keys(sessionStorage).filter((key) => key.startsWith("tutribu-personal-invitation-management:")).map((key) => [key, sessionStorage.getItem(key)])))); expect(persisted.includes(rawUrl)).toBe(false); expect(persisted.includes(identity)).toBe(false);
             expect(navigations).toBe(1); expect(reportingReads).toBe(0); expect(codeRequests).toBe(0); expect(failures).toEqual([]);
             expect(await page.getByRole("button", { name: /Google/ }).count() + await page.getByRole("link", { name: /Google/ }).count()).toBe(0);

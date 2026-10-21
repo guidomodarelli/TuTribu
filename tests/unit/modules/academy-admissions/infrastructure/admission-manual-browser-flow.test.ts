@@ -91,7 +91,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("manual admissi
                   expect(await page.getByRole("link", { name: ADMISSION_UI_COPY.signIn }).getAttribute("href")).toContain(encodeURIComponent(`/admissions/${slug}`));
                   await context.addCookies([{ name: "better-auth.session_token", value: encodeURIComponent(`${participant.token}.${await makeSignature(participant.token, secret)}`), url: origin, httpOnly: true, sameSite: "Lax" }]);
                   await page.goto(`${origin}/admissions/${slug}`);
-                  await page.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }).waitFor();
+                  await page.getByRole("textbox", { name: ADMISSION_UI_COPY.message }).waitFor();
                   await page.getByRole("textbox", { name: ADMISSION_UI_COPY.message }).fill("Quiero participar de la academia.");
                   await page.screenshot({ path: join(captures, `${engine}-${width}-form.png`), fullPage: true });
                   await captureFragment(page, "admission-form");
@@ -101,6 +101,9 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("manual admissi
                     if (engine === "chromium" && width === 390 && submissions === 1) { await route.fetch(); await route.abort("failed"); }
                     else await route.continue();
                   });
+                  // The data step hands over to the submission, which holds the consent and the final action.
+                  await page.waitForFunction(() => Array.from(document.querySelectorAll("button")).some((button) => button.textContent?.trim() === "Continuar" && !button.disabled));
+                  await page.getByRole("button", { name: "Continuar", exact: true }).click();
                   await page.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }).check();
                   await page.getByRole("button", { name: ADMISSION_UI_COPY.submit, exact: true }).click();
                   if (engine === "chromium" && width === 390) {

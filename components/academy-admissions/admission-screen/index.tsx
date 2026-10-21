@@ -21,11 +21,15 @@ export type AdmissionScreenProps = {
   whatsappErrorMessage?: string | null;
   whatsappEditor?: ReactNode;
   verification?: ReactNode; canSubmitWithProof?: boolean; contactLocked?: boolean;
+  /** The guided request flow; when present it replaces the standalone verification and form. */
+  requestFlow?: ReactNode;
+  /** The read that recovers an unconfirmed code operation; while it blocks, it is the page's one next action. */
+  contactRecovery?: ReactNode;
   onChange?: (draft: AdmissionDraft) => void; onConfirm?: (confirmed: boolean) => void; onCancelConfirm?: (confirmed: boolean) => void; onSubmit?: () => void; onCancel?: () => void; onRead?: () => void; onRetryOriginal?: () => void; onReloadAccount?: () => void;
 };
 
 /** @param props - Validated owned state and container actions. @returns A restrained responsive page with persistent accessible feedback. */
-export function AdmissionScreen({ state, draft = { phone: "", country: "", message: "" }, confirmed = false, cancelConfirmed = false, phase = ADMISSION_UI_PHASE.idle, now, errorMessage, feedback, accountChanged = false, formReady = false, retryOriginal = false, signInHref = ROUTES.auth.signIn, retryHref, requestPage = false, requestStatusRef, verification, canSubmitWithProof = false, contactLocked = false, whatsappErrorMessage, whatsappEditor, onChange, onConfirm, onCancelConfirm, onSubmit, onCancel, onRead, onRetryOriginal, onReloadAccount }: AdmissionScreenProps) {
+export function AdmissionScreen({ state, draft = { phone: "", country: "", message: "" }, confirmed = false, cancelConfirmed = false, phase = ADMISSION_UI_PHASE.idle, now, errorMessage, feedback, accountChanged = false, formReady = false, retryOriginal = false, signInHref = ROUTES.auth.signIn, retryHref, requestPage = false, requestStatusRef, verification, requestFlow, contactRecovery, canSubmitWithProof = false, contactLocked = false, whatsappErrorMessage, whatsappEditor, onChange, onConfirm, onCancelConfirm, onSubmit, onCancel, onRead, onRetryOriginal, onReloadAccount }: AdmissionScreenProps) {
   const ready = state.kind === "ready", loading = state.kind === "loading";
   const busy = phase === ADMISSION_UI_PHASE.writing || phase === ADMISSION_UI_PHASE.checking;
   const blocked = busy || phase === ADMISSION_UI_PHASE.uncertain || accountChanged || !formReady;
@@ -43,9 +47,11 @@ export function AdmissionScreen({ state, draft = { phone: "", country: "", messa
         {state.request && <RequestStatus request={state.request} statusRef={requestStatusRef} now={now ?? state.renderedAt} confirmed={cancelConfirmed} disabled={blocked} busy={phase === ADMISSION_UI_PHASE.writing} errorMessage={null} retryHref={readyToRetry ? retryHref : undefined} onConfirm={(value) => onCancelConfirm?.(value)} onCancel={() => onCancel?.()} />}
         {whatsappEditor}
         {!requestPage && state.request && <Link href={buildOwnAdmissionRequestRoute(state.overview.tribe.slug, state.request.id)}>Ver solicitud</Link>}
-        {verification}
-        {canSubmit && <AdmissionForm draft={draft} contactLocked={contactLocked} contactType={state.overview.policy?.contactType ?? "email"} showWhatsappNumber={formReady && !accountChanged} requiresWhatsappNumber={state.overview.policy?.requiresWhatsappNumber ?? false} whatsappErrorMessage={whatsappErrorMessage} confirmed={confirmed} disabled={blocked} busy={phase === ADMISSION_UI_PHASE.writing} errorMessage={null} onChange={(value) => onChange?.(value)} onConfirm={(value) => onConfirm?.(value)} onSubmit={() => onSubmit?.()} />}
-        {state.overview.state === ADMISSION_OVERVIEW_STATE.verificationRequired && !verification && <p className={styles.AdmissionScreen__help}>{ADMISSION_UI_COPY.verifying}</p>}
+        {contactRecovery && <div className={styles.AdmissionScreen__callout}><p role="status">{ADMISSION_UI_COPY.contactRecovery}</p>{contactRecovery}</div>}
+        {requestFlow}
+        {!requestFlow && verification}
+        {!requestFlow && canSubmit && <AdmissionForm draft={draft} contactLocked={contactLocked} contactType={state.overview.policy?.contactType ?? "email"} showWhatsappNumber={formReady && !accountChanged} requiresWhatsappNumber={state.overview.policy?.requiresWhatsappNumber ?? false} whatsappErrorMessage={whatsappErrorMessage} confirmed={confirmed} disabled={blocked} busy={phase === ADMISSION_UI_PHASE.writing} errorMessage={null} onChange={(value) => onChange?.(value)} onConfirm={(value) => onConfirm?.(value)} onSubmit={() => onSubmit?.()} />}
+        {state.overview.state === ADMISSION_OVERVIEW_STATE.verificationRequired && !verification && !requestFlow && <p className={styles.AdmissionScreen__help}>{ADMISSION_UI_COPY.verifying}</p>}
       </>}
       {feedback && <p role="status">{feedback}</p>}
       {phase === ADMISSION_UI_PHASE.uncertain && <p role="status">{ADMISSION_UI_COPY.uncertain}</p>}

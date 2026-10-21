@@ -111,10 +111,19 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Cada aspirante puede corregir su WhatsApp mientras la solicitud siga pendiente y vigente; el formulario conserva el cambio original si se pierde la respuesta y avisa cuando debe revisarse de nuevo.
 
 ### Changed
+- Al aprobar una solicitud, el motivo interno es opcional. Sigue siendo obligatorio para rechazar y para aprobar a alguien fuera de la lista como excepción.
+- El número que informa quien solicita el ingreso se llama ahora «Teléfono», en lugar de «WhatsApp del grupo», en el formulario, en la revisión y en las reglas.
+- Los avisos emergentes quedan 8 segundos en pantalla, el doble que antes, para que se puedan leer.
 
+- Pedir el código de verificación de una solicitud de admisión tarda alrededor de un tercio menos, y confirmarlo, alrededor de un 40 % menos.
 - Conexión de mensajería se configura en pasos cortos, uno por decisión, con «Atrás», «Siguiente» y «Activar conexión»: clave, credencial, canales, una prueba por cada canal y activación. Cada paso deja seguir recién cuando su operación terminó, y al volver se abre directamente el primer paso pendiente.
 - En Conexión de mensajería, el resultado de guardar, comprobar, configurar un canal, enviar una prueba, confirmar un código, activar y las consultas aparece como notificación en lugar de texto al pie de la pantalla; lo que sigue pendiente queda en «Acciones pendientes».
 - Una prueba cuyo canal ya quedó comprobado se muestra como confirmada en lugar de «Esperando el código», y las pruebas conservadas quedan plegadas debajo de los pasos como recuperación secundaria.
+- Habilitados se completa en pasos chicos (contacto, nombre y estado, revisión) con «Atrás», «Continuar» y un solo «Agregar entrada» o «Guardar entrada»; editar abre directamente el paso de nombre y estado, y la búsqueda queda plegada debajo.
+- Importar habilitados desde CSV se hace en tres pasos: subir el archivo y crear la vista previa, revisar filas y errores, y confirmar con «Importar filas elegidas»; la revisión se abre recién cuando la vista previa quedó guardada y, al volver, retoma donde quedó. La plantilla, el progreso y el reporte quedan plegados.
+- Las invitaciones personales se emiten en pasos (destinatario, lista de habilitados, vencimiento y revisión con «Emitir invitación»); renombrar y revocar tienen su propio camino corto, y cada paso explica por qué todavía no se puede continuar.
+- La solicitud de ingreso guía a la persona en pasos: sus datos, enviar el código, comprobarlo y enviar la solicitud. Cada paso avanza recién cuando su envío terminó, al volver retoma el primer paso pendiente y reenviar el código o consultar su envío quedan plegados en «¿No te llegó el código?». Con una solicitud pendiente que necesita el código, los pasos terminan en «Aplicar prueba a esta solicitud».
+- En habilitados, importación, invitaciones personales y la solicitud de ingreso, el progreso y el resultado de cada guardado se avisan una sola vez en una notificación; en la pantalla quedan solo los errores del formulario, los bloqueos y lo que falta consultar, sin repetir la notificación.
 - Guardar y activar las reglas de admisión tarda menos (activar, alrededor de la mitad), y las páginas de Solicitudes, Reglas, Avisos, Países y cupos y Conexión de mensajería cargan más rápido.
 - Solicitudes y Reglas cargan bastante más rápido (Reglas, en alrededor de la mitad del tiempo), y Avisos, guardar, activar y la comprobación previa a la activación también tardan menos.
 - Conexión de mensajería carga en alrededor de la mitad del tiempo y Países y cupos, en cerca de un tercio menos.
@@ -163,7 +172,13 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Los líderes de tribu ya no necesitan confirmar su cuenta con Google para operaciones sensibles de admisiones, mensajería, salida del modo academia o borrado de la tribu; desaparecen el botón y la pantalla de confirmación.
 
 ### Fixed
+- Sin reglas de admisión guardadas, Habilitados y la importación de CSV muestran «Primero guardá las reglas de admisión» con un botón «Ir a Reglas», en lugar de un campo bloqueado.
+- En Reglas, «Cargar personas en Habilitados» y «Configurar países y cupos de mensajería» se ven como botones. El primero aparece recién cuando las reglas están guardadas; antes, una nota explica que vas a poder cargar personas después de guardar.
+- Si guardás reglas que activan el código de comprobación sin tener el canal preparado, la pantalla explica que falta prepararlo en Conexión, con el enlace, y aclara que las reglas vigentes no cambiaron, en lugar de un aviso genérico.
+- Si falla la carga de las reglas de admisión, la lista de habilitados, la importación de CSV o los avisos de admisiones, el aviso de error aparece con el título de esa página y no con el de la bandeja de revisión.
 
+- Al descargar o quitar un archivo de una lección que no existe o que no podés ver, se informa que no se encontró el archivo, aunque el almacenamiento de archivos no esté disponible, en lugar de un error al preparar la descarga.
+- Al descargar o quitar un adjunto de un mensaje que no existe o que no podés ver, se informa que no se encontró el archivo, aunque el almacenamiento de archivos no esté disponible, en lugar de un error al preparar la descarga.
 - La actividad de admisiones avisa que el mantenimiento está detenido cuando no completa una ejecución hace más de diez minutos o nunca completó una, aunque algunas tareas sueltas sigan avanzando, y muestra la última ejecución completa.
 - Los avisos agrupados de nuevas solicitudes ya no se atrasan cuando hay muchas solicitudes juntas o la bandeja del líder está abierta.
 - Los correos y SMS que el proveedor tarda en aceptar ya no quedan como «desconocidos»: se espera su respuesta y nunca se reenvían.

@@ -7,20 +7,6 @@
   gap: 2rem;
   overflow-wrap: anywhere;
 
-  &__section {
-    @include workspace-panel.block;
-
-    & > h2 {
-      @include workspace-panel.title;
-    }
-  }
-
-  &__form {
-    @include workspace-panel.form;
-
-    max-width: 40rem;
-  }
-
   &__field {
     @include workspace-panel.field;
   }
@@ -29,18 +15,20 @@
     @include workspace-panel.actions;
   }
 
-  &__confirmation {
-    @include workspace-panel.consent;
+  &__callout {
+    @include workspace-panel.callout;
+  }
+
+  &__summary {
+    @include workspace-panel.lead;
+
+    color: var(--foreground);
+    font-weight: 500;
   }
 
   &__counts {
     @include workspace-panel.summary;
     @include workspace-panel.facts;
-
-    & > div {
-      display: grid;
-      gap: 0.25rem;
-    }
 
     & dt {
       @include workspace-panel.fact-term;
@@ -51,6 +39,11 @@
 
       font-size: 1.25rem;
     }
+  }
+
+  &__count {
+    display: grid;
+    gap: 0.25rem;
   }
 
   &__rows {

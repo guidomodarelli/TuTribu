@@ -12,6 +12,7 @@ import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS } from "@/tests/support/cons
 import { MESSAGING_CRYPTO, MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
+import { continueToAdmissionSubmission } from "@/tests/support/admission-contact-browser-actions";
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native common automatic list admission", () => {
   it("should create one basic membership only after common list confirmation on Chromium and WebKit desktop and mobile", async () => {
@@ -43,6 +44,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native common 
               page.on("console", (message) => { if (message.type() === "error" && /hydration|did not match/i.test(message.text())) failures.push("hydration_error"); });
               page.on("request", (request) => { const path = new URL(request.url()).pathname; if (request.resourceType() === "document") documentRequests++; if (observeRouteRefreshes && path === `/admissions/${slug}` && request.headers().rsc === "1") routeRefreshes++; if (request.method() === "POST" && path.endsWith("/admissions/submissions")) submissions++; if (request.method() === "POST" && path.endsWith("/challenges")) codeRequests++; });
               await page.goto(`${origin}/admissions/${slug}`, { waitUntil: "domcontentloaded" });
+              await continueToAdmissionSubmission(page);
               const confirmation = page.getByRole("checkbox", { name: "Confirmo que quiero solicitar ingreso a esta academia", exact: true });
               await confirmation.waitFor({ state: "visible", timeout: 90_000 });
               await page.waitForLoadState("networkidle");

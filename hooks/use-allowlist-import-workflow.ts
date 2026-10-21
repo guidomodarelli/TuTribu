@@ -2,6 +2,7 @@
 /** Owns one viewer-scoped CSV draft, explicit writes and read-only original/current recovery. @module use-allowlist-import-workflow */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "@golfo/ui";
+import { startWriteToast, type WriteToast } from "@/lib/toasts/write-toast";
 import type { AllowlistImportPageState } from "@/src/modules/academy-admissions/application/results/allowlist-import-page-state";
 import type { AllowlistImportBrowserClient } from "@/src/modules/academy-admissions/application/ports/allowlist-import-browser-client";
 import type { AllowlistBrowserResult } from "@/src/modules/academy-admissions/application/ports/allowlist-browser-client";
@@ -13,7 +14,7 @@ import { allowlistImportApiClient } from "@/lib/academy-admissions/allowlist-imp
 import { readAllowlistImport, writeAllowlistImport, type StoredAllowlistImport } from "@/lib/academy-admissions/allowlist-import-intent";
 import { readAllowlistImportFile, countAllowlistImportRows } from "@/lib/academy-admissions/allowlist-import-file-client";
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
-import { ALLOWLIST_IMPORT_BROWSER_COPY as COPY, ALLOWLIST_IMPORT_WRITE_ACTION as WRITE_ACTION, type AllowlistImportWriteAction } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
+import { ALLOWLIST_IMPORT_BROWSER_COPY as COPY, ALLOWLIST_IMPORT_WRITE_ACTION as WRITE_ACTION, ALLOWLIST_IMPORT_STEP, type AllowlistImportWriteAction } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
 import { ALLOWLIST_BROWSER_TIMEOUT_MS } from "@/src/modules/academy-admissions/constants/allowlist-browser";
 import { ADMISSION_IMPORT_PUBLIC_STATE as IMPORT_STATE } from "@/src/modules/academy-admissions/constants/admission-management-contract";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
@@ -34,8 +35,8 @@ export function useAllowlistImportWorkflow(options: { initialState: AllowlistImp
   const [writeAction, setWriteAction] = useState<AllowlistImportWriteAction | null>(null);
   const [initializationFailed, setInitializationFailed] = useState(false), [initializationRevision, setInitializationRevision] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null), [fieldError, setFieldError] = useState<string | null>(null), [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [conflict, setConflict] = useState(false), [policyConflict, setPolicyConflict] = useState(false), [originalChecked, setOriginalChecked] = useState(false);
-  const active = useRef(false), generation = useRef(0), occupied = useRef(false), authorityLost = useRef(false), controller = useRef<AbortController | null>(null), downloadCleanup = useRef(new Set<() => void>());
+  const [conflict, setConflict] = useState(false), [policyConflict, setPolicyConflict] = useState(false), [originalChecked, setOriginalChecked] = useState(false), [step, setStep] = useState<number>(ALLOWLIST_IMPORT_STEP.upload);
+  const active = useRef(false), generation = useRef(0), occupied = useRef(false), authorityLost = useRef(false), controller = useRef<AbortController | null>(null), downloadCleanup = useRef(new Set<() => void>()), writeToast = useRef<WriteToast | null>(null);
   const live = (signal: AbortSignal, scope: number) => active.current && generation.current === scope && !signal.aborted;
   /** @param next - One exact owned proposal and references. @returns True only when a new write can recover its identity after navigation. */
   const persist = useCallback((next: StoredAllowlistImport) => {
@@ -48,6 +49,11 @@ export function useAllowlistImportWorkflow(options: { initialState: AllowlistImp
     const denied = failure.code === ADMISSION_ERROR_CODE.authenticationRequired || failure.code === ADMISSION_ERROR_CODE.permissionDenied;
     if (denied) { authorityLost.current = true; setPrivateVisible(false); setReady(false); setConfirmed(false); }
     return denied;
+  }, []);
+  /** @param message - Safe failure copy. @param blocking - Whether it keeps the flow blocked; that stays on screen, any other failure is the write's toast. */
+  const announceFailure = useCallback((message: string, blocking: boolean) => {
+    if (blocking || !writeToast.current) { setErrorMessage(message); return; }
+    setErrorMessage(null); writeToast.current.announce({ kind: "error", message });
   }, []);
   /** @param signal - Current cancellable action. @param scope - Render generation. @returns Current native identity; stale data can never replace a new account's view. */
   const authorize = useCallback(async (signal: AbortSignal, scope: number) => {
@@ -80,22 +86,37 @@ export function useAllowlistImportWorkflow(options: { initialState: AllowlistImp
   /** @param action - One user operation. @param message - Own progress copy. @param write - The pressed write when an original is being dispatched. @returns After bounded action cleanup; cancellation never implies rollback. */
   const run = useCallback(async (action: (signal: AbortSignal, scope: number) => Promise<void>, message: string = COPY.reading, write: AllowlistImportWriteAction | null = null) => {
     if (!initial || occupied.current || authorityLost.current) return;
-    occupied.current = true; setBusy(true); setWriteAction(write); setErrorMessage(null); setFieldError(null); setStatusMessage(message);
+    occupied.current = true; setBusy(true); setWriteAction(write); setErrorMessage(null); setFieldError(null); setStatusMessage(write ? null : message);
     const next = new AbortController(), scope = generation.current; controller.current = next;
-    const timeout = window.setTimeout(() => next.abort(), ALLOWLIST_BROWSER_TIMEOUT_MS), notice = write ? toast.loading(message) : null;
+    // A server write announces its progress and outcome in its own toast; an unconfirmed original stays on screen.
+    const timeout = window.setTimeout(() => next.abort(), ALLOWLIST_BROWSER_TIMEOUT_MS), notice = write ? startWriteToast(message) : null; writeToast.current = notice;
+    /** A failure the leader can retry: the write's toast, or the page for a read. */
+    const fail = (failure: string) => { if (notice && !current.current.pending) notice.announce({ kind: "error", message: failure }); else setErrorMessage(failure); };
     try { if (await authorize(next.signal, scope)) await action(next.signal, scope); }
-    catch { if (live(next.signal, scope)) setErrorMessage(current.current.pending ? COPY.uncertain : ADMISSION_ERROR_MESSAGE.dependency_unavailable); }
+    catch { if (live(next.signal, scope)) fail(current.current.pending ? COPY.uncertain : ADMISSION_ERROR_MESSAGE.dependency_unavailable); }
     finally {
-      window.clearTimeout(timeout); if (notice !== null) toast.dismiss(notice);
-      if (controller.current === next) { occupied.current = false; controller.current = null; if (active.current && generation.current === scope) { setBusy(false); setWriteAction(null); setStatusMessage((currentMessage) => currentMessage === message ? null : currentMessage); if (next.signal.aborted) setErrorMessage(current.current.pending ? COPY.uncertain : ADMISSION_ERROR_MESSAGE.dependency_unavailable); } }
+      window.clearTimeout(timeout);
+      if (controller.current === next) { occupied.current = false; controller.current = null; if (active.current && generation.current === scope) { setBusy(false); setWriteAction(null); setStatusMessage((currentMessage) => currentMessage === message ? null : currentMessage); if (next.signal.aborted) fail(current.current.pending ? COPY.uncertain : ADMISSION_ERROR_MESSAGE.dependency_unavailable); } }
+      if (writeToast.current === notice) writeToast.current = null;
+      notice?.finish();
     }
   }, [authorize, initial]);
   /** @param intent - Immutable original proposal. @param value - Actual original state. @param signal - Action scope. @param scope - Render generation. @returns After original/current reconciliation, without overwriting rows from historical counts. */
   const consume = useCallback(async (intent: AllowlistImportBrowserIntent, value: { operationId: string; state: "started" | "completed"; result?: unknown }, signal: AbortSignal, scope: number, originalRead = false) => {
     if (value.operationId !== intent.operationId) { setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); return; }
-    if (value.state === OPERATION_STATE.started) { setOriginalChecked(originalRead); setErrorMessage(COPY.started); if (intent.type === OPERATION.confirmAllowlistImport) await fetchCurrent(intent.importId, signal, scope); return; }
+    if (value.state === OPERATION_STATE.started) {
+      setOriginalChecked(originalRead); setErrorMessage(COPY.started);
+      // The partial results are row outcomes, so the review step shows them before the pending rows are resumed.
+      if (intent.type === OPERATION.confirmAllowlistImport && await fetchCurrent(intent.importId, signal, scope)) setStep(ALLOWLIST_IMPORT_STEP.review);
+      return;
+    }
     const denial = allowlistImportDenialSchema.safeParse(value.result);
-    if (denial.success) { if (!persist({ ...current.current, pending: null, unresolved: current.current.unresolved.filter((original) => original.operationId !== intent.operationId) })) return; setConfirmed(false); setErrorMessage(ADMISSION_ERROR_MESSAGE[denial.data.code]); setConflict(denial.data.code === ADMISSION_ERROR_CODE.allowlistImportConflict); setPolicyConflict(denial.data.code === ADMISSION_ERROR_CODE.policyConflict); return; }
+    if (denial.success) {
+      if (!persist({ ...current.current, pending: null, unresolved: current.current.unresolved.filter((original) => original.operationId !== intent.operationId) })) return;
+      setConfirmed(false); setConflict(denial.data.code === ADMISSION_ERROR_CODE.allowlistImportConflict); setPolicyConflict(denial.data.code === ADMISSION_ERROR_CODE.policyConflict);
+      announceFailure(ADMISSION_ERROR_MESSAGE[denial.data.code], denial.data.code === ADMISSION_ERROR_CODE.allowlistImportConflict || denial.data.code === ADMISSION_ERROR_CODE.policyConflict);
+      return;
+    }
     const parsed = intent.type === OPERATION.previewAllowlistImport ? allowlistImportReferenceSchema.safeParse(value.result) : allowlistImportConfirmationResultSchema.safeParse(value.result);
     if (!parsed.success || intent.type === OPERATION.previewAllowlistImport && parsed.data.sourceVersion !== 1 || intent.type === OPERATION.confirmAllowlistImport && (parsed.data.importId !== intent.importId || parsed.data.sourceVersion < intent.expectedVersion)) { setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); return; }
     if (!persist({ ...current.current, importId: parsed.data.importId, pending: null, unresolved: current.current.unresolved.filter((original) => original.operationId !== intent.operationId) })) return;
@@ -104,8 +125,10 @@ export function useAllowlistImportWorkflow(options: { initialState: AllowlistImp
       if (live(signal, scope) && !authorityLost.current) { setConflict(true); setStatusMessage(current.current.importId ? COPY.currentReadFailed : COPY.historical); }
       return;
     }
-    setConfirmed(false); setOriginalChecked(false); setStatusMessage(intent.type === OPERATION.previewAllowlistImport ? COPY.previewed : COPY.confirmed); toast.success(intent.type === OPERATION.previewAllowlistImport ? COPY.previewed : COPY.confirmed);
-  }, [fetchCurrent, persist]);
+    setConfirmed(false); setOriginalChecked(false); setStep(ALLOWLIST_IMPORT_STEP.review);
+    const confirmation = intent.type === OPERATION.previewAllowlistImport ? COPY.previewed : COPY.confirmed;
+    if (writeToast.current) writeToast.current.announce({ kind: "success", message: confirmation }); else toast.success(confirmation);
+  }, [announceFailure, fetchCurrent, persist]);
   /** @param intent - Exact new or explicitly reconciled command. @param signal - Action scope. @param scope - Render generation. @returns After recording before POST and retaining uncertainty after an incomplete reply. */
   const dispatch = useCallback(async (intent: AllowlistImportBrowserIntent, signal: AbortSignal, scope: number) => {
     const prior = current.current.pending;
@@ -118,9 +141,11 @@ export function useAllowlistImportWorkflow(options: { initialState: AllowlistImp
     else if (result.status === "failed" && !result.uncertain) {
       if (!persist({ ...current.current, pending: null })) return;
       setConfirmed(false); if (reportFailure(result)) return;
+      const blocking = result.code === ADMISSION_ERROR_CODE.allowlistImportConflict || result.code === ADMISSION_ERROR_CODE.policyConflict;
       setConflict(result.code === ADMISSION_ERROR_CODE.allowlistImportConflict); setPolicyConflict(result.code === ADMISSION_ERROR_CODE.policyConflict);
+      if (!blocking) { setErrorMessage(null); announceFailure(result.message, false); }
     } else { setConfirmed(false); setErrorMessage(COPY.uncertain); }
-  }, [authorize, client, consume, initial, persist, reportFailure]);
+  }, [announceFailure, authorize, client, consume, initial, persist, reportFailure]);
   const readOriginal = useCallback(() => run(async (signal, scope) => {
     const intent = current.current.pending ?? current.current.unresolved[0];
     if (!intent) return;
@@ -129,7 +154,7 @@ export function useAllowlistImportWorkflow(options: { initialState: AllowlistImp
     if (original.status === "ready" && original.value.type === intent.type) await consume(intent, original.value, signal, scope, true);
     else { if (original.status === "failed" && reportFailure(original)) return; setErrorMessage(original.status === "failed" && original.code === ADMISSION_ERROR_CODE.resourceUnavailable ? COPY.absent : COPY.uncertain); }
   }), [authorize, client, consume, initial, reportFailure, run]);
-  const readCurrent = useCallback(() => run(async (signal, scope) => { if (current.current.importId) await fetchCurrent(current.current.importId, signal, scope); }), [fetchCurrent, run]);
+  const readCurrent = useCallback(() => run(async (signal, scope) => { if (current.current.importId && await fetchCurrent(current.current.importId, signal, scope)) setStep((open) => Math.max(open, ALLOWLIST_IMPORT_STEP.review)); }), [fetchCurrent, run]);
   useEffect(() => {
     active.current = true; generation.current += 1; const scope = generation.current, hydration = new AbortController(), cleanupDownloads = downloadCleanup.current;
     const timeout = window.setTimeout(() => { hydration.abort(); if (active.current && generation.current === scope) { setInitializationFailed(true); setReady(false); setErrorMessage(ADMISSION_ERROR_MESSAGE.dependency_unavailable); } }, ALLOWLIST_BROWSER_TIMEOUT_MS);
@@ -138,7 +163,7 @@ export function useAllowlistImportWorkflow(options: { initialState: AllowlistImp
       if (!initial || !await authorize(hydration.signal, scope)) return;
       const restored = await readAllowlistImport(initial.viewerId, initial.slug, window.sessionStorage, drafts, hydration.signal);
       if (!live(hydration.signal, scope) || !await authorize(hydration.signal, scope)) return;
-      if (restored) { current.current = restored; setStored(restored); if (restored.importId) await fetchCurrent(restored.importId, hydration.signal, scope); }
+      if (restored) { current.current = restored; setStored(restored); if (restored.importId && await fetchCurrent(restored.importId, hydration.signal, scope)) setStep(current.current.selection.length ? ALLOWLIST_IMPORT_STEP.confirm : ALLOWLIST_IMPORT_STEP.review); }
       if (live(hydration.signal, scope) && !authorityLost.current) { setReady(true); setConfirmed(false); if (restored?.pending) setErrorMessage(COPY.uncertain); else if (restored && !restored.draft) setStatusMessage(COPY.missingDraft); }
     })().catch(() => { if (live(hydration.signal, scope)) { setInitializationFailed(true); setErrorMessage(COPY.storage); } }).finally(() => window.clearTimeout(timeout)); });
     return () => { active.current = false; generation.current += 1; hydration.abort(); controller.current?.abort(); occupied.current = false; window.clearTimeout(timeout); for (const cleanup of cleanupDownloads) cleanup(); cleanupDownloads.clear(); };
@@ -151,7 +176,7 @@ export function useAllowlistImportWorkflow(options: { initialState: AllowlistImp
     if (!live(signal, scope) || !await authorize(signal, scope)) return;
     const previousId = current.current.draft?.draftId;
     if (!persist({ ...current.current, draft: saved, importId: null, selection: [] })) return;
-    snapshotRef.current = null; setSnapshot(null); setConfirmed(false); setErrorMessage(null); setFieldError(null); setStatusMessage(null); setConflict(false); setPolicyConflict(false);
+    snapshotRef.current = null; setSnapshot(null); setConfirmed(false); setErrorMessage(null); setFieldError(null); setStatusMessage(null); setConflict(false); setPolicyConflict(false); setStep(ALLOWLIST_IMPORT_STEP.upload);
     if (previousId && previousId !== saved.draftId) {
       try { await drafts.remove(previousId); }
       catch { console.warn("AllowlistImport:replacedDraftCleanup failed; expired local data will be retried during storage maintenance"); }
@@ -209,7 +234,7 @@ export function useAllowlistImportWorkflow(options: { initialState: AllowlistImp
     const result = await client.file(initial!.slug, kind, current.current.importId, signal);
     if (!live(signal, scope) || !await authorize(signal, scope)) return;
     if (result.status !== "ready") { if (result.status === "failed") reportFailure(result); return; }
-    const cleanup = downloadAllowlistImportFile(result.value.blob, result.value.fileName, () => downloadCleanup.current.delete(cleanup)); downloadCleanup.current.add(cleanup); setStatusMessage(COPY.downloaded);
+    const cleanup = downloadAllowlistImportFile(result.value.blob, result.value.fileName, () => downloadCleanup.current.delete(cleanup)); downloadCleanup.current.add(cleanup); toast.success(COPY.downloaded);
   }), [authorize, client, initial, reportFailure, run]);
   const reconcilePrevious = useCallback(() => run(async (signal, scope) => {
     const intent = current.current.unresolved[0], resource = snapshotRef.current;
@@ -218,5 +243,5 @@ export function useAllowlistImportWorkflow(options: { initialState: AllowlistImp
     await dispatch(intent, signal, scope);
   }, COPY.confirming, WRITE_ACTION.reconcile), [dispatch, originalChecked, run]);
   const retryInitialization = useCallback(() => { if (!occupied.current && !authorityLost.current) setInitializationRevision((revision) => revision + 1); }, []);
-  return { ready, busy, writeAction, confirmed, setConfirmed, initializationFailed, retryInitialization, hasSavedImport: stored.importId !== null, draft: stored.draft, snapshot, selection: stored.selection, pending: stored.pending, unresolved: stored.unresolved, privateVisible, errorMessage, fieldError, statusMessage, conflict, policyConflict, policy, originalChecked, changeDraft, upload, preview, confirm, selectRow, readOriginal, readCurrent, readPolicy, download, reconcilePrevious };
+  return { ready, busy, writeAction, confirmed, setConfirmed, step: snapshot ? step : ALLOWLIST_IMPORT_STEP.upload, setStep: (value: number) => { if (!occupied.current) setStep(value); }, initializationFailed, retryInitialization, hasSavedImport: stored.importId !== null, draft: stored.draft, snapshot, selection: stored.selection, pending: stored.pending, unresolved: stored.unresolved, privateVisible, errorMessage, fieldError, statusMessage, conflict, policyConflict, policy, originalChecked, changeDraft, upload, preview, confirm, selectRow, readOriginal, readCurrent, readPolicy, download, reconcilePrevious };
 }

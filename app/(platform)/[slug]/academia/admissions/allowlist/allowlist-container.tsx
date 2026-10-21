@@ -6,15 +6,16 @@ import { useAllowlistWorkflow } from "@/hooks/use-allowlist-workflow";
 import { AllowlistManagement } from "@/components/academy-admissions/allowlist-management";
 import { AdmissionRouteError } from "@/components/academy-admissions/admission-route-error";
 import { ALLOWLIST_BROWSER_PHASE, ALLOWLIST_BROWSER_COPY } from "@/src/modules/academy-admissions/constants/allowlist-browser";
+import { ADMISSION_POLICY_SETTINGS_SEGMENT } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 
-/** @param props - Guarded SSR snapshot and optional owned browser ports. @returns One presenter with deterministic first-render props and explicit actions. */
+/** @param props - Guarded SSR snapshot and optional owned browser ports. @returns One presenter with deterministic first-render props and explicit actions; a write's progress is its own toast. */
 export function AllowlistContainer({ initialState, client }: { initialState: AllowlistPageState; client?: AllowlistBrowserClient }) {
   const workflow = useAllowlistWorkflow({ initialState, client });
   if (initialState.kind === "unavailable") return <AdmissionRouteError embedded message={initialState.message} reset={() => window.location.reload()} />;
-  const busy = workflow.phase === ALLOWLIST_BROWSER_PHASE.checking || workflow.phase === ALLOWLIST_BROWSER_PHASE.reading || workflow.phase === ALLOWLIST_BROWSER_PHASE.writing;
+  const writing = workflow.phase === ALLOWLIST_BROWSER_PHASE.writing;
+  const busy = workflow.phase === ALLOWLIST_BROWSER_PHASE.checking || workflow.phase === ALLOWLIST_BROWSER_PHASE.reading || writing;
   return <>
-    {busy && <p role="status">{workflow.phase === ALLOWLIST_BROWSER_PHASE.writing ? ALLOWLIST_BROWSER_COPY.saving : ALLOWLIST_BROWSER_COPY.reading}</p>}
-    {!initialState.contactType && <p role="status">{ALLOWLIST_BROWSER_COPY.noPolicy}</p>}
-    <AllowlistManagement items={workflow.page.items} contactType={initialState.contactType} search={workflow.search} status={workflow.status} draft={workflow.draft} confirmed={workflow.confirmed} ready={workflow.ready} busy={busy} writing={workflow.phase === ALLOWLIST_BROWSER_PHASE.writing} privateVisible={workflow.privateVisible} pending={Boolean(workflow.pending)} hasNext={Boolean(workflow.page.nextCursor)} conflict={workflow.conflict} errorMessage={workflow.errorMessage} statusMessage={workflow.statusMessage} fieldError={workflow.fieldError} onSearchChange={workflow.setSearch} onStatusChange={workflow.setStatus} onSearch={() => void workflow.searchEntries()} onNext={() => void workflow.next()} onSelect={workflow.select} onNew={workflow.newEntry} onDraftChange={workflow.changeDraft} onConfirm={workflow.setConfirmed} onSave={() => void workflow.save()} onReadOriginal={() => void workflow.readOriginal()} onReadCurrentEntry={() => void workflow.readCurrentEntry()} />
+    {busy && !writing && <p role="status">{ALLOWLIST_BROWSER_COPY.reading}</p>}
+    <AllowlistManagement items={workflow.page.items} contactType={initialState.contactType} policyHref={`/${encodeURIComponent(initialState.slug)}/${ADMISSION_POLICY_SETTINGS_SEGMENT}`} search={workflow.search} status={workflow.status} draft={workflow.draft} confirmed={workflow.confirmed} ready={workflow.ready} busy={busy} writing={writing} privateVisible={workflow.privateVisible} pending={Boolean(workflow.pending)} hasNext={Boolean(workflow.page.nextCursor)} conflict={workflow.conflict} errorMessage={workflow.errorMessage} fieldError={workflow.fieldError} step={workflow.step} onStepChange={workflow.setStep} onSearchChange={workflow.setSearch} onStatusChange={workflow.setStatus} onSearch={() => void workflow.searchEntries()} onNext={() => void workflow.next()} onSelect={workflow.select} onNew={workflow.newEntry} onDraftChange={workflow.changeDraft} onConfirm={workflow.setConfirmed} onSave={() => void workflow.save()} onReadOriginal={() => void workflow.readOriginal()} onReadCurrentEntry={() => void workflow.readCurrentEntry()} />
   </>;
 }

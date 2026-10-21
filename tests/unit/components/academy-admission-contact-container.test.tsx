@@ -1,6 +1,8 @@
 /** Exercises the actual route container and shared UI with own transport ports; ordinary success uses incremental state, not route refresh. @module academy-admission-contact-container-tests */
 import { randomUUID } from "node:crypto";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { act, render as renderView, screen, waitFor, within } from "@testing-library/react";
+import { ThemedToaster, toast } from "@golfo/ui";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdmissionContainer } from "@/app/(admission)/admissions/[slug]/admission-container";
@@ -15,7 +17,18 @@ import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provi
 import { writeAdmissionContactIntent, readAdmissionContactIntent } from "@/lib/academy-admissions/admission-contact-intent";
 import { writeAdmissionDraft } from "@/lib/academy-admissions/admission-draft";
 
-afterEach(() => window.sessionStorage.clear());
+// Sonner replays every active toast to a newly mounted toaster; dismissing them keeps each test's toasts its own.
+afterEach(() => { window.sessionStorage.clear(); toast.dismiss(); });
+
+/** @param ui - Route container. @returns The render result, beside the real toaster where write outcomes are announced. */
+function render(ui: ReactElement, options?: Parameters<typeof renderView>[1]) { return renderView(<>{ui}<ThemedToaster /></>, options); }
+
+/** @param user - Actual DOM interaction driver. @returns After the applicant's data step hands over to the code step. */
+async function continueToCode(user: ReturnType<typeof userEvent.setup>) {
+  const next = await screen.findByRole("button", { name: "Continuar" });
+  await waitFor(() => expect(next).toBeEnabled());
+  await user.click(next);
+}
 
 /** Own ports emulate confirmed application results; @golfo/ui, browser state and validation remain real. */
 function containerFixture() {
@@ -146,7 +159,7 @@ describe("applicant contact step in the route", () => {
     render(<AppRouterContext.Provider value={router}><AppUIProvider><AdmissionContainer initialState={initialState} requestPage client={fixture.client} contactClient={fixture.contact} /></AppUIProvider></AppRouterContext.Provider>);
     /** @param element - Actual accessible control in the rendered product. @returns After reaching it through native tab traversal. */
     const tabTo = async (element: HTMLElement) => {
-      for (let i = 0; i < 30 && document.activeElement !== element; i += 1) await user.tab();
+      for (let i = 0; i < 60 && document.activeElement !== element; i += 1) await user.tab();
       expect(element).toHaveFocus();
     };
     const consent = screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i });
@@ -164,14 +177,19 @@ describe("applicant contact step in the route", () => {
     await user.keyboard("{Enter}");
     await tabTo(await screen.findByRole("button", { name: "Aplicar prueba a esta solicitud" }));
     await user.keyboard("{Enter}");
-    const appliedFeedback = await screen.findByText("La prueba quedó aplicada a tu solicitud pendiente.");
-    expect(appliedFeedback.closest('[role="status"]')).not.toBeNull();
+    // The confirmed write is announced once, in its own toast.
+    await waitFor(() => expect(document.querySelector("[data-sonner-toaster]")).toHaveTextContent("La prueba quedó aplicada a tu solicitud pendiente."));
     expect(fixture.contact.apply).toHaveBeenCalledExactlyOnceWith("synthetic-academy", pending.id, expect.objectContaining({ proofId: fixture.proofId, expectedVersion: 1, confirmed: true }), expect.any(AbortSignal));
+    // Closing the announced toasts keeps the remaining traversal on the page's own controls.
+    act(() => { toast.dismiss(); });
+    await waitFor(() => expect(document.querySelector("[data-sonner-toast]")).toBeNull());
     const queriesBefore = vi.mocked(fixture.client.own).mock.calls.length;
     await tabTo(screen.getByRole("button", { name: "Consultar estado" }));
     await user.keyboard("{Enter}");
     await waitFor(() => expect(vi.mocked(fixture.client.own).mock.calls.length).toBeGreaterThan(queriesBefore));
     const cancelConsent = screen.getByRole("checkbox", { name: /Confirmo que quiero cancelar esta solicitud/i });
+    // Tab order skips a disabled control, so wait until the current read settles.
+    await waitFor(() => expect(cancelConsent).toBeEnabled());
     await tabTo(cancelConsent);
     await user.keyboard(" ");
     await tabTo(screen.getByRole("button", { name: "Cancelar solicitud" }));
@@ -199,6 +217,7 @@ describe("applicant contact step in the route", () => {
     render(<AdmissionContainer initialState={fixture.initialState} client={fixture.client} contactClient={fixture.contact} />);
     const recover = await screen.findByRole("button", { name: "Consultar operación del código" });
     await waitFor(() => expect(recover).toBeEnabled());
+    await continueToCode(user);
     expect(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Enviar código de ingreso" })).toBeDisabled();
     expect(fixture.contact.issue).not.toHaveBeenCalled();
@@ -220,6 +239,7 @@ describe("applicant contact step in the route", () => {
     writeAdmissionContactIntent(original);
     vi.mocked(fixture.contact.operation).mockImplementation(async (_slug, operationId) => ({ status: "ready", value: operationId === issuedOperationId ? { type: "issue_contact_challenge", state: "completed", operationId, replayed: true, result: { purpose: "admission", challengeId: previousChallengeId, channel: "sms", maskedDestination: "•••1234", expiresAt: new Date(Date.now() + ADMISSION_LIMIT.verificationCodeValidityMs).toISOString(), resendAllowedAt: new Date(Date.now() - 1).toISOString(), deliveryState: "accepted" } } : { type: "verify_contact_challenge", state: "completed", operationId, replayed: true, result: { purpose: "admission", result: "verified", proofId: fixture.proofId, applyBefore: new Date(Date.now() + ADMISSION_LIMIT.verificationProofFreshnessMs).toISOString() } } }));
     render(<AdmissionContainer initialState={initialState} client={fixture.client} contactClient={fixture.contact} />);
+    await continueToCode(userEvent.setup());
     const phone = await screen.findByLabelText("Teléfono para este ingreso");
     await waitFor(() => expect(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i })).toBeEnabled());
     expect(phone).toBeEnabled();
@@ -236,6 +256,7 @@ describe("applicant contact step in the route", () => {
     vi.mocked(fixture.contact.issue).mockImplementation(async (_slug, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { purpose: "admission", challengeId: randomUUID(), deliveryId, channel: "email", maskedDestination: "a•••@example.test", expiresAt: new Date(Date.now() + 600_000).toISOString(), resendAllowedAt: new Date(Date.now() + 60_000).toISOString(), deliveryState: "queued" } } }));
     vi.mocked(fixture.contact.delivery).mockResolvedValue({ status: "ready", value: { id: deliveryId, state: "queued", channel: "email", purpose: "admission", createdAt: fixture.initialState.renderedAt, safeReason: "usage_limit_reached" } });
     render(<AdmissionContainer initialState={fixture.initialState} client={fixture.client} contactClient={fixture.contact} />);
+    await continueToCode(user);
     await waitFor(() => expect(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i })).toBeEnabled());
     await user.click(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i }));
     await user.click(screen.getByRole("button", { name: "Enviar código de ingreso" }));
@@ -244,6 +265,8 @@ describe("applicant contact step in the route", () => {
     expect(screen.getByText("Se alcanzó el límite de nuevos envíos. Podés validar un código vigente o consultar tu solicitud.")).toBeVisible();
     expect(fixture.contact.verify).not.toHaveBeenCalled();
     vi.mocked(fixture.contact.delivery).mockResolvedValue({ status: "ready", value: { id: deliveryId, state: "failed", channel: "email", purpose: "admission", createdAt: fixture.initialState.renderedAt, safeReason: "dependency_unavailable" } });
+    // The delivery read is a secondary query, collapsed out of the main path.
+    await user.click(screen.getByText("¿No te llegó el código?"));
     await user.click(screen.getByRole("button", { name: "Consultar envío del código" }));
     expect(await screen.findByText("La mensajería no está disponible temporalmente. Podés consultar tu solicitud.")).toBeVisible();
     expect(screen.queryByText("Se alcanzó el límite de nuevos envíos. Podés validar un código vigente o consultar tu solicitud.")).not.toBeInTheDocument();
@@ -257,10 +280,11 @@ describe("applicant contact step in the route", () => {
     let finishViewer!: () => void;
     vi.mocked(fixture.client.viewer).mockImplementationOnce(() => new Promise((resolve) => { finishViewer = () => resolve({ status: "ready", value: { id: fixture.viewerId } }); }));
     render(<AdmissionContainer initialState={fixture.initialState} client={fixture.client} contactClient={fixture.contact} />);
-    expect(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
     await waitFor(() => expect(fixture.client.viewer).toHaveBeenCalledTimes(1));
     expect(fixture.contact.issue).not.toHaveBeenCalled();
     await act(async () => { finishViewer(); });
+    await continueToCode(userEvent.setup());
     await waitFor(() => expect(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i })).toBeEnabled());
     expect(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i })).not.toBeChecked();
   });
@@ -307,9 +331,25 @@ describe("applicant contact step in the route", () => {
     expect(fixture.client.submit).not.toHaveBeenCalled();
   });
 
+  it("should resume at the submission step when a stored code was already checked, without repeating the code writes", async () => {
+    const fixture = containerFixture(), user = userEvent.setup(), issuedOperationId = randomUUID(), verifiedOperationId = randomUUID();
+    writeAdmissionContactIntent({ viewerId: fixture.viewerId, slug: fixture.initialState.overview.tribe.slug, requestId: null, issuedOperationId, verifiedOperationId, pending: null });
+    vi.mocked(fixture.contact.operation).mockImplementation(async (_slug, operationId) => ({ status: "ready", value: operationId === issuedOperationId ? { type: "issue_contact_challenge", state: "completed", operationId, replayed: true, result: { purpose: "admission", challengeId: randomUUID(), channel: "email", maskedDestination: "a•••@example.test", expiresAt: new Date(Date.now() + ADMISSION_LIMIT.verificationCodeValidityMs).toISOString(), resendAllowedAt: new Date(Date.now() - 1).toISOString(), deliveryState: "accepted" } } : { type: "verify_contact_challenge", state: "completed", operationId, replayed: true, result: { purpose: "admission", result: "verified", proofId: fixture.proofId, applyBefore: new Date(Date.now() + ADMISSION_LIMIT.verificationProofFreshnessMs).toISOString() } } }));
+    render(<AdmissionContainer initialState={fixture.initialState} client={fixture.client} contactClient={fixture.contact} />);
+    // The first pending step is the submission: data and code are already settled.
+    expect(await screen.findByText("Código comprobado para este ingreso.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Solicitar ingreso" })).toBeDisabled();
+    expect(screen.getByText("Marcá la confirmación para enviar la solicitud.")).toBeVisible();
+    await user.click(screen.getByRole("checkbox", { name: /Confirmo que quiero solicitar ingreso a esta academia/i }));
+    await user.click(screen.getByRole("button", { name: "Solicitar ingreso" }));
+    await waitFor(() => expect(fixture.client.submit).toHaveBeenCalledWith("synthetic-academy", expect.objectContaining({ proofId: fixture.proofId }), expect.any(AbortSignal)));
+    expect(fixture.contact.issue).not.toHaveBeenCalled(); expect(fixture.contact.verify).not.toHaveBeenCalled();
+  });
+
   it("should require and locally verify the code before presenting an initial request with its opaque proof", async () => {
     const fixture = containerFixture(), user = userEvent.setup();
     render(<AdmissionContainer initialState={fixture.initialState} client={fixture.client} contactClient={fixture.contact} />);
+    await continueToCode(user);
     await waitFor(() => expect(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i })).toBeEnabled());
     expect(fixture.contact.issue).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Solicitar ingreso" })).not.toBeInTheDocument();
@@ -340,6 +380,7 @@ describe("applicant contact step in the route", () => {
       finishRetry = () => resolve({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { purpose: "admission", challengeId: randomUUID(), channel: "email", maskedDestination: "a•••@example.test", expiresAt: new Date(Date.now() + 600_000).toISOString(), resendAllowedAt: new Date(Date.now() + 60_000).toISOString(), deliveryState: "queued" } } });
     }));
     render(<AdmissionContainer initialState={fixture.initialState} client={fixture.client} contactClient={fixture.contact} />);
+    await continueToCode(user);
     await waitFor(() => expect(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i })).toBeEnabled());
     await user.click(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i }));
     await user.click(screen.getByRole("button", { name: "Enviar código de ingreso" }));
@@ -354,7 +395,8 @@ describe("applicant contact step in the route", () => {
     await user.click(screen.getByRole("button", { name: "Enviar código de ingreso" }));
     await waitFor(() => expect(fixture.contact.issue).toHaveBeenCalledTimes(2));
     expect(screen.queryByText(message)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Enviando código…" })).toBeDisabled();
+    // The pressed send keeps its label and shows its own progress.
+    expect(screen.getByRole("button", { name: "Enviar código de ingreso" })).toHaveAttribute("aria-busy", "true");
     await act(async () => finishRetry());
     expect(await screen.findByLabelText("Código de ingreso")).toBeEnabled();
     expect(screen.queryByText(message)).not.toBeInTheDocument();
@@ -435,6 +477,7 @@ describe("applicant contact step in the route", () => {
     fixture.initialState.overview.verification = { channel: "sms", allowedCountries: ["AR"] };
     vi.mocked(fixture.contact.issue).mockImplementation(async (_slug, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { purpose: "admission", challengeId: randomUUID(), channel: "sms", maskedDestination: "•••1234", expiresAt: new Date(Date.now() + 600_000).toISOString(), resendAllowedAt: new Date(Date.now() + 60_000).toISOString(), deliveryState: "queued" } } }));
     render(<AdmissionContainer initialState={fixture.initialState} client={fixture.client} contactClient={fixture.contact} />);
+    await continueToCode(user);
     await waitFor(() => expect(screen.getByLabelText("Teléfono para este ingreso")).toBeEnabled());
     await user.type(screen.getByLabelText("Teléfono para este ingreso"), "+5491155501234");
     await user.click(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i }));
@@ -442,9 +485,11 @@ describe("applicant contact step in the route", () => {
     await user.type(await screen.findByLabelText("Código de ingreso"), "123456");
     await user.click(screen.getByRole("button", { name: "Comprobar código" }));
     expect(await screen.findByText("Código comprobado para este ingreso.")).toBeVisible();
+    // Going back, the checked phone stays fixed while the request data remains editable.
+    await user.click(screen.getByRole("button", { name: "Atrás" })); await user.click(screen.getByRole("button", { name: "Atrás" }));
     expect(screen.getByLabelText("Teléfono para este ingreso")).toBeDisabled();
-    expect(screen.getByLabelText("Teléfono", { exact: true })).toBeDisabled();
-    expect(screen.getByLabelText("País del teléfono", { selector: "input" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Atrás" }));
+    expect(screen.queryByLabelText("Teléfono", { exact: true })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Mensaje para los responsables (opcional)")).toBeEnabled();
   });
 });

@@ -16,6 +16,7 @@ import { ADMISSION_CONTACT_COPY } from "@/src/modules/academy-admissions/constan
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { MILLISECONDS_PER_SECOND, SECONDS_PER_MINUTE } from "@/src/constants/time";
 import { captureAdmissionReview } from "@/tests/support/admission-review-capture";
+import { continueToAdmissionCode, openAdmissionCodeOptions } from "@/tests/support/admission-contact-browser-actions";
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native applicant contact errors", () => {
   it.each([{ name: "chromium", engine: chromium, width: 1280 }, { name: "chromium", engine: chromium, width: 390 }, { name: "webkit", engine: webkit, width: 1280 }, { name: "webkit", engine: webkit, width: 390 }])("should preserve quota feedback and expose provider uncertainty without another send or false proof on $name at $width", async ({ engine, width }) => {
@@ -48,6 +49,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native applica
               if (request.method() === "POST" && new URL(request.url()).pathname.endsWith("/resend")) resendRequests++;
             });
             await page.goto(`${origin}/admissions/${slug}`, { waitUntil: "domcontentloaded" });
+            await continueToAdmissionCode(page);
             const consent = page.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i });
             await expect.poll(() => consent.isEnabled(), { timeout: 180_000 }).toBe(true);
             expect(providerRequests).toBe(0);
@@ -67,10 +69,11 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native applica
             expect(await page.getByRole("button", { name: "Solicitar ingreso", exact: true }).count()).toBe(0);
             expect(await fixture.counts()).toMatchObject({ challenges: 1, deliveries: 1, proofs: 0, events: 1, memberships: 0 });
             const forbidden = [fixture.context.userId, fixture.sessionToken, fixture.fixture.credential, fixture.own.email, secret];
-            if (engine === chromium && width === 1280) await captureAdmissionReview(page, "contact-send-quota", forbidden, "contact-delivery-feedback-captures.json", { selector: 'section[aria-labelledby][aria-busy]' });
+            if (engine === chromium && width === 1280) await captureAdmissionReview(page, "contact-send-quota", forbidden, "contact-delivery-feedback-captures.json", { selector: 'form[aria-label="Solicitar ingreso a la academia"]' });
 
             // The send quota defers delivery rather than rejecting the code request; a replacement remains explicit.
             await database.withContext(fixture.fixture.own, (transaction) => transaction.execute(sql`update public.messaging_usage_policies set verification_daily_limit=1,version=version+1 where tribe_id=${fixture.context.tribeId}`));
+            await openAdmissionCodeOptions(page);
             const resend = page.getByRole("button", { name: "Reenviar código", exact: true });
             await expect.poll(() => resend.isEnabled(), { timeout: ADMISSION_LIMIT.verificationResendWaitMs + MILLISECONDS_PER_SECOND * SECONDS_PER_MINUTE }).toBe(true);
             expect(resendRequests).toBe(0);
@@ -87,10 +90,11 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native applica
             expect(issueRequests).toBe(1);
             expect(resendRequests).toBe(1);
             expect(providerRequests).toBe(1);
+            await openAdmissionCodeOptions(page);
             await page.getByRole("button", { name: "Consultar envío del código", exact: true }).click();
             await page.getByText("Entrega sin confirmar", { exact: true }).waitFor({ state: "visible" });
             await page.getByText("No pudimos confirmar el resultado del envío. Consultá su estado antes de repetir.", { exact: true }).waitFor({ state: "visible" });
-            if (engine === chromium && width === 1280) await captureAdmissionReview(page, "contact-provider-unavailable", forbidden, "contact-delivery-feedback-captures.json", { selector: 'section[aria-labelledby][aria-busy]' });
+            if (engine === chromium && width === 1280) await captureAdmissionReview(page, "contact-provider-unavailable", forbidden, "contact-delivery-feedback-captures.json", { selector: 'form[aria-label="Solicitar ingreso a la academia"]' });
             expect(await page.getByText("Código comprobado para este ingreso.", { exact: true }).count()).toBe(0);
             expect(await page.getByRole("button", { name: "Solicitar ingreso", exact: true }).count()).toBe(0);
             expect(await page.getByLabel("Código de ingreso", { exact: true }).isEnabled()).toBe(true);

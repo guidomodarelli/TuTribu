@@ -51,8 +51,14 @@ type PolicyPhase = typeof PHASE[keyof typeof PHASE];
 type WriteOutcome = "completed" | "failed" | "uncertain" | "stopped";
 type WriteResult = { outcome: WriteOutcome; code?: AdmissionErrorCode };
 const WRITE_OUTCOME = { completed: "completed", failed: "failed", uncertain: "uncertain", stopped: "stopped" } as const satisfies Record<string, WriteOutcome>;
-/** Which requirement explanation follows a denied activation or resume. */
-type BlockedAction = "activation" | "resume";
+/** Which requirement explanation follows a denied activation, resume or save of active rules. */
+type BlockedAction = "activation" | "resume" | "save";
+/** Message and next step shown with the requirements of each denied action. */
+const BLOCKED_ACTION_COPY = {
+  activation: { message: COPY.activationIneligible, note: COPY.activationBlockedNote },
+  resume: { message: COPY.resumeIneligible, note: COPY.resumeBlockedNote },
+  save: { message: COPY.saveIneligible, note: COPY.saveBlockedNote },
+} as const satisfies Record<BlockedAction, { message: string; note: string }>;
 
 /** @param state - Safe current state. @returns The editable draft; a first configuration starts receiving requests by default. */
 function createInitialDraft(state: AdmissionPolicyStateDto): AdmissionPolicyDraft {
@@ -296,14 +302,15 @@ export function AdmissionPolicyContainer({ initialState, client = admissionApiCl
   };
 
   /** Rereads the configuration after a denied activation or resume and lists what the leader still has to resolve. */
-  const showRequirements = async (signal: AbortSignal, blocked: BlockedAction) => {
+  const showRequirements = async (signal: AbortSignal, blocked: BlockedAction, proposedRequirements: readonly AdmissionPolicyActivationReason[] = []) => {
     if (!ready) return;
     const current = await client.readPolicy(ready.slug, signal);
     if (signal.aborted || current.status === "aborted" || !await checkViewer(signal)) return;
     if (current.status === "ready") { commitState(current.value); markFresh(true); }
     setErrorMessage(null); setFailure(null);
-    setActivationBlock({ message: blocked === "activation" ? COPY.activationIneligible : COPY.resumeIneligible, note: blocked === "activation" ? COPY.activationBlockedNote : COPY.resumeBlockedNote,
-      preflightReasons: [], requirements: current.status === "ready" ? pendingRequirements(current.value) : [], unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 });
+    const savedRequirements = current.status === "ready" ? pendingRequirements(current.value) : [];
+    setActivationBlock({ message: BLOCKED_ACTION_COPY[blocked].message, note: BLOCKED_ACTION_COPY[blocked].note,
+      preflightReasons: [], requirements: [...new Set([...proposedRequirements, ...savedRequirements])], unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 });
   };
 
   if (!ready || !state || !draft) return <AdmissionRouteError embedded message={initialState.kind === "unavailable" ? initialState.message : COPY.storageFailed} reset={() => window.location.reload()} />;
@@ -354,6 +361,10 @@ export function AdmissionPolicyContainer({ initialState, client = admissionApiCl
       if (created || (stateRef.current && differsFromSaved(proposed, stateRef.current))) {
         const intent = buildIntent(ADMISSION_POLICY_OPERATION.update, proposed); if (!intent) return;
         const result = await sendIntent(intent, signal);
+        /** Editing active rules can ask for something the academy has not prepared yet, such as the channel for codes; the saved rules stay as they were. */
+        if (!activating && result.outcome === WRITE_OUTCOME.failed && result.code === ADMISSION_ERROR_CODE.admissionIneligible) {
+          setConfirmed(false); await showRequirements(signal, "save", proposed.requiresAdditionalVerification && !stateRef.current?.policy?.requiresAdditionalVerification ? [ADMISSION_POLICY_CONFIGURATION_ERROR.verificationUnavailable] : []); return;
+        }
         if (result.outcome !== WRITE_OUTCOME.completed) { reportFailure(STAGE.saving, false, result); return; }
       }
       if (!activating || stateRef.current?.controlActivated) { setConfirmed(false); setEditing(false); setStep(0); succeed(COPY.rulesSaved); return; }
