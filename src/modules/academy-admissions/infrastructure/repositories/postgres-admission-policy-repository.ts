@@ -21,7 +21,7 @@ import { PostgresAdmissionOperationRepository } from "./postgres-admission-opera
 import { admissionPolicyMutationResultSchema } from "../../application/results/admission-policy-result-schemas";
 import { admissionPolicyDatabaseNow, authorizeAdmissionPolicy } from "./postgres-admission-policy-authorizer";
 import { withReusedAdmissionLeaderAuthority } from "./postgres-admission-leader-authorizer";
-import { readAdmissionControlMarker, readAdmissionPolicy } from "./postgres-admission-policy-storage";
+import { readAdmissionPolicyWithControlMarker } from "./postgres-admission-policy-storage";
 import { createAdmissionPolicyAuditEvent } from "../../domain/entities/admission-audit-event";
 import { PostgresAdmissionAuditRepository } from "./postgres-admission-audit-repository";
 import { appendAdmissionProofInvalidationAudit, type InvalidatedAdmissionProofAuditRow } from "./postgres-admission-proof-invalidation-audit";
@@ -42,7 +42,7 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
 
   /** A lost policy after protection is never replaced with new editable defaults. */
   private async current(database: RequestDatabase, tribeId: string): Promise<{ policy: AdmissionPolicy | null; controlActivated: boolean }> {
-    const policy = await readAdmissionPolicy(database, tribeId, true), marker = await readAdmissionControlMarker(database, tribeId);
+    const { policy, marker } = await readAdmissionPolicyWithControlMarker(database, tribeId, true);
     if (marker && (!policy?.activatedAt || policy.activatedAt.getTime() !== marker.getTime()) || !marker && policy?.activatedAt) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
     return { policy, controlActivated: Boolean(marker) };
   }

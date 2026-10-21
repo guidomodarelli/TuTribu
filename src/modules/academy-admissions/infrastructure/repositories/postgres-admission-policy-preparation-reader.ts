@@ -21,8 +21,8 @@ export class PostgresAdmissionPolicyPreparationReader implements AdmissionPolicy
 
   /** @param policy - Proposed own configuration. @returns Current facts without changing policy/settings, retrieving credentials or sending messages. */
   async read(policy: AdmissionPolicy) {
-    const settings = (await this.database.execute<{ access_model: string; admission_enabled: boolean }>(sql`select access_model,admission_enabled from public.tribe_academy_settings where tribe_id=${policy.tribeId} for share`)).rows[0];
-    const tribe = (await this.database.execute<{ activated: boolean }>(sql`select admissions_control_activated_at is not null as activated from public.tribes where id=${policy.tribeId}`)).rows[0];
+    // The settings row stays locked FOR SHARE and the unlocked marker is read in the same statement; a missing row still yields the marker.
+    const tenant = (await this.database.execute<{ access_model: string | null; admission_enabled: boolean | null; activated: boolean | null }>(sql`select settings.access_model,settings.admission_enabled,(select admissions_control_activated_at is not null from public.tribes where id=${policy.tribeId}) as activated from (values (true)) as anchor(present) left join (select access_model,admission_enabled from public.tribe_academy_settings where tribe_id=${policy.tribeId} for share) settings on true`)).rows[0];
     const preflightComplete = await this.preflight.isPrepared(policy.tribeId);
     const usagePolicy = await this.usage.readForTribe(policy.tribeId);
     const channel = policy.contactType === ADMISSION_CONTACT_TYPE.email ? VERIFICATION_EMAIL_CHANNEL : policy.phoneChannel ?? ADMISSION_PHONE_CHANNEL.sms;
@@ -30,7 +30,7 @@ export class PostgresAdmissionPolicyPreparationReader implements AdmissionPolicy
     const current = await this.readSecurityConfig();
     const securityScope = readiness.securityScope;
     const securityCurrent = Boolean(securityScope && !current.recoveryLocked && current.environment === securityScope.environment && current.securityEpoch === securityScope.securityEpoch && current.keyrings[MESSAGING_KEY_PURPOSE.credential].keys.has(securityScope.credentialKeyId));
-    return { tribeId: policy.tribeId, isAcademy: settings?.access_model === TRIBE_ACCESS_MODEL.academy, controlActivated: Boolean(tribe?.activated), preflightComplete, evaluatorEnabled: Boolean(settings?.admission_enabled), recoveryLocked: current.recoveryLocked,
+    return { tribeId: policy.tribeId, isAcademy: tenant?.access_model === TRIBE_ACCESS_MODEL.academy, controlActivated: Boolean(tenant?.activated), preflightComplete, evaluatorEnabled: Boolean(tenant?.admission_enabled), recoveryLocked: current.recoveryLocked,
       configuration: { tribeId: policy.tribeId, channelPrepared: readiness.channelPrepared && securityCurrent, smsAlternativePrepared: readiness.smsAlternativePrepared && securityCurrent, verificationQuotaPositive: readiness.verificationQuotaPositive, usagePolicy, lockedContactType: policy.activatedAt ? policy.contactType : null } };
   }
 }
