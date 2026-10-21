@@ -73,5 +73,5 @@ La cantidad de transacciones no cambia: los fences, el lease, la idempotencia, e
 ## Próximos pasos
 
 1. **Proyección de cuenta entre pasos del ledger** (sin cambio, ver [admission-applicant-flow-queries.md](admission-applicant-flow-queries.md)).
-2. **Despacho del diagnóstico de conexión.** Usa los mismos owners con propósito de entrega, así que también debería ahorrar las dos comprobaciones repetidas por envío. No se midió acá: corresponde a la suite `messaging-connection-wizard-queries` y a su presupuesto, que sigue siendo un máximo válido.
-3. **Comprobaciones humanas repetidas.** `PostgresCurrentMessagingProvider.read` también corre dos veces la cadena humana (`sensitive_leader`) cuando la pide el asistente de conexión. Reutilizarla exige revalidar además la sesión y su binding de identidad, así que queda para su propio PR con medición.
+2. **Despacho del diagnóstico de conexión.** Resuelto: medido en [messaging-wizard-authority-queries.md](messaging-wizard-authority-queries.md) (emitir el diagnóstico, 380 → 362 viajes con este cambio).
+3. **Comprobaciones humanas repetidas.** Resuelto en [messaging-wizard-authority-queries.md](messaging-wizard-authority-queries.md): la segunda comprobación humana de `PostgresCurrentMessagingProvider.read` reutiliza los locks y revalida además la sesión y su binding de identidad.

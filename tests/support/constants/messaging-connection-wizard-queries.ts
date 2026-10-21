@@ -7,13 +7,13 @@ export const MESSAGING_CONNECTION_WIZARD_QUERY_VALIDATION = {
   reportEnvironmentVariable: "MESSAGING_CONNECTION_WIZARD_QUERY_REPORT",
 } as const;
 
-/** Per-request maxima from the baseline on 1acd4ead: the largest sample of each label, plus two statements and two round trips of headroom for pool warm-up. A change that adds transactions, statements or sequential round trips fails here. */
+/** Per-request maxima from the measurement of the reused human and worker messaging authority (specs/001-academy-admissions/validation/messaging-wizard-authority-queries.md): the measured transactions, and the largest sample of statements and sequential round trips plus two of headroom for pool warm-up. A change that adds transactions, statements or sequential round trips fails here. */
 export const MESSAGING_CONNECTION_WIZARD_QUERY_BUDGET = {
-  initialize_usage_policy: { transactions: 12, queries: 136, sequentialRoundTrips: 136 },
-  create_connection: { transactions: 12, queries: 166, sequentialRoundTrips: 166 },
-  configure_connection: { transactions: 19, queries: 436, sequentialRoundTrips: 436 },
-  validate_connection: { transactions: 23, queries: 449, sequentialRoundTrips: 449 },
-  issue_diagnostic: { transactions: 18, queries: 408, sequentialRoundTrips: 403 },
-  verify_diagnostic: { transactions: 7, queries: 218, sequentialRoundTrips: 218 },
-  activate_connection: { transactions: 7, queries: 356, sequentialRoundTrips: 356 },
+  initialize_usage_policy: { transactions: 5, queries: 57, sequentialRoundTrips: 57 },
+  create_connection: { transactions: 5, queries: 62, sequentialRoundTrips: 62 },
+  configure_connection: { transactions: 10, queries: 318, sequentialRoundTrips: 318 },
+  validate_connection: { transactions: 12, queries: 381, sequentialRoundTrips: 381 },
+  issue_diagnostic: { transactions: 15, queries: 370, sequentialRoundTrips: 365 },
+  verify_diagnostic: { transactions: 4, queries: 197, sequentialRoundTrips: 197 },
+  activate_connection: { transactions: 4, queries: 282, sequentialRoundTrips: 282 },
 } as const satisfies Record<string, AdmissionRequestBudget>;
