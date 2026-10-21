@@ -8,16 +8,16 @@ export const ADMISSION_LEADER_FLOW_QUERY_VALIDATION = {
   reportEnvironmentVariable: "ADMISSION_LEADER_FLOW_QUERY_REPORT",
 } as const;
 
-/** Median transactions and statements per request measured after the consolidated SQL messaging guards; Rules and the leader policy read include the activation preparation evaluated since 5473d9ad (queries keep two statements of headroom for pool warm-up); a change that adds round trips fails here. */
+/** Median transactions and statements per request measured after the standalone account projection (queries keep two or three statements of headroom for pool warm-up); a change that adds round trips fails here. */
 export const ADMISSION_LEADER_FLOW_QUERY_BUDGET = {
-  initialize_policy: { transactions: 7, queries: 63 },
-  save_policy: { transactions: 7, queries: 63 },
-  page_inbox: { transactions: 51, queries: 310 },
-  page_rules: { transactions: 25, queries: 168 },
-  page_notifications: { transactions: 13, queries: 75 },
-  page_usage: { transactions: 12, queries: 57 },
-  page_connections: { transactions: 22, queries: 100 },
-  read_policy: { transactions: 9, queries: 77 },
-  read_policy_preflight: { transactions: 7, queries: 48 },
-  activate_policy: { transactions: 7, queries: 102 },
+  initialize_policy: { transactions: 4, queries: 54 },
+  save_policy: { transactions: 4, queries: 54 },
+  page_inbox: { transactions: 23, queries: 226 },
+  page_rules: { transactions: 13, queries: 132 },
+  page_notifications: { transactions: 7, queries: 58 },
+  page_usage: { transactions: 6, queries: 37 },
+  page_connections: { transactions: 11, queries: 67 },
+  read_policy: { transactions: 5, queries: 65 },
+  read_policy_preflight: { transactions: 4, queries: 39 },
+  activate_policy: { transactions: 4, queries: 94 },
 } as const satisfies Record<string, { transactions: number; queries: number }>;

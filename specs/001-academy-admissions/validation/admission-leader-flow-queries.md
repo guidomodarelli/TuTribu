@@ -132,7 +132,41 @@ El arnés de orden de locks pasó a `tests/support/guard-lock-order.ts` y lo com
 
 Quitar la proyección previa de los lectores guardados no debilita la detección de una sesión revocada o de un cambio de usuario. Cada caso de uso conserva su proyección inicial y su revalidación final, y la primera sentencia de cada transacción vuelve a comprobar en SQL el actor, la sesión vigente y el liderazgo. Las escrituras siguen con `executeActor`, que compara la cuenta de Google en las operaciones sensibles. El correo del contexto de request solo lo consumen las suscripciones, no estas lecturas.
 
+## Cuarta ronda: proyección de cuenta en una sentencia
+
+Mismo protocolo. Línea base: la revisión `106cae0c`. Después: esta rama, con la migración `20261021180000_project_authenticated_account.sql`. Datos completos en `standaloneAccountProjection` de [admission-leader-flow-queries.json](admission-leader-flow-queries.json).
+
+| Request | Transacciones | Sentencias | Viajes secuenciales | ms |
+|---|---|---|---|---|
+| Inicializar reglas (POST /policy) | 7 → 4 (-43 %) | 61 → 52 (-15 %) | 61 → 52 (-15 %) | 12.407 → 10.522 (-15 %) |
+| Guardar reglas (PUT /policy) | 7 → 4 (-43 %) | 61 → 52 (-15 %) | 61 → 52 (-15 %) | 12.115 → 10.468 (-14 %) |
+| Solicitudes con guía | 51 → 23 (-55 %) | 309 → 224 (-28 %) | 83 → 65 (-22 %) | 13.721 → 10.987 (-20 %) |
+| Reglas | 25 → 13 (-48 %) | 166 → 130 (-22 %) | 83 → 65 (-22 %) | 13.646 → 10.845 (-21 %) |
+| Avisos | 13 → 7 (-46 %) | 73 → 55 (-25 %) | 63 → 45 (-29 %) | 11.344 → 8.351 (-26 %) |
+| Países y cupos | 12 → 6 (-50 %) | 55 → 34 (-38 %) | 45 → 26 (-42 %) | 8.586 → 4.404 (-49 %) |
+| Conexión de mensajería | 22 → 11 (-50 %) | 98 → 65 (-34 %) | 88 → 55 (-38 %) | 15.828 → 10.007 (-37 %) |
+| Lectura de reglas (GET /policy) | 9 → 5 (-44 %) | 75 → 63 (-16 %) | 75 → 63 (-16 %) | 13.505 → 11.425 (-15 %) |
+| Comprobación previa (GET /policy/preflight) | 7 → 4 (-43 %) | 46 → 37 (-20 %) | 46 → 37 (-20 %) | 8.845 → 7.133 (-19 %) |
+| Activar (POST /policy/activate) | 7 → 4 (-43 %) | 100 → 92 (-8 %) | 100 → 92 (-8 %) | 18.828 → 18.149 (-4 %) |
+
+### Atribución
+
+Cada proyección de cuenta corría en su propia transacción guardada solo para fijar `app.current_user_id` antes de un único `SELECT`. Eran 4 viajes: `BEGIN` con el guard de inactividad, el contexto, la proyección y `COMMIT`. Ahora `public.read_authenticated_account` contiene esa misma proyección, es `SECURITY INVOKER` (las mismas políticas RLS) y corre sola sobre el pool con `withStandaloneStatement`. En ese modo fija el actor para la transacción implícita de la sentencia y lo restaura antes de devolver. La traza lo confirma: en Conexión, las 11 transacciones de proyección (44 sentencias) pasan a 11 sentencias sueltas, de 98 a 65 sentencias, y en Países y cupos, sus 6 transacciones de proyección pasan a 6 sentencias sueltas (de 55 a 34 sentencias). Como todos los casos de uso proyectan la cuenta al principio y al final, el cambio baja todas las páginas y escrituras medidas. Activar baja poco porque su costo está en la transacción de efecto.
+
+### Seguridad y paridad
+
+`tests/unit/modules/auth/infrastructure/authenticated-account-projection-parity.test.ts` corre contra Postgres real y pasó igual con la proyección en transacción (`106cae0c`) y con la función. Proyecta por el camino del pool y dentro de la transacción del actor, y en los dos da el mismo resultado:
+
+- Sesión vinculada con y sin evidencia de identidad.
+- Vínculo de sesión invalidado.
+- Una o dos cuentas de Google sin vínculo.
+- Sesión vencida, sesión ajena y otra cuenta.
+
+Además comprueba que dentro de la transacción de otro actor, o de una sin actor, no se proyecta nada, y que la conexión del pool no conserva actor después de la proyección.
+
+La detección de una sesión revocada o de un cambio de usuario no cambia: cada caso de uso sigue proyectando la cuenta al principio y al final, y cada proyección se hace sobre la base en el momento en que corre.
+
 ## Próximos pasos
 
-- Conexión de mensajería sigue siendo la página más lenta (88 viajes). Sus 11 proyecciones de cuenta, de los casos de uso anidados (página, configuración y catálogo), siguen en serie, a unos 4 viajes cada una.
-- En Solicitudes y Reglas, la cadena más larga es la de admisiones. Identificar con una traza por cadena qué lectura es la más larga (hipótesis: la comprobación previa o la revisión de membresías) y reducir sus viajes propios.
+- Activar (92 viajes) es ahora la request más lenta. Su costo está en la transacción de efecto del ledger y en la preparación de activación.
+- En Solicitudes y Reglas, la cadena más larga sigue siendo la de admisiones (65 viajes). Identificar con una traza por cadena qué lectura es la más larga (hipótesis: la comprobación previa o la revisión de membresías).
