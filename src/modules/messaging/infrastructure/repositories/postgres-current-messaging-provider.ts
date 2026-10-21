@@ -14,7 +14,7 @@ export type MessagingProviderDatabaseExecutor=<Result>(context:AuthorizedMessagi
 export class PostgresCurrentMessagingProvider{
   /** @param execute - Guarded native principal with existing transaction discipline. @param readSecurityFacts - Current non-secret environment/epoch/recovery state. @param authorizeDeliveryResource - Required current business guard for an explicitly grouped worker intent. */
   constructor(private readonly execute:MessagingProviderDatabaseExecutor,private readonly readSecurityFacts:()=>Promise<MessagingSecurityFacts>,private readonly authorizeDeliveryResource?:MarkedMessageDeliveryResourceAuthority){}
-  /** @param context - Exact currently authorized human resource or committed delivery attempt. @returns Only the stored provider identity after current authority is checked on both sides of SQL waits; a worker attempt's second check reuses the locks of the first. */
+  /** @param context - Exact currently authorized human resource or committed delivery attempt. @returns Only the stored provider identity after current authority is checked on both sides of SQL waits; the second check of a human or ungrouped worker scope reuses the locks of the first. */
   async read(context:AuthorizedMessagingContext|AuthorizedDeliveryMessagingContext):Promise<string>{
     return this.execute(context,(database)=>withReusedMessagingSecretAuthority(database,async()=>{
       await authorizeMessagingSecret(database,context,false,this.authorizeDeliveryResource);
