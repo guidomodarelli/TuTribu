@@ -30,8 +30,9 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native WebKit 
           page.on("requestfailed", (request) => { if (request.resourceType() === "document") { documentsFailed += 1; documentFailureMs = Math.round(performance.now() - documentStartedAt); const reason = request.failure()?.errorText; const domainCode = reason?.match(/(NSURLErrorDomain|WebKitErrorDomain|kCFErrorDomainCFNetwork)[^\d-]*(-?\d+)/u); documentFailure = domainCode ? `${domainCode[1]}:${domainCode[2]}` : reason && /^(?:Load failed|The network connection was lost\.|The request timed out\.|Connection terminated|Resource load failed|cancelled|Load request cancelled|Unknown)$/u.test(reason) ? reason : "other"; } if (request.resourceType() === "script") scriptsFailed += 1; });
           try {
             await page.goto(`${origin}/${slug}/academia/admissions/invitations`, { waitUntil: "commit" });
-            await page.getByRole("button", { name: "Nueva invitación", exact: true }).waitFor({ state: "visible" });
-            await page.waitForFunction(() => Array.from(document.querySelectorAll("button")).some((button) => button.textContent === "Nueva invitación" && !button.disabled));
+            // The first step's field is enabled once the native viewer is confirmed.
+            await page.getByLabel("Nombre interno", { exact: true }).waitFor({ state: "visible" });
+            await expect.poll(() => page.getByLabel("Nombre interno", { exact: true }).isEnabled(), { timeout: 180_000 }).toBe(true);
           } catch {
             const state = await page.evaluate(() => ({ readyState: document.readyState, buttons: document.querySelectorAll("button").length, inputs: document.querySelectorAll("input").length }));
             const routeMatches = new URL(page.url()).pathname === `/${slug}/academia/admissions/invitations`;

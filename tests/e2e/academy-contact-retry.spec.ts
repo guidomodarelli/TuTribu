@@ -11,6 +11,7 @@ import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infr
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { ADMISSION_CONTACT_STORAGE_PREFIX, ADMISSION_CONTACT_BROWSER_TIMEOUT_MS } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
+import { continueToAdmissionCode } from "@/tests/support/admission-contact-browser-actions";
 
 test("should let a new authorized presentation choose another contact after real cancellation without restoring its earlier challenge", async ({ page, context }) => {
   test.setTimeout(ADMISSION_LIMIT.verificationProofFreshnessMs);
@@ -45,6 +46,8 @@ test("should let a new authorized presentation choose another contact after real
       page.on("pageerror", () => errors++);
       page.on("request", (request) => { const path = new URL(request.url()).pathname; if (path.includes("/admissions/operations/")) originalReads++; if (request.method() === "POST" && path.includes("/admissions/")) writes++; });
       await page.goto(`${origin}/admissions/${slug}`, { waitUntil: "domcontentloaded" });
+      // A new presentation starts at the data step; the contact and its code come next.
+      await continueToAdmissionCode(page);
       const phone = page.getByLabel("Teléfono para este ingreso", { exact: true });
       await expect(phone).toBeEnabled({ timeout: ADMISSION_CONTACT_BROWSER_TIMEOUT_MS });
       await expect(page.getByRole("checkbox", { name: "Confirmo el contacto y el envío del código para este ingreso.", exact: true })).not.toBeChecked();

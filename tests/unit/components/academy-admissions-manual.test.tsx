@@ -4,7 +4,8 @@ import { renderToString } from "react-dom/server";
 import { hydrateRoot } from "react-dom/client";
 import { Activity, type ReactNode } from "react";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ThemedToaster, toast } from "@golfo/ui";
 import { AdmissionContainer } from "@/app/(admission)/admissions/[slug]/admission-container";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import type { AdmissionPageState } from "@/src/modules/academy-admissions/application/results/admission-page-state";
@@ -21,7 +22,14 @@ const REQUEST_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
 const OPERATION_ID = "20ca5bf6-8517-4e0d-a7d7-24144fcb0ea8";
 const router = { back: vi.fn(), bfcacheId: "admission-test", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: vi.fn(), replace: vi.fn() } satisfies AppRouterInstance;
 /** Uses the production UI provider and real native router context, without library mocks. */
-function Providers({ children }: { children: ReactNode }) { return <AppRouterContext.Provider value={router}><AppUIProvider>{children}</AppUIProvider></AppRouterContext.Provider>; }
+function Providers({ children }: { children: ReactNode }) { return <AppRouterContext.Provider value={router}><AppUIProvider>{children}<ThemedToaster /></AppUIProvider></AppRouterContext.Provider>; }
+// Sonner replays every active toast to a newly mounted toaster; dismissing them keeps each test's toasts its own.
+afterEach(() => { toast.dismiss(); });
+
+/** @returns After the applicant's data step is ready. */
+async function dataStepReady() { await waitFor(() => expect(screen.getByRole("button", { name: "Continuar" })).toBeEnabled()); }
+/** @returns On the submission step, after the data step hands over. */
+async function toSubmission() { await dataStepReady(); fireEvent.click(screen.getByRole("button", { name: "Continuar" })); await screen.findByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }); }
 
 /** Supplies the application's own current-state and transport contracts. */
 function fixture() {
@@ -179,17 +187,16 @@ describe("manual admission screen", () => {
     render(<AdmissionContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
     const input = await screen.findByRole("textbox", { name: "WhatsApp del grupo" });
     expect(input).toBeRequired();
-    await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm })).toBeEnabled());
-    fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }));
-    fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.submit }));
+    // The data step explains why it cannot continue until the number is valid.
     expect(await screen.findByText(ADMISSION_WHATSAPP_COPY.required)).toBeVisible();
-    expect(data.client.submit).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
     fireEvent.change(input, { target: { value: "invalid" } });
     expect(screen.queryByText(ADMISSION_WHATSAPP_COPY.required)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.submit }));
     expect(await screen.findByText("Ingresá un número de WhatsApp válido con el prefijo del país.")).toBeVisible();
     fireEvent.change(input, { target: { value: "+1 (415) 555-2671" } });
     expect(screen.queryByText("Ingresá un número de WhatsApp válido con el prefijo del país.")).not.toBeInTheDocument();
+    await toSubmission();
+    fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }));
     fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.submit }));
     await waitFor(() => expect(data.client.submit).toHaveBeenCalledOnce());
     const command = vi.mocked(data.client.submit).mock.calls[0][1];
@@ -203,7 +210,7 @@ describe("manual admission screen", () => {
     render(<AdmissionContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
     expect(await screen.findByRole("textbox", { name: "WhatsApp del grupo (opcional)" })).not.toBeRequired();
     expect(screen.queryByRole("textbox", { name: /^(Nombre|Apellido)$/i })).not.toBeInTheDocument();
-    await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm })).toBeEnabled());
+    await toSubmission();
     fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }));
     fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.submit }));
     await waitFor(() => expect(data.client.submit).toHaveBeenCalledOnce());
@@ -214,7 +221,7 @@ describe("manual admission screen", () => {
     const data = fixture(), arrivalScope = "b".repeat(64), token = "synthetic-historical-arrival";
     vi.mocked(data.client.submit).mockResolvedValueOnce({ status: "failed", code: "unexpected_failure", message: "La respuesta no quedó confirmada.", uncertain: true });
     render(<AdmissionContainer initialState={data.state} client={data.client} legacyInvitationToken={token} arrivalScope={arrivalScope} />, { wrapper: Providers });
-    await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm })).not.toBeDisabled());
+    await toSubmission();
     expect(data.client.submit).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }));
     fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.submit }));
@@ -267,7 +274,7 @@ describe("manual admission screen", () => {
       return { status: "ready", value: { operationId: input.operationId, outcome, membership: { role: "tribemate", status: "active" }, safeMessage: "Podés abrir la academia." } };
     });
     render(<AdmissionContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
-    await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm })).toBeEnabled());
+    await toSubmission();
     expect(screen.queryByRole("link", { name: ADMISSION_UI_COPY.openAcademy })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }));
     fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.submit }));
@@ -282,6 +289,7 @@ describe("manual admission screen", () => {
     await waitFor(() => expect(data.client.viewer).toHaveBeenCalledOnce());
     expect(data.client.submit).not.toHaveBeenCalled();
     expect(data.client.own).not.toHaveBeenCalled();
+    await toSubmission();
     expect(screen.getByRole("button", { name: "Solicitar ingreso" })).toBeDisabled();
     fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Solicitar ingreso" })).toBeEnabled());
@@ -298,8 +306,9 @@ describe("manual admission screen", () => {
     const data = fixture();
     vi.mocked(data.client.submit).mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos completar la operación.", uncertain: true });
     render(<AdmissionContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
-    await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm })).toBeEnabled());
+    await dataStepReady();
     fireEvent.change(screen.getByRole("textbox", { name: ADMISSION_UI_COPY.message }), { target: { value: "Mensaje que se conserva" } });
+    await toSubmission();
     fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Solicitar ingreso" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Solicitar ingreso" }));
@@ -331,7 +340,7 @@ describe("manual admission screen", () => {
     vi.mocked(data.client.submit).mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos completar la operación.", uncertain: true });
     vi.mocked(data.client.operation).mockResolvedValueOnce({ status: "failed", code: "resource_unavailable", message: "No pudimos encontrar esta operación.", uncertain: false });
     render(<AdmissionContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
-    await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm })).toBeEnabled());
+    await toSubmission();
     fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }));
     fireEvent.click(screen.getByRole("button", { name: "Solicitar ingreso" }));
     await screen.findByText(ADMISSION_UI_COPY.uncertain);
@@ -353,7 +362,7 @@ describe("manual admission screen", () => {
     await screen.findByText(ADMISSION_UI_COPY.uncertain);
     expect(screen.queryByRole("button", { name: ADMISSION_UI_COPY.retryOriginal })).not.toBeInTheDocument();
     expect(data.client.submit).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Solicitar ingreso" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
   });
 
   it("should reload an original intent stored by another document before restoring a bfcache page", async () => {
@@ -362,12 +371,12 @@ describe("manual admission screen", () => {
     vi.mocked(data.client.overview).mockResolvedValue({ status: "ready", value: data.state.overview });
     vi.mocked(data.client.operation).mockResolvedValue({ status: "ready", value: { type: "submit_admission", state: "started", operationId: OPERATION_ID } });
     render(<AdmissionContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
-    await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm })).toBeEnabled());
+    await dataStepReady();
     writeAdmissionDraft({ viewerId: VIEWER_ID, slug: "synthetic-academy", draft: { phone: "", country: "", message: "Intent conservado por otra página" }, pending: { kind: "submit", input: { operationId: OPERATION_ID, expectedPolicyVersion: 1, confirmed: true, message: "Intent conservado por otra página" } } });
     fireEvent(window, Object.assign(new Event("pageshow"), { persisted: true }));
     await waitFor(() => expect(data.client.operation).toHaveBeenCalledWith("synthetic-academy", OPERATION_ID, expect.any(AbortSignal)));
     expect(data.client.submit).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Solicitar ingreso" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
     expect(JSON.parse(sessionStorage.getItem(admissionDraftKey(VIEWER_ID, "synthetic-academy"))!).pending.input.operationId).toBe(OPERATION_ID);
   });
 
@@ -429,7 +438,7 @@ describe("manual admission screen", () => {
     await screen.findByText(ADMISSION_UI_COPY.readFailed);
     fireEvent.click(screen.getByRole("button", { name: "Consultar estado" }));
     await waitFor(() => expect(data.client.operation).toHaveBeenCalledWith("synthetic-academy", OPERATION_ID, expect.any(AbortSignal)));
-    expect(screen.getByRole("button", { name: "Solicitar ingreso" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
     expect(data.client.submit).not.toHaveBeenCalled();
     expect(JSON.parse(sessionStorage.getItem(admissionDraftKey(VIEWER_ID, "synthetic-academy"))!).pending.input.operationId).toBe(OPERATION_ID);
   });
@@ -439,7 +448,7 @@ describe("manual admission screen", () => {
     vi.mocked(data.client.submit).mockImplementation(() => new Promise(() => {}));
     const content = (mode: "visible" | "hidden") => <Activity mode={mode}><AdmissionContainer initialState={data.state} client={data.client} /></Activity>;
     const view = render(content("visible"), { wrapper: Providers });
-    await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm })).toBeEnabled());
+    await toSubmission();
     fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }));
     fireEvent.click(screen.getByRole("button", { name: "Solicitar ingreso" }));
     await waitFor(() => expect(data.client.submit).toHaveBeenCalledOnce());
@@ -462,7 +471,7 @@ describe("manual admission screen", () => {
     vi.mocked(data.client.overview).mockResolvedValue({ status: "ready", value: data.state.overview });
     vi.mocked(data.client.own).mockResolvedValue({ status: "ready", value: null });
     render(<AdmissionContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
-    await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm })).toBeEnabled());
+    await dataStepReady();
     writeAdmissionDraft({ viewerId: VIEWER_ID, slug: "synthetic-academy", draft: { phone: "", country: "", message: "Intent de otra página" }, pending: { kind: "submit", input: { operationId: OPERATION_ID, expectedPolicyVersion: 1, confirmed: true } } });
     vi.mocked(data.client.viewer).mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos consultar la cuenta.", uncertain: false });
     fireEvent(window, Object.assign(new Event("pageshow"), { persisted: true }));
@@ -543,7 +552,7 @@ describe("manual admission screen", () => {
     const data = fixture();
     vi.mocked(data.client.submit).mockImplementation(async () => new Promise(() => {}));
     const view = render(<AdmissionContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
-    await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm })).toBeEnabled());
+    await toSubmission();
     fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Solicitar ingreso" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Solicitar ingreso" }));

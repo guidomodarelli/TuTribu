@@ -200,14 +200,27 @@ messaging, notices and activity).
   one decision per step, a numbered progress list, Back and Continue, and a
   review step with a readable summary, a single confirmation and one final
   action. Explain why Continue is blocked instead of disabling it silently.
+- A step that must write before the flow moves on (create a preview, send a
+  code, check it) passes its write as the step `action`: its button replaces
+  Continue, uses `loading`, and the container advances the step only after the
+  server confirms the write. Resuming opens the first step that is still
+  pending.
+- Optional reads and recoveries of a step go in its `secondary` slot, or in a
+  `GuidedStepsDisclosure` under the flow, collapsed behind one summary, so the
+  main path always shows a single next action.
 - A final action that needs several writes (create, save, check, activate)
   runs them in sequence, names the current stage in a `role="status"` line and,
   on failure, says what was already saved and retries only what is left.
 - Every button that writes uses `Button` `loading` while its request is in
   flight: it keeps its label and keyboard focus, and the other write buttons of
   the screen are disabled. Reads never change a write button's label.
-- Confirm each action with its own success message (`role="status"` plus a
-  success toast); never announce as saved what the server did not confirm.
+- Confirm each action with its own success message; never announce as saved
+  what the server did not confirm. In guided write flows (allowlist, CSV
+  import, personal invitations, the applicant request) each write runs one
+  `toast.promise` through `startWriteToast` (`lib/toasts/write-toast.ts`) and
+  is announced only there. What must persist (form errors, version conflicts,
+  unconfirmed originals, one-time links, blocks) stays on the page with its
+  accessible role and is not repeated in the toast.
 - Default to the recommended choice (for example grouped notices) and warn in
   place when a choice silently disables the feature (a zero quota, omitted
   notices, closed admissions).

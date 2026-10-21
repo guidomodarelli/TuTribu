@@ -13,6 +13,7 @@ import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messagi
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
+import { settleGuidedStep } from "@/tests/support/guided-steps-browser";
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native CSV browser workflow", () => {
   it("should preview without list changes, recover a lost reply and preserve partial rows through explicit pending-only resume on Chromium/WebKit desktop/mobile", async () => {
@@ -41,6 +42,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native CSV bro
             const upload = page.getByLabel("Archivo CSV de habilitados", { exact: true }); await upload.waitFor({ state: "visible" });
             await page.waitForFunction(() => !document.querySelector<HTMLInputElement>('input[type="file"]')?.disabled);
             if (capture) await captureAdmissionReview(page, "allowlist-import-empty", forbidden, "allowlist-import-captures.json", { selector });
+            // The template is a secondary download, collapsed under the upload step.
+            await page.getByText("Plantilla del archivo", { exact: true }).click();
             const templatePromise = page.waitForEvent("download"); await page.getByRole("button", { name: "Descargar plantilla", exact: true }).click();
             expect((await templatePromise).suggestedFilename()).toBe("allowlist-import-template.csv");
             if (width === 1280) {
@@ -53,8 +56,10 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native CSV bro
               // Explicit reload exercises the native persisted file; writes never invoke route refresh.
               await page.reload({ waitUntil: "domcontentloaded" });
               await page.getByRole("checkbox", { name: "Seleccionar fila 1", exact: true }).waitFor({ state: "visible" });
-              expect(await page.getByRole("checkbox", { name: "Confirmo incorporar sólo las filas elegidas", exact: true }).isChecked()).toBe(false);
-              expect(await page.getByText("Archivo conservado: capacity.csv", { exact: true }).isVisible()).toBe(true);
+              // Resuming opens the review: no row is restored as chosen, so it cannot continue yet.
+              expect(await page.getByRole("button", { name: "Continuar", exact: true }).isDisabled()).toBe(true);
+              await page.getByRole("button", { name: "Atrás", exact: true }).click(); await settleGuidedStep(page);
+              await page.getByText("Archivo conservado: capacity.csv", { exact: true }).waitFor({ state: "visible" });
               writes.length = 0;
             }
             const isPartial = capture, rowCount = isPartial ? 30 : 2, contactPrefix = `${name}.${width}`;
@@ -82,7 +87,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native CSV bro
               await transaction.execute(sql.raw("create function public.synthetic_import_browser_failure() returns trigger language plpgsql as $$ begin if new.row_number=26 and new.outcome is not null then raise exception 'Controlled later browser import rollback'; end if; return new; end $$"));
               await transaction.execute(sql.raw("create trigger synthetic_import_browser_failure before update on public.academy_allowlist_import_rows for each row execute function public.synthetic_import_browser_failure()"));
             });
-            await page.getByRole("checkbox", { name: "Confirmo incorporar sólo las filas elegidas", exact: true }).click(); await page.getByRole("button", { name: "Confirmar filas seleccionadas", exact: true }).click();
+            await page.getByRole("button", { name: "Continuar", exact: true }).click(); await settleGuidedStep(page);
+            await page.getByRole("checkbox", { name: "Confirmo incorporar sólo las filas elegidas", exact: true }).click(); await page.getByRole("button", { name: "Importar filas elegidas", exact: true }).click();
             if (isPartial) {
               await originalButton.waitFor({ state: "visible" }); await originalButton.click();
               await page.getByText("Agregada · Versión de entrada 1", { exact: true }).first().waitFor({ state: "visible" });
@@ -90,14 +96,17 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native CSV bro
               expect(await page.getByRole("checkbox", { name: "Seleccionar fila 26", exact: true }).isChecked()).toBe(true);
               if (capture) await captureAdmissionReview(page, "allowlist-import-partial", forbidden, "allowlist-import-captures.json", { selector });
               await database.withContext(fixture.own, async (transaction) => { await transaction.execute(sql.raw("drop trigger synthetic_import_browser_failure on public.academy_allowlist_import_rows")); await transaction.execute(sql.raw("drop function public.synthetic_import_browser_failure()")); await transaction.execute(sql`update public.academy_admission_operations set lease_until=clock_timestamp()-interval '1 second',version=version+1 where actor_user_id=${fixture.userId} and tribe_id=${fixture.tribeId} and idempotency_key=${writes[1].operationId}`); });
+              await page.getByRole("button", { name: "Continuar", exact: true }).click(); await settleGuidedStep(page);
               await page.getByRole("checkbox", { name: "Confirmo incorporar sólo las filas elegidas", exact: true }).click(); await page.getByRole("button", { name: "Retomar filas pendientes", exact: true }).click();
-              await page.locator(selector).getByText("La confirmación terminó. Revisá los resultados de cada fila.", { exact: true }).waitFor({ state: "visible" });
+              // The confirmed import is announced in its own toast.
+              await page.getByText("La confirmación terminó. Revisá los resultados de cada fila.", { exact: true }).first().waitFor({ state: "visible" });
               expect(writes[2].selectedRows).toEqual([26, 27, 28, 29, 30]); expect(writes[2].operationId).not.toBe(writes[1].operationId);
               await originalButton.click(); await page.getByRole("button", { name: "Conciliar resultados anteriores", exact: true }).waitFor({ state: "visible" }); await page.getByRole("button", { name: "Conciliar resultados anteriores", exact: true }).click();
               await page.waitForFunction(() => !document.body.textContent?.includes("Confirmaciones anteriores por conciliar:"));
               expect(writes[3].operationId).toBe(writes[1].operationId); expect(writes[3].selectedRows).toHaveLength(30);
-            } else await page.locator(selector).getByText("La confirmación terminó. Revisá los resultados de cada fila.", { exact: true }).waitFor({ state: "visible" });
+            } else await page.getByText("La confirmación terminó. Revisá los resultados de cada fila.", { exact: true }).first().waitFor({ state: "visible" });
             if (capture) await captureAdmissionReview(page, "allowlist-import-completed", forbidden, "allowlist-import-captures.json", { selector });
+            await settleGuidedStep(page); await page.getByText("Progreso y reporte", { exact: true }).click();
             const reportPromise = page.waitForEvent("download"); await page.getByRole("button", { name: "Descargar reporte", exact: true }).click(); expect((await reportPromise).suggestedFilename()).toBe("allowlist-import-report.csv");
             expect(await page.getByRole("button", { name: /Google/ }).count() + await page.getByRole("link", { name: /Google/ }).count()).toBe(0); expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false); expect(pageErrors).toBe(0); expect(navigations).toBe(width === 1280 ? 2 : 1);
             await database.withContext(fixture.own, async (transaction) => { expect((await transaction.execute(sql`select count(*)::int as count from public.academy_admission_contact_bindings where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ count: 0 }]); expect((await transaction.execute(sql`select count(*)::int as count from public.academy_allowlist_entries where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ count: beforeCount + rowCount }]); });

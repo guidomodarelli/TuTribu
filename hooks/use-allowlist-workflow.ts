@@ -2,6 +2,7 @@
 /** Owns list actions, scoped persistence and readonly recovery while preserving draft and server authority. @module use-allowlist-workflow */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "@golfo/ui";
+import { startWriteToast, type WriteToast } from "@/lib/toasts/write-toast";
 import type { AllowlistPageState, AllowlistBrowserQuery } from "@/src/modules/academy-admissions/application/results/allowlist-page-state";
 import type { AllowlistBrowserClient } from "@/src/modules/academy-admissions/application/ports/allowlist-browser-client";
 import type { AllowlistDraft, AllowlistBrowserIntent } from "@/src/modules/academy-admissions/application/commands/allowlist-browser-intent";
@@ -11,7 +12,7 @@ import { readAllowlistWorkflow, writeAllowlistWorkflow } from "@/lib/academy-adm
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
 import { normalizeAdmissionContact } from "@/src/modules/academy-admissions/domain/value-objects/admission-contact";
 import { normalizeAllowlistDisplayName } from "@/src/modules/academy-admissions/domain/value-objects/allowlist-display-name";
-import { ALLOWLIST_BROWSER_PHASE as PHASE, ALLOWLIST_BROWSER_COPY as COPY, ALLOWLIST_BROWSER_TIMEOUT_MS } from "@/src/modules/academy-admissions/constants/allowlist-browser";
+import { ALLOWLIST_BROWSER_PHASE as PHASE, ALLOWLIST_BROWSER_COPY as COPY, ALLOWLIST_BROWSER_TIMEOUT_MS, ALLOWLIST_ENTRY_STEP } from "@/src/modules/academy-admissions/constants/allowlist-browser";
 import { ALLOWLIST_ENTRY_STATUS } from "@/src/modules/academy-admissions/constants/admission-resources";
 import { ADMISSION_CONTACT_NORMALIZATION_STATUS } from "@/src/modules/academy-admissions/constants/admission-contact";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
@@ -25,6 +26,9 @@ import type { AllowlistBrowserResult } from "@/src/modules/academy-admissions/ap
 /** @returns A blank proposal; neither consent nor authority is ever restored. */
 function emptyDraft(): AllowlistDraft { return { identity: "", country: "", displayName: "", status: ALLOWLIST_ENTRY_STATUS.enabled, entryId: null, expectedVersion: null }; }
 
+/** @param draft - Restored proposal. @returns The first step still pending; consent is never restored, so a complete contact resumes at the review. */
+function firstPendingStep(draft: AllowlistDraft): number { return draft.entryId || draft.identity.trim() ? ALLOWLIST_ENTRY_STEP.review : ALLOWLIST_ENTRY_STEP.contact; }
+
 /** @param options - Safe current SSR state and own browser ports. @returns Controlled state/actions without POST on mount or full route refresh. */
 export function useAllowlistWorkflow(options: { initialState: AllowlistPageState; client?: AllowlistBrowserClient }) {
   const initial = options.initialState.kind === "ready" ? options.initialState : null, client = options.client ?? allowlistApiClient;
@@ -32,8 +36,8 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
   const [search, setSearch] = useState(initial?.query.search ?? ""), [status, setStatus] = useState<"enabled" | "disabled" | null>(initial?.query.status ?? null);
   const [draft, setDraft] = useState<AllowlistDraft>(emptyDraft), [confirmed, setConfirmed] = useState(false), [ready, setReady] = useState(false), [privateVisible, setPrivateVisible] = useState(true);
   const [phase, setPhase] = useState<typeof PHASE[keyof typeof PHASE]>(PHASE.checking), [pending, setPending] = useState<AllowlistBrowserIntent | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null), [statusMessage, setStatusMessage] = useState<string | null>(null), [fieldError, setFieldError] = useState<string | null>(null), [conflict, setConflict] = useState(false);
-  const currentDraft = useRef(draft), currentPending = useRef<AllowlistBrowserIntent | null>(null), controller = useRef<AbortController | null>(null), active = useRef(false), generation = useRef(0), busy = useRef(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null), [fieldError, setFieldError] = useState<string | null>(null), [conflict, setConflict] = useState(false), [step, setStep] = useState<number>(ALLOWLIST_ENTRY_STEP.contact);
+  const currentDraft = useRef(draft), currentPending = useRef<AllowlistBrowserIntent | null>(null), controller = useRef<AbortController | null>(null), active = useRef(false), generation = useRef(0), busy = useRef(false), writeToast = useRef<WriteToast | null>(null);
   const live = (signal: AbortSignal, scope: number) => active.current && generation.current === scope && !signal.aborted;
 
   /** Every private read clears visible prior data when its current server authority is lost. */
@@ -77,13 +81,18 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
 
   /**
    * A terminal original is reconciled through current own metadata, without another POST or route refresh.
-   * @param confirmation - Visible success copy: the save itself, or the recovery of an earlier original.
+   * @param confirmation - Success copy: the save itself (announced by the write's toast), or the recovery of an earlier original.
    */
   const consume = useCallback(async (intent: AllowlistBrowserIntent, value: { state: "started" | "completed"; operationId: string; result?: unknown }, signal: AbortSignal, scope: number, confirmation: string) => {
     if (value.operationId !== intent.input.operationId) { setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); setPhase(PHASE.uncertain); return; }
     if (value.state === OPERATION_STATE.started) { setErrorMessage(COPY.started); setPhase(PHASE.uncertain); return; }
     const denial = allowlistMutationDenialSchema.safeParse(value.result);
-    if (denial.success) { if (!persist(currentDraft.current, null)) return; setConfirmed(false); const staleEdit = denial.data.code === ADMISSION_ERROR_CODE.allowlistConflict && intent.type === REAUTHENTICATION_OPERATION.updateAllowlistEntry; setErrorMessage(denial.data.code === ADMISSION_ERROR_CODE.allowlistConflict && !staleEdit ? COPY.duplicate : ADMISSION_ERROR_MESSAGE[denial.data.code]); setConflict(staleEdit); setPhase(PHASE.idle); return; }
+    if (denial.success) { if (!persist(currentDraft.current, null)) return; setConfirmed(false); const staleEdit = denial.data.code === ADMISSION_ERROR_CODE.allowlistConflict && intent.type === REAUTHENTICATION_OPERATION.updateAllowlistEntry; setConflict(staleEdit); setPhase(PHASE.idle);
+      if (denial.data.code === ADMISSION_ERROR_CODE.allowlistConflict) setErrorMessage(staleEdit ? ADMISSION_ERROR_MESSAGE[denial.data.code] : COPY.duplicate);
+      else if (writeToast.current) writeToast.current.announce({ kind: "error", message: ADMISSION_ERROR_MESSAGE[denial.data.code] });
+      else toast.error(ADMISSION_ERROR_MESSAGE[denial.data.code]);
+      return;
+    }
     const parsed = allowlistMutationResultSchema.safeParse(value.result);
     if (!parsed.success || intent.type === REAUTHENTICATION_OPERATION.updateAllowlistEntry && (parsed.data.entryId !== intent.entryId || parsed.data.created || parsed.data.version !== intent.input.expectedVersion + (parsed.data.changed ? 1 : 0))) { setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); setPhase(PHASE.uncertain); return; }
     const current = await client.read(initial!.slug, parsed.data.entryId, signal);
@@ -96,7 +105,8 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
       setPage(refreshed.value);
     } else mergeEntry(current.value);
     if (!persist(emptyDraft(), null)) return;
-    setConfirmed(false); setConflict(false); setStatusMessage(confirmation); setPhase(PHASE.idle); toast.success(COPY.saved);
+    setConfirmed(false); setConflict(false); setStep(ALLOWLIST_ENTRY_STEP.contact); setPhase(PHASE.idle);
+    if (writeToast.current) writeToast.current.announce({ kind: "success", message: confirmation }); else toast.success(confirmation);
   }, [authorize, client, initial, mergeEntry, page.items, persist, query, reportFailure]);
 
   /** Each interactive read owns one cancellable slot and cannot replace an unfinished mutation. */
@@ -104,13 +114,18 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
     if (!initial || busy.current) return;
     controller.current?.abort(); const next = new AbortController(), scope = generation.current; controller.current = next; busy.current = true;
     const timeout = window.setTimeout(() => next.abort(), ALLOWLIST_BROWSER_TIMEOUT_MS);
-    setErrorMessage(null); setStatusMessage(null); setFieldError(null); setPhase(writing ? PHASE.writing : PHASE.reading);
-    const notice = writing ? toast.loading(COPY.saving) : null;
+    setErrorMessage(null); setFieldError(null); setPhase(writing ? PHASE.writing : PHASE.reading);
+    // A write's outcome goes to its own toast; an unconfirmed original stays on screen instead.
+    const notice = writing ? startWriteToast(COPY.saving) : null; writeToast.current = notice;
+    /** A failure the person can retry: the write's toast for a new write, the page for a read. */
+    const fail = (message: string) => { if (notice) notice.announce({ kind: "error", message }); else setErrorMessage(message); };
     try { if (await authorize(next.signal, scope)) await action(next.signal, scope); }
-    catch { if (live(next.signal, scope)) { setErrorMessage(currentPending.current ? COPY.uncertain : ADMISSION_ERROR_MESSAGE.dependency_unavailable); setPhase(currentPending.current ? PHASE.uncertain : PHASE.idle); } }
+    catch { if (live(next.signal, scope)) { if (currentPending.current) setErrorMessage(COPY.uncertain); else fail(ADMISSION_ERROR_MESSAGE.dependency_unavailable); setPhase(currentPending.current ? PHASE.uncertain : PHASE.idle); } }
     finally {
-      window.clearTimeout(timeout); if (notice !== null) toast.dismiss(notice);
-      if (controller.current === next) { controller.current = null; busy.current = false; if (active.current && generation.current === scope) { if (next.signal.aborted && currentPending.current) { setErrorMessage(COPY.uncertain); setPhase(PHASE.uncertain); } else if (next.signal.aborted) { setErrorMessage(ADMISSION_ERROR_MESSAGE.dependency_unavailable); setPhase(PHASE.idle); } else setPhase((current) => current === PHASE.changedViewer || current === PHASE.uncertain ? current : PHASE.idle); } }
+      window.clearTimeout(timeout);
+      if (controller.current === next) { controller.current = null; busy.current = false; if (active.current && generation.current === scope) { if (next.signal.aborted && currentPending.current) { setErrorMessage(COPY.uncertain); setPhase(PHASE.uncertain); } else if (next.signal.aborted) { fail(ADMISSION_ERROR_MESSAGE.dependency_unavailable); setPhase(PHASE.idle); } else setPhase((current) => current === PHASE.changedViewer || current === PHASE.uncertain ? current : PHASE.idle); } }
+      if (writeToast.current === notice) writeToast.current = null;
+      notice?.finish();
     }
   }, [authorize, initial]);
 
@@ -131,7 +146,7 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
       try {
         const stored = readAllowlistWorkflow(initial!.viewerId, initial!.slug);
         if (!live(hydration.signal, scope)) return;
-        if (stored) { currentDraft.current = stored.draft; currentPending.current = stored.pending; setDraft(stored.draft); setPending(stored.pending); }
+        if (stored) { currentDraft.current = stored.draft; currentPending.current = stored.pending; setDraft(stored.draft); setPending(stored.pending); setStep(firstPendingStep(stored.draft)); }
         setConfirmed(false); setReady(true); setPhase(stored?.pending ? PHASE.uncertain : PHASE.idle);
       } catch { if (live(hydration.signal, scope)) { setReady(false); setErrorMessage(COPY.storage); setPhase(PHASE.idle); } }
     })().catch(() => { if (live(hydration.signal, scope)) { setReady(false); setErrorMessage(ADMISSION_ERROR_MESSAGE.dependency_unavailable); setPhase(PHASE.idle); } }).finally(() => window.clearTimeout(timeout)); });
@@ -160,7 +175,12 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
       const result = await client.write(initial.slug, intent, signal);
       if (!live(signal, scope) || !await authorize(signal, scope)) return;
       if (result.status === "ready") await consume(intent, result.value, signal, scope, COPY.saved);
-      else if (result.status === "failed" && !result.uncertain) { if (!persist(proposal, null)) return; setConfirmed(false); if (reportFailure(result)) return; const staleEdit = result.code === ADMISSION_ERROR_CODE.allowlistConflict && intent.type === REAUTHENTICATION_OPERATION.updateAllowlistEntry; setErrorMessage(result.code === ADMISSION_ERROR_CODE.allowlistConflict ? staleEdit ? COPY.conflict : COPY.duplicate : result.message); setConflict(staleEdit); toast.error(result.message); }
+      else if (result.status === "failed" && !result.uncertain) {
+        if (!persist(proposal, null)) return; setConfirmed(false); if (reportFailure(result)) return;
+        // A conflict or duplicate keeps the form blocked, so it stays next to the form; any other failure is the write's toast.
+        if (result.code === ADMISSION_ERROR_CODE.allowlistConflict) { const staleEdit = intent.type === REAUTHENTICATION_OPERATION.updateAllowlistEntry; setErrorMessage(staleEdit ? COPY.conflict : COPY.duplicate); setConflict(staleEdit); }
+        else { setErrorMessage(null); writeToast.current?.announce({ kind: "error", message: result.message }); }
+      }
       else { setErrorMessage(COPY.uncertain); setPhase(PHASE.uncertain); }
     }, true);
   }, [authorize, client, confirmed, conflict, consume, initial, persist, ready, reportFailure, run]);
@@ -171,13 +191,13 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
     const current = await client.read(initial!.slug, proposal.entryId, signal);
     if (!live(signal, scope) || !await authorize(signal, scope)) return;
     if (current.status !== "ready") { if (current.status === "failed") reportFailure(current); return; }
-    mergeEntry(current.value); if (!persist({ ...proposal, expectedVersion: current.value.version }, null)) return; setConfirmed(false); setConflict(false); setStatusMessage("Versión actual consultada. Revisá el borrador y confirmá el cambio nuevamente.");
+    mergeEntry(current.value); if (!persist({ ...proposal, expectedVersion: current.value.version }, null)) return; setConfirmed(false); setConflict(false); setErrorMessage(null); toast.info(COPY.currentRead);
   }), [authorize, client, initial, mergeEntry, persist, reportFailure, run]);
 
-  const changeDraft = (value: AllowlistDraft) => { if (!busy.current && !currentPending.current) { persist(value, null); setConfirmed(false); setFieldError(null); setErrorMessage(null); setStatusMessage(null); } };
+  const changeDraft = (value: AllowlistDraft) => { if (!busy.current && !currentPending.current) { persist(value, null); setConfirmed(false); setFieldError(null); setErrorMessage(null); } };
   /** Selection cannot discard conflict/progress while the original write is unresolved. */
-  const select = (entry: AllowlistEntryResult) => { if (busy.current || currentPending.current || !ready) return; setConflict(false); changeDraft({ identity: entry.identity, country: "", displayName: entry.displayName ?? "", status: entry.status, entryId: entry.id, expectedVersion: entry.version }); };
+  const select = (entry: AllowlistEntryResult) => { if (busy.current || currentPending.current || !ready) return; setConflict(false); changeDraft({ identity: entry.identity, country: "", displayName: entry.displayName ?? "", status: entry.status, entryId: entry.id, expectedVersion: entry.version }); setStep(ALLOWLIST_ENTRY_STEP.details); };
   /** Starting a proposal is explicit and never replaces an unresolved original. */
-  const newEntry = () => { if (busy.current || currentPending.current || !ready) return; setConflict(false); changeDraft(emptyDraft()); };
-  return { page, draft, search, status, confirmed, ready, privateVisible, phase, pending, conflict, errorMessage, statusMessage, fieldError, changeDraft, setConfirmed: (value: boolean) => { if (!ready || busy.current || currentPending.current) return; setConfirmed(value); setFieldError(null); }, setSearch: (value: string) => { setSearch(value); setErrorMessage(null); setStatusMessage(null); }, setStatus: (value: "enabled" | "disabled" | null) => { setStatus(value); setErrorMessage(null); setStatusMessage(null); }, searchEntries: () => readList({ limit: query.limit, ...(search.trim() ? { search: search.trim() } : {}), ...(status ? { status } : {}) }), next: () => page.nextCursor ? readList({ ...query, cursor: page.nextCursor }) : Promise.resolve(), select, newEntry, save, readOriginal, readCurrentEntry };
+  const newEntry = () => { if (busy.current || currentPending.current || !ready) return; setConflict(false); changeDraft(emptyDraft()); setStep(ALLOWLIST_ENTRY_STEP.contact); };
+  return { page, draft, search, status, confirmed, ready, privateVisible, phase, pending, conflict, errorMessage, fieldError, step, setStep: (value: number) => { if (!busy.current) setStep(value); }, changeDraft, setConfirmed: (value: boolean) => { if (!ready || busy.current || currentPending.current) return; setConfirmed(value); setFieldError(null); }, setSearch: (value: string) => { setSearch(value); setErrorMessage(null); }, setStatus: (value: "enabled" | "disabled" | null) => { setStatus(value); setErrorMessage(null); }, searchEntries: () => readList({ limit: query.limit, ...(search.trim() ? { search: search.trim() } : {}), ...(status ? { status } : {}) }), next: () => page.nextCursor ? readList({ ...query, cursor: page.nextCursor }) : Promise.resolve(), select, newEntry, save, readOriginal, readCurrentEntry };
 }

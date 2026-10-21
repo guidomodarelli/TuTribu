@@ -2,6 +2,7 @@
 /** Owns viewer-scoped administrative proposals, one-view material and read-only original recovery. @module use-personal-invitation-management */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "@golfo/ui";
+import { startWriteToast, type WriteToast } from "@/lib/toasts/write-toast";
 import type { PersonalInvitationManagementPageState, PersonalInvitationManagementBrowserQuery } from "@/src/modules/academy-admissions/application/results/personal-invitation-management-page-state";
 import type { PersonalInvitationManagementBrowserClient } from "@/src/modules/academy-admissions/application/ports/personal-invitation-management-browser-client";
 import type { PersonalInvitationManagementDraft, PersonalInvitationManagementReference } from "@/src/modules/academy-admissions/application/commands/personal-invitation-management-intent";
@@ -25,7 +26,7 @@ export function usePersonalInvitationManagement(options: { initialState: Persona
   const [confirmed, setConfirmed] = useState(false), [ready, setReady] = useState(false), [privateVisible, setPrivateVisible] = useState(true), [phase, setPhase] = useState<"checking" | "idle" | "reading" | "writing" | "uncertain" | "closed">(PHASE.checking);
   const [pending, setPending] = useState<PersonalInvitationManagementReference | null>(null), [errorMessage, setErrorMessage] = useState<string | null>(null), [fieldError, setFieldError] = useState<string | null>(null), [statusMessage, setStatusMessage] = useState<string | null>(null), [conflict, setConflict] = useState(false), [needsCurrent, setNeedsCurrent] = useState(false), [invitationUrl, setInvitationUrl] = useState<string | null>(null);
   const mounted = useRef(false), closed = useRef(false), generation = useRef(0), busy = useRef(false), controller = useRef<AbortController | null>(null), pendingRef = useRef<PersonalInvitationManagementReference | null>(null), draftRef = useRef(draft), stateRef = useRef(state);
-  const [selectionBlocked, setSelectionBlocked] = useState(false);
+  const [selectionBlocked, setSelectionBlocked] = useState(false), [step, setStep] = useState(0), writeToast = useRef<WriteToast | null>(null);
   const live = (signal: AbortSignal, scope: number) => mounted.current && generation.current === scope && !signal.aborted;
 
   /** A changed viewer permanently closes this mounted scope and removes transient private material. */
@@ -68,13 +69,18 @@ export function usePersonalInvitationManagement(options: { initialState: Persona
   const run = useCallback(async (action: (signal: AbortSignal, scope: number) => Promise<void>, writing = false) => {
     if (!initial || closed.current || busy.current) return;
     const next = new AbortController(), scope = generation.current; controller.current?.abort(); controller.current = next; busy.current = true;
-    const timeout = window.setTimeout(() => next.abort(), PERSONAL_INVITATION_MANAGEMENT_TIMEOUT_MS), notice = writing ? toast.loading(COPY.saving) : null;
+    // A write's progress and outcome are its own toast; an unconfirmed original stays on screen.
+    const timeout = window.setTimeout(() => next.abort(), PERSONAL_INVITATION_MANAGEMENT_TIMEOUT_MS), notice = writing ? startWriteToast(COPY.saving) : null; writeToast.current = notice;
+    /** A failure the leader can retry: the write's toast, or the page for a read or an unconfirmed original. */
+    const fail = (message: string) => { if (notice && !pendingRef.current) notice.announce({ kind: "error", message }); else setErrorMessage(message); };
     setErrorMessage(null); setStatusMessage(null); setFieldError(null); setPhase(writing ? PHASE.writing : PHASE.reading);
     try { if (await authorize(next.signal, scope)) await action(next.signal, scope); }
-    catch { if (live(next.signal, scope)) setErrorMessage(pendingRef.current ? COPY.uncertain : ADMISSION_ERROR_MESSAGE.dependency_unavailable); }
+    catch { if (live(next.signal, scope)) fail(pendingRef.current ? COPY.uncertain : ADMISSION_ERROR_MESSAGE.dependency_unavailable); }
     finally {
-      window.clearTimeout(timeout); if (notice !== null) toast.dismiss(notice);
-      if (controller.current === next) { controller.current = null; busy.current = false; if (mounted.current && generation.current === scope && !closed.current) { setPhase(pendingRef.current ? PHASE.uncertain : PHASE.idle); if (next.signal.aborted) setErrorMessage(pendingRef.current ? COPY.uncertain : ADMISSION_ERROR_MESSAGE.dependency_unavailable); } }
+      window.clearTimeout(timeout);
+      if (controller.current === next) { controller.current = null; busy.current = false; if (mounted.current && generation.current === scope && !closed.current) { setPhase(pendingRef.current ? PHASE.uncertain : PHASE.idle); if (next.signal.aborted) fail(pendingRef.current ? COPY.uncertain : ADMISSION_ERROR_MESSAGE.dependency_unavailable); } }
+      if (writeToast.current === notice) writeToast.current = null;
+      notice?.finish();
     }
   }, [authorize, initial]);
 
@@ -86,8 +92,17 @@ export function usePersonalInvitationManagement(options: { initialState: Persona
     if (!denial.success && (!success.success || reference.invitationId !== null && (success.data.invitationId !== reference.invitationId || success.data.created || success.data.version !== reference.expectedVersion! + (success.data.changed ? 1 : 0)))) { setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); return; }
     pendingRef.current = null; setPending(null); setConfirmed(false); setNeedsCurrent(true);
     const stored = persist(null);
-    if (denial.success) { setConflict(denial.data.code === ADMISSION_ERROR_CODE.invitationConflict); setErrorMessage(ADMISSION_ERROR_MESSAGE[denial.data.code]); toast.error(ADMISSION_ERROR_MESSAGE[denial.data.code]); if (stored) setNeedsCurrent(false); return; }
-    setInvitationUrl(outcome.invitationUrl ?? null); setStatusMessage(reference.type === REAUTHENTICATION_OPERATION.createPersonalInvitation && !outcome.invitationUrl ? COPY.lostUrl : COPY.saved); toast.success(COPY.saved);
+    if (denial.success) {
+      const blocking = denial.data.code === ADMISSION_ERROR_CODE.invitationConflict;
+      setConflict(blocking); if (stored) setNeedsCurrent(false);
+      // A conflict blocks the form and stays next to it; any other denial is the write's failure.
+      if (blocking || !writeToast.current) setErrorMessage(ADMISSION_ERROR_MESSAGE[denial.data.code]); else writeToast.current.announce({ kind: "error", message: ADMISSION_ERROR_MESSAGE[denial.data.code] });
+      return;
+    }
+    setInvitationUrl(outcome.invitationUrl ?? null); setStep(0);
+    // A lost one-time link stays on screen: the leader has to act on it.
+    if (reference.type === REAUTHENTICATION_OPERATION.createPersonalInvitation && !outcome.invitationUrl) setStatusMessage(COPY.lostUrl);
+    if (writeToast.current) writeToast.current.announce({ kind: "success", message: COPY.saved }); else toast.success(COPY.recovered);
     if (!stored) return;
     if (!await refresh(stateRef.current!.query, signal, scope) && live(signal, scope) && !closed.current) { setErrorMessage(COPY.freshFailed); return; }
     const currentState = stateRef.current!; draftRef.current = emptyPersonalInvitationManagementDraft(currentState); setDraft(draftRef.current); setConflict(false);
@@ -119,7 +134,11 @@ export function usePersonalInvitationManagement(options: { initialState: Persona
       const result = await client.write(initial!.slug, intent, signal);
       if (!live(signal, scope) || !await authorize(signal, scope)) return;
       if (result.status === "ready") { if (result.value.viewerId !== initial!.viewerId) { close(); return; } await consume(reference, result.value.outcome, signal, scope); }
-      else if (result.status === "failed" && !result.uncertain) { pendingRef.current = null; setPending(null); if (!persist(null)) { setNeedsCurrent(true); return; } setConfirmed(false); if (report(result)) return; setConflict(result.code === ADMISSION_ERROR_CODE.invitationConflict); toast.error(result.message); }
+      else if (result.status === "failed" && !result.uncertain) {
+        pendingRef.current = null; setPending(null); if (!persist(null)) { setNeedsCurrent(true); return; } setConfirmed(false); if (report(result)) return;
+        const blocking = result.code === ADMISSION_ERROR_CODE.invitationConflict; setConflict(blocking);
+        if (!blocking) { setErrorMessage(null); writeToast.current?.announce({ kind: "error", message: result.message }); }
+      }
       else setErrorMessage(COPY.uncertain);
     }, true);
   }, [authorize, client, close, confirmed, conflict, consume, initial, needsCurrent, observeReference, persist, ready, report, run]);
@@ -140,16 +159,16 @@ export function usePersonalInvitationManagement(options: { initialState: Persona
     if (selectedId && !selected) { setSelectionBlocked(true); setConflict(true); setNeedsCurrent(true); setStatusMessage(null); setErrorMessage(PERSONAL_INVITATION_MANAGEMENT_SELECTION_MISSING); return; }
     if (selected && draftRef.current?.replaceSelected && selected.status !== ADMISSION_INVITATION_STATUS.active) { draftRef.current = { ...draftRef.current, selected, replacementAcknowledged: false }; setDraft(draftRef.current); setSelectionBlocked(true); setConflict(true); setNeedsCurrent(true); setStatusMessage(null); setErrorMessage(PERSONAL_INVITATION_MANAGEMENT_REPLACEMENT_UNAVAILABLE); return; }
     if (draftRef.current && selected) { draftRef.current = { ...draftRef.current, selected, withdrawalAcknowledged: false, replacementAcknowledged: false }; setDraft(draftRef.current); }
-    setSelectionBlocked(false); setConflict(false); setReady(true); setStatusMessage(COPY.current);
+    setSelectionBlocked(false); setConflict(false); setReady(true); toast.info(COPY.current);
   }), [observeReference, refresh, run]);
   const changeDraft = (next: PersonalInvitationManagementDraft) => { if (busy.current || pendingRef.current || closed.current || !ready) return; draftRef.current = next; setDraft(next); setConfirmed(false); setFieldError(null); setErrorMessage(null); setStatusMessage(null); setInvitationUrl(null); };
-  const select = (item: PersonalInvitationManagementResult, mode: "rename" | "revoke" | "create") => { if (!stateRef.current || conflict) return; const next = emptyPersonalInvitationManagementDraft(stateRef.current); changeDraft({ ...next, mode, selected: item, internalName: item.internalName, identity: item.recipient.value, country: item.recipient.country ?? next.country, requiresAllowlist: item.requiresAllowlist, replaceSelected: mode === MODE.create }); };
+  const select = (item: PersonalInvitationManagementResult, mode: "rename" | "revoke" | "create") => { if (!stateRef.current || conflict || busy.current || pendingRef.current || closed.current || !ready) return; const next = emptyPersonalInvitationManagementDraft(stateRef.current); changeDraft({ ...next, mode, selected: item, internalName: item.internalName, identity: item.recipient.value, country: item.recipient.country ?? next.country, requiresAllowlist: item.requiresAllowlist, replaceSelected: mode === MODE.create }); setStep(0); };
   const copyUrl = () => run(async (signal, scope) => {
     if (!invitationUrl || !await refresh(stateRef.current!.query, signal, scope) || closed.current) return;
-    if (!navigator.clipboard?.writeText) { setStatusMessage(COPY.clipboard); return; }
-    try { await navigator.clipboard.writeText(invitationUrl); if (live(signal, scope)) setStatusMessage(COPY.copied); }
-    catch { if (live(signal, scope)) setStatusMessage(COPY.clipboard); }
+    if (!navigator.clipboard?.writeText) { toast.info(COPY.clipboard); return; }
+    try { await navigator.clipboard.writeText(invitationUrl); if (live(signal, scope)) toast.success(COPY.copied); }
+    catch { if (live(signal, scope)) toast.info(COPY.clipboard); }
   });
-  const discardSelection = () => { if (!selectionBlocked || !stateRef.current || busy.current || pendingRef.current || closed.current || !ready) return; changeDraft(emptyPersonalInvitationManagementDraft(stateRef.current)); setSelectionBlocked(false); setConflict(false); setNeedsCurrent(false); };
-  return { state, draft, pending, ready, privateVisible, phase, confirmed, errorMessage, fieldError, statusMessage, conflict, needsCurrent, selectionBlocked, discardSelection, invitationUrl, changeDraft, select, newInvitation: () => { if (stateRef.current && !conflict) changeDraft(emptyPersonalInvitationManagementDraft(stateRef.current)); }, setConfirmed: (value: boolean) => { if (!ready || busy.current || pendingRef.current || closed.current) return; setConfirmed(value); setFieldError(null); }, save, readOriginal, readCurrent, copyUrl, hideUrl: () => setInvitationUrl(null) };
+  const discardSelection = () => { if (!selectionBlocked || !stateRef.current || busy.current || pendingRef.current || closed.current || !ready) return; changeDraft(emptyPersonalInvitationManagementDraft(stateRef.current)); setSelectionBlocked(false); setConflict(false); setNeedsCurrent(false); setStep(0); };
+  return { state, draft, pending, ready, privateVisible, phase, confirmed, errorMessage, fieldError, statusMessage, conflict, needsCurrent, selectionBlocked, discardSelection, invitationUrl, step, setStep: (value: number) => { if (!busy.current) setStep(value); }, changeDraft, select, newInvitation: () => { if (stateRef.current && !conflict && !busy.current && !pendingRef.current) { changeDraft(emptyPersonalInvitationManagementDraft(stateRef.current)); setStep(0); } }, setConfirmed: (value: boolean) => { if (!ready || busy.current || pendingRef.current || closed.current) return; setConfirmed(value); setFieldError(null); }, save, readOriginal, readCurrent, copyUrl, hideUrl: () => setInvitationUrl(null) };
 }

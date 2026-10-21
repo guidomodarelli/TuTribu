@@ -29,6 +29,7 @@ import { admissionPublicErrorSchema } from "@/src/modules/academy-admissions/app
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { HTTP_STATUS } from "@/src/constants/http-status";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { continueToAdmissionSubmission } from "@/tests/support/admission-contact-browser-actions";
 
 /**
  * Protects each acquired browser resource, including partial setup failures.
@@ -168,10 +169,10 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
             phase = PHASE.common;
             await page.goto(new URL(buildAdmissionEntryRoute(fixture.slug), origin).href);
             expect(await page.getByRole("textbox", { name: /^(Nombre|Apellido)$/i }).count()).toBe(0);
-            await setVisibleCheckboxChecked(page.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }), true, VALIDATION.actionTimeoutMs); await page.getByRole("button", { name: ADMISSION_UI_COPY.submit, exact: true }).click();
+            // The data step explains why it cannot continue until the declared number is valid.
             await page.getByText(COPY.required, { exact: true }).waitFor(); expect(commonWrites).toBe(0);
             const number = page.getByRole("textbox", { name: COPY.label, exact: true });
-            await number.fill("invalid"); await page.getByRole("button", { name: ADMISSION_UI_COPY.submit, exact: true }).click();
+            await number.fill("invalid");
             await page.getByText(COPY.invalid, { exact: true }).waitFor(); expect(commonWrites).toBe(0);
             await number.fill("+1 (415) 555-2671"); await number.press("Tab");
             await inspectSurface(page, `${engineName}-${width}-common`, privateValues);
@@ -191,6 +192,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
               unresolvedReplyInjected = true;
               await route.fulfill({ response, status: HTTP_STATUS.accepted, json: { code: ADMISSION_ERROR_CODE.operationUnresolved, message: ADMISSION_ERROR_MESSAGE.operation_unresolved, requestId: randomUUID(), operation: { operationId: originalOperationId, state: OPERATION_STATE.completed } } });
             });
+            await continueToAdmissionSubmission(page);
+            await setVisibleCheckboxChecked(page.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }), true, VALIDATION.actionTimeoutMs);
             const commonResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/submissions"));
             await page.getByRole("button", { name: ADMISSION_UI_COPY.submit, exact: true }).click();
             if (await inspectSubmissionReply(await commonResponse, `${engineName}-${width}-common`)) {

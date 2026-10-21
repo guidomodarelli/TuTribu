@@ -14,6 +14,8 @@ import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admi
 import { captureAdmissionReview } from "@/tests/support/admission-review-capture";
 import { admissionOperationRecoverySchema } from "@/src/modules/academy-admissions/application/results/admission-operation-recovery";
 import { VERIFICATION_ISSUANCE_OPERATION } from "@/src/modules/academy-admissions/constants/verification-issuance";
+import { settleGuidedStep } from "@/tests/support/guided-steps-browser";
+import { continueToAdmissionCode } from "@/tests/support/admission-contact-browser-actions";
 
 test("should request a fresh code for the same contact after its own request was canceled", async ({ page, context }) => {
   test.setTimeout(ADMISSION_LIMIT.verificationProofFreshnessMs);
@@ -57,6 +59,8 @@ test("should request a fresh code for the same contact after its own request was
       page.on("request", (request) => { const path = new URL(request.url()).pathname; if (path.includes("/admissions/operations/")) originalReads++; if (request.method() === "POST" && path.includes("/admissions/")) admissionPostRequests++; if (path.endsWith("/resend")) resendRequests++; });
       page.on("response", (response) => { if (new URL(response.url()).pathname.endsWith("/resend")) resendResponses++; });
       await page.goto(`${origin}/admissions/${slug}`, { waitUntil: "domcontentloaded" });
+      // A new presentation starts at the data step; the contact and its code come next.
+      await continueToAdmissionCode(page);
       const phone = page.getByLabel("Teléfono para este ingreso", { exact: true });
       await expect(phone).toBeEnabled({ timeout: ADMISSION_CONTACT_BROWSER_TIMEOUT_MS });
       await expect(page.getByRole("checkbox", { name: "Confirmo el contacto y el envío del código para este ingreso.", exact: true })).not.toBeChecked();
@@ -72,13 +76,15 @@ test("should request a fresh code for the same contact after its own request was
       const currentResponse = page.waitForResponse((candidate) => candidate.request().method() === "POST" && new URL(candidate.url()).pathname.endsWith("/challenges/current"));
       await page.getByRole("button", { name: "Enviar código de ingreso", exact: true }).click();
       expect((await currentResponse).status()).toBe(200);
+      // The selected code opens the code step, where its replacement is the next action.
+      await settleGuidedStep(page);
       await expect(page.getByText("Ya hay un código para ese contacto. Confirmá el reenvío para reemplazarlo; la prueba anterior no se usa en esta presentación.", { exact: true })).toBeVisible({ timeout: ADMISSION_CONTACT_BROWSER_TIMEOUT_MS });
       await expect(page.getByLabel("Código de ingreso", { exact: true })).toBeDisabled();
       await expect(page.getByRole("button", { name: "Comprobar código", exact: true })).toBeDisabled();
       await expect(page.getByRole("checkbox", { name: "Confirmo el contacto y el envío del código para este ingreso.", exact: true })).not.toBeChecked();
       expect(providerRequests).toBe(1);
       const privateValues = [fixture.context.userId, fixture.sessionToken, fixture.own.email, fixture.fixture.credential, fixture.fixture.scope.contact.value, secret, receivedCode];
-      await captureAdmissionReview(page, "contact-retry-selected", privateValues, "contact-retry-captures.json", { selector: 'section[aria-labelledby][aria-busy]' });
+      await captureAdmissionReview(page, "contact-retry-selected", privateValues, "contact-retry-captures.json", { selector: 'form[aria-label="Solicitar ingreso a la academia"]' });
       await page.getByRole("checkbox", { name: "Confirmo el contacto y el envío del código para este ingreso.", exact: true }).click();
       const response = page.waitForResponse((candidate) => candidate.request().method() === "POST" && new URL(candidate.url()).pathname.endsWith("/resend"));
       await page.getByRole("button", { name: "Reenviar código", exact: true }).click();
@@ -115,7 +121,7 @@ test("should request a fresh code for the same contact after its own request was
         recoveredOriginal = true;
       }
       await expect(page.getByLabel("Código de ingreso", { exact: true })).toBeEnabled({ timeout: ADMISSION_CONTACT_BROWSER_TIMEOUT_MS });
-      await captureAdmissionReview(page, "contact-retry-replacement", [...privateValues, receivedCode], "contact-retry-captures.json", { selector: 'section[aria-labelledby][aria-busy]' });
+      await captureAdmissionReview(page, "contact-retry-replacement", [...privateValues, receivedCode], "contact-retry-captures.json", { selector: 'form[aria-label="Solicitar ingreso a la academia"]' });
       expect(originalReads).toBe(recoveredOriginal ? 1 : 0);
       expect(admissionPostRequests).toBe(2);
       expect(providerRequests).toBe(2);

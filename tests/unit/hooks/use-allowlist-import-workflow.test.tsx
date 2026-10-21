@@ -1,6 +1,8 @@
 /** Exercises explicit import UI actions through owned ports with real React and stored intent guards. @module use-allowlist-import-workflow-tests */
 import { randomUUID } from "node:crypto";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { act, renderHook, screen, waitFor } from "@testing-library/react";
+import { ThemedToaster } from "@golfo/ui";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useAllowlistImportWorkflow } from "@/hooks/use-allowlist-import-workflow";
 import { writeAllowlistImport } from "@/lib/academy-admissions/allowlist-import-intent";
@@ -9,7 +11,7 @@ import type { AllowlistImportPageState } from "@/src/modules/academy-admissions/
 import type { AllowlistImportDto } from "@/src/modules/academy-admissions/application/results/admission-management-result-schemas";
 import { createAllowlistImportDraftStoreFixture } from "@/tests/support/allowlist-import-draft-store-fixture";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
-import { ALLOWLIST_IMPORT_WRITE_ACTION } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
+import { ALLOWLIST_IMPORT_WRITE_ACTION, ALLOWLIST_IMPORT_BROWSER_COPY, ALLOWLIST_IMPORT_STEP } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
 
 afterEach(() => window.sessionStorage.clear());
 /** @returns Own current scope and a saved preview with one valid and one invalid record. */
@@ -22,7 +24,20 @@ function fixture() {
   return { initialState, client, importId, draft, snapshot, drafts: createAllowlistImportDraftStoreFixture() };
 }
 
+/** @param props - Hook host. @returns The real toaster beside it, where write outcomes are announced. */
+function WithToaster({ children }: { children: ReactNode }) { return <>{children}<ThemedToaster /></>; }
+
 describe("explicit import workflow", () => {
+  it("should open the review step only after the preview write lands and announce it once in its toast", async () => {
+    const data = fixture(), { result } = renderHook(() => useAllowlistImportWorkflow(data), { wrapper: WithToaster });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.step).toBe(ALLOWLIST_IMPORT_STEP.upload);
+    await act(async () => result.current.changeDraft(data.draft)); act(() => result.current.setConfirmed(true));
+    await act(async () => result.current.preview());
+    expect(result.current.step).toBe(ALLOWLIST_IMPORT_STEP.review);
+    expect(await screen.findByText(ALLOWLIST_IMPORT_BROWSER_COPY.previewed)).toBeInTheDocument();
+    expect(result.current.statusMessage).toBeNull();
+  });
   it("should restore an owned draft without consent, an upload POST or duplicate initial policy fetching", async () => {
     const data = fixture();
     const saved = await data.drafts.save(data.initialState.viewerId, "synthetic", data.draft, new AbortController().signal);

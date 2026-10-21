@@ -2,6 +2,7 @@
 import { randomUUID } from "node:crypto";
 import type { ReactNode } from "react";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { ThemedToaster } from "@golfo/ui";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AllowlistContainer } from "@/app/(platform)/[slug]/academia/admissions/allowlist/allowlist-container";
@@ -12,7 +13,10 @@ import { ALLOWLIST_BROWSER_COPY } from "@/src/modules/academy-admissions/constan
 
 const router = { back: vi.fn(), bfcacheId: "allowlist-tests", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: vi.fn(), replace: vi.fn() } satisfies AppRouterInstance;
 /** @param props - Actual UI/router children. @returns Native framework context and unmocked shared components. */
-function Providers({ children }: { children: ReactNode }) { return <AppRouterContext.Provider value={router}><AppUIProvider>{children}</AppUIProvider></AppRouterContext.Provider>; }
+function Providers({ children }: { children: ReactNode }) { return <AppRouterContext.Provider value={router}><AppUIProvider>{children}<ThemedToaster /></AppUIProvider></AppRouterContext.Provider>; }
+
+/** Moves the guided entry flow forward with its own Continue button. */
+function continueStep() { fireEvent.click(screen.getByRole("button", { name: "Continuar" })); }
 
 /** @returns Safe application props and mocks limited to project-owned transport ports. */
 function fixture() {
@@ -28,33 +32,44 @@ beforeEach(() => { window.sessionStorage.clear(); vi.clearAllMocks(); });
 describe("allowlist route controls", () => {
   it("should show contact validation before dispatch and clear it when the proposal changes", async () => {
     const data = fixture(); render(<AllowlistContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
-    const confirmation = screen.getByRole("checkbox", { name: "Confirmo el cambio de esta entrada de lista" });
-    await waitFor(() => expect(confirmation).not.toBeDisabled());
-    fireEvent.change(screen.getByLabelText("Correo de la entrada"), { target: { value: "invalid" } });
-    fireEvent.click(confirmation); fireEvent.click(screen.getByRole("button", { name: "Guardar entrada" }));
+    const contact = screen.getByLabelText("Correo de la entrada");
+    await waitFor(() => expect(contact).not.toBeDisabled());
+    // The contact step explains why it cannot continue until a contact is written.
+    expect(screen.getByText(ALLOWLIST_BROWSER_COPY.identityRequired)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
+    fireEvent.change(contact, { target: { value: "invalid" } });
+    continueStep(); continueStep();
+    expect(screen.getByRole("button", { name: "Agregar entrada" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Confirmo el cambio de esta entrada de lista" })); fireEvent.click(screen.getByRole("button", { name: "Agregar entrada" }));
     await screen.findByText("Revisá el contacto, su país y el nombre antes de confirmar.");
     expect(data.client.write).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Atrás" })); fireEvent.click(screen.getByRole("button", { name: "Atrás" }));
     fireEvent.change(screen.getByLabelText("Correo de la entrada"), { target: { value: "valid@example.test" } });
+    continueStep(); continueStep();
     expect(screen.queryByText("Revisá el contacto, su país y el nombre antes de confirmar.")).not.toBeInTheDocument();
-    expect(confirmation).not.toBeChecked(); expect(router.refresh).not.toHaveBeenCalled();
+    expect(screen.getByRole("checkbox", { name: "Confirmo el cambio de esta entrada de lista" })).not.toBeChecked(); expect(router.refresh).not.toHaveBeenCalled();
   });
 
   it("should keep a 409 draft visible until current metadata is read and a new confirmation is made", async () => {
     const data = fixture(); render(<AllowlistContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
     const edit = screen.getByRole("button", { name: `Editar ${data.entry.identity}` });
     await waitFor(() => expect(edit).not.toBeDisabled()); fireEvent.click(edit);
+    // Editing opens the name and status step: the contact of an existing entry is fixed.
+    expect(screen.getByText(/No expulsa miembros ni libera un contacto vinculado/)).toBeVisible();
     fireEvent.change(screen.getByLabelText("Nombre orientativo (opcional)"), { target: { value: "Mi borrador" } });
+    continueStep();
     fireEvent.click(screen.getByRole("checkbox", { name: "Confirmo el cambio de esta entrada de lista" })); fireEvent.click(screen.getByRole("button", { name: "Guardar entrada" }));
     const current = await screen.findByRole("button", { name: "Consultar versión actual" });
-    expect(screen.getByLabelText("Nombre orientativo (opcional)")).toHaveValue("Mi borrador");
+    expect(screen.getByText(ALLOWLIST_BROWSER_COPY.conflict)).toBeVisible();
+    expect(screen.getByText("Mi borrador")).toBeVisible();
     expect(screen.getByRole("button", { name: "Guardar entrada" })).toBeDisabled();
     fireEvent.click(current);
     await screen.findByText("Nombre actual");
-    expect(screen.getByLabelText("Nombre orientativo (opcional)")).toHaveValue("Mi borrador");
+    expect(await screen.findByText(ALLOWLIST_BROWSER_COPY.currentRead)).toBeInTheDocument();
+    expect(screen.getAllByText("Mi borrador").length).toBeGreaterThan(0);
     expect(screen.getByRole("checkbox", { name: "Confirmo el cambio de esta entrada de lista" })).not.toBeChecked();
     expect(data.client.write).toHaveBeenCalledWith("synthetic-academy", expect.objectContaining({ input: expect.objectContaining({ expectedVersion: 1 }) }), expect.any(AbortSignal));
     expect(router.refresh).not.toHaveBeenCalled();
-    expect(screen.getByText(/No expulsa miembros ni libera un contacto vinculado/)).toBeVisible();
   });
 
   it("should keep the pressed save busy while its write is pending and then confirm the save itself, not a recovered original", async () => {
@@ -64,6 +79,7 @@ describe("allowlist route controls", () => {
     const edit = screen.getByRole("button", { name: `Editar ${data.entry.identity}` });
     await waitFor(() => expect(edit).not.toBeDisabled()); fireEvent.click(edit);
     fireEvent.change(screen.getByLabelText("Nombre orientativo (opcional)"), { target: { value: "Nombre nuevo" } });
+    continueStep();
     fireEvent.click(screen.getByRole("checkbox", { name: "Confirmo el cambio de esta entrada de lista" }));
     const save = screen.getByRole("button", { name: "Guardar entrada" });
     act(() => save.focus()); fireEvent.click(save);
@@ -72,20 +88,23 @@ describe("allowlist route controls", () => {
     expect(screen.getByRole("button", { name: "Guardar entrada" })).toHaveAttribute("aria-busy", "true");
     expect(screen.getByRole("button", { name: "Guardar entrada" })).not.toBeDisabled();
     expect(screen.getByRole("button", { name: "Guardar entrada" })).toHaveFocus();
-    expect(screen.getByRole("button", { name: "Nueva entrada" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Atrás" })).toBeDisabled();
     expect(screen.getByRole("button", { name: `Editar ${data.entry.identity}` })).toBeDisabled();
-    expect(screen.getByText(ALLOWLIST_BROWSER_COPY.saving)).toBeVisible();
+    // The write's progress is its own toast, not a second status line on the page.
+    expect(await screen.findByText(ALLOWLIST_BROWSER_COPY.saving)).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Gestión de lista de habilitados" })).queryByText(ALLOWLIST_BROWSER_COPY.saving)).not.toBeInTheDocument();
     const intent = vi.mocked(data.client.write).mock.calls[0][1];
     await act(async () => resolveWrite({ status: "ready", value: { state: "completed", operationId: intent.input.operationId, replayed: false, result: { entryId: data.entry.id, version: 2, created: false, changed: true } } }));
-    const section = screen.getByRole("region", { name: "Gestión de lista de habilitados" });
-    expect(await within(section).findByText(ALLOWLIST_BROWSER_COPY.saved)).toBeVisible();
+    expect(await screen.findByText(ALLOWLIST_BROWSER_COPY.saved)).toBeInTheDocument();
     expect(screen.queryByText(ALLOWLIST_BROWSER_COPY.recovered)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Guardar entrada" })).not.toHaveAttribute("aria-busy");
+    // After the save lands the flow starts over at the contact of a new entry.
+    expect(await screen.findByLabelText("Correo de la entrada")).toHaveValue("");
     expect(data.client.operation).not.toHaveBeenCalled();
   });
 
   it("should apply explicit search incrementally and hide contact controls after current authority is lost", async () => {
     const data = fixture(); render(<AllowlistContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
+    fireEvent.click(screen.getByText("Buscar y filtrar entradas"));
     const search = screen.getByRole("button", { name: "Buscar" }); await waitFor(() => expect(search).not.toBeDisabled());
     expect(data.client.list).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText("Buscar contacto o nombre"), { target: { value: "ausente" } }); fireEvent.click(search);
@@ -93,7 +112,7 @@ describe("allowlist route controls", () => {
     expect(data.client.list).toHaveBeenCalledWith("synthetic-academy", { limit: 25, search: "ausente" }, expect.any(AbortSignal));
     vi.mocked(data.client.list).mockResolvedValue({ status: "failed", code: "permission_denied", message: "No tenés permiso para realizar esta operación.", uncertain: false });
     fireEvent.click(search);
-    await screen.findByText("El acceso cambió. Volvé a cargar esta página antes de continuar.");
+    await screen.findByText("No tenés permiso para realizar esta operación.");
     expect(screen.queryByLabelText("Correo de la entrada")).not.toBeInTheDocument();
     expect(router.refresh).not.toHaveBeenCalled();
   });

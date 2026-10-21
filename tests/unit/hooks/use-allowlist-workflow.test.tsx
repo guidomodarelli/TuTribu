@@ -1,6 +1,8 @@
 /** Exercises current list workflow behavior through owned ports without replacing UI/auth/platform libraries. @module use-allowlist-workflow-tests */
 import { randomUUID } from "node:crypto";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { act, renderHook, screen, waitFor } from "@testing-library/react";
+import { ThemedToaster } from "@golfo/ui";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useAllowlistWorkflow } from "@/hooks/use-allowlist-workflow";
 import type { AllowlistBrowserClient } from "@/src/modules/academy-admissions/application/ports/allowlist-browser-client";
@@ -9,6 +11,9 @@ import { writeAllowlistWorkflow } from "@/lib/academy-admissions/allowlist-inten
 import { ALLOWLIST_BROWSER_COPY } from "@/src/modules/academy-admissions/constants/allowlist-browser";
 
 afterEach(() => window.sessionStorage.clear());
+
+/** @param props - Hook host. @returns The real toaster beside it, where write outcomes are announced. */
+function WithToaster({ children }: { children: ReactNode }) { return <>{children}<ThemedToaster /></>; }
 
 /** @returns Safe SSR state plus native-shaped owned transport collaborators. */
 function fixture() {
@@ -27,6 +32,8 @@ describe("list workflow ownership", () => {
     await waitFor(() => expect(result.current.ready).toBe(true));
     expect(result.current.draft.displayName).toBe("Borrador");
     expect(result.current.confirmed).toBe(false);
+    // Consent is never restored, so a draft with its contact resumes at the review step.
+    expect(result.current.step).toBe(2);
     expect(data.client.list).not.toHaveBeenCalled(); expect(data.client.write).not.toHaveBeenCalled();
   });
 
@@ -59,7 +66,7 @@ describe("list workflow ownership", () => {
     const data = fixture();
     vi.mocked(data.client.write).mockResolvedValue({ status: "failed", code: "dependency_unavailable", message: "Respuesta perdida.", uncertain: true });
     vi.mocked(data.client.read).mockResolvedValue({ status: "ready", value: { ...data.entry, version: 4, displayName: "Actual" } });
-    const { result } = renderHook(() => useAllowlistWorkflow(data));
+    const { result } = renderHook(() => useAllowlistWorkflow(data), { wrapper: WithToaster });
     await waitFor(() => expect(result.current.ready).toBe(true));
     act(() => result.current.select(data.entry));
     act(() => { result.current.changeDraft({ ...result.current.draft, displayName: "Cambio" }); result.current.setConfirmed(true); });
@@ -68,17 +75,19 @@ describe("list workflow ownership", () => {
     vi.mocked(data.client.operation).mockResolvedValue({ status: "ready", value: { type: "update_allowlist_entry", operationId: original.input.operationId, state: "completed", replayed: true, result: { entryId: data.entry.id, version: 2, created: false, changed: true } } });
     await act(async () => result.current.readOriginal());
     expect(result.current.page.items[0]).toMatchObject({ version: 4, displayName: "Actual" }); expect(result.current.pending).toBeNull();
-    expect(result.current.statusMessage).toBe(ALLOWLIST_BROWSER_COPY.recovered);
+    expect(await screen.findByText(ALLOWLIST_BROWSER_COPY.recovered)).toBeInTheDocument();
     expect(data.client.write).toHaveBeenCalledOnce(); expect(data.client.operation).toHaveBeenCalledOnce();
   });
 
   it("should confirm an ordinary save as saved rather than as a recovered original", async () => {
-    const data = fixture(), { result } = renderHook(() => useAllowlistWorkflow(data));
+    const data = fixture(), { result } = renderHook(() => useAllowlistWorkflow(data), { wrapper: WithToaster });
     await waitFor(() => expect(result.current.ready).toBe(true));
     act(() => result.current.select(data.entry));
+    expect(result.current.step).toBe(1);
     act(() => { result.current.changeDraft({ ...result.current.draft, displayName: "Nombre nuevo" }); result.current.setConfirmed(true); });
     await act(async () => result.current.save());
-    expect(result.current.statusMessage).toBe(ALLOWLIST_BROWSER_COPY.saved);
+    expect(await screen.findByText(ALLOWLIST_BROWSER_COPY.saved)).toBeInTheDocument();
+    expect(result.current.step).toBe(0);
     expect(result.current.pending).toBeNull(); expect(data.client.operation).not.toHaveBeenCalled();
   });
 
@@ -167,10 +176,11 @@ describe("list workflow ownership", () => {
   it("should show a legacy session-change answer as a plain error while preserving the draft without another write", async () => {
     const data = fixture(), message = "Tu sesión cambió. Recargá la página e intentá de nuevo.";
     vi.mocked(data.client.write).mockResolvedValue({ status: "failed", code: "reauthentication_required", message, uncertain: false });
-    const { result } = renderHook(() => useAllowlistWorkflow(data)); await waitFor(() => expect(result.current.ready).toBe(true));
+    const { result } = renderHook(() => useAllowlistWorkflow(data), { wrapper: WithToaster }); await waitFor(() => expect(result.current.ready).toBe(true));
     act(() => result.current.select(data.entry)); act(() => { result.current.changeDraft({ ...result.current.draft, displayName: "Conservar" }); result.current.setConfirmed(true); });
     await act(async () => result.current.save());
-    expect(result.current.errorMessage).toBe(message); expect(result.current.confirmed).toBe(false); expect(result.current.draft.displayName).toBe("Conservar");
+    // A plain failure the leader can retry is the write's own toast; nothing stays blocked on the form.
+    expect(await screen.findByText(message)).toBeInTheDocument(); expect(result.current.errorMessage).toBeNull(); expect(result.current.confirmed).toBe(false); expect(result.current.draft.displayName).toBe("Conservar");
     expect(result.current.pending).toBeNull(); expect(data.client.write).toHaveBeenCalledOnce();
   });
 });
