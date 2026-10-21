@@ -166,6 +166,45 @@ export async function runWithGuardedTransaction<T>(
   }
 }
 
+/**
+ * Runs one self-contained statement on a freshly checked-out pool client, without opening a transaction.
+ *
+ * Use it only for a statement that sets and restores its own request-local settings, such as
+ * `read_authenticated_account` in standalone mode: PostgreSQL runs it in its own implicit transaction,
+ * so those settings end with it and nothing stays on the pooled connection. The client is released
+ * exactly like in `runWithGuardedTransaction`, including on connection death.
+ *
+ * @param pool - Pool to check a client out from.
+ * @param runStatement - The single statement to run.
+ * @returns The value returned by `runStatement`.
+ */
+export async function runWithGuardedStatement<T>(
+  pool: Pool,
+  runStatement: (database: RequestDatabase) => Promise<T>
+): Promise<T> {
+  const client = await pool.connect();
+  let wasClientReleased = false;
+  const releaseClient = (error?: Error) => {
+    if (wasClientReleased) {
+      return;
+    }
+
+    wasClientReleased = true;
+    client.release(error);
+  };
+  const handleCheckedOutClientError = (error: Error) => {
+    releaseClient(error);
+  };
+
+  try {
+    client.on("error", handleCheckedOutClientError);
+    return await runStatement(createRequestDatabase(client));
+  } finally {
+    client.removeListener("error", handleCheckedOutClientError);
+    releaseClient();
+  }
+}
+
 export async function createServerDatabaseClient(
   usage: DatabaseConnectionUsage = DATABASE_CONNECTION_USAGE.request
 ) {
@@ -184,6 +223,10 @@ export function createPostgresDatabaseClient(pool: Pool) {
       callback: (database: RequestDatabase) => Promise<T>
     ): Promise<T> {
       return runWithGuardedTransaction(pool, callback, (database) => prepareRequestDatabaseContext(database, context));
+    },
+    /** @param callback - One self-contained statement that sets and restores its own request-local settings. @returns Its result, without a transaction. */
+    async withStandaloneStatement<T>(callback: (database: RequestDatabase) => Promise<T>): Promise<T> {
+      return runWithGuardedStatement(pool, callback);
     },
   };
 }
