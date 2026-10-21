@@ -62,6 +62,16 @@ function describeNoticeQuota(limit: number | null): string | null {
   return null;
 }
 
+/**
+ * Plain help of a daily quota field. It is rendered as ordinary text instead of the field's animated description,
+ * which splits numbers into rolling digits that assistive technology reads one by one.
+ * @param maximum - Platform ceiling. @param sentToday - Messages already sent today, when a configuration exists.
+ * @returns The help sentence.
+ */
+function quotaHelp(maximum: number, sentToday: number | undefined): string {
+  return `Podés elegir de 0 a ${maximum}, el máximo de la plataforma.${sentToday === undefined ? "" : ` Hoy ya se enviaron ${sentToday}.`}`;
+}
+
 /** @param change - Saved and proposed values when a configuration exists. @param proposed - Proposed field text. @returns "De X a Y" when the value changes, otherwise the proposed value. */
 function describeQuotaChange(change: MessagingQuotaChangeImpact | undefined, proposed: string) {
   return change && change.previous !== change.proposed ? `De ${change.previous} a ${change.proposed}` : proposed;
@@ -70,6 +80,7 @@ function describeQuotaChange(change: MessagingQuotaChangeImpact | undefined, pro
 /** @param props - Safe own data and callback-only workflow. @returns The current usage summary and, when editing, the guided steps that save countries and daily quotas. */
 export function MessagingUsage(props: MessagingUsageProps) {
   const instanceId = useId(), titleId = `${instanceId}-title`, editorTitleId = `${instanceId}-editor-title`, noticeWarningId = `${instanceId}-notice-warning`;
+  const verificationHelpId = `${instanceId}-verification-help`, notificationHelpId = `${instanceId}-notification-help`;
   const policy = props.state.policy, controlsDisabled = !props.canEdit || props.busy;
   const countryName = (country: string) => props.countryChoices.find((choice) => choice.value === country)?.label ?? country;
   const describeCountries = (countries: readonly string[]) => countries.length ? countries.map(countryName).join(", ") : "Ninguno";
@@ -118,10 +129,13 @@ export function MessagingUsage(props: MessagingUsageProps) {
       id: MESSAGING_USAGE_STEP.verification, title: "Códigos de verificación por día",
       description: "Cuántos códigos de verificación se pueden enviar como máximo en un día.",
       blockedReason: verification === null ? "Corregí el número para continuar." : undefined,
-      content: <Input type="number" inputMode="numeric" min={0} max={verificationMaximum} step={1} label="Códigos por día" value={props.draft.verificationDailyLimit} disabled={controlsDisabled}
-        description={`Podés elegir de 0 a ${verificationMaximum}, el máximo de la plataforma.${policy ? ` Hoy ya se enviaron ${policy.consumption.verificationToday}.` : ""}`}
-        error={verification === null ? `Ingresá un número entero entre 0 y ${verificationMaximum}.` : undefined}
-        onChange={(event) => update({ verificationDailyLimit: event.target.value })} />,
+      content: <>
+        <Input type="number" inputMode="numeric" min={0} max={verificationMaximum} step={1} label="Códigos por día" value={props.draft.verificationDailyLimit} disabled={controlsDisabled}
+          description={undefined} aria-describedby={verificationHelpId}
+          error={verification === null ? `Ingresá un número entero entre 0 y ${verificationMaximum}.` : undefined}
+          onChange={(event) => update({ verificationDailyLimit: event.target.value })} />
+        <p id={verificationHelpId} className={styles.MessagingUsage__help}>{quotaHelp(verificationMaximum, policy?.consumption.verificationToday)}</p>
+      </>,
     },
     notification: {
       id: MESSAGING_USAGE_STEP.notification, title: "Avisos por día",
@@ -129,10 +143,10 @@ export function MessagingUsage(props: MessagingUsageProps) {
       blockedReason: notification === null ? "Corregí el número para continuar." : undefined,
       content: <>
         <Input type="number" inputMode="numeric" min={0} max={notificationMaximum} step={1} label="Avisos por día" value={props.draft.notificationDailyLimit} disabled={controlsDisabled}
-          description={`Podés elegir de 0 a ${notificationMaximum}, el máximo de la plataforma.${policy ? ` Hoy ya se enviaron ${policy.consumption.notificationToday}.` : ""}`}
+          description={undefined} aria-describedby={draftNoticeWarning ? `${notificationHelpId} ${noticeWarningId}` : notificationHelpId}
           error={notification === null ? `Ingresá un número entero entre 0 y ${notificationMaximum}.` : undefined}
-          aria-describedby={draftNoticeWarning ? noticeWarningId : undefined}
           onChange={(event) => update({ notificationDailyLimit: event.target.value })} />
+        <p id={notificationHelpId} className={styles.MessagingUsage__help}>{quotaHelp(notificationMaximum, policy?.consumption.notificationToday)}</p>
         {draftNoticeWarning && <p id={noticeWarningId} className={styles.MessagingUsage__warning}>{draftNoticeWarning}</p>}
         {notification !== suggestedNotification && <div className={styles.MessagingUsage__suggestion}>
           <p className={styles.MessagingUsage__help}>Sugerencia: {suggestedNotification} avisos por día, el valor inicial de la plataforma.</p>

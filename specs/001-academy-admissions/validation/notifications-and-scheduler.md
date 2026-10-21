@@ -217,3 +217,29 @@ Para cerrar SC-015 hace falta medir en un host cercano a la base y con el driver
 - el `requestTimeoutMs` del despacho de correo.
 
 El resumen sanitizado del ensayo, con horarios y alias pero sin credenciales ni identificadores, quedó en el directorio temporal de la sesión. Ni ese resumen ni el script temporal se versionan.
+
+## Medición de SC-015 en el piloto cercano a la base (2026-10-21, primera corrida)
+
+**Resultado parcial: SC-015 todavía no queda acreditado.** La disponibilidad hacia la bandeja y los avisos internos cumple con margen. La aceptación del correo agrupado no pudo medirse porque la conexión de mensajería del piloto no estaba activa: la anterior quedó suspendida (`security_stop`) al recrear los keyrings y la nueva seguía como candidata.
+
+### Condiciones
+
+- **Entorno.** El piloto ahora corre como producción del proyecto Vercel `tutribu-pilot`, con funciones en `iad1`, la misma región que la rama Neon del piloto (`aws-us-east-1`). Se sirve en `https://pilot.tutribu.app` con el código de `494bbf63`. Las migraciones del PR quedaron aplicadas hasta `20261020190000`. La configuración privada se recreó con keyrings nuevos, cargados por el usuario y guardados cifrados con DPAPI fuera del repositorio, y las claves MAC nuevas se inscribieron con `registerMessagingPrivateMacKeyMaterial`.
+- **Driver.** Llama al endpoint protegido una vez por minuto desde la máquina del operador. Entre las 22:38Z del 20/10 y las 03:23Z del 21/10 hizo 283 corridas: 260 completas (200) y 23 incompletas (503). Las corridas duraron 1,1 s en p50, 1,6 s en p95 y 3,9 s como máximo; en el piloto local eran unos 42 s. Las incompletas empiezan con la ráfaga y duran alrededor de 1 s: el mantenimiento no tiene una conexión activa para preparar los avisos por correo y lo informa como incompleto, sin fingir éxito.
+- **Solicitantes.** 18 cuentas `.test` creadas con el acceso de desarrollo y el adapter real de Better Auth, en un `next dev` local que usaba los mismos secretos del piloto. Las cookies quedaron solo en memoria. Cada cuenta presentó su solicitud desde la interfaz real del piloto, con un número de WhatsApp ficticio de AR que nunca se contactó. Fueron tres cohortes de seis, una cada 20 s desde el segundo 10 de las ventanas UTC de las 02:45, 02:50 y 02:55. Las 18 respondieron 201.
+- **Observación.** Un observador de solo lectura consultó PostgreSQL cada segundo desde la máquina del operador (RTT de unos 165 ms). La observación de la UI en el Chrome del líder no es válida: la pestaña quedó en segundo plano y Chrome congeló sus timers. Igual registró, antes de la ráfaga, lecturas de la bandeja de 0,30 a 0,36 s y del contador de avisos de 0,40 a 0,86 s.
+
+### Resultados
+
+| Medición | n | p50 | p95 | Máx. |
+| --- | --- | --- | --- | --- |
+| Clic → respuesta 201 del envío (no forma parte de SC-015) | 18 | 0,78 s | 2,56 s | 2,56 s |
+| Solicitud visible desde otra conexión, desde `submitted_at` | 18 | 0,91 s | 1,57 s | 1,57 s |
+| Aviso interno del líder visible, desde su creación | 18 | 0,94 s | 1,61 s | 1,61 s |
+
+Estas cifras incluyen el intervalo de 1 s del observador y el RTT. Con el refresco de 15 s de la bandeja y lecturas de 0,4 s, la cota de la lista queda en unos 16 s, contra los 30 s del objetivo, pero falta confirmarla con la UI observada en primer plano.
+
+### Pendiente para acreditar SC-015
+
+1. Activar la conexión de Zavu del piloto, que necesita la prueba de SMS y la activación del líder.
+2. Repetir la ráfaga con la pestaña del líder en primer plano y la campana leída, para medir la lista, la campana y la aceptación del correo agrupado dentro de los 5 minutos del cierre de la ventana.

@@ -1,6 +1,7 @@
 /** Names the guided admission rules flow: its steps, the chained write stages and where each activation requirement is resolved. @module admission-policy-flow-constants */
 import type { AdmissionPolicyActivationReason } from "../domain/policies/admission-policy-activation";
 import type { AdmissionPreflightReason } from "../domain/policies/admission-activation-preflight";
+import { ADMISSION_POLICY_ACTIVATION_ERROR } from "./admission-policy";
 
 /** One decision per step; the leader edits them in this order. */
 export type AdmissionPolicyStepId = "admission" | "contact" | "intake" | "memberships" | "review";
@@ -86,6 +87,16 @@ export const ADMISSION_POLICY_PLATFORM_REASONS = (Object.keys(ADMISSION_POLICY_B
 export function isAdmissionPolicyPlatformReason(reason: AdmissionPolicyBlockReason): boolean {
   return ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON[reason] === ADMISSION_POLICY_BLOCK_RESOLUTION.platform;
 }
+
+/**
+ * Activation requirements that restate facts the informational preflight already explains with a more precise reason
+ * (for example, pending memberships blocked by payment keep the preflight incomplete). When a preflight was read, the
+ * rules page shows the preflight reason instead, so the same fact is never presented twice or as a platform block.
+ */
+export const ADMISSION_POLICY_PREFLIGHT_COVERED_REQUIREMENTS: readonly AdmissionPolicyActivationReason[] = [
+  ADMISSION_POLICY_ACTIVATION_ERROR.preflightIncomplete, ADMISSION_POLICY_ACTIVATION_ERROR.notAcademy,
+  ADMISSION_POLICY_ACTIVATION_ERROR.evaluatorUnavailable, ADMISSION_POLICY_ACTIVATION_ERROR.recoveryLocked,
+];
 
 /** The chained flow creates the missing policy itself, so this requirement is never shown as pending work. */
 export const ADMISSION_POLICY_SELF_RESOLVED_REQUIREMENTS: readonly AdmissionPolicyActivationReason[] = ["policy_unavailable"];

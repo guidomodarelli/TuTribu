@@ -39,7 +39,7 @@ import { expectAdmissionProofInvalidationAudits } from "@/tests/support/admissio
 import { PostgresAdmissionActivityReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activity-reader";
 import { ADMISSION_WHATSAPP_SQL_TIMEOUT_MS } from "@/tests/support/constants/admission-whatsapp-number";
 import { COMMERCIAL_MEMBERSHIP_DECISION_COPY, COMMERCIAL_MEMBERSHIP_REVIEW_COPY, COMMERCIAL_MEMBERSHIP_REVIEW_LABEL, commercialMembershipReviewDoneMessage } from "@/src/modules/academy-admissions/constants/commercial-membership-review";
-import { ADMISSION_POLICY_BROWSER_COPY, ADMISSION_POLICY_DRAFT_COPY, ADMISSION_POLICY_PLATFORM_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
+import { ADMISSION_POLICY_ACTIVATION_REQUIREMENT_COPY, ADMISSION_POLICY_BROWSER_COPY, ADMISSION_POLICY_DESTINATION_COPY, ADMISSION_POLICY_DRAFT_COPY, ADMISSION_POLICY_PLATFORM_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 import { ADMISSION_SETUP_GUIDE_COPY, ADMISSION_SETUP_STEP_COPY } from "@/src/modules/academy-admissions/constants/admission-setup-guide";
 
 /** @param database - This run's owned branch with native pg/Drizzle. @param securityConfig - Hosting configuration a native server shares with the seed; in-process suites keep independent generated keys. @returns Current leader session, policy repository and preparation-port controls. */
@@ -325,6 +325,24 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       });
       expect(await policy.execute(query)).toMatchObject({ ok: true, value: { state: "unavailable", policy: null, controlActivated: true, preparation: { state: "not_evaluated" }, impact: { contactTypeLocked: true, historicalLinksProtected: true } } });
       expect(await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::int as policies from public.academy_admission_policies where tribe_id=${data.tribeId}`)).rows)).toEqual([{ policies: 0 }]);
+    });
+  }, 240_000);
+
+  it("should name an unprepared verification channel in the leader's read through the same preparation the activation enforces", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const data = await preparePolicy(database);
+      await data.initialize();
+      await data.repository.update({ context: data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy), operationId: randomUUID(), confirmed: true, type: "update_admission_policy", expectedVersion: 1, patch: { requiresAdditionalVerification: true } });
+      const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: data.fixture.userId, sessionId: data.sessionId }), (_identity, work) => database.withContext(data.fixture.own, work));
+      const admissions = buildAcademyAdmissionsModule({ accounts, execute: (_account, work) => database.withContext(data.fixture.own, work), clock: () => new Date() });
+      /** Mirrors the production composition: the query reuses the commands' preparation evaluator instead of reporting it as not evaluated. */
+      const commands = admissions.createPolicyModule({ readSecurityConfig: async () => data.fixture.config, composePreflight: (transaction, context) => new PostgresAdmissionActivationRepository(transaction, context, { isPrepared: async () => true }, async () => false) });
+      const query = { tribeId: data.tribeId, requestId: randomUUID() };
+      expect(await admissions.createPolicyQueryModule({ composePreparation: null }).useCases.execute(query)).toMatchObject({ ok: true, value: { state: "draft", preparation: { state: "not_evaluated", requirements: [] } } });
+      const evaluated = await admissions.createPolicyQueryModule({ composePreparation: commands.composePreparation }).useCases.execute(query);
+      expect(evaluated).toMatchObject({ ok: true, value: { state: "draft", preparation: { state: "evaluated" } } });
+      expect(evaluated.ok && evaluated.value.preparation.requirements).toContain("verification_unavailable");
+      expect(await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select admissions_control_activated_at is null as not_activated from public.tribes where id=${data.tribeId}`)).rows)).toEqual([{ not_activated: true }]);
     });
   }, 240_000);
 
@@ -780,8 +798,12 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
                 const saved = page.waitForResponse((response) => response.url().endsWith(`/api/tribes/${slug}/admissions/policy`) && response.request().method() === "PUT");
                 await final.click();
                 expect((await saved).status()).toBe(200);
-                await page.getByRole("region", { name: "Lo que falta resolver" }).waitFor({ timeout: 90_000 });
+                const requirements = page.getByRole("region", { name: "Lo que falta resolver" });
+                await requirements.waitFor({ timeout: 90_000 });
                 expect(await page.getByText("Tus reglas quedaron guardadas como borrador.", { exact: false }).count()).toBeGreaterThan(0);
+                /** Codes need a prepared channel: the denied activation names that requirement and links to Conexión with the way back. */
+                await requirements.getByText(ADMISSION_POLICY_ACTIVATION_REQUIREMENT_COPY.verification_unavailable, { exact: true }).waitFor({ timeout: 90_000 });
+                expect(await requirements.getByRole("link", { name: ADMISSION_POLICY_DESTINATION_COPY.connection, exact: true }).getAttribute("href")).toBe(`/${slug}/academia/admissions/messaging/connections?return=policy-review`);
                 expect(runtimeErrors).toEqual([]);
                 if (width === 1280) await captureAdmissionReview(page, "admission-policy-saved", [data.fixture.userId, data.sessionId, data.sessionToken, secret], "policy-captures.json", { selector: "form" });
                 process.stdout.write(JSON.stringify({ phase: "policy_browser_verified", engine, width }) + "\n");

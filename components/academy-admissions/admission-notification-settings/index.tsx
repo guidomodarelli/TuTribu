@@ -8,7 +8,7 @@ import type { AdmissionNotificationPreferenceView, AdmissionNotificationEmailSet
 import type { AdmissionNotificationEmailSettingsDraft } from "@/src/modules/notifications/application/commands/admission-notification-email-settings-draft";
 import { ADMISSION_NOTIFICATION_PREFERENCE_MODE as MODE } from "@/src/modules/notifications/constants/admission-notification-preference";
 import { ADMISSION_NOTIFICATION_SETTINGS_TIME_ZONE_MAX_LENGTH } from "@/src/modules/notifications/constants/admission-notification-settings-http";
-import { ADMISSION_NOTIFICATION_PREFERENCE_OPTIONS as OPTIONS, ADMISSION_NOTIFICATION_PREFERENCE_SUMMARY as SUMMARY, ADMISSION_NOTIFICATION_EMAIL_PLAN_LABEL, ADMISSION_NOTIFICATION_PREFERENCE_PLAN_LABEL } from "@/src/modules/notifications/constants/admission-notification-settings-options";
+import { ADMISSION_NOTIFICATION_TIME_ZONE_HELP, ADMISSION_NOTIFICATION_PREFERENCE_OPTIONS as OPTIONS, ADMISSION_NOTIFICATION_PREFERENCE_SUMMARY as SUMMARY, ADMISSION_NOTIFICATION_EMAIL_PLAN_LABEL, ADMISSION_NOTIFICATION_PREFERENCE_PLAN_LABEL } from "@/src/modules/notifications/constants/admission-notification-settings-options";
 import { ADMISSION_NOTIFICATION_SETTINGS_COPY as COPY, ADMISSION_NOTIFICATION_SETTINGS_EMAIL_PLAN as EMAIL_PLAN, ADMISSION_NOTIFICATION_SETTINGS_GUIDED_STEP as GUIDED_STEP, ADMISSION_NOTIFICATION_SETTINGS_SAVE_STEP as SAVE_STEP, type AdmissionNotificationSettingsEmailPlan, type AdmissionNotificationSettingsSaveStep } from "@/src/modules/notifications/constants/admission-notification-settings-browser";
 import styles from "./styles.module.scss";
 
@@ -112,9 +112,14 @@ function MemberTribeNotice({ tribeEmailEnabled }: Pick<AdmissionNotificationSett
 
 /** @param props - Edited email fields and recovery state. @returns The tribe email switch, its zone and the messaging requirement. */
 function TribeEmailFields({ draft, pending, messagingHref, onDraft }: Pick<AdmissionNotificationSettingsProps, "draft" | "pending" | "messagingHref" | "onDraft">) {
+  const zoneHelpId = useId();
   return <div className={styles.AdmissionNotificationSettings__fields}>
     <Checkbox label="Habilitar correo de admisión" description="Se aplica a las solicitudes nuevas y respeta la frecuencia que elija cada responsable." checked={draft.enabled} disabled={pending} onCheckedChange={(checked) => onDraft({ ...draft, enabled: checked === true })} />
-    {draft.enabled && <Input label="Zona horaria de la tribu" description="Se usa para el resumen diario de las 09:00. Por ejemplo, America/Argentina/Buenos_Aires." error={undefined} value={draft.timeZone} disabled={pending} maxLength={ADMISSION_NOTIFICATION_SETTINGS_TIME_ZONE_MAX_LENGTH} aria-invalid={!draft.timeZone.trim() || undefined} onChange={(event) => onDraft({ ...draft, timeZone: event.target.value })} />}
+    {/* Plain help instead of the field's animated description, which splits "09:00" into rolling digits and is read twice. */}
+    {draft.enabled && <div className={styles.AdmissionNotificationSettings__zone}>
+      <Input label="Zona horaria de la tribu" description={undefined} error={undefined} value={draft.timeZone} disabled={pending} maxLength={ADMISSION_NOTIFICATION_SETTINGS_TIME_ZONE_MAX_LENGTH} aria-describedby={zoneHelpId} aria-invalid={!draft.timeZone.trim() || undefined} onChange={(event) => onDraft({ ...draft, timeZone: event.target.value })} />
+      <p id={zoneHelpId} className={styles.AdmissionNotificationSettings__help}>{ADMISSION_NOTIFICATION_TIME_ZONE_HELP}</p>
+    </div>}
     <p className={styles.AdmissionNotificationSettings__note}>Para enviar correos, la tribu necesita un correo preparado en mensajería. <Link href={messagingHref}>Revisar mensajería</Link></p>
     {pending && <p className={styles.AdmissionNotificationSettings__note}>Este cambio quedó pendiente. Lo vas a poder reintentar en el último paso, con la misma referencia.</p>}
   </div>;

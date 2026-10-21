@@ -116,6 +116,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - En Conexión de mensajería, el resultado de guardar, comprobar, configurar un canal, enviar una prueba, confirmar un código, activar y las consultas aparece como notificación en lugar de texto al pie de la pantalla; lo que sigue pendiente queda en «Acciones pendientes».
 - Una prueba cuyo canal ya quedó comprobado se muestra como confirmada en lugar de «Esperando el código», y las pruebas conservadas quedan plegadas debajo de los pasos como recuperación secundaria.
 - Guardar y activar las reglas de admisión tarda menos (activar, alrededor de la mitad), y las páginas de Solicitudes, Reglas, Avisos, Países y cupos y Conexión de mensajería cargan más rápido.
+- Solicitudes y Reglas cargan bastante más rápido (Reglas, en alrededor de la mitad del tiempo), y Avisos, guardar, activar y la comprobación previa a la activación también tardan menos.
+- Conexión de mensajería carga en alrededor de la mitad del tiempo y Países y cupos, en cerca de un tercio menos.
 - «Lo que falta resolver» explica cada bloqueo de la activación en lenguaje claro e indica dónde se resuelve: Conexión, Países y cupos, el paso «Cómo se contactan», Gestionar academia (para activar primero el modo academia), la revisión de membresías bloqueadas por pago o «Volver a comprobar»; deja de pedir una «revisión autorizada» sin explicar qué hacer.
 - Si la plataforma bloquea la activación, la guía de configuración lo indica en «Abrí las admisiones» («Depende del equipo de TuTribu») en lugar de mandar a Reglas a intentarlo de nuevo, y Reglas deja de ofrecer publicar hasta que se resuelva.
 - Todos los botones que guardan en admisión y mensajería muestran un indicador de carga mientras se guarda, conservan su texto y el foco, y bloquean las demás acciones de la pantalla hasta terminar; las consultas ya no cambian el texto de los botones.
@@ -162,6 +164,11 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - La actividad de admisiones avisa que el mantenimiento está detenido cuando no completa una ejecución hace más de diez minutos o nunca completó una, aunque algunas tareas sueltas sigan avanzando, y muestra la última ejecución completa.
 - Los avisos agrupados de nuevas solicitudes ya no se atrasan cuando hay muchas solicitudes juntas o la bandeja del líder está abierta.
 - Los correos y SMS que el proveedor tarda en aceptar ya no quedan como «desconocidos»: se espera su respuesta y nunca se reenvían.
+- Reglas explica por qué no se pueden activar las admisiones cuando los códigos están encendidos y el canal todavía no está preparado: muestra «El canal para comprobar el contacto todavía no está preparado.» con «Ir a Conexión», también al abrir reglas guardadas sin activar.
+- Las membresías bloqueadas por pago pendientes de decisión ya no se presentan además como un bloqueo que depende del equipo de TuTribu.
+- Avisos de admisión usa todo el ancho de la pantalla, como Reglas y Países y cupos.
+- Los lectores de pantalla leen una sola vez y completa la ayuda de la zona horaria («09:00») y de los cupos diarios, sin partir los números en dígitos.
+- La guía de configuración ya no muestra un «Listo» limpio en Países y cupos cuando el cupo de avisos por día es menor a 20 («Listo, pero con un cupo muy bajo») y avisa en Avisos que no vas a recibir correos si el correo de la tribu está habilitado y elegiste «Omitir correos de revisión».
 - Países y cupos ya no anuncia como guardados los valores elegidos cuando solo se creó la configuración inicial: crea la configuración y guarda lo elegido en la misma acción.
 - Reglas de admisión ya no muestra al líder el aviso de que la configuración es solo para el líder mientras guarda o después de un error.
 - Pausar las admisiones ya no deja preparado un guardado que las reabre sin querer.

@@ -10,7 +10,7 @@ import { PostgresMessagingRetentionRepository } from "./infrastructure/repositor
 import { ExpireMessagingCandidatesUseCase } from "./application/use-cases/expire-messaging-candidates-use-case";
 import { PostgresMessagingCandidateExpiration, type CandidateExpirationDatabaseExecutor, type CandidateExpirationGate } from "./infrastructure/repositories/postgres-messaging-candidate-expiration";
 import type { AuthenticatedFeatureDependencies } from "@/src/modules/auth/infrastructure/composition/transaction-account-provider";
-import { createTransactionAccountProvider } from "@/src/modules/auth/infrastructure/composition/transaction-account-provider";
+import { createTransactionAccountProvider, readCurrentFeatureSessionContext } from "@/src/modules/auth/infrastructure/composition/transaction-account-provider";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessagingSecurityConfig } from "./infrastructure/config/messaging-security-config";
 import { ResolveMessagingContextUseCase, LoadAuthorizedMessagingSecretUseCase } from "./application/use-cases/resolve-messaging-context-use-case";
@@ -131,15 +131,24 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
       if (context.accountId !== undefined && (account.googleAccount?.id !== context.accountId || account.googleAccount.subject !== context.subject)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
       return dependencies.execute(account, run);
     };
+    /**
+     * Opens a read-only owner whose first statement is a full SQL guard (actor, live session and canonical leadership) with the request's
+     * session identity, without a separate account projection; see `readCurrentFeatureSessionContext`. Writers keep `executeActor`.
+     */
+    const executeGuardedRead = async <Result>(context: { actorUserId: string; sessionId?: string }, run: (database: RequestDatabase) => Promise<Result>) => {
+      const account = await readCurrentFeatureSessionContext(dependencies.accounts);
+      if (!account || account.userId !== context.actorUserId || context.sessionId !== undefined && account.session.id !== context.sessionId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
+      return dependencies.execute(account, run);
+    };
     const leadership = {
-      /** @param tribeId - Canonical tenant. @param userId - Current account. @returns Current leadership without reading a connection. */
+      /** @param tribeId - Canonical tenant. @param userId - Current account. @returns Current leadership without reading a connection; the SQL guard rechecks actor, session and its liveness. */
       async getCurrentLeadership(tribeId: string, userId: string) {
-        const account = await dependencies.accounts.getAuthenticatedAccount();
+        const account = await readCurrentFeatureSessionContext(dependencies.accounts);
         if (!account || account.userId !== userId) return null;
         return dependencies.execute(account, (database) => new PostgresMessagingAuthorizationReader(database, account.session.id, MESSAGING_CONNECTION_SLOT.selected).getCurrentLeadership(tribeId, userId));
       },
     };
-    return { executeActor, leadership };
+    return { executeActor, executeGuardedRead, leadership };
   };
   /** The early usage owner does not depend on a connection slot, SecretStore or provider state. */
   const createUsage = (readSecurityConfig: () => Promise<MessagingSecurityConfig>) => {
@@ -176,9 +185,9 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
     createConnectionOperationReadModule(){const{executeActor,leadership}=createManagement();return{useCases:new ReadMessagingConnectionOperationUseCase(dependencies.accounts,leadership,new PostgresMessagingConnectionOperationReader(executeActor),dependencies.clock)};},
     /** @param options - Non-secret live recovery state, without keyrings/provider access. @returns Read-only current leader/guardian metadata and the single usage projection. */
     createConfigurationModule(options:{readSecurityFacts:()=>Promise<MessagingSecurityFacts>}){
-      const{executeActor,leadership}=createManagement();
-      const configuration=new ReadMessagingConfigurationUseCase(dependencies.accounts,leadership,new PostgresMessagingConfigurationReader(executeActor,options.readSecurityFacts),dependencies.clock);
-      const catalog=new ReadNotificationDeliveryCatalogUseCase(new ResolveMessagingTribeManagementUseCase(dependencies.accounts,leadership,dependencies.clock),new PostgresNotificationDeliveryCatalogReader(executeActor));
+      const{executeGuardedRead,leadership}=createManagement();
+      const configuration=new ReadMessagingConfigurationUseCase(dependencies.accounts,leadership,new PostgresMessagingConfigurationReader(executeGuardedRead,options.readSecurityFacts),dependencies.clock);
+      const catalog=new ReadNotificationDeliveryCatalogUseCase(new ResolveMessagingTribeManagementUseCase(dependencies.accounts,leadership,dependencies.clock),new PostgresNotificationDeliveryCatalogReader(executeGuardedRead));
       return{useCases:configuration,
         /** @param resolveTribe - Canonical native routing. @param providers - Actual deployed registry metadata without SQL, keys or provider RPC. @returns One current server entrypoint for the wizard. */
         createPage(resolveTribe:Pick<ResolveAdmissionTribeUseCase,"execute">,providers:MessagingProviderCatalogReader){return new GetMessagingConnectionsPageUseCase(dependencies.accounts,{configuration,resolveTribe,catalog,providers},dependencies.clock);},
@@ -196,9 +205,9 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
     },
     /** @returns Bounded own notification metadata under current leadership, without keyrings, claims or provider queries. */
     createNotificationDeliveryCatalogModule() {
-      const { executeActor, leadership } = createManagement();
+      const { executeGuardedRead, leadership } = createManagement();
       const management = new ResolveMessagingTribeManagementUseCase(dependencies.accounts, leadership, dependencies.clock);
-      return { useCases: new ReadNotificationDeliveryCatalogUseCase(management, new PostgresNotificationDeliveryCatalogReader(executeActor)) };
+      return { useCases: new ReadNotificationDeliveryCatalogUseCase(management, new PostgresNotificationDeliveryCatalogReader(executeGuardedRead)) };
     },
     /** @returns Original actor-owned recovery metadata without keyrings, provider calls or mutation capability. */
     createNotificationRecoveryOperationReadModule() {

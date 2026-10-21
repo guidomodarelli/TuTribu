@@ -60,9 +60,10 @@ export function AdmissionSetupGuide({ slug, progress }: AdmissionSetupGuideProps
           const done = step.status === STATUS.done;
           const optional = step.status === STATUS.optional;
           const isNext = step.id === progress.next;
-          const detail = done ? copy.done
+          const detail = done ? step.lowNoticeQuota ? STEP_COPY.usage.lowQuota : copy.done
             : step.id === ADMISSION_SETUP_STEP.open && step.platformBlocked ? STEP_COPY.open.platformBlocked
             : step.id === ADMISSION_SETUP_STEP.open && step.paused ? STEP_COPY.open.paused
+            : step.emailOmitted ? STEP_COPY.notifications.omitted
             : optional && "optional" in copy ? copy.optional : copy.pending;
           return (
             <li key={step.id} className={`${styles.AdmissionSetupGuide__step} ${done ? styles["AdmissionSetupGuide__step--done"] : ""} ${isNext ? styles["AdmissionSetupGuide__step--next"] : ""}`} aria-current={isNext ? "step" : undefined}>
@@ -70,7 +71,8 @@ export function AdmissionSetupGuide({ slug, progress }: AdmissionSetupGuideProps
               <div className={styles.AdmissionSetupGuide__copy}>
                 <span className={styles.AdmissionSetupGuide__stepTitle}>
                   {copy.title}
-                  {step.draft ? <span className={styles.AdmissionSetupGuide__badge}>{COPY.draftBadge}</span> : done && <span className={styles.AdmissionSetupGuide__badge}>{COPY.doneBadge}</span>}
+                  {step.draft ? <span className={styles.AdmissionSetupGuide__badge}>{COPY.draftBadge}</span> : done && <span className={`${styles.AdmissionSetupGuide__badge} ${step.lowNoticeQuota ? styles["AdmissionSetupGuide__badge--warning"] : ""}`}>{step.lowNoticeQuota ? COPY.lowQuotaBadge : COPY.doneBadge}</span>}
+                  {step.emailOmitted && <span className={`${styles.AdmissionSetupGuide__badge} ${styles["AdmissionSetupGuide__badge--warning"]}`}>{COPY.emailOmittedBadge}</span>}
                   {step.platformBlocked && <span className={styles.AdmissionSetupGuide__badge}>{COPY.platformBadge}</span>}
                   {optional && <span className={styles.AdmissionSetupGuide__badge}>{COPY.optionalBadge}</span>}
                 </span>

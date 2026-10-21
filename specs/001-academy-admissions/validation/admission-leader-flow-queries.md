@@ -42,7 +42,97 @@ Se aplicaron tres cambios juntos, porque cada build más la medición tarda unos
 
 La proyección de cuenta no se memoiza: la revalidación posterior a la lectura de datos de cada caso de uso se mantiene.
 
+## Segunda ronda: guard SQL consolidado
+
+Misma suite, mismo preload y mismo protocolo. Línea base: la revisión `1acd4ead` (la primera ronda ya integrada). Después: `c60d163d`, con `public.authorize_admission_leader`. Cada revisión tuvo su propio `next build` y su propia rama Neon efímera. Datos completos en `consolidatedGuard` de [admission-leader-flow-queries.json](admission-leader-flow-queries.json).
+
+| Request | Transacciones | Sentencias | Viajes secuenciales | ms |
+|---|---|---|---|---|
+| Inicializar reglas (POST /policy) | 7 → 7 | 80 → 62 (-22 %) | 80 → 62 (-22 %) | 15.860 → 13.308 (-16 %) |
+| Guardar reglas (PUT /policy) | 7 → 7 | 79 → 61 (-23 %) | 79 → 61 (-23 %) | 14.858 → 12.349 (-17 %) |
+| Solicitudes con guía | 54 → 54 | 431 → 317 (-26 %) | 136 → 78 (-43 %) | 22.960 → 13.486 (-41 %) |
+| Reglas | 25 → 25 | 246 → 147 (-40 %) | 136 → 65 (-52 %) | 22.551 → 11.088 (-51 %) |
+| Avisos | 13 → 13 | 87 → 73 (-16 %) | 77 → 63 (-18 %) | 14.083 → 11.797 (-16 %) |
+| Países y cupos | 14 → 14 | 83 → 83 | 73 → 73 | 13.007 → 13.096 (+1 %) |
+| Conexión de mensajería | 30 → 30 | 174 → 174 | 164 → 164 | 28.347 → 28.121 (-1 %) |
+| Lectura de reglas (GET /policy) | 9 → 9 | 127 → 57 (-55 %) | 127 → 57 (-55 %) | 21.324 → 10.508 (-51 %) |
+| Comprobación previa (GET /policy/preflight) | 7 → 7 | 60 → 46 (-23 %) | 60 → 46 (-23 %) | 10.945 → 8.578 (-22 %) |
+| Activar (POST /policy/activate) | 7 → 7 | 118 → 100 (-15 %) | 118 → 100 (-15 %) | 20.798 → 18.007 (-13 %) |
+
+Países y cupos y Conexión de mensajería no pasan por el guard del líder de admisiones, por eso no cambian: sus milisegundos quedan dentro del ruido.
+
+### Atribución
+
+El camino completo de `authorizeAdmissionLeader` hacía entre 7 y 9 sentencias secuenciales: actor, tribu `FOR SHARE`/`FOR UPDATE`, usuario, sesión, proyección de cuenta, `lock_admission_canonical_leader`, cuenta y vínculo de sesión (solo en mutaciones), otra proyección y el reloj. Ahora es una sola llamada a `public.authorize_admission_leader`. La traza por forma de sentencia lo confirma:
+
+- **Solicitudes:** las sentencias del guard bajan de 190 a 78. Los 16 guards completos pasan a 16 llamadas a la función, y las proyecciones de cuenta, de 81 a 49: las 32 que hacía el guard ya no salen de la función.
+- **Reglas:** de 134 a 36. **Lectura de reglas:** de 86 a 16. **Activar:** de 35 a 17, porque los guards repetidos ya se reutilizaban desde la primera ronda.
+
+### Seguridad y paridad
+
+`tests/unit/modules/academy-admissions/infrastructure/admission-leader-guard-parity.test.ts` corre contra Postgres real y fija dos contratos. Pasó igual con el guard secuencial (`1acd4ead`) y con la función, cada vez en su propia rama efímera:
+
+- **Resultados**, para lecturas y para operaciones sensibles: líder vigente (`authorized`), otro actor (`permission_denied`), tribu inexistente (`resource_unavailable`), sesión ajena (`authentication_required`), sesión vencida (`authentication_required`), líder degradado a guardián (`permission_denied`), líder bloqueado (`permission_denied`), vínculo de sesión invalidado y cuenta sin Google (`authorized`), y alcance que no coincide con el contexto (`permission_denied`).
+- **Orden de locks:** otra transacción retiene cada fila del guard. Mientras el guard espera esa fila, sondas `FOR UPDATE NOWAIT` comprueban que ya retiene todas las anteriores y ninguna de las siguientes: tribu, usuario, sesión y liderazgo canónico en lecturas, y además cuenta de Google y vínculo de sesión en operaciones sensibles. Al terminar retiene exactamente ese conjunto.
+
+`admission-leader-authority-reuse.test.ts` sigue pasando. El camino completo ahora mide una sentencia, y una sonda `FOR SHARE NOWAIT` confirma que el paso a un chequeo exclusivo toma la tribu `FOR UPDATE`.
+
+### Descartado: una sola ventana de sesión para Solicitudes
+
+Se probó un caso de uso compuesto con una única proyección de cuenta inicial y una única revalidación final, posterior a todas las lecturas, en dos variantes. En la primera, la bandeja y las cinco áreas de la guía compartían la ventana. En la segunda, solo las áreas de la guía la compartían y la bandeja conservaba la suya y su streaming. Cada lectura seguía con su guard SQL. Comparado con el guard consolidado sin ventana compuesta (mediana de 3 muestras):
+
+| Variante | Transacciones | Sentencias | Viajes secuenciales | ms |
+|---|---|---|---|---|
+| Sin ventana compuesta | 54 | 317 | 78 | 13.486 |
+| Ventana para bandeja y guía | 48 | 293 | 79 | 14.207 |
+| Ventana solo para la guía | 50 | 300 | 80 | 14.159 |
+
+Antes del guard consolidado, la variante con bandeja y guía también empeoraba: de 136 a 142 viajes secuenciales y de 22.960 a 24.233 ms. Las dos variantes ahorran transacciones, pero ninguna baja los viajes secuenciales y la mediana sube unos 700 ms. La revalidación final tiene que esperar la lectura más larga del grupo y suma su transacción al final de esa cadena. La hipótesis, compatible con la traza pero no medida por cadena, es que esa lectura es la comprobación previa o la revisión de membresías, que antes no tenían revalidación final propia. La variante con bandeja, además, hace que la bandeja espere a la guía. Por eso no se integró.
+
+## Tercera ronda: guards de mensajería
+
+Mismo protocolo. Línea base: la revisión `d3cc82b7`. Después: `e3075403`, con dos cambios medidos uno por uno. Datos completos en `messagingGuards` de [admission-leader-flow-queries.json](admission-leader-flow-queries.json).
+
+| Request | Transacciones | Sentencias | Viajes secuenciales | ms |
+|---|---|---|---|---|
+| Inicializar reglas (POST /policy) | 7 → 7 | 62 → 61 (-2 %) | 62 → 61 (-2 %) | 12.939 → 12.686 (-2 %) |
+| Guardar reglas (PUT /policy) | 7 → 7 | 61 → 61 | 61 → 61 | 12.032 → 12.287 (+2 %) |
+| Solicitudes con guía | 54 → 51 (-6 %) | 336 → 308 (-8 %) | 83 → 83 | 13.922 → 13.905 (+0 %) |
+| Reglas | 25 → 25 | 166 → 166 | 83 → 83 | 14.186 → 14.140 (+0 %) |
+| Avisos | 13 → 13 | 73 → 73 | 63 → 63 | 11.218 → 11.370 (+1 %) |
+| Países y cupos | 14 → 12 (-14 %) | 83 → 55 (-34 %) | 73 → 45 (-38 %) | 13.386 → 8.507 (-36 %) |
+| Conexión de mensajería | 30 → 22 (-27 %) | 175 → 98 (-44 %) | 165 → 88 (-47 %) | 29.396 → 15.254 (-48 %) |
+| Lectura de reglas (GET /policy) | 9 → 9 | 75 → 75 | 75 → 75 | 13.622 → 13.451 (-1 %) |
+| Comprobación previa (GET /policy/preflight) | 7 → 7 | 46 → 46 | 46 → 46 | 8.701 → 8.474 (-3 %) |
+| Activar (POST /policy/activate) | 7 → 7 | 100 → 100 | 100 → 100 | 17.940 → 18.561 (+3 %) |
+
+Solicitudes baja transacciones y sentencias porque su guía lee el resumen de mensajería. Su cadena más larga sigue siendo la de admisiones, así que los viajes no cambian. Las escrituras de reglas y la comprobación previa no pasan por estos guards: sus diferencias de milisegundos están dentro del ruido.
+
+La línea base `d3cc82b7` ya tenía unas 18 sentencias más que la segunda ronda en Reglas, en la lectura de reglas (`GET /policy`) y, por la guía, en Solicitudes. Las agregó `5473d9ad`, que hace que la lectura del líder evalúe la misma preparación que la activación para nombrar el requisito pendiente. Es un cambio de funcionalidad y no de rendimiento: los presupuestos de esas tres requests se ajustaron a ese valor.
+
+### Atribución
+
+1. **Guards de mensajería en SQL** (`6e035942`, migración `20261021120000_consolidate_messaging_leader_guards.sql`): `getCurrentLeadership` hacía 5 sentencias, el guard del lector de configuración otras 5 y `authorizeMessagingTribeManagement` entre 6 y 9. Ahora cada uno es una llamada: `read_messaging_leadership`, `authorize_messaging_configuration_reader` y `authorize_messaging_tribe_management`. En Conexión, las sentencias de guard bajan de 54 a 10 y los viajes, de 165 a 120. En Países y cupos, de 24 a 4 y de 73 a 53.
+2. **Lectores guardados sin proyección previa** (`e3075403`): el liderazgo, la configuración y el catálogo de avisos abren su transacción con la identidad de la sesión (`readCurrentFeatureSessionContext`), porque su primera sentencia ya revalida actor, sesión vigente y liderazgo canónico en SQL. Cada uno ahorra una transacción completa (unos 4 viajes). En Conexión, las proyecciones de cuenta bajan de 19 a 11, las transacciones de 30 a 22 y los viajes de 120 a 88. En Países y cupos, 8 → 6, 14 → 12 y 53 → 45.
+
+### Seguridad y paridad
+
+`tests/unit/modules/messaging/infrastructure/messaging-leader-guard-parity.test.ts` corre contra Postgres real y pasó igual con los guards secuenciales (`d3cc82b7`) y con las funciones:
+
+- **Liderazgo:** devuelve los hechos del líder y del guardián vigente. Devuelve `null` con otro actor, una tribu inexistente, una sesión ajena o vencida y un líder degradado o bloqueado.
+- **Configuración:** `leader` y `guardian` según la audiencia. Un guardián que pide la audiencia de líder, otro actor, una tribu inexistente, un líder degradado o bloqueado dan `permission_denied`. Una sesión ajena o vencida da `authentication_required`.
+- **Gestión de la tribu:** cubre lecturas y operaciones sensibles: uso, suspensión de conexión, credenciales y recuperación de un aviso inexistente. Cubre también un subject equivocado, un vínculo invalidado, un recurso cruzado y una sesión vencida.
+- **Orden de locks**, con sondas `FOR UPDATE NOWAIT` mientras el guard espera cada fila:
+  - Liderazgo: tribu, sesión y líder.
+  - Configuración: sesión, tribu y líder.
+  - Gestión: usuario, sesión, tribu y líder; en operaciones sensibles, también cuenta de Google y vínculo antes de la tribu.
+  - Una sonda `FOR SHARE NOWAIT` confirma que las operaciones de conexión toman la tribu `FOR UPDATE`.
+
+El arnés de orden de locks pasó a `tests/support/guard-lock-order.ts` y lo comparte con `admission-leader-guard-parity.test.ts`, que sigue pasando.
+
+Quitar la proyección previa de los lectores guardados no debilita la detección de una sesión revocada o de un cambio de usuario. Cada caso de uso conserva su proyección inicial y su revalidación final, y la primera sentencia de cada transacción vuelve a comprobar en SQL el actor, la sesión vigente y el liderazgo. Las escrituras siguen con `executeActor`, que compara la cuenta de Google en las operaciones sensibles. El correo del contexto de request solo lo consumen las suscripciones, no estas lecturas.
+
 ## Próximos pasos
 
-- Solicitudes sigue con 54 transacciones: cada loader de la guía (reglas, avisos, mensajería, membresías y comprobación previa) hace su proyección inicial, su lectura guardada y su revalidación final por separado. Un loader compuesto que comparta la entrada y conserve una sola revalidación final reduciría más, pero cambia el contrato de los casos de uso de página y requiere revisar su garantía de revocación.
-- Las lecturas de API (`GET /policy` y `/policy/preflight`) tienen un guard por transacción y no se benefician de la reutilización. Consolidar el guard completo en una función SQL con el mismo orden de locks requiere una migración validada en una rama efímera.
+- Conexión de mensajería sigue siendo la página más lenta (88 viajes). Sus 11 proyecciones de cuenta, de los casos de uso anidados (página, configuración y catálogo), siguen en serie, a unos 4 viajes cada una.
+- En Solicitudes y Reglas, la cadena más larga es la de admisiones. Identificar con una traza por cadena qué lectura es la más larga (hipótesis: la comprobación previa o la revisión de membresías) y reducir sus viajes propios.
