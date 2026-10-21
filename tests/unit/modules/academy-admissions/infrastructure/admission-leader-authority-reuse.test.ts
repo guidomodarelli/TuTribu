@@ -66,8 +66,18 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native reused admi
         await expect(authorizeAdmissionLeader(observed.database, read, configureScope)).rejects.toMatchObject({ code: "permission_denied" });
         return { full, reused, upgraded, reusedExclusive };
       }); });
-      expect(scoped).toEqual({ full: unscoped.first, reused: 1, upgraded: expect.any(Number), reusedExclusive: 1 });
-      expect(scoped.upgraded).toBeGreaterThan(1);
+      // The full path is one call to the consolidated SQL guard, the reused one is one statement too.
+      expect(unscoped).toEqual({ first: 1, second: 1 });
+      expect(scoped).toEqual({ full: 1, reused: 1, upgraded: 1, reusedExclusive: 1 });
+
+      // The upgrade to an exclusive check really takes the tribe FOR UPDATE: a concurrent share lock waits for it.
+      const probeTribeShare = () => database.withContext(leader.fixture.own, async (other) => { await other.execute(sql`select id from public.tribes where id=${leader.tribeId} for share nowait`); }).then(() => null, (error: unknown) => readPostgresCode(error));
+      await database.withContext(leader.fixture.own, (transaction) => withReusedAdmissionLeaderAuthority(transaction, async () => {
+        await authorizeAdmissionLeader(transaction, read, readScope);
+        expect(await probeTribeShare()).toBeNull();
+        await authorizeAdmissionLeader(transaction, configure, configureScope);
+        expect(await probeTribeShare()).toBe(VALIDATION.lockNotAvailableCode);
+      }));
 
       // While the authority is held, another transaction cannot change leadership: the tribe lock blocks its leadership trigger.
       const secondLeaderId = randomUUID();

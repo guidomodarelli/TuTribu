@@ -8,7 +8,7 @@ import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastruc
 /**
  * @param database - Owned branch with the real migration journal.
  * @param options - Session lifetime and the hosting keys a native server shares with the seed.
- * @returns Leader identifiers, the raw session token (held only in memory) and the slug.
+ * @returns Leader identifiers (including its Google account), the raw session token (held only in memory) and the slug.
  */
 export async function prepareAdmissionLeader(database: AcademyAdmissionTestDatabase, options: { sessionLifetimeMs: number; securityConfig?: MessagingSecurityConfig }) {
   const fixture = await prepareContactVerificationDatabase(database, options.securityConfig);
@@ -22,5 +22,5 @@ export async function prepareAdmissionLeader(database: AcademyAdmissionTestDatab
     await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${fixture.userId},${sessionToken},${new Date(now.getTime() + options.sessionLifetimeMs)},${now},${now})`);
     await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${sessionId},${fixture.userId},${accountId},${subject},${fixture.own.email})`);
   });
-  return { fixture, tribeId, slug, sessionId, sessionToken };
+  return { fixture, tribeId, slug, sessionId, sessionToken, accountId };
 }
