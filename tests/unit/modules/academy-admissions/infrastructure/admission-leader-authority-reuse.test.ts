@@ -89,6 +89,21 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native reused admi
         return { first, repeated, afterStatement, afterPause, clockIsDate: now instanceof Date };
       }); });
       expect(consecutive).toEqual({ first: 2, repeated: 0, afterStatement: 1, afterPause: 1, clockIsDate: true });
+      // The window counts from issuing the previous check, so a check whose response arrived after it does not stand for the next one.
+      const delayed = await database.withContext(leader.fixture.own, (transaction) => { const observed = countStatements(transaction); return withReusedAdmissionLeaderAuthority(observed.database, async () => {
+        await authorizeAdmissionLeader(observed.database, read, readScope);
+        // Delays only the next response on this transaction's own connection, as network latency would.
+        const client = transaction.$client, scoped = client.query;
+        client.query = function delayedQuery(this: typeof client, ...args: unknown[]) {
+          client.query = scoped;
+          return Promise.resolve(Reflect.apply(scoped, this, args)).then(async (result: unknown) => { await delay(ADMISSION_LEADER_AUTHORITY_REUSE.consecutiveWindowMs + VALIDATION.windowMarginMs); return result; });
+        } as typeof client.query;
+        await authorizeAdmissionLeader(observed.database, read, readScope);
+        const before = observed.count();
+        await authorizeAdmissionLeader(observed.database, read, readScope);
+        return observed.count() - before;
+      }); });
+      expect(delayed).toBe(1);
       // The scope stops counting the connection's statements when it settles.
       await database.withContext(leader.fixture.own, async (transaction) => {
         const client = transaction.$client, before = client.query;
