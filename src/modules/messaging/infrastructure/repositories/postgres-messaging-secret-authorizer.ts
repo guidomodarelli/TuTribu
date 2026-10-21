@@ -2,7 +2,7 @@
 import "server-only";
 import { sql } from "drizzle-orm";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
-import type { MessagingSecretAccessContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
+import type { AuthorizedDeliveryMessagingContext, MessagingSecretAccessContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import { MessagingSecretAccessError, type MessagingSecretAccessErrorCode } from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
 import { MESSAGING_AUTHORIZATION_PURPOSE, MESSAGING_CREDENTIAL_USABLE_STATES } from "@/src/modules/messaging/constants/messaging-connection";
@@ -15,6 +15,60 @@ import type { MarkedMessageDeliveryResourceAuthority } from "../message-delivery
 type DatabaseInstant = string | Date;
 /** Contains only scope/lifetime facts; ciphertext is read separately after authorization. A human scope also keeps its locked session deadline. */
 export type LockedMessagingSecret = { notBefore: readonly Date[]; expiresAt: readonly Date[]; sessionExpiresAt?: Date; environment: string; securityEpoch: string; keyId: string; providerId: string };
+
+/** Only transactions opened through `withReusedMessagingSecretAuthority` register here; each entry maps a worker attempt key to the facts its full check locked, and dies with its scope. */
+const heldMessagingSecretAuthority = new WeakMap<RequestDatabase, Map<string, LockedMessagingSecret>>();
+
+/**
+ * Lets repeated worker checks of one transaction reuse the locks its first full check took.
+ *
+ * A full worker check locks, `FOR SHARE` and in this order, the tribe, its active leaders, the
+ * connection, the connection version, the delivery, the attempt, the usage reservation and the
+ * secret envelope. Nobody else can update or delete those rows before COMMIT, so a later check of
+ * the same attempt re-reads, in one statement, only what the locks cannot freeze: the transaction
+ * actor, the leadership (a new active leader row is not blocked by the existing row locks) and the
+ * delivery lease against the database clock. Only ungrouped worker attempts register: a grouped
+ * notification keeps running its injected business guard on every check, and human or write-locked
+ * checks never reuse. The scope must not contain a savepoint: a `ROLLBACK TO SAVEPOINT` would release
+ * locks taken after it.
+ *
+ * @param database - Transaction of a worker owner, without savepoints.
+ * @param run - The owner's work in that transaction.
+ * @returns Its result; the held authority is forgotten when it settles.
+ */
+export async function withReusedMessagingSecretAuthority<Result>(database: RequestDatabase, run: () => Promise<Result>): Promise<Result> {
+  if (heldMessagingSecretAuthority.has(database)) return run();
+  heldMessagingSecretAuthority.set(database, new Map());
+  try { return await run(); } finally { heldMessagingSecretAuthority.delete(database); }
+}
+
+/** Where a worker check of a reuse scope finds or registers its held facts. */
+type HeldMessagingSecretSlot = { entries: Map<string, LockedMessagingSecret>; key: string; context: AuthorizedDeliveryMessagingContext };
+
+/**
+ * @param database - Current transaction.
+ * @param context - Worker attempt scope.
+ * @returns The scope's slot for this attempt, keyed by every fact the full check compares against locked rows, or null outside a reuse scope.
+ */
+function readHeldMessagingSecretSlot(database: RequestDatabase, context: AuthorizedDeliveryMessagingContext): HeldMessagingSecretSlot | null {
+  const entries = heldMessagingSecretAuthority.get(database);
+  return entries ? { entries, context, key: JSON.stringify([context.contributingLeaderUserId, context.tribeId, context.connectionId, context.connectionVersion, context.environment, context.securityEpoch, context.secretRef, context.deliveryId, context.deliveryPurpose, context.notificationGroupId, context.attemptId, context.attemptVersion, context.leaseToken, context.sendAuthorizedAt.getTime(), context.authorizedUsagePolicyVersion, context.operation]) } : null;
+}
+
+/**
+ * Revalidates, in one statement, what the held row locks cannot freeze.
+ * @param database - Transaction that already holds this attempt's locks.
+ * @param context - Worker attempt scope.
+ * @param held - Facts locked by the full check.
+ * @returns The held facts.
+ * @throws MessagingSecretAccessError for another actor, a changed leadership or an expired lease.
+ */
+async function reuseHeldMessagingSecretAuthority(database: RequestDatabase, context: AuthorizedDeliveryMessagingContext, held: LockedMessagingSecret): Promise<LockedMessagingSecret> {
+  const current = (await database.execute<{ actor: string | null; leaders: string[] | null; lease_live: boolean | null }>(sql`select public.current_app_user_id() as actor,(select array_agg(member.user_id order by member.user_id) from public.tribe_members member where member.tribe_id=${context.tribeId} and member.role=${TRIBE_MEMBER_ROLE.leader} and member.status=${TRIBE_MEMBERSHIP_STATUS.active}) as leaders,(select delivery.lease_until>clock_timestamp() from public.message_deliveries delivery where delivery.id=${context.deliveryId} and delivery.tribe_id=${context.tribeId} and delivery.lease_token=${context.leaseToken}) as lease_live`)).rows[0];
+  if (current?.actor !== context.contributingLeaderUserId || current.leaders?.length !== 1 || current.leaders[0] !== context.contributingLeaderUserId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
+  if (current.lease_live !== true) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
+  return held;
+}
 
 /** Converts the consumed timestamp without revalidating the PostgreSQL row schema. */
 function instant(value: DatabaseInstant): Date { return new Date(value instanceof Date ? value.getTime() : value); }
@@ -47,12 +101,17 @@ export function messagingSecretLifetimeFailure(authorization: LockedMessagingSec
 export async function authorizeMessagingSecret(database: RequestDatabase, context: MessagingSecretAccessContext, lockResourcesForWrite = false, authorizeDeliveryResource?: MarkedMessageDeliveryResourceAuthority): Promise<LockedMessagingSecret> {
   const human = context.authorizationPurpose === MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader;
   const actorUserId = human ? context.actorUserId : context.contributingLeaderUserId;
+  const slot = context.authorizationPurpose === MESSAGING_AUTHORIZATION_PURPOSE.authorizedDelivery && !lockResourcesForWrite ? readHeldMessagingSecretSlot(database, context) : null;
+  const heldFacts = slot?.entries.get(slot.key);
+  if (slot && heldFacts) return reuseHeldMessagingSecretAuthority(database, slot.context, heldFacts);
+  let grouped = false;
   const actor = (await database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
   if (actor !== actorUserId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
   if (!human) {
     const source = (await database.execute<{ purpose: string; notification_group_id: string | null; notification_group_audience: string | null }>(sql`select purpose,notification_group_id,notification_group_audience from public.message_deliveries where id=${context.deliveryId} and tribe_id=${context.tribeId} and connection_id=${context.connectionId} and connection_version=${context.connectionVersion} and environment=${context.environment} and security_epoch=${context.securityEpoch}`)).rows[0];
     if (!source || source.purpose !== context.deliveryPurpose || source.notification_group_id !== context.notificationGroupId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
     if (source && (source.notification_group_id !== null || source.notification_group_audience !== null)) {
+      grouped = true;
       if (!authorizeDeliveryResource) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
       // The injected owner takes its exclusive tribe/policy fence before the generic shared locks below.
       await authorizeDeliveryResource(database, context);
@@ -97,5 +156,8 @@ export async function authorizeMessagingSecret(database: RequestDatabase, contex
   }
   const envelope = (await database.execute<{ environment: string; security_epoch: string; key_id: string }>(sql`select environment,security_epoch,key_id from public.messaging_secret_envelopes where secret_ref=${context.secretRef} and tribe_id=${context.tribeId} and connection_id=${context.connectionId} and connection_version=${context.connectionVersion} and environment=${context.environment} and security_epoch=${context.securityEpoch} and retired_at is null for share`)).rows[0];
   if (!envelope) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
-  return { environment: envelope.environment, securityEpoch: envelope.security_epoch, keyId: envelope.key_id, providerId: connection.provider, expiresAt, notBefore, ...(sessionExpiresAt ? { sessionExpiresAt } : {}) };
+  const facts: LockedMessagingSecret = { environment: envelope.environment, securityEpoch: envelope.security_epoch, keyId: envelope.key_id, providerId: connection.provider, expiresAt, notBefore, ...(sessionExpiresAt ? { sessionExpiresAt } : {}) };
+  // A grouped notification keeps its injected business guard on every check, so it never registers.
+  if (slot && !grouped) slot.entries.set(slot.key, facts);
+  return facts;
 }
