@@ -164,6 +164,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- Al descargar o quitar un archivo de una lección que no existe o que no podés ver, se informa que no se encontró el archivo, aunque el almacenamiento de archivos no esté disponible, en lugar de un error al preparar la descarga.
 - Al descargar o quitar un adjunto de un mensaje que no existe o que no podés ver, se informa que no se encontró el archivo, aunque el almacenamiento de archivos no esté disponible, en lugar de un error al preparar la descarga.
 - La actividad de admisiones avisa que el mantenimiento está detenido cuando no completa una ejecución hace más de diez minutos o nunca completó una, aunque algunas tareas sueltas sigan avanzando, y muestra la última ejecución completa.
 - Los avisos agrupados de nuevas solicitudes ya no se atrasan cuando hay muchas solicitudes juntas o la bandeja del líder está abierta.
