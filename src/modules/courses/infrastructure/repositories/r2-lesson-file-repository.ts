@@ -181,16 +181,18 @@ export class R2LessonFileRepository implements LessonFileRepository {
   async createDownloadUrl(
     command: CreateLessonFileDownloadUrlCommand
   ): Promise<LessonFileDownloadUrlResult> {
-    const storage = this.resolveStorage();
-
-    if (!storage) {
-      return { status: COURSE_MUTATION_STATUS.invalidFile };
-    }
-
+    // Visibility is decided before storage is required, so a missing or
+    // hidden file answers `notFound` even when R2 is not configured.
     const file = await this.findDownloadableFile(command);
 
     if (!file) {
       return { status: COURSE_MUTATION_STATUS.notFound };
+    }
+
+    const storage = this.resolveStorage();
+
+    if (!storage) {
+      return { status: COURSE_MUTATION_STATUS.invalidFile };
     }
 
     return {
@@ -205,12 +207,8 @@ export class R2LessonFileRepository implements LessonFileRepository {
   async deleteFile(
     command: DeleteLessonFileCommand
   ): Promise<LessonFileDeletionResult> {
-    const storage = this.resolveStorage();
-
-    if (!storage) {
-      return { status: COURSE_MUTATION_STATUS.invalidFile };
-    }
-
+    // Existence and permission are read-only checks, so they run before
+    // storage is required; nothing is marked until R2 is available.
     const file = await this.findDeletableFile(command);
 
     if (!file) {
@@ -219,6 +217,12 @@ export class R2LessonFileRepository implements LessonFileRepository {
 
     if (!file.can_delete) {
       return { status: COURSE_MUTATION_STATUS.forbidden };
+    }
+
+    const storage = this.resolveStorage();
+
+    if (!storage) {
+      return { status: COURSE_MUTATION_STATUS.invalidFile };
     }
 
     if (!(await this.markFilePendingDelete(file.id))) {
