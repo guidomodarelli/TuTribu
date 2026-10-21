@@ -3,12 +3,20 @@ import { randomUUID } from "node:crypto";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AllowlistImport, type AllowlistImportProps } from "@/components/academy-admissions/allowlist-import";
+import { ALLOWLIST_IMPORT_BROWSER_COPY } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
 
 /** @returns Controlled preview without an inferred selection or permission. */
 function fixture(): AllowlistImportProps {
-  return { ready: true, busy: false, writeAction: null, privateVisible: true, initializationFailed: false, hasSavedImport: true, onRetryInitialization: vi.fn(), fileName: "synthetic.csv", contactType: "email", snapshot: { importId: randomUUID(), state: "preview", sourceVersion: 1, expiresAt: "2026-10-10T08:00:00Z", counts: { selected: 0, added: 0, unchanged: 0, conflict: 0, skipped: 0 }, rows: [{ rowNumber: 1, identity: "synthetic@example.test", displayName: "<script>inert()</script>", selected: false, errors: [] }, { rowNumber: 2, identity: "invalid", selected: false, errors: ["admission_contact_invalid"] }] }, selection: [], confirmed: false, pending: false, canResume: false, conflict: false, policyConflict: false, unresolvedCount: 0, canReconcile: false, errorMessage: null, fieldError: null, statusMessage: null, step: 1, onStepChange: vi.fn(), onFile: vi.fn(), onConfirmChange: vi.fn(), onSelectRow: vi.fn(), onPreview: vi.fn(), onConfirm: vi.fn(), onReadOriginal: vi.fn(), onReadCurrent: vi.fn(), onReadPolicy: vi.fn(), onTemplate: vi.fn(), onReport: vi.fn(), onReconcile: vi.fn() };
+  return { policyHref: "/synthetic/academia/admissions/settings", ready: true, busy: false, writeAction: null, privateVisible: true, initializationFailed: false, hasSavedImport: true, onRetryInitialization: vi.fn(), fileName: "synthetic.csv", contactType: "email", snapshot: { importId: randomUUID(), state: "preview", sourceVersion: 1, expiresAt: "2026-10-10T08:00:00Z", counts: { selected: 0, added: 0, unchanged: 0, conflict: 0, skipped: 0 }, rows: [{ rowNumber: 1, identity: "synthetic@example.test", displayName: "<script>inert()</script>", selected: false, errors: [] }, { rowNumber: 2, identity: "invalid", selected: false, errors: ["admission_contact_invalid"] }] }, selection: [], confirmed: false, pending: false, canResume: false, conflict: false, policyConflict: false, unresolvedCount: 0, canReconcile: false, errorMessage: null, fieldError: null, statusMessage: null, step: 1, onStepChange: vi.fn(), onFile: vi.fn(), onConfirmChange: vi.fn(), onSelectRow: vi.fn(), onPreview: vi.fn(), onConfirm: vi.fn(), onReadOriginal: vi.fn(), onReadCurrent: vi.fn(), onReadPolicy: vi.fn(), onTemplate: vi.fn(), onReport: vi.fn(), onReconcile: vi.fn() };
 }
 describe("import presenter", () => {
+  it("should send the leader to the rules page instead of a blocked upload while no rules are saved", () => {
+    render(<AllowlistImport {...fixture()} contactType={null} hasSavedImport={false} snapshot={null} />);
+    expect(screen.getByRole("heading", { name: ALLOWLIST_IMPORT_BROWSER_COPY.noPolicyTitle })).toBeVisible();
+    expect(screen.getByRole("link", { name: ALLOWLIST_IMPORT_BROWSER_COPY.noPolicyAction })).toHaveAttribute("href", "/synthetic/academia/admissions/settings");
+    expect(screen.queryByLabelText("Archivo CSV de habilitados")).not.toBeInTheDocument();
+  });
+
   it("should render HTML as text, disable invalid rows and require explicit selection and confirmation", () => {
     const props = fixture(), { container } = render(<AllowlistImport {...props} />);
     expect(screen.getByText("<script>inert()</script>")).toBeVisible(); expect(container.querySelector("script")).toBeNull();

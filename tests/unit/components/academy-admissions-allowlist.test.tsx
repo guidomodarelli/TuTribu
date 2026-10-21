@@ -30,6 +30,15 @@ function fixture() {
 beforeEach(() => { window.sessionStorage.clear(); vi.clearAllMocks(); });
 
 describe("allowlist route controls", () => {
+  it("should send the leader to the rules page instead of showing a blocked contact field while no rules are saved", async () => {
+    const data = fixture(); render(<AllowlistContainer initialState={{ ...data.state, contactType: null, page: { items: [], nextCursor: null } }} client={data.client} />, { wrapper: Providers });
+    expect(await screen.findByRole("heading", { name: ALLOWLIST_BROWSER_COPY.noPolicyTitle })).toBeVisible();
+    expect(screen.getByText(ALLOWLIST_BROWSER_COPY.noPolicy)).toBeVisible();
+    expect(screen.getByRole("link", { name: ALLOWLIST_BROWSER_COPY.noPolicyAction })).toHaveAttribute("href", "/synthetic-academy/academia/admissions/settings");
+    expect(screen.queryByLabelText("Correo de la entrada")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Continuar" })).not.toBeInTheDocument();
+  });
+
   it("should show contact validation before dispatch and clear it when the proposal changes", async () => {
     const data = fixture(); render(<AllowlistContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
     const contact = screen.getByLabelText("Correo de la entrada");

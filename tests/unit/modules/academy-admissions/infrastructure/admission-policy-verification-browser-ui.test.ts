@@ -10,7 +10,6 @@ import { bindAdmissionBatchBrowserSession } from "@/tests/support/admission-batc
 import { prepareAdmissionWhatsappBrowser } from "@/tests/support/admission-whatsapp-browser-fixture";
 import { settleGuidedStep } from "@/tests/support/guided-steps-browser";
 import { ADMISSION_POLICY_BROWSER_COPY, ADMISSION_POLICY_DESTINATION_COPY, ADMISSION_POLICY_SETTINGS_SEGMENT } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
-import { ADMISSION_WHATSAPP_COPY } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 
@@ -25,7 +24,6 @@ const SUITE_TIMEOUT_MS = 1_800_000;
 const VERIFICATION_LABEL = "Comprobar el contacto con un código";
 const CONFIRMATION_LABEL = "Revisé las reglas y quiero guardar los cambios.";
 const SAVE_LABEL = "Guardar cambios";
-const WHATSAPP_LABEL = ADMISSION_WHATSAPP_COPY.policyLabel;
 
 /** @param page - Owned page on the rules route. @returns Once the editor reached its review step through keyboard-free real clicks. */
 async function walkToReview(page: Page) {
@@ -88,18 +86,18 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native rules p
             expect(writes.slice(-2).map((write) => write.expectedVersion)).toEqual([before.version, before.version + 1]);
             expect(writes.at(-2)!.operationId).not.toBe(writes.at(-1)!.operationId);
 
-            // Turning codes OFF again keeps the draft and saves it as a real change over the concurrent edit.
-            await page.goto(`${origin}/${fixture.slug}/${ADMISSION_POLICY_SETTINGS_SEGMENT}`, { waitUntil: "domcontentloaded" });
-            await openContactStep(page);
-            expect(await page.getByRole("checkbox", { name: VERIFICATION_LABEL, exact: true }).isChecked()).toBe(false);
-            await page.getByRole("checkbox", { name: WHATSAPP_LABEL, exact: true }).click();
+            // Turning codes OFF in the same editor saves the retained draft as a real change over the concurrent edit.
+            const verification = page.getByRole("checkbox", { name: VERIFICATION_LABEL, exact: true });
+            while (await verification.count() === 0) { await page.getByRole("button", { name: "Atrás", exact: true }).click(); await settleGuidedStep(page); }
+            expect(await verification.isChecked()).toBe(true);
+            await verification.click();
             await walkToReview(page);
             await page.getByRole("checkbox", { name: CONFIRMATION_LABEL, exact: true }).click();
             await page.getByRole("button", { name: SAVE_LABEL, exact: true }).click();
             await expect.poll(async () => (await readPolicy()).version, { timeout: ACTION_TIMEOUT_MS }).toBe(afterDenial.version + 1);
             expect((await readPolicy()).requires_additional_verification).toBe(false);
             expect(writes.at(-1)!.requiresAdditionalVerification).toBe(false);
-            expect(routeNavigations).toBe(2); expect(pageErrors).toEqual([]);
+            expect(routeNavigations).toBe(1); expect(pageErrors).toEqual([]);
             expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
             console.info(JSON.stringify({ phase: "policy_verification_ui_complete", engine: name, width }));
           } finally { await context.close(); await browser.close(); }

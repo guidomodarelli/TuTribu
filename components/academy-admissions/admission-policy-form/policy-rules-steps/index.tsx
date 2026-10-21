@@ -3,7 +3,7 @@
 import { Checkbox, RadioGroup, Select } from "@golfo/ui";
 import { useId, type ReactNode } from "react";
 import { GuidedSteps, type GuidedStep } from "@/components/forms/guided-steps";
-import { Link } from "@/components/navigation/link";
+import { ButtonLink } from "@/components/navigation/link";
 import type { AdmissionPolicyDraft } from "@/src/modules/academy-admissions/application/commands/admission-policy-draft";
 import type { AdmissionPolicyStateDto } from "@/src/modules/academy-admissions/application/results/admission-policy-result-schemas";
 import { ADMISSION_POLICY_MODE, ADMISSION_PHONE_CHANNEL } from "@/src/modules/academy-admissions/constants/admission-policy";
@@ -65,7 +65,9 @@ export function PolicyRulesSteps(props: PolicyRulesStepsProps) {
         <RadioGroup label="Cómo se admite" hideLabel value={draft.mode} options={[...ADMISSION_POLICY_MODE_OPTIONS]} onValueChange={(value) => { const mode = ADMISSION_POLICY_MODE_OPTIONS.find((option) => option.value === value)?.value; if (mode) change({ mode }); }} />
         {draft.mode === ADMISSION_POLICY_MODE.allowlist && <div className={styles.PolicyRulesSteps__group}>
           <Checkbox id={`${instanceId}-exceptions`} checked={draft.allowCommonExceptions} label="Permitir solicitudes comunes como excepción" description="Quien no está en la lista puede enviar una solicitud con un motivo, y la revisás vos." onCheckedChange={(checked) => change({ allowCommonExceptions: checked === true })} />
-          <Link className={styles.PolicyRulesSteps__link} href={props.links.allowlist}>Cargar personas en Habilitados</Link>
+          {props.state.policy
+            ? <ButtonLink className={styles.PolicyRulesSteps__link} variant="secondary" size="sm" href={props.links.allowlist}>Cargar personas en Habilitados</ButtonLink>
+            : <p className={styles.PolicyRulesSteps__note}>Después de guardar las reglas vas a poder cargar personas en Habilitados.</p>}
         </div>}
       </>,
     },
@@ -83,7 +85,7 @@ export function PolicyRulesSteps(props: PolicyRulesStepsProps) {
             </>
             : <p className={styles.PolicyRulesSteps__note}>Con teléfono y sin código, el ingreso común manual está disponible; las invitaciones personales por teléfono no están disponibles.</p>}
           <p className={styles.PolicyRulesSteps__note}>{countries.length ? `Países habilitados para el envío telefónico: ${countries.join(", ")}.` : "Todavía no hay países habilitados para el envío telefónico."}</p>
-          <Link className={styles.PolicyRulesSteps__link} href={props.links.usage}>Configurar países y cupos de mensajería</Link>
+          <ButtonLink className={styles.PolicyRulesSteps__link} variant="secondary" size="sm" href={props.links.usage}>Configurar países y cupos de mensajería</ButtonLink>
         </div>}
         <Checkbox id={`${instanceId}-whatsapp`} checked={draft.requiresWhatsappNumber ?? false} label={ADMISSION_WHATSAPP_COPY.policyLabel} description={ADMISSION_WHATSAPP_COPY.policyHelp} onCheckedChange={(checked) => change({ requiresWhatsappNumber: checked === true })} />
       </>,

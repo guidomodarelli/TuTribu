@@ -2,14 +2,15 @@
 /** Presents the guided CSV import (upload, review, confirm) without transport or session access. @module allowlist-import-presenter */
 import type { AllowlistImportDto } from "@/src/modules/academy-admissions/application/results/admission-management-result-schemas";
 import { useId, useMemo, useState } from "react";
-import { Button, Checkbox, Input, Label } from "@golfo/ui";
+import { Button, Checkbox, EmptyState, Input, Label } from "@golfo/ui";
+import { ButtonLink } from "@/components/navigation/link";
 import { GuidedSteps, type GuidedStep } from "@/components/forms/guided-steps";
 import { ALLOWLIST_IMPORT_FILE_ACCEPT, ALLOWLIST_IMPORT_VISIBLE_ROW_COUNT, ALLOWLIST_IMPORT_BROWSER_COPY as COPY, ALLOWLIST_IMPORT_WRITE_ACTION, type AllowlistImportWriteAction } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
 import { ALLOWLIST_IMPORT_REPORT_ERROR_LABEL, ALLOWLIST_IMPORT_REPORT_OUTCOME_LABEL } from "@/src/modules/academy-admissions/constants/allowlist-import";
 import { ADMISSION_IMPORT_PUBLIC_STATE } from "@/src/modules/academy-admissions/constants/admission-management-contract";
 import styles from "./styles.module.scss";
 /** `busy` covers every read and write; `writeAction` names only the pressed write, which keeps its label and focus while it shows progress. */
-export type AllowlistImportProps = { ready: boolean; busy: boolean; writeAction: AllowlistImportWriteAction | null; privateVisible: boolean; initializationFailed: boolean; hasSavedImport: boolean; onRetryInitialization: () => void; fileName: string | null; contactType: "email" | "phone" | null; snapshot: AllowlistImportDto | null; selection: readonly number[]; confirmed: boolean; pending: boolean; canResume: boolean; conflict: boolean; policyConflict: boolean; unresolvedCount: number; canReconcile: boolean; errorMessage: string | null; fieldError: string | null; statusMessage: string | null; step: number; onStepChange: (step: number) => void; onFile: (file: File) => void; onConfirmChange: (value: boolean) => void; onSelectRow: (row: number, selected: boolean) => void; onPreview: () => void; onConfirm: () => void; onReadOriginal: () => void; onReadCurrent: () => void; onReadPolicy: () => void; onTemplate: () => void; onReport: () => void; onReconcile: () => void };
+export type AllowlistImportProps = { /** Rules page where the leader saves the configuration the import depends on. */ policyHref: string; ready: boolean; busy: boolean; writeAction: AllowlistImportWriteAction | null; privateVisible: boolean; initializationFailed: boolean; hasSavedImport: boolean; onRetryInitialization: () => void; fileName: string | null; contactType: "email" | "phone" | null; snapshot: AllowlistImportDto | null; selection: readonly number[]; confirmed: boolean; pending: boolean; canResume: boolean; conflict: boolean; policyConflict: boolean; unresolvedCount: number; canReconcile: boolean; errorMessage: string | null; fieldError: string | null; statusMessage: string | null; step: number; onStepChange: (step: number) => void; onFile: (file: File) => void; onConfirmChange: (value: boolean) => void; onSelectRow: (row: number, selected: boolean) => void; onPreview: () => void; onConfirm: () => void; onReadOriginal: () => void; onReadCurrent: () => void; onReadPolicy: () => void; onTemplate: () => void; onReport: () => void; onReconcile: () => void };
 
 /** @param props - Safe controlled view state and explicit callbacks. @returns A three-step import with paged rows and one next action, without session, file reading or network access. */
 export function AllowlistImport(props: AllowlistImportProps) {
@@ -84,8 +85,10 @@ export function AllowlistImport(props: AllowlistImportProps) {
         {props.unresolvedCount > 0 && <span className={styles.AllowlistImport__help}>Confirmaciones anteriores por conciliar: {props.unresolvedCount}</span>}
       </div>}
       {props.hasSavedImport && !props.snapshot && <Button type="button" variant="secondary" disabled={disabled} onClick={props.onReadCurrent}>Consultar progreso actual</Button>}
-      <GuidedSteps label="Importar habilitados desde CSV" steps={steps} current={props.step} onCurrentChange={props.onStepChange} busy={disabled}
-        finalAction={{ label: resumeLabel ? "Retomar filas pendientes" : "Importar filas elegidas", loading: confirmingRows, disabled: Boolean(confirmReason) || disabled && !confirmingRows, onRun: props.onConfirm }} />
+      {!props.contactType && !props.snapshot && !props.hasSavedImport
+        ? <EmptyState label={COPY.noPolicyTitle} title={COPY.noPolicyTitle} description={COPY.noPolicy} action={<ButtonLink href={props.policyHref} variant="primary" size="sm">{COPY.noPolicyAction}</ButtonLink>} />
+        : <GuidedSteps label="Importar habilitados desde CSV" steps={steps} current={props.step} onCurrentChange={props.onStepChange} busy={disabled}
+          finalAction={{ label: resumeLabel ? "Retomar filas pendientes" : "Importar filas elegidas", loading: confirmingRows, disabled: Boolean(confirmReason) || disabled && !confirmingRows, onRun: props.onConfirm }} />}
     </>}
   </section>;
 }

@@ -3,6 +3,7 @@
 import { useId } from "react";
 import { Button, Checkbox, EmptyState, Input, Label, Select } from "@golfo/ui";
 import { GuidedSteps, GuidedStepsDisclosure, type GuidedStep } from "@/components/forms/guided-steps";
+import { ButtonLink } from "@/components/navigation/link";
 import type { AllowlistEntryResult } from "@/src/modules/academy-admissions/application/results/admission-resource-result";
 import type { AllowlistDraft } from "@/src/modules/academy-admissions/application/commands/allowlist-browser-intent";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
@@ -13,7 +14,7 @@ import { ADMISSION_CONTACT_TYPE } from "@/src/modules/academy-admissions/constan
 import { ALLOWLIST_FILTER_OPTIONS, ALLOWLIST_ENTRY_STATUS_OPTIONS } from "@/src/modules/academy-admissions/constants/allowlist-options";
 import styles from "./styles.module.scss";
 
-export type AllowlistManagementProps = { items: readonly AllowlistEntryResult[]; contactType: "email" | "phone" | null; search: string; status: "enabled" | "disabled" | null; draft: AllowlistDraft; confirmed: boolean; ready: boolean; busy: boolean; writing: boolean; privateVisible: boolean; pending: boolean; hasNext: boolean; conflict: boolean; errorMessage: string | null; fieldError: string | null; step: number; onStepChange: (step: number) => void; onSearchChange: (value: string) => void; onStatusChange: (value: "enabled" | "disabled" | null) => void; onSearch: () => void; onNext: () => void; onSelect: (entry: AllowlistEntryResult) => void; onNew: () => void; onDraftChange: (draft: AllowlistDraft) => void; onConfirm: (value: boolean) => void; onSave: () => void; onReadOriginal: () => void; onReadCurrentEntry: () => void };
+export type AllowlistManagementProps = { items: readonly AllowlistEntryResult[]; contactType: "email" | "phone" | null; /** Rules page where the leader saves the configuration the list depends on. */ policyHref: string; search: string; status: "enabled" | "disabled" | null; draft: AllowlistDraft; confirmed: boolean; ready: boolean; busy: boolean; writing: boolean; privateVisible: boolean; pending: boolean; hasNext: boolean; conflict: boolean; errorMessage: string | null; fieldError: string | null; step: number; onStepChange: (step: number) => void; onSearchChange: (value: string) => void; onStatusChange: (value: "enabled" | "disabled" | null) => void; onSearch: () => void; onNext: () => void; onSelect: (entry: AllowlistEntryResult) => void; onNew: () => void; onDraftChange: (draft: AllowlistDraft) => void; onConfirm: (value: boolean) => void; onSave: () => void; onReadOriginal: () => void; onReadCurrentEntry: () => void };
 
 /** @param props - Controlled safe state and callbacks from one route-level workflow. @returns The entry flow first, then the list it edits; recoveries and filters stay out of the main path. */
 export function AllowlistManagement(props: AllowlistManagementProps) {
@@ -65,8 +66,10 @@ export function AllowlistManagement(props: AllowlistManagementProps) {
         <h2 id={`${fieldId}-editor`}>{editing ? "Editar entrada" : "Agregar entrada"}</h2>
         {props.errorMessage && <p role="alert" className={styles.AllowlistManagement__error}>{props.errorMessage}</p>}
         {unresolved && <div className={styles.AllowlistManagement__callout}><p role="status">{ALLOWLIST_BROWSER_COPY.pendingBlocked}</p><Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReadOriginal}>Consultar operación original</Button></div>}
-        <GuidedSteps label={editing ? "Editar entrada de la lista" : "Agregar entrada a la lista"} steps={steps} current={props.step} onCurrentChange={props.onStepChange} busy={disabled}
-          finalAction={{ label: editing ? "Guardar entrada" : "Agregar entrada", loading: props.writing, disabled: Boolean(reviewReason) || !props.contactType, onRun: props.onSave }} />
+        {!props.contactType && !editing
+          ? <EmptyState label={ALLOWLIST_BROWSER_COPY.noPolicyTitle} title={ALLOWLIST_BROWSER_COPY.noPolicyTitle} description={ALLOWLIST_BROWSER_COPY.noPolicy} action={<ButtonLink href={props.policyHref} variant="primary" size="sm">{ALLOWLIST_BROWSER_COPY.noPolicyAction}</ButtonLink>} />
+          : <GuidedSteps label={editing ? "Editar entrada de la lista" : "Agregar entrada a la lista"} steps={steps} current={props.step} onCurrentChange={props.onStepChange} busy={disabled}
+          finalAction={{ label: editing ? "Guardar entrada" : "Agregar entrada", loading: props.writing, disabled: Boolean(reviewReason) || !props.contactType, onRun: props.onSave }} />}
       </section>
       <section className={styles.AllowlistManagement__entries} aria-labelledby={`${fieldId}-entries`}><h2 id={`${fieldId}-entries`}>Entradas de la lista</h2>
         <GuidedStepsDisclosure summary="Buscar y filtrar entradas">
