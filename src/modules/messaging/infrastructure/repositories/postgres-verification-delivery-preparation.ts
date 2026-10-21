@@ -13,7 +13,7 @@ import { VERIFICATION_CHALLENGE_STATE } from "@/src/modules/academy-admissions/c
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { MessagingSecretAccessError } from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
-import { authorizeMessagingSecret, messagingSecretLifetimeIsCurrent } from "./postgres-messaging-secret-authorizer";
+import { authorizeMessagingSecret, messagingSecretLifetimeIsCurrent, withReusedMessagingSecretAuthority } from "./postgres-messaging-secret-authorizer";
 import { createVerificationDeliveryPayloadMac } from "@/src/modules/messaging/infrastructure/encryption/verification-delivery-payload-mac";
 import { createVerificationCodeEnvelope } from "@/src/modules/messaging/infrastructure/encryption/verification-code-envelope";
 
@@ -31,12 +31,16 @@ type PreparationRow = {
 
 /** Owns backend-only material preparation; it never verifies the user or posts a message. */
 export class PostgresVerificationDeliveryPreparation implements VerificationDeliveryPreparation {
+  /** Protected contributing-actor checkout, scoped so a repeated attempt check reuses the locks of the first. */
+  private readonly execute: PreparationDatabaseExecutor;
   /**
    * @param execute - Existing protected contributing-actor executor.
    * @param secrets - Worker-purpose SecretStore that independently revalidates actual attempt authority.
    * @param readSecurityConfig - Local external scope/keyring snapshot without outbound work under locks.
    */
-  constructor(private readonly execute: PreparationDatabaseExecutor, private readonly secrets: MessagingSecretStore, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>) {}
+  constructor(execute: PreparationDatabaseExecutor, private readonly secrets: MessagingSecretStore, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>) {
+    this.execute = (actorUserId, run) => execute(actorUserId, (database) => withReusedMessagingSecretAuthority(database, () => run(database)));
+  }
 
   /**
    * Loads immutable payload and transient code after actual marker authority, then separately loads its credential.
