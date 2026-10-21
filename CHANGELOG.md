@@ -111,6 +111,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Cada aspirante puede corregir su WhatsApp mientras la solicitud siga pendiente y vigente; el formulario conserva el cambio original si se pierde la respuesta y avisa cuando debe revisarse de nuevo.
 
 ### Changed
+- Al aprobar una solicitud, el motivo interno es opcional. Sigue siendo obligatorio para rechazar y para aprobar a alguien fuera de la lista como excepción.
+- El número que informa quien solicita el ingreso se llama ahora «Teléfono», en lugar de «WhatsApp del grupo», en el formulario, en la revisión y en las reglas.
 - Los avisos emergentes quedan 8 segundos en pantalla, el doble que antes, para que se puedan leer.
 
 - Pedir el código de verificación de una solicitud de admisión tarda alrededor de un tercio menos, y confirmarlo, alrededor de un 40 % menos.
@@ -169,6 +171,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Los líderes de tribu ya no necesitan confirmar su cuenta con Google para operaciones sensibles de admisiones, mensajería, salida del modo academia o borrado de la tribu; desaparecen el botón y la pantalla de confirmación.
 
 ### Fixed
+- Si guardás reglas que activan el código de comprobación sin tener el canal preparado, la pantalla explica que falta prepararlo en Conexión, con el enlace, y aclara que las reglas vigentes no cambiaron, en lugar de un aviso genérico.
 - Si falla la carga de las reglas de admisión, la lista de habilitados, la importación de CSV o los avisos de admisiones, el aviso de error aparece con el título de esa página y no con el de la bandeja de revisión.
 
 - Al descargar o quitar un archivo de una lección que no existe o que no podés ver, se informa que no se encontró el archivo, aunque el almacenamiento de archivos no esté disponible, en lugar de un error al preparar la descarga.

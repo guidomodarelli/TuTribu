@@ -97,7 +97,7 @@ export function AdmissionReview({ statusRef, ...props }: AdmissionReviewProps) {
       </div>}
       {(canApprove || canReject || recovering) && <section className={styles.AdmissionReview__decision} aria-labelledby={`${id}-decision`}>
         <h3 id={`${id}-decision`} className={styles.AdmissionReview__sectionTitle}>Decisión</h3>
-        <AdmissionDecisionForm internalReason={props.internalReason} externalMessage={props.externalMessage} confirmed={props.confirmed} disabled={props.disabled} locked={recovering} pendingAction={props.pendingAction} allowApprove={Boolean(canApprove)} allowReject={Boolean(canReject)} onInternalReason={props.onInternalReason} onExternalMessage={props.onExternalMessage} onConfirm={props.onConfirm} onDecision={props.onDecision} />
+        <AdmissionDecisionForm internalReason={props.internalReason} externalMessage={props.externalMessage} confirmed={props.confirmed} disabled={props.disabled} locked={recovering} pendingAction={props.pendingAction} allowApprove={Boolean(canApprove)} approveRequiresReason={selected.restrictions.requiresExceptionReason} allowReject={Boolean(canReject)} onInternalReason={props.onInternalReason} onExternalMessage={props.onExternalMessage} onConfirm={props.onConfirm} onDecision={props.onDecision} />
       </section>}
     </section> : <section className={styles.AdmissionReview__inbox} aria-label="Bandeja de solicitudes">
       {!props.busy && !props.items.length && <EmptyState className={styles.AdmissionReview__empty} label="Bandeja de solicitudes vacía" title={props.hasMore ? ADMISSION_REVIEW_FILTER_COPY.emptyPage : ADMISSION_REVIEW_UI_COPY.empty} description="Las solicitudes nuevas aparecen acá apenas alguien pide ingresar." />}

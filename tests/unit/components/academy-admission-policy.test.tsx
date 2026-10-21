@@ -68,7 +68,7 @@ describe("guided policy presentation", () => {
     const props = fixture(); props.step = 1;
     render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
     expect(screen.getByRole("group", { name: "Cómo se contactan" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Exigir el número de WhatsApp del grupo" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Exigir el teléfono del solicitante" }));
     expect(props.onChange).toHaveBeenCalledWith({ ...props.draft, requiresWhatsappNumber: true });
     fireEvent.click(screen.getByRole("checkbox", { name: "Comprobar el contacto con un código" }));
     expect(props.onChange).toHaveBeenLastCalledWith({ ...props.draft, requiresAdditionalVerification: true });

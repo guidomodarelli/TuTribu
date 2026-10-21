@@ -77,14 +77,14 @@ describe("admission batch decision HTTP", () => {
     expect(rejected.open).not.toHaveBeenCalled();
   });
 
-  it.each(["unconfirmed", "empty", "duplicate", "version", "fractional version", "blank reason", "long reason", "long external", "actor", "sender", "row authority"])("should reject %s input at the actual boundary before composition or persistence", async (variant) => {
+  it.each(["unconfirmed", "empty", "duplicate", "version", "fractional version", "blank rejection reason", "long reason", "long external", "actor", "sender", "row authority"])("should reject %s input at the actual boundary before composition or persistence", async (variant) => {
     const fixture = batchRoute(), input: Record<string, unknown> = { ...fixture.input };
     if (variant === "unconfirmed") input.confirmed = false;
     if (variant === "empty") input.items = [];
     if (variant === "duplicate") input.items = [fixture.input.items[0], { ...fixture.input.items[0], requestId: fixture.input.items[0].requestId.toUpperCase() }];
     if (variant === "version") input.items = [{ ...fixture.input.items[0], expectedVersion: 0 }];
     if (variant === "fractional version") input.items = [{ ...fixture.input.items[0], expectedVersion: 1.5 }];
-    if (variant === "blank reason") input.internalReason = "   ";
+    if (variant === "blank rejection reason") { input.decision = "reject"; input.internalReason = "   "; }
     if (variant === "long reason") input.internalReason = "a".repeat(501);
     if (variant === "long external") input.externalMessage = "a".repeat(201);
     if (variant === "actor") input.userId = fixture.account.userId;

@@ -136,11 +136,11 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await expectBrowser(page.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.close, exact: true })).toBeEnabled();
               const approve = page.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve, exact: true });
               await expectBrowser(approve).toBeDisabled();
-              await page.getByLabel(ADMISSION_REVIEW_UI_COPY.internalReason, { exact: true }).fill("Revisión de excepción de ejemplo");
+              await page.getByLabel(ADMISSION_REVIEW_UI_COPY.internalReasonRequired, { exact: true }).fill("Revisión de excepción de ejemplo");
               await page.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm, exact: true }).click();
               await expectBrowser(approve).toBeEnabled();
               await page.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm, exact: true }).click();
-              await page.getByLabel(ADMISSION_REVIEW_UI_COPY.internalReason, { exact: true }).fill("");
+              await page.getByLabel(ADMISSION_REVIEW_UI_COPY.internalReasonRequired, { exact: true }).fill("");
               if (recordFrames) await captureAdmissionReview(page, "review-filter-detail", forbidden, REVIEW_VALIDATION.captureFile);
               await page.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.close, exact: true }).click();
               await expectBrowser(page.getByLabel("Búsqueda", { exact: true })).toHaveValue("Primer solicitante");

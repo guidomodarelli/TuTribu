@@ -96,7 +96,7 @@ CSV: UTF-8/coma, `identity,display_name`, nombre opcional, 10.000 filas y 5 MiB.
 | --- | --- | --- |
 | GET `/requests` | reviewer; filtros estado/fecha/fuente/excepción/requisitos, query y cursor | Más antiguas primero; solo tribu actual |
 | GET `/requests/[requestId]` | reviewer o cuenta propia, proyección distinta | ReviewDto o RequestDto, permisos/eligibilidad vigentes |
-| POST `/requests/[requestId]/decision` | reviewer; approve/reject, expectedVersion/operation, motivo interno requerido, mensaje externo separado | Transición terminal única y efecto básico/notificación; no autoaprobarse |
+| POST `/requests/[requestId]/decision` | reviewer; approve/reject, expectedVersion/operation, motivo interno obligatorio al rechazar y al aprobar una excepción (opcional en las demás aprobaciones), mensaje externo separado | Transición terminal única y efecto básico/notificación; no autoaprobarse |
 | POST `/request-decisions` | reviewer; hasta 50 request IDs/versiones explícitos, decisión y motivos pertinentes/operation | Resultados individuales confirmados. Conflictos no se convierten en éxito global |
 | POST `/requests/[requestId]/retry-eligibility` | sensitiveLeader; motivo/operation | Adelanta intento sin aprobar, levantar conducta ni reciclar enlace |
 | GET `/activity` y `/metrics` | leader; intervalo/filtros acotados | Agregado propio/auditoría sanitizada; guardián solo historial necesario por RequestDto |

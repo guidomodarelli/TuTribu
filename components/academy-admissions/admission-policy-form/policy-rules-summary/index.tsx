@@ -36,7 +36,7 @@ export function PolicyRulesSummary({ rules, showIntake = true }: PolicyRulesSumm
     <div className={styles.PolicyRulesSummary__fact}><dt className={styles.PolicyRulesSummary__term}>Cómo se admite</dt><dd className={styles.PolicyRulesSummary__value}>{describeMode(rules)}</dd></div>
     <div className={styles.PolicyRulesSummary__fact}><dt className={styles.PolicyRulesSummary__term}>Contacto</dt><dd className={styles.PolicyRulesSummary__value}>{contact}</dd></div>
     <div className={styles.PolicyRulesSummary__fact}><dt className={styles.PolicyRulesSummary__term}>Código de comprobación</dt><dd className={styles.PolicyRulesSummary__value}>{describeVerification(rules)}</dd></div>
-    <div className={styles.PolicyRulesSummary__fact}><dt className={styles.PolicyRulesSummary__term}>WhatsApp del grupo</dt><dd className={styles.PolicyRulesSummary__value}>{rules.requiresWhatsappNumber ? "Obligatorio" : "Opcional"}</dd></div>
+    <div className={styles.PolicyRulesSummary__fact}><dt className={styles.PolicyRulesSummary__term}>Teléfono</dt><dd className={styles.PolicyRulesSummary__value}>{rules.requiresWhatsappNumber ? "Obligatorio" : "Opcional"}</dd></div>
     {showIntake && <div className={styles.PolicyRulesSummary__fact}><dt className={styles.PolicyRulesSummary__term}>Nuevas solicitudes</dt><dd className={styles.PolicyRulesSummary__value}>{rules.isOpen ? "Se reciben" : "No se reciben"}</dd></div>}
   </dl>;
 }

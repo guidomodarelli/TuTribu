@@ -28,6 +28,8 @@ export const ADMISSION_POLICY_BROWSER_COPY = {
   rulesKept: "Las reglas ya quedaron guardadas como borrador. Al reintentar seguimos desde el paso que falló.",
   activationBlockedNote: "Tus reglas quedaron guardadas como borrador. Cuando lo resuelvas, volvé a tocar «Guardar y activar admisiones».",
   resumeBlockedNote: "Las admisiones siguen pausadas. Cuando lo resuelvas, volvé a tocar «Reanudar admisiones».",
+  saveIneligible: "Todavía falta un requisito para guardar estos cambios.",
+  saveBlockedNote: "Las reglas vigentes no cambiaron. Cuando lo resuelvas, volvé a tocar «Guardar cambios».",
   permissionDenied: "La configuración sólo está disponible para el líder activo de esta academia.",
   unavailable: "La configuración requiere revisión antes de continuar. La protección existente se conserva.",
   originalPending: "Antes de continuar, consultá el resultado de la operación anterior.",

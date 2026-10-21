@@ -36,7 +36,8 @@ export function proposeAdmissionDecision(input: {
   if (request.status !== ADMISSION_REQUEST_STATUS.pending || request.version !== input.expectedVersion) return deny(ADMISSION_ERROR_CODE.requestConflict);
   if (!canPerformAdmissionAction(actor, input.decision === ADMISSION_DECISION.approve ? ADMISSION_ACTION.decideRequest : ADMISSION_ACTION.rejectRequest, { tribeId: request.tribeId, applicantUserId: request.userId })) return deny(ADMISSION_ERROR_CODE.permissionDenied);
   const reason = input.internalReason.trim(), external = input.externalMessage?.trim() || null;
-  if (!reason || reason.length > ADMISSION_LIMIT.internalMessageCharacters || external && external.length > ADMISSION_LIMIT.externalMessageCharacters) return deny(ADMISSION_ERROR_CODE.invalidInput);
+  // Rejection always needs a reason (FR-101); an approval needs one only as an exception, checked by the review evaluation (FR-099).
+  if (!approved && !reason || reason.length > ADMISSION_LIMIT.internalMessageCharacters || external && external.length > ADMISSION_LIMIT.externalMessageCharacters) return deny(ADMISSION_ERROR_CODE.invalidInput);
   if (!Number.isFinite(input.now.getTime()) || input.now >= request.expiresAt || input.now < request.submittedAt) return deny(ADMISSION_ERROR_CODE.admissionIneligible);
   const contactMatches = request.contact === null ? review.contact === null
     : review.contact !== null && request.contact.type === review.contact.type && request.contact.value === review.contact.value;
@@ -53,7 +54,7 @@ export function proposeAdmissionDecision(input: {
     id: input.decisionId, requestId: request.id, tribeId: request.tribeId, userId: request.userId, requestVersion: request.version,
     outcome: status, actorUserId: actor.userId, actorKind: ADMISSION_DECISION_ACTOR_KIND.user, rule: ADMISSION_DECISION_RULE.manualReview,
     policyVersion: review.policy?.version ?? request.originalPolicy.version, verificationEpoch: review.policy?.verificationEpoch ?? request.originalPolicy.verificationEpoch,
-    internalReason: reason, externalMessage: external, decidedAt: new Date(input.now), membershipEffectId: null, evidenceSnapshot: snapshotAdmissionDecisionEvidence(request.evidence),
+    internalReason: reason || null, externalMessage: external, decidedAt: new Date(input.now), membershipEffectId: null, evidenceSnapshot: snapshotAdmissionDecisionEvidence(request.evidence),
   };
   return {
     allowed: true as const, request: { ...request, status, version: request.version + 1, decisionId: decision.id, resolvedAt: new Date(input.now) }, decision,

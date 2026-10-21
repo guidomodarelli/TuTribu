@@ -59,7 +59,7 @@ export const ADMISSION_ERROR_CODE = {
 /** Only catalogue copy can cross the public error boundary. */
 export const ADMISSION_ERROR_MESSAGE = {
   [ADMISSION_ERROR_CODE.invalidInput]: "Revisá los datos de la operación antes de confirmar.",
-  [ADMISSION_ERROR_CODE.whatsappNumberRequired]: "Completá el número de WhatsApp que usás en el grupo para continuar.",
+  [ADMISSION_ERROR_CODE.whatsappNumberRequired]: "Completá tu teléfono para continuar.",
   [ADMISSION_ERROR_CODE.authenticationRequired]: "Iniciá sesión para continuar con el ingreso.",
   [ADMISSION_ERROR_CODE.permissionDenied]: "No tenés permiso para realizar esta operación.",
   [ADMISSION_ERROR_CODE.resourceUnavailable]: "El recurso solicitado no está disponible.",

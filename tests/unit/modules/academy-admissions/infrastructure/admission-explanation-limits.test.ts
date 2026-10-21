@@ -13,10 +13,10 @@ describe("admission explanation limits", () => {
     expect(admissionSubmissionSchema.safeParse({ ...intent, message: "a".repeat(501) }).success).toBe(false);
   });
 
-  it.each(["approve", "reject"])("should require a nonblank bounded reason for an explicit %s decision", (decision) => {
+  it.each([["approve", true], ["reject", false]] as const)("should bound the reason of an explicit %s decision and accept a blank one only when approving", (decision, blankAllowed) => {
     const intent = { operationId: randomUUID(), confirmed: true, expectedVersion: 1, decision };
-    expect(admissionDecisionSchema.safeParse({ ...intent, internalReason: "" }).success).toBe(false);
-    expect(admissionDecisionSchema.safeParse({ ...intent, internalReason: "   " }).success).toBe(false);
+    expect(admissionDecisionSchema.safeParse({ ...intent, internalReason: "" }).success).toBe(blankAllowed);
+    expect(admissionDecisionSchema.safeParse({ ...intent, internalReason: "   " }).success).toBe(blankAllowed);
     expect(admissionDecisionSchema.parse({ ...intent, internalReason: "a".repeat(500) }).internalReason).toHaveLength(500);
     expect(admissionDecisionSchema.safeParse({ ...intent, internalReason: "a".repeat(501) }).success).toBe(false);
   });

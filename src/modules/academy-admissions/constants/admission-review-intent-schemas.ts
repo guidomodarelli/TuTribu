@@ -6,7 +6,7 @@ import { ADMISSION_LIMIT } from "./admission-limits";
 import { ADMISSION_BATCH_DECISION_OPERATION } from "./admission-batch-decision";
 
 /** Preserves the existing individual intent's fields and normalization. */
-const admissionReviewDecisionInputSchema = z.strictObject({ operationId: z.uuid(), confirmed: z.literal(true), expectedVersion: z.int().positive(), decision: z.enum(ADMISSION_DECISION), internalReason: z.string().trim().min(1).max(ADMISSION_LIMIT.internalMessageCharacters), externalMessage: z.string().trim().max(ADMISSION_LIMIT.externalMessageCharacters).optional() });
+const admissionReviewDecisionInputSchema = z.strictObject({ operationId: z.uuid(), confirmed: z.literal(true), expectedVersion: z.int().positive(), decision: z.enum(ADMISSION_DECISION), internalReason: z.string().trim().max(ADMISSION_LIMIT.internalMessageCharacters), externalMessage: z.string().trim().max(ADMISSION_LIMIT.externalMessageCharacters).optional() });
 export const admissionReviewIntentSchema = z.object({ requestId: z.uuid(), input: admissionReviewDecisionInputSchema }) satisfies z.ZodType<AdmissionReviewIntent>;
 /** The named manifest is local; only its ids and versions are sent to the atomic owner. */
 export const admissionBatchReviewIntentSchema = z.strictObject({

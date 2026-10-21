@@ -185,16 +185,16 @@ describe("manual admission screen", () => {
   it("should validate declared WhatsApp before a required common submission and keep it separate from account contact", async () => {
     const data = fixture(); data.state.overview.policy!.requiresWhatsappNumber = true;
     render(<AdmissionContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
-    const input = await screen.findByRole("textbox", { name: "WhatsApp del grupo" });
+    const input = await screen.findByRole("textbox", { name: "Teléfono" });
     expect(input).toBeRequired();
     // The data step explains why it cannot continue until the number is valid.
     expect(await screen.findByText(ADMISSION_WHATSAPP_COPY.required)).toBeVisible();
     expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
     fireEvent.change(input, { target: { value: "invalid" } });
     expect(screen.queryByText(ADMISSION_WHATSAPP_COPY.required)).not.toBeInTheDocument();
-    expect(await screen.findByText("Ingresá un número de WhatsApp válido con el prefijo del país.")).toBeVisible();
+    expect(await screen.findByText("Ingresá un teléfono válido con el prefijo del país.")).toBeVisible();
     fireEvent.change(input, { target: { value: "+1 (415) 555-2671" } });
-    expect(screen.queryByText("Ingresá un número de WhatsApp válido con el prefijo del país.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Ingresá un teléfono válido con el prefijo del país.")).not.toBeInTheDocument();
     await toSubmission();
     fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }));
     fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.submit }));
@@ -208,7 +208,7 @@ describe("manual admission screen", () => {
   it("should leave declared WhatsApp optional by default and reuse the Google name without new name fields", async () => {
     const data = fixture();
     render(<AdmissionContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
-    expect(await screen.findByRole("textbox", { name: "WhatsApp del grupo (opcional)" })).not.toBeRequired();
+    expect(await screen.findByRole("textbox", { name: "Teléfono (opcional)" })).not.toBeRequired();
     expect(screen.queryByRole("textbox", { name: /^(Nombre|Apellido)$/i })).not.toBeInTheDocument();
     await toSubmission();
     fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }));
