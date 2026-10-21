@@ -1,5 +1,5 @@
 /** Moves through the linear messaging connection flow in a real browser the way a person does. @module messaging-connections-steps */
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { MESSAGING_CONNECTIONS_FLOW_COPY } from "@/src/modules/messaging/constants/messaging-connections-workspace";
 
 /** Visible title prefix of the collapsed preserved tests, followed by their count. */
@@ -32,7 +32,7 @@ export async function openConnectionsStep(page: Page, name: string): Promise<voi
     const target = name === "Pruebas" ? labels.findIndex((label) => label.startsWith(TEST_STEP_PREFIX)) : labels.indexOf(name);
     if (target < 0) throw new Error(`The connection flow has no step named ${name}: ${labels.join(", ")}`);
     if (target === current) { await page.getByRole("group", { name: labels[target], exact: true }).waitFor({ state: "visible" }); return; }
-    await page.getByRole("button", { name: target > current ? MESSAGING_CONNECTIONS_FLOW_COPY.next : "Atrás", exact: true }).click();
+    await clickClearOfToasts(page.getByRole("button", { name: target > current ? MESSAGING_CONNECTIONS_FLOW_COPY.next : "Atrás", exact: true }));
     await page.waitForFunction((previous) => Array.from(document.querySelectorAll(`nav[aria-label^="Paso "] li`)).findIndex((item) => item.getAttribute("aria-current") === "step") !== previous, current);
   }
   throw new Error(`Could not reach the connection step ${name}`);
@@ -47,4 +47,15 @@ export async function openPreservedTests(page: Page): Promise<void> {
   const disclosure = page.locator("details").filter({ hasText: PRESERVED_TESTS_TITLE });
   if (await disclosure.getAttribute("open") === null) await disclosure.locator("summary").click();
   await disclosure.getByRole("list").waitFor({ state: "visible" });
+}
+
+/**
+ * Clicks a control after scrolling it to the middle of the viewport. Toasts sit at the top center of the app, so on a
+ * narrow screen a control resting against the top edge can be covered by one; a person scrolls it into view first.
+ * @param control - Visible control to press.
+ * @returns Once the click was dispatched.
+ */
+export async function clickClearOfToasts(control: Locator): Promise<void> {
+  await control.evaluate((element) => element.scrollIntoView({ block: "center", behavior: "instant" }));
+  await control.click();
 }

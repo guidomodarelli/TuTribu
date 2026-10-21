@@ -31,9 +31,9 @@ function ConnectionRow({connection,role}:{connection:MessagingConfigurationConne
   </li>;
 }
 
-/** @param props - Persistent explanation and pending-original controls supplied by the container. @returns A named region above the tabs, because it blocks every step; its notice stays until the state resolves, unlike operation toasts. */
-export function MessagingConnectionsAttention({notice,children}:{notice:string;children?:ReactNode}){
-  return<section className={styles.MessagingConnectionsWorkspace__attention} aria-label="Acciones pendientes"><p className={styles.MessagingConnectionsWorkspace__attentionNotice} role="alert">{notice}</p>{children}</section>;
+/** @param props - Persistent explanation (null while the original's own write still runs) and pending-original controls supplied by the container. @returns A named region above the tabs, because it blocks every step; its notice stays until the state resolves, unlike operation toasts. */
+export function MessagingConnectionsAttention({notice,children}:{notice:string|null;children?:ReactNode}){
+  return<section className={styles.MessagingConnectionsWorkspace__attention} aria-label="Acciones pendientes">{notice&&<p className={styles.MessagingConnectionsWorkspace__attentionNotice} role="alert">{notice}</p>}{children}</section>;
 }
 
 /** @param props - Why a step has nothing to decide yet. @returns A quiet note in place of an empty form, inside the guided step. */
