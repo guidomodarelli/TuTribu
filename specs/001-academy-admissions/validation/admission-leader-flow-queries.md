@@ -239,6 +239,49 @@ Si no corrió ninguna sentencia en la conexión, la transacción no esperó ning
 
 Los casos que ya tenía siguen pasando: segundo líder bloqueado por el lock de la tribu, degradación en la misma transacción y sesión vencida tras una pausa. La suite nativa de persistencia de reglas pasa salvo el caso preexistente de cutover storage, que falla igual sin este cambio.
 
+## Séptima ronda: lecturas repetidas de la preparación
+
+Mismo protocolo. Línea base: la revisión `a0cbdc1d` (la sexta ronda ya integrada). Se aplicaron cuatro cambios, uno por iteración, con su propio `next build` y su propia rama Neon efímera. Datos completos, con cada iteración, en `lockedReadJoins` de [admission-leader-flow-queries.json](admission-leader-flow-queries.json).
+
+| Request | Transacciones | Sentencias | Viajes secuenciales | ms |
+|---|---|---|---|---|
+| Inicializar reglas (POST /policy) | 4 → 4 | 52 → 51 (-2 %) | 52 → 51 (-2 %) | 10.686 → 10.494 (-2 %) |
+| Guardar reglas (PUT /policy) | 4 → 4 | 52 → 51 (-2 %) | 52 → 51 (-2 %) | 10.554 → 10.514 (0 %) |
+| Solicitudes con guía | 23 → 23 | 213 → 207 (-3 %) | 61 → 55 (-10 %) | 10.381 → 9.932 (-4 %) |
+| Reglas | 13 → 13 | 120 → 114 (-5 %) | 60 → 55 (-8 %) | 10.275 → 9.778 (-5 %) |
+| Avisos | 7 → 7 | 55 → 55 | 45 → 45 | 8.439 → 8.214 (-3 %) |
+| Países y cupos | 6 → 6 | 34 → 34 | 26 → 26 | 4.185 → 4.270 (+2 %) |
+| Conexión de mensajería | 11 → 11 | 65 → 65 | 55 → 55 | 9.757 → 9.852 (+1 %) |
+| Lectura de reglas (GET /policy) | 5 → 5 | 58 → 53 (-9 %) | 58 → 53 (-9 %) | 10.357 → 9.958 (-4 %) |
+| Comprobación previa (GET /policy/preflight) | 4 → 4 | 32 → 31 (-3 %) | 32 → 31 (-3 %) | 6.154 → 6.322 (+3 %) |
+| Activar (POST /policy/activate) | 4 → 4 | 74 → 67 (-9 %) | 74 → 67 (-9 %) | 14.100 → 13.255 (-6 %) |
+
+Países y cupos y Avisos no pasan por el código que cambió; sus diferencias de milisegundos están dentro del ruido. En las iteraciones 2 y 3, la mediana de Países y cupos llegó a 37 sentencias, porque en dos de sus tres muestras el pool abrió conexiones nuevas: las 3 sentencias de más son `set_config(..., false)` del `onConnect` del pool, según la traza. La línea base ya tenía una muestra así (37 sentencias, 5.383 ms). Activar tiene una sola muestra por ejecución, así que sus milisegundos son ruidosos. La métrica principal sigue siendo la cantidad de viajes, que es determinista.
+
+### Atribución
+
+Cada transacción de comando de reglas bloquea los ajustes de la academia (`tribe_academy_settings ... for share`) antes de leer la política. Después, la preparación volvía a leer esa fila, bloqueada, dos veces por evaluación: en el lector de preparación y en el inventario. En las dos, la lectura estaba al lado de una lectura sin lock. Las tres primeras iteraciones unen cada lectura bloqueada con su vecina sin lock. La cuarta saca la lectura repetida: el puerto de preflight devuelve los ajustes y el marcador que el inventario ya leyó, y su sentencia de catálogo agrega `control_activated`. La fila bloqueada sale de una subconsulta con su propio `FOR SHARE` o `FOR UPDATE`, unida con `left join` a una fila ancla, así que si falta la fila igual se obtiene el resto.
+
+| # | Cambio | Activar | Otras requests |
+|---|---|---|---|
+| 1 | `PostgresAdmissionPolicyPreparationReader`: ajustes y marcador en una sentencia | 74 → 72 | Reglas, Solicitudes y GET /policy: -1 |
+| 2 | `PostgresAdmissionActivationRepository.read`: ajustes dentro de la sentencia de marcador y catálogo, antes del lock de membresías | 72 → 70 | Reglas, Solicitudes, GET /policy y la comprobación previa: -1 |
+| 3 | `readAdmissionPolicyWithControlMarker`: política, con su mismo lock, y marcador en una sentencia, en los comandos de reglas y en la lectura de reglas | 70 → 69 | Inicializar, guardar: -1. GET /policy, Reglas y Solicitudes: -2 |
+| 4 | `AdmissionActivationPreflightReader.readPreparation`: el inventario devuelve el resultado junto con los ajustes y el marcador que ya leyó, y el lector de preparación deja de leerlos | 69 → 67 | Reglas, Solicitudes y GET /policy: -1 |
+
+### Seguridad y paridad
+
+No cambia el orden en que se adquieren los locks. Ninguna sentencia nueva junta dos lecturas que bloquean, porque Postgres no garantiza en qué orden las ejecuta. Las relecturas de los ajustes reafirman un lock que la transacción ya tiene. Las revalidaciones de autoridad antes y después de cada lector siguen igual, y no hay memo entre sentencias ni entre requests.
+
+- `admission-policy-preparation-parity.test.ts` (nueva) y `admission-activation-inventory-parity.test.ts` (ampliada) pasaron igual con las lecturas separadas (`a0cbdc1d`) y con las unidas. La de preparación pasa por el inventario real con una política guardada, así que también pasó igual antes y después del cambio de puerto. Fijan los hechos que devuelve cada lector y el resultado del cutover con el evaluador deshabilitado, con el modo `legacy`, sin la fila de ajustes y, en el lector de preparación, con el marcador escrito, que deja el cutover inconsistente. También comprueban que, después de leer, otra transacción no puede tomar la fila de ajustes con `FOR UPDATE NOWAIT`.
+- Los tests cuyo preflight se verifica aparte usan `createTenantRowsPreflight`: fuerza el resultado del cutover y lee de la base los ajustes y el marcador, así sus hechos siguen siendo reales.
+- `admission-policy-marker-read-parity.test.ts` (nueva) compara la lectura unida con las dos funciones separadas que se siguen usando en otros flujos. Cubre política ausente o guardada, consulta o comando y marcador escrito. Además fija el lock que queda sobre la política: un comando bloquea `FOR SHARE NOWAIT` y `FOR UPDATE NOWAIT`, y la consulta bloquea solo `FOR UPDATE NOWAIT`.
+
+### Descartado
+
+- **Unir la lectura de ajustes de `academy()` con la de la política.** Son dos lecturas que bloquean: una sentencia no garantiza que los ajustes se bloqueen antes que la política.
+- **Unir las dos lecturas de `messaging_usage_policies`** (cupos y preparación del canal). Entre ellas queda la revalidación de autoridad posterior de un lector, que es también la previa del siguiente, y las revalidaciones se mantienen.
+
 ## Próximos pasos
 
-- Activar (74 viajes): el resto de su costo está en la propia preparación (dos evaluaciones, por diseño), en la verificación de claves MAC (tres veces) y en el ledger de operaciones.
+- Activar (67 viajes): el resto de su costo está en la propia preparación (dos evaluaciones, por diseño, con sus revalidaciones de autoridad), en la verificación de claves MAC (tres veces) y en el ledger de operaciones.
