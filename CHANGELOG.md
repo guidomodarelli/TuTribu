@@ -115,7 +115,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - El número que informa quien solicita el ingreso se llama ahora «Teléfono», en lugar de «WhatsApp del grupo», en el formulario, en la revisión y en las reglas.
 - Los avisos emergentes quedan 8 segundos en pantalla, el doble que antes, para que se puedan leer.
 
-- Pedir el código de verificación de una solicitud de admisión tarda alrededor de un tercio menos, y confirmarlo, alrededor de un 40 % menos.
+- Pedir el código de verificación de una solicitud de admisión y confirmarlo tardan alrededor de un 40 % menos.
+- En Conexión de mensajería, guardar los canales, comprobar la conexión y enviar la prueba de un canal responden un poco más rápido.
 - Conexión de mensajería se configura en pasos cortos, uno por decisión, con «Atrás», «Siguiente» y «Activar conexión»: clave, credencial, canales, una prueba por cada canal y activación. Cada paso deja seguir recién cuando su operación terminó, y al volver se abre directamente el primer paso pendiente.
 - En Conexión de mensajería, el resultado de guardar, comprobar, configurar un canal, enviar una prueba, confirmar un código, activar y las consultas aparece como notificación en lugar de texto al pie de la pantalla; lo que sigue pendiente queda en «Acciones pendientes».
 - Una prueba cuyo canal ya quedó comprobado se muestra como confirmada en lugar de «Esperando el código», y las pruebas conservadas quedan plegadas debajo de los pasos como recuperación secundaria.
