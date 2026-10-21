@@ -230,27 +230,46 @@ messaging, notices and activity).
 ## Multi-step workspaces
 
 Use this pattern for a tool page where one record moves through several steps
-(for example the messaging connection: Connection, Channels, Tests, Activation).
+(for example the messaging connection: key, credential, channels, one test per
+channel, activation).
 
 - Keep the page `h1` in the route; the workspace never repeats it.
 - Start with a compact status summary: the record name once, then one `Badge`
   per independent fact (lifecycle, credential, account, each channel), each
   with a tone that keeps "ready" visibly different from "active".
-- Highlight a single advisory next step under the summary with a button that
-  opens its tab. It guides; the server still checks every requirement.
-- Put each step in a `Tabs` panel with an `h2`. Show one `primary` action per
-  panel; secondary reads are `secondary` and optional actions are `ghost` `sm`
-  buttons grouped in one quiet row. Sensitive actions rely on the active
-  session and their explicit confirmation; never add a step that asks to sign
-  in with Google again.
-- Keep drafts in the container, not in the panel, so switching tabs never
-  loses input. Switching tabs must never save, send or activate anything.
-- Blocking states (a pending original, a continuation link) go above the tabs
-  so no tab hides them. A panel whose step is not available yet explains why
-  and offers the step that unblocks it instead of an empty form.
+- Highlight a single advisory next action under the summary: an `Alert` with a
+  title that names what is missing ("Falta probar SMS"), a reason that says
+  what is already done and why the rest is missing, and one button that opens
+  exactly the step that resolves it. Drop the button while that step is open.
+  It guides; the server still checks every requirement.
+- Move through the steps with `components/forms/guided-steps`, the same linear
+  flow as guided settings: small steps, one decision each, Atrás, Siguiente and
+  a final action. Siguiente stays disabled, with its reason shown, until the
+  step's own write has finished; repeat a step per item when each one needs its
+  own write (one test step per channel). Resuming opens the first pending step.
+- The guided flow is the only `form`: steps group their fields and run their
+  writes from explicit buttons, never a nested `form`.
+- Show one `primary` action per step; secondary reads are `secondary` and
+  optional actions are `ghost` `sm` buttons grouped in one quiet row.
+  Sensitive actions rely on the active session and their explicit
+  confirmation; never add a step that asks to sign in with Google again.
+- Keep drafts in the container, not in the step, so moving between steps never
+  loses input. Moving between steps must never save, send or activate anything.
+- Blocking states (a pending original, a continuation link) go above the flow
+  so no step hides them. Sections outside the flow (security and retirement)
+  open from their own toggle and stay mounted while hidden.
 - Show field errors only after the person edits that field or tries to submit.
 - When an action reaches a terminal success, replace its inputs, countdowns and
-  retries with the confirmed state, bound to the exact record it confirms.
+  retries with the confirmed state, bound to the exact record it confirms. A
+  pending item that is already resolved by newer state (a code test whose
+  channel was confirmed afterwards) shows as confirmed, never as waiting.
+- Operation results are toasts (`toast.promise` for writes), never loose text
+  under the step. What must persist (field errors, blocked or unconfirmed
+  operations, a stale view) stays in the page with its accessible role, and
+  its toast does not repeat that text.
+- Secondary recovery lists (preserved attempts or tests) stay off the main path,
+  collapsed under a disclosure with their count; a limit that blocks new work
+  stays outside it.
 
 ## Notifications
 

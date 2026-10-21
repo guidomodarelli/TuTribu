@@ -1,27 +1,25 @@
-/** Exercises explicit selection confirmation and visible requirements with real shared UI. @module messaging-activation-presenter-tests */
+/** Exercises the activation step's visible requirements and explicit consent with real shared UI. @module messaging-activation-presenter-tests */
 import {render,screen} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {describe,expect,it,vi} from "vitest";
 import {MessagingConnectionActivation} from "@/components/academy-admissions/messaging-connection-activation";
 
 /** @returns Controlled own metadata and explicit callbacks, without session/provider or persistence mocks. */
-function activationFixture(){return{candidate:{id:"00000000-0000-4000-8000-000000000001",name:"Candidata comprobada",version:4,configurationVersion:2,state:"draft" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,capabilities:[]},selected:null,confirmed:false,busy:false,canActivate:false,requirements:[] as string[],onConfirm:vi.fn(),onActivate:vi.fn()};}
+function activationFixture(){return{candidate:{id:"00000000-0000-4000-8000-000000000001",name:"Candidata comprobada",version:4,configurationVersion:2,state:"draft" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,capabilities:[]},selected:null,confirmed:false,busy:false,requirements:[] as string[],onConfirm:vi.fn()};}
 
 describe("candidate activation presentation",()=>{
-  it("should disclose the selected candidate and require explicit renewed consent without activating on render",async()=>{
-    const props=activationFixture(),user=userEvent.setup();render(<MessagingConnectionActivation {...props} />);expect(screen.getByText(/Candidata comprobada/)).toBeVisible();expect(screen.getByText(/Configuración 2/)).toBeVisible();expect(screen.getByRole("button",{name:"Activar candidata"})).toBeDisabled();expect(props.onActivate).not.toHaveBeenCalled();await user.click(screen.getByRole("checkbox",{name:/Confirmo que quiero usar esta candidata/i}));expect(props.onConfirm).toHaveBeenCalledWith(true);expect(props.onActivate).not.toHaveBeenCalled();
+  it("should disclose the candidate and ask for explicit consent without activating on render",async()=>{
+    const props=activationFixture(),user=userEvent.setup();render(<MessagingConnectionActivation {...props} />);
+    expect(screen.getByText(/Candidata comprobada/)).toBeVisible();expect(screen.getByText(/Configuración 2/)).toBeVisible();expect(screen.getByText("Requisitos cumplidos")).toBeVisible();
+    // The guided flow's last button activates; the step itself only collects consent.
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox",{name:/Confirmo que quiero usar esta candidata/i}));expect(props.onConfirm).toHaveBeenCalledWith(true);
   });
-  it("should show missing requirements and preserve the current selection until an explicit replacement",()=>{
-    const props=activationFixture(),selected={...props.candidate,id:"00000000-0000-4000-8000-000000000002",name:"Conexión seleccionada anterior",configurationVersion:1,state:"active" as const};render(<MessagingConnectionActivation {...props} selected={selected} requirements={["Comprobá el código del canal antes de activar."]} />);expect(screen.getByText(/Conexión seleccionada anterior/)).toBeVisible();expect(screen.getByText("Comprobá el código del canal antes de activar.")).toBeVisible();expect(screen.getByRole("button",{name:"Reemplazar conexión seleccionada"})).toBeDisabled();expect(props.onActivate).not.toHaveBeenCalled();
+  it("should show missing requirements and keep the current selection until an explicit replacement",()=>{
+    const props=activationFixture(),selected={...props.candidate,id:"00000000-0000-4000-8000-000000000002",name:"Conexión seleccionada anterior",configurationVersion:1,state:"active" as const};render(<MessagingConnectionActivation {...props} selected={selected} requirements={["Comprobá el código del canal antes de activar."]} />);
+    expect(screen.getByText(/Conexión seleccionada anterior/)).toHaveTextContent(/seguirá vigente hasta confirmar el reemplazo/);expect(screen.getByRole("list",{name:"Requisitos para activar"})).toHaveTextContent("Comprobá el código del canal antes de activar.");
   });
-  it("should keep the pressed replacement busy with its own label and focus while the activation is pending",async()=>{
-    const props=activationFixture(),user=userEvent.setup(),selected={...props.candidate,id:"00000000-0000-4000-8000-000000000003",name:"Conexión vigente",state:"active" as const};const view=render(<MessagingConnectionActivation {...props} selected={selected} confirmed canActivate />);
-    const replace=screen.getByRole("button",{name:"Reemplazar conexión seleccionada"});await user.click(replace);expect(props.onActivate).toHaveBeenCalledTimes(1);
-    view.rerender(<MessagingConnectionActivation {...props} selected={selected} confirmed={false} busy activating canActivate={false} />);
-    expect(screen.getByRole("button",{name:"Reemplazar conexión seleccionada"})).toHaveAttribute("aria-busy","true");expect(screen.getByRole("button",{name:"Reemplazar conexión seleccionada"})).not.toBeDisabled();expect(screen.getByRole("button",{name:"Reemplazar conexión seleccionada"})).toHaveFocus();
-    await user.click(screen.getByRole("button",{name:"Reemplazar conexión seleccionada"}));expect(props.onActivate).toHaveBeenCalledTimes(1);
-  });
-  it("should activate with the current session only, without any Google confirmation control",async()=>{
-    const props=activationFixture(),user=userEvent.setup();render(<MessagingConnectionActivation {...props} confirmed canActivate />);expect(screen.queryByRole("button",{name:/Google/})).not.toBeInTheDocument();expect(props.onActivate).not.toHaveBeenCalled();await user.click(screen.getByRole("button",{name:"Activar candidata"}));expect(props.onActivate).toHaveBeenCalledTimes(1);
+  it("should lock its consent while another operation runs",()=>{
+    const props=activationFixture();render(<MessagingConnectionActivation {...props} busy />);expect(screen.getByRole("checkbox",{name:/Confirmo que quiero usar esta candidata/i})).toBeDisabled();
   });
 });

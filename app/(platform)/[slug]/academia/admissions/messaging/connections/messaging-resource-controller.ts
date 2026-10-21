@@ -44,7 +44,6 @@ export function useMessagingResourceController(options:ResourceControllerOptions
     if(!channelAvailable||kind===MESSAGING_RESOURCE_KIND.templates&&(draft.channel!==MESSAGING_PUBLIC_CHANNEL.whatsapp||!options.availableChannels.includes(MESSAGING_PUBLIC_CHANNEL.whatsapp))){options.feedback({kind:"alert",text:MESSAGING_RESOURCE_UI_COPY.channelUnavailable});return;}
     const previous=kind===MESSAGING_RESOURCE_KIND.senders?senders:templates,cursor=more?previous.nextCursor:undefined;
     if(more&&!cursor)return;
-    options.feedback({kind:"status",text:MESSAGING_RESOURCE_UI_COPY.reading});
     await options.observe((signal)=>options.client.read({slug:options.slug,connectionId:candidate.id,configurationVersion:candidate.configurationVersion,kind,...(cursor?{cursor}:{})},signal),(outcome)=>{
       const apply=kind===MESSAGING_RESOURCE_KIND.senders?setSenders:setTemplates;
       if(outcome.status==="ready"){
