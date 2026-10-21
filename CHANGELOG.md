@@ -112,6 +112,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
+- Pedir el código de verificación de una solicitud de admisión tarda alrededor de un tercio menos, y confirmarlo, alrededor de un 40 % menos.
 - Guardar y activar las reglas de admisión tarda menos (activar, alrededor de la mitad), y las páginas de Solicitudes, Reglas, Avisos, Países y cupos y Conexión de mensajería cargan más rápido.
 - Solicitudes y Reglas cargan bastante más rápido (Reglas, en alrededor de la mitad del tiempo), y Avisos, guardar, activar y la comprobación previa a la activación también tardan menos.
 - Conexión de mensajería carga en alrededor de la mitad del tiempo y Países y cupos, en cerca de un tercio menos.
