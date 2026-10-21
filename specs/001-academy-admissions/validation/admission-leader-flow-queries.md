@@ -203,6 +203,41 @@ En Activar, 68 de las 92 sentencias caen en la transacción de efecto. Esa trans
 - **La lectura del actor en el ledger** (`select public.current_app_user_id()` antes de cada autorización, 3 por Activar) se mantiene. Es la comprobación independiente del ledger genérico de operaciones, que no puede asumir que cada callback de autorización compare el actor.
 - **La verificación de claves MAC** son dos sentencias (contexto vigente y pruebas) que no se unen, porque la segunda invoca una función de aserción que no debe correr si la primera falla.
 
+## Sexta ronda: revalidaciones de autoridad en Activar
+
+Mismo protocolo. Línea base: la revisión `b6fce34b`, medida como «después» de la quinta ronda sobre el mismo código. Después: esta rama. Datos completos en `consecutiveReusedChecks` de [admission-leader-flow-queries.json](admission-leader-flow-queries.json).
+
+| Request | Transacciones | Sentencias | Viajes secuenciales | ms |
+|---|---|---|---|---|
+| Inicializar reglas (POST /policy) | 4 → 4 | 52 → 52 | 52 → 52 | 10.558 → 10.424 (-1 %) |
+| Guardar reglas (PUT /policy) | 4 → 4 | 52 → 52 | 52 → 52 | 10.612 → 10.261 (-3 %) |
+| Solicitudes con guía | 23 → 23 | 214 → 214 | 60 → 60 | 10.269 → 10.251 (+0 %) |
+| Reglas | 13 → 13 | 120 → 120 | 60 → 60 | 10.363 → 9.967 (-4 %) |
+| Avisos | 7 → 7 | 55 → 55 | 45 → 45 | 8.189 → 8.758 (+7 %) |
+| Países y cupos | 6 → 6 | 34 → 34 | 26 → 26 | 4.310 → 4.298 (+0 %) |
+| Conexión de mensajería | 11 → 11 | 65 → 65 | 55 → 55 | 10.054 → 10.083 (+0 %) |
+| Lectura de reglas (GET /policy) | 5 → 5 | 58 → 58 | 58 → 58 | 10.703 → 10.902 (+2 %) |
+| Comprobación previa (GET /policy/preflight) | 4 → 4 | 32 → 32 | 32 → 32 | 6.349 → 6.420 (+1 %) |
+| Activar (POST /policy/activate) | 4 → 4 | 81 → 74 (-9 %) | 81 → 74 (-9 %) | 16.400 → 14.784 (-10 %) |
+
+Solo cambia Activar: es la única request medida cuya transacción abre el alcance de autoridad reutilizada (`withReusedAdmissionLeaderAuthority`) y evalúa la preparación. Las demás diferencias de milisegundos están dentro del ruido.
+
+### Atribución
+
+En la transacción de efecto de Activar, cada lector de la preparación revalida la autoridad antes y después de sus lecturas: el inventario de activación, los cupos de mensajería y la preparación del canal de verificación. Por eso el chequeo final de un lector y el inicial del siguiente quedaban seguidos, sin ninguna sentencia en medio. La traza de la línea base tenía 15 revalidaciones reutilizadas: 4 pares consecutivos y 4 lecturas sueltas del reloj (`admissionDatabaseNow`) justo después de una de ellas. Ahora, dentro del alcance, una revalidación idéntica a la anterior se da por cumplida si en la conexión no corrió ninguna sentencia desde entonces y llega dentro de 50 ms (`ADMISSION_LEADER_AUTHORITY_REUSE.consecutiveWindowMs`). El reloj pedido en esas condiciones es el que esa revalidación ya tomó. Activar baja de 81 a 74 sentencias.
+
+### Seguridad
+
+Si no corrió ninguna sentencia en la conexión, la transacción no esperó ningún lock ni cambió nada. Las filas que la autoridad bloqueó siguen bloqueadas, así que lo único que puede cambiar es el reloj. Por eso la ventana de 50 ms acota cuánto puede adelantarse la comprobación de vencimiento de la sesión, y cualquier pausa mayor vuelve a ejecutar la revalidación. Las sentencias se cuentan sobre el cliente `pg` de la transacción mientras el alcance está abierto, así que cuenta cualquier API que las envíe, y el contador se retira al cerrarse el alcance.
+
+`admission-leader-authority-reuse.test.ts` corre contra Postgres real y agrega estos casos:
+
+- Una revalidación idéntica y consecutiva, y el reloj que le sigue, no agregan sentencias.
+- Con una sentencia en medio, o tras una pausa mayor que la ventana, la revalidación se repite.
+- El cliente vuelve a su `query` original al cerrarse el alcance.
+
+Los casos que ya tenía siguen pasando: segundo líder bloqueado por el lock de la tribu, degradación en la misma transacción y sesión vencida tras una pausa. La suite nativa de persistencia de reglas pasa salvo el caso preexistente de cutover storage, que falla igual sin este cambio.
+
 ## Próximos pasos
 
-- Activar (81 viajes): las revalidaciones de autoridad reutilizada (15, de una sentencia cada una) acompañan cada lectura de la preparación, con el reloj de la base. Reducirlas exige agrupar lecturas sin waits entre medio, sin perder la revalidación de vencimiento de la sesión.
+- Activar (74 viajes): el resto de su costo está en la propia preparación (dos evaluaciones, por diseño), en la verificación de claves MAC (tres veces) y en el ledger de operaciones.
