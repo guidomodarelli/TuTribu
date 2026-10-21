@@ -132,11 +132,15 @@ export function ContactVerification(props: ContactVerificationProps) {
 
 /**
  * @param props - The same controlled facts as the verification.
- * @returns Resend and the SMS alternative, for a guided flow that keeps them collapsed out of the main path.
+ * @returns The send confirmation, resend and the SMS alternative, for a guided code step: a new send needs its own confirmation.
  */
 export function ContactVerificationResendActions(props: ContactVerificationProps) {
-  const { resendBlocked, smsBlocked, offersSms } = contactVerificationAvailability(props);
+  const fieldId = useId(), { resendBlocked, smsBlocked, offersSms } = contactVerificationAvailability(props);
   return <>
+    <div className={styles.ContactVerification__confirmation}>
+      <Checkbox id={`${fieldId}-resend-confirm`} checked={props.confirmed} disabled={props.busy || props.ready === false} onCheckedChange={(checked) => props.onConfirm(checked === true)} />
+      <Label htmlFor={`${fieldId}-resend-confirm`}>Confirmo el contacto y el envío del código para este ingreso.</Label>
+    </div>
     <Button type="button" variant="secondary" size="sm" disabled={resendBlocked} onClick={() => { if (!resendBlocked) props.onResend(); }}>Reenviar código</Button>
     {offersSms && <Button type="button" variant="secondary" size="sm" disabled={smsBlocked} onClick={() => { if (!smsBlocked) props.onUseSmsAlternative(); }}>Usar SMS para el mismo teléfono</Button>}
   </>;
