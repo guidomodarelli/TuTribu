@@ -111,6 +111,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Cada aspirante puede corregir su WhatsApp mientras la solicitud siga pendiente y vigente; el formulario conserva el cambio original si se pierde la respuesta y avisa cuando debe revisarse de nuevo.
 
 ### Changed
+- Los avisos emergentes quedan 8 segundos en pantalla, el doble que antes, para que se puedan leer.
 
 - Pedir el código de verificación de una solicitud de admisión tarda alrededor de un tercio menos, y confirmarlo, alrededor de un 40 % menos.
 - Conexión de mensajería se configura en pasos cortos, uno por decisión, con «Atrás», «Siguiente» y «Activar conexión»: clave, credencial, canales, una prueba por cada canal y activación. Cada paso deja seguir recién cuando su operación terminó, y al volver se abre directamente el primer paso pendiente.
