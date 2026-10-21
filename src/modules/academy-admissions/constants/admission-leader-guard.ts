@@ -19,3 +19,12 @@ export const ADMISSION_LEADER_GUARD_DENIAL = {
   resource_unavailable: ADMISSION_ERROR_CODE.resourceUnavailable,
   authentication_required: ADMISSION_ERROR_CODE.authenticationRequired,
 } as const satisfies Record<AdmissionLeaderGuardDenialOutcome, AdmissionErrorCode>;
+
+/** Reuse of a leader check within one transaction's reused authority scope. */
+export const ADMISSION_LEADER_AUTHORITY_REUSE = {
+  /**
+   * A reused check identical to the previous one, with no statement in between, is satisfied by it when it comes within this window
+   * of issuing the previous check's query; it bounds the age of that check's database clock sample and covers one round trip.
+   */
+  consecutiveWindowMs: 500,
+} as const;

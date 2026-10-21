@@ -8,5 +8,7 @@ export const ADMISSION_LEADER_AUTHORITY_REUSE_VALIDATION = {
   concurrentLockTimeoutMs: 5_000,
   /** PostgreSQL `lock_not_available`, raised when that writer gives up waiting. */
   lockNotAvailableCode: "55P03",
+  /** Pause beyond the consecutive reuse window, so the next identical check runs again. */
+  windowMarginMs: 100,
   timeoutMs: 600_000,
 } as const;

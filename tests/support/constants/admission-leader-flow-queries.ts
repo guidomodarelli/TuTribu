@@ -8,7 +8,7 @@ export const ADMISSION_LEADER_FLOW_QUERY_VALIDATION = {
   reportEnvironmentVariable: "ADMISSION_LEADER_FLOW_QUERY_REPORT",
 } as const;
 
-/** Median transactions and statements per request measured after the single-statement activation inventory (queries keep two or three statements of headroom for pool warm-up); a change that adds round trips fails here. */
+/** Median transactions and statements per request measured after deduplicating consecutive reused leader checks (queries keep two or three statements of headroom for pool warm-up); a change that adds round trips fails here. */
 export const ADMISSION_LEADER_FLOW_QUERY_BUDGET = {
   initialize_policy: { transactions: 4, queries: 54 },
   save_policy: { transactions: 4, queries: 54 },
@@ -19,5 +19,5 @@ export const ADMISSION_LEADER_FLOW_QUERY_BUDGET = {
   page_connections: { transactions: 11, queries: 67 },
   read_policy: { transactions: 5, queries: 61 },
   read_policy_preflight: { transactions: 4, queries: 34 },
-  activate_policy: { transactions: 4, queries: 83 },
+  activate_policy: { transactions: 4, queries: 76 },
 } as const satisfies Record<string, { transactions: number; queries: number }>;
