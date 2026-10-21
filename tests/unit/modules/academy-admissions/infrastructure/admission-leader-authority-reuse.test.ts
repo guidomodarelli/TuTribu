@@ -6,7 +6,8 @@ import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
 import { prepareAdmissionLeader } from "@/tests/support/admission-leader-fixture";
-import { authorizeAdmissionLeader, withReusedAdmissionLeaderAuthority } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-leader-authorizer";
+import { admissionDatabaseNow, authorizeAdmissionLeader, withReusedAdmissionLeaderAuthority } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-leader-authorizer";
+import { ADMISSION_LEADER_AUTHORITY_REUSE } from "@/src/modules/academy-admissions/constants/admission-leader-guard";
 import type { AuthorizedAdmissionContext } from "@/src/modules/academy-admissions/domain/repositories/admission-authorization-reader";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
@@ -69,6 +70,31 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native reused admi
       // The full path is one call to the consolidated SQL guard, the reused one is one statement too.
       expect(unscoped).toEqual({ first: 1, second: 1 });
       expect(scoped).toEqual({ full: 1, reused: 1, upgraded: 1, reusedExclusive: 1 });
+
+      // A reused check identical to the previous one, with no statement in between and within the window, is satisfied by it,
+      // and so is the database clock right after it; any statement in between, or a longer pause, runs the check again.
+      const consecutive = await database.withContext(leader.fixture.own, (transaction) => { const observed = countStatements(transaction); return withReusedAdmissionLeaderAuthority(observed.database, async () => {
+        await authorizeAdmissionLeader(observed.database, read, readScope);
+        await authorizeAdmissionLeader(observed.database, read, readScope);
+        const first = observed.count();
+        await authorizeAdmissionLeader(observed.database, read, readScope);
+        const now = await admissionDatabaseNow(observed.database);
+        const repeated = observed.count() - first;
+        await observed.database.execute(sql`select 1`);
+        await authorizeAdmissionLeader(observed.database, read, readScope);
+        const afterStatement = observed.count() - first - repeated - 1;
+        await delay(ADMISSION_LEADER_AUTHORITY_REUSE.consecutiveWindowMs + VALIDATION.windowMarginMs);
+        await authorizeAdmissionLeader(observed.database, read, readScope);
+        const afterPause = observed.count() - first - repeated - 1 - afterStatement;
+        return { first, repeated, afterStatement, afterPause, clockIsDate: now instanceof Date };
+      }); });
+      expect(consecutive).toEqual({ first: 2, repeated: 0, afterStatement: 1, afterPause: 1, clockIsDate: true });
+      // The scope stops counting the connection's statements when it settles.
+      await database.withContext(leader.fixture.own, async (transaction) => {
+        const client = transaction.$client, before = client.query;
+        await withReusedAdmissionLeaderAuthority(transaction, async () => { expect(client.query).not.toBe(before); });
+        expect(client.query).toBe(before);
+      });
 
       // The upgrade to an exclusive check really takes the tribe FOR UPDATE: a concurrent share lock waits for it.
       const probeTribeShare = () => database.withContext(leader.fixture.own, async (other) => { await other.execute(sql`select id from public.tribes where id=${leader.tribeId} for share nowait`); }).then(() => null, (error: unknown) => readPostgresCode(error));
