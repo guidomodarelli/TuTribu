@@ -190,13 +190,11 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("connection diagnos
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareDiagnostic(database);
       for (const changed of [{ actorUserId: randomUUID() }, { sessionId: randomUUID() }, { accountId: randomUUID() }, { subject: randomUUID() }, { tribeId: randomUUID() }, { connectionId: randomUUID() }, { connectionVersion: 2 }, { operation: "diagnose_messaging_connection" }, { resourceId: randomUUID() }]) await expect(fixture.verify(randomUUID(), fixture.code, { ...fixture.context, ...changed })).rejects.toMatchObject({ code: expect.stringMatching(/^(permission_denied|authentication_required|resource_unavailable)$/) });
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp() where id=${fixture.context.sessionId}`));
+      await expect(fixture.verify()).rejects.toMatchObject({ code: "authentication_required" });
+      // Losing leadership suspends the leader's connections (messaging_leadership_change_guard), so this check runs last.
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='guardian' where tribe_id=${fixture.scope.tribeId} and user_id=${fixture.userId}`));
       await expect(fixture.verify()).rejects.toMatchObject({ code: "permission_denied" });
-      await database.withContext(fixture.own, async (transaction) => {
-        await transaction.execute(sql`update public.tribe_members set role='leader' where tribe_id=${fixture.scope.tribeId} and user_id=${fixture.userId}`);
-        await transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp() where id=${fixture.context.sessionId}`);
-      });
-      await expect(fixture.verify()).rejects.toMatchObject({ code: "authentication_required" });
       await database.withContext(fixture.own, async (transaction) => {
         expect((await transaction.execute(sql`select state,failed_attempts,code_envelope_id is not null as recoverable from public.contact_verification_challenges where id=${fixture.original.challengeId}`)).rows).toEqual([{ state: "issued", failed_attempts: 0, recoverable: true }]);
         expect((await transaction.execute(sql`select outcome from public.messaging_connection_diagnostics where id=${fixture.original.diagnosticId}`)).rows).toEqual([{ outcome: "pending" }]);
