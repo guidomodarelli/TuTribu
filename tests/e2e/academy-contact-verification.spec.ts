@@ -61,13 +61,14 @@ test(`should retain a confirmed ${channel} terminal challenge failure until an e
       await page.getByRole("button", { name: "Enviar código de ingreso", exact: true }).click();
 
       /** Reconciles only an existing original when the browser response was uncertain, without another POST. */
+      // A checked code opens the final step, which no longer shows the code section; only an unsettled one is busy.
       const settleOriginal = async () => {
-        await expect(page.locator('section[aria-labelledby][aria-busy]').filter({ has: page.getByRole("heading", { name: "Comprobar contacto para el ingreso", exact: true }) })).toHaveAttribute("aria-busy", "false", { timeout: ADMISSION_CONTACT_BROWSER_TIMEOUT_MS });
+        await expect(page.locator('section[aria-labelledby][aria-busy="true"]')).toHaveCount(0, { timeout: ADMISSION_CONTACT_BROWSER_TIMEOUT_MS });
         const readOriginal = page.getByRole("button", { name: "Consultar operación del código", exact: true });
         if (await readOriginal.count() > 0) {
           await expect(readOriginal).toBeEnabled({ timeout: ADMISSION_CONTACT_BROWSER_TIMEOUT_MS });
           await readOriginal.click();
-          await expect(page.locator('section[aria-labelledby][aria-busy]').filter({ has: page.getByRole("heading", { name: "Comprobar contacto para el ingreso", exact: true }) })).toHaveAttribute("aria-busy", "false", { timeout: ADMISSION_CONTACT_BROWSER_TIMEOUT_MS });
+          await expect(page.locator('section[aria-labelledby][aria-busy="true"]')).toHaveCount(0, { timeout: ADMISSION_CONTACT_BROWSER_TIMEOUT_MS });
         }
       };
       await settleOriginal();
