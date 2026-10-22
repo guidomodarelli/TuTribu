@@ -43,7 +43,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS!=="1")("native connectio
           expect(await page.getByRole("group",{name:"Próxima acción",exact:true}).getByText("Guardá Países y cupos",{exact:true}).count()).toBe(1);
           const link=step.getByRole("link",{name:MESSAGING_CONNECTIONS_FLOW_COPY.usageLink,exact:true});expect(await link.getAttribute("href")).toBe(`/${slug}/academia/admissions/messaging`);
           expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
-          if(name==="chromium"&&width===1280)await captureAdmissionReview(page,"diagnostic-usage-required",[credential,fixture.sessionToken,secret,fixture.fixture.own.email,fixture.context.actorUserId],"connection-diagnostic-captures.json");
+          if(name==="chromium"&&width===1280)await captureAdmissionReview(page,"diagnostic-usage-required",[credential,fixture.sessionToken,secret,fixture.fixture.own.email,fixture.context.actorUserId],"connection-usage-required-captures.json",{omit:'nav[aria-label="Secciones de admisión"]'});/* The section row overflows its scroller and would collapse the manual frame at 390 px, like the other Conexión captures. */
           await link.click();await page.waitForURL((url)=>url.pathname===`/${slug}/academia/admissions/messaging`,{timeout:120_000});
           expect(errors).toEqual([]);expect(providerRequests).toBe(2);
           const counts=await database.withContext(fixture.fixture.own,async(transaction)=>(await transaction.execute(sql`select (select count(*)::int from public.message_deliveries where tribe_id=${tribeId}) as deliveries,(select count(*)::int from public.contact_verification_challenges where tribe_id=${tribeId}) as challenges`)).rows[0]);

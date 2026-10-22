@@ -58,6 +58,8 @@ Una negación completada (`operation.state` en `completed`, salvo `operation_unr
 
 `tests/unit/modules/messaging/infrastructure/messaging-usage-required-browser-ui.test.ts`, con `next build` propio, una rama Neon por caso y transporte de proveedor cerrado, aprobó 4 de 4 en Chromium y WebKit a 390 y 1280 px: la ruta responde 409 `usage_policy_missing` sin llamar al proveedor; el paso abre bloqueado, sin «Enviar código de prueba» ni destino, con el enlace a `/{slug}/academia/admissions/messaging`, sin desborde horizontal ni `pageerror`, y sin entregas ni desafíos creados. Después, con la política retirada debajo de una pantalla ya cargada, el envío muestra el motivo sin «Consultar guardado»; al guardar Países y cupos, el segundo envío usa otra operación y emite el código. Sobre el mismo build, `messaging-connections-browser-ui` y `messaging-diagnostic-browser-ui` aprobaron 4 de 4 cada una. El emisor tiene su caso SQL en `contact-verification-issuer.test.ts` (rama Neon propia).
 
+La misma suite exporta en Chromium 1280 la captura `diagnostic-usage-required` (`user-guides/assets/academy-admissions/connection-usage-required-captures.json`, sin la fila de secciones, como las demás capturas de Conexión), incrustada en `user-guides/tenant-messaging.html#diagnostic-usage-required`. `check-rendered` aprueba el manual en Chromium 1280/390 y WebKit 1280. En WebKit 390 la captura nueva queda a menos de 16 px del borde inferior, igual que las capturas existentes del manual, que ya fallaban así en la base.
+
 Esta evidencia no reemplaza la auditoría con lector de pantalla de T198/T208.
 
 ## Suite enfocada después de los pasos guiados
