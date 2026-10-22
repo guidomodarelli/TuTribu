@@ -38,7 +38,7 @@ type ResourceRow = {
 /** Private immutable send facts; it contains no API credential or external DTO. */
 type PreparedResource = { environment: string; credentialKeyId: string; usagePolicyVersion: number; senderId: string; templateId: string | null; templateLanguage: string | null };
 /** The old challenge is observed before locking its delivery, preserving the dispatch lock order. */
-type CurrentChallengeRow = { id: string; version: number; delivery_id: string; code_envelope_id: string | null; channel: "email" | "sms" | "whatsapp" };
+type CurrentChallengeRow = { id: string; version: number; delivery_id: string; code_envelope_id: string | null; channel: "email" | "sms" | "whatsapp"; state: string; expires_at: string | Date };
 
 /** Reuses the caller's ledger and guarded transaction for all local issuance effects. */
 export class PostgresContactVerificationIssuer implements ContactVerificationIssuer {
@@ -135,11 +135,14 @@ export class PostgresContactVerificationIssuer implements ContactVerificationIss
     const resource = await this.prepare(scope);
     if ("code" in resource) return denied(resource.code);
     await this.database.execute(sql`select pg_advisory_xact_lock(hashtextextended(${JSON.stringify([VERIFICATION_ISSUANCE_LOCK_DOMAIN, scope.userId, scope.tribeId, scope.contact.type, scope.purpose])},0))`);
-    let current = (await this.database.execute<CurrentChallengeRow>(sql`select id,version,delivery_id,code_envelope_id,channel from public.contact_verification_challenges where user_id=${scope.userId} and tribe_id=${scope.tribeId} and contact_type=${scope.contact.type} and normalized_contact=${scope.contact.value} and purpose=${scope.purpose} and is_current`)).rows[0];
-    if ((current?.id ?? null) !== command.expectedCurrentChallengeId) return denied(ADMISSION_ERROR_CODE.challengeInvalidated);
+    let current = (await this.database.execute<CurrentChallengeRow>(sql`select id,version,delivery_id,code_envelope_id,channel,state,expires_at from public.contact_verification_challenges where user_id=${scope.userId} and tribe_id=${scope.tribeId} and contact_type=${scope.contact.type} and normalized_contact=${scope.contact.value} and purpose=${scope.purpose} and is_current`)).rows[0];
+    /** A connection test is retaken from scratch once its previous code was confirmed or expired; that finished challenge is superseded below instead of blocking every later test to the same destination. */
+    const finishedConnectionTest = scope.purpose === ADMISSION_VERIFICATION_PURPOSE.connectionDiagnostic && current !== undefined && command.expectedCurrentChallengeId === null
+      && (current.state === VERIFICATION_CHALLENGE_STATE.verified || new Date(current.expires_at) <= await this.now());
+    if (!finishedConnectionTest && (current?.id ?? null) !== command.expectedCurrentChallengeId) return denied(ADMISSION_ERROR_CODE.challengeInvalidated);
     if (current) {
       await this.database.execute(sql`select id from public.message_deliveries where id=${current.delivery_id} and tribe_id=${scope.tribeId} for update`);
-      current = (await this.database.execute<CurrentChallengeRow>(sql`select id,version,delivery_id,code_envelope_id,channel from public.contact_verification_challenges where id=${current.id} and is_current for update`)).rows[0];
+      current = (await this.database.execute<CurrentChallengeRow>(sql`select id,version,delivery_id,code_envelope_id,channel,state,expires_at from public.contact_verification_challenges where id=${current.id} and is_current for update`)).rows[0];
       if (!current) return denied(ADMISSION_ERROR_CODE.challengeInvalidated);
       await this.database.execute(sql`select id from public.academy_admission_verification_proofs where challenge_id=${current.id} for update`);
       if (current.code_envelope_id) await this.database.execute(sql`select id from public.verification_code_envelopes where id=${current.code_envelope_id} for update`);

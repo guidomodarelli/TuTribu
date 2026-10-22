@@ -168,6 +168,28 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("connection diagnos
     });
   }, 240_000);
 
+  it("should retake a confirmed connection test to the same destination as a new issue while a pending one still requires its resend", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareDiagnostic(database);
+      // While the first code is pending, a fresh issue that ignores it stays a conflict.
+      await advanceVerificationRequestCooldown(database, fixture);
+      expect(await fixture.issue()).toMatchObject({ state: "completed", result: { outcome: "denied", code: "challenge_invalidated" } });
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public.messaging_connection_capabilities(tribe_id,connection_id,connection_version,channel,sender_id) values (${fixture.scope.tribeId},${fixture.scope.connectionId},1,'email','synthetic-sender') on conflict do nothing`));
+      const useCase = new VerifyConnectionDiagnosticUseCase({ execute: async () => ({ allowed: true as const, context: fixture.context }) }, fixture.operations);
+      const verified = await useCase.execute({ tribeId: fixture.scope.tribeId, connectionId: fixture.scope.connectionId, diagnosticId: fixture.original.diagnosticId!, operationId: randomUUID(), code: fixture.code, requestId: randomUUID() });
+      if (!verified.ok || verified.value.state !== "completed" || verified.value.result.outcome !== "verified") throw new Error("Synthetic connection test was not confirmed");
+      await advanceVerificationRequestCooldown(database, fixture);
+      const retaken = await fixture.issue();
+      if (retaken.state !== "completed" || retaken.result.outcome !== "issued") throw new Error(`Retaking a confirmed connection test was not issued: ${JSON.stringify(retaken)}`);
+      const retakenChallengeId = retaken.result.challengeId;
+      expect(retakenChallengeId).not.toBe(fixture.original.challengeId);
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select state,is_current from public.contact_verification_challenges where id=${fixture.original.challengeId}`)).rows).toEqual([{ state: "verified", is_current: false }]);
+        expect((await transaction.execute(sql`select state,is_current from public.contact_verification_challenges where id=${retakenChallengeId}`)).rows).toEqual([{ state: "issued", is_current: true }]);
+      });
+    });
+  }, 300_000);
+
   it("should count each wrong operation once and close the diagnostic after the fifth failure without preparing its capability", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareDiagnostic(database);
