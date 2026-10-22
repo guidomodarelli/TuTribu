@@ -130,6 +130,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - En habilitados, importación, invitaciones personales y la solicitud de ingreso, el progreso y el resultado de cada guardado se avisan una sola vez en una notificación; en la pantalla quedan solo los errores del formulario, los bloqueos y lo que falta consultar, sin repetir la notificación.
 - Guardar y activar las reglas de admisión tarda menos (activar, alrededor de la mitad), y las páginas de Solicitudes, Reglas, Avisos, Países y cupos y Conexión de mensajería cargan más rápido.
 - Solicitudes y Reglas cargan bastante más rápido (Reglas, en alrededor de la mitad del tiempo), y Avisos, guardar, activar y la comprobación previa a la activación también tardan menos.
+- Para el líder, Avisos de admisión muestra su configuración en alrededor de la mitad del tiempo, y en Safari la pantalla cambia antes al tocar «Avisos».
 - Conexión de mensajería carga en alrededor de la mitad del tiempo y Países y cupos, en cerca de un tercio menos.
 - Todas las páginas de admisión y mensajería del líder cargan más rápido: Países y cupos, en alrededor de la mitad del tiempo; Conexión, en un tercio menos, y Solicitudes, Reglas y Avisos, en alrededor de un 20 a 25 % menos.
 - Activar las admisiones tarda alrededor de un 20 % menos, y la comprobación previa, la lectura de las reglas y Reglas también cargan más rápido.

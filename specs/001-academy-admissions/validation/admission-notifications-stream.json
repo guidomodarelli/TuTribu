@@ -1,0 +1,520 @@
+{
+  "before": {
+    "streams": [
+      {
+        "label": "html",
+        "status": 200,
+        "headersMs": 12,
+        "closedMs": 8513,
+        "chunkArrivalsMs": [
+          15,
+          39,
+          40,
+          1488,
+          3360,
+          3361,
+          8511,
+          8512
+        ]
+      },
+      {
+        "label": "rsc",
+        "status": 200,
+        "headersMs": 37,
+        "closedMs": 8644,
+        "chunkArrivalsMs": [
+          39,
+          40,
+          41,
+          42,
+          43,
+          1522,
+          3434,
+          3435,
+          8644
+        ]
+      },
+      {
+        "label": "html",
+        "status": 200,
+        "headersMs": 10,
+        "closedMs": 8855,
+        "chunkArrivalsMs": [
+          11,
+          44,
+          1807,
+          3608,
+          3609,
+          3610,
+          8854
+        ]
+      },
+      {
+        "label": "rsc",
+        "status": 200,
+        "headersMs": 17,
+        "closedMs": 8806,
+        "chunkArrivalsMs": [
+          19,
+          20,
+          21,
+          1775,
+          3597,
+          3598,
+          8806
+        ]
+      },
+      {
+        "label": "html",
+        "status": 200,
+        "headersMs": 8,
+        "closedMs": 8632,
+        "chunkArrivalsMs": [
+          9,
+          33,
+          34,
+          1517,
+          3401,
+          3402,
+          8631,
+          8632
+        ]
+      },
+      {
+        "label": "rsc",
+        "status": 200,
+        "headersMs": 20,
+        "closedMs": 9438,
+        "chunkArrivalsMs": [
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          1573,
+          3669,
+          3670,
+          9438
+        ]
+      }
+    ],
+    "navigations": [
+      {
+        "engine": "chromium",
+        "width": 1280,
+        "run": 0,
+        "urlMs": 132,
+        "headingMs": 181,
+        "formMs": 7226,
+        "rscFinishedMs": []
+      },
+      {
+        "engine": "chromium",
+        "width": 1280,
+        "run": 1,
+        "urlMs": 119,
+        "headingMs": 152,
+        "formMs": 7701,
+        "rscFinishedMs": []
+      },
+      {
+        "engine": "chromium",
+        "width": 390,
+        "run": 0,
+        "urlMs": 104,
+        "headingMs": 166,
+        "formMs": 7714,
+        "rscFinishedMs": []
+      },
+      {
+        "engine": "chromium",
+        "width": 390,
+        "run": 1,
+        "urlMs": 84,
+        "headingMs": 108,
+        "formMs": 7682,
+        "rscFinishedMs": []
+      },
+      {
+        "engine": "webkit",
+        "width": 1280,
+        "run": 0,
+        "urlMs": 574,
+        "headingMs": 634,
+        "formMs": 9256,
+        "rscFinishedMs": [
+          8788
+        ]
+      },
+      {
+        "engine": "webkit",
+        "width": 1280,
+        "run": 1,
+        "urlMs": 445,
+        "headingMs": 469,
+        "formMs": 10664,
+        "rscFinishedMs": [
+          10302
+        ]
+      },
+      {
+        "engine": "webkit",
+        "width": 390,
+        "run": 0,
+        "failed": "page.waitForURL timeout (toque perdido, PR #152)"
+      },
+      {
+        "engine": "webkit",
+        "width": 390,
+        "run": 1,
+        "failed": "page.waitForURL timeout (toque perdido, PR #152)"
+      }
+    ],
+    "pageRequests": [
+      {
+        "durationMs": 8511,
+        "transactions": 7,
+        "queries": 55,
+        "sequentialRoundTrips": 45,
+        "pending": 0
+      },
+      {
+        "durationMs": 8638,
+        "transactions": 7,
+        "queries": 55,
+        "sequentialRoundTrips": 45,
+        "pending": 0
+      },
+      {
+        "durationMs": 8853,
+        "transactions": 7,
+        "queries": 55,
+        "sequentialRoundTrips": 45,
+        "pending": 0
+      },
+      {
+        "durationMs": 8801,
+        "transactions": 7,
+        "queries": 55,
+        "sequentialRoundTrips": 45,
+        "pending": 0
+      },
+      {
+        "durationMs": 8630,
+        "transactions": 7,
+        "queries": 55,
+        "sequentialRoundTrips": 45,
+        "pending": 0
+      },
+      {
+        "durationMs": 9433,
+        "transactions": 7,
+        "queries": 56,
+        "sequentialRoundTrips": 46,
+        "pending": 0
+      },
+      {
+        "durationMs": 7100,
+        "transactions": 5,
+        "queries": 44,
+        "sequentialRoundTrips": 44,
+        "pending": 0
+      },
+      {
+        "durationMs": 7193,
+        "transactions": 5,
+        "queries": 44,
+        "sequentialRoundTrips": 44,
+        "pending": 0
+      },
+      {
+        "durationMs": 7286,
+        "transactions": 5,
+        "queries": 44,
+        "sequentialRoundTrips": 44,
+        "pending": 0
+      },
+      {
+        "durationMs": 7255,
+        "transactions": 5,
+        "queries": 44,
+        "sequentialRoundTrips": 44,
+        "pending": 0
+      },
+      {
+        "durationMs": 8362,
+        "transactions": 5,
+        "queries": 45,
+        "sequentialRoundTrips": 45,
+        "pending": 0
+      },
+      {
+        "durationMs": 9986,
+        "transactions": 5,
+        "queries": 46,
+        "sequentialRoundTrips": 46,
+        "pending": 0
+      }
+    ]
+  },
+  "after": {
+    "streams": [
+      {
+        "label": "html",
+        "status": 200,
+        "headersMs": 10,
+        "closedMs": 4464,
+        "chunkArrivalsMs": [
+          12,
+          46,
+          365,
+          1066,
+          1067,
+          1069,
+          4463,
+          4464
+        ]
+      },
+      {
+        "label": "rsc",
+        "status": 200,
+        "headersMs": 18,
+        "closedMs": 4434,
+        "chunkArrivalsMs": [
+          19,
+          20,
+          21,
+          22,
+          23,
+          342,
+          1010,
+          4434
+        ]
+      },
+      {
+        "label": "html",
+        "status": 200,
+        "headersMs": 9,
+        "closedMs": 4482,
+        "chunkArrivalsMs": [
+          11,
+          40,
+          359,
+          1046,
+          1047,
+          4480,
+          4481
+        ]
+      },
+      {
+        "label": "rsc",
+        "status": 200,
+        "headersMs": 18,
+        "closedMs": 4435,
+        "chunkArrivalsMs": [
+          19,
+          20,
+          21,
+          22,
+          334,
+          990,
+          4435
+        ]
+      },
+      {
+        "label": "html",
+        "status": 200,
+        "headersMs": 8,
+        "closedMs": 4438,
+        "chunkArrivalsMs": [
+          15,
+          23,
+          24,
+          335,
+          1025,
+          4437,
+          4438
+        ]
+      },
+      {
+        "label": "rsc",
+        "status": 200,
+        "headersMs": 16,
+        "closedMs": 4424,
+        "chunkArrivalsMs": [
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          337,
+          1003,
+          1004,
+          4424
+        ]
+      }
+    ],
+    "navigations": [
+      {
+        "engine": "chromium",
+        "width": 1280,
+        "run": 0,
+        "urlMs": 96,
+        "headingMs": 131,
+        "formMs": 6147,
+        "rscFinishedMs": []
+      },
+      {
+        "engine": "chromium",
+        "width": 1280,
+        "run": 1,
+        "urlMs": 70,
+        "headingMs": 99,
+        "formMs": 5586,
+        "rscFinishedMs": []
+      },
+      {
+        "engine": "chromium",
+        "width": 390,
+        "run": 0,
+        "urlMs": 84,
+        "headingMs": 150,
+        "formMs": 4583,
+        "rscFinishedMs": []
+      },
+      {
+        "engine": "chromium",
+        "width": 390,
+        "run": 1,
+        "urlMs": 58,
+        "headingMs": 78,
+        "formMs": 5022,
+        "rscFinishedMs": [
+          4508
+        ]
+      },
+      {
+        "engine": "webkit",
+        "width": 1280,
+        "run": 0,
+        "urlMs": 487,
+        "headingMs": 534,
+        "formMs": 7601,
+        "rscFinishedMs": [
+          7213
+        ]
+      },
+      {
+        "engine": "webkit",
+        "width": 1280,
+        "run": 1,
+        "urlMs": 488,
+        "headingMs": 513,
+        "formMs": 7571,
+        "rscFinishedMs": [
+          7069
+        ]
+      },
+      {
+        "engine": "webkit",
+        "width": 390,
+        "run": 0,
+        "failed": "page.waitForURL timeout (toque perdido, PR #152)"
+      },
+      {
+        "engine": "webkit",
+        "width": 390,
+        "run": 1,
+        "failed": "page.waitForURL timeout (toque perdido, PR #152)"
+      }
+    ],
+    "pageRequests": [
+      {
+        "durationMs": 4462,
+        "transactions": 7,
+        "queries": 52,
+        "sequentialRoundTrips": 27,
+        "pending": 0
+      },
+      {
+        "durationMs": 4430,
+        "transactions": 7,
+        "queries": 52,
+        "sequentialRoundTrips": 27,
+        "pending": 0
+      },
+      {
+        "durationMs": 4479,
+        "transactions": 7,
+        "queries": 52,
+        "sequentialRoundTrips": 27,
+        "pending": 0
+      },
+      {
+        "durationMs": 4430,
+        "transactions": 7,
+        "queries": 52,
+        "sequentialRoundTrips": 27,
+        "pending": 0
+      },
+      {
+        "durationMs": 4435,
+        "transactions": 7,
+        "queries": 52,
+        "sequentialRoundTrips": 27,
+        "pending": 0
+      },
+      {
+        "durationMs": 4419,
+        "transactions": 7,
+        "queries": 52,
+        "sequentialRoundTrips": 27,
+        "pending": 0
+      },
+      {
+        "durationMs": 5903,
+        "transactions": 5,
+        "queries": 45,
+        "sequentialRoundTrips": 35,
+        "pending": 0
+      },
+      {
+        "durationMs": 5472,
+        "transactions": 5,
+        "queries": 45,
+        "sequentialRoundTrips": 33,
+        "pending": 0
+      },
+      {
+        "durationMs": 4397,
+        "transactions": 5,
+        "queries": 44,
+        "sequentialRoundTrips": 27,
+        "pending": 0
+      },
+      {
+        "durationMs": 4471,
+        "transactions": 5,
+        "queries": 44,
+        "sequentialRoundTrips": 27,
+        "pending": 0
+      },
+      {
+        "durationMs": 6826,
+        "transactions": 5,
+        "queries": 46,
+        "sequentialRoundTrips": 33,
+        "pending": 0
+      },
+      {
+        "durationMs": 6718,
+        "transactions": 5,
+        "queries": 47,
+        "sequentialRoundTrips": 34,
+        "pending": 0
+      }
+    ]
+  }
+}
