@@ -86,6 +86,19 @@ En `admission-policy-verification-browser-ui`, el tramo que apaga el código se 
 
 Un borrador de suite para «lista con código apagado y contacto por correo» encontró un problema. En una política activa en revisión manual, con cuatro entradas en Habilitados, el líder elige «Lista de habilitados» y guarda. El servidor responde `admission_ineligible` con un requisito privado de `PostgresAdmissionPolicyRepository` y la regla queda en `manual_review`. La pantalla muestra el aviso genérico «Falta un requisito actual para resolver el ingreso. Consultá el estado de la solicitud.», no el bloqueo con requisitos de `b678e83b`. Hay que identificar el requisito (registrado como causa privada) y la rama del contenedor que muestra ese aviso. Si el rechazo es correcto, se explica como requisito; si no, se corrige. La suite no se commiteó; el escenario de T198 sigue pendiente.
 
-## Hallazgo abierto: «Avisos» no navega en WebKit a 390 px
+## Resuelto: «Avisos» no navegaba en WebKit a 390 px
 
-Se llevó `admission-notification-settings-entry-browser`, que hoy cubre solo Chromium 1280, a Chromium/WebKit 390/1280. Chromium navega a Avisos desde la bandeja y desde Reglas en ambos anchos, y WebKit 1280 también, aunque desde Reglas la URL sigue igual tres segundos después del toque. En WebKit 390, el toque cae sobre la etiqueta «Avisos» de la fila de secciones (`elementFromPoint` = `AdmissionSectionNavigation__label`, dentro del viewport tras desplazar la fila), pero la página queda en `/academia/admissions` y no navega en 90 s. Hay que determinar si el toque se pierde mientras la bandeja termina de hidratarse (el `Link` del proveedor) o si es un límite de WebKit headless, y corregirlo antes de ampliar la suite. La ampliación no se commiteó.
+`admission-notification-settings-entry-browser` ahora entra a Avisos desde la bandeja y desde Reglas en Chromium y WebKit a 390 y 1280 px; las capturas del manual siguen saliendo solo de Chromium 1280.
+
+**Causa (bug de producto).** En WebKit el toque llega antes de que la fila de secciones hidrate (el enlace «Avisos» no tiene props de React justo antes del toque). Las trazas de eventos a 390 px mostraron:
+
+- `pointerdown` sobre la etiqueta «Avisos» con la fila en `scrollLeft=389`, después de deslizarla como haría un dedo;
+- ese `pointerdown` dispara la hidratación selectiva de React, y el `useLayoutEffect` de `AdmissionSectionNavigation` centra la sección actual (Solicitudes) y lleva la fila a `scrollLeft=0`;
+- `pointerup` cae entonces sobre «Habilitados», y WebKit despacha `click` al ancestro común, el `ul` de la fila; no hay `pushState` ni pedido RSC y la página queda en `/academia/admissions`.
+
+El enlace no se reemplaza (mismo nodo antes y después) y no hubo `pageerror`. Chromium no lo muestra porque hidrata antes del toque. Un miembro en un celular lento que desliza la fila mientras la página termina de cargar pierde el toque de la misma forma.
+
+**Corrección.** En la primera pasada, la fila no se mueve si el miembro ya la desplazó (`scrollLeft > 0`). Si no la tocó, la sección actual se centra como antes. Las navegaciones siguientes siguen trayendo la sección abierta a la vista. `tests/unit/components/admission-section-navigation.test.tsx` hidrata la fila sobre su HTML de servidor y cubre los tres casos; el primero falla sin la corrección.
+
+**Demora de WebKit, sin pérdida del toque.** En WebKit el `pushState` a veces llega unos 9,5 s después del `click` (antes «la URL sigue igual tres segundos después del toque» en WebKit 1280). El pedido RSC de `/academia/admissions/notifications` responde con encabezados en unos 40 ms, pero su stream tarda unos 9,3 s en cerrarse contra la rama Neon sintética, en los dos motores. Chromium siempre confirma la navegación con el primer fragmento (unos 50 ms). WebKit confirmó a veces con el primer fragmento (unos 200 ms) y otras al cerrarse el stream, con el mismo estado de hidratación. Una sonda local con un stream en dos partes (sin compresión, gzip y br) entrega el primer fragmento a un `fetch` de WebKit 26.4 en 3 a 10 ms, así que no es un límite de streaming del navegador de prueba. La suite espera la URL con el tiempo de navegador habitual y no oculta la demora. Queda pendiente medir por qué el stream de Avisos tarda unos 9 s.
+
