@@ -15,6 +15,7 @@ import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infr
 import { ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_CONTACT_COPY } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
 import { ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";
+import { createAdmissionContactFingerprint } from "@/src/modules/academy-admissions/infrastructure/verification/admission-contact-fingerprint";
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native applicant phone UI", () => {
   it.each((["sms", "whatsapp"] as const).flatMap((channel) => [{ channel, name: "chromium", engine: chromium, width: 1280 }, { channel, name: "chromium", engine: chromium, width: 390 }, { channel, name: "webkit", engine: webkit, width: 1280 }, { channel, name: "webkit", engine: webkit, width: 390 }]))("should present a phone request after a locally verified $channel code on $name at $width", async ({ channel, engine, width }) => {
@@ -91,6 +92,59 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native applica
           });
         } finally { await context.close(); await browser.close(); }
       }, { messagingSecurity, preloadModules: [join(process.cwd(), "tests/support/native-zavu-provider-transport.mjs")], environment: { ADMISSION_TEST_ZAVU_CREDENTIAL: fixture.fixture.credential, ADMISSION_TEST_ZAVU_SENDER_ID: channel === "sms" ? "synthetic-sms-sender" : "synthetic-whatsapp-sender", ADMISSION_TEST_ZAVU_RECIPIENT: fixture.input.contact.value, ADMISSION_TEST_ZAVU_DIAGNOSTIC_CHANNEL: channel, ADMISSION_TEST_ZAVU_TEMPLATE_ID: "synthetic-otp-template", ADMISSION_TEST_ZAVU_TEST_MODE: "false" }, onProviderRequest: () => { providerRequests += 1; }, onDiagnosticCode: (code) => { receivedCode = code; } }));
+    });
+  }, 1_200_000);
+
+  it.each([{ name: "chromium", engine: chromium, width: 1280 }, { name: "chromium", engine: chromium, width: 390 }, { name: "webkit", engine: webkit, width: 1280 }, { name: "webkit", engine: webkit, width: 390 }])("should refuse a phone reserved by another account with generic feedback and no request on $name at $width", async ({ engine, width }) => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const keyrings = Object.fromEntries(Object.values(MESSAGING_KEY_PURPOSE).map((purpose) => { const id = randomUUID(); return [purpose, { activeKeyId: id, keys: [{ id, materialBase64: randomBytes(32).toString("base64") }] }]; }));
+      const messagingSecurity = { environment: "synthetic-phone-reserved-contact-ui", securityEpoch: randomUUID(), keyringsJson: JSON.stringify(keyrings) };
+      const config = await readMessagingHostingSecurityConfig({ MESSAGING_SECURITY_ENVIRONMENT: messagingSecurity.environment, MESSAGING_SECURITY_EPOCH: messagingSecurity.securityEpoch, MESSAGING_RECOVERY_LOCK: "false", MESSAGING_KEYRINGS_JSON: messagingSecurity.keyringsJson });
+      const fixture = await prepareAdmissionContactVerification(database, false, config, true), slug = `issue-${fixture.context.tribeId}`;
+      const contact = { type: "phone" as const, value: fixture.input.contact.value, country: "AR" };
+      const fingerprint = await createAdmissionContactFingerprint(contact, config);
+      await database.withContext(fixture.fixture.own, async (transaction) => {
+        await transaction.execute(sql`update public.messaging_usage_policies set allowed_countries=ARRAY['AR'],version=version+1 where tribe_id=${fixture.context.tribeId}`);
+        await transaction.execute(sql`update public.academy_admission_policies set requires_additional_verification=true,phone_channel='sms',verification_epoch=verification_epoch+1,version=version+1 where tribe_id=${fixture.context.tribeId}`);
+        // The phone stays reserved by an account that left the academy: only its keyed fingerprint remains.
+        await transaction.execute(sql`insert into public.academy_admission_contact_bindings(tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,owner_user_id,evidence_source,minimized_at) values (${fixture.context.tribeId},'phone',null,${Buffer.from(fingerprint.digest)},${fingerprint.keyId},null,'base',clock_timestamp())`);
+      });
+      let receivedCode = "";
+      await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
+        const browser = await engine.launch({ headless: true }), context = await browser.newContext({ viewport: { width, height: 900 } });
+        await context.addCookies([{ name: "better-auth.session_token", value: encodeURIComponent(`${fixture.sessionToken}.${await makeSignature(fixture.sessionToken, secret)}`), domain: "127.0.0.1", path: "/", httpOnly: true, sameSite: "Lax" }]);
+        const page = await context.newPage(), pageErrors: string[] = [];
+        page.setDefaultTimeout(180_000); page.on("pageerror", () => pageErrors.push("pageerror"));
+        try {
+          await page.goto(`${origin}/admissions/${slug}`, { waitUntil: "domcontentloaded" });
+          await continueToAdmissionCode(page);
+          await page.getByLabel("Teléfono para este ingreso", { exact: true }).fill(fixture.input.contact.value);
+          await page.getByRole("combobox", { name: "País del teléfono", exact: true }).click();
+          await page.getByRole("option", { name: "AR", exact: true }).click();
+          await page.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i }).click();
+          await page.getByRole("button", { name: "Enviar código de ingreso", exact: true }).click();
+          const conflict = page.getByText(ADMISSION_ERROR_MESSAGE.contact_binding_conflict, { exact: true });
+          await page.getByLabel("Código de ingreso", { exact: true }).or(conflict).first().waitFor({ state: "visible" });
+          if (await conflict.count() === 0) {
+            await expect.poll(() => /^\d{6}$/u.test(receivedCode), { timeout: 180_000 }).toBe(true);
+            await enterAdmissionVerificationCode(page, receivedCode);
+            await page.getByRole("button", { name: "Comprobar código", exact: true }).click();
+            await page.getByText("Código comprobado para este ingreso.", { exact: true }).waitFor({ state: "visible" });
+            // The reservation is checked again when the proof is applied to the request being submitted.
+            await page.getByRole("checkbox", { name: "Confirmo que quiero solicitar ingreso a esta academia", exact: true }).click();
+            await page.getByRole("button", { name: "Solicitar ingreso", exact: true }).click();
+          }
+          // The applicant learns only that this contact cannot be used; nothing identifies its owner.
+          await conflict.first().waitFor({ state: "visible" });
+          expect(pageErrors).toEqual([]);
+          expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+          await database.withContext(fixture.own, async (transaction) => {
+            expect((await transaction.execute(sql`select count(*)::int as count from public.academy_admission_requests where user_id=${fixture.context.userId} and tribe_id=${fixture.context.tribeId}`)).rows).toEqual([{ count: 0 }]);
+            expect((await transaction.execute(sql`select count(*)::int as count from public.academy_admission_verification_proofs where user_id=${fixture.context.userId} and tribe_id=${fixture.context.tribeId} and status='applied'`)).rows).toEqual([{ count: 0 }]);
+            expect((await transaction.execute(sql`select count(*)::int as count from public.academy_admission_contact_bindings where tribe_id=${fixture.context.tribeId} and owner_user_id=${fixture.context.userId}`)).rows).toEqual([{ count: 0 }]);
+          });
+        } finally { await context.close(); await browser.close(); }
+      }, { messagingSecurity, preloadModules: [join(process.cwd(), "tests/support/native-zavu-provider-transport.mjs")], environment: { ADMISSION_TEST_ZAVU_CREDENTIAL: fixture.fixture.credential, ADMISSION_TEST_ZAVU_SENDER_ID: "synthetic-sms-sender", ADMISSION_TEST_ZAVU_RECIPIENT: fixture.input.contact.value, ADMISSION_TEST_ZAVU_DIAGNOSTIC_CHANNEL: "sms", ADMISSION_TEST_ZAVU_TEMPLATE_ID: "synthetic-otp-template", ADMISSION_TEST_ZAVU_TEST_MODE: "false" }, onDiagnosticCode: (code) => { receivedCode = code; } }));
     });
   }, 1_200_000);
 });
