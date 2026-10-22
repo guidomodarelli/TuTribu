@@ -17,6 +17,7 @@ import { ADMISSION_ACTIVITY_VALIDATION as VALIDATION } from "@/tests/support/con
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { ADMISSION_NOTIFICATION_SETTINGS_STORAGE_PREFIX } from "@/src/modules/notifications/constants/admission-notification-settings-page";
+import { pressFocused } from "@/tests/support/keyboard-browser";
 
 /** Every engine/viewport owns a fresh database and server; the desktop case also captures recovery. */
 const scenarios = [{ name: "chromium", engine: chromium, width: 390 }, { name: "webkit", engine: webkit, width: 390 }, { name: "webkit", engine: webkit, width: 1280 }, { name: "chromium", engine: chromium, width: 1280 }];
@@ -89,16 +90,18 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
 
                 stage = `${scenario.name}_${scenario.width}_own_preference`;
                 mutationsStarted = true;
-                // The guided flow leaves the tribe email untouched and saves only the personal frequency.
-                await page.getByRole("button", { name: "Continuar", exact: true }).click();
+                // The guided flow leaves the tribe email untouched and saves only the personal frequency, by keyboard only.
+                await pressFocused(page.getByRole("button", { name: "Continuar", exact: true }), "Enter");
                 const captured = scenario.name === "chromium" && scenario.width === 1280;
                 if (captured) await capture(page, "notification-settings-frequency");
                 const daily = !(await page.getByRole("radio", { name: /^Resumen diario/ }).isChecked());
-                await page.getByRole("radio", { name: daily ? /^Resumen diario/ : /^Agrupar cada cinco minutos/ }).click();
-                await page.getByRole("button", { name: "Continuar", exact: true }).click();
-                await page.getByRole("checkbox", { name: "Revisé el resumen y quiero guardar estos avisos.", exact: true }).check();
+                const frequency = page.getByRole("radio", { name: daily ? /^Resumen diario/ : /^Agrupar cada cinco minutos/ });
+                await pressFocused(frequency, "Space");
+                await expect.poll(() => frequency.isChecked()).toBe(true);
+                await pressFocused(page.getByRole("button", { name: "Continuar", exact: true }), "Enter");
+                await pressFocused(page.getByRole("checkbox", { name: "Revisé el resumen y quiero guardar estos avisos.", exact: true }), "Space");
                 if (captured) await capture(page, "notification-settings-review");
-                await page.getByRole("button", { name: "Guardar avisos", exact: true }).click();
+                await pressFocused(page.getByRole("button", { name: "Guardar avisos", exact: true }), "Enter");
                 await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor();
                 expect(preferenceWrites).toBe(1); expect(emailWrites).toBe(0);
                 expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select mode from public.admission_notification_preferences where tribe_id=${tribeId} and recipient_user_id=${fixture.own.userId}`)).rows[0])).toEqual({ mode: daily ? "daily" : "grouped" });
