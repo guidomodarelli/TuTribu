@@ -14,6 +14,14 @@ import { PostgresMessagingUsageRepository } from "@/src/modules/messaging/infras
 import { ADMISSION_CONTACT_TYPE } from "../../constants/admission-contact";
 import { ADMISSION_PHONE_CHANNEL } from "../../constants/admission-policy";
 import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/messaging-public-contract";
+import { ADMISSION_POLICY_MODE } from "../../constants/admission-policy";
+import { ADMISSION_SOURCE_KIND } from "../../constants/admission-eligibility";
+import { normalizeAdmissionContact } from "../../domain/value-objects/admission-contact";
+import { ADMISSION_CONTACT_NORMALIZATION_STATUS } from "../../constants/admission-contact";
+import type { AdmissionSubmissionFacts, AdmissionMembershipFacts } from "../../domain/policies/admission-eligibility";
+import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
+import { readAdmissionPolicy } from "./postgres-admission-policy-storage";
+import { readAllowlistAdmissionFacts } from "./postgres-allowlist-admission-facts";
 
 /** Explicit account state is never fabricated for an anonymous public projection. */
 type OverviewAccountScope = Pick<AdmissionCommandScope, "userId" | "sessionId">;
@@ -53,6 +61,29 @@ export class PostgresAdmissionOverviewReader implements AdmissionOverviewReader<
     return { channel: policy.phoneChannel, allowedCountries: countries?.allowedCountries ?? [], ...(policy.phoneChannel === ADMISSION_PHONE_CHANNEL.whatsapp && policy.allowSmsAlternative ? { allowedAlternative: MESSAGING_PUBLIC_CHANNEL.sms } : {}) };
   }
 
+  /**
+   * Reads the own trusted email facts only where a common presentation can be refused outright: an email list without
+   * additional code or common exceptions. The allowlist lookup uses the current account's own email, never an input.
+   * @param database - Existing authenticated read transaction. @param scope - Native account/session and safe correlation. @param row - Public policy snapshot.
+   * @param recoveryLocked - Live platform closure fact.
+   * @returns Current submission facts for a read-only preview, or nothing when the policy always lets the form be presented.
+   */
+  private async readAllowlistEligibility(database: RequestDatabase, scope: OverviewAccountScope & { requestId: string }, row: PublicOverviewRow, recoveryLocked: boolean): Promise<AdmissionSubmissionFacts | undefined> {
+    if (row.mode !== ADMISSION_POLICY_MODE.allowlist || row.contact_type !== ADMISSION_CONTACT_TYPE.email || row.requires_additional_verification !== false || !row.is_open) return undefined;
+    const policy = await readAdmissionPolicy(database, row.tribe_id, false);
+    if (!policy || policy.version !== row.policy_version || policy.mode !== row.mode || policy.allowCommonExceptions) return undefined;
+    const account = await new PostgresAuthenticatedAccountProvider(async () => scope, (_identity, run) => run(database)).getAuthenticatedAccount();
+    if (!account) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+    const contact = normalizeAdmissionContact({ type: ADMISSION_CONTACT_TYPE.email, value: account.normalizedEmail });
+    if (contact.status !== ADMISSION_CONTACT_NORMALIZATION_STATUS.valid) return undefined;
+    const own = await readAllowlistAdmissionFacts(database, { ...scope, tribeId: row.tribe_id }, contact.contact);
+    const membership = (await database.execute<AdmissionMembershipFacts>(sql`select tribe_id as "tribeId",user_id as "userId",role,status,status_reason as "statusReason",commercial_recovery_status as "commercialRecoveryStatus" from public.tribe_members where tribe_id=${row.tribe_id} and user_id=${scope.userId}`)).rows[0] ?? null;
+    const now = new Date((await database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
+    return { now, tribe: { id: row.tribe_id, isAcademy: true, controlActivated: row.control_activated, evaluatorEnabled: row.evaluator_enabled, recoveryLocked }, policy: { ...policy, activatedAt: policy.activatedAt ? new Date(policy.activatedAt) : null },
+      account: own.account, source: { kind: ADMISSION_SOURCE_KIND.common }, contact: contact.contact, baseEvidence: own.baseEvidence, allowlistEntry: own.allowlistEntry, contactBinding: own.contactBinding,
+      membership, localProof: null, currentConnection: null };
+  }
+
   /** @param query - Boundary-validated public slug/correlation. @param scope - Native current account or explicit public access. @returns Own facts, public-only facts, or genuine absence; no downstream DTO or effect. */
   async readOverview(query: { slug: string; requestId: string }, scope: OverviewAccountScope | null): Promise<AdmissionOverviewFacts<AdmissionRequestDto> | null> {
     const read = async (database: RequestDatabase): Promise<AdmissionOverviewFacts<AdmissionRequestDto> | null> => {
@@ -63,11 +94,12 @@ export class PostgresAdmissionOverviewReader implements AdmissionOverviewReader<
       const request = scope ? await new PostgresOwnAdmissionRequestReader((_current, run) => run(database), this.readRecoveryLock).readOwn({ ...scope, tribeId: row.tribe_id, requestId: query.requestId }) : null;
       const verification = scope ? await this.readVerificationChoices(database, scope, row) : undefined;
       const recoveryLocked = await this.readRecoveryLock();
+      const allowlistEligibility = scope ? await this.readAllowlistEligibility(database, { ...scope, requestId: query.requestId }, row, recoveryLocked) : undefined;
       if (scope) await this.authorize(database, scope);
       return {
         tribe: { id: row.tribe_id, slug: row.slug, name: row.name, accessModel: TRIBE_ACCESS_MODEL.academy, controlActivated: row.control_activated, evaluatorEnabled: row.evaluator_enabled },
         policy: row.policy_version !== null && row.mode && row.contact_type ? { mode: row.mode, contactType: row.contact_type, requiresAdditionalVerification: row.requires_additional_verification === true, requiresWhatsappNumber: row.requires_whatsapp_number === true, isOpen: row.is_open === true, version: row.policy_version } : null,
-        membership, request, recoveryLocked, ...(verification ? { verification } : {}),
+        membership, request, recoveryLocked, ...(verification ? { verification } : {}), ...(allowlistEligibility ? { allowlistEligibility } : {}),
       };
     };
     return scope ? this.executeAccount(scope, read) : this.executePublic(read);

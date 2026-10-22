@@ -3,7 +3,7 @@
 /** Uses same-origin own endpoints and the actual Better Auth SDK; no raw failure reaches product UI. @module admission-api-client */
 import { z } from "zod";
 import { createAuthClient } from "better-auth/client";
-import type { AdmissionBrowserClient, AdmissionBrowserResult } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
+import type { AdmissionAccountBrowserClient, AdmissionBrowserClient, AdmissionBrowserResult } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
 import { admissionOverviewSchema, admissionOwnRequestSchema, admissionOutcomeSchema, admissionReviewSchema, admissionBatchResultSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { matchesAdmissionBatchDecisionResult } from "@/src/modules/academy-admissions/application/results/admission-batch-browser-result";
 import { ADMISSION_REVIEW_BROWSER_PATH } from "@/src/modules/academy-admissions/constants/admission-review-browser";
@@ -44,9 +44,10 @@ const ACADEMY_ENTRY_SEGMENT = "academy/join";
 export type AcademyAdmissionBrowserEntry = { submitAcademyEntry(slug: string, input: AdmissionBrowserSubmission, signal: AbortSignal): Promise<AdmissionBrowserResult<AdmissionOutcomeDto | AdmissionStartedResponse>> };
 
 /** @param options - Explicit own HTTP transport; the default viewer uses the installed native SDK. @returns A same-origin application client with cancellation and safe owned contracts. */
-export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fetch; viewer?: AdmissionBrowserClient["viewer"] } = {}): AdmissionBrowserClient & AdmissionReviewBrowserClient & AcademyAdmissionBrowserEntry & AdmissionPolicyBrowserClient & AdmissionWhatsappNumberBrowserClient & CommercialMembershipReviewBrowserClient {
+export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fetch; viewer?: AdmissionBrowserClient["viewer"] } = {}): AdmissionBrowserClient & AdmissionAccountBrowserClient & AdmissionReviewBrowserClient & AcademyAdmissionBrowserEntry & AdmissionPolicyBrowserClient & AdmissionWhatsappNumberBrowserClient & CommercialMembershipReviewBrowserClient {
   const transport = options.fetch ?? globalThis.fetch;
   const auth = options.viewer ? null : createAuthClient();
+  const signOutClient = createAuthClient({ fetchOptions: { customFetchImpl: transport } });
   /** Converts a native rejection to safe copy without exposing a cause or claiming accepted work. */
   const failed = (code: typeof ADMISSION_ERROR_CODE[keyof typeof ADMISSION_ERROR_CODE], uncertain = false): AdmissionBrowserResult<never> => ({ status: "failed", code, message: ADMISSION_ERROR_MESSAGE[code], uncertain });
   const base = (slug: string) => `${ADMISSION_API_PREFIX}/${encodeURIComponent(slug)}/${ADMISSION_API_SEGMENT}`;
@@ -93,6 +94,14 @@ export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fe
   }
 
   return {
+    async changeAccount(signal) {
+      if (signal.aborted) return { status: "aborted" };
+      try {
+        const result = await signOutClient.signOut({ fetchOptions: { signal } });
+        if (signal.aborted) return { status: "aborted" };
+        return result.error ? failed(ADMISSION_ERROR_CODE.dependencyUnavailable) : { status: "ready", value: null };
+      } catch { return signal.aborted ? { status: "aborted" } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable); }
+    },
     readPolicy: (slug, signal) => request(`${base(slug)}/${ADMISSION_POLICY_BROWSER_PATH.policy}`, admissionPolicyStateResultSchema, signal),
     readPreflight: (slug, signal) => request(`${base(slug)}/${ADMISSION_POLICY_BROWSER_PATH.preflight}`, admissionPreflightResultSchema, signal),
     initializePolicy: (slug, input, signal) => policyCommand(slug, ADMISSION_POLICY_BROWSER_PATH.policy, input, signal),

@@ -9,7 +9,9 @@ import { ThemedToaster, toast } from "@golfo/ui";
 import { AdmissionContainer } from "@/app/(admission)/admissions/[slug]/admission-container";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import type { AdmissionPageState } from "@/src/modules/academy-admissions/application/results/admission-page-state";
-import type { AdmissionBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
+import type { AdmissionAccountBrowserClient, AdmissionBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
+import { ADMISSION_OVERVIEW_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-overview";
+import { ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import type { AdmissionRequestDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { admissionDraftKey, readAdmissionDraft, writeAdmissionDraft } from "@/lib/academy-admissions/admission-draft";
 import { ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";
@@ -272,6 +274,39 @@ describe("manual admission screen", () => {
     expect(data.client.submit).not.toHaveBeenCalled(); expect(data.client.cancel).not.toHaveBeenCalled();
     expect(router.refresh).not.toHaveBeenCalled();
     expect(screen.queryByRole("link", { name: ADMISSION_UI_COPY.openAcademy })).not.toBeInTheDocument();
+  });
+
+  it("should replace the form with the list notice and an account change when the own email cannot meet the list", async () => {
+    const data = fixture(), changeAccount = vi.fn<AdmissionAccountBrowserClient["changeAccount"]>(async () => ({ status: "failed", code: "dependency_unavailable", message: ADMISSION_ERROR_MESSAGE.dependency_unavailable, uncertain: false }));
+    data.state.overview = { ...data.state.overview, policy: { ...data.state.overview.policy!, mode: "allowlist" }, state: "closed", nextAction: "change_account", safeMessage: ADMISSION_OVERVIEW_MESSAGE.allowlistOnly };
+    render(<AdmissionContainer initialState={data.state} client={data.client} accountClient={{ changeAccount }} />, { wrapper: Providers });
+    expect(screen.getByText(ADMISSION_OVERVIEW_MESSAGE.allowlistOnly)).toBeVisible();
+    const change = screen.getByRole("button", { name: ADMISSION_UI_COPY.changeAccount });
+    await waitFor(() => expect(change).toBeEnabled());
+    expect(screen.queryByRole("button", { name: "Continuar" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: ADMISSION_UI_COPY.confirm })).not.toBeInTheDocument();
+    fireEvent.click(change);
+    expect(await screen.findByText(ADMISSION_ERROR_MESSAGE.dependency_unavailable)).toBeVisible();
+    expect(changeAccount).toHaveBeenCalledOnce();
+    expect(data.client.submit).not.toHaveBeenCalled();
+  });
+
+  it("should show the list notice instead of the generic refusal when a submission meets a list that no longer admits this account", async () => {
+    const data = fixture(), notice = { ...data.state.overview, policy: { ...data.state.overview.policy!, mode: "allowlist" as const }, state: "closed" as const, nextAction: "change_account" as const, safeMessage: ADMISSION_OVERVIEW_MESSAGE.allowlistOnly };
+    vi.mocked(data.client.own).mockResolvedValue({ status: "ready", value: null });
+    vi.mocked(data.client.submit).mockImplementation(async () => {
+      vi.mocked(data.client.overview).mockResolvedValue({ status: "ready", value: notice });
+      return { status: "failed", code: "admission_ineligible", message: ADMISSION_ERROR_MESSAGE.admission_ineligible, uncertain: false };
+    });
+    render(<AdmissionContainer initialState={data.state} client={data.client} accountClient={{ changeAccount: vi.fn() }} />, { wrapper: Providers });
+    await toSubmission();
+    fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }));
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.submit }));
+    expect(await screen.findByText(ADMISSION_OVERVIEW_MESSAGE.allowlistOnly)).toBeVisible();
+    expect(screen.getByRole("button", { name: ADMISSION_UI_COPY.changeAccount })).toBeVisible();
+    expect(screen.queryByText(ADMISSION_ERROR_MESSAGE.admission_ineligible)).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: ADMISSION_UI_COPY.confirm })).not.toBeInTheDocument();
+    expect(data.client.submit).toHaveBeenCalledOnce();
   });
 
   it.each(["admitted", "already_member"] as const)("should expose academy navigation only after the owner confirms %s and current own access is reconciled", async (outcome) => {

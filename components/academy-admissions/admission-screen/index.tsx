@@ -15,7 +15,7 @@ import styles from "./styles.module.scss";
 
 export type AdmissionScreenProps = {
   state: AdmissionPageState | { kind: "loading" }; draft?: AdmissionDraft; confirmed?: boolean; cancelConfirmed?: boolean; phase?: typeof ADMISSION_UI_PHASE[keyof typeof ADMISSION_UI_PHASE]; now?: string;
-  errorMessage?: string | null; feedback?: string | null; accountChanged?: boolean; formReady?: boolean; retryOriginal?: boolean; signInHref?: string; retryHref?: string;
+  errorMessage?: string | null; feedback?: string | null; accountChanged?: boolean; changingAccount?: boolean; formReady?: boolean; retryOriginal?: boolean; signInHref?: string; retryHref?: string;
   requestPage?: boolean;
   requestStatusRef?: Ref<HTMLParagraphElement>;
   whatsappErrorMessage?: string | null;
@@ -26,12 +26,16 @@ export type AdmissionScreenProps = {
   /** The read that recovers an unconfirmed code operation; while it blocks, it is the page's one next action. */
   contactRecovery?: ReactNode;
   onChange?: (draft: AdmissionDraft) => void; onConfirm?: (confirmed: boolean) => void; onCancelConfirm?: (confirmed: boolean) => void; onSubmit?: () => void; onCancel?: () => void; onRead?: () => void; onRetryOriginal?: () => void; onReloadAccount?: () => void;
+  /** Closes the current session when the overview asks for another account; absent, the action is not offered. */
+  onChangeAccount?: () => void;
 };
 
 /** @param props - Validated owned state and container actions. @returns A restrained responsive page with persistent accessible feedback. */
-export function AdmissionScreen({ state, draft = { phone: "", country: "", message: "" }, confirmed = false, cancelConfirmed = false, phase = ADMISSION_UI_PHASE.idle, now, errorMessage, feedback, accountChanged = false, formReady = false, retryOriginal = false, signInHref = ROUTES.auth.signIn, retryHref, requestPage = false, requestStatusRef, verification, requestFlow, contactRecovery, canSubmitWithProof = false, contactLocked = false, whatsappErrorMessage, whatsappEditor, onChange, onConfirm, onCancelConfirm, onSubmit, onCancel, onRead, onRetryOriginal, onReloadAccount }: AdmissionScreenProps) {
+export function AdmissionScreen({ state, draft = { phone: "", country: "", message: "" }, confirmed = false, cancelConfirmed = false, phase = ADMISSION_UI_PHASE.idle, now, errorMessage, feedback, accountChanged = false, changingAccount = false, formReady = false, retryOriginal = false, signInHref = ROUTES.auth.signIn, retryHref, requestPage = false, requestStatusRef, verification, requestFlow, contactRecovery, canSubmitWithProof = false, contactLocked = false, whatsappErrorMessage, whatsappEditor, onChange, onConfirm, onCancelConfirm, onSubmit, onCancel, onRead, onRetryOriginal, onReloadAccount, onChangeAccount }: AdmissionScreenProps) {
   const ready = state.kind === "ready", loading = state.kind === "loading";
-  const busy = phase === ADMISSION_UI_PHASE.writing || phase === ADMISSION_UI_PHASE.checking;
+  const busy = phase === ADMISSION_UI_PHASE.writing || phase === ADMISSION_UI_PHASE.checking || changingAccount;
+  // Like every account action it waits for the current account check, so a tap before hydration is never silently lost.
+  const offersAccountChange = ready && Boolean(state.viewerId) && state.overview.nextAction === ADMISSION_NEXT_ACTION.changeAccount && !accountChanged && Boolean(onChangeAccount);
   const blocked = busy || phase === ADMISSION_UI_PHASE.uncertain || accountChanged || !formReady;
   const canSubmit = ready && !requestPage && (state.overview.state === ADMISSION_OVERVIEW_STATE.available || canSubmitWithProof) && (!state.request || state.request.status !== "pending");
   const readyToRetry = ready && state.request && state.request.status !== ADMISSION_REQUEST_STATUS.pending
@@ -60,6 +64,7 @@ export function AdmissionScreen({ state, draft = { phone: "", country: "", messa
         {ready && !state.viewerId && <Link href={signInHref}>{ADMISSION_UI_COPY.signIn}</Link>}
         {state.kind === "unavailable" && state.code === "authentication_required" && <Link href={signInHref}>{ADMISSION_UI_COPY.signIn}</Link>}
         {ready && state.overview.state === ADMISSION_OVERVIEW_STATE.alreadyMember && !accountChanged && <Link href={ROUTES.tribes.academy(state.overview.tribe.slug)}>{ADMISSION_UI_COPY.openAcademy}</Link>}
+        {offersAccountChange && <Button type="button" variant="primary" loading={changingAccount} disabled={busy || !formReady} onClick={onChangeAccount}>{changingAccount ? ADMISSION_UI_COPY.changingAccount : ADMISSION_UI_COPY.changeAccount}</Button>}
         {ready && <Button type="button" variant="secondary" disabled={busy || accountChanged} onClick={onRead}>{phase === ADMISSION_UI_PHASE.checking ? ADMISSION_UI_COPY.reading : ADMISSION_UI_COPY.read}</Button>}
         {retryOriginal && <Button type="button" variant="secondary" disabled={busy || accountChanged} onClick={onRetryOriginal}>{ADMISSION_UI_COPY.retryOriginal}</Button>}
         {accountChanged && <Button type="button" variant="secondary" onClick={onReloadAccount}>{ADMISSION_UI_COPY.reloadAccount}</Button>}
