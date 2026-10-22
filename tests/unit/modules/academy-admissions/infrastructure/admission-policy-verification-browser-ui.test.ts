@@ -1,7 +1,7 @@
 /** @vitest-environment node */
 /** Exercises the real rules page turning contact codes ON and OFF on an active policy, including a stale version, in both engines. @module admission-policy-verification-browser-ui-tests */
 import { randomBytes, randomUUID } from "node:crypto";
-import { chromium, webkit, type Page } from "@playwright/test";
+import { chromium, webkit, type Locator, type Page } from "@playwright/test";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
@@ -29,6 +29,13 @@ const SAVE_LABEL = "Guardar cambios";
 async function walkToReview(page: Page) {
   const next = page.getByRole("button", { name: "Continuar", exact: true });
   while (await page.getByRole("checkbox", { name: CONFIRMATION_LABEL, exact: true }).count() === 0) { await next.click(); await settleGuidedStep(page); }
+}
+
+/** @param control - Visible control. @param key - Activation key. @returns Once the control holds keyboard focus and received the key, without a pointer event. */
+async function pressFocused(control: Locator, key: "Enter" | "Space") {
+  await control.focus();
+  await expect.poll(() => control.evaluate((element) => element === document.activeElement)).toBe(true);
+  await control.press(key);
 }
 
 /** @param page - Owned page. @returns Once the rules editor is open at its contact step. */
@@ -86,14 +93,16 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native rules p
             expect(writes.slice(-2).map((write) => write.expectedVersion)).toEqual([before.version, before.version + 1]);
             expect(writes.at(-2)!.operationId).not.toBe(writes.at(-1)!.operationId);
 
-            // Turning codes OFF in the same editor saves the retained draft as a real change over the concurrent edit.
+            // Turning codes OFF in the same editor, by keyboard only, saves the retained draft as a real change over the concurrent edit.
             const verification = page.getByRole("checkbox", { name: VERIFICATION_LABEL, exact: true });
-            while (await verification.count() === 0) { await page.getByRole("button", { name: "Atrás", exact: true }).click(); await settleGuidedStep(page); }
+            while (await verification.count() === 0) { await pressFocused(page.getByRole("button", { name: "Atrás", exact: true }), "Enter"); await settleGuidedStep(page); }
             expect(await verification.isChecked()).toBe(true);
-            await verification.click();
-            await walkToReview(page);
-            await page.getByRole("checkbox", { name: CONFIRMATION_LABEL, exact: true }).click();
-            await page.getByRole("button", { name: SAVE_LABEL, exact: true }).click();
+            await pressFocused(verification, "Space");
+            await expect.poll(() => verification.isChecked()).toBe(false);
+            const next = page.getByRole("button", { name: "Continuar", exact: true });
+            while (await page.getByRole("checkbox", { name: CONFIRMATION_LABEL, exact: true }).count() === 0) { await pressFocused(next, "Enter"); await settleGuidedStep(page); }
+            await pressFocused(page.getByRole("checkbox", { name: CONFIRMATION_LABEL, exact: true }), "Space");
+            await pressFocused(page.getByRole("button", { name: SAVE_LABEL, exact: true }), "Enter");
             await expect.poll(async () => (await readPolicy()).version, { timeout: ACTION_TIMEOUT_MS }).toBe(afterDenial.version + 1);
             expect((await readPolicy()).requires_additional_verification).toBe(false);
             expect(writes.at(-1)!.requiresAdditionalVerification).toBe(false);

@@ -77,3 +77,7 @@ Con `ADMISSION_CAPTURE_SNIPPET`, sobre `17181e4e` y su `next build` propio, apro
 ## Entrega de aviso sin confirmar, vista por el líder
 
 `notification-recovery-browser-ui` agregó el caso `unknown`: un aviso cuya entrega original quedó «Entrega sin confirmar». Aprobó en Chromium/WebKit a 390/1280 (413 s). El líder ve el estado, la alerta «El envío anterior puede haber sido aceptado…» y «Registrar recuperación» deshabilitado aun con el consentimiento marcado. No hubo POST de recuperación, errores de página ni desbordes, y la entrega quedó `unknown` en la versión 1. Cubre el hueco de T198 sobre una entrega `unknown` visible para el líder. T198 sigue abierta por la cuenta equivocada con contacto ajeno en el enlace común y por el teclado en las pantallas restantes.
+
+## Reglas por teclado
+
+En `admission-policy-verification-browser-ui`, el tramo que apaga el código se recorre solo con teclado: el foco llega a cada control, Enter navega «Atrás» y «Continuar», Espacio alterna «Comprobar el contacto con un código» y la confirmación, y Enter acciona «Guardar cambios». Se comprueba que el control tenga el foco antes de cada tecla. Aprobó en Chromium/WebKit 390/1280 (387 s), con una sola navegación y el guardado reflejado en la base (versión +1, código apagado). Junto con la bandeja administrativa y la pendiente propia ya cubiertas, el teclado queda probado también en Reglas. Faltan Habilitados/CSV, Invitaciones, Conexión y Avisos.
