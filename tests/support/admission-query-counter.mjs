@@ -42,8 +42,7 @@ pg.Client.prototype.query = function countedQuery(config, values, callback) {
   const kind = classify(config), window = { start: performance.now(), end: Number.NaN };
   scope.counts[kind] += 1;
   if (TRACE_PATH) scope.shapes.push((typeof config === "string" ? config : config?.text ?? "").replace(/\s+/gu, " ").trim().slice(0, TRACE_SHAPE_LENGTH));
-  scope.intervals.push(window);
-  const finish = () => { window.end = performance.now(); };
+  scope.intervals.push(window);  const finish = () => { window.end = performance.now(); };
   const callbackIndex = [config, values, callback].findLastIndex((argument) => typeof argument === "function");
   if (callbackIndex >= 0) {
     const args = [config, values, callback], original = args[callbackIndex];
@@ -74,7 +73,8 @@ Server.prototype.emit = function scopedEmit(event, request, response) {
     setTimeout(() => {
       const completed = scope.intervals.filter((window) => Number.isFinite(window.end));
       const { checkouts, begin, commit, rollback, statement } = scope.counts;
-      if (TRACE_PATH) appendFileSync(TRACE_PATH, `${JSON.stringify({ method: scope.method, path: scope.path, shapes: scope.shapes })}\n`);
+      // Offsets from the request start show which statement a late chunk waited for; the response close is `durationMs`.
+      if (TRACE_PATH) appendFileSync(TRACE_PATH, `${JSON.stringify({ method: scope.method, path: scope.path, durationMs, shapes: scope.shapes.map((shape, index) => ({ shape, startMs: Math.round(scope.intervals[index].start - scope.startedAt), endMs: Math.round(scope.intervals[index].end - scope.startedAt) })) })}\n`);
       process.send?.({ kind: OBSERVATION_KIND, method: scope.method, path: scope.path, status, durationMs, checkouts, transactions: begin, commits: commit, rollbacks: rollback, queries: begin + commit + rollback + statement, statements: statement, sequentialRoundTrips: longestSequentialChain(completed), pending: scope.intervals.length - completed.length });
     }, SETTLE_AFTER_RESPONSE_MS).unref();
   });

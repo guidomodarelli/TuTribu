@@ -26,7 +26,7 @@ function fixture() {
   const resolveTribe = new ResolveAdmissionTribeUseCase({ readIdentity: async () => ({ id: tribeId, slug: "test" }) });
   const preferences = new AdmissionNotificationPreferencesUseCases(resolver, preference), emailSettings = new AdmissionNotificationEmailSettingsUseCases(resolver, email);
   const page = new GetAdmissionNotificationSettingsPageUseCase(accounts, { resolveTribe, preferences, email: emailSettings }, () => now);
-  return { page, actor, accounts, settings, preference, email, query: { slug: "test", requestId: randomUUID() }, userId, tribeId, getAccount: () => account!, setAccount: (value: AuthenticatedAccount | null) => { account = value; } };
+  return { page, actor, accounts, settings, preference, email, resolveTribe, preferences, emailSettings, query: { slug: "test", requestId: randomUUID() }, userId, tribeId, getAccount: () => account!, setAccount: (value: AuthenticatedAccount | null) => { account = value; } };
 }
 
 describe("current admission notification settings page", () => {
@@ -54,12 +54,35 @@ describe("current admission notification settings page", () => {
     expect(data.preference.getOwn).not.toHaveBeenCalled(); expect(data.email.get).not.toHaveBeenCalled();
   });
 
-  it("should reauthorize email instead of treating the earlier leader hint as authority", async () => {
+  it("should reauthorize email instead of treating the leader hint of the preference as authority", async () => {
     const data = fixture();
-    vi.mocked(data.preference.getOwn).mockImplementationOnce(async () => { const result = resolveAdmissionNotificationPreference({ tribeId: data.tribeId, recipientUserId: data.userId, currentRole: data.actor.role, membershipStatus: data.actor.status }, null); data.actor.role = "guardian"; return result; });
+    const demoted: AdmissionActorFacts = { ...data.actor, role: "guardian" };
+    const emailResolver = new ResolveAdmissionContextUseCase(data.accounts, { getCurrentActor: async () => demoted, getResource: async () => null }, () => new Date("2026-10-15T20:00:00Z"));
+    const page = new GetAdmissionNotificationSettingsPageUseCase(data.accounts, { resolveTribe: data.resolveTribe, preferences: data.preferences, email: new AdmissionNotificationEmailSettingsUseCases(emailResolver, data.email) }, () => new Date("2026-10-15T20:00:00Z"));
 
-    expect(await data.page.execute(data.query)).toMatchObject({ ok: false, failure: { code: "permission_denied" } });
+    expect(await page.execute(data.query)).toMatchObject({ ok: false, failure: { code: "permission_denied" } });
     expect(data.email.get).not.toHaveBeenCalled();
+  });
+
+  it("should start the email read without waiting for the preference read to finish", async () => {
+    const data = fixture();
+    let emailRead!: () => void;
+    const emailStarted = new Promise<void>((resolve) => { emailRead = resolve; });
+    vi.mocked(data.email.get).mockImplementationOnce(async () => { emailRead(); return data.settings; });
+    // The preference answers only once the email read reached storage; a sequential page would never get there.
+    vi.mocked(data.preference.getOwn).mockImplementationOnce(async () => { await emailStarted; return resolveAdmissionNotificationPreference({ tribeId: data.tribeId, recipientUserId: data.userId, currentRole: data.actor.role, membershipStatus: data.actor.status }, null); });
+
+    expect(await data.page.execute(data.query)).toMatchObject({ ok: true, value: { canConfigureEmail: true, email: { enabled: false, version: 0 } } });
+  });
+
+  it("should not show email settings that the preference did not confirm for a leader", async () => {
+    const data = fixture();
+    const reviewer: AdmissionActorFacts = { ...data.actor, role: "guardian" };
+    const preferenceResolver = new ResolveAdmissionContextUseCase(data.accounts, { getCurrentActor: async () => reviewer, getResource: async () => null }, () => new Date("2026-10-15T20:00:00Z"));
+    vi.mocked(data.preference.getOwn).mockImplementationOnce(async () => resolveAdmissionNotificationPreference({ tribeId: data.tribeId, recipientUserId: data.userId, currentRole: reviewer.role, membershipStatus: reviewer.status }, null));
+    const page = new GetAdmissionNotificationSettingsPageUseCase(data.accounts, { resolveTribe: data.resolveTribe, preferences: new AdmissionNotificationPreferencesUseCases(preferenceResolver, data.preference), email: data.emailSettings }, () => new Date("2026-10-15T20:00:00Z"));
+
+    expect(await page.execute(data.query)).toMatchObject({ ok: true, value: { canConfigureEmail: false, email: null } });
   });
 
   it.each(["user", "session", "expiry"] as const)("should discard private props when current %s changes during the reads", async (changed) => {

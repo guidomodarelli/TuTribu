@@ -10,7 +10,7 @@ import type { AdmissionNotificationEmailSettingsUseCases } from "./admission-not
 import { toAdmissionNotificationEmailSettingsView, toAdmissionNotificationPreferenceView } from "../results/admission-notification-settings-projection";
 import { admissionNotificationSettingsPageStateSchema, ADMISSION_NOTIFICATION_SETTINGS_PAGE_KIND } from "../../constants/admission-notification-settings-page";
 
-/** The role hint chooses an independently authorized read; it never grants email configuration authority. */
+/** The role hint chooses whether an independently authorized email read is shown; it never grants email configuration authority. */
 export class GetAdmissionNotificationSettingsPageUseCase {
   /** @param accounts - Native global identity. @param readers - Canonical tenant resolver and current authorized settings readers. @param clock - Fresh session validity clock. */
   constructor(private readonly accounts: AuthenticatedAccountProvider, private readonly readers: { resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">; preferences: Pick<AdmissionNotificationPreferencesUseCases, "read">; email: Pick<AdmissionNotificationEmailSettingsUseCases, "read"> }, private readonly clock: () => Date) {}
@@ -23,10 +23,12 @@ export class GetAdmissionNotificationSettingsPageUseCase {
       const tribe = await this.readers.resolveTribe.execute(query);
       if (!tribe.ok) return tribe;
       const selection = { tribeId: tribe.value.tribeId, requestId: query.requestId };
-      const preference = await this.readers.preferences.read(selection);
+      // Both reads authorize themselves and only read, so the email read does not wait for the preference's round trips;
+      // its result is used only when the preference confirms a leader, and a denial for anyone else is discarded.
+      const [preference, emailRead] = await Promise.all([this.readers.preferences.read(selection), this.readers.email.read(selection)]);
       if (!preference.ok) return preference;
       if (preference.value.preference.tribeId !== selection.tribeId || preference.value.preference.recipientUserId !== first.userId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
-      const email = preference.value.canConfigureEmail ? await this.readers.email.read(selection) : null;
+      const email = preference.value.canConfigureEmail ? emailRead : null;
       if (email && !email.ok) return email;
       if (email?.ok && email.value.tribeId !== selection.tribeId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       const current = await this.accounts.getAuthenticatedAccount();
