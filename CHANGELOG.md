@@ -23,7 +23,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Países y cupos muestra el consumo diario de códigos y avisos con un medidor de uso por cupo.
 - Las bandejas y listas vacías de admisión explican qué falta y cómo se completan.
 - La barra lateral de las academias incorpora el grupo Admisiones con sus subsecciones: el líder ve todas y los guardianes, Solicitudes y Avisos; el grupo se abre solo al entrar en una de sus páginas.
-- Todas las páginas de admisión comparten un encabezado con acceso de vuelta, descripción y una fila de secciones que marca la página actual, también en celulares; el encabezado queda fijo al cambiar de sección y el resaltado se desliza hasta la nueva.
+- Todas las páginas de admisión comparten un encabezado con acceso de vuelta, descripción y una fila de secciones que marca la página actual, también en celulares; el encabezado queda fijo al cambiar de sección y el resaltado se desliza hasta la nueva. Si deslizás la fila antes de que la página termine de cargar, queda donde la dejaste y el toque abre la sección elegida.
 - Mientras una página de admisión carga se ve un esqueleto con la forma de su contenido, y el historial de una solicitud transforma sus esqueletos en los eventos al confirmar el acceso.
 - Gestionar academia ofrece al líder un acceso a Admisiones y mensajería: reglas de admisión, solicitudes, países y cupos, y conexión de mensajería.
 - El piloto de admisión incorpora una plantilla de códigos de WhatsApp en español; todavía no está disponible para enviar porque Meta rechaza su creación.

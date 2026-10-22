@@ -7,7 +7,8 @@
  * sections are the admission pages (ordinary links, one route each), the list
  * is the block's narrow horizontal row at every width, the raised highlight
  * glides to the new section because the row lives in the shared admission
- * layout, the current page is scrolled into view, and the copy is in Spanish.
+ * layout, the current page is scrolled into view unless the member already scrolled the row before hydration, and the
+ * copy is in Spanish.
  */
 
 "use client";
@@ -38,6 +39,7 @@ const INSTANT = { duration: 0 } as const;
  */
 export function AdmissionSectionNavigation({ label, slug, section, audience }: AdmissionSectionNavigationProps) {
   const list = useRef<HTMLUListElement>(null);
+  const hasPositionedRow = useRef(false);
   const reduce = useReducedMotion();
   const tribePath = `/${encodeURIComponent(slug)}`;
   const items = visibleAdmissionSections(audience).map((item) => ({ key: item.section, href: `${tribePath}/${item.segment}`, label: item.label, current: item.section === section }));
@@ -45,8 +47,13 @@ export function AdmissionSectionNavigation({ label, slug, section, audience }: A
   useLayoutEffect(() => {
     const row = list.current;
     const current = row?.querySelector<HTMLElement>("[aria-current='page']");
+    const isFirstPass = !hasPositionedRow.current;
+    hasPositionedRow.current = true;
     // Only the row scrolls: scrollIntoView would also move the window on narrow screens.
     if (!row || !current || row.scrollWidth <= row.clientWidth) return;
+    // The server-rendered row scrolls before hydration. A tap can hydrate it, so if the member already swiped it, moving
+    // it now would slide another section under their finger between press and release and the browser would drop the tap.
+    if (isFirstPass && row.scrollLeft > 0) return;
     const left = current.offsetLeft;
     const visible = left >= row.scrollLeft && left + current.offsetWidth <= row.scrollLeft + row.clientWidth;
     if (!visible) row.scrollTo({ left: Math.max(0, left - (row.clientWidth - current.offsetWidth) / CENTERING_DIVISOR), behavior: reduce ? INSTANT_SCROLL : SMOOTH_SCROLL });
