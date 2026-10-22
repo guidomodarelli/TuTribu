@@ -23,4 +23,5 @@ export const ADMISSION_UI_COPY = {
   reloadAccount: "Volver a cargar la página", storageFailed: "No pudimos conservar el identificador del envío en este navegador. Revisá el almacenamiento de la sesión y volvé a intentar.",
   draftInvalid: "Revisá el teléfono, su país y la longitud del mensaje antes de continuar.",
   outcomePending: "La solicitud quedó pendiente de revisión.", outcomeMember: "Ya tenés acceso básico a la academia.", openAcademy: "Abrir academia",
+  changeAccount: "Cambiar de cuenta", changingAccount: "Cerrando la sesión…",
 } as const;

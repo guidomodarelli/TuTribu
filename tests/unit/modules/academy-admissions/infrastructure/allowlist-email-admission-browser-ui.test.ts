@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-/** Exercises the real rules page switching an active policy to the allowlist with email contact and codes OFF, then listed and unlisted applicants, in both engines. @module allowlist-email-admission-browser-ui-tests */
+/** Exercises the real rules page switching an active policy to the allowlist with email contact and codes OFF, then listed and unlisted applicants (the latter offered an account change instead of the form), in both engines. @module allowlist-email-admission-browser-ui-tests */
 import { randomBytes, randomUUID } from "node:crypto";
 import { chromium, webkit, type Page } from "@playwright/test";
 import { sql } from "drizzle-orm";
@@ -19,7 +19,8 @@ import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messagi
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import { buildAdmissionEntryRoute } from "@/lib/academy-admissions/admission-routes";
 import { HTTP_STATUS } from "@/src/constants/http-status";
-import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { ADMISSION_OVERVIEW_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-overview";
+import { ROUTES } from "@/src/constants/routes";
 
 const BROWSER_SURFACES = [
   { name: "chromium", engine: chromium, width: 1280 },
@@ -51,7 +52,7 @@ async function settleStatusRead(page: Page) {
 const isSubmission = (path: string) => path.endsWith("/submissions");
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native list admission with codes OFF and email contact", () => {
-  it("should switch active rules to the list and admit a listed Google email on submission while leaving an unlisted one without request or membership across Chromium/WebKit at desktop/mobile widths", async () => {
+  it("should switch active rules to the list and admit a listed Google email on submission while showing an unlisted one the list notice and an account change, without request or membership, across Chromium/WebKit at desktop/mobile widths", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const keyrings = Object.fromEntries(Object.values(MESSAGING_KEY_PURPOSE).map((purpose) => { const id = randomUUID(); return [purpose, { activeKeyId: id, keys: [{ id, materialBase64: randomBytes(32).toString("base64") }] }]; }));
       const messagingSecurity = { environment: "synthetic-allowlist-email-ui", securityEpoch: randomUUID(), keyringsJson: JSON.stringify(keyrings) };
@@ -68,6 +69,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native list ad
       /** @returns The persisted mode, contact, code switch and version, read as the owner. */
       const readPolicy = () => database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ mode: string; contact_type: string; requires_additional_verification: boolean; allow_common_exceptions: boolean; version: number }>(sql`select mode,contact_type,requires_additional_verification,allow_common_exceptions,version from public.academy_admission_policies where tribe_id=${fixture.tribeId}`)).rows[0]);
       /** @param userId - Synthetic applicant. @returns Its requests and memberships in this academy. */
+      /** @param sessionId - Synthetic native session. @returns Whether it still exists after the account change. */
+      const readSessionCount = (sessionId: string) => database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ sessions: number }>(sql`select count(*)::int as sessions from public.session where id=${sessionId}`)).rows[0].sessions);
       const readApplicant = (userId: string) => database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ requests: { status: string; source: string }[] | null; memberships: { status: string; role: string }[] | null }>(sql`select (select jsonb_agg(jsonb_build_object('status',request.status,'source',request.source)) from public.academy_admission_requests request where request.tribe_id=${fixture.tribeId} and request.user_id=${userId}) as requests,(select jsonb_agg(jsonb_build_object('status',member.status,'role',member.role)) from public.tribe_members member where member.tribe_id=${fixture.tribeId} and member.user_id=${userId}) as memberships`)).rows[0]);
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, fixture.slug, async (origin, secret) => {
         for (const [index, { name, engine, width }] of BROWSER_SURFACES.entries()) {
@@ -112,21 +115,23 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native list ad
             await settleStatusRead(page);
             expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
 
-            // An unlisted Google email, in its own browser session, leaves neither a request nor a membership.
+            // An unlisted Google email, in its own browser session, sees the list notice instead of the form and can only change account.
             await bindAdmissionBatchBrowserSession(outsiderContext, unlisted, origin, secret);
-            await outsider.goto(new URL(buildAdmissionEntryRoute(fixture.slug), origin).href);
-            await continueToAdmissionSubmission(outsider);
-            await setVisibleCheckboxChecked(outsider.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }), true, ACTION_TIMEOUT_MS);
-            const unlistedReply = outsider.waitForResponse((response) => response.request().method() === "POST" && isSubmission(new URL(response.url()).pathname));
-            await outsider.getByRole("button", { name: ADMISSION_UI_COPY.submit, exact: true }).click();
-            const unlistedResponse = await unlistedReply;
-            expect(unlistedResponse.status()).toBe(HTTP_STATUS.conflict);
-            expect((await unlistedResponse.json() as { code: string }).code).toBe(ADMISSION_ERROR_CODE.admissionIneligible);
-            await outsider.getByRole("alert").filter({ hasText: ADMISSION_ERROR_MESSAGE.admission_ineligible }).first().waitFor({ state: "visible" });
-            expect(submissions).toBe(2);
-            await settleStatusRead(outsider);
-            expect(await readApplicant(unlisted.userId)).toEqual({ requests: null, memberships: null });
+            const entry = buildAdmissionEntryRoute(fixture.slug);
+            await outsider.goto(new URL(entry, origin).href);
+            await outsider.getByText(ADMISSION_OVERVIEW_MESSAGE.allowlistOnly, { exact: true }).waitFor({ state: "visible" });
+            const changeAccount = outsider.getByRole("button", { name: ADMISSION_UI_COPY.changeAccount, exact: true });
+            // The action stays disabled until the hydrated page confirms the current account; the click waits for it.
+            await changeAccount.waitFor({ state: "visible" });
+            expect(await outsider.getByRole("button", { name: "Continuar", exact: true }).count()).toBe(0);
+            expect(await outsider.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }).count()).toBe(0);
             expect(await outsider.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+            await changeAccount.click();
+            await outsider.waitForURL((url) => url.pathname === ROUTES.auth.signIn);
+            expect(new URL(outsider.url()).searchParams.get("callbackUrl")).toBe(entry);
+            expect(await readSessionCount(unlisted.sessionId)).toBe(0);
+            expect(submissions).toBe(1);
+            expect(await readApplicant(unlisted.userId)).toEqual({ requests: null, memberships: null });
             expect(pageErrors).toEqual([]);
             console.info(JSON.stringify({ phase: "allowlist_email_ui_complete", engine: name, width }));
           } catch (error) {

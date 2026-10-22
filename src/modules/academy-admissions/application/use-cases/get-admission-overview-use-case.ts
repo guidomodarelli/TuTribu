@@ -1,7 +1,7 @@
 /** Projects public/own admission entry state without claiming work or consuming a link. @module get-admission-overview-use-case */
 import type { AuthenticatedAccountProvider } from "@/src/modules/auth/domain/repositories/authenticated-account-provider";
 import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
-import type { AdmissionOverviewReader } from "@/src/modules/academy-admissions/domain/repositories/admission-query-reader";
+import type { AdmissionOverviewReader, AdmissionOverviewFacts } from "@/src/modules/academy-admissions/domain/repositories/admission-query-reader";
 import { admissionOverviewSchema, admissionOwnRequestSchema } from "../results/admission-flow-result-schemas";
 import { admissionOperationFailure } from "../results/admission-operation-failure";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
@@ -13,6 +13,18 @@ import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-pa
 import { evaluateAcademyMembershipEligibility } from "@/src/modules/tribes/domain/value-objects/academy-membership-eligibility";
 import { ACADEMY_MEMBERSHIP_ELIGIBILITY } from "@/src/modules/tribes/constants/academy-membership";
 import { getOwnAdmissionRequestMessage } from "../results/admission-own-request-message";
+import { evaluateAdmissionPreview } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
+import { ADMISSION_OUTCOME, ADMISSION_DENIAL_REASON } from "@/src/modules/academy-admissions/constants/admission-eligibility";
+
+/** Denials that only another account can overcome when the list has no exceptions: the own email misses the list, or another account holds its binding. */
+const ACCOUNT_CHANGE_DENIAL_REASONS: readonly string[] = [ADMISSION_DENIAL_REASON.allowlistUnmet, ADMISSION_DENIAL_REASON.contactConflict];
+
+/** @param facts - Own current account facts read for an email list without code or exceptions. @returns Whether a common presentation from this account is bound to be refused (FR-017, FR-018), so another account is the only way forward. */
+function requiresAnotherAccount(facts: AdmissionOverviewFacts["allowlistEligibility"]): boolean {
+  if (!facts) return false;
+  const evaluated = evaluateAdmissionPreview(facts);
+  return evaluated.outcome === ADMISSION_OUTCOME.denied && ACCOUNT_CHANGE_DENIAL_REASONS.includes(evaluated.reason);
+}
 
 /** The application owns navigation hints; the writer rechecks real eligibility under locks. */
 export class GetAdmissionOverviewUseCase {
@@ -47,6 +59,9 @@ export class GetAdmissionOverviewUseCase {
         state = ADMISSION_OVERVIEW_STATE.signInRequired; nextAction = ADMISSION_NEXT_ACTION.signIn; safeMessage = ADMISSION_OVERVIEW_MESSAGE.signIn;
       } else if (facts.policy.requiresAdditionalVerification) {
         state = ADMISSION_OVERVIEW_STATE.verificationRequired; nextAction = ADMISSION_NEXT_ACTION.verifyContact; safeMessage = ADMISSION_OVERVIEW_MESSAGE.verification;
+      } else if (requiresAnotherAccount(facts.allowlistEligibility)) {
+        // Without exceptions the writer would refuse this account; the form is replaced by the account change instead.
+        state = ADMISSION_OVERVIEW_STATE.closed; nextAction = ADMISSION_NEXT_ACTION.changeAccount; safeMessage = ADMISSION_OVERVIEW_MESSAGE.allowlistOnly;
       }
       const parsed = admissionOverviewSchema.safeParse({ tribe: { slug: facts.tribe.slug, name: facts.tribe.name, accessModel: facts.tribe.accessModel }, policy: facts.policy, state, nextAction, safeMessage, ...(request ? { request } : {}), ...(scope && facts.policy?.requiresAdditionalVerification && facts.verification ? { verification: facts.verification } : {}) });
       if (!parsed.success) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);

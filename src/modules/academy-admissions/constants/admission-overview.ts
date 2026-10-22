@@ -7,4 +7,5 @@ export const ADMISSION_OVERVIEW_MESSAGE = {
   verification: "Comprobá tu contacto antes de presentar una nueva solicitud.",
   closed: "Las nuevas admisiones no están disponibles. Podés consultar tu solicitud existente.",
   waiting: "Todavía no terminó el plazo para volver a presentar una solicitud.",
+  allowlistOnly: "Esta academia solo admite correos habilitados por su equipo y no pudimos confirmar que el correo de esta cuenta lo esté. Ingresá con la cuenta de un correo habilitado o consultá al equipo de la academia.",
 } as const;

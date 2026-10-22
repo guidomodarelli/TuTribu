@@ -1,11 +1,12 @@
 /** Own scoped query ports stay independent of provider DTOs and public transport. @module admission-query-reader */
 import type { AdmissionCommandScope } from "./admission-repositories";
+import type { AdmissionSubmissionFacts } from "../policies/admission-eligibility";
 /** The infrastructure owner must restrict this read to the current account before projecting its own result. */
 export interface AdmissionOwnRequestReader<Result> {
   /** @param scope - Server-derived user/session/tribe and safe correlation. @returns Own current request or genuine absence, without effects. */
   readOwn(scope: AdmissionCommandScope & { admissionRequestId?: string }): Promise<Result | null>;
 }
-/** Public tribe/policy facts are separate from current account state and expose no list/invitation matches. */
+/** Public tribe/policy facts are separate from current account state; only the own account's list facts are read, and no match leaves the server. */
 export type AdmissionOverviewFacts<Request = unknown> = {
   tribe: { id: string; slug: string; name: string; accessModel: "academy"; controlActivated: boolean; evaluatorEnabled: boolean };
   policy: { mode: "manual_review" | "allowlist"; contactType: "email" | "phone"; requiresAdditionalVerification: boolean; requiresWhatsappNumber?: boolean; isOpen: boolean; version: number } | null;
@@ -13,6 +14,8 @@ export type AdmissionOverviewFacts<Request = unknown> = {
   request: Request | null; recoveryLocked: boolean;
   /** Applicant-facing choices are hints only; issuance rechecks policy, country, capability and budgets. */
   verification?: { channel: "email" | "sms" | "whatsapp"; allowedCountries: readonly string[]; allowedAlternative?: "sms" };
+  /** Own current account facts for an email list without code or exceptions; only the application evaluates them, and they never leave the server. */
+  allowlistEligibility?: AdmissionSubmissionFacts;
 };
 /** Overview is a read-only projection; anonymous scope may receive public facts only. */
 export interface AdmissionOverviewReader<Request> {

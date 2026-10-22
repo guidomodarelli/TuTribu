@@ -111,6 +111,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Cada aspirante puede corregir su WhatsApp mientras la solicitud siga pendiente y vigente; el formulario conserva el cambio original si se pierde la respuesta y avisa cuando debe revisarse de nuevo.
 
 ### Changed
+- Si una academia admite solo correos habilitados por su equipo, sin excepciones ni código adicional, y el correo de tu cuenta no está habilitado o no se puede confirmar, la página de ingreso te lo avisa antes de completar el formulario y ofrece «Cambiar de cuenta», en lugar de rechazar la solicitud recién al enviarla con un aviso genérico.
 - Al revisar membresías bloqueadas por pago, también podés elegir «No vuelve por pago: queda retirada» para una integrante común, como ya pasaba con los guardianes.
 - Cuando la academia usa el teléfono como contacto, el formulario de ingreso y la invitación personal piden un solo «Teléfono»: ese número es el que el equipo compara con el grupo.
 - Al aprobar una solicitud, el motivo interno es opcional. Sigue siendo obligatorio para rechazar y para aprobar a alguien fuera de la lista como excepción.

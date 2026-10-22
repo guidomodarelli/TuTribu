@@ -6,6 +6,8 @@ import { GetAdmissionOverviewUseCase } from "@/src/modules/academy-admissions/ap
 import type { AuthenticatedAccount } from "@/src/modules/auth/domain/entities/authenticated-account";
 import type { AdmissionRequestDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import type { AdmissionOverviewFacts } from "@/src/modules/academy-admissions/domain/repositories/admission-query-reader";
+import type { AdmissionSubmissionFacts } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
+import { createDefaultAdmissionPolicy } from "@/src/modules/academy-admissions/domain/entities/admission-policy";
 
 /** Supplies only feature-owned facts and a current account port. */
 function overviewFixture() {
@@ -15,6 +17,14 @@ function overviewFixture() {
   const accounts = { getAuthenticatedAccount: vi.fn(async (): Promise<AuthenticatedAccount | null> => account) };
   const reader = { readOverview: vi.fn(async (): Promise<AdmissionOverviewFacts | null> => facts) };
   return { accounts, account, reader, facts, now, query: { slug: facts.tribe.slug, requestId: randomUUID() } };
+}
+
+/** @returns Own facts for an email list with code OFF and no exceptions, whose Google evidence matches an enabled entry. */
+function allowlistEligibility(fixture: ReturnType<typeof overviewFixture>): AdmissionSubmissionFacts {
+  const { tribe } = fixture.facts, { userId, normalizedEmail } = fixture.account, contact = { type: "email" as const, value: normalizedEmail }, accountId = randomUUID(), subject = randomUUID();
+  const policy = { ...createDefaultAdmissionPolicy({ id: tribe.id, tribeId: tribe.id }), mode: "allowlist" as const, isOpen: true, allowCommonExceptions: false, activatedAt: new Date("2026-10-06T11:00:00Z") };
+  return { now: fixture.now, tribe: { id: tribe.id, isAcademy: true, controlActivated: true, evaluatorEnabled: true, recoveryLocked: false }, account: { userId, normalizedEmail, googleAccount: { id: accountId, subject } }, policy, source: { kind: "common" }, contact,
+    baseEvidence: { userId, accountId, subject, normalizedEmail, authority: "gmail", invalidated: false }, localProof: null, currentConnection: null, membership: null, contactBinding: null, allowlistEntry: { tribeId: tribe.id, contact, enabled: true, boundUserId: null } };
 }
 
 describe("admission overview", () => {
@@ -106,5 +116,22 @@ describe("admission overview", () => {
     fixture.facts.membership.status = "blocked";
     fixture.facts.membership.commercialRecoveryStatus = "active";
     expect(await useCase.execute(fixture.query)).toMatchObject({ ok: true, value: { state: "closed" } });
+  });
+
+  it("should replace the form with an account change when the own trusted email cannot meet a list without exceptions or another account holds it", async () => {
+    const fixture = overviewFixture(), useCase = new GetAdmissionOverviewUseCase(fixture.accounts, fixture.reader, () => fixture.now);
+    fixture.facts.policy!.mode = "allowlist";
+    const matching = allowlistEligibility(fixture);
+    fixture.facts.allowlistEligibility = matching;
+    expect(await useCase.execute(fixture.query)).toMatchObject({ ok: true, value: { state: "available", nextAction: "request_admission" } });
+    const allowlistOnly = { ok: true, value: { state: "closed", nextAction: "change_account", safeMessage: "Esta academia solo admite correos habilitados por su equipo y no pudimos confirmar que el correo de esta cuenta lo esté. Ingresá con la cuenta de un correo habilitado o consultá al equipo de la academia." } };
+    for (const facts of [{ ...matching, allowlistEntry: null }, { ...matching, allowlistEntry: { ...matching.allowlistEntry!, enabled: false } }, { ...matching, baseEvidence: null }, { ...matching, baseEvidence: { ...matching.baseEvidence!, authority: "insufficient" as const } }, { ...matching, contactBinding: { ownerUserId: randomUUID(), contact: matching.contact! } }]) {
+      fixture.facts.allowlistEligibility = facts;
+      const result = await useCase.execute(fixture.query);
+      expect(result).toMatchObject(allowlistOnly);
+      if (result.ok) expect(result.value).not.toHaveProperty("allowlistEligibility");
+    }
+    fixture.facts.request = { id: randomUUID(), status: "pending", version: 1, submittedAt: fixture.now.toISOString(), expiresAt: "2026-11-05T12:00:00Z", source: "common", needsVerification: false, eligibilityReasons: [] };
+    expect(await useCase.execute(fixture.query)).toMatchObject({ ok: true, value: { state: "pending", nextAction: "view_request" } });
   });
 });

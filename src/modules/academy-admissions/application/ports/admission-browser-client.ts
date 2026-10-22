@@ -11,6 +11,11 @@ export type AdmissionStartedResponse = { state: "started"; operationId: string }
 export type AdmissionBrowserSubmission = { operationId: string; confirmed: true; expectedPolicyVersion: number; message?: string; phone?: string; country?: string; whatsappNumber?: string; proofId?: string; invitationToken?: string; legacyInvitationToken?: string };
 export type AdmissionBrowserCancellation = { operationId: string; confirmed: true; expectedVersion: number };
 
+/** Closes only the current native session so another account can sign in; it never consumes a link or changes a request. */
+export interface AdmissionAccountBrowserClient {
+  changeAccount(signal: AbortSignal): Promise<AdmissionBrowserResult<null>>;
+}
+
 /** The route container is the only browser owner of account checks, requests, cancellation and draft recovery. */
 export interface AdmissionBrowserClient {
   viewer(signal: AbortSignal): Promise<AdmissionBrowserResult<{ id: string } | null>>;
