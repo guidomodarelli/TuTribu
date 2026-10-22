@@ -2,7 +2,9 @@ import "server-only";
 
 import { Pool } from "pg";
 
+import { attachPostgresPoolMetrics } from "@/src/modules/shared/infrastructure/database/postgres-pool-metrics";
 import { normalizePostgresSslMode } from "@/src/modules/shared/infrastructure/database/postgres-ssl-mode";
+import { getPostgresPoolMetricsEnvironment } from "@/src/modules/shared/infrastructure/database/server-environment";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 const POSTGRES_DEPENDENCY = "postgres";
@@ -84,6 +86,8 @@ function getPostgresErrorMetadata(error: unknown) {
 
 /**
  * Creates a Postgres pool with safe background error handling for idle clients.
+ * When `POSTGRES_POOL_METRICS_LOG_INTERVAL_MS` is set, the pool also logs its
+ * usage windows (see `attachPostgresPoolMetrics`).
  *
  * @param input - Connection string and operation label used to configure the pool.
  * @returns Configured Postgres pool.
@@ -137,6 +141,16 @@ export function createPostgresPool(input: CreatePostgresPoolInput) {
       error,
     });
   });
+
+  const { logIntervalMilliseconds } = getPostgresPoolMetricsEnvironment();
+  if (logIntervalMilliseconds !== null) {
+    attachPostgresPoolMetrics({
+      pool,
+      poolOperation: input.operation,
+      maximumConnections,
+      logIntervalMilliseconds,
+    });
+  }
 
   return pool;
 }

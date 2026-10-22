@@ -3,6 +3,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   getServerDatabaseEnvironment,
+  getPostgresPoolMetricsEnvironment,
   getServerMaintenanceDatabaseEnvironment,
 } from "@/src/modules/shared/infrastructure/database/server-environment";
 
@@ -92,4 +93,35 @@ describe("server database environment resolution", () => {
       );
     });
   });
+});
+
+describe("Postgres pool metrics environment", () => {
+  const originalInterval = process.env.POSTGRES_POOL_METRICS_LOG_INTERVAL_MS;
+
+  afterEach(() => {
+    if (originalInterval === undefined) {
+      delete process.env.POSTGRES_POOL_METRICS_LOG_INTERVAL_MS;
+    } else {
+      process.env.POSTGRES_POOL_METRICS_LOG_INTERVAL_MS = originalInterval;
+    }
+  });
+
+  it("enables pool metrics with an interval of at least one second", () => {
+    process.env.POSTGRES_POOL_METRICS_LOG_INTERVAL_MS = " 5000 ";
+
+    expect(getPostgresPoolMetricsEnvironment()).toEqual({ logIntervalMilliseconds: 5000 });
+  });
+
+  it.each([undefined, "", "0", "999", "1500.5", "five seconds"])(
+    "keeps pool metrics off for %s",
+    (configuredValue) => {
+      if (configuredValue === undefined) {
+        delete process.env.POSTGRES_POOL_METRICS_LOG_INTERVAL_MS;
+      } else {
+        process.env.POSTGRES_POOL_METRICS_LOG_INTERVAL_MS = configuredValue;
+      }
+
+      expect(getPostgresPoolMetricsEnvironment()).toEqual({ logIntervalMilliseconds: null });
+    }
+  );
 });
