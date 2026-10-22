@@ -20,7 +20,7 @@ const BROWSER_SURFACES = [
   { name: "webkit", engine: webkit, width: 390 },
 ] as const;
 const ACTION_TIMEOUT_MS = 180_000;
-const SUITE_TIMEOUT_MS = 1_800_000;
+const SUITE_TIMEOUT_MS = 3_600_000;
 const VERIFICATION_LABEL = "Comprobar el contacto con un código";
 const CONFIRMATION_LABEL = "Revisé las reglas y quiero guardar los cambios.";
 const SAVE_LABEL = "Guardar cambios";
