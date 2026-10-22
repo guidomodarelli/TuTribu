@@ -42,29 +42,32 @@ function sqlFailureState(error: unknown): string | null {
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native reviewer filter navigation", () => {
   it.each(scenarios)("should preserve current filters and authority on $name at $width", async (scenario) => {
-    let stage = "prepare_owned_database";
+    /** Vitest timeouts skip the catch below, so each stage is reported on entry to keep a hang diagnosable. */
+    const reportStage = (next: string) => { process.stdout.write(`${JSON.stringify({ phase: "native_review_filter_stage", engine: scenario.name, width: scenario.width, stage: next })}
+`); return next; };
+    let stage = reportStage("prepare_owned_database");
     try {
       await withAcademyAdmissionDatabase(async (database) => {
         const keyrings = Object.fromEntries(Object.values(MESSAGING_KEY_PURPOSE).map((purpose) => { const id = randomUUID(); return [purpose, { activeKeyId: id, keys: [{ id, materialBase64: randomBytes(32).toString("base64") }] }]; }));
         const messagingSecurity = { environment: "synthetic-review-filters", securityEpoch: randomUUID(), keyringsJson: JSON.stringify(keyrings) };
         const config = await readMessagingHostingSecurityConfig({ MESSAGING_SECURITY_ENVIRONMENT: messagingSecurity.environment, MESSAGING_SECURITY_EPOCH: messagingSecurity.securityEpoch, MESSAGING_RECOVERY_LOCK: "false", MESSAGING_KEYRINGS_JSON: messagingSecurity.keyringsJson });
-        stage = "migrate_owned_database";
+        stage = reportStage("migrate_owned_database");
         const fixture = await prepareContactVerificationDatabase(database, config);
         const tribeId = randomUUID(), slug = `review-filters-${tribeId}`, guardianId = randomUUID(), sessionId = randomUUID(), token = randomUUID();
         const reviewerId = scenario.name === "chromium" && scenario.width === 1280 ? fixture.own.userId : guardianId;
         const applicants = ["Primer solicitante de ejemplo", "Segunda solicitante de ejemplo", "Tercer solicitante de ejemplo"].map((name, index) => ({ id: randomUUID(), requestId: randomUUID(), name, email: `solicitante-${index + 1}-${randomUUID().slice(0, 8)}@example.test` }));
         await database.withContext(fixture.own, async (transaction) => {
-          stage = "seed_current_reviewers";
+          stage = reportStage("seed_current_reviewers");
           const activatedAt = (await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now;
           for (const user of [{ id: guardianId, name: "Guardián de ejemplo", email: `${guardianId}@example.test` }, ...applicants]) await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${user.id},${user.name},${user.email},false,clock_timestamp(),clock_timestamp())`);
           await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${reviewerId},${token},clock_timestamp()+interval '1 hour',clock_timestamp(),clock_timestamp())`);
           await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${tribeId},'Academia de ejemplo',${slug},${fixture.own.userId})`);
           await transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`);
           await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${fixture.own.userId},'leader','active'),(${tribeId},${guardianId},'guardian','active')`);
-          stage = "activate_native_review_scope";
+          stage = reportStage("activate_native_review_scope");
           await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,is_open,activated_at,mode,allow_common_exceptions) values (${tribeId},true,${activatedAt},'allowlist',true)`);
           await transaction.execute(sql`update public.tribes set admissions_control_activated_at=${activatedAt} where id=${tribeId}`);
-          stage = "seed_pending_requests";
+          stage = reportStage("seed_pending_requests");
           for (const [index, applicant] of applicants.entries()) await transaction.execute(sql`with instant as (select date_trunc('second',clock_timestamp()-${applicants.length - index}*interval '1 minute')+interval '0.123456 seconds' as now) insert into public.academy_admission_requests(id,tribe_id,user_id,source,contact_type,normalized_contact,evidence_source,original_policy_snapshot,applicant_message,submitted_at,expires_at) select ${applicant.requestId},${tribeId},${applicant.id},'common','email',${applicant.email},'declared','{"version":1,"verificationEpoch":1,"mode":"allowlist","contactType":"email","requiresAdditionalVerification":false,"allowCommonExceptions":true}'::jsonb,'Quiero participar.',now,now+interval '30 days' from instant`);
         });
         const preciseUntil = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ cutoff: string }>(sql`select to_char((date_trunc('second',submitted_at)+interval '0.123500 seconds') at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cutoff from public.academy_admission_requests where id=${applicants[0].requestId}`)).rows[0].cutoff);
@@ -84,7 +87,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               page.on("request", (request) => { const route = new URL(request.url()); if (route.pathname.endsWith("/admissions/requests") && route.searchParams.has("cursor")) listReads.push(route.search); if (request.method() !== "GET" && route.pathname.includes("/admissions/")) writes.push(request.method()); });
               const forbidden = [secret, token, sessionId, tribeId, guardianId, fixture.own.userId, fixture.own.email, ...applicants.flatMap((applicant) => [applicant.id, applicant.requestId])];
               const recordFrames = scenario.name === "chromium" && scenario.width === 1280;
-              stage = "bounded_empty_initial_page";
+              stage = reportStage("bounded_empty_initial_page");
               await page.goto(`${origin}/${slug}/academia/admissions?limit=1&requiresExceptionReason=false`, { waitUntil: "domcontentloaded" });
               const apply = page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply, exact: true });
               await expectBrowser(apply).toBeEnabled();
@@ -100,7 +103,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               }
               await expectBrowser(page.getByText(ADMISSION_REVIEW_UI_COPY.empty, { exact: true })).toBeVisible();
               await expectBrowser(page.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.loadMore, exact: true })).toHaveCount(0);
-              stage = "apply_combined_filters";
+              stage = reportStage("apply_combined_filters");
               await page.getByRole("combobox", { name: "Motivo de excepción", exact: true }).click(); await page.getByRole("option", { name: "Requiere motivo ahora", exact: true }).click();
               await page.getByRole("combobox", { name: "Origen", exact: true }).click(); await page.getByRole("option", { name: "Solicitud común", exact: true }).click();
               await page.getByRole("combobox", { name: "Comprobación de contacto", exact: true }).click(); await page.getByRole("option", { name: "Sin ese requisito actual", exact: true }).click();
@@ -121,7 +124,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               }
               const form = page.getByRole("form", { name: ADMISSION_REVIEW_FILTER_COPY.title, exact: true });
               await form.screenshot({ path: join(artifacts, `${scenario.name}-${scenario.width}-filters.png`) });
-              stage = "preserve_precise_cutoff";
+              stage = reportStage("preserve_precise_cutoff");
               const precisionRoute = new URL(filteredUrl); precisionRoute.searchParams.set("submittedUntil", preciseUntil);
               await page.goto(precisionRoute.href, { waitUntil: "domcontentloaded" });
               await expectBrowser(page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply, exact: true })).toBeEnabled();
@@ -131,7 +134,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               expect(new URL(page.url()).searchParams.get("submittedUntil")).toBe(preciseUntil);
               await expectBrowser(page.getByRole("heading", { name: applicants[0].name, exact: true })).toBeVisible();
               filteredUrl = page.url();
-              stage = "detail_reload_and_history";
+              stage = reportStage("detail_reload_and_history");
               await page.getByRole("button", { name: `${ADMISSION_REVIEW_UI_COPY.detail}: ${applicants[0].name}`, exact: true }).click();
               await expectBrowser(page.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.close, exact: true })).toBeEnabled();
               const approve = page.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve, exact: true });
@@ -156,12 +159,12 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await page.goBack({ waitUntil: "domcontentloaded" });
               await expectBrowser(page.getByRole("heading", { name: applicants[0].name, exact: true })).toBeVisible();
               await expectBrowser(page.getByLabel("Búsqueda", { exact: true })).toHaveValue("Primer solicitante");
-              stage = "reset_and_revoke_current_role";
+              stage = reportStage("reset_and_revoke_current_role");
               await page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.reset, exact: true }).click();
               await page.waitForURL((url) => url.searchParams.get("status") === "pending" && !url.searchParams.has("search"));
               await expectBrowser(page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply, exact: true })).toBeEnabled();
               await expectBrowser(page.getByRole("heading", { name: applicants[1].name, exact: true })).toBeVisible();
-              stage = "reset_unapplied_edits_on_same_selection";
+              stage = reportStage("reset_unapplied_edits_on_same_selection");
               await page.getByLabel("Búsqueda", { exact: true }).fill("Edición todavía sin aplicar");
               await page.getByLabel("Desde (UTC)", { exact: true }).fill("2020-01-01T00:00");
               await page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.reset, exact: true }).click();
@@ -170,7 +173,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await expectBrowser(page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply, exact: true })).toBeEnabled();
               await expectBrowser(page.getByRole("heading", { name: applicants[1].name, exact: true })).toBeVisible();
               if (recordFrames) await captureAdmissionReview(page, "review-filter-default", forbidden, REVIEW_VALIDATION.captureFile);
-              stage = "mute_current_reviewer";
+              stage = reportStage("mute_current_reviewer");
               /* The inbox refresh holds shared locks on these rows; a bounded wait turns a rare stuck lock into a diagnosable failure instead of a silent test timeout. */
               await database.withContext(fixture.own, async (transaction) => { await transaction.execute(sql`set local lock_timeout='20s'`); await transaction.execute(sql`update public.tribe_members set status='muted' where tribe_id=${tribeId} and user_id=${reviewerId}`); }).catch(async (lockError) => {
                 const holders = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select activity.state, activity.wait_event_type, activity.wait_event, extract(epoch from (clock_timestamp()-activity.xact_start))::int as transaction_seconds, (select string_agg(distinct lock.locktype||':'||lock.mode||':'||lock.granted::text, ',') from pg_locks lock where lock.pid=activity.pid) as locks, cardinality(pg_blocking_pids(activity.pid)) as blockers from pg_stat_activity activity where activity.datname=current_database() and activity.pid<>pg_backend_pid() and activity.state<>'idle' order by activity.xact_start nulls last`)).rows).catch(() => []);

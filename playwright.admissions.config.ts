@@ -1,5 +1,9 @@
 /** Runs product admission flows on owned branch/server fixtures in both rendering engines. @module playwright-admissions-config */
-import { defineConfig } from "@playwright/test";
+import { defineConfig, webkit } from "@playwright/test";
+import { installExitedBrowserStdioRelease } from "./tests/e2e/support/release-exited-browser-stdio";
+
+/** Workers load this config too, so WebKit's leftover processes on Windows cannot hang their shutdown. */
+installExitedBrowserStdioRelease({ executablePaths: [webkit.executablePath()] });
 
 export default defineConfig({
   testDir: "./tests/e2e",

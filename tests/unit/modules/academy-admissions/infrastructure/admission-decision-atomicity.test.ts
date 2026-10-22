@@ -119,6 +119,22 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("manual admission d
     }, { concurrentTransactions: 4 });
   }, 1_200_000);
 
+  it("should approve without an internal reason and store it as absent, while a reasonless rejection stays denied", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareManualAdmission(database);
+      const submitted = await fixture.repository.submit(fixture.submission);
+      if (submitted.state !== "completed" || !submitted.result.admissionRequestId) throw new Error("Reasonless approval did not produce its original pending request");
+      const requestId = submitted.result.admissionRequestId;
+      const decision = { ...fixture.submission, userId: fixture.leaderId, sessionId: fixture.leaderSessionId, type: "decide_admission_request" as const, admissionRequestId: requestId, expectedVersion: 1, internalReason: "", externalMessage: null };
+      await expect(fixture.repository.decide({ ...decision, operationId: randomUUID(), decision: "reject" })).rejects.toMatchObject({ code: "invalid_input" });
+      const outcome = await fixture.repository.decide({ ...decision, operationId: randomUUID(), decision: "approve" });
+      expect(outcome).toMatchObject({ state: "completed", result: { status: "approved", version: 2 } });
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select outcome,internal_reason from public.academy_admission_decisions where request_id=${requestId}`)).rows).toEqual([{ outcome: "approved", internal_reason: null }]);
+      });
+    });
+  }, 1_200_000);
+
   it("should approve a coherent three-day applied proof snapshot with current guards without repeating contact verification", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const requestId = randomUUID(), proofId = randomUUID(), challengeId = randomUUID(), connectionId = randomUUID(), deliveryId = randomUUID(), bindingId = randomUUID();

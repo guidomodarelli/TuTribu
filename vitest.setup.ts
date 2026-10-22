@@ -1,6 +1,13 @@
 /** Sets up browser test APIs while preserving native HTTP in Node integration suites. */
 import { vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
+import { installExitedBrowserStdioRelease } from "./tests/e2e/support/release-exited-browser-stdio";
+
+/** Native browser suites launch WebKit directly; on Windows its leftover network process would otherwise hang `browser.close()` after every test passed. */
+if (process.env.RUN_ADMISSION_BROWSER_TESTS === "1") {
+  const { webkit } = await import("@playwright/test");
+  installExitedBrowserStdioRelease({ executablePaths: [webkit.executablePath()] });
+}
 
 const RELATIVE_TIME_ELEMENT_TAG = "relative-time";
 

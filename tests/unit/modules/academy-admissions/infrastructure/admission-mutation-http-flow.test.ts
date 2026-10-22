@@ -63,7 +63,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("admission nati
           const cookies = await Promise.all(identities.map(async (identity) => `better-auth.session_token=${encodeURIComponent(`${identity.token}.${await makeSignature(identity.token, secret)}`)}`));
           const policyResponse = await fetch(`${base}/policy`, { headers: { cookie: cookies[0] } });
           expect(policyResponse.status).toBe(200);
-          expect(await policyResponse.json()).toMatchObject({ state: "active", controlActivated: true, policy: { version: 1, contactType: "email", isOpen: true }, preparation: { state: "not_evaluated" }, impact: { pendingRequestCount: 0, historicalLinksProtected: true, contactTypeLocked: true } });
+          expect(await policyResponse.json()).toMatchObject({ state: "active", controlActivated: true, policy: { version: 1, contactType: "email", isOpen: true }, preparation: { state: "evaluated", requirements: [] }, impact: { pendingRequestCount: 0, historicalLinksProtected: true, contactTypeLocked: true } });
           expect((await fetch(`${base}/policy`, { headers: { cookie: cookies[1] } })).status).toBe(403);
           expect((await fetch(`${base}/policy`, { headers: { cookie: cookies[2] } })).status).toBe(403);
           expect(policyResponse.headers.get("cache-control")).toContain("no-store");
@@ -86,7 +86,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("admission nati
           const pendingImpact = await fetch(`${base}/policy`, { headers: { cookie: cookies[0] } });
           expect(pendingImpact.status).toBe(200);
           expect(await pendingImpact.json()).toMatchObject({ impact: { pendingRequestCount: 1 } });
-          const approved = await post(`/requests/${requestId}/decision`, { operationId: randomUUID(), confirmed: true, expectedVersion: 1, decision: "approve", internalReason: "Revisión HTTP sintética" }, cookies[0]);
+          const approved = await post(`/requests/${requestId}/decision`, { operationId: randomUUID(), confirmed: true, expectedVersion: 1, decision: "approve", internalReason: "" }, cookies[0]);
           expect(approved.status).toBe(200);
           expect(await approved.json()).toMatchObject({ admissionRequestId: requestId, status: "approved", version: 2 });
           const resolvedImpact = await fetch(`${base}/policy`, { headers: { cookie: cookies[0] } });
