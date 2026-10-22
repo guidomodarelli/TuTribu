@@ -72,6 +72,12 @@
     list-style: none;
   }
 
+  &__usageRequired {
+    display: grid;
+    min-width: 0;
+    gap: 0.75rem;
+  }
+
   &__empty {
     margin: 0;
     max-width: 60ch;

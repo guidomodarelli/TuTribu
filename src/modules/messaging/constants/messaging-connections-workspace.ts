@@ -20,6 +20,10 @@ export const MESSAGING_CONNECTIONS_FLOW_COPY={
   channelRequired:"Guardá al menos un canal para seguir.",
   /** @param channel - Visible channel label. */
   testRequired:(channel:string)=>`Confirmá el código de ${channel} para seguir.`,
+  /** A test consumes the daily code quota, so it waits until Países y cupos is saved. */
+  usageRequired:"Antes de probar un canal, guardá Países y cupos: la prueba usa el cupo diario de códigos.",
+  usageRequiredDetail:"Elegí los países permitidos y el cupo diario de códigos. Después volvé a este paso para enviar la prueba.",
+  usageLink:"Ir a Países y cupos",
   savedKey:"La clave quedó guardada como conexión candidata. Para usar otra clave, retirá esta conexión desde Seguridad y retiro.",
   security:"Seguridad y retiro",steps:"Volver a los pasos",securityRegion:"Seguridad",
 } as const;
@@ -50,6 +54,8 @@ export const MESSAGING_CONNECTIONS_NEXT_ACTION_COPY={
   untested:(channels:string)=>`Falta ${channels}: todavía no se confirmó un código de prueba.`,
   /** @param channels - Channels whose last test is older than 24 hours. */
   stale:(channels:string)=>`${channels} necesita una prueba nueva: la anterior tiene más de 24 horas.`,
+  /** @param channels - Phone channel labels. */
+  usageRequired:{title:"Guardá Países y cupos",reason:"La prueba de un canal consume el cupo diario de códigos, y la academia todavía no lo guardó.",action:"Ir a Países y cupos"},
   /** @param channels - Phone channel labels. */
   countries:(channels:string)=>({title:"Guardá los países permitidos",reason:`${channels} necesita los países guardados antes de activar.`,action:"Preparar países y cupos"}),
   activateTitle:"Todo listo para activar",

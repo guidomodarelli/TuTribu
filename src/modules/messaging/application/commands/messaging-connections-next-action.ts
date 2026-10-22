@@ -5,6 +5,7 @@ import type {ConnectionDiagnosticIssueResult} from "../../domain/repositories/co
 import {MESSAGING_CAPABILITY_PUBLIC_STATE,MESSAGING_CREDENTIAL_PUBLIC_STATE,MESSAGING_PUBLIC_CHANNEL} from "../../constants/messaging-public-contract";
 import {MESSAGING_CREDENTIAL_MODE} from "../../constants/messaging-credential-validation";
 import {MESSAGING_CONNECTION_STATE} from "../../constants/messaging-connection";
+import {MESSAGING_USAGE_POLICY_STATE} from "../../constants/messaging-limits";
 import {MESSAGING_CONNECTION_DIAGNOSTIC_MAXIMUM_AGE_MS} from "../../constants/messaging-connection-lifecycle";
 import {MESSAGING_CHANNEL_LABEL} from "../../constants/messaging-connection-presentation";
 import {MESSAGING_CONNECTIONS_NEXT_ACTION_COPY as COPY,MESSAGING_CONNECTIONS_NEXT_STEP,MESSAGING_CONNECTIONS_STEP_KIND,type MessagingConnectionsNextActionTarget,type MessagingConnectionsNextStep} from "../../constants/messaging-connections-workspace";
@@ -68,6 +69,8 @@ export function resolveMessagingConnectionsNextAction(input:{selected:MessagingC
   const untested=usable.filter((capability)=>capability.state===MESSAGING_CAPABILITY_PUBLIC_STATE.unprepared).map((capability)=>capability.channel);
   const stale=activeSelection?[]:usable.filter((capability)=>capability.state===MESSAGING_CAPABILITY_PUBLIC_STATE.prepared&&!isMessagingCapabilityFreshlyTested(capability,nowMs)).map((capability)=>capability.channel);
   const[firstPending]=[...untested,...stale];
+  // Every test consumes the daily code quota, so a pending test first needs Países y cupos saved.
+  if(firstPending&&usage.state===MESSAGING_USAGE_POLICY_STATE.notConfigured)return{step:MESSAGING_CONNECTIONS_NEXT_STEP.testChannel,...COPY.usageRequired,target:{kind:"usage"},channel:firstPending};
   if(firstPending){
     const reason=[verified.length?COPY.verified(joinChannels(verified),verified.length>1):"",untested.length?COPY.untested(joinChannels(untested)):"",stale.length?COPY.stale(joinChannels(stale)):""].filter(Boolean).join(" ");
     return{step:MESSAGING_CONNECTIONS_NEXT_STEP.testChannel,title:COPY.testTitle(joinChannels([...untested,...stale])),reason,action:COPY.testAction(MESSAGING_CHANNEL_LABEL[firstPending]),target:TARGET.test,channel:firstPending};

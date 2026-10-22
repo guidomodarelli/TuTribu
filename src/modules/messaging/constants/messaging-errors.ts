@@ -19,6 +19,8 @@ export const MESSAGING_ERROR_CODE = {
   /** Kept only for persisted audit values and responses from older servers; current writers never emit it. */
   reauthenticationRequired: "reauthentication_required",
   connectionIncomplete: "connection_incomplete",
+  /** The academy has not saved its countries and daily quotas yet; distinct from an incomplete connection. */
+  usagePolicyMissing: "usage_policy_missing",
   missingCapability: "missing_capability",
   invalidCredentials: "invalid_credentials",
   upstreamRejected: "upstream_rejected",
@@ -51,6 +53,7 @@ export const MESSAGING_ERROR_MESSAGE = {
   [MESSAGING_ERROR_CODE.verificationAttemptsExceeded]: "Alcanzaste el límite de intentos de esta prueba. Esperá antes de intentar otra vez.",
   [MESSAGING_ERROR_CODE.reauthenticationRequired]: "Tu sesión cambió. Recargá la página e intentá de nuevo.",
   [MESSAGING_ERROR_CODE.connectionIncomplete]: "La academia todavía no tiene preparada la conexión necesaria.",
+  [MESSAGING_ERROR_CODE.usagePolicyMissing]: "Antes de probar un canal, guardá Países y cupos: la prueba usa el cupo diario de códigos.",
   [MESSAGING_ERROR_CODE.missingCapability]: "La academia todavía no tiene preparado el canal necesario.",
   [MESSAGING_ERROR_CODE.invalidCredentials]: "El líder debe revisar las credenciales de mensajería de la academia.",
   [MESSAGING_ERROR_CODE.upstreamRejected]: "El proveedor rechazó la operación. Revisá la configuración antes de intentar otra vez.",

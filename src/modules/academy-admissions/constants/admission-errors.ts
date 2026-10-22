@@ -6,7 +6,7 @@ export type AdmissionErrorCode =
   | "connection_conflict" | "recipient_not_allowed" | "contact_evidence_required" | "additional_verification_required"
   | "contact_binding_conflict" | "challenge_expired" | "challenge_invalidated" | "proof_unavailable"
   | "verification_attempts_exceeded" | "usage_limit_reached" | "verification_code_incorrect" | "reauthentication_required"
-  | "admissions_paused" | "admission_ineligible" | "membership_recovery_required" | "connection_incomplete"
+  | "admissions_paused" | "admission_ineligible" | "membership_recovery_required" | "connection_incomplete" | "usage_policy_missing"
   | "missing_capability" | "invalid_credentials" | "upstream_rejected" | "provider_rate_limited"
   | "transport_timeout" | "dependency_unavailable" | "delivery_unknown" | "operation_unresolved"
   | "upstream_payload_unusable" | "public_contract_unusable" | "unexpected_failure" | "whatsapp_number_required";
@@ -43,6 +43,8 @@ export const ADMISSION_ERROR_CODE = {
   admissionIneligible: "admission_ineligible",
   membershipRecoveryRequired: "membership_recovery_required",
   connectionIncomplete: "connection_incomplete",
+  /** The academy has not saved its countries and daily quotas yet; distinct from an incomplete connection. */
+  usagePolicyMissing: "usage_policy_missing",
   missingCapability: "missing_capability",
   invalidCredentials: "invalid_credentials",
   upstreamRejected: "upstream_rejected",
@@ -87,6 +89,7 @@ export const ADMISSION_ERROR_MESSAGE = {
   [ADMISSION_ERROR_CODE.admissionIneligible]: "Falta un requisito actual para resolver el ingreso. Consultá el estado de la solicitud.",
   [ADMISSION_ERROR_CODE.membershipRecoveryRequired]: "La recuperación de tu pertenencia requiere asistencia autorizada.",
   [ADMISSION_ERROR_CODE.connectionIncomplete]: "La academia todavía no tiene preparada la conexión necesaria.",
+  [ADMISSION_ERROR_CODE.usagePolicyMissing]: "La academia todavía no tiene preparados los cupos de mensajería.",
   [ADMISSION_ERROR_CODE.missingCapability]: "La academia todavía no tiene preparado el canal necesario.",
   [ADMISSION_ERROR_CODE.invalidCredentials]: "El líder debe revisar las credenciales de mensajería de la academia.",
   [ADMISSION_ERROR_CODE.upstreamRejected]: "El proveedor rechazó la operación. Revisá la configuración antes de intentar otra vez.",

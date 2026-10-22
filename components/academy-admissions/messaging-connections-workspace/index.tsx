@@ -41,6 +41,14 @@ export function MessagingConnectionsStepNote({children}:{children:ReactNode}){
   return<p className={styles.MessagingConnectionsWorkspace__empty}>{children}</p>;
 }
 
+/** @param props - Messaging usage page. @returns Why a test step cannot send yet and the link to Países y cupos, in place of the test form; nothing is sent from here. */
+export function MessagingConnectionsUsageRequired({usageHref}:{usageHref:string}){
+  return<div className={styles.MessagingConnectionsWorkspace__usageRequired}>
+    <p className={styles.MessagingConnectionsWorkspace__empty}>{MESSAGING_CONNECTIONS_FLOW_COPY.usageRequiredDetail}</p>
+    <div><ButtonLink href={usageHref} variant="secondary" size="sm">{MESSAGING_CONNECTIONS_FLOW_COPY.usageLink}</ButtonLink></div>
+  </div>;
+}
+
 /** @param props - Restore buttons for archived originals. @returns A secondary list that explains that archiving neither cancelled nor repeated anything. */
 export function MessagingConnectionsPreservedAttempts({children}:{children:ReactNode}){
   return<section className={styles.MessagingConnectionsWorkspace__preserved} aria-label="Intentos conservados"><h2 className={styles.MessagingConnectionsWorkspace__preservedTitle}>Intentos conservados</h2><p className={styles.MessagingConnectionsWorkspace__empty}>Estas referencias siguen disponibles para consultar el resultado original. Guardarlas no canceló ni repitió operaciones.</p><div className={styles.MessagingConnectionsWorkspace__preservedActions}>{children}</div></section>;

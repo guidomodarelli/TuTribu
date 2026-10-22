@@ -32,6 +32,7 @@ export const ADMISSION_ERROR_HTTP_STATUS = {
   [ADMISSION_ERROR_CODE.admissionIneligible]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.membershipRecoveryRequired]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.connectionIncomplete]: HTTP_STATUS.conflict,
+  [ADMISSION_ERROR_CODE.usagePolicyMissing]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.missingCapability]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.invalidCredentials]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.upstreamRejected]: HTTP_STATUS.unprocessableEntity,

@@ -29,9 +29,10 @@ export const contactVerificationIssuanceSnapshotSchema = z.union([
  * @param phone - Whether to seed the SMS/phone resource instead of the mail resource.
  * @param emailSenderId - Synthetic sender fixed when the immutable version is inserted.
  * @param securityConfig - Optional explicit synthetic hosting scope used by the native Next process.
+ * @param withUsagePolicy - Whether the tribe has saved Países y cupos; false reproduces a tribe that never saved them.
  * @returns The real ledger/issuer flow and synthetic private account/security scope.
  */
-export async function prepareContactVerificationIssuer(database: AcademyAdmissionTestDatabase, purpose: VerificationChallengeScope["purpose"] = "admission", phone = false, emailSenderId = "synthetic-email-sender", securityConfig?: MessagingSecurityConfig) {
+export async function prepareContactVerificationIssuer(database: AcademyAdmissionTestDatabase, purpose: VerificationChallengeScope["purpose"] = "admission", phone = false, emailSenderId = "synthetic-email-sender", securityConfig?: MessagingSecurityConfig, withUsagePolicy = true) {
   const fixture = await prepareContactVerificationDatabase(database, securityConfig);
   await database.applyMigration("20261007231500_bind_verification_operation_purpose.sql");
   await database.applyMigration("20261005101000_guard_admission_operation_identity.sql");
@@ -43,7 +44,7 @@ export async function prepareContactVerificationIssuer(database: AcademyAdmissio
     const envelope = await createMessagingSecretCipher(fixture.config).seal(credential, { tribeId, connectionId, connectionVersion: 1, resourceId: secretRef });
     await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${tribeId},'Synthetic issuing tribe',${`issue-${tribeId}`},${fixture.userId})`);
     await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${fixture.userId},'leader','active')`);
-    await transaction.execute(sql`insert into public.messaging_usage_policies(tribe_id) values (${tribeId})`);
+    if (withUsagePolicy) await transaction.execute(sql`insert into public.messaging_usage_policies(tribe_id) values (${tribeId})`);
     await transaction.execute(sql`insert into public.tenant_messaging_connections(id,tribe_id,contributed_by_user_id,state,environment,security_epoch,is_selected,is_candidate,selected_version,candidate_version) values (${connectionId},${tribeId},${fixture.userId},${diagnostic ? "draft" : "active"},${fixture.config.environment},${scope.securityEpoch},${!diagnostic},${diagnostic},${diagnostic ? null : 1},${diagnostic ? 1 : null})`);
     await transaction.execute(sql`insert into public.messaging_connection_versions(connection_id,tribe_id,version,environment,security_epoch,secret_ref,email_sender_id,sms_sender_id,whatsapp_sender_id,whatsapp_template_id,whatsapp_template_language,credential_validation_status,credential_validated_at,is_test_mode) values (${connectionId},${tribeId},1,${fixture.config.environment},${scope.securityEpoch},${secretRef},${emailSenderId},'synthetic-sms-sender',${phone ? "synthetic-whatsapp-sender" : null},${phone ? "synthetic-otp-template" : null},${phone ? "es" : null},'valid',clock_timestamp(),${diagnostic})`);
     await transaction.execute(sql`insert into public.messaging_secret_envelopes(secret_ref,tribe_id,connection_id,connection_version,environment,security_epoch,key_id,iv,ciphertext) values (${secretRef},${tribeId},${connectionId},1,${envelope.environment},${envelope.securityEpoch},${envelope.keyId},${Buffer.from(envelope.iv)},${Buffer.from(envelope.ciphertext)})`);

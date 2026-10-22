@@ -22,6 +22,8 @@ import {MESSAGING_ERROR_CODE,MESSAGING_ERROR_MESSAGE} from "@/src/modules/messag
 import {MESSAGING_DIAGNOSTIC_UI_COPY} from "@/src/modules/messaging/constants/messaging-diagnostic-browser";
 import {MESSAGING_RESOURCE_UI_COPY} from "@/src/modules/messaging/constants/messaging-resources-browser";
 import {OPERATION_STATE} from "@/src/constants/operation-state";
+import {createMessagingDiagnosticBrowserClient} from "@/lib/messaging/messaging-diagnostic-api-client";
+import {createMessagingConnectionsBrowserClient} from "@/lib/messaging/messaging-connections-api-client";
 import {REAUTHENTICATION_OPERATION} from "@/src/modules/auth/constants/reauthentication-resources";
 
 /** @param ui - The container under test. @returns Its render next to the app's real toaster, where operation results are announced. */
@@ -44,9 +46,11 @@ async function openTab(name:string){
   }
   throw new Error(`Could not reach step ${name}`);
 }
+/** Países y cupos saved with the default row: quotas exist, no phone country is allowed yet. */
+const savedUsageWithoutCountries={state:"configured" as const,policy:{version:1,allowedCountries:[] as string[],verificationDailyLimit:100,notificationDailyLimit:200,platformMaximums:{verificationDailyLimit:1000,notificationDailyLimit:5000},consumption:{verificationToday:0,notificationToday:0}}};
 /** @returns Guarded own SSR state and readonly/writing ports without auth/platform mocks. */
 function containerFixture(){
-  const viewerId=randomUUID(),tribeId=randomUUID(),configuration={audience:"leader" as const,selected:null,candidate:null,usage:{state:"not_configured" as const,policy:null}},initialState:MessagingConnectionsPageState={kind:"ready",slug:"synthetic",tribeId,viewerId,renderedAt:new Date().toISOString(),configuration,providerCatalog:[{id:"zavu",channels:["email","sms","whatsapp"]}]},connectionId=randomUUID();
+  const viewerId=randomUUID(),tribeId=randomUUID(),configuration={audience:"leader" as const,selected:null,candidate:null,usage:savedUsageWithoutCountries},initialState:MessagingConnectionsPageState={kind:"ready",slug:"synthetic",tribeId,viewerId,renderedAt:new Date().toISOString(),configuration,providerCatalog:[{id:"zavu",channels:["email","sms","whatsapp"]}]},connectionId=randomUUID();
   const create=vi.fn<MessagingConnectionsBrowserClient["create"]>(async(_slug,input)=>({status:"ready",value:{state:"completed",operationId:input.operationId,replayed:false,result:{id:connectionId,name:input.name,version:1,configurationVersion:1,state:"draft",maskedCredential:"••••••••"}}})),client:MessagingConnectionsBrowserClient={viewer:vi.fn<MessagingConnectionsBrowserClient["viewer"]>(async()=>({status:"ready",value:{id:viewerId}})),read:vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:configuration})),create,validate:vi.fn<MessagingConnectionsBrowserClient["validate"]>(async()=>({status:"failed",code:"resource_unavailable",message:"No disponible.",uncertain:false})),operation:vi.fn<MessagingConnectionsBrowserClient["operation"]>(async()=>({status:"failed",code:"resource_unavailable",message:"No disponible.",uncertain:false}))},store={read:vi.fn<MessagingConnectionsIntentStore["read"]>(()=>null),write:vi.fn<MessagingConnectionsIntentStore["write"]>(()=>true),history:vi.fn<MessagingConnectionsIntentStore["history"]>(()=>[]),archive:vi.fn<MessagingConnectionsIntentStore["archive"]>(()=>true),diagnostic:vi.fn<MessagingConnectionsIntentStore["diagnostic"]>(()=>null),writeDiagnostic:vi.fn<MessagingConnectionsIntentStore["writeDiagnostic"]>(()=>true)};
   return{initialState,viewerId,tribeId,connectionId,configuration,client,create,store:{...store,diagnostics:vi.fn<()=>MessagingDiagnosticObservationReference[]>(()=>[])}};
 }
@@ -242,6 +246,16 @@ describe("connection wizard first container step",()=>{
     await user.click(screen.getByRole("checkbox",{name:/Confirmo que quiero comprobar/i}));await user.click(screen.getByRole("button",{name:"Comprobar credencial"}));
     await waitFor(()=>expect(screen.getByText("Cuenta de prueba")).toBeVisible());expect(screen.getByText("Credencial comprobada")).toBeVisible();expect(screen.getByText("Borrador")).toBeVisible();expect(screen.queryByText("Canal comprobado")).not.toBeInTheDocument();expect(validate).toHaveBeenCalledTimes(1);expect(validate.mock.calls[0]).toEqual(["synthetic",fixture.connectionId,expect.objectContaining({expectedVersion:1,confirmed:true}),expect.any(AbortSignal)]);expect(fixture.create).not.toHaveBeenCalled();expect(fixture.client.read).toHaveBeenCalledTimes(1);
   });
+  it("should close a completed rejected credential check and show the current candidate instead of keeping it pending",async()=>{
+    const fixture=containerFixture(),user=userEvent.setup(),candidate={id:fixture.connectionId,name:"Zavu rechazada",version:1,configurationVersion:1,state:"draft" as const,credentialState:"not_validated" as const,credentialMode:"unknown" as const,maskedCredential:"••••••••" as const,capabilities:[]};
+    // The real browser client over the owned HTTP boundary receives the route's completed failure.
+    const transport=vi.fn<typeof fetch>(async(_url,init)=>{const body=JSON.parse(String(init?.body)) as {operationId:string};return Response.json({code:MESSAGING_ERROR_CODE.invalidCredentials,message:MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.invalidCredentials],requestId:randomUUID(),operation:{operationId:body.operationId,state:OPERATION_STATE.completed}},{status:409});});
+    fixture.client.validate=createMessagingConnectionsBrowserClient({fetch:transport}).validate;fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:{...fixture.configuration,candidate:{...candidate,version:2,credentialState:"invalid"}}}));
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={{...fixture.initialState,kind:"ready",configuration:{...fixture.configuration,candidate}}} />);await openTab("Conexión");await waitFor(()=>expect(screen.getByRole("checkbox",{name:/Confirmo que quiero comprobar/i})).toBeEnabled());
+    await user.click(screen.getByRole("checkbox",{name:/Confirmo que quiero comprobar/i}));await user.click(screen.getByRole("button",{name:"Comprobar credencial"}));
+    await waitFor(()=>expect(screen.getAllByText("Credencial no válida")[0]).toBeVisible());expect(transport).toHaveBeenCalledTimes(1);expect(fixture.client.read).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button",{name:"Consultar guardado"})).not.toBeInTheDocument();expect(await screen.findByText(MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.invalidCredentials])).toBeVisible();
+  });
   it("should reconcile current preparation after invalid credential validation and preserve the original when that read fails",async()=>{
     const fixture=containerFixture(),user=userEvent.setup(),candidate={id:fixture.connectionId,name:"Candidata preparada",version:4,configurationVersion:2,state:"ready" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,capabilities:[]},initialState:MessagingConnectionsPageState={...fixture.initialState,kind:"ready",configuration:{...fixture.configuration,candidate}};
     fixture.client.validate=vi.fn<MessagingConnectionsBrowserClient["validate"]>(async(_slug,id,input)=>({status:"ready",value:{state:"completed",operationId:input.operationId,replayed:false,result:{id,version:5,configurationVersion:2,credentialState:"invalid",credentialMode:"unknown",validatedAt:new Date().toISOString(),failureCode:"invalid_credentials"}}}));
@@ -363,6 +377,38 @@ describe("connection wizard first container step",()=>{
     await openTab("Pruebas");
     await waitFor(()=>expect(screen.getByLabelText("Código recibido")).toBeVisible());expect(screen.getByLabelText("Destino de la prueba")).toHaveValue("");expect(diagnosticClient.issue).toHaveBeenCalledTimes(1);expect(JSON.stringify(fixture.store.write.mock.calls)).not.toContain("diagnostic@example.test");expect(diagnosticClient.verify).not.toHaveBeenCalled();await user.click(screen.getByRole("button",{name:"Consultar entrega de la prueba"}));await waitFor(()=>expect(diagnosticClient.delivery).toHaveBeenCalledTimes(1));expect(screen.getByText("Aceptada por el proveedor")).toBeVisible();expect(diagnosticClient.verify).not.toHaveBeenCalled();
     await user.type(screen.getByLabelText("Código recibido"),"123456");await user.click(screen.getByRole("button",{name:"Confirmar código recibido"}));await waitFor(()=>expect(diagnosticClient.verify).toHaveBeenCalledTimes(1));expect(JSON.stringify(fixture.store.write.mock.calls)).not.toContain("123456");expect(diagnosticClient.issue).toHaveBeenCalledTimes(1);await waitFor(()=>expect(screen.getByLabelText("Código recibido")).toHaveValue(""));expect(screen.queryByRole("heading",{name:"Prueba confirmada"})).not.toBeInTheDocument();expect(screen.getByRole("heading",{name:"Prueba en curso"})).toBeVisible();expect(screen.getByText(/El código vence/)).toBeVisible();
+  });
+
+  it("should close a test the server denied for good and send the next one with a new operation, without replaying the denial",async()=>{
+    const fixture=containerFixture(),user=userEvent.setup(),candidate={id:fixture.connectionId,name:"Candidata denegada",version:3,configurationVersion:2,state:"draft" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,capabilities:[{channel:"email" as const,state:"unprepared" as const,checkedAt:new Date().toISOString(),testedAt:null}]};
+    const configuration={...fixture.configuration,candidate},operationIds:string[]=[];fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:configuration}));
+    // The real browser client over the owned HTTP boundary: the first send gets the route's completed denial, the next one is issued.
+    const transport=vi.fn<typeof fetch>(async(_url,init)=>{const body=JSON.parse(String(init?.body)) as {operationId:string};operationIds.push(body.operationId);
+      if(operationIds.length===1)return Response.json({code:MESSAGING_ERROR_CODE.usagePolicyMissing,message:MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.usagePolicyMissing],requestId:randomUUID(),operation:{operationId:body.operationId,state:OPERATION_STATE.completed}},{status:409});
+      return Response.json({operationId:body.operationId,state:OPERATION_STATE.completed,replayed:false,result:{outcome:"issued",diagnosticId:randomUUID(),challengeId:randomUUID(),deliveryId:randomUUID(),connectionId:fixture.connectionId,connectionVersion:2,channel:"email",maskedDestination:"d•••@example.test",expiresAt:new Date(Date.now()+600_000).toISOString(),resendAllowedAt:new Date(Date.now()+60_000).toISOString()}});});
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={{...fixture.initialState,kind:"ready",configuration}} diagnosticClient={createMessagingDiagnosticBrowserClient({fetch:transport})} />);
+    const send=async()=>{await openTab("Probar Correo");await waitFor(()=>expect(screen.getByLabelText("Destino de la prueba")).toBeEnabled());await user.type(screen.getByLabelText("Destino de la prueba"),"diagnostic@example.test");await user.click(screen.getByRole("checkbox",{name:/Confirmo el destino y el consumo/i}));await user.click(screen.getByRole("button",{name:"Enviar código de prueba"}));};
+    await send();await waitFor(()=>expect(transport).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.usagePolicyMissing])).toBeVisible();
+    // A completed denial is an answer, not an uncertain original: nothing stays pending to be consulted and replayed.
+    await waitFor(()=>expect(screen.getByLabelText("Destino de la prueba")).toBeEnabled());expect(screen.queryByRole("button",{name:"Consultar guardado"})).not.toBeInTheDocument();expect(fixture.client.operation).not.toHaveBeenCalled();
+    await user.clear(screen.getByLabelText("Destino de la prueba"));await send();await waitFor(()=>expect(transport).toHaveBeenCalledTimes(2));
+    expect(new Set(operationIds).size).toBe(2);expect(await screen.findByRole("heading",{name:"Prueba en curso"})).toBeVisible();
+  });
+
+  it("should block a channel test before sending while Países y cupos was never saved and link to it",async()=>{
+    const fixture=containerFixture(),candidate={id:fixture.connectionId,name:"Candidata sin cupos",version:3,configurationVersion:2,state:"draft" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,capabilities:[{channel:"email" as const,state:"unprepared" as const,checkedAt:new Date().toISOString(),testedAt:null}]};
+    const configuration={...fixture.configuration,candidate,usage:{state:"not_configured" as const,policy:null}},diagnosticClient:MessagingDiagnosticBrowserClient={issue:vi.fn<MessagingDiagnosticBrowserClient["issue"]>(async()=>({status:"failed",code:"usage_policy_missing",message:"No disponible.",uncertain:false})),verify:vi.fn<MessagingDiagnosticBrowserClient["verify"]>(async()=>({status:"failed",code:"resource_unavailable",message:"No disponible.",uncertain:false})),delivery:vi.fn<MessagingDiagnosticBrowserClient["delivery"]>(async()=>({status:"failed",code:"resource_unavailable",message:"No disponible.",uncertain:false}))};
+    fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:configuration}));
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={{...fixture.initialState,kind:"ready",configuration}} diagnosticClient={diagnosticClient} />);
+    // The flow opens on the waiting test step: the link replaces the send form and the reason keeps Siguiente disabled.
+    const step=await screen.findByRole("group",{name:"Probar Correo"});
+    expect(screen.getByText("Antes de probar un canal, guardá Países y cupos: la prueba usa el cupo diario de códigos.")).toBeVisible();
+    expect(within(step).getByRole("link",{name:"Ir a Países y cupos"})).toHaveAttribute("href","/synthetic/academia/admissions/messaging");
+    expect(screen.queryByRole("button",{name:"Enviar código de prueba"})).not.toBeInTheDocument();expect(within(step).queryByLabelText("Destino de la prueba")).not.toBeInTheDocument();
+    expect(screen.getByRole("button",{name:"Siguiente"})).toBeDisabled();expect(screen.getByRole("button",{name:"Siguiente"})).toHaveAccessibleDescription("Antes de probar un canal, guardá Países y cupos: la prueba usa el cupo diario de códigos.");
+    const next=screen.getByRole("group",{name:"Próxima acción"});expect(next).toHaveTextContent("Guardá Países y cupos");
+    expect(diagnosticClient.issue).not.toHaveBeenCalled();
   });
 
   it("should block a phone diagnostic without saved countries and preserve the same original after an uncertain email issue",async()=>{

@@ -12,7 +12,7 @@ const usage={state:"configured" as const,policy:{version:1,allowedCountries:["AR
 
 /** @param connections - Selected and candidate metadata that decide the steps and the next action. @param current - Open step. @returns Controlled props with labelled step contents, without session, provider or storage. */
 function workspaceProps(connections:{selected:MessagingConnectionsWorkspaceProps["selected"];candidate:MessagingConnectionsWorkspaceProps["candidate"]}={selected:null,candidate},current=0):MessagingConnectionsWorkspaceProps{
-  const flow=resolveMessagingConnectionsFlow({candidate:connections.candidate,observedAt:now});
+  const flow=resolveMessagingConnectionsFlow({candidate:connections.candidate,usage,observedAt:now});
   return{...connections,nextAction:resolveMessagingConnectionsNextAction({...connections,usage,observedAt:now}),nextActionInView:false,usageHref:"/academia/admissions/messaging",busy:false,
     steps:flow.map((step)=>({id:step.id,title:step.title,description:step.description,content:<p>{`Contenido de ${step.title}`}</p>,blockedReason:step.blockedReason??undefined})),current,onCurrentChange:vi.fn(),
     finalAction:{label:"Activar conexión",disabled:true,onRun:vi.fn()},security:<p>Panel de seguridad</p>,securityOpen:false,onSecurityToggle:vi.fn(),onNextAction:vi.fn(),onReadCurrent:vi.fn()};
