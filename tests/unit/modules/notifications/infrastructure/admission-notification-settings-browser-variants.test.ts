@@ -4,7 +4,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { sql } from "drizzle-orm";
-import { chromium } from "@playwright/test";
+import { chromium, webkit } from "@playwright/test";
 import { makeSignature } from "better-auth/crypto";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
@@ -22,10 +22,12 @@ import { authorizeAdmissionPolicy } from "@/src/modules/academy-admissions/infra
 import { admissionEmailSettingsChangeResultSchema } from "@/src/modules/notifications/application/results/admission-email-settings-result-schemas";
 
 /** Each bounded flow owns its database and process; separating them does not extend either deadline. */
-const scenarios = [{ name: "validation" }, { name: "recovery" }];
+const scenarios = (["validation", "recovery"] as const).flatMap((name) => [
+  { name, engine: chromium, width: 1280 }, { name, engine: chromium, width: 390 }, { name, engine: webkit, width: 1280 }, { name, engine: webkit, width: 390 },
+]);
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native admission notification settings recovery variants", () => {
-  it.each(scenarios)("should exercise native $name controls without automatic retries or provider sends", async (scenario) => {
+  it.each(scenarios)("should exercise native $name controls without automatic retries or provider sends at $width px", async (scenario) => {
     let stage = "prepare_variant_database";
     const captures: string[] = [];
     try {
@@ -45,8 +47,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
         const artifacts = process.env.ADMISSION_NOTIFICATION_SETTINGS_ARTIFACT_ROOT ?? join(process.cwd(), "test-results", "admission-notification-settings-variants");
         await mkdir(artifacts, { recursive: true });
         await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
-          const browser = await chromium.launch({ headless: true });
-          const context = await browser.newContext({ viewport: { width: 1280, height: VALIDATION.height }, reducedMotion: "reduce" });
+          const browser = await scenario.engine.launch({ headless: true });
+          const context = await browser.newContext({ viewport: { width: scenario.width, height: VALIDATION.height }, reducedMotion: "reduce" });
           let releaseAuthentication = () => {}, holdAuthentication = scenario.name === "validation";
           const authenticationBarrier = new Promise<void>((resolve) => { releaseAuthentication = resolve; });
           const intercepted: Promise<void>[] = [];
@@ -75,9 +77,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await page.getByRole("button", { name: "Consultar estado actual", exact: true }).click(); expect((await response).status()).toBe(200); await ready();
             };
             /** Exports only the real named page surface with synthetic identities excluded. */
-            const capture = async (name: string) => { await captureAdmissionReview(page, name, forbidden, `notification-settings-${scenario.name}-captures.json`, { selector: 'section[aria-label="Avisos de admisión"]' }); captures.push(name); };
+            const capture = async (name: string) => { if (scenario.engine !== chromium || scenario.width !== 1280) return; await captureAdmissionReview(page, name, forbidden, `notification-settings-${scenario.name}-captures.json`, { selector: 'section[aria-label="Avisos de admisión"]' }); captures.push(name); };
             /** Records bounded diagnostic progress even if the test deadline later interrupts the flow. */
-            const mark = async (value: string) => { stage = value; await writeFile(join(artifacts, `${scenario.name}-progress.json`), JSON.stringify({ stage, at: new Date().toISOString(), captures, emailWrites }, null, 2)); };
+            const mark = async (value: string) => { stage = value; await writeFile(join(artifacts, `${scenario.name}-${scenario.engine.name()}-${scenario.width}-progress.json`), JSON.stringify({ stage, at: new Date().toISOString(), captures, emailWrites }, null, 2)); };
             try {
               if (scenario.name === "validation") {
               await mark("loading_native_identity");
@@ -221,7 +223,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               const effects = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select (select count(*)::int from public.message_deliveries where tribe_id=${tribeId}) as deliveries,(select count(*)::int from public.academy_admission_policies where tribe_id=${tribeId}) as policies`)).rows[0]);
               expect(effects).toEqual({ deliveries: 0, policies: 0 });
               await mark("completed");
-              await writeFile(join(artifacts, `${scenario.name}-native-variants-proof.json`), JSON.stringify({ completedAt: new Date().toISOString(), scenario: scenario.name, captures, emailWrites, finalSettingsVersion, ...(scenario.name === "recovery" ? { activeLeasePreserved: true, expiredOriginalResumed: true, originalBodyPreserved: true, readFailureRetriedWithoutWrite: true } : {}), errors, effects, externalMessagesSent: 0 }, null, 2));
+              await writeFile(join(artifacts, `${scenario.name}-${scenario.engine.name()}-${scenario.width}-native-variants-proof.json`), JSON.stringify({ completedAt: new Date().toISOString(), scenario: scenario.name, captures, emailWrites, finalSettingsVersion, ...(scenario.name === "recovery" ? { activeLeasePreserved: true, expiredOriginalResumed: true, originalBodyPreserved: true, readFailureRetriedWithoutWrite: true } : {}), errors, effects, externalMessagesSent: 0 }, null, 2));
             } finally {
               holdAuthentication = false; releaseAuthentication(); await Promise.allSettled(intercepted);
             }
