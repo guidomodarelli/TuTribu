@@ -59,7 +59,7 @@ import {REAUTHENTICATION_OPERATION} from "@/src/modules/auth/constants/reauthent
 import {MESSAGING_ERROR_MESSAGE,MESSAGING_ERROR_CODE} from "@/src/modules/messaging/constants/messaging-errors";
 import {TRIBE_MEMBER_ROLE} from "@/src/modules/tribes/constants/tribe-member-role";
 import {OPERATION_STATE} from "@/src/constants/operation-state";
-import {MESSAGING_CONNECTION_HISTORY_LIMIT} from "@/src/modules/messaging/constants/messaging-connections-browser";
+import {MESSAGING_CONNECTION_HISTORY_LIMIT,MESSAGING_CONNECTIONS_RESTORED_SNAPSHOT_MAX_AGE_MS} from "@/src/modules/messaging/constants/messaging-connections-browser";
 
 /** Own ports may be injected; real auth/shared UI remain the production defaults. */
 type ContainerProps={initialState:MessagingConnectionsPageState;client?:MessagingConnectionsBrowserClient;store?:MessagingConnectionsIntentStore;resourcesClient?:MessagingResourcesBrowserClient;diagnosticClient?:MessagingDiagnosticBrowserClient;activationClient?:MessagingActivationBrowserClient;lifecycleClient?:MessagingLifecycleBrowserClient};
@@ -160,6 +160,10 @@ export function MessagingConnectionsContainer({initialState,client=messagingConn
           const current=await client.read(ready.slug,controller.signal);if(controller.signal.aborted||!mounted.current)return;if(!await restoreViewer(controller.signal))return;
           if(current.status==="ready"){applyConfiguration(current.value);const applies=current.value.audience===TRIBE_MEMBER_ROLE.leader&&current.value.candidate?.id===reference.connectionId&&current.value.candidate.configurationVersion===reference.configurationVersion;if(applies){restoreDiagnostic(original.value.result);if(!isMessagingDiagnosticSettled(original.value.result,current.value.audience===TRIBE_MEMBER_ROLE.leader?current.value.candidate:null)){setCurrentStepId(messagingConnectionsStepId(STEP_KIND.test,original.value.result.channel));setSecurityOpen(false);}}else toastMessagingRead({kind:"status",text:DIAGNOSTIC_COPY.originalHistorical});}else toastMessagingRead({kind:"alert",text:DIAGNOSTIC_COPY.pending});
         }else toastMessagingRead({kind:"alert",text:DIAGNOSTIC_COPY.pending});
+      }else if(Date.now()-Date.parse(ready.renderedAt)>MESSAGING_CONNECTIONS_RESTORED_SNAPSHOT_MAX_AGE_MS){
+        // A snapshot restored by Atrás may predate a change saved on another page (Países y cupos), so read the current state once.
+        const current=await client.read(ready.slug,controller.signal);if(controller.signal.aborted||!mounted.current)return;if(!await restoreViewer(controller.signal))return;
+        if(current.status==="ready")applyConfiguration(current.value);
       }
     }setPhase(PHASE.idle);}void restore().catch(()=>{if(controller.signal.aborted||!mounted.current)return;setApiKey("");setPhase(PHASE.unavailable);setNotice(COPY.storageUnavailable);});return()=>{mounted.current=false;controller.abort();observation.current?.abort();};},[ready,client,store]);
   /** @returns Nothing after field validation and a single explicit original write; lost responses preserve reference but erase the key. */

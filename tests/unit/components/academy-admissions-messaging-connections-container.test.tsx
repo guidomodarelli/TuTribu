@@ -67,6 +67,20 @@ function selectedCandidateFixture(){
 describe("connection wizard first container step",()=>{
   // Sonner keeps toasts in a module-level store and replays active ones to a new toaster; each test starts without them.
   afterEach(()=>{toast.dismiss();});
+  it("should read the current state once when the page was restored from an older snapshot, so Países y cupos saved elsewhere unblocks the test",async()=>{
+    const fixture=selectedCandidateFixture(),notConfigured={state:"not_configured" as const,policy:null},untested={...fixture.candidate,capabilities:[{...fixture.candidate.capabilities[0],state:MESSAGING_CAPABILITY_PUBLIC_STATE.unprepared,testedAt:null}]};
+    const restored={...fixture.initialState,renderedAt:new Date(Date.now()-60_000).toISOString(),configuration:{...fixture.configuration,selected:null,candidate:untested,usage:notConfigured}} as MessagingConnectionsPageState;
+    fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:{...fixture.configuration,selected:null,candidate:untested,usage:{...savedUsageWithoutCountries,policy:{...savedUsageWithoutCountries.policy,allowedCountries:["AR"]}}}}));
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={restored} />);
+    await waitFor(()=>expect(screen.getByText("Falta probar Correo")).toBeVisible());
+    await waitFor(()=>expect(screen.queryByText("Guardá Países y cupos")).not.toBeInTheDocument());expect(fixture.client.read).toHaveBeenCalledTimes(1);
+  });
+  it("should not read again on mount when the server snapshot is fresh",async()=>{
+    const fixture=selectedCandidateFixture();
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} />);
+    await waitFor(()=>expect(fixture.client.viewer).toHaveBeenCalled());await waitFor(()=>expect(screen.getByText("Conexión candidata")).toBeVisible());
+    expect(fixture.client.read).not.toHaveBeenCalled();
+  });
   it("should preserve an existing active selection after a separate candidate credential is confirmed invalid",async()=>{
     const fixture=selectedCandidateFixture(),user=userEvent.setup();
     const activationClient:MessagingActivationBrowserClient={activate:vi.fn()};

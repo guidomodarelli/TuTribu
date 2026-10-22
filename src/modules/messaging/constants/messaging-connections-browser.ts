@@ -13,6 +13,8 @@ export const MESSAGING_CONNECTIONS_WRITE_ACTION={saveConnection:"saveConnection"
 export const MESSAGING_CONNECTIONS_INTENT_STORAGE_PREFIX="tutribu:messaging-connection-intent";
 /** A full local history blocks another archive instead of silently dropping an original reference. */
 export const MESSAGING_CONNECTION_HISTORY_LIMIT=20;
+/** A server snapshot older than this at mount was restored from the client router cache (Atrás/Adelante), so the page reads the current state once. */
+export const MESSAGING_CONNECTIONS_RESTORED_SNAPSHOT_MAX_AGE_MS=10_000;
 export const MESSAGING_CONNECTION_HISTORY_STORAGE_SUFFIX=":history";
 /** An issued diagnostic reference is independent from a pending mutation, so code verification remains explicit. */
 export const MESSAGING_DIAGNOSTIC_OBSERVATION_STORAGE_SUFFIX=":diagnostic";
