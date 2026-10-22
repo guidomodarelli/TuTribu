@@ -14,6 +14,7 @@ import { captureAdmissionReview } from "@/tests/support/admission-review-capture
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import { MESSAGING_KEY_PURPOSE, MESSAGING_CRYPTO } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { notificationRecoveryOperationSchema } from "@/src/modules/messaging/constants/notification-delivery-recovery-schema";
+import { MESSAGING_DELIVERY_STATE_LABEL } from "@/src/modules/messaging/constants/messaging-diagnostic-browser";
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native notification recovery UI", () => {
   it.each([{ name: "chromium", engine: chromium, width: 1280 }, { name: "chromium", engine: chromium, width: 390 }, { name: "webkit", engine: webkit, width: 1280 }, { name: "webkit", engine: webkit, width: 390 }])("should preserve the original recovery after a lost response on $name at $width", async ({ name, engine, width }) => {
@@ -82,6 +83,44 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native notific
           expect(effects).toEqual({ children: 1, audits: 1, reservations: fixture.baselineUsage.reservations });
         } finally { try { await page.unrouteAll({ behavior: "ignoreErrors" }); } finally { await context.close(); await browser.close(); } }
       }, { preloadModules: [join(process.cwd(), "tests/support/native-zavu-provider-transport.mjs")], environment: { ADMISSION_TEST_ZAVU_CREDENTIAL: randomUUID() }, messagingSecurity: { environment, securityEpoch, keyringsJson }, onProviderRequest: () => { providerRequests++; } }));
+    });
+  }, 1_200_000);
+
+  it("should show an unconfirmed original delivery as possibly accepted and keep recovery closed across Chromium/WebKit at desktop/mobile widths", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const keyrings = Object.fromEntries(Object.values(MESSAGING_KEY_PURPOSE).map((purpose) => [purpose, { activeKeyId: purpose, keys: [{ id: purpose, materialBase64: randomBytes(MESSAGING_CRYPTO.keyBytes).toString("base64") }] }]));
+      const keyringsJson = JSON.stringify(keyrings), environment = "synthetic-notification-recovery-unknown-ui", securityEpoch = randomUUID();
+      const config = await readMessagingHostingSecurityConfig({ MESSAGING_SECURITY_ENVIRONMENT: environment, MESSAGING_SECURITY_EPOCH: securityEpoch, MESSAGING_RECOVERY_LOCK: "false", MESSAGING_KEYRINGS_JSON: keyringsJson });
+      const fixture = await prepareNotificationDeliveryRecovery(database, 3_600_000, config, "unknown");
+      const tribeId = fixture.context.tribeId, slug = `connection-${tribeId}`;
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`));
+      await database.withServerEnvironment((serverEnvironment) => withAdmissionNextServer(serverEnvironment, slug, async (origin, secret) => {
+        const cookie = encodeURIComponent(`${fixture.creation.sessionToken}.${await makeSignature(fixture.creation.sessionToken, secret)}`);
+        for (const { engine, width } of [{ engine: chromium, width: 1280 }, { engine: chromium, width: 390 }, { engine: webkit, width: 1280 }, { engine: webkit, width: 390 }]) {
+          const browser = await engine.launch({ headless: true });
+          const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: "reduce" });
+          const page = await context.newPage();
+          let errors = 0, recoveryPosts = 0;
+          page.on("pageerror", () => { errors++; });
+          page.on("request", (request) => { if (request.method() === "POST" && new URL(request.url()).pathname.endsWith("/recover")) recoveryPosts++; });
+          try {
+            await context.addCookies([{ name: "better-auth.session_token", value: cookie, url: origin, httpOnly: true, sameSite: "Lax" }]);
+            await page.goto(`${origin}/${slug}/academia/admissions/messaging/connections`, { waitUntil: "networkidle", timeout: 120_000 }); await openConnectionsStep(page, "Seguridad");
+            const recovery = page.getByRole("region", { name: "Recuperación de avisos", exact: true });
+            await recovery.getByRole("combobox", { name: "Aviso que querés recuperar" }).click({ timeout: 120_000 });
+            await page.getByRole("option", { name: new RegExp(MESSAGING_DELIVERY_STATE_LABEL.unknown) }).click();
+            await recovery.getByText(`Estado actual: ${MESSAGING_DELIVERY_STATE_LABEL.unknown}.`, { exact: false }).waitFor({ timeout: 120_000 });
+            await recovery.getByRole("alert").filter({ hasText: "puede haber sido aceptado" }).waitFor({ timeout: 120_000 });
+            await recovery.getByRole("checkbox", { name: /Revisé el aviso/ }).check();
+            // A possibly accepted original never enables another send, even with explicit consent.
+            expect(await recovery.getByRole("button", { name: "Registrar recuperación", exact: true }).isDisabled()).toBe(true);
+            expect(recoveryPosts).toBe(0); expect(errors).toBe(0);
+            expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+          } finally { await context.close(); await browser.close(); }
+        }
+        const effects = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ state: string; version: number }>(sql`select state,version from public.message_deliveries where id=${fixture.context.deliveryId}`)).rows[0]);
+        expect(effects).toEqual({ state: "unknown", version: 1 });
+      }, { messagingSecurity: { environment, securityEpoch, keyringsJson } }));
     });
   }, 1_200_000);
 });
