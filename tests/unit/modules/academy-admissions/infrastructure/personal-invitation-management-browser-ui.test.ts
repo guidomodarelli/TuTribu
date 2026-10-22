@@ -13,19 +13,20 @@ import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infr
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { settleGuidedStep } from "@/tests/support/guided-steps-browser";
+import { pressFocused } from "@/tests/support/keyboard-browser";
 
 /** Time the guided step may take to accept Continue after its fields change. */
 const CONTINUE_READY_TIMEOUT_MS = 60_000;
 
-/** @param page - Actual owned browser page. @returns After pressing Continue; a blocked step fails with its own explanation. */
-async function continueStep(page: Page): Promise<void> {
+/** @param page - Actual owned browser page. @param byKeyboard - Presses Enter on the focused button instead of clicking it. @returns After pressing Continue; a blocked step fails with its own explanation. */
+async function continueStep(page: Page, byKeyboard = false): Promise<void> {
   const next = page.getByRole("button", { name: "Continuar", exact: true });
   try { await expect.poll(() => next.isEnabled(), { timeout: CONTINUE_READY_TIMEOUT_MS }).toBe(true); }
   catch {
     const state = await page.evaluate(() => ({ titles: Array.from(document.querySelectorAll("h2")).map((element) => element.textContent), legends: Array.from(document.querySelectorAll("legend")).map((element) => element.textContent), names: Array.from(document.querySelectorAll("input")).map((element) => `${element.id}=${element.value.length}`), reasons: Array.from(document.querySelectorAll("[class*=GuidedSteps__blocked]")).map((element) => element.textContent) }));
     throw new Error(`Guided step stayed blocked: ${JSON.stringify(state)}`);
   }
-  await next.click();
+  if (byKeyboard) await pressFocused(next, "Enter"); else await next.click();
   await settleGuidedStep(page);
 }
 
@@ -77,10 +78,11 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native persona
             if (capture) await captureAdmissionReview(page, "management-issued", [fixture.userId, fixture.sessionToken, fixture.own.email, secret, rawUrl, new URL(rawUrl).pathname.split("/").at(-1)!], "personal-management-captures.json");
             await page.getByRole("button", { name: `Renombrar ${label}`, exact: true }).waitFor({ state: "visible" });
             await fixture.confirm(REAUTHENTICATION_OPERATION.renamePersonalInvitation, firstId);
-            await page.getByRole("button", { name: `Renombrar ${label}`, exact: true }).click(); await settleGuidedStep(page);
+            // Renaming runs by keyboard only: focus reaches each control before Enter or Space activates it.
+            await pressFocused(page.getByRole("button", { name: `Renombrar ${label}`, exact: true }), "Enter"); await settleGuidedStep(page);
             await page.getByRole("heading", { name: "Renombrar invitación", exact: true }).waitFor({ state: "visible" });
-            await page.getByLabel("Nombre interno", { exact: true }).fill(updatedLabel); await continueStep(page);
-            await page.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal.", exact: true }).check(); await page.getByRole("button", { name: "Guardar nombre", exact: true }).click();
+            await page.getByLabel("Nombre interno", { exact: true }).fill(updatedLabel); await continueStep(page, true);
+            await pressFocused(page.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal.", exact: true }), "Space"); await pressFocused(page.getByRole("button", { name: "Guardar nombre", exact: true }), "Enter");
             await page.getByRole("button", { name: `Reemitir ${updatedLabel}`, exact: true }).waitFor({ state: "visible" }); completed("renamed");
             await fixture.confirm(REAUTHENTICATION_OPERATION.createPersonalInvitation);
             await page.getByRole("button", { name: `Reemitir ${updatedLabel}`, exact: true }).click(); await settleGuidedStep(page);
