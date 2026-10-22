@@ -281,3 +281,25 @@ Las cifras de la base incluyen el intervalo de 1 s del observador y el RTT. Con 
 
 - Repetir la observación directa de la lista y la campana con la pestaña del líder visible toda la ráfaga y la campana leída antes de empezar.
 - Medir stock y capacidad del pool durante la ráfaga, que T206 también exige. T206, la parte SC-015 de T209 y OG-05 siguen abiertos hasta entonces.
+
+## Medición de SC-015 en el piloto cercano a la base (2026-10-22, tercera corrida)
+
+Misma configuración que la segunda corrida, con 18 cuentas `.test` nuevas (T01–T18) en las ventanas UTC de las 21:00, 21:05 y 21:10, y el observador ampliado con una muestra por segundo de `pg_stat_activity` (conexiones de cliente de la base del piloto, incluida la del propio observador).
+
+| Medición | n | p50 | p95 | Máx. |
+| --- | --- | --- | --- | --- |
+| Clic → respuesta 201 (fuera de SC-015) | 18 | 0,87 s | 1,48 s | 1,48 s |
+| Solicitud visible desde otra conexión, desde `submitted_at` | 18 | 1,20 s | 2,01 s | 2,01 s |
+| Aviso interno del líder visible, desde su creación | 18 | 0,73 s | 1,72 s | 1,72 s |
+
+| Grupo | Ventana UTC | Congelado | Aceptado por el proveedor | Cierre → aceptado |
+| --- | --- | --- | --- | --- |
+| 1 | cierra 21:05 | 21:06:10 | 21:07:13 | 133 s |
+| 2 | cierra 21:10 | 21:12:10 | 21:12:13 | 133 s |
+| 3 | cierra 21:15 | 21:18:10 | 21:18:13 | 193 s |
+
+- **Driver.** Entre las 20:55Z y las 22:31Z hizo 97 corridas, las 97 completas (200), con 0,82 s en p50, 1,6 s en p95 y 3,9 s como máximo; intervalo máximo de 63,2 s, sin minutos omitidos.
+- **Conexiones de la base.** En 477 muestras hubo como máximo 10 conexiones de cliente abiertas y 2 activas a la vez, y nunca más de una `idle in transaction`; durante la ráfaga la base no se acercó a un límite de conexiones.
+- **Lista de la bandeja en la UI.** No fue medible: la bandeja muestra las 25 solicitudes pendientes más antiguas y el piloto ya tenía 36 pendientes sintéticas de las corridas anteriores, así que ninguna de las 18 nuevas entró en la primera página. La pestaña del líder también quedó en segundo plano entre las 21:00:46 y las 21:06:27. Para medir la lista hace falta resolver antes las solicitudes sintéticas pendientes.
+
+Con las tres corridas, la disponibilidad desde la base y la aceptación de los correos agrupados cumplen SC-015 con infraestructura sana (p95 ≤ 2,0 s contra 30 s; aceptación ≤ 193 s contra 5 min). Siguen pendientes la observación directa de la lista y la campana en la UI y, para T206, la capacidad del pool de la aplicación (adquisiciones y espera), que esta muestra de conexiones de la base no reemplaza. T206, la parte SC-015 de T209 y OG-05 siguen abiertos.
