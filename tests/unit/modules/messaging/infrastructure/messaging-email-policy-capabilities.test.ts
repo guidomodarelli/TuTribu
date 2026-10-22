@@ -13,6 +13,7 @@ import { AdmissionMessagingUsagePolicyReader } from "@/src/modules/academy-admis
 import { createDefaultAdmissionPolicy } from "@/src/modules/academy-admissions/domain/entities/admission-policy";
 import { proposeAdmissionPolicyActivation } from "@/src/modules/academy-admissions/domain/policies/admission-policy-activation";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import { createTenantRowsPreflight } from "@/tests/support/admission-tenant-rows-preflight";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native email-only policy capability", () => {
   it("should permit email readiness and deny verified phone activation when only the selected email resource is prepared", async () => {
@@ -34,7 +35,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native email-only 
         const outcome = await database.withContext(fixture.own, async (transaction) => {
           const readiness = new PostgresAdmissionVerificationReadinessReader(transaction, authorize, async () => fixture.config);
           const usage = new AdmissionMessagingUsagePolicyReader(new PostgresMessagingUsageRepository(transaction, authorize));
-          const preparation = await new PostgresAdmissionPolicyPreparationReader(transaction, { isPrepared: async (requestedTribeId) => requestedTribeId === tribeId }, usage, readiness, async () => fixture.config).read(policy);
+          const preparation = await new PostgresAdmissionPolicyPreparationReader(createTenantRowsPreflight(transaction, (requestedTribeId) => requestedTribeId === tribeId), usage, readiness, async () => fixture.config).read(policy);
           const now = new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
           expect(preparation).toMatchObject({ isAcademy: true, preflightComplete: true, evaluatorEnabled: true, recoveryLocked: false, configuration: { verificationQuotaPositive: true, usagePolicy: { allowedCountries: ["AR"] } } });
           const facts = { ...preparation, now };

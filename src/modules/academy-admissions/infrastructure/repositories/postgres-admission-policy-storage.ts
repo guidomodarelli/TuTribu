@@ -42,3 +42,13 @@ export async function readAdmissionControlMarker(database: RequestDatabase, trib
   const row = (await database.execute<{ activated_at: Date | string | null }>(sql`select admissions_control_activated_at as activated_at from public.tribes where id=${tribeId}`)).rows[0];
   return row?.activated_at ? new Date(row.activated_at) : null;
 }
+
+/**
+ * Reads the policy, with the same lock as `readAdmissionPolicy`, and the unlocked protection marker in one statement; a missing policy still yields the marker.
+ * @param database - Transaction retaining the tribe lock. @param tribeId - Already authorized tenant. @param mutation - Whether a new command retains an exclusive policy lock.
+ * @returns Stored policy or genuine absence, and the marker, without creating settings or policy.
+ */
+export async function readAdmissionPolicyWithControlMarker(database: RequestDatabase, tribeId: string, mutation: boolean): Promise<{ policy: AdmissionPolicy | null; marker: Date | null }> {
+  const row = (await database.execute<{ policy: StoredAdmissionPolicy | null; marker: Date | string | null }>(sql`select case when policy.id is null then null else to_jsonb(policy) end as policy,(select admissions_control_activated_at from public.tribes where id=${tribeId}) as marker from (values (true)) as anchor(present) left join (select ${STORED_ADMISSION_POLICY_COLUMNS} from public.academy_admission_policies where tribe_id=${tribeId} ${mutation ? sql`for update` : sql`for share`}) policy on true`)).rows[0];
+  return { policy: row?.policy ? mapStoredAdmissionPolicy(row.policy) : null, marker: row?.marker ? new Date(row.marker) : null };
+}

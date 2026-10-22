@@ -41,6 +41,7 @@ import { ADMISSION_WHATSAPP_SQL_TIMEOUT_MS } from "@/tests/support/constants/adm
 import { COMMERCIAL_MEMBERSHIP_DECISION_COPY, COMMERCIAL_MEMBERSHIP_REVIEW_COPY, COMMERCIAL_MEMBERSHIP_REVIEW_LABEL, commercialMembershipReviewDoneMessage } from "@/src/modules/academy-admissions/constants/commercial-membership-review";
 import { ADMISSION_POLICY_ACTIVATION_REQUIREMENT_COPY, ADMISSION_POLICY_BROWSER_COPY, ADMISSION_POLICY_DESTINATION_COPY, ADMISSION_POLICY_DRAFT_COPY, ADMISSION_POLICY_PLATFORM_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 import { ADMISSION_SETUP_GUIDE_COPY, ADMISSION_SETUP_STEP_COPY } from "@/src/modules/academy-admissions/constants/admission-setup-guide";
+import { createTenantRowsPreflight } from "@/tests/support/admission-tenant-rows-preflight";
 
 /** @param database - This run's owned branch with native pg/Drizzle. @param securityConfig - Hosting configuration a native server shares with the seed; in-process suites keep independent generated keys. @returns Current leader session, policy repository and preparation-port controls. */
 async function preparePolicy(database: AcademyAdmissionTestDatabase, securityConfig?: MessagingSecurityConfig) {
@@ -263,7 +264,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       for (const migration of ["20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
       const current = await inventory();
       expect(current).toMatchObject({ storagePrepared: true, ingressProtected: true, runtimePrepared: false, unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 });
-      const prepared = () => database.withContext(data.fixture.own, (transaction) => new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => runtimePrepared }, async () => false).isPrepared(data.tribeId));
+      const prepared = () => database.withContext(data.fixture.own, (transaction) => new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => runtimePrepared }, async () => false).readPreparation(data.tribeId).then((preparation) => preparation.prepared));
       expect(await prepared()).toBe(false);
       runtimePrepared = true;
       expect(await prepared()).toBe(true);
@@ -298,8 +299,8 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       const observed = await database.withContext(data.fixture.own, async (transaction) => {
         const repository = new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => true }, async () => false);
         const inventory = await repository.read(data.readContext);
-        expect(await repository.isPrepared(data.tribeId)).toBe(false);
-        await expect(repository.isPrepared(randomUUID())).rejects.toMatchObject({ code: "permission_denied" });
+        expect(await repository.readPreparation(data.tribeId)).toMatchObject({ prepared: false });
+        await expect(repository.readPreparation(randomUUID())).rejects.toMatchObject({ code: "permission_denied" });
         return inventory;
       });
       expect(observed).toMatchObject({ unknownCommercialMemberCount: 1, privilegedCommercialMemberCount: 1 });
@@ -423,7 +424,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database);
       const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: data.fixture.userId, sessionId: data.sessionId }), (_identity, work) => database.withContext(data.fixture.own, work));
-      const policy = buildAcademyAdmissionsModule({ accounts, execute: (_account, work) => database.withContext(data.fixture.own, work), clock: () => new Date() }).createPolicyModule({ readSecurityConfig: async () => data.fixture.config, composePreflight: () => ({ isPrepared: async () => false }) }).useCases;
+      const policy = buildAcademyAdmissionsModule({ accounts, execute: (_account, work) => database.withContext(data.fixture.own, work), clock: () => new Date() }).createPolicyModule({ readSecurityConfig: async () => data.fixture.config, composePreflight: (transaction) => createTenantRowsPreflight(transaction, () => false) }).useCases;
       const query = { tribeId: data.tribeId, requestId: randomUUID() };
       expect(await policy.read(query)).toEqual({ ok: true, value: { policy: null, controlActivated: false, usage: null } });
       expect(await policy.initialize({ ...query, operationId: randomUUID(), confirmed: true })).toMatchObject({ ok: true, value: { state: "completed", result: { version: 1, activatedAt: null } } });
