@@ -257,3 +257,13 @@ Los fallos que aparecieron solo bajo carga paralela, con unos 165 ms de RTT haci
 ## Gate local sobre 4fd366d2
 
 En un worktree limpio en `4fd366d2` (Node 24.21.0, pnpm 12.14.0), `pnpm run lint`, `typecheck`, `typecheck:tests`, `test` y `build` terminaron con exit 0. Vitest: 602 archivos y 6.399 tests aprobados; 353 archivos y 946 tests omitidos por las compuertas `RUN_ADMISSION_*` (SQL, navegador, muestras y carga). Lint solo emite advertencias previas en archivos ajenos a este trabajo. El build usó variables sintéticas de Better Auth y Google, sin `.env` de producción. Las suites nativas con navegador y SQL de este tramo se registran en `ui-and-accessibility.md`. T211 sigue abierta: depende de T209/T210 y de confirmar I1/U1 en los tres recursos, y el gate de publicación corre en GitHub Actions.
+
+## Integración de las tres ramas WIP
+
+| Rama | Commits en el PR | Validación |
+|---|---|---|
+| `feature/objective-wilbur-00a7d9` (suites nativas con el journal real) | `f74858b2` | Revisado contra `main`: solo se trajo el arnés (`applyAdmissionMigrationJournal`, claves MAC registradas) sin revertir cambios de la rama del PR. Toda suite nativa posterior usa ese journal. |
+| `fix/admission-maintenance-budget` (cinco problemas del mantenimiento y del envío a Zavu en SC-015) | `4b1ee271`, `ce35b398`, `ccaa2038` (con su migración `20261020180000`), `9e05f76f`, `c47a9af5` (con su migración `20261020185000`) | Suites nativas de backend sobre `06a47ccf`: `admission-messaging-maintenance-dispatch`, `-work`, `-progress`, `admission-maintenance-metrics`, `admission-private-data-retention` y `admission-verification-dispatch-pipeline`, 6 archivos y 19 tests aprobados (497 s) con ramas Neon propias. No tienen interfaz, así que Chromium/WebKit no aplica. La única superficie visible, la alerta de mantenimiento detenido, está cubierta por los tests de componente de Actividad y por el gate. |
+| `fix/admissions-browser-suites` (requisito sin motivo, WebKit, Avisos a ancho completo, dígitos, guía) | `350b1437`, `5473d9ad` | Suites de navegador en Chromium/WebKit 390/1280, registradas en `ui-and-accessibility.md`. La intermitencia de WebKit en Windows se resolvió con `6bdb40ac` (liberación de stdio). |
+
+El gate local completo sobre `4fd366d2` (lint, tipos, Vitest y build) incluye las tres.
