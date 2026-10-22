@@ -11,6 +11,7 @@ import { prepareAdmissionWhatsappBrowser } from "@/tests/support/admission-whats
 import { settleGuidedStep } from "@/tests/support/guided-steps-browser";
 import { pressFocused } from "@/tests/support/keyboard-browser";
 import { ADMISSION_POLICY_BROWSER_COPY, ADMISSION_POLICY_DESTINATION_COPY, ADMISSION_POLICY_SETTINGS_SEGMENT } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
+import { ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 
@@ -100,6 +101,20 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native rules p
             await expect.poll(async () => (await readPolicy()).version, { timeout: ACTION_TIMEOUT_MS }).toBe(afterDenial.version + 1);
             expect((await readPolicy()).requires_additional_verification).toBe(false);
             expect(writes.at(-1)!.requiresAdditionalVerification).toBe(false);
+            // On the last surface the session ends while a new edit is open: saving writes nothing and the page says so instead of failing silently.
+            // Better Auth may delete an expired session, so this runs only where no later surface needs it.
+            if (name === "webkit" && width === 390) {
+              const beforeExpiry = await readPolicy();
+              await pressFocused(page.getByRole("button", { name: "Editar reglas", exact: true }), "Enter"); await settleGuidedStep(page);
+              await page.getByRole("button", { name: "Continuar", exact: true }).click(); await settleGuidedStep(page);
+              await page.getByRole("checkbox", { name: VERIFICATION_LABEL, exact: true }).click();
+              await walkToReview(page);
+              await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 minute' where id=${fixture.leader.sessionId}`));
+              await page.getByRole("checkbox", { name: CONFIRMATION_LABEL, exact: true }).click();
+              await page.getByRole("button", { name: SAVE_LABEL, exact: true }).click();
+              await page.getByText(ADMISSION_POLICY_BROWSER_COPY.changedViewer, { exact: true }).or(page.getByText(ADMISSION_ERROR_MESSAGE.authentication_required, { exact: true })).or(page.getByText(ADMISSION_ERROR_MESSAGE.reauthentication_required, { exact: true })).first().waitFor({ state: "visible" });
+              expect(await readPolicy()).toEqual(beforeExpiry);
+            }
             expect(routeNavigations).toBe(1); expect(pageErrors).toEqual([]);
             expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
             console.info(JSON.stringify({ phase: "policy_verification_ui_complete", engine: name, width }));
