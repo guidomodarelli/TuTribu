@@ -267,3 +267,7 @@ En un worktree limpio en `4fd366d2` (Node 24.21.0, pnpm 12.14.0), `pnpm run lint
 | `fix/admissions-browser-suites` (requisito sin motivo, WebKit, Avisos a ancho completo, dígitos, guía) | `350b1437`, `5473d9ad` | Suites de navegador en Chromium/WebKit 390/1280, registradas en `ui-and-accessibility.md`. La intermitencia de WebKit en Windows se resolvió con `6bdb40ac` (liberación de stdio). |
 
 El gate local completo sobre `4fd366d2` (lint, tipos, Vitest y build) incluye las tres.
+
+## Fase B de reautenticación sobre la punta del PR
+
+`tests/unit/modules/auth/infrastructure/global-identity-evidence-repository.test.ts` aprobó 9/9 (493 s) sobre `eb48cfae`, con una rama Neon propia y el journal completo, que incluye `20261020190000_drop_recent_authentication_evidence.sql`. Incluye el caso con las tablas de recencia ya borradas: la evidencia global de identidad y la sesión siguen resolviendo la cuenta sin esas tablas, y ninguna operación sensible vuelve a pedir autenticarse con Google. Reconfirma la validación de `fdb92832` en Neon efímero. La migración no se aplicó en producción.
