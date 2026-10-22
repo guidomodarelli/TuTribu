@@ -222,7 +222,7 @@ async function openPhoneContactStep(page: Page): Promise<void> {
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early usage browser", () => {
-  it("should open early usage from a truly absent admission policy without initializing either resource", async () => {
+  it("should open early usage from a truly absent admission policy without initializing either resource in Chromium/WebKit at mobile and desktop widths", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareUsage(database, await readMessagingHostingSecurityConfig()), slug = `usage-${fixture.tribeId}`;
       await database.applyMigration("20261005093000_guard_academy_membership_sources.sql");
@@ -232,11 +232,12 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
         for (const [engine, browserType] of [["chromium", chromium], ["webkit", webkit]] as const) {
           const browser = await browserType.launch({ headless: true });
           try {
-            const context = await browser.newContext({ viewport: { width: 390, height: 900 } });
+            for (const width of [1280, 390]) {
+            const context = await browser.newContext({ viewport: { width, height: 900 } });
             try {
               await context.addCookies([{ name: "better-auth.session_token", value: encodeURIComponent(`${fixture.sessionToken}.${await makeSignature(fixture.sessionToken, secret)}`), url: origin, httpOnly: true, sameSite: "Lax" }]);
               const page = await context.newPage();
-              process.stdout.write(JSON.stringify({ phase: "usage_early_navigation_begin", engine }) + "\n");
+              process.stdout.write(JSON.stringify({ phase: "usage_early_navigation_begin", engine, width }) + "\n");
               await page.goto(`${origin}/${slug}/academia/admissions/settings`, { waitUntil: "commit" });
               await openPhoneContactStep(page);
               await page.getByRole("link", { name: "Configurar países y cupos de mensajería" }).click({ timeout: 90_000 });
@@ -246,14 +247,15 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
               /** The client router may keep the rules flow on the step the leader left, so the flow itself is the stable landmark. */
               await page.getByRole("form", { name: "Configurar reglas de admisión", exact: true }).waitFor({ timeout: 90_000 });
               expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-              process.stdout.write(JSON.stringify({ phase: "usage_early_navigation_verified", engine }) + "\n");
+              process.stdout.write(JSON.stringify({ phase: "usage_early_navigation_verified", engine, width }) + "\n");
             } finally { process.stdout.write(JSON.stringify({ phase: "usage_context_close_begin", engine, connected: browser.isConnected() }) + "\n"); await context.close(); process.stdout.write(JSON.stringify({ phase: "usage_context_closed", engine }) + "\n"); }
+            }
           } finally { process.stdout.write(JSON.stringify({ phase: "usage_browser_close_begin", engine, connected: browser.isConnected() }) + "\n"); if (browser.isConnected()) await browser.close(); process.stdout.write(JSON.stringify({ phase: "usage_browser_closed", engine }) + "\n"); }
         }
       }));
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select (select count(*)::int from public.messaging_usage_policies where tribe_id=${fixture.tribeId}) as usage,(select count(*)::int from public.academy_admission_policies where tribe_id=${fixture.tribeId}) as admissions,(select count(*)::int from public.academy_admission_operations where tribe_id=${fixture.tribeId}) as operations,(select count(*)::int from public.message_deliveries where tribe_id=${fixture.tribeId}) as deliveries`)).rows)).toEqual([{ usage: 0, admissions: 0, operations: 0, deliveries: 0 }]);
     });
-  }, 300_000);
+  }, 600_000);
 
   for (const [engine, browserType] of [["chromium", chromium], ["webkit", webkit]] as const) {
     it(`should configure a saved country before any connection and preserve conflict drafts in ${engine} mobile/desktop`, async () => {
