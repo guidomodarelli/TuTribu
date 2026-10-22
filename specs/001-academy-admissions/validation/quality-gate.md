@@ -253,3 +253,7 @@ Las suites nativas de los cambios integrados se validaron por separado, sobre ra
 - navegador en Chromium y WebKit, a 390 y 1280: corridas aisladas.
 
 Los fallos que aparecieron solo bajo carga paralela, con unos 165 ms de RTT hacia Neon, pasaron al repetirlos aislados. Este gate no confirma I1/U1 en los tres recursos ni los ensayos operativos, así que T211 conserva su estado pendiente.
+
+## Gate local sobre 4fd366d2
+
+En un worktree limpio en `4fd366d2` (Node 24.21.0, pnpm 12.14.0), `pnpm run lint`, `typecheck`, `typecheck:tests`, `test` y `build` terminaron con exit 0. Vitest: 602 archivos y 6.399 tests aprobados; 353 archivos y 946 tests omitidos por las compuertas `RUN_ADMISSION_*` (SQL, navegador, muestras y carga). Lint solo emite advertencias previas en archivos ajenos a este trabajo. El build usó variables sintéticas de Better Auth y Google, sin `.env` de producción. Las suites nativas con navegador y SQL de este tramo se registran en `ui-and-accessibility.md`. T211 sigue abierta: depende de T209/T210 y de confirmar I1/U1 en los tres recursos, y el gate de publicación corre en GitHub Actions.
