@@ -16,11 +16,14 @@ import { getOwnAdmissionRequestMessage } from "../results/admission-own-request-
 import { evaluateAdmissionPreview } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
 import { ADMISSION_OUTCOME, ADMISSION_DENIAL_REASON } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 
-/** @param facts - Own current account facts read for an email list without code or exceptions. @returns Whether a common presentation from this account would be refused for the list requirement (FR-017, FR-018). */
-function isAllowlistRequirementUnmet(facts: AdmissionOverviewFacts["allowlistEligibility"]): boolean {
+/** Denials that only another account can overcome when the list has no exceptions: the own email misses the list, or another account holds its binding. */
+const ACCOUNT_CHANGE_DENIAL_REASONS: readonly string[] = [ADMISSION_DENIAL_REASON.allowlistUnmet, ADMISSION_DENIAL_REASON.contactConflict];
+
+/** @param facts - Own current account facts read for an email list without code or exceptions. @returns Whether a common presentation from this account is bound to be refused (FR-017, FR-018), so another account is the only way forward. */
+function requiresAnotherAccount(facts: AdmissionOverviewFacts["allowlistEligibility"]): boolean {
   if (!facts) return false;
   const evaluated = evaluateAdmissionPreview(facts);
-  return evaluated.outcome === ADMISSION_OUTCOME.denied && evaluated.reason === ADMISSION_DENIAL_REASON.allowlistUnmet;
+  return evaluated.outcome === ADMISSION_OUTCOME.denied && ACCOUNT_CHANGE_DENIAL_REASONS.includes(evaluated.reason);
 }
 
 /** The application owns navigation hints; the writer rechecks real eligibility under locks. */
@@ -56,7 +59,7 @@ export class GetAdmissionOverviewUseCase {
         state = ADMISSION_OVERVIEW_STATE.signInRequired; nextAction = ADMISSION_NEXT_ACTION.signIn; safeMessage = ADMISSION_OVERVIEW_MESSAGE.signIn;
       } else if (facts.policy.requiresAdditionalVerification) {
         state = ADMISSION_OVERVIEW_STATE.verificationRequired; nextAction = ADMISSION_NEXT_ACTION.verifyContact; safeMessage = ADMISSION_OVERVIEW_MESSAGE.verification;
-      } else if (isAllowlistRequirementUnmet(facts.allowlistEligibility)) {
+      } else if (requiresAnotherAccount(facts.allowlistEligibility)) {
         // Without exceptions the writer would refuse this account; the form is replaced by the account change instead.
         state = ADMISSION_OVERVIEW_STATE.closed; nextAction = ADMISSION_NEXT_ACTION.changeAccount; safeMessage = ADMISSION_OVERVIEW_MESSAGE.allowlistOnly;
       }

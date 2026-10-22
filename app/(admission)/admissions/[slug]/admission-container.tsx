@@ -41,6 +41,9 @@ import { AdmissionWhatsappNumberForm } from "@/components/academy-admissions/adm
 import type { AdmissionWhatsappNumberBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-whatsapp-number-browser-client";
 import { ADMISSION_WHATSAPP_COPY, ADMISSION_WHATSAPP_INTENT_KIND, ADMISSION_WHATSAPP_OPERATION } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
 
+/** Submission refusals that the current overview may explain as needing another account. */
+const ACCOUNT_CHANGE_SUBMISSION_CODES: readonly string[] = [ADMISSION_ERROR_CODE.admissionIneligible, ADMISSION_ERROR_CODE.contactBindingConflict];
+
 /** Do not replace a confirmed newer resource snapshot with a historical operation result. */
 function retainCurrentRequest(current: AdmissionRequestDto | null, incoming: AdmissionRequestDto | null): AdmissionRequestDto | null {
   return current && incoming && current.id === incoming.id && current.version > incoming.version ? current : incoming;
@@ -189,8 +192,8 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
       setErrorMessage(result.message);
       if (result.uncertain) { setPhase(ADMISSION_UI_PHASE.uncertain); return; }
       clearIntent(); if (intent.kind === ADMISSION_WHATSAPP_INTENT_KIND) { setWhatsappConfirmed(false); whatsappConfirmation.current = null; await refresh(signal); }
-      // A list refusal can follow a change made after this page loaded; the current overview then explains it and offers another account.
-      if (intent.kind === "submit" && result.code === ADMISSION_ERROR_CODE.admissionIneligible && await refresh(signal) === NOTIFICATION_REFRESH_OUTCOME.refreshed) {
+      // A list or contact-binding refusal can follow a change made after this page loaded; the current overview then explains it and offers another account.
+      if (intent.kind === "submit" && ACCOUNT_CHANGE_SUBMISSION_CODES.includes(result.code) && await refresh(signal) === NOTIFICATION_REFRESH_OUTCOME.refreshed) {
         const current = currentState.current;
         if (live(signal) && current.kind === "ready" && current.overview.nextAction === ADMISSION_NEXT_ACTION.changeAccount) setErrorMessage(null);
       }

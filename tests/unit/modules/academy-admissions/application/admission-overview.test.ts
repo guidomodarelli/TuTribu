@@ -118,14 +118,14 @@ describe("admission overview", () => {
     expect(await useCase.execute(fixture.query)).toMatchObject({ ok: true, value: { state: "closed" } });
   });
 
-  it("should replace the form with an account change when the own trusted email cannot meet a list without exceptions", async () => {
+  it("should replace the form with an account change when the own trusted email cannot meet a list without exceptions or another account holds it", async () => {
     const fixture = overviewFixture(), useCase = new GetAdmissionOverviewUseCase(fixture.accounts, fixture.reader, () => fixture.now);
     fixture.facts.policy!.mode = "allowlist";
     const matching = allowlistEligibility(fixture);
     fixture.facts.allowlistEligibility = matching;
     expect(await useCase.execute(fixture.query)).toMatchObject({ ok: true, value: { state: "available", nextAction: "request_admission" } });
     const allowlistOnly = { ok: true, value: { state: "closed", nextAction: "change_account", safeMessage: "Esta academia solo admite correos habilitados por su equipo y no pudimos confirmar que el correo de esta cuenta lo esté. Ingresá con la cuenta de un correo habilitado o consultá al equipo de la academia." } };
-    for (const facts of [{ ...matching, allowlistEntry: null }, { ...matching, allowlistEntry: { ...matching.allowlistEntry!, enabled: false } }, { ...matching, baseEvidence: null }, { ...matching, baseEvidence: { ...matching.baseEvidence!, authority: "insufficient" as const } }]) {
+    for (const facts of [{ ...matching, allowlistEntry: null }, { ...matching, allowlistEntry: { ...matching.allowlistEntry!, enabled: false } }, { ...matching, baseEvidence: null }, { ...matching, baseEvidence: { ...matching.baseEvidence!, authority: "insufficient" as const } }, { ...matching, contactBinding: { ownerUserId: randomUUID(), contact: matching.contact! } }]) {
       fixture.facts.allowlistEligibility = facts;
       const result = await useCase.execute(fixture.query);
       expect(result).toMatchObject(allowlistOnly);

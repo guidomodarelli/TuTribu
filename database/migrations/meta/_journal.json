@@ -1401,6 +1401,13 @@
       "when": 1792659600000,
       "tag": "20261022090000_allow_tribemate_commercial_retirement",
       "breakpoints": true
+    },
+    {
+      "idx": 200,
+      "version": "7",
+      "when": 1792670400000,
+      "tag": "20261022120000_read_own_admission_allowlist_facts",
+      "breakpoints": true
     }
   ]
 }
