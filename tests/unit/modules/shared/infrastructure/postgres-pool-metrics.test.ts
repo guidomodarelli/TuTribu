@@ -114,6 +114,18 @@ describe("Postgres pool usage metrics", () => {
     await pool.end();
   });
 
+  it("reports occupancy held across windows as each window's peak", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const pool = createObservedPool();
+    const client = await pool.connect();
+    vi.advanceTimersByTime(1000);
+    vi.advanceTimersByTime(1000);
+    const [, heldWindow] = readMetricsLogs();
+    expect(heldWindow.metadata).toMatchObject({ checkouts: 0, checkedOutConnections: 1, peakCheckedOutConnections: 1, peakOpenConnections: 1 });
+    client.release();
+    await pool.end();
+  });
+
   it("counts failed checkouts from createPostgresPool without logging connection details", async () => {
     process.env[METRICS_INTERVAL_ENV] = "60000";
     const port = await reserveClosedPort();

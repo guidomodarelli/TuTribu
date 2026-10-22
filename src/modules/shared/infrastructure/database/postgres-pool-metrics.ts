@@ -169,10 +169,14 @@ export function attachPostgresPoolMetrics(input: AttachPostgresPoolMetricsInput)
     const queuedCheckouts = readQueuedCheckouts();
     const hadActivity = usageWindow.checkouts > 0 || usageWindow.releases > 0 || usageWindow.connectionsRemoved > 0;
     if (!hadActivity && checkedOutConnections === 0 && queuedCheckouts === 0) return;
+    // Sample before closing so occupancy held through the whole window still counts as its peak.
+    observePeaks();
     const closedWindow = usageWindow;
     const closedWindowStartedAt = windowStartedAt;
     usageWindow = createEmptyUsageWindow();
     windowStartedAt = new Date();
+    // Seed the next window with the occupancy it inherits, even if no checkout happens in it.
+    observePeaks();
     logger.info({
       message: POSTGRES_POOL_METRICS_LOG.message,
       metadata: {
