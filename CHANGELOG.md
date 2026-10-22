@@ -175,6 +175,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Los líderes de tribu ya no necesitan confirmar su cuenta con Google para operaciones sensibles de admisiones, mensajería, salida del modo academia o borrado de la tribu; desaparecen el botón y la pantalla de confirmación.
 
 ### Fixed
+- En Reglas de una academia con admisiones activas, pasar de revisión manual a «Lista de habilitados» y tocar «Guardar cambios» ya guarda la regla; antes podía rechazarse con un aviso de requisito faltante aunque no faltara nada.
 - Volver a probar un canal de la conexión de mensajería al mismo destino, después de que la prueba anterior quedó confirmada o vencida, ya envía el código nuevo; antes se rechazaba sin enviar nada y la pantalla pedía consultar el resultado.
 - Sin reglas de admisión guardadas, Habilitados y la importación de CSV muestran «Primero guardá las reglas de admisión» con un botón «Ir a Reglas», en lugar de un campo bloqueado.
 - En Reglas, «Cargar personas en Habilitados» y «Configurar países y cupos de mensajería» se ven como botones. El primero aparece recién cuando las reglas están guardadas; antes, una nota explica que vas a poder cargar personas después de guardar.
