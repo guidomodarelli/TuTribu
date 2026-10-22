@@ -12,6 +12,7 @@ import {readMessagingHostingSecurityConfig} from "@/src/modules/messaging/infras
 import {prepareMessagingConnectionCreation} from "@/tests/support/messaging-connection-fixture";
 import {withAdmissionNextServer} from "@/tests/support/admission-next-server";
 import {captureAdmissionReview} from "@/tests/support/admission-review-capture";
+import {pressFocused} from "@/tests/support/keyboard-browser";
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS!=="1")("native connection wizard first step",()=>{
   it.each([{name:"chromium",engine:chromium,width:1280},{name:"chromium",engine:chromium,width:390},{name:"webkit",engine:webkit,width:1280},{name:"webkit",engine:webkit,width:390}])("should preserve key privacy and reconcile a lost creation response on $name at $width",async({name,engine,width})=>{
@@ -36,7 +37,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS!=="1")("native connectio
           expect(providerRequests).toBe(0);await openConnectionsStep(page,"Credencial");if(name==="chromium"&&width===1280)await captureAdmissionReview(page,"connection-credential",[credential,fixture.sessionToken,secret,fixture.fixture.own.email,fixture.context.actorUserId],"connection-captures.json");expect(await page.getByRole("button",{name:"Comprobar credencial",exact:true}).isDisabled()).toBe(true);
           const validationPath=`**/api/tribes/${slug}/messaging/connections/${connectionId}/validate`;
           await page.route(validationPath,async(route)=>{try{await route.fetch({timeout:120_000});await route.abort("failed");}catch{throw new Error("Credential check test transport failed before controlled response loss");}});
-          await page.getByRole("checkbox",{name:/Confirmo que quiero comprobar/}).check();await page.getByRole("button",{name:"Comprobar credencial",exact:true}).click();
+          // The credential check is confirmed and started by keyboard only: focus reaches each control before Space or Enter.
+          await pressFocused(page.getByRole("checkbox",{name:/Confirmo que quiero comprobar/}),"Space");await pressFocused(page.getByRole("button",{name:"Comprobar credencial",exact:true}),"Enter");
           await page.getByRole("button",{name:"Consultar guardado",exact:true}).waitFor({timeout:120_000});await page.waitForFunction(()=>{const button=Array.from(document.querySelectorAll("button")).find((element)=>element.textContent?.trim()==="Consultar guardado");return Boolean(button&&!button.disabled);},{},{timeout:120_000});expect(providerRequests).toBe(1);
           await page.unroute(validationPath);await page.getByRole("button",{name:"Consultar guardado",exact:true}).click();await page.getByText("Credencial comprobada",{exact:true}).waitFor({timeout:120_000});expect(await page.getByText("Cuenta de prueba",{exact:true}).count()).toBe(1);expect(await page.getByText("Borrador",{exact:true}).count()).toBe(1);expect(providerRequests).toBe(1);expect(errors).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
           if(name==="chromium"&&width===1280)await captureAdmissionReview(page,"connection-checked",[credential,fixture.sessionToken,secret,fixture.fixture.own.email,fixture.context.actorUserId],"connection-captures.json");
