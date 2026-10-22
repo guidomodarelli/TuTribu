@@ -169,6 +169,12 @@ describe("manual admission application", () => {
     expect(fixture.writer.cancel).not.toHaveBeenCalled();
   });
 
+  it("should compare the phone contact with the group instead of a separately declared number", async () => {
+    const fixture = submissionPorts(), useCase = new SubmitAdmissionUseCase(fixture.accounts, fixture.writer, () => fixture.facts.now);
+    await useCase.execute({ ...fixture.input, phone: "+54 9 11 2000 1017", whatsappNumber: "+1 202 555 0117" });
+    expect(fixture.submit).toHaveBeenCalledWith(expect.objectContaining({ contact: expect.objectContaining({ type: "phone", value: "+5491120001017" }), whatsappNumber: "+5491120001017" }));
+  });
+
   it("should preserve the original operation on repeated confirmation without making a new key or inventing membership", async () => {
     const fixture = submissionPorts(), useCase = new SubmitAdmissionUseCase(fixture.accounts, fixture.writer, () => fixture.facts.now);
     await useCase.execute(fixture.input);

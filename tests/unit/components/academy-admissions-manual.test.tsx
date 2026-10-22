@@ -205,6 +205,14 @@ describe("manual admission screen", () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
+  it("should ask a single phone and no separate group number when the contact is a phone", async () => {
+    const data = fixture(); data.state.overview.policy!.contactType = "phone"; data.state.overview.policy!.requiresWhatsappNumber = true;
+    render(<AdmissionContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
+    await dataStepReady();
+    expect(screen.getAllByRole("textbox", { name: ADMISSION_UI_COPY.phone })).toHaveLength(1);
+    expect(screen.queryByText(ADMISSION_WHATSAPP_COPY.required)).not.toBeInTheDocument();
+  });
+
   it("should leave declared WhatsApp optional by default and reuse the Google name without new name fields", async () => {
     const data = fixture();
     render(<AdmissionContainer initialState={data.state} client={data.client} />, { wrapper: Providers });

@@ -56,7 +56,7 @@ function PersonalInvitationWorkflow({ initialState, token, client, contactClient
   /** Validates only declared group data before delegating the original personal command. */
   const submit = () => {
     if (!canSubmit || !policy) return;
-    const whatsapp = validateBrowserAdmissionWhatsappNumberDraft(whatsappNumber, policy.requiresWhatsappNumber ?? false);
+    const whatsapp = policy.contactType === ADMISSION_CONTACT_TYPE.phone ? { valid: true as const, value: null } : validateBrowserAdmissionWhatsappNumberDraft(whatsappNumber, policy.requiresWhatsappNumber ?? false);
     if (!whatsapp.valid) { setWhatsappValidationError({ message: getAdmissionWhatsappNumberDraftMessage(whatsapp), policyVersion: policy.version }); return; }
     setWhatsappValidationError(null);
     void flow.submit({ expectedPolicyVersion: policy.version, ...(whatsapp.value ? { whatsappNumber: whatsapp.value } : {}), ...(policy.contactType === ADMISSION_CONTACT_TYPE.phone ? { phone, ...(country ? { country } : {}) } : {}), ...(contact.proofFresh && contact.proof ? { proofId: contact.proof.proofId } : {}) });

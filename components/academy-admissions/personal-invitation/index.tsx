@@ -10,6 +10,7 @@ import { ADMISSION_OVERVIEW_STATE } from "@/src/modules/academy-admissions/const
 import { ROUTES } from "@/src/constants/routes";
 import styles from "./styles.module.scss";
 import { AdmissionWhatsappNumberField } from "@/components/academy-admissions/admission-whatsapp-number-field";
+import { ADMISSION_CONTACT_TYPE } from "@/src/modules/academy-admissions/constants/admission-contact";
 
 /** Only safe presentation facts and callbacks enter the screen; the token is never a prop. */
 export type PersonalInvitationProps = {
@@ -43,7 +44,7 @@ export function PersonalInvitation(props: PersonalInvitationProps) {
           <p className={styles.PersonalInvitation__description}>{available.requiresAllowlist ? PERSONAL_INVITATION_UI_COPY.restriction : PERSONAL_INVITATION_UI_COPY.exemption}</p>
           {props.verification}
           <form className={styles.PersonalInvitation__form} noValidate onSubmit={(event) => { event.preventDefault(); if (props.canSubmit && !busy) props.onSubmit(); }}>
-            {props.ready && <AdmissionWhatsappNumberField value={props.whatsappNumber} required={available.overview.policy?.requiresWhatsappNumber ?? false} disabled={busy || props.hasPending} errorMessage={props.whatsappErrorMessage} onChange={props.onWhatsappNumberChange} />}
+            {props.ready && available.overview.policy?.contactType !== ADMISSION_CONTACT_TYPE.phone && <AdmissionWhatsappNumberField value={props.whatsappNumber} required={available.overview.policy?.requiresWhatsappNumber ?? false} disabled={busy || props.hasPending} errorMessage={props.whatsappErrorMessage} onChange={props.onWhatsappNumberChange} />}
             <div className={styles.PersonalInvitation__confirmation}>
               <Checkbox id={`${fieldId}-confirm`} checked={props.confirmed} disabled={!props.ready || busy || props.hasPending} onCheckedChange={(checked) => props.onConfirm(checked === true)} />
               <Label htmlFor={`${fieldId}-confirm`}>{PERSONAL_INVITATION_UI_COPY.confirm}</Label>

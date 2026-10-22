@@ -40,7 +40,9 @@ export class SubmitAdmissionUseCase<Result extends AdmissionCommittedOutcome = A
         tribeId: input.tribeId, requestId: input.requestId, userId: account.userId, sessionId: account.session.id,
         operationId: input.operationId, type: ADMISSION_OPERATION_TYPE.submit, expectedPolicyVersion: input.expectedPolicyVersion, confirmed: input.confirmed,
         source, contact: normalized.contact, proofId: input.proofId ?? null, message: input.message?.trim() || null,
-        ...(input.whatsappNumber !== undefined ? { whatsappNumber: normalizeAdmissionWhatsappNumber(input.whatsappNumber) } : {}),
+        // With phone contact, that same number is the one reviewers compare with the group; a separate declared number is ignored.
+        ...(normalized.contact.type === ADMISSION_CONTACT_TYPE.phone ? { whatsappNumber: normalized.contact.value }
+          : input.whatsappNumber !== undefined ? { whatsappNumber: normalizeAdmissionWhatsappNumber(input.whatsappNumber) } : {}),
       };
       return { ok: true as const, value: await this.writer.submit(intent) };
     } catch (error) { return admissionOperationFailure(error); }
