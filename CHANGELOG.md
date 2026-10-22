@@ -9,6 +9,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - El indicador de carga que se convierte en un check o una cruz y el balanceo de la campana cuando llegan notificaciones nuevas son un poco más rápidos.
 - Las animaciones de la aplicación son más sobrias: las etiquetas, filas de tablas y avatares aparecen sin animación de entrada, los enlaces ya no se mueven al pasar el puntero, y los menús y desplegables se abren creciendo desde el botón que los abre.
 
+### Fixed
+
+- Los avisos de «no hay nada para mostrar», como los del calendario de eventos, vuelven a cambiar de alto con una transición suave cuando cambia su texto, también en dispositivos lentos.
+
 ## [1.8.1] - 2026-10-16
 
 ### Fixed
