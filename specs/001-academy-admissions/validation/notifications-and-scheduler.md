@@ -247,3 +247,37 @@ Estas cifras incluyen el intervalo de 1 s del observador y el RTT. Con el refres
 
 1. Activar la conexión de Zavu del piloto, que necesita la prueba de SMS y la activación del líder.
 2. Repetir la ráfaga con la pestaña del líder en primer plano y la campana leída, para medir la lista, la campana y la aceptación del correo agrupado dentro de los 5 minutos del cierre de la ventana.
+
+## Medición de SC-015 en el piloto cercano a la base (2026-10-22, segunda corrida)
+
+**Resultado: con infraestructura sana se cumplen los dos objetivos medidos desde la base.** La solicitud y el aviso interno del líder quedan disponibles con p95 de 1,8 s, y cada correo agrupado fue aceptado por el proveedor 73 s después del cierre de su ventana. La lista de la bandeja vista en la UI tuvo una sola observación válida, porque la pestaña del líder quedó en segundo plano durante casi toda la ráfaga; su cumplimiento se apoya en la cota de refresco medida.
+
+### Condiciones
+
+- **Entorno.** Producción del proyecto Vercel `tutribu-pilot` (`iad1`), en la misma región que la rama Neon del piloto (`aws-us-east-1`), servida en `https://pilot.tutribu.app`. La conexión de Zavu del piloto quedó activa ese día, después de confirmar las pruebas de Correo y SMS con destinos controlados.
+- **Driver.** Con autorización del usuario se volvió a rotar `CRON_SECRET` (sensible en Vercel, retenido solo en memoria del proceso) y se redesplegó. Entre las 20:23Z y las 20:48Z el driver hizo 26 llamadas, una por minuto: 25 completas (200) y una 401, la primera, segundos después del redespliegue, antes de que el dominio apuntara al despliegue nuevo. Cada corrida tardó 0,91 s en p50 y 3,0 s en p95 (máximo 3,5 s, en los minutos que materializaron y enviaron los grupos); el intervalo máximo fue de 62,8 s, sin minutos omitidos.
+- **Solicitantes.** 18 cuentas `.test` creadas con el acceso de desarrollo y el adapter real de Better Auth en un `next dev` local, con cookies solo en memoria. Cada una presentó su solicitud desde la interfaz real del piloto (paso «Teléfono» con un número ficticio de AR que nunca se contactó, y paso de confirmación; el piloto no pide código). Fueron tres cohortes de seis, una cada 20 s desde el segundo 10 de las ventanas UTC de las 20:30, 20:35 y 20:40. Las 18 respondieron 201, con 0,78 s en p50 y 0,98 s en p95 entre el clic y la respuesta (fuera de SC-015).
+- **Observación.** Un observador de solo lectura consultó PostgreSQL cada segundo desde la máquina del operador (RTT de unos 165 ms). En el Chrome del líder, un registrador anotó la aparición de cada solicitud nueva en la lista y la duración de cada refresco; la pestaña estuvo visible solo entre 20:31:26 y 20:32:06 y unos segundos a las 20:42 y 20:48, así que Chrome pausó el refresco el resto del tiempo.
+
+### Resultados
+
+| Medición | n | p50 | p95 | Máx. |
+| --- | --- | --- | --- | --- |
+| Solicitud visible desde otra conexión, desde `submitted_at` | 18 | 0,80 s | 1,82 s | 1,82 s |
+| Aviso interno del líder visible, desde su creación | 18 | 0,58 s | 1,65 s | 1,65 s |
+| Lectura de la lista de la bandeja en la UI (`/api/tribes/test/admissions/requests`) | 10 | 0,33 s | 0,46 s | 0,46 s |
+| Lectura del contador de avisos en la UI | 10 | 0,30 s | 1,29 s | 1,29 s |
+| Solicitud S06 en la lista de la UI, con la pestaña visible | 1 | — | — | unos 7 s desde su envío |
+
+| Grupo | Ventana UTC | Cierre → congelado | Cierre → aceptado por el proveedor | Resultado |
+| --- | --- | --- | --- | --- |
+| 1 | 20:30–20:35 | 71,2 s | 73,2 s | `accepted` |
+| 2 | 20:35–20:40 | 70,6 s | 72,8 s | `accepted` |
+| 3 | 20:40–20:45 | 70,6 s | 72,8 s | `accepted` |
+
+Las cifras de la base incluyen el intervalo de 1 s del observador y el RTT. Con el refresco de 15 s de la bandeja y lecturas de 0,46 s en p95, la lista de una pestaña visible queda acotada en unos 17 s desde el envío, contra los 30 s del objetivo; la única observación directa válida (S06) quedó en unos 7 s. Los correos agrupados se aceptan en el primer minuto de mantenimiento después del cierre, con margen frente a los 5 minutos. La campana del líder no se pudo leer como medición porque ya mostraba «9+» antes de la ráfaga.
+
+### Pendiente
+
+- Repetir la observación directa de la lista y la campana con la pestaña del líder visible toda la ráfaga y la campana leída antes de empezar.
+- Medir stock y capacidad del pool durante la ráfaga, que T206 también exige. T206, la parte SC-015 de T209 y OG-05 siguen abiertos hasta entonces.
