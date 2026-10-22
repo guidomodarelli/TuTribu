@@ -14,6 +14,7 @@ import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infr
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { settleGuidedStep } from "@/tests/support/guided-steps-browser";
+import { pressFocused } from "@/tests/support/keyboard-browser";
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native CSV browser workflow", () => {
   it("should preview without list changes, recover a lost reply and preserve partial rows through explicit pending-only resume on Chromium/WebKit desktop/mobile", async () => {
@@ -82,13 +83,14 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native CSV bro
             await fixture.confirm(REAUTHENTICATION_OPERATION.confirmAllowlistImport, importId);
             const beforeCount = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ count: number }>(sql`select count(*)::int as count from public.academy_allowlist_entries where tribe_id=${fixture.tribeId}`)).rows[0].count);
             expect(beforeCount).toBe(addedEntries);
-            for (let row = 1; row <= rowCount; row += 1) await page.getByRole("checkbox", { name: `Seleccionar fila ${row}`, exact: true }).click();
+            // Rows are chosen by keyboard only: focus reaches each row checkbox before Space selects it.
+            for (let row = 1; row <= rowCount; row += 1) await pressFocused(page.getByRole("checkbox", { name: `Seleccionar fila ${row}`, exact: true }), "Space");
             if (isPartial) await database.withContext(fixture.own, async (transaction) => {
               await transaction.execute(sql.raw("create function public.synthetic_import_browser_failure() returns trigger language plpgsql as $$ begin if new.row_number=26 and new.outcome is not null then raise exception 'Controlled later browser import rollback'; end if; return new; end $$"));
               await transaction.execute(sql.raw("create trigger synthetic_import_browser_failure before update on public.academy_allowlist_import_rows for each row execute function public.synthetic_import_browser_failure()"));
             });
-            await page.getByRole("button", { name: "Continuar", exact: true }).click(); await settleGuidedStep(page);
-            await page.getByRole("checkbox", { name: "Confirmo incorporar sólo las filas elegidas", exact: true }).click(); await page.getByRole("button", { name: "Importar filas elegidas", exact: true }).click();
+            await pressFocused(page.getByRole("button", { name: "Continuar", exact: true }), "Enter"); await settleGuidedStep(page);
+            await pressFocused(page.getByRole("checkbox", { name: "Confirmo incorporar sólo las filas elegidas", exact: true }), "Space"); await pressFocused(page.getByRole("button", { name: "Importar filas elegidas", exact: true }), "Enter");
             if (isPartial) {
               await originalButton.waitFor({ state: "visible" }); await originalButton.click();
               await page.getByText("Agregada · Versión de entrada 1", { exact: true }).first().waitFor({ state: "visible" });
