@@ -56,7 +56,7 @@ async function prepareReview(database: AcademyAdmissionTestDatabase) {
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("commercial membership review SQL owner", () => {
-  it("should list cases, record prospective decisions with replay, retire a guardian and unblock the activation inventory", async () => {
+  it("should list cases, record prospective decisions with replay, retire a guardian and a tribemate and unblock the activation inventory", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await prepareReview(database);
       const list = await data.repository.read(data.readContext);
@@ -80,9 +80,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("commercial members
         .toMatchObject({ state: "completed", result: { status: "resolved", decision: "retire", resultingStatus: "removed", resultingRole: "tribemate" } });
       expect(await data.row("guardian")).toEqual({ role: "tribemate", status: "removed", status_reason: "none", commercial_recovery_status: "active" });
       const removed = list.cases.find((item) => item.memberId === data.memberIds.removed)!;
+      // A tribemate can be retired too: an administrative removal that no payment lifts.
       expect(await data.repository.resolve(data.writeContext, { operationId: randomUUID(), confirmed: true, memberId: removed.memberId, decision: "retire", expected: commercialMembershipExpectedState(removed), reason: null }))
-        .toMatchObject({ state: "completed", result: { status: "rejected", reason: "decision_not_allowed" } });
-      await data.repository.resolve(data.writeContext, { operationId: randomUUID(), confirmed: true, memberId: removed.memberId, decision: "recover_active", expected: commercialMembershipExpectedState(removed), reason: null });
+        .toMatchObject({ state: "completed", result: { status: "resolved", decision: "retire", resultingStatus: "removed", resultingRole: "tribemate" } });
+      expect(await data.memberRow(removed.memberId)).toEqual({ role: "tribemate", status: "removed", status_reason: "none", commercial_recovery_status: null });
       expect(await data.repository.read(data.readContext)).toEqual({ cases: [], pendingCount: 0, resolvedCount: 3 });
       const inventory = await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute<{ unknown: number; privileged: number }>(sql`select count(*) filter (where commercial_recovery_status is null)::int as unknown,count(*) filter (where role<>'tribemate')::int as privileged from public.tribe_members where tribe_id=${data.tribeId} and ((status='blocked' and status_reason='payment_blocked') or (status='removed' and status_reason='subscription_inactive'))`)).rows[0]);
       expect(inventory).toEqual({ unknown: 0, privileged: 0 });
@@ -90,7 +91,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("commercial members
       expect(audit).toEqual([
         { decision: "recover_muted", basis: "prospective_leader_decision", actor_user_id: data.fixture.userId, reason: "Decisión del piloto" },
         { decision: "retire", basis: "prospective_leader_decision", actor_user_id: data.fixture.userId, reason: null },
-        { decision: "recover_active", basis: "prospective_leader_decision", actor_user_id: data.fixture.userId, reason: null },
+        { decision: "retire", basis: "prospective_leader_decision", actor_user_id: data.fixture.userId, reason: null },
       ]);
     });
   }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
@@ -113,7 +114,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("commercial members
       expect(caseOf(crossedGuardian)).toMatchObject({ role: "guardian", status: "blocked", statusReason: "subscription_inactive", recoveryStatus: null });
       const decide = (memberId: string, decision: "recover_active" | "recover_muted" | "retire", expected = commercialMembershipExpectedState(caseOf(memberId))) =>
         data.repository.resolve(data.writeContext, { operationId: randomUUID(), confirmed: true, memberId, decision, expected, reason: null });
-      expect(await decide(crossedTribemate, "retire")).toMatchObject({ state: "completed", result: { status: "rejected", reason: "decision_not_allowed" } });
       expect(await decide(crossedTribemate, "recover_muted", { ...commercialMembershipExpectedState(caseOf(crossedTribemate)), status: "blocked" })).toMatchObject({ state: "completed", result: { status: "rejected", reason: "membership_changed" } });
       expect(await decide(crossedKnown, "recover_active", { role: "tribemate", status: "blocked", statusReason: "subscription_inactive", recoveryStatus: "active" })).toMatchObject({ state: "completed", result: { status: "rejected", reason: "membership_already_resolved" } });
       expect(await decide(data.memberIds.conduct, "recover_active", { role: "tribemate", status: "blocked", statusReason: "payment_blocked", recoveryStatus: null })).toMatchObject({ state: "completed", result: { status: "rejected", reason: "membership_not_commercial" } });

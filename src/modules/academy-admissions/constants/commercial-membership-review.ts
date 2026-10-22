@@ -4,7 +4,7 @@ import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-r
 import { TRIBE_MEMBERSHIP_STATUS, TRIBE_MEMBERSHIP_STATUS_REASON } from "@/src/modules/tribes/constants/tribe-page-access";
 import { ADMISSION_LIMIT } from "./admission-limits";
 
-/** What happens prospectively when the payment is regularized; retiring is offered only to privileged memberships. */
+/** What happens prospectively when the payment is regularized, or an administrative retirement that no payment lifts. */
 export type CommercialMembershipDecision = "recover_active" | "recover_muted" | "retire";
 export const COMMERCIAL_MEMBERSHIP_DECISION = { recoverActive: "recover_active", recoverMuted: "recover_muted", retire: "retire" } as const satisfies Record<string, CommercialMembershipDecision>;
 
@@ -83,13 +83,14 @@ export const COMMERCIAL_MEMBERSHIP_DECISION_COPY = {
   tribemate: {
     recover_active: "Al regularizar el pago vuelve como integrante activa",
     recover_muted: "Al regularizar el pago vuelve como integrante silenciada",
+    retire: "No vuelve por pago: queda retirada",
   },
   guardian: {
     recover_active: "Al regularizar el pago vuelve como integrante activa, sin su rol de guardián",
     recover_muted: "Al regularizar el pago vuelve como integrante silenciada, sin su rol de guardián",
     retire: "No vuelve por pago: queda retirada",
   },
-} as const satisfies { tribemate: Record<Exclude<CommercialMembershipDecision, "retire">, string>; guardian: Record<CommercialMembershipDecision, string> };
+} as const satisfies { tribemate: Record<CommercialMembershipDecision, string>; guardian: Record<CommercialMembershipDecision, string> };
 
 /** Facts shown in each row. */
 export const COMMERCIAL_MEMBERSHIP_REVIEW_LABEL = {

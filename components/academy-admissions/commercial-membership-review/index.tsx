@@ -44,7 +44,7 @@ function formatJoinedDate(iso: string): string {
 /** @param item - Listed membership. @returns The decision options with copy for its role. */
 function decisionOptions(item: CommercialMembershipReviewCase): { value: CommercialMembershipDecision; label: string }[] {
   const copy: Partial<Record<CommercialMembershipDecision, string>> = item.role === TRIBE_MEMBER_ROLE.guardian ? COMMERCIAL_MEMBERSHIP_DECISION_COPY.guardian : COMMERCIAL_MEMBERSHIP_DECISION_COPY.tribemate;
-  return allowedCommercialMembershipDecisions(item).map((decision) => ({ value: decision, label: copy[decision] ?? decision }));
+  return allowedCommercialMembershipDecisions().map((decision) => ({ value: decision, label: copy[decision] ?? decision }));
 }
 
 type RowProps = Pick<CommercialMembershipReviewProps, "busy" | "uncertain" | "onDraftChange" | "onResolve"> & { item: CommercialMembershipReviewCase; draft: CommercialMembershipReviewDraft; saving: boolean };
@@ -68,7 +68,7 @@ function ReviewRow({ item, draft, saving, busy, uncertain, onDraftChange, onReso
       <p className={styles.CommercialMembershipReview__meta}>{`${COPY.joinedAt}: ${formatJoinedDate(item.joinedAt)}`}</p>
     </div>
     <div className={styles.CommercialMembershipReview__decision}>
-      <RadioGroup label={COPY.decisionLabel} value={draft.decision ?? undefined} options={options.map((option) => ({ ...option, disabled: busy || uncertain }))}
+      <RadioGroup label={COPY.decisionLabel} value={draft.decision ?? ""} options={options.map((option) => ({ ...option, disabled: busy || uncertain }))}
         onValueChange={(value) => { const decision = options.find((option) => option.value === value)?.value; if (decision) change({ decision, confirmed: false }); }} />
       <Textarea id={`${instanceId}-reason`} label={COPY.reasonLabel} description={COPY.reasonDescription} error={undefined} value={draft.reason} maxLength={COMMERCIAL_MEMBERSHIP_REASON_MAX_CHARACTERS} disabled={busy || uncertain} onChange={(event) => change({ reason: event.target.value })} />
       <Checkbox id={`${instanceId}-confirm`} checked={draft.confirmed} disabled={busy || uncertain || !draft.decision} label={COPY.confirm} onCheckedChange={(checked) => change({ confirmed: checked === true })} />

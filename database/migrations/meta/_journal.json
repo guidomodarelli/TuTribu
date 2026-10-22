@@ -1394,6 +1394,13 @@
       "when": 1792605600000,
       "tag": "20261021180000_project_authenticated_account",
       "breakpoints": true
+    },
+    {
+      "idx": 199,
+      "version": "7",
+      "when": 1792659600000,
+      "tag": "20261022090000_allow_tribemate_commercial_retirement",
+      "breakpoints": true
     }
   ]
 }

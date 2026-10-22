@@ -58,12 +58,10 @@ export function classifyCommercialMembershipReview(item: Pick<CommercialMembersh
 }
 
 /**
- * @param item - Listed membership.
- * @returns The decisions the owner accepts for it: a tribemate returns active or muted; a guardian may also be retired.
+ * @returns The decisions the owner accepts for any listed role: it returns active or muted once paid, or it is retired.
  */
-export function allowedCommercialMembershipDecisions(item: Pick<CommercialMembershipReviewCase, "role">): CommercialMembershipDecision[] {
-  const recover: CommercialMembershipDecision[] = [COMMERCIAL_MEMBERSHIP_DECISION.recoverActive, COMMERCIAL_MEMBERSHIP_DECISION.recoverMuted];
-  return classifyCommercialMembershipReview(item) === COMMERCIAL_MEMBERSHIP_REVIEW_KIND.privileged ? [...recover, COMMERCIAL_MEMBERSHIP_DECISION.retire] : recover;
+export function allowedCommercialMembershipDecisions(): CommercialMembershipDecision[] {
+  return [COMMERCIAL_MEMBERSHIP_DECISION.recoverActive, COMMERCIAL_MEMBERSHIP_DECISION.recoverMuted, COMMERCIAL_MEMBERSHIP_DECISION.retire];
 }
 
 /** @param item - Listed membership. @returns The CAS facts sent with the decision. */

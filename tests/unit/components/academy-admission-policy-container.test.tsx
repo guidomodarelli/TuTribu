@@ -446,7 +446,8 @@ describe("guided policy route workflow", () => {
       expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
       expect(list).toHaveTextContent("Integrante sintética");
       expect(list).toHaveTextContent("Alta: 07/05/2026");
-      expect(screen.queryByRole("radio", { name: "No vuelve por pago: queda retirada" })).toBeInTheDocument();
+      // Both a common member and a guardian can be retired.
+      expect(screen.getAllByRole("radio", { name: "No vuelve por pago: queda retirada" })).toHaveLength(2);
       const save = screen.getAllByRole("button", { name: "Guardar decisión" })[0];
       expect(save).toBeDisabled();
       fireEvent.click(screen.getByRole("radio", { name: "Al regularizar el pago vuelve como integrante silenciada" }));
@@ -489,6 +490,17 @@ describe("guided policy route workflow", () => {
       await waitFor(() => expect(screen.getByRole("button", { name: "Activar ahora" })).toBeInTheDocument());
       expect(data.reviewClient.resolveCommercialReview).toHaveBeenCalledOnce();
       expect(readCommercialMembershipReviewIntent(viewerId, slug)).toBeNull();
+    });
+
+    it("should keep the decision group controlled from its first render so choosing a decision raises no controlled-state warning", async () => {
+      const data = fixture();
+      const warnings = [vi.spyOn(console, "error"), vi.spyOn(console, "warn")];
+      render(<AdmissionPolicyContainer initialState={data.state} client={data.client} reviewClient={data.reviewClient} initialCommercialReview={{ kind: "ready", list: { cases: [unknownCase], pendingCount: 1, resolvedCount: 0 } }} entryStep="memberships" />, { wrapper: Providers });
+      fireEvent.click(await screen.findByRole("radio", { name: "No vuelve por pago: queda retirada" }));
+      expect(screen.getByRole("radio", { name: "No vuelve por pago: queda retirada" })).toBeChecked();
+      const controlledStateWarnings = warnings.flatMap((spy) => spy.mock.calls).filter((call) => call.some((argument) => /uncontrolled to controlled/.test(String(argument))));
+      expect(controlledStateWarnings).toEqual([]);
+      warnings.forEach((spy) => spy.mockRestore());
     });
 
     it("should label a crossed commercial pair with its own status and reason and send them as the observed facts", async () => {

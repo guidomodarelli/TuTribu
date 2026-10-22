@@ -30,11 +30,10 @@ function fixture(role: AdmissionActorFacts["role"] = "leader") {
 }
 
 describe("commercial membership review domain rules", () => {
-  it("should classify guardians as privileged and offer retiring only to them", () => {
+  it("should classify guardians as privileged and offer every decision, retiring included, to both roles", () => {
     expect(classifyCommercialMembershipReview(unknownCase)).toBe("unknown_history");
-    expect(allowedCommercialMembershipDecisions(unknownCase)).toEqual(["recover_active", "recover_muted"]);
     expect(classifyCommercialMembershipReview(guardianCase)).toBe("privileged");
-    expect(allowedCommercialMembershipDecisions(guardianCase)).toEqual(["recover_active", "recover_muted", "retire"]);
+    expect(allowedCommercialMembershipDecisions()).toEqual(["recover_active", "recover_muted", "retire"]);
     expect(commercialMembershipExpectedState(guardianCase)).toEqual({ role: "guardian", status: "removed", statusReason: "subscription_inactive", recoveryStatus: "muted" });
   });
 
@@ -44,7 +43,6 @@ describe("commercial membership review domain rules", () => {
     expect(isCommercialMembershipState({ status: "removed", statusReason: "none" })).toBe(false);
     expect(isCommercialMembershipState({ status: "active", statusReason: "payment_blocked" })).toBe(false);
     const crossedCase: CommercialMembershipReviewCase = { ...unknownCase, status: "removed", statusReason: "payment_blocked" };
-    expect(allowedCommercialMembershipDecisions(crossedCase)).toEqual(["recover_active", "recover_muted"]);
     expect(commercialMembershipExpectedState(crossedCase)).toEqual({ role: "tribemate", status: "removed", statusReason: "payment_blocked", recoveryStatus: null });
   });
 });
