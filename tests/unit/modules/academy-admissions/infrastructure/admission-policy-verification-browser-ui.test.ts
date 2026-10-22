@@ -1,7 +1,7 @@
 /** @vitest-environment node */
 /** Exercises the real rules page turning contact codes ON and OFF on an active policy, including a stale version, in both engines. @module admission-policy-verification-browser-ui-tests */
 import { randomBytes, randomUUID } from "node:crypto";
-import { chromium, webkit, type Locator, type Page } from "@playwright/test";
+import { chromium, webkit, type Page } from "@playwright/test";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
@@ -9,6 +9,7 @@ import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
 import { bindAdmissionBatchBrowserSession } from "@/tests/support/admission-batch-browser-fixture";
 import { prepareAdmissionWhatsappBrowser } from "@/tests/support/admission-whatsapp-browser-fixture";
 import { settleGuidedStep } from "@/tests/support/guided-steps-browser";
+import { pressFocused } from "@/tests/support/keyboard-browser";
 import { ADMISSION_POLICY_BROWSER_COPY, ADMISSION_POLICY_DESTINATION_COPY, ADMISSION_POLICY_SETTINGS_SEGMENT } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
@@ -29,13 +30,6 @@ const SAVE_LABEL = "Guardar cambios";
 async function walkToReview(page: Page) {
   const next = page.getByRole("button", { name: "Continuar", exact: true });
   while (await page.getByRole("checkbox", { name: CONFIRMATION_LABEL, exact: true }).count() === 0) { await next.click(); await settleGuidedStep(page); }
-}
-
-/** @param control - Visible control. @param key - Activation key. @returns Once the control holds keyboard focus and received the key, without a pointer event. */
-async function pressFocused(control: Locator, key: "Enter" | "Space") {
-  await control.focus();
-  await expect.poll(() => control.evaluate((element) => element === document.activeElement)).toBe(true);
-  await control.press(key);
 }
 
 /** @param page - Owned page. @returns Once the rules editor is open at its contact step. */

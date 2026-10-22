@@ -13,6 +13,7 @@ import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messagi
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { settleGuidedStep } from "@/tests/support/guided-steps-browser";
+import { pressFocused } from "@/tests/support/keyboard-browser";
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native allowlist UI", () => {
   it("should preserve stale drafts and recover committed originals across Chromium/WebKit at desktop/mobile widths", async () => {
@@ -68,8 +69,9 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native allowli
             await page.getByLabel("Correo de la entrada", { exact: true }).fill(newIdentity);
             let loseReply = true;
             await page.route(`**/api/tribes/${slug}/admissions/allowlist`, async (route) => { if (loseReply && route.request().method() === "POST") { loseReply = false; try { await route.fetch({ timeout: 180_000 }); } catch { await route.abort().catch(() => {}); throw new Error("Synthetic authenticated allowlist request did not complete"); } await route.fulfill({ status: 502, contentType: "application/json", body: "{}" }); } else await route.continue(); });
-            await page.getByRole("button", { name: "Continuar", exact: true }).click(); await settleGuidedStep(page); await page.getByRole("button", { name: "Continuar", exact: true }).click(); await settleGuidedStep(page);
-            await page.getByRole("checkbox", { name: "Confirmo el cambio de esta entrada de lista", exact: true }).click(); await page.getByRole("button", { name: "Agregar entrada", exact: true }).click();
+            // The new entry is added by keyboard only: focus reaches each step control before Enter or Space activates it.
+            await pressFocused(page.getByRole("button", { name: "Continuar", exact: true }), "Enter"); await settleGuidedStep(page); await pressFocused(page.getByRole("button", { name: "Continuar", exact: true }), "Enter"); await settleGuidedStep(page);
+            await pressFocused(page.getByRole("checkbox", { name: "Confirmo el cambio de esta entrada de lista", exact: true }), "Space"); await pressFocused(page.getByRole("button", { name: "Agregar entrada", exact: true }), "Enter");
             const original = page.getByRole("button", { name: "Consultar operación original", exact: true }); await original.waitFor({ state: "visible" });
             if (capture) await captureAdmissionReview(page, "allowlist-uncertain", forbidden, "allowlist-captures.json", { selector: 'section[aria-label="Gestión de lista de habilitados"]' });
             await original.click(); await page.getByText(newIdentity, { exact: true }).waitFor({ state: "visible" });
