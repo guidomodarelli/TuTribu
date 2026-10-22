@@ -16,6 +16,8 @@ export const MESSAGING_CONNECTIONS_FLOW_COPY={
   label:"Pasos de la conexión",next:"Siguiente",activate:"Activar conexión",replace:"Reemplazar conexión seleccionada",active:"Conexión activa",
   busy:"Esperá a que termine la operación en curso.",
   keyRequired:"Guardá la clave de Zavu para seguir.",
+  /** Shown at Activación when the selection is already active and no new candidate exists. */
+  selectedActive:"La conexión seleccionada ya está activa. Solo hace falta guardar otra clave en Clave si querés reemplazarla.",
   credentialRequired:"Comprobá la credencial para seguir.",
   channelRequired:"Guardá al menos un canal para seguir.",
   /** @param channel - Visible channel label. */
@@ -66,4 +68,5 @@ export const MESSAGING_CONNECTIONS_NEXT_ACTION_COPY={
   activateAction:"Activar conexión",
   activeTitle:"Conexión activa",
   activeReason:"La candidata es la conexión seleccionada para la academia.",
+  selectedActiveReason:"La conexión seleccionada ya está activa para la academia. Para reemplazarla, guardá otra clave de Zavu en Clave.",
 } as const;

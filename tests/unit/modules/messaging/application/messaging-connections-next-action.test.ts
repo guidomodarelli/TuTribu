@@ -16,8 +16,12 @@ function connection(patch:Partial<MessagingConfigurationConnection>={}):Messagin
 const resolve=(candidate:MessagingConfigurationConnection|null,selected:MessagingConfigurationConnection|null=null,policy:MessagingUsagePolicyStateDto=usage)=>resolveMessagingConnectionsNextAction({selected,candidate,usage:policy,observedAt});
 
 describe("messaging connections next action",()=>{
-  it("should start with saving a candidate when none exists, even with an active selection",()=>{
-    expect(resolve(null,connection({state:"active"}))).toMatchObject({step:"saveCandidate",title:"Guardá la clave de Zavu",target:{kind:"step",step:"key"}});
+  it("should start with saving a candidate when there is neither a candidate nor an active selection",()=>{
+    expect(resolve(null)).toMatchObject({step:"saveCandidate",title:"Guardá la clave de Zavu",target:{kind:"step",step:"key"}});
+    expect(resolve(null,connection({state:"suspended"}))).toMatchObject({step:"saveCandidate",target:{kind:"step",step:"key"}});
+  });
+  it("should report an active selection without a new candidate as finished instead of asking for the key again",()=>{
+    expect(resolve(null,connection({state:"active"}))).toEqual({step:"active",title:"Conexión activa",reason:"La conexión seleccionada ya está activa para la academia. Para reemplazarla, guardá otra clave de Zavu en Clave.",action:null,target:null,channel:null});
   });
   it("should explain each credential state before any channel work",()=>{
     expect(resolve(connection({credentialState:"not_validated",capabilities:[]}))).toMatchObject({step:"validateCredential",title:"Comprobá la credencial"});

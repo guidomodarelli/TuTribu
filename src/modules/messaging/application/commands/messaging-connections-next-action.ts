@@ -55,7 +55,8 @@ const TARGET={key:{kind:"step",step:MESSAGING_CONNECTIONS_STEP_KIND.key},credent
  */
 export function resolveMessagingConnectionsNextAction(input:{selected:MessagingConfigurationConnection|null;candidate:MessagingConfigurationConnection|null;usage:MessagingUsagePolicyStateDto;observedAt:string}):MessagingConnectionsNextAction{
   const{candidate,selected,usage}=input,nowMs=Date.parse(input.observedAt);
-  if(!candidate)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.saveCandidate,COPY.saveCandidate,TARGET.key);
+  // Activating clears the candidate slot; an active selection without a new candidate is finished, not waiting for a key.
+  if(!candidate)return selected?.state===MESSAGING_CONNECTION_STATE.active?{step:MESSAGING_CONNECTIONS_NEXT_STEP.active,title:COPY.activeTitle,reason:COPY.selectedActiveReason,action:null,target:null,channel:null}:actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.saveCandidate,COPY.saveCandidate,TARGET.key);
   if(candidate.state===MESSAGING_CONNECTION_STATE.suspended||candidate.state===MESSAGING_CONNECTION_STATE.disconnected)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.activate,COPY.suspendedCandidate,TARGET.security);
   if(candidate.credentialState===MESSAGING_CREDENTIAL_PUBLIC_STATE.notValidated)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.validateCredential,COPY.credentialNotValidated,TARGET.credential);
   if(candidate.credentialState===MESSAGING_CREDENTIAL_PUBLIC_STATE.invalid)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.validateCredential,COPY.credentialInvalid,TARGET.credential);
