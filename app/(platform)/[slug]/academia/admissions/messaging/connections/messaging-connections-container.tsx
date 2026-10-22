@@ -35,7 +35,9 @@ import type {MessagingUsageBrowserResult} from "@/src/modules/messaging/applicat
 import {validateMessagingChannelDraft,type MessagingChannelDraft} from "@/src/modules/messaging/application/commands/messaging-channel-draft";
 import {MESSAGING_RESOURCE_UI_COPY as RESOURCE_COPY} from "@/src/modules/messaging/constants/messaging-resources-browser";
 import {MessagingConnections} from "@/components/academy-admissions/messaging-connections";
-import {MessagingConnectionsAttention,MessagingConnectionsPreservedAttempts,MessagingConnectionsStepNote,MessagingConnectionsWorkspace} from "@/components/academy-admissions/messaging-connections-workspace";
+import {MessagingConnectionsAttention,MessagingConnectionsPreservedAttempts,MessagingConnectionsStepNote,MessagingConnectionsUsageRequired,MessagingConnectionsWorkspace} from "@/components/academy-admissions/messaging-connections-workspace";
+import {MESSAGING_USAGE_POLICY_STATE} from "@/src/modules/messaging/constants/messaging-limits";
+import {MESSAGING_USAGE_SETTINGS_SEGMENT} from "@/src/modules/messaging/constants/messaging-usage";
 import {isMessagingDiagnosticSettled,resolveMessagingConnectionsNextAction} from "@/src/modules/messaging/application/commands/messaging-connections-next-action";
 import {MESSAGING_CONNECTIONS_FLOW_COPY as FLOW_COPY,MESSAGING_CONNECTIONS_NEXT_STEP,MESSAGING_CONNECTIONS_STEP_KIND as STEP_KIND} from "@/src/modules/messaging/constants/messaging-connections-workspace";
 import {messagingConnectionsActionStepId,messagingConnectionsStepId,resolveMessagingConnectionsFlow} from "@/src/modules/messaging/application/commands/messaging-connections-flow";
@@ -187,7 +189,12 @@ export function MessagingConnectionsContainer({initialState,client=messagingConn
         if(retain(null))emit(result.failureCode?{kind:"alert",text:MESSAGING_ERROR_MESSAGE[result.failureCode]}:{kind:"status",text:CHECK_COPY.checked});
         return;
       }
-      if(outcome.status==="failed"&&!outcome.uncertain){if(outcome.code===MESSAGING_ERROR_CODE.connectionConflict)setNeedsCurrent(true);if(retain(null))emit({kind:"alert",text:outcome.message});}else holdPending(CHECK_COPY.pending);
+      if(outcome.status==="failed"&&!outcome.uncertain){
+        if(outcome.code===MESSAGING_ERROR_CODE.connectionConflict)setNeedsCurrent(true);
+        // A completed check that failed (rejected key, test account) still advanced the candidate: show its current state instead of the stale one.
+        else{const current=await client.read(ready.slug,controller.signal);if(controller.signal.aborted||!mounted.current)return;if(!await checkViewer(controller.signal))return;if(current.status==="ready")applyConfiguration(current.value);else setNeedsCurrent(true);}
+        if(retain(null))emit({kind:"alert",text:outcome.message});
+      }else holdPending(CHECK_COPY.pending);
     }finally{busy.current=false;if(mounted.current)setPhase((current)=>current===PHASE.unavailable?current:PHASE.idle);}}));
   };
   /** @param draft - Explicit chosen references already confirmed by the controlled form. @returns Nothing after original versioned configuration and authoritative metadata reconciliation, without sending a message. */
@@ -311,11 +318,11 @@ export function MessagingConnectionsContainer({initialState,client=messagingConn
   const writingOriginal=phase===PHASE.writing&&!resuming&&!archiving;
   const attentionNotice=pending?(writingOriginal?null:notice??COPY.pending):needsCurrent?CHECK_COPY.stale:null;
   const attention=pending||attentionNotice?<MessagingConnectionsAttention notice={attentionNotice}>{pending&&<div><Button variant="secondary" disabled={isBusy} onClick={()=>{void recover();}}>Consultar guardado</Button></div>}{pending&&(canArchive||resuming||archiving)&&<MessagingOriginalRecovery requiresKey={pending.type===REAUTHENTICATION_OPERATION.saveMessagingCredentials&&(canResume||resuming)} resumable={canResume||resuming} confirmed={resumeConfirmed} archiveConfirmed={archiveConfirmed} busy={isBusy} resuming={resuming} archiving={archiving} canResume={resumeConfirmed&&(pending.type!==REAUTHENTICATION_OPERATION.saveMessagingCredentials||Boolean(apiKey.trim()))} onConfirm={setResumeConfirmed} onArchiveConfirm={setArchiveConfirmed} onArchive={()=>{void archiveOriginal();}} onResume={()=>{void resumeOriginal();}} />}</MessagingConnectionsAttention>:null;
-  const usageHref=`/${encodeURIComponent(ready.slug)}/academia/admissions/messaging`;
+  const usageHref=`/${encodeURIComponent(ready.slug)}/${MESSAGING_USAGE_SETTINGS_SEGMENT}`;
   // A test whose channel was already confirmed after it was issued no longer waits for its code.
   const diagnosticSettled=Boolean(diagnosticController.diagnostic&&isMessagingDiagnosticSettled(diagnosticController.diagnostic,candidate));
   const action=nextAction??resolveMessagingConnectionsNextAction({selected:configuration.selected,candidate,usage:configuration.usage,observedAt});
-  const flow=resolveMessagingConnectionsFlow({selected:configuration.selected,candidate,observedAt});
+  const flow=resolveMessagingConnectionsFlow({selected:configuration.selected,candidate,usage:configuration.usage,observedAt});
   // A step that left the flow (a channel reconfigured away) falls back to the step the next action points to.
   const actionStepId=messagingConnectionsActionStepId(action),foundIndex=flow.findIndex((step)=>step.id===currentStepId),currentIndex=foundIndex>=0?foundIndex:Math.max(0,flow.findIndex((step)=>step.id===actionStepId));
   const currentStep=flow[currentIndex];
@@ -333,6 +340,8 @@ export function MessagingConnectionsContainer({initialState,client=messagingConn
     if(kind===STEP_KIND.credential)return candidate?connectionPanel:blockedNote(FLOW_COPY.keyRequired);
     if(!candidate)return blockedNote(FLOW_COPY.keyRequired);
     if(kind===STEP_KIND.channels)return<MessagingConnectionResources availableChannels={providerChannels} {...resourceController.draft} confirmed={resourceController.confirmed} busy={blockedActions} saving={pendingAction===WRITE_ACTION.configureChannel} canSave={resourceController.canSave} senders={resourceController.senders} templates={resourceController.templates} fieldErrors={resourceController.fieldErrors} message={null} onChannelChange={(next)=>resourceController.change({channel:next,senderId:"",templateId:"",templateLanguage:""})} onSenderChange={(senderId)=>resourceController.change({...resourceController.draft,senderId})} onTemplateChange={resourceController.chooseTemplate} onTemplateLanguageChange={(templateLanguage)=>resourceController.change({...resourceController.draft,templateLanguage})} onConfirmationChange={resourceController.confirm} onReadSenders={()=>{void resourceController.readSenders();}} onMoreSenders={()=>{void resourceController.moreSenders();}} onReadTemplates={()=>{void resourceController.readTemplates();}} onMoreTemplates={()=>{void resourceController.moreTemplates();}} onSave={()=>{void resourceController.save();}} />;
+    // A test consumes the daily code quota: without Países y cupos the step explains it and links there instead of offering a send that the server rejects.
+    if(kind===STEP_KIND.test&&configuration.usage.state===MESSAGING_USAGE_POLICY_STATE.notConfigured)return<MessagingConnectionsUsageRequired usageHref={usageHref} />;
     if(kind===STEP_KIND.test&&channel){const diagnostic=diagnosticFor(channel),settled=Boolean(diagnostic&&diagnosticSettled);return<MessagingConnectionDiagnostic channelLocked channel={diagnosticController.draft.channel} recipient={diagnosticController.draft.recipient} country={diagnosticController.draft.country} verificationCode={diagnosticController.verificationCode} confirmed={diagnosticController.confirmed} busy={blockedActions} issuing={pendingAction===WRITE_ACTION.issueDiagnostic} resending={pendingAction===WRITE_ACTION.resendDiagnostic} verifying={pendingAction===WRITE_ACTION.verifyDiagnostic} canIssue={diagnosticController.canIssue&&diagnosticController.draft.channel===channel&&diagnosticReferences.length<MESSAGING_CONNECTION_HISTORY_LIMIT} canVerify={diagnosticController.canVerify&&!settled} canResend={diagnosticController.canResend&&!settled&&diagnosticReferences.length<MESSAGING_CONNECTION_HISTORY_LIMIT} verified={diagnosticController.verified||settled} expiresInSeconds={settled?null:diagnosticController.expiresInSeconds} resendInSeconds={settled?null:diagnosticController.resendInSeconds} allowedCountries={diagnosticController.allowedCountries} usage={configuration.usage} diagnostic={diagnostic} delivery={diagnostic?diagnosticController.delivery:null} fieldErrors={diagnosticController.fieldErrors} usageHref={usageHref} onChannelChange={(next)=>diagnosticController.change({channel:next,recipient:"",country:""})} onRecipientChange={(recipient)=>diagnosticController.change({...diagnosticController.draft,recipient})} onCountryChange={(country)=>diagnosticController.change({...diagnosticController.draft,country})} onCodeChange={diagnosticController.code} onConfirm={diagnosticController.confirm} onIssue={()=>{void diagnosticController.issue();}} onResend={()=>{void diagnosticController.resend();}} onVerify={()=>{void diagnosticController.verify();}} onReadDelivery={()=>{void diagnosticController.readDelivery();}} />;}
     return<MessagingConnectionActivation candidate={candidate} selected={configuration.selected} confirmed={activationController.confirmed} busy={blockedActions} requirements={activationController.requirements} onConfirm={activationController.confirm} />;
   };

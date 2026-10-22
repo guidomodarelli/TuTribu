@@ -234,4 +234,14 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("contact verificati
       });
     });
   }, 180_000);
+  it("should deny a connection test with usage_policy_missing, not connection_incomplete, while the tribe has no saved usage policy", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareIssuer(database, "connection_diagnostic", false, undefined, undefined, false);
+      expect(await fixture.issue()).toMatchObject({ state: "completed", result: { outcome: "denied", code: "usage_policy_missing" } });
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select count(*)::integer as total from public.message_deliveries where tribe_id=${fixture.scope.tribeId}`)).rows).toEqual([{ total: 0 }]);
+        expect((await transaction.execute(sql`select count(*)::integer as total from public.messaging_usage_events where tribe_id=${fixture.scope.tribeId}`)).rows).toEqual([{ total: 0 }]);
+      });
+    });
+  }, 180_000);
 });

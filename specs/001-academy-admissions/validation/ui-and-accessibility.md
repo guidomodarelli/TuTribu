@@ -50,6 +50,16 @@ Las capturas sintéticas de los ocho estados principales no muestran desbordes n
 
 Esta evidencia no reemplaza la auditoría integral con lector de pantalla de T198/T208 ni la matriz canónica de admisión, que se registra por separado.
 
+## Conexión: prueba de canal sin Países y cupos
+
+Sin una fila en `messaging_usage_policies`, `PostgresContactVerificationIssuer` deniega la prueba con `usage_policy_missing` (409) en lugar de `connection_incomplete`, y Conexión bloquea cada paso **Probar** pendiente antes de enviar: el motivo «Antes de probar un canal, guardá Países y cupos: la prueba usa el cupo diario de códigos.» queda como `blockedReason` (descripción accesible de «Siguiente», que queda deshabilitado), el formulario de envío se reemplaza por el enlace «Ir a Países y cupos» y la próxima acción apunta a la misma página. No hay toast: es un estado persistente en pantalla.
+
+Una negación completada (`operation.state` en `completed`, salvo `operation_unresolved`) dejó de tratarse como incierta en `createMessagingBrowserRequest`: el intento no queda en «Consultar guardado», no se reproduce la negación guardada (`replayed: true`) y el siguiente envío sale con un `operationId` nuevo. Una comprobación de credencial rechazada relee la configuración vigente.
+
+`tests/unit/modules/messaging/infrastructure/messaging-usage-required-browser-ui.test.ts`, con `next build` propio, una rama Neon por caso y transporte de proveedor cerrado, aprobó 4 de 4 en Chromium y WebKit a 390 y 1280 px: la ruta responde 409 `usage_policy_missing` sin llamar al proveedor; el paso abre bloqueado, sin «Enviar código de prueba» ni destino, con el enlace a `/{slug}/academia/admissions/messaging`, sin desborde horizontal ni `pageerror`, y sin entregas ni desafíos creados. Después, con la política retirada debajo de una pantalla ya cargada, el envío muestra el motivo sin «Consultar guardado»; al guardar Países y cupos, el segundo envío usa otra operación y emite el código. Sobre el mismo build, `messaging-connections-browser-ui` y `messaging-diagnostic-browser-ui` aprobaron 4 de 4 cada una. El emisor tiene su caso SQL en `contact-verification-issuer.test.ts` (rama Neon propia).
+
+Esta evidencia no reemplaza la auditoría con lector de pantalla de T198/T208.
+
 ## Suite enfocada después de los pasos guiados
 
 Sobre `0f5551d7` (pasos guiados de Habilitados, importación, invitaciones personales y solicitud del aspirante, integrados después en `7272c0da`), `pnpm exec playwright test -c playwright.admissions.config.ts` aprobó 28 de 28 casos en `chromium-mobile`, `chromium-desktop`, `webkit-mobile` y `webkit-desktop` (390 y 1280 px), en 2,1 h, con `next build` propio, una rama Neon por spec y transporte de proveedor cerrado. Cubre la decisión administrativa mixta e incierta con teclado, la revisión manual sin membresía hasta decidir, el reintento con otro contacto tras cancelar, el código nuevo para el mismo contacto y la falla terminal confirmada de correo, SMS y WhatsApp.

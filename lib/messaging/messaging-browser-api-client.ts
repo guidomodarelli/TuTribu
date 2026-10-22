@@ -1,5 +1,6 @@
 "use client";
 /** Shares guarded same-origin HTTP observations without retrying mutations or preserving private input. @module messaging-browser-api-client */
+import {OPERATION_STATE} from "@/src/constants/operation-state";
 import {z} from "zod";
 import type {MessagingUsageBrowserResult} from "@/src/modules/messaging/application/ports/messaging-usage-browser-client";
 import type {MessagingErrorCode} from "@/src/modules/messaging/application/results/messaging-errors";
@@ -20,7 +21,8 @@ export function createMessagingBrowserRequest(transport:typeof fetch=globalThis.
       let body:unknown;try{body=await response.json();}catch{return signal.aborted?{status:"aborted"}:messagingBrowserFailure(MESSAGING_ERROR_CODE.publicContractUnusable,writing);}
       if(signal.aborted)return{status:"aborted"};
       const publicFailure=messagingPublicErrorSchema.safeParse(body);
-      if(publicFailure.success)return messagingBrowserFailure(publicFailure.data.code,writing&&(response.status>=HTTP_STATUS.serverError||publicFailure.data.operation!==undefined));
+      // A failure bound to a completed original is its final answer (for example a stored denial); an unfinished or unresolved original stays uncertain and recoverable.
+      if(publicFailure.success){const operation=publicFailure.data.operation,unresolved=operation!==undefined&&(operation.state!==OPERATION_STATE.completed||publicFailure.data.code===MESSAGING_ERROR_CODE.operationUnresolved);return messagingBrowserFailure(publicFailure.data.code,writing&&(response.status>=HTTP_STATUS.serverError||unresolved));}
       if(!response.ok)return messagingBrowserFailure(MESSAGING_ERROR_CODE.publicContractUnusable,writing);
       const parsed=schema.safeParse(body);return parsed.success?{status:"ready",value:parsed.data}:messagingBrowserFailure(MESSAGING_ERROR_CODE.publicContractUnusable,writing);
     }catch{return signal.aborted?{status:"aborted"}:messagingBrowserFailure(MESSAGING_ERROR_CODE.dependencyUnavailable,writing);}

@@ -20,6 +20,7 @@ export const MESSAGING_ERROR_HTTP_STATUS = {
   [MESSAGING_ERROR_CODE.verificationAttemptsExceeded]: HTTP_STATUS.tooManyRequests,
   [MESSAGING_ERROR_CODE.reauthenticationRequired]: HTTP_STATUS.unauthorized,
   [MESSAGING_ERROR_CODE.connectionIncomplete]: HTTP_STATUS.conflict,
+  [MESSAGING_ERROR_CODE.usagePolicyMissing]: HTTP_STATUS.conflict,
   [MESSAGING_ERROR_CODE.missingCapability]: HTTP_STATUS.conflict,
   [MESSAGING_ERROR_CODE.invalidCredentials]: HTTP_STATUS.conflict,
   [MESSAGING_ERROR_CODE.upstreamRejected]: HTTP_STATUS.unprocessableEntity,

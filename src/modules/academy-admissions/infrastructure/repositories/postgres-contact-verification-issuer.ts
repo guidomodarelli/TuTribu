@@ -75,7 +75,8 @@ export class PostgresContactVerificationIssuer implements ContactVerificationIss
   private async prepare(scope: VerificationChallengeScope): Promise<PreparedResource | { code: (typeof ADMISSION_ERROR_CODE)[keyof typeof ADMISSION_ERROR_CODE] }> {
     const diagnostic = scope.purpose === ADMISSION_VERIFICATION_PURPOSE.connectionDiagnostic;
     const policy = (await this.database.execute<{ version: number; allowed_countries: string[] }>(sql`select version,allowed_countries from public.messaging_usage_policies where tribe_id=${scope.tribeId} for share`)).rows[0];
-    if (!policy) return { code: ADMISSION_ERROR_CODE.connectionIncomplete };
+    // Without saved countries and quotas there is no daily code budget to consume; the connection itself may be complete.
+    if (!policy) return { code: ADMISSION_ERROR_CODE.usagePolicyMissing };
     const connection = (await this.database.execute<{ contributed_by_user_id: string | null; state: string; is_selected: boolean; is_candidate: boolean; selected_version: number | null; candidate_version: number | null; retired_at: string | null }>(sql`select contributed_by_user_id,state,is_selected,is_candidate,selected_version,candidate_version,retired_at from public.tenant_messaging_connections where id=${scope.connectionId} and tribe_id=${scope.tribeId} for share`)).rows[0];
     if (!connection || connection.retired_at !== null || !MESSAGING_CREDENTIAL_USABLE_STATES.has(connection.state)) return { code: ADMISSION_ERROR_CODE.connectionIncomplete };
     const leader = (await this.database.execute(sql`select id from public.tribe_members where tribe_id=${scope.tribeId} and user_id=${connection.contributed_by_user_id} and role=${TRIBE_MEMBER_ROLE.leader} and status=${TRIBE_MEMBERSHIP_STATUS.active} for share`)).rows[0];

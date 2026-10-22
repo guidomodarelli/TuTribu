@@ -43,6 +43,9 @@ describe("messaging connections next action",()=>{
     const action=resolve(connection({capabilities:[{channel:"email",state:"unprepared",checkedAt:fresh,testedAt:null},{channel:"sms",state:"unprepared",checkedAt:fresh,testedAt:null},{channel:"whatsapp",state:"prepared",checkedAt:fresh,testedAt:fresh}]}));
     expect(action).toMatchObject({title:"Falta probar Correo y SMS",channel:"email"});expect(action.reason).toBe("WhatsApp ya está comprobado. Falta Correo y SMS: todavía no se confirmó un código de prueba.");
   });
+  it("should send a pending test to Países y cupos first while the academy has no saved usage, keeping the channel to test",()=>{
+    expect(resolve(connection({capabilities:[{channel:"email",state:"unprepared",checkedAt:fresh,testedAt:null}]}),null,{state:"not_configured",policy:null})).toEqual({step:"testChannel",title:"Guardá Países y cupos",reason:"La prueba de un canal consume el cupo diario de códigos, y la academia todavía no lo guardó.",action:"Ir a Países y cupos",target:{kind:"usage"},channel:"email"});
+  });
   it("should block activation on an unavailable extra channel, a test account or missing countries",()=>{
     expect(resolve(connection({capabilities:[{channel:"email",state:"prepared",checkedAt:fresh,testedAt:fresh},{channel:"sms",state:"unavailable",checkedAt:fresh,testedAt:null}]}))).toMatchObject({step:"prepareChannel",title:"Revisá SMS en Canales"});
     expect(resolve(connection({credentialMode:"test"}))).toMatchObject({title:"Usá una cuenta de producción",target:{kind:"step",step:"credential"}});
