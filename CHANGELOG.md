@@ -177,6 +177,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Los líderes de tribu ya no necesitan confirmar su cuenta con Google para operaciones sensibles de admisiones, mensajería, salida del modo academia o borrado de la tribu; desaparecen el botón y la pantalla de confirmación.
 
 ### Fixed
+- En escritorio, el panel de notificaciones de la campana vuelve a hacer scroll cuando hay más avisos de los que entran.
 - Los avisos agrupados de admisión por correo quedan listos para enviarse a más tardar dos minutos después de que cierra su ventana de cinco minutos, aunque la academia tenga muchas solicitudes del último día; antes se atrasaban más cuantas más solicitudes había (más de cinco minutos con unas cincuenta).
 - Al volver a Conexión con «Atrás» después de guardar Países y cupos, la pantalla relee el estado y deja de pedir que guardes Países y cupos otra vez.
 - Una academia que guardó sus reglas antes de activar su conexión de mensajería ya puede activar las admisiones con «Comprobar el contacto con un código»: las reglas toman la conexión activa al activarla o al guardarlas, y las que habían quedado sin conexión se corrigen solas, sin pasos extra.
