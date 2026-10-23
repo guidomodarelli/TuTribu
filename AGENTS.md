@@ -53,7 +53,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ### Skill coverage registry
 
 - `.golfo/skill-coverage/` registra qué subflujos cubrieron `ui-ux-flow-patterns` y `measured-performance-optimization`, con su evidencia; las skills lo consultan y lo actualizan solas siguiendo su protocolo. Convención: [docs/conventions/skill-coverage.htm](docs/conventions/skill-coverage.htm).
-- Al crear, mover o eliminar un subflujo, actualizar su unidad en `units/` en el mismo trabajo (proponerla con `discover --scope <ruta>` y ajustar nombres y límites). Si una ruta pasa a usar otro módulo de `src/modules`, sumar su builder al `dependsOn` de la unidad.
+- Al crear, mover o eliminar un subflujo, actualizar su unidad en `units/` en el mismo trabajo (proponerla con `discover --scope <ruta>` y ajustar nombres y límites). Si una ruta pasa a usar otro módulo de `src/modules`, sumar su builder al `dependsOn` de la unidad junto con los adaptadores concretos que `src/modules/setup.ts` le inyecta (repositorios, gateways y funciones pasadas a sus constructores), y actualizarlos cuando cambie esa inyección: el builder solo recibe puertos y el boundary no se sigue.
 - No editar a mano `records/` ni `runs/` y no registrar ejecuciones que no ocurrieron: sin evidencia, la unidad queda `UNREVIEWED`.
 
 ### Changelog governance
