@@ -178,6 +178,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 - Al volver a Conexión con «Atrás» después de guardar Países y cupos, la pantalla relee el estado y deja de pedir que guardes Países y cupos otra vez.
+- Una academia que guardó sus reglas antes de activar su conexión de mensajería ya puede activar las admisiones con «Comprobar el contacto con un código»: las reglas toman la conexión activa al activarla o al guardarlas, y las que habían quedado sin conexión se corrigen solas, sin pasos extra.
 - Después de activar una conexión de mensajería, Conexión muestra «Conexión activa» y ya no vuelve a pedir «Guardá la clave de Zavu» como si faltara algo; guardar otra clave solo hace falta para reemplazarla.
 - En Conexión de mensajería, si la academia todavía no guardó Países y cupos, cada paso de prueba lo explica antes de enviar («Antes de probar un canal, guardá Países y cupos: la prueba usa el cupo diario de códigos.») y ofrece «Ir a Países y cupos»; antes el envío se rechazaba con «La academia todavía no tiene preparada la conexión necesaria.», aunque la conexión estaba completa.
 - Cuando una prueba de canal o una comprobación de credencial se rechaza de forma definitiva, el intento queda cerrado: ya no aparece como «Consultar guardado» ni repite el rechazo anterior, y la siguiente prueba, después de corregir la causa, se envía como un intento nuevo. Una comprobación rechazada muestra enseguida el estado actual de la credencial.

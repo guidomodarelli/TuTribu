@@ -6,7 +6,7 @@ import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastruc
 import type { AuthorizedAdmissionContext } from "../../domain/repositories/admission-authorization-reader";
 import type { AdmissionPolicyCommandWriter, AdmissionPolicyInitializationIntent, AdmissionPolicyUpdateIntent, AdmissionPolicyActivationIntent, AdmissionPolicyPauseIntent, AdmissionPolicyMutationResult, AdmissionPolicyPreparationReader } from "../../domain/repositories/admission-policy-management";
 import type { AdmissionOperationCommand, AdmissionOperationResult } from "../../domain/entities/admission-operation";
-import { createDefaultAdmissionPolicy, proposeAdmissionPolicyChange, type AdmissionPolicy, type AdmissionPolicyPatch, type AdmissionPolicyConfigurationFacts } from "../../domain/entities/admission-policy";
+import { createDefaultAdmissionPolicy, proposeAdmissionPolicyChange, selectAdmissionPolicyRules, type AdmissionPolicy, type AdmissionPolicyPatch, type AdmissionPolicyRulesPatch, type AdmissionPolicyConfigurationFacts } from "../../domain/entities/admission-policy";
 import { proposeAdmissionPolicyActivation } from "../../domain/policies/admission-policy-activation";
 import { requiresAdmissionPolicyReadiness } from "../../domain/policies/admission-policy-readiness";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
@@ -25,6 +25,7 @@ import { readAdmissionPolicyWithControlMarker } from "./postgres-admission-polic
 import { createAdmissionPolicyAuditEvent } from "../../domain/entities/admission-audit-event";
 import { PostgresAdmissionAuditRepository } from "./postgres-admission-audit-repository";
 import { appendAdmissionProofInvalidationAudit, type InvalidatedAdmissionProofAuditRow } from "./postgres-admission-proof-invalidation-audit";
+import { readSelectedMessagingResource } from "@/src/modules/messaging/infrastructure/repositories/postgres-selected-messaging-resource-reader";
 
 type PolicyIntent = AdmissionPolicyInitializationIntent | AdmissionPolicyUpdateIntent | AdmissionPolicyActivationIntent | AdmissionPolicyPauseIntent;
 type PolicyDatabaseExecutor = <Result>(context: AuthorizedAdmissionContext, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
@@ -88,24 +89,39 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
     }
   }
 
-  /** @param intent - Explicit first configuration, with no caller version/defaults. @returns Existing configuration unchanged, or version1 closed draft; never activates control. */
+  /** @param intent - Explicit first configuration, with no caller version/defaults. @returns Existing configuration unchanged, or version1 closed draft bound to the current messaging selection; never activates control. */
   async initialize(intent: AdmissionPolicyInitializationIntent): Promise<AdmissionOperationResult<AdmissionPolicyMutationResult>> {
     return this.run(intent, REAUTHENTICATION_OPERATION.updateAdmissionPolicy, { confirmed: intent.confirmed }, async (database, ledgerId) => {
       const current = await this.current(database, intent.context.tribeId);
       if (current.policy) return this.result(current.policy, current.controlActivated, false);
-      const policy = createDefaultAdmissionPolicy({ id: intent.context.tribeId, tribeId: intent.context.tribeId });
+      const defaults = createDefaultAdmissionPolicy({ id: intent.context.tribeId, tribeId: intent.context.tribeId });
+      // An academy that activated its connection first starts with that selection; a later write rebinds it if an activation was still committing.
+      const policy = { ...defaults, ...await this.selectionReference(database, defaults) };
       const createdAt = await admissionPolicyDatabaseNow(database);
-      await database.execute(sql`insert into public.academy_admission_policies(tribe_id,changed_by_user_id,updated_at) values (${policy.tribeId},${intent.context.userId},${createdAt})`);
+      await database.execute(sql`insert into public.academy_admission_policies(tribe_id,messaging_connection_id,messaging_connection_version,changed_by_user_id,updated_at) values (${policy.tribeId},${policy.messagingConnectionId},${policy.messagingConnectionVersion},${intent.context.userId},${createdAt})`);
       await this.audit(database, intent, ledgerId, null, policy, createdAt);
       return this.result(policy, false, true);
     });
   }
 
-  /** Saves a new version without implicitly activating, opening, connecting or sending. */
-  private async change(database: RequestDatabase, intent: AdmissionPolicyUpdateIntent | AdmissionPolicyPauseIntent, ledgerId: string, patch: AdmissionPolicyPatch): Promise<AdmissionPolicyMutationResult> {
+  /**
+   * The messaging reference is owner-derived: only the selected version can be ready, so a policy without it (saved before any usable selection, or still naming a retired one) takes it on its next write.
+   * @param database - Transaction already holding the policy lock: an activation that commits first is read here, and one still waiting replaces the reference read here.
+   * @param policy - Locked current policy.
+   * @returns The reference to set, or nothing when the policy already names the selection or the tribe has no usable one; an existing reference is never cleared.
+   */
+  private async selectionReference(database: RequestDatabase, policy: AdmissionPolicy): Promise<AdmissionPolicyPatch> {
+    const selected = await readSelectedMessagingResource(database, policy.tribeId);
+    if (!selected || policy.messagingConnectionId === selected.connectionId && policy.messagingConnectionVersion === selected.connectionVersion) return {};
+    return { messagingConnectionId: selected.connectionId, messagingConnectionVersion: selected.connectionVersion };
+  }
+
+  /** Saves a new version without implicitly activating, opening or sending; it only binds the messaging reference to the current selection. */
+  private async change(database: RequestDatabase, intent: AdmissionPolicyUpdateIntent | AdmissionPolicyPauseIntent, ledgerId: string, rules: AdmissionPolicyRulesPatch): Promise<AdmissionPolicyMutationResult> {
     const current = await this.current(database, intent.context.tribeId), policy = current.policy;
     if (!policy) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
     if (policy.version !== intent.expectedVersion) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
+    const patch: AdmissionPolicyPatch = { ...selectAdmissionPolicyRules(rules), ...await this.selectionReference(database, policy) };
     const next = { ...policy, ...patch };
     const effective = ADMISSION_POLICY_EDITABLE_FIELDS.some((field) => next[field] !== policy[field]);
     if (!effective) return this.result(policy, current.controlActivated, false);
@@ -155,8 +171,10 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
       const current = await this.current(database, intent.context.tribeId);
       if (!current.policy) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
       if (current.policy.version !== intent.expectedVersion) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
-      const preparation = await this.composePreparation(database, intent.context).read(current.policy);
-      const proposal = proposeAdmissionPolicyActivation(current.policy, intent.expectedVersion, { ...preparation, now: await admissionPolicyDatabaseNow(database) });
+      // Activation is the policy's single effective change: binding the current selection shares its version increment and audit.
+      const bound = { ...current.policy, ...await this.selectionReference(database, current.policy) };
+      const preparation = await this.composePreparation(database, intent.context).read(bound);
+      const proposal = proposeAdmissionPolicyActivation(bound, intent.expectedVersion, { ...preparation, now: await admissionPolicyDatabaseNow(database) });
       if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.conflict) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
       if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.invalid) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
       if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.unchanged) return this.result(proposal.policy, true, false);

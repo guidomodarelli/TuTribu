@@ -4,5 +4,4 @@ export type AdmissionPolicyDraft = {
   allowCommonExceptions: boolean; requiresAdditionalVerification: boolean;
   requiresWhatsappNumber?: boolean;
   phoneChannel: "sms" | "whatsapp" | null; allowSmsAlternative: boolean;
-  messagingConnectionId: string | null; messagingConnectionVersion: number | null;
 };

@@ -7,11 +7,18 @@ import {
   createDefaultAdmissionPolicy,
   validateAdmissionPolicyConfiguration,
   proposeAdmissionPolicyChange,
+  selectAdmissionPolicyRules,
 } from "@/src/modules/academy-admissions/domain/entities/admission-policy";
 import { createAcademyAdmissionFixtures } from "@/tests/support/academy-admission-fixtures";
 
 describe("admission policy configuration", () => {
   const fixtures = createAcademyAdmissionFixtures("policy-matrix");
+
+  it("should keep only leader rules so a caller cannot set the messaging reference the owner derives", () => {
+    const received = { isOpen: true, requiresAdditionalVerification: true, messagingConnectionId: null, messagingConnectionVersion: null };
+    expect(selectAdmissionPolicyRules(received)).toEqual({ isOpen: true, requiresAdditionalVerification: true });
+    expect(selectAdmissionPolicyRules({})).toEqual({});
+  });
 
   it("should start closed with manual email and verification off when a leader begins configuration", () => {
     const policy = createDefaultAdmissionPolicy({ id: "synthetic-policy", tribeId: fixtures.tribes.academyA.id });

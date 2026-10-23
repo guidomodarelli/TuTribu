@@ -36,10 +36,10 @@ describe("policy explicit input contracts", () => {
     expect(admissionPolicyInitializationSchema.safeParse({ ...intent, confirmed: false }).success).toBe(false);
   });
 
-  it("should require an observed existing version and reject policy epoch/activation/country authority from the browser", () => {
-    const intent = { operationId: randomUUID(), confirmed: true, expectedVersion: 3, mode: "manual_review", contactType: "email", isOpen: false, allowCommonExceptions: false, requiresAdditionalVerification: false, phoneChannel: null, allowSmsAlternative: false, messagingConnectionId: null, messagingConnectionVersion: null };
+  it("should require an observed existing version and reject policy epoch/activation/country/messaging-selection authority from the browser", () => {
+    const intent = { operationId: randomUUID(), confirmed: true, expectedVersion: 3, mode: "manual_review", contactType: "email", isOpen: false, allowCommonExceptions: false, requiresAdditionalVerification: false, phoneChannel: null, allowSmsAlternative: false };
     expect(admissionPolicyUpdateSchema.parse(intent)).toEqual(intent);
-    for (const extra of [{ expectedVersion: 0 }, { verificationEpoch: 9 }, { activatedAt: "2026-10-07T01:00:00Z" }, { allowedCountries: ["AR"] }, { paid: true, verified: true }, { role: "leader" }]) expect(admissionPolicyUpdateSchema.safeParse({ ...intent, ...extra }).success).toBe(false);
+    for (const extra of [{ expectedVersion: 0 }, { verificationEpoch: 9 }, { activatedAt: "2026-10-07T01:00:00Z" }, { allowedCountries: ["AR"] }, { paid: true, verified: true }, { role: "leader" }, { messagingConnectionId: randomUUID(), messagingConnectionVersion: 1 }]) expect(admissionPolicyUpdateSchema.safeParse({ ...intent, ...extra }).success).toBe(false);
   });
 
   it("should keep activate and pause explicit without accepting a preflight or authority boolean", () => {
@@ -148,7 +148,7 @@ describe("policy native command HTTP boundary", () => {
 
   it("should keep editable draft settings apart from the original UUID/version and reject a second country list", async () => {
     const data = commandFixture();
-    const patch = { mode: "manual_review", contactType: "email", isOpen: false, allowCommonExceptions: false, requiresAdditionalVerification: true, phoneChannel: null, allowSmsAlternative: false, messagingConnectionId: null, messagingConnectionVersion: null };
+    const patch = { mode: "manual_review", contactType: "email", isOpen: false, allowCommonExceptions: false, requiresAdditionalVerification: true, phoneChannel: null, allowSmsAlternative: false };
     const body = { operationId: data.operationId, confirmed: true, expectedVersion: 3, ...patch };
     expect((await data.handlers.update(data.request({ ...body, allowedCountries: ["AR"] }), data.context)).status).toBe(400);
     expect(data.writer.update).not.toHaveBeenCalled();

@@ -1,7 +1,7 @@
 /** Resolves actual authority before explicit policy commands, without provider or persistence imports. @module manage-admission-policy-use-cases */
 import type { ResolveAdmissionContextUseCase } from "./resolve-admission-context-use-case";
 import type { AdmissionPolicyCommandWriter, AdmissionPolicyStateReader } from "../../domain/repositories/admission-policy-management";
-import type { AdmissionPolicyPatch } from "../../domain/entities/admission-policy";
+import type { AdmissionPolicyRulesPatch } from "../../domain/entities/admission-policy";
 import { admissionOperationFailure } from "../results/admission-operation-failure";
 import { ADMISSION_ACTION } from "../../constants/admission-eligibility";
 import { ADMISSION_POLICY_OPERATION } from "../../constants/admission-policy";
@@ -33,7 +33,7 @@ export class ManageAdmissionPolicyUseCases {
   }
 
   /** @param input - Original explicit settings intent with observed version. @returns Original committed change/no-op or registered progress, without sending messages. */
-  async update(input: VersionedPolicyConfirmation & { patch: AdmissionPolicyPatch }) {
+  async update(input: VersionedPolicyConfirmation & { patch: AdmissionPolicyRulesPatch }) {
     try {
       const authority = await this.resolver.execute({ tribeId: input.tribeId, requestId: input.requestId, action: ADMISSION_ACTION.configurePolicy, sensitiveOperation: REAUTHENTICATION_OPERATION.updateAdmissionPolicy });
       return authority.allowed ? { ok: true as const, value: await this.writer.update({ context: authority.context, operationId: input.operationId, confirmed: input.confirmed, expectedVersion: input.expectedVersion, patch: input.patch, type: ADMISSION_POLICY_OPERATION.update }) } : { ok: false as const, failure: authority.failure };

@@ -508,7 +508,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
         expect(created.status).toBe(200);
         expect(await created.json()).toMatchObject({ state: "completed", operationId: initOperationId, result: { version: 1, verificationEpoch: 1, controlActivated: false } });
         expect(await (await request("POST", "/policy", initialize)).json()).toMatchObject({ state: "completed", replayed: true, result: { version: 1 } });
-        const patch = { mode: "manual_review", contactType: "email", isOpen: true, allowCommonExceptions: false, requiresAdditionalVerification: true, phoneChannel: null, allowSmsAlternative: false, messagingConnectionId: null, messagingConnectionVersion: null };
+        const patch = { mode: "manual_review", contactType: "email", isOpen: true, allowCommonExceptions: false, requiresAdditionalVerification: true, phoneChannel: null, allowSmsAlternative: false };
         const edit = { operationId: randomUUID(), confirmed: true, expectedVersion: 1, ...patch };
         expect((await request("PUT", "/policy", { ...edit, allowedCountries: ["AR"] })).status).toBe(400);
         const saved = await request("PUT", "/policy", edit);

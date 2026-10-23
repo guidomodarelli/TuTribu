@@ -86,7 +86,7 @@ export async function prepareRestoreAdmissionCheckpoint(database: AcademyAdmissi
   const owners = composeRestoreAdmissionOwners(database, source, async () => config);
   const base = { tribeId, requestId: randomUUID(), confirmed: true as const };
   const initialized = completed(await owners.policy.initialize({ ...base, operationId: randomUUID() }), REAUTHENTICATION_OPERATION.updateAdmissionPolicy);
-  const configured = completed(await owners.policy.update({ ...base, operationId: randomUUID(), expectedVersion: initialized.version, patch: { isOpen: true, requiresAdditionalVerification: true, messagingConnectionId: source.context.connectionId, messagingConnectionVersion: source.context.connectionVersion } }), REAUTHENTICATION_OPERATION.updateAdmissionPolicy);
+  const configured = completed(await owners.policy.update({ ...base, operationId: randomUUID(), expectedVersion: initialized.version, patch: { isOpen: true, requiresAdditionalVerification: true } }), REAUTHENTICATION_OPERATION.updateAdmissionPolicy);
   const activated = completed(await owners.policy.activate({ ...base, operationId: randomUUID(), expectedVersion: configured.version }), REAUTHENTICATION_OPERATION.activateAdmissionPolicy);
   const applied = await seedRestoreApplicant(database, tribeId), available = await seedRestoreApplicant(database, tribeId), queued = await seedRestoreApplicant(database, tribeId), uncertain = await seedRestoreApplicant(database, tribeId);
   /** @param applicant - Current synthetic account and normalized contact. @returns A genuinely queued original challenge without dispatch. */

@@ -27,11 +27,13 @@ export const ADMISSION_POLICY_CONFIGURATION_ERROR = {
 /** Warns that manual phone/OFF supports common submissions only. */
 export const ADMISSION_POLICY_CONFIGURATION_WARNING = { phoneInvitationsUnavailable: "phone_invitations_unavailable" } as const;
 
-/** Limits mutation proposals to policy settings; identity and counters stay server-owned. */
-export const ADMISSION_POLICY_EDITABLE_FIELDS = [
+/** Rules the leader edits from the browser; identity, counters and the messaging reference stay server-owned. */
+export const ADMISSION_POLICY_RULE_FIELDS = [
   "mode", "contactType", "isOpen", "allowCommonExceptions", "requiresAdditionalVerification", "requiresWhatsappNumber",
-  "phoneChannel", "allowSmsAlternative", "messagingConnectionId", "messagingConnectionVersion",
+  "phoneChannel", "allowSmsAlternative",
 ] as const;
+/** Limits mutation proposals to policy settings: the rules plus the messaging reference the owner derives from the current selection. */
+export const ADMISSION_POLICY_EDITABLE_FIELDS = [...ADMISSION_POLICY_RULE_FIELDS, "messagingConnectionId", "messagingConnectionVersion"] as const;
 
 /** Distinguishes a new proposal from a no-op, stale version, or invalid configuration. */
 export const ADMISSION_POLICY_CHANGE_OUTCOME = { changed: "changed", unchanged: "unchanged", conflict: "conflict", invalid: "invalid" } as const;

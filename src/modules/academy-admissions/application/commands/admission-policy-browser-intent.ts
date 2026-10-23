@@ -7,7 +7,7 @@ import { ADMISSION_POLICY_MODE, ADMISSION_PHONE_CHANNEL, ADMISSION_POLICY_OPERAT
 import { ADMISSION_CONTACT_TYPE } from "../../constants/admission-contact";
 import { ADMISSION_LIMIT } from "../../constants/admission-limits";
 
-/** The browser has no actor, countries, operational marker or capability authority. */
+/** The browser has no actor, countries, operational marker, capability or messaging-selection authority. */
 const confirmationFields = { operationId: z.uuid(), confirmed: z.literal(true) };
 const versionFields = { ...confirmationFields, expectedVersion: z.int().positive() };
 export const admissionPolicyDraftSchema = z.strictObject({
@@ -15,13 +15,12 @@ export const admissionPolicyDraftSchema = z.strictObject({
   allowCommonExceptions: z.boolean(), requiresAdditionalVerification: z.boolean(),
   requiresWhatsappNumber: z.boolean().optional(),
   phoneChannel: z.enum(ADMISSION_PHONE_CHANNEL).nullable(), allowSmsAlternative: z.boolean(),
-  messagingConnectionId: z.uuid().nullable(), messagingConnectionVersion: z.int().positive().nullable(),
-}).refine((draft) => (draft.messagingConnectionId === null) === (draft.messagingConnectionVersion === null));
+});
 
 /** A restored intention never restores the user's fresh UI confirmation. */
 export const admissionPolicyBrowserIntentSchema = z.discriminatedUnion("type", [
   z.strictObject({ type: z.literal(ADMISSION_POLICY_OPERATION.initialize), input: z.strictObject(confirmationFields) }),
-  z.strictObject({ type: z.literal(ADMISSION_POLICY_OPERATION.update), input: z.strictObject({ ...versionFields, ...admissionPolicyDraftSchema.shape }).refine((input) => (input.messagingConnectionId === null) === (input.messagingConnectionVersion === null)) }),
+  z.strictObject({ type: z.literal(ADMISSION_POLICY_OPERATION.update), input: z.strictObject({ ...versionFields, ...admissionPolicyDraftSchema.shape }) }),
   z.strictObject({ type: z.literal(ADMISSION_POLICY_OPERATION.activate), input: z.strictObject(versionFields) }),
   z.strictObject({ type: z.literal(ADMISSION_POLICY_OPERATION.pause), input: z.strictObject({ ...versionFields, reason: z.string().trim().min(1).max(ADMISSION_LIMIT.internalMessageCharacters) }) }),
 ]);
@@ -31,8 +30,7 @@ export type AdmissionPolicyBrowserIntent = z.infer<typeof admissionPolicyBrowser
 export function createAdmissionPolicyDraft(state: AdmissionPolicyStateDto): AdmissionPolicyDraft {
   const policy = state.policy ?? createDefaultAdmissionPolicy({ id: "", tribeId: "" });
   return { mode: policy.mode, contactType: policy.contactType, isOpen: policy.isOpen, allowCommonExceptions: policy.allowCommonExceptions,
-    requiresAdditionalVerification: policy.requiresAdditionalVerification, requiresWhatsappNumber: policy.requiresWhatsappNumber ?? false, phoneChannel: policy.phoneChannel, allowSmsAlternative: policy.allowSmsAlternative,
-    messagingConnectionId: policy.messagingConnectionId, messagingConnectionVersion: policy.messagingConnectionVersion };
+    requiresAdditionalVerification: policy.requiresAdditionalVerification, requiresWhatsappNumber: policy.requiresWhatsappNumber ?? false, phoneChannel: policy.phoneChannel, allowSmsAlternative: policy.allowSmsAlternative };
 }
 
 /** @param draft - Proposed editable settings. @param state - Current authorized projection, never a capability grant. @returns A structural incompatibility or null; operational readiness remains server-owned. */

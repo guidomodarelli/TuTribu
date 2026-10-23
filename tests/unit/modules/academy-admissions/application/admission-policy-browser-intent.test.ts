@@ -34,11 +34,12 @@ describe("policy browser intention", () => {
 
   it("should permit an incomplete verification draft while blocking incompatible settings and a locked contact change", () => {
     const current = state(), draft = createAdmissionPolicyDraft(current);
-    expect(draft).toMatchObject({ mode: "manual_review", contactType: "email", isOpen: false, requiresAdditionalVerification: false, messagingConnectionId: null });
+    expect(draft).toMatchObject({ mode: "manual_review", contactType: "email", isOpen: false, requiresAdditionalVerification: false });
+    expect(draft).not.toHaveProperty("messagingConnectionId");
     expect(validateAdmissionPolicyBrowserDraft({ ...draft, requiresAdditionalVerification: true }, current)).toBeNull();
     expect(validateAdmissionPolicyBrowserDraft({ ...draft, contactType: "phone", mode: "allowlist" }, current)).toBe("phone_allowlist_verification_required");
     expect(validateAdmissionPolicyBrowserDraft({ ...draft, allowSmsAlternative: true }, current)).toBe("sms_alternative_invalid");
-    const protectedState: AdmissionPolicyStateDto = { ...current, state: "paused", controlActivated: true, policy: { id: "83ecbfaf-0e7c-4afb-aefc-62b62800d367", version: 3, verificationEpoch: 1, ...draft, activatedAt: "2026-10-07T09:00:00Z", usage: null, requirements: [] }, impact: { ...current.impact, contactTypeLocked: true, historicalLinksProtected: true } };
+    const protectedState: AdmissionPolicyStateDto = { ...current, state: "paused", controlActivated: true, policy: { id: "83ecbfaf-0e7c-4afb-aefc-62b62800d367", version: 3, verificationEpoch: 1, ...draft, messagingConnectionId: null, messagingConnectionVersion: null, activatedAt: "2026-10-07T09:00:00Z", usage: null, requirements: [] }, impact: { ...current.impact, contactTypeLocked: true, historicalLinksProtected: true } };
     expect(validateAdmissionPolicyBrowserDraft({ ...draft, contactType: "phone" }, protectedState)).toBe("contact_type_locked");
   });
 });

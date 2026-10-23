@@ -117,6 +117,8 @@ describe("guided policy route workflow", () => {
     expect(screen.getByRole("group", { name: "Tenés reglas guardadas sin publicar" })).toHaveTextContent("Por ahora no se pueden activar: depende del equipo de TuTribu.");
     expect(block).toHaveTextContent("Tus reglas quedaron guardadas como borrador.");
     expect(data.client.updatePolicy.mock.calls[0][1]).toMatchObject({ expectedVersion: 3, requiresAdditionalVerification: true });
+    // The server binds the messaging selection; the saved rules never carry a connection reference.
+    expect(data.client.updatePolicy.mock.calls[0][1]).not.toHaveProperty("messagingConnectionId");
     expect(data.client.activatePolicy).not.toHaveBeenCalled();
     expect(screen.queryByText(/sólo está disponible para el líder activo/)).not.toBeInTheDocument();
     expect(screen.getByText("Código de comprobación").nextElementSibling).toHaveTextContent("Sí");

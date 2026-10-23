@@ -84,9 +84,9 @@ export const admissionBatchDecisionSchema = z.strictObject({ ...operationFields,
 /** Retry changes cadence only; role, suspension and memberships cannot be rewritten here. */
 export const admissionRetryEligibilitySchema = z.strictObject({ ...operationFields, expectedVersion: expectedVersionSchema, internalReason: z.string().trim().min(1).max(ADMISSION_LIMIT.internalMessageCharacters) });
 
-/** Policy input excludes epoch/activation, countries and counters; only the owner derives those facts. */
+/** Policy input excludes epoch/activation, countries, counters and the messaging reference; only the owner derives those facts. */
 export const admissionPolicyInitializationSchema = z.strictObject({ ...operationFields });
-export const admissionPolicyUpdateSchema = z.strictObject({ ...operationFields, expectedVersion: expectedVersionSchema, mode: z.enum(ADMISSION_POLICY_MODE), contactType: z.enum(ADMISSION_CONTACT_TYPE), isOpen: z.boolean(), allowCommonExceptions: z.boolean(), requiresAdditionalVerification: z.boolean(), requiresWhatsappNumber: z.boolean().optional(), phoneChannel: z.enum(ADMISSION_PHONE_CHANNEL).nullable(), allowSmsAlternative: z.boolean(), messagingConnectionId: z.uuid().nullable(), messagingConnectionVersion: expectedVersionSchema.nullable() }).refine((command) => (command.messagingConnectionId === null) === (command.messagingConnectionVersion === null));
+export const admissionPolicyUpdateSchema = z.strictObject({ ...operationFields, expectedVersion: expectedVersionSchema, mode: z.enum(ADMISSION_POLICY_MODE), contactType: z.enum(ADMISSION_CONTACT_TYPE), isOpen: z.boolean(), allowCommonExceptions: z.boolean(), requiresAdditionalVerification: z.boolean(), requiresWhatsappNumber: z.boolean().optional(), phoneChannel: z.enum(ADMISSION_PHONE_CHANNEL).nullable(), allowSmsAlternative: z.boolean() });
 export const admissionPolicyActivationSchema = z.strictObject({ ...operationFields, expectedVersion: expectedVersionSchema });
 export const admissionPolicyPauseSchema = z.strictObject({ ...operationFields, expectedVersion: expectedVersionSchema, reason: z.string().trim().min(1).max(ADMISSION_LIMIT.internalMessageCharacters) });
 /** Route purpose, text, code, sender and account identity stay server-owned. */
