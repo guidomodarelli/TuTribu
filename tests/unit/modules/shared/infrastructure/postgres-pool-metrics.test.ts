@@ -28,6 +28,14 @@ class InMemoryClient extends EventEmitter {
   }
 }
 
+/** Connection that stays pending until the test lets it fail, to span a logging boundary. */
+class DeferredFailingClient extends InMemoryClient {
+  static failPending: () => void = () => undefined;
+  connect(callback: (error?: Error) => void) {
+    DeferredFailingClient.failPending = () => callback(new Error("synthetic connection failure"));
+  }
+}
+
 /** @returns A port that was free a moment ago and now refuses connections. */
 async function reserveClosedPort() {
   const server = createServer();
@@ -123,6 +131,22 @@ describe("Postgres pool usage metrics", () => {
     const [, heldWindow] = readMetricsLogs();
     expect(heldWindow.metadata).toMatchObject({ checkouts: 0, checkedOutConnections: 1, peakCheckedOutConnections: 1, peakOpenConnections: 1 });
     client.release();
+    await pool.end();
+  });
+
+  it("logs a checkout failure that completes after the window that counted its checkout", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const pool = new Pool({ max: 1, Client: DeferredFailingClient as unknown as never });
+    attachPostgresPoolMetrics({ pool, poolOperation: "runtime_database_pool_idle_error", maximumConnections: 1, logIntervalMilliseconds: 1000 });
+    const checkout = pool.connect();
+    vi.advanceTimersByTime(1000);
+    expect(readMetricsLogs()[0].metadata).toMatchObject({ checkouts: 1, checkoutFailures: 0 });
+
+    DeferredFailingClient.failPending();
+    await expect(checkout).rejects.toThrow("synthetic connection failure");
+    vi.advanceTimersByTime(1000);
+    expect(readMetricsLogs()).toHaveLength(2);
+    expect(readMetricsLogs()[1].metadata).toMatchObject({ checkouts: 0, checkoutFailures: 1, checkedOutConnections: 0 });
     await pool.end();
   });
 

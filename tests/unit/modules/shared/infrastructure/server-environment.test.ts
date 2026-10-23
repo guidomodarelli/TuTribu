@@ -112,7 +112,13 @@ describe("Postgres pool metrics environment", () => {
     expect(getPostgresPoolMetricsEnvironment()).toEqual({ logIntervalMilliseconds: 5000 });
   });
 
-  it.each([undefined, "", "0", "999", "1500.5", "five seconds"])(
+  it("accepts the largest interval Node.js timers honor", () => {
+    process.env.POSTGRES_POOL_METRICS_LOG_INTERVAL_MS = "2147483647";
+
+    expect(getPostgresPoolMetricsEnvironment()).toEqual({ logIntervalMilliseconds: 2147483647 });
+  });
+
+  it.each([undefined, "", "0", "999", "1500.5", "five seconds", "2147483648"])(
     "keeps pool metrics off for %s",
     (configuredValue) => {
       if (configuredValue === undefined) {

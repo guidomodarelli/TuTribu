@@ -167,7 +167,8 @@ export function attachPostgresPoolMetrics(input: AttachPostgresPoolMetricsInput)
   const logUsageWindow = () => {
     const checkedOutConnections = readCheckedOutConnections();
     const queuedCheckouts = readQueuedCheckouts();
-    const hadActivity = usageWindow.checkouts > 0 || usageWindow.releases > 0 || usageWindow.connectionsRemoved > 0;
+    // A checkout that started in an earlier window can finish (or fail) in this one, so its completion counts as activity.
+    const hadActivity = usageWindow.checkouts > 0 || usageWindow.acquisitions > 0 || usageWindow.checkoutFailures > 0 || usageWindow.releases > 0 || usageWindow.connectionsOpened > 0 || usageWindow.connectionsRemoved > 0;
     if (!hadActivity && checkedOutConnections === 0 && queuedCheckouts === 0) return;
     // Sample before closing so occupancy held through the whole window still counts as its peak.
     observePeaks();

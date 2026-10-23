@@ -73,11 +73,13 @@ export function getServerMaintenanceDatabaseEnvironment() {
 const POSTGRES_POOL_METRICS_LOG_INTERVAL_ENV = "POSTGRES_POOL_METRICS_LOG_INTERVAL_MS";
 /** Shortest accepted window, so a misconfiguration cannot flood the runtime logs. */
 const POSTGRES_POOL_METRICS_MINIMUM_INTERVAL_MILLISECONDS = 1000;
+/** Largest delay Node.js timers honor; a larger one silently fires every millisecond. */
+const NODE_TIMER_MAXIMUM_DELAY_MILLISECONDS = 2_147_483_647;
 
 /**
  * Resolves the optional pool usage logging. It is off unless
- * `POSTGRES_POOL_METRICS_LOG_INTERVAL_MS` holds an integer of at least one
- * second; any other value keeps it off instead of failing the request.
+ * `POSTGRES_POOL_METRICS_LOG_INTERVAL_MS` holds an integer between one
+ * second and the Node.js timer limit; any other value keeps it off instead of failing the request.
  *
  * @returns The log interval in milliseconds, or `null` when pool metrics are disabled.
  */
@@ -86,7 +88,8 @@ export function getPostgresPoolMetricsEnvironment() {
   const logIntervalMilliseconds = configuredValue ? Number(configuredValue) : Number.NaN;
   const isEnabled =
     Number.isSafeInteger(logIntervalMilliseconds) &&
-    logIntervalMilliseconds >= POSTGRES_POOL_METRICS_MINIMUM_INTERVAL_MILLISECONDS;
+    logIntervalMilliseconds >= POSTGRES_POOL_METRICS_MINIMUM_INTERVAL_MILLISECONDS &&
+    logIntervalMilliseconds <= NODE_TIMER_MAXIMUM_DELAY_MILLISECONDS;
 
   return {
     logIntervalMilliseconds: isEnabled ? logIntervalMilliseconds : null,
