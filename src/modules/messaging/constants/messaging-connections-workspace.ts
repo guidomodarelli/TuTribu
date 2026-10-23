@@ -43,6 +43,8 @@ export const MESSAGING_CONNECTIONS_NEXT_ACTION_COPY={
   suspendedSelection:{title:"La conexión seleccionada está suspendida",reason:"Esta conexión es la seleccionada y la candidata a la vez. Retirarla también quita la selección de la academia; revisala en Seguridad y retiro antes de decidir.",action:"Ir a Seguridad y retiro"},
   credentialNotValidated:{title:"Comprobá la credencial",reason:"La clave quedó guardada, pero todavía no se comprobó con Zavu.",action:"Ir a Credencial"},
   credentialInvalid:{title:"Revisá la clave de Zavu",reason:"Zavu rechazó la clave guardada. Retirá esta candidata en Clave y guardá una clave nueva; la conexión seleccionada no cambia.",action:"Reemplazar la clave"},
+  /** The rejected candidate is also the selection: Clave cannot replace it, and retiring it removes the academy's selection. */
+  credentialInvalidSelection:{title:"Revisá la clave de Zavu",reason:"Zavu rechazó la clave de la conexión seleccionada. Volvé a comprobarla en Credencial. Para usar otra clave, gestionala en Seguridad y retiro: retirarla también quita la selección de la academia.",action:"Ir a Credencial"},
   credentialUnavailable:{title:"Volvé a comprobar la credencial",reason:"No pudimos comprobar la clave con Zavu. Reintentá la comprobación.",action:"Ir a Credencial"},
   productionRequired:{title:"Usá una cuenta de producción",reason:"La clave comprobada es de una cuenta de prueba de Zavu. Para activar hace falta una cuenta de producción.",action:"Ir a Credencial"},
   noChannel:{title:"Prepará un canal",reason:"Ningún canal tiene remitente configurado todavía.",action:"Ir a Canales"},

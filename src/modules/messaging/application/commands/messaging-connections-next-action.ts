@@ -61,7 +61,7 @@ export function resolveMessagingConnectionsNextAction(input:{selected:MessagingC
   if(candidate.state===MESSAGING_CONNECTION_STATE.suspended||candidate.state===MESSAGING_CONNECTION_STATE.disconnected)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.activate,candidate.id===selected?.id?COPY.suspendedSelection:COPY.suspendedCandidate,TARGET.security);
   if(candidate.credentialState===MESSAGING_CREDENTIAL_PUBLIC_STATE.notValidated)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.validateCredential,COPY.credentialNotValidated,TARGET.credential);
   // A rejected key is not fixed by checking it again: a separate candidate is retired from Clave, which leaves the selection untouched.
-  if(candidate.credentialState===MESSAGING_CREDENTIAL_PUBLIC_STATE.invalid)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.validateCredential,COPY.credentialInvalid,candidate.id===selected?.id?TARGET.credential:TARGET.key);
+  if(candidate.credentialState===MESSAGING_CREDENTIAL_PUBLIC_STATE.invalid)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.validateCredential,candidate.id===selected?.id?COPY.credentialInvalidSelection:COPY.credentialInvalid,candidate.id===selected?.id?TARGET.credential:TARGET.key);
   if(candidate.credentialState!==MESSAGING_CREDENTIAL_PUBLIC_STATE.valid)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.validateCredential,COPY.credentialUnavailable,TARGET.credential);
   const unavailable=candidate.capabilities.filter((capability)=>capability.state===MESSAGING_CAPABILITY_PUBLIC_STATE.unavailable).map((capability)=>capability.channel);
   const usable=candidate.capabilities.filter((capability)=>capability.state!==MESSAGING_CAPABILITY_PUBLIC_STATE.unavailable);
