@@ -50,6 +50,12 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Los manuales internos complementan la documentación bajo `docs/`; no reemplazan `docs/architecture/` como fuente de decisiones arquitectónicas ni cambian el formato `.htm` exigido allí. `AGENTS.md` sigue siendo un archivo de control Markdown.
 - Un cambio sin efecto en los flujos documentados no exige reescribir manuales ajenos al cambio. No modificar su política de seguimiento, publicar, commitear ni subir los manuales sin instrucciones del usuario.
 
+### Skill coverage registry
+
+- `.golfo/skill-coverage/` registra qué subflujos cubrieron `ui-ux-flow-patterns` y `measured-performance-optimization`, con su evidencia; las skills lo consultan y lo actualizan solas siguiendo su protocolo. Convención: [docs/conventions/skill-coverage.htm](docs/conventions/skill-coverage.htm).
+- Al crear, mover o eliminar un subflujo, actualizar su unidad en `units/` en el mismo trabajo (proponerla con `discover --scope <ruta>` y ajustar nombres y límites). Si una ruta pasa a usar otro módulo de `src/modules`, sumar su builder al `dependsOn` de la unidad junto con los adaptadores concretos que `src/modules/setup.ts` le inyecta (repositorios, gateways y funciones pasadas a sus constructores), y actualizarlos cuando cambie esa inyección: el builder solo recibe puertos y el boundary no se sigue.
+- No editar a mano `records/` ni `runs/` y no registrar ejecuciones que no ocurrieron: sin evidencia, la unidad queda `UNREVIEWED`.
+
 ### Changelog governance
 
 - Every change that alters product behavior, user-facing UI or copy, data handling, permissions, or deployed configuration must update `CHANGELOG.md` in the same work item.

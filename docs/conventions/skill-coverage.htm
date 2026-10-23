@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skill Coverage</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+pre{font-family:'DM Mono',monospace;background:#1a1a2e;color:#e2e8f0;padding:14px 18px;border-radius:8px;font-size:12px;line-height:1.6;overflow-x:auto;margin-bottom:12px;}
+table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:13px;}
+th{background:#f0ede6;text-align:left;font-weight:600;padding:8px 10px;border:1px solid #e0ddd6;}
+td{padding:8px 10px;border:1px solid #e0ddd6;color:#333;vertical-align:top;line-height:1.5;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">CONVENTION</div>
+  <div class="doc-title">Skill Coverage</div>
+  <div class="doc-sub">Registro de qué skills de golfo-kit revisaron cada subflujo, con qué evidencia y si esa revisión sigue vigente.</div>
+  <div class="doc-meta"><span>Scope: .golfo/skill-coverage</span><span>Skills: ui-ux-flow-patterns, measured-performance-optimization</span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Overview</div>
+  <p>Las skills <code>ui-ux-flow-patterns</code> y <code>measured-performance-optimization</code> registran su cobertura sobre <strong>unidades funcionales</strong> (normalmente un subflujo, como "Crear o editar proveedor" o "Verificar, rechazar o revocar") en <code>.golfo/skill-coverage/</code>. Antes de trabajar consultan el registro para decidir si omitir la revisión, hacerla incremental o completa; al terminar registran solo lo que acreditaron con evidencia.</p>
+  <p>El motor y el CLI viven en golfo-kit (<code>plugins/golfo-kit/tools/skill-coverage/skill-coverage.mjs</code> del repositorio golfo-marketplace). Este repositorio solo guarda su registro. El protocolo completo, los estados y las políticas están en <code>plugins/golfo-kit/references/skill-coverage.md</code> de ese repositorio.</p>
+  <div class="callout c-info"><strong>La cobertura no reemplaza el quality gate.</strong> Es una ayuda para no repetir revisiones de UX y rendimiento; los tests, lint, typecheck y build siguen siendo los de <code>pnpm run ci</code>.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Registry Layout</div>
+  <table>
+    <tr><th>Ruta</th><th>Contenido</th><th>Quién lo escribe</th></tr>
+    <tr><td><code>config.json</code></td><td>Ignorados, límites de composición (<code>boundaries</code>) y ajustes por skill</td><td>A mano, en el mismo trabajo que cambia la arquitectura</td></tr>
+    <tr><td><code>units/&lt;id&gt;.json</code></td><td>Una unidad funcional: jerarquía, rutas, entradas de código y dependencias explícitas</td><td>A mano o con <code>discover --write</code>, revisado</td></tr>
+    <tr><td><code>records/&lt;skill&gt;/&lt;id&gt;.json</code></td><td>Última cobertura verificada y último intento parcial o bloqueado</td><td>Solo el CLI (<code>record</code>)</td></tr>
+    <tr><td><code>runs/&lt;run-id&gt;.json</code></td><td>Reporte de cada ejecución registrada</td><td>Solo el CLI</td></tr>
+    <tr><td><code>.pending/</code></td><td>Ejecuciones en curso; ignoradas por Git</td><td>Solo el CLI</td></tr>
+  </table>
+  <p>Los registros se commitean con el código que cubren. Nunca se editan a mano ni se crean registros de ejecuciones que no ocurrieron: una unidad sin evidencia queda <code>UNREVIEWED</code>.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Functional Units</div>
+  <p>Jerarquía: módulo → página → sección → subflujo. Los ids son estables, en inglés y no dependen del archivo (<code>academy.manage.providers.save</code>). Las entradas apuntan a símbolos: un componente (<code>ProvidersSection</code>), un handler interno (<code>SettingsSection/handleOfferSubmit</code>), el cuerpo de un componente sin sus handlers (<code>MembersSection~shell</code>) o un route handler (<code>POST</code>). Así, dos secciones del mismo archivo, como las de <code>AcademyManagement</code>, tienen coberturas independientes.</p>
+  <p>Catálogo inicial (19 unidades): inicio de la academia (estado de acceso, checkout, actualizar cobertura, cancelar renovación, ingreso gratis), gestión (vista, oferta, disponibilidad, proveedores, consulta y decisiones de verificación, integrantes, otorgar y revocar bonificaciones), solicitud de verificación, activación de la academia, reglas de admisión, webhook de pagos y conexión de Mercado Pago.</p>
+  <ul>
+    <li>Crear y editar proveedor son una sola unidad porque comparten formulario, handler y cliente; no existe la eliminación de proveedores.</li>
+    <li>Verificar, rechazar y revocar comparten el handler <code>decide</code>: una unidad.</li>
+    <li>El webhook de pagos no tiene interfaz: declara <code>ui-ux-flow-patterns</code> como no aplicable.</li>
+  </ul>
+  <p>Al agregar un flujo, crear su unidad en el mismo trabajo: <code>discover --scope &lt;carpeta de la ruta&gt;</code> propone candidatos y reutiliza ids existentes; ajustar nombres, límites y <code>dependsOn</code> antes de guardar. Si un componente se mueve de archivo, <code>discover --write</code> actualiza la entrada y conserva el id.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Composition Boundary</div>
+  <p>Los route handlers obtienen sus casos de uso de <code>createRequestModules</code> en <code>src/modules/setup.ts</code>, que construye todos los módulos. Seguir esa función haría depender cada unidad de todo el backend, así que <code>config.json</code> la declara como <code>boundary</code> (se hashea, no se sigue) y cada unidad declara en <code>dependsOn</code> el builder del módulo que usa su ruta, por ejemplo <code>src/modules/member-verifications/setup.ts#buildMemberVerificationsModule</code>. El builder recibe puertos, no implementaciones: junto a él, la unidad declara también los adaptadores concretos que <code>setup.ts</code> le inyecta (repositorios, gateways, lectores de configuración y las funciones que se pasan a sus constructores), por ejemplo <code>postgres-member-verification-repository.ts#PostgresMemberVerificationRepository</code>. La infraestructura compartida (cliente de base de datos, logger, reloj) no se declara.</p>
+  <div class="callout c-warn"><strong>Si una ruta empieza a usar otro módulo,</strong> agregá su builder y los adaptadores que <code>setup.ts</code> le inyecta al <code>dependsOn</code> de la unidad en el mismo cambio (también cuando cambia qué adaptador se inyecta); si no, los cambios de ese módulo no invalidan la cobertura de rendimiento.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Commands</div>
+  <p>Requieren las dependencias instaladas (el parser de Babel que trae <code>next</code>) y el repositorio golfo-marketplace o el plugin golfo-kit instalado. <code>$COVERAGE</code> es <code>node &lt;golfo-kit&gt;/tools/skill-coverage/skill-coverage.mjs</code>.</p>
+<pre>$COVERAGE status --module Academia --details
+$COVERAGE affected --changed --skill ui-ux-flow-patterns
+$COVERAGE check --unit academy.manage.providers.save --skill ui-ux-flow-patterns
+$COVERAGE inputs --unit academy.manage.offer --skill measured-performance-optimization --why setup.ts
+$COVERAGE validate</pre>
+  <p>Las skills corren <code>begin</code>, <code>evidence</code> y <code>record</code> solas al cerrar su trabajo. Un pedido explícito de auditoría completa usa <code>check --force-full</code>.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Continuous Integration</div>
+  <p><code>.github/workflows/skill-coverage.yml</code> corre <code>validate --informative</code> y <code>status --details</code> en cada pull request y publica el resultado en el resumen del job. Es informativo y de solo lectura: no bloquea PRs por coberturas desactualizadas o inexistentes, no forma parte del <code>Quality gate</code> y no modifica código ni registros.</p>
+</div>
+</body>
+</html>

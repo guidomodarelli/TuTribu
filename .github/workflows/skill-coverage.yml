@@ -1,0 +1,72 @@
+name: Skill coverage (informative)
+
+# Reports the golfo-kit skill coverage registry (.golfo/skill-coverage) on each
+# pull request: registry integrity and which subflows are current, stale or
+# unreviewed. Informative and read-only: it never fails the run, is not part of
+# the Quality gate, and never changes code or records. See
+# docs/conventions/skill-coverage.htm.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: skill-coverage-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GOLFO_KIT_REPOSITORY: guidomodarelli/golfo-marketplace
+  BABEL_PARSER_VERSION: 7.29.2
+
+jobs:
+  report:
+    name: Skill coverage report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          # Full history lets the report link changes to the commits since each baseline.
+          fetch-depth: 0
+
+      - name: Check out golfo-kit
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.GOLFO_KIT_REPOSITORY }}
+          path: .golfo-kit-source
+          persist-credentials: false
+          sparse-checkout: plugins/golfo-kit
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install the parser for symbol-level impact
+        # Only the Babel parser, outside the project: no project install needed.
+        run: npm install --no-save --prefix "$RUNNER_TEMP/coverage-parser" "@babel/parser@${BABEL_PARSER_VERSION}"
+
+      - name: Report coverage
+        env:
+          GOLFO_COVERAGE_PARSER: ${{ runner.temp }}/coverage-parser/node_modules/@babel/parser
+        run: |
+          cli=.golfo-kit-source/plugins/golfo-kit/tools/skill-coverage/skill-coverage.mjs
+          if [ ! -f "$cli" ]; then
+            echo "::notice::The skill-coverage CLI is not available in ${GOLFO_KIT_REPOSITORY} yet; nothing to report."
+            exit 0
+          fi
+          {
+            echo '## Skill coverage'
+            echo
+            echo '```text'
+            node "$cli" validate --informative
+            echo
+            node "$cli" status --details
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
