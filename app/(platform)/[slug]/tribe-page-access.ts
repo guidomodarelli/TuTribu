@@ -24,6 +24,11 @@ const TRIBE_PAGE_ACCESS_LOG = {
 
 type ResolveTribePageAccessOptions = {
   /**
+   * Channel surfaces (the campfire) accept a member who reads a channel
+   * under the channel access rule, such as a free academy member.
+   */
+  allowWithChannelReadAccess?: boolean;
+  /**
    * Academy free allowlist surfaces (academy pages, courses, billing) accept a
    * basic member of an academy-mode tribe. Community surfaces leave it off.
    */
@@ -42,6 +47,7 @@ type ResolveVisibleTribePageAccessOptions = ResolveTribePageAccessOptions & {
 };
 
 export async function resolveTribePageAccess({
+  allowWithChannelReadAccess = false,
   allowWithoutCommunityAccess = false,
   operation,
   slug,
@@ -87,6 +93,7 @@ export async function resolveTribePageAccess({
 
   const accessResult = await modules.tribes.useCases
     .getTribePageAccess({
+      allowWithChannelReadAccess,
       allowWithoutCommunityAccess,
       isAuthenticated: Boolean(authenticatedMember),
       slug,

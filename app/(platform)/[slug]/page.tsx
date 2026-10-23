@@ -383,7 +383,10 @@ export async function TribePageContent({
   const page = readPositiveIntegerSearchParam(
     resolvedSearchParams[TRIBE_PAGE_QUERY.page]
   );
+  // The campfire is a channel: the channel access rule decides who reads it,
+  // so a free academy member reads it without community access.
   const access = await resolveTribePageAccess({
+    allowWithChannelReadAccess: true,
     operation: TRIBE_PAGE_LOG.operation,
     slug,
   }).catch(() => {
@@ -490,8 +493,8 @@ export async function TribePageContent({
       redirect(buildJoinSignInRedirect(slug));
     }
 
-    // Academy mode: a basic member lands on the academy offer and personal
-    // steps, never on the private feed (RF-09).
+    // Academy mode: a basic member who reads no channel lands on the academy
+    // offer and personal steps instead of the campfire.
     if (accessResult.reason === TRIBE_PAGE_ACCESS_REASON.academyAccessRequired) {
       redirect(ROUTES.tribes.academy(slug));
     }
@@ -594,21 +597,24 @@ export async function TribePageContent({
     }),
     // The agenda is a secondary block: a failure to load it must never take
     // the feed down, so it degrades to an empty list after logging the cause.
-    modules.events.useCases
-      .listUpcomingTribeEvents({ tribeSlug: accessResult.tribe.slug })
-      .catch((error: unknown) => {
-        logger.error({
-          message: TRIBE_PAGE_LOG.resolveUpcomingEventsFailureMessage,
-          error,
-          metadata: {
-            reason: TRIBE_PAGE_LOG_REASON.unexpectedEventRepositoryError,
-            slug,
-            viewerId: authenticatedMember.id,
-          },
-        });
+    // Events keep the academy boundary, so free members skip the read.
+    accessResult.communityAccess
+      ? modules.events.useCases
+          .listUpcomingTribeEvents({ tribeSlug: accessResult.tribe.slug })
+          .catch((error: unknown) => {
+            logger.error({
+              message: TRIBE_PAGE_LOG.resolveUpcomingEventsFailureMessage,
+              error,
+              metadata: {
+                reason: TRIBE_PAGE_LOG_REASON.unexpectedEventRepositoryError,
+                slug,
+                viewerId: authenticatedMember.id,
+              },
+            });
 
-        return { events: [] };
-      }),
+            return { events: [] };
+          })
+      : { events: [] },
   ]);
 
   scheduleMissingVideoThumbnailBackfill({

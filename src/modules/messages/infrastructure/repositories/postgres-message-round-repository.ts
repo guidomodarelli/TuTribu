@@ -250,6 +250,7 @@ type TribeChannelRow = {
 type MessageRoundViewerStateRow = {
   liked_message_ids: string[] | null;
   selected_poll_option_ids: string[] | null;
+  viewer_can_write: boolean | null;
   viewer_membership_status: string | null;
   viewer_membership_role: string | null;
 };
@@ -289,14 +290,22 @@ function normalizeMembershipStatus(
   return null;
 }
 
+/**
+ * Maps the viewer membership and the channel write rule to round permissions.
+ * A free member of an academy tribe reads the channels but cannot write, so
+ * `canWrite` comes from `can_user_write_tribe_channel`; pinning and editing
+ * the date stay tied to the moderator roles.
+ */
 function createPermissions({
+  canWrite,
   role,
   status,
 }: {
+  canWrite: boolean;
   role: string | null;
   status: MessageMembershipStatus | null;
 }): TribeRoundPermissionsResult {
-  const canParticipate = status === MESSAGE_MEMBERSHIP_STATUS.active;
+  const canParticipate = status === MESSAGE_MEMBERSHIP_STATUS.active && canWrite;
 
   return {
     canReply: canParticipate,
@@ -310,6 +319,8 @@ function createPermissions({
       status,
     }),
     canReact: canParticipate,
+    requiresAcademyToParticipate:
+      status === MESSAGE_MEMBERSHIP_STATUS.active && !canWrite,
   };
 }
 
@@ -559,6 +570,7 @@ function mapViewerStateRow(
     selectedPollOptionIds: row?.selected_poll_option_ids ?? [],
     viewerId,
     viewerPermissions: createPermissions({
+      canWrite: row?.viewer_can_write === true,
       role: row?.viewer_membership_role ?? null,
       status: membershipStatus,
     }),
@@ -982,28 +994,19 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
           where tribes.slug = ${tribeSlug}
           limit 1
         ),
-        viewer_membership as (
-          select 1
-          from public.tribe_members
-          inner join target_tribe
-            on target_tribe.id = tribe_members.tribe_id
-          where tribe_members.user_id = ${viewerId}
-            and tribe_members.status in ('active', 'muted')
-            and public.can_user_access_tribe_community(target_tribe.id, ${viewerId})
-          limit 1
-        ),
         target_message as (
-          select messages.id, messages.tribe_id
+          select messages.id, messages.tribe_id, messages.channel_id
           from public.messages
           inner join target_tribe
             on target_tribe.id = messages.tribe_id
           where messages.id = ${messageId}
           limit 1
         ),
+        -- The runtime role bypasses RLS: repeat the channel read rule.
         visible_message as (
           select target_message.id, target_message.tribe_id
           from target_message
-          where exists (select 1 from viewer_membership)
+          where public.can_user_read_tribe_channel(target_message.channel_id, ${viewerId})
         ),
         reply_rows as (
           select
@@ -1059,28 +1062,19 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
           where tribes.slug = ${tribeSlug}
           limit 1
         ),
-        viewer_membership as (
-          select 1
-          from public.tribe_members
-          inner join target_tribe
-            on target_tribe.id = tribe_members.tribe_id
-          where tribe_members.user_id = ${viewerId}
-            and tribe_members.status in ('active', 'muted')
-            and public.can_user_access_tribe_community(target_tribe.id, ${viewerId})
-          limit 1
-        ),
         target_message as (
-          select messages.id, messages.tribe_id
+          select messages.id, messages.tribe_id, messages.channel_id
           from public.messages
           inner join target_tribe
             on target_tribe.id = messages.tribe_id
           where messages.id = ${messageId}
           limit 1
         ),
+        -- The runtime role bypasses RLS: repeat the channel read rule.
         visible_message as (
           select target_message.id, target_message.tribe_id
           from target_message
-          where exists (select 1 from viewer_membership)
+          where public.can_user_read_tribe_channel(target_message.channel_id, ${viewerId})
         ),
         total_count as (
           select count(*)::int as liker_total_count
@@ -1141,14 +1135,29 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
           where tribes.slug = ${tribeSlug}
           limit 1
         ),
+        -- A member who reads at least one channel gets a viewer state; the
+        -- channel write rule decides whether they can post, reply and react.
         viewer_membership as (
-          select tribe_members.status, tribe_members.role
+          select
+            tribe_members.status,
+            tribe_members.role,
+            exists (
+              select 1
+              from public.tribe_channels
+              where tribe_channels.tribe_id = target_tribe.id
+                and public.can_user_write_tribe_channel(tribe_channels.id, ${viewerId})
+            ) as can_write
           from public.tribe_members
           inner join target_tribe
             on target_tribe.id = tribe_members.tribe_id
           where tribe_members.user_id = ${viewerId}
             and tribe_members.status in ('active', 'muted')
-            and public.can_user_access_tribe_community(target_tribe.id, ${viewerId})
+            and exists (
+              select 1
+              from public.tribe_channels
+              where tribe_channels.tribe_id = target_tribe.id
+                and public.can_user_read_tribe_channel(tribe_channels.id, ${viewerId})
+            )
           limit 1
         ),
         liked_messages as (
@@ -1181,6 +1190,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
         select
           viewer_membership.status as viewer_membership_status,
           viewer_membership.role as viewer_membership_role,
+          viewer_membership.can_write as viewer_can_write,
           liked_message_state.liked_message_ids,
           selected_poll_option_state.selected_poll_option_ids
         from viewer_membership

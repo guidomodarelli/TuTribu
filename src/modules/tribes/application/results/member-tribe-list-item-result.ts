@@ -5,6 +5,11 @@ export type MemberTribeListItemResult = {
    */
   accessModel?: "academy" | "legacy";
   /**
+   * Whether the member reads at least one channel (the campfire included).
+   * Missing means true (legacy).
+   */
+  hasChannelReadAccess?: boolean;
+  /**
    * Whether the member can read the private community content. False only for
    * basic members of an academy-mode tribe. Missing means true (legacy).
    */
