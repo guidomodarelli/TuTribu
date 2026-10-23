@@ -52,6 +52,7 @@ type PostgresTribeMemberRow = {
 };
 
 type PostgresMembershipAccessRow = {
+  channel_read_access?: boolean | null;
   community_access?: boolean | null;
   status: string | null;
   status_reason: string | null;
@@ -190,6 +191,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
           membership_access.status,
           membership_access.status_reason,
           coalesce(public.can_access_tribe_community(tribes.id), false) as community_access,
+          coalesce(public.can_read_any_tribe_channel(tribes.id), false) as channel_read_access,
           tribes.id,
           tribes.name,
           tribes.slug,
@@ -210,6 +212,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
 
       return {
         membershipAccess: {
+          channelReadAccess: data.channel_read_access === true,
           communityAccess: data.community_access === true,
           status,
           statusReason: normalizeMembershipStatusReason(data.status_reason),
@@ -227,7 +230,8 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
         select
           membership_access.status,
           membership_access.status_reason,
-          coalesce(public.can_access_tribe_community(tribes.id), false) as community_access
+          coalesce(public.can_access_tribe_community(tribes.id), false) as community_access,
+          coalesce(public.can_read_any_tribe_channel(tribes.id), false) as channel_read_access
         from public.get_current_tribe_membership_by_slug(${slug}) as membership_access
         left join public.tribes
           on tribes.slug = ${slug}
@@ -240,6 +244,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
       }
 
       return {
+        channelReadAccess: data?.channel_read_access === true,
         communityAccess: data?.community_access === true,
         status,
         statusReason: normalizeMembershipStatusReason(data?.status_reason ?? null),
@@ -267,7 +272,8 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
           tribes.slug,
           tribes.logo_url,
           public.tribe_uses_academy_access(tribes.id) as uses_academy_access,
-          public.can_access_tribe_community(tribes.id) as has_community_access
+          public.can_access_tribe_community(tribes.id) as has_community_access,
+          public.can_read_any_tribe_channel(tribes.id) as has_channel_read_access
         from public.tribe_members
         inner join public.tribes
           on tribes.id = tribe_members.tribe_id
@@ -281,6 +287,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
 
       return ((result.rows ?? []) as Array<
         PostgresMembershipTribeRow & {
+          has_channel_read_access?: boolean | null;
           has_community_access?: boolean | null;
           uses_academy_access?: boolean | null;
           tribe_row_id?: string | null;
@@ -292,6 +299,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
         if (row.name && row.slug) {
           membershipTribes.push({
             accessModel: row.uses_academy_access === true ? "academy" : "legacy",
+            hasChannelReadAccess: row.has_channel_read_access !== false,
             hasCommunityAccess: row.has_community_access !== false,
             tribeId: row.tribe_row_id ?? row.tribe_id,
             logoUrl: row.logo_url ?? null,

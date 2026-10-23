@@ -187,6 +187,8 @@ describe("TribePage", () => {
     });
     getTribePageAccess.mockResolvedValue({
       status: "visible" as const,
+      channelReadAccess: true,
+      communityAccess: true,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -300,6 +302,8 @@ describe("TribePage", () => {
     });
     getTribePageAccess.mockResolvedValue({
       status: "visible" as const,
+      channelReadAccess: true,
+      communityAccess: true,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -364,6 +368,8 @@ describe("TribePage", () => {
     });
     getTribePageAccess.mockResolvedValue({
       status: "visible" as const,
+      channelReadAccess: true,
+      communityAccess: true,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -414,6 +420,8 @@ describe("TribePage", () => {
     });
     getTribePageAccess.mockResolvedValue({
       status: "visible" as const,
+      channelReadAccess: true,
+      communityAccess: true,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -464,6 +472,8 @@ describe("TribePage", () => {
     });
     getTribePageAccess.mockResolvedValue({
       status: "visible" as const,
+      channelReadAccess: true,
+      communityAccess: true,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -536,7 +546,9 @@ describe("TribePage", () => {
       tribeSlug: "matematica-pro",
     });
     expect(getTribePageAccess).toHaveBeenCalledWith({
-      // The feed is community content: basic academy members never pass.
+      // The feed is a channel surface: the channel access rule decides it,
+      // while the rest of the community allowlist stays closed.
+      allowWithChannelReadAccess: true,
       allowWithoutCommunityAccess: false,
       isAuthenticated: true,
       slug: "matematica-pro",
@@ -561,6 +573,8 @@ describe("TribePage", () => {
     });
     getTribePageAccess.mockResolvedValue({
       status: "visible" as const,
+      channelReadAccess: true,
+      communityAccess: true,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -612,6 +626,8 @@ describe("TribePage", () => {
     });
     getTribePageAccess.mockResolvedValue({
       status: "visible" as const,
+      channelReadAccess: true,
+      communityAccess: true,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -656,7 +672,64 @@ describe("TribePage", () => {
     });
   });
 
-  it("sends a basic academy member to the academy page instead of the private feed (RF-09)", async () => {
+  it("shows the campfire to a free academy member without loading the academy-only events", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "free@example.com",
+      name: "Grace Hopper",
+      role: "tribemate",
+      avatarFallback: "GH",
+      image: null,
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "visible" as const,
+      channelReadAccess: true,
+      communityAccess: false,
+      tribe: {
+        id: "tribe-1",
+        name: "Matematica Pro",
+        slug: "matematica-pro",
+        visibility: "private",
+      },
+    });
+    listTribeRound.mockResolvedValue({
+      activeChannelId: null,
+      channels: [tribeChannel],
+      viewerPermissions: {
+        canReply: false,
+        canCreateMessage: false,
+        canReact: false,
+        requiresAcademyToParticipate: true,
+      },
+      pagination: tribeRoundPagination,
+      messages: [],
+    });
+
+    render(
+      await TribePageContent({
+        params: Promise.resolve({ slug: "matematica-pro" }),
+      })
+    );
+
+    expect(getTribePageAccess).toHaveBeenCalledWith(
+      expect.objectContaining({ allowWithChannelReadAccess: true, slug: "matematica-pro" })
+    );
+    expect(listTribeRound).toHaveBeenCalled();
+    expect(listUpcomingTribeEvents).not.toHaveBeenCalled();
+    expect(redirect).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(/Podés leer el fogón y los canales\. Para publicar, responder y reaccionar, sumate a la academia\./)
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Podes leer la ronda, pero tu estado actual no permite participar.")
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Conocé la academia" })).toHaveAttribute(
+      "href",
+      "/matematica-pro/academia"
+    );
+  });
+
+  it("sends a basic academy member who reads no channel to the academy page", async () => {
     getTribePageAccess.mockResolvedValue({
       status: "hidden" as const,
       reason: "academy_access_required",
@@ -1492,6 +1565,8 @@ describe("TribePage", () => {
     });
     getTribePageAccess.mockResolvedValue({
       status: "visible" as const,
+      channelReadAccess: true,
+      communityAccess: true,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",

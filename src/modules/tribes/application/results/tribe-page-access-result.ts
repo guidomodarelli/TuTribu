@@ -17,8 +17,14 @@ export type TribePageAccessResult =
   | {
       status: typeof TRIBE_PAGE_ACCESS_STATUS.visible;
       /**
+       * Whether the member reads at least one channel under the channel
+       * access rule (true for free academy members too).
+       */
+      channelReadAccess: boolean;
+      /**
        * False only for academy-mode basic members on allowlisted surfaces
-       * (academy, courses, billing); community surfaces never see it false.
+       * (academy, courses, billing) and on channel surfaces (campfire);
+       * other community surfaces never see it false.
        */
       communityAccess: boolean;
       tribe: TribeResult;

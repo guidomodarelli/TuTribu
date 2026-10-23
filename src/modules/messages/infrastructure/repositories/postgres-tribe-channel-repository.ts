@@ -185,8 +185,6 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
           select tribes.id
           from public.tribes
           where tribes.slug = ${tribeSlug}
-            -- The runtime role bypasses RLS: repeat the read rule here.
-            and public.can_read_tribe_content(tribes.id)
           limit 1
         )
         select
@@ -199,6 +197,8 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
         from public.tribe_channels
         inner join target_tribe
           on target_tribe.id = tribe_channels.tribe_id
+        -- The runtime role bypasses RLS: repeat the channel read rule here.
+        where public.can_read_tribe_channel(tribe_channels.id)
         order by tribe_channels.sort_order asc, tribe_channels.name asc
       `);
 

@@ -66,10 +66,17 @@ export function getTribePageAccess({
   tribeReadRepository,
 }: GetTribePageAccessDependencies) {
   return async ({
+    allowWithChannelReadAccess = false,
     allowWithoutCommunityAccess = false,
     isAuthenticated,
     slug,
   }: {
+    /**
+     * Channel surfaces (the campfire and its channels) accept a member who
+     * reads at least one channel under the channel access rule, even without
+     * community access.
+     */
+    allowWithChannelReadAccess?: boolean;
     /**
      * Surfaces of the academy free allowlist (academy pages, courses,
      * billing) accept basic members without community access.
@@ -125,8 +132,13 @@ export function getTribePageAccess({
 
     const communityAccess =
       pageAccessLookup.membershipAccess?.communityAccess ?? true;
+    const channelReadAccess =
+      pageAccessLookup.membershipAccess?.channelReadAccess ?? communityAccess;
+    const acceptedWithoutCommunityAccess =
+      allowWithoutCommunityAccess ||
+      (allowWithChannelReadAccess && channelReadAccess);
 
-    if (!communityAccess && !allowWithoutCommunityAccess) {
+    if (!communityAccess && !acceptedWithoutCommunityAccess) {
       return {
         status: TRIBE_PAGE_ACCESS_STATUS.hidden,
         reason: TRIBE_PAGE_ACCESS_REASON.academyAccessRequired,
@@ -139,6 +151,7 @@ export function getTribePageAccess({
 
     if (tribe) {
       return {
+        channelReadAccess,
         communityAccess,
         status: TRIBE_PAGE_ACCESS_STATUS.visible,
         tribe,

@@ -38,6 +38,8 @@ import {
 import { AnimatePresence } from "motion/react";
 import { toast, Button, Avatar, AvatarGroup, Dialog, DialogClose, DialogContent, DialogTrigger, DropdownMenu, type DropdownItem, Input, Tooltip, Pagination, type PaginationClickEvent, Carousel, formatFileSize, AnimatedCount, AnimatedListItem, RichLinkEditor, useRichLinkEditor, RichTextContent, type RichLink, ReactionButton } from "@golfo/ui";
 import { MorphLoader } from "@/components/loaders/morph-loader";
+import { Link } from "@/components/navigation/link";
+import { ROUTES } from "@/src/constants/routes";
 
 import { isInPageLinkClick } from "@/lib/plain-link-click";
 import { usePixelSnappedCentering } from "@/hooks/use-pixel-snapped-centering";
@@ -222,6 +224,9 @@ const TRIBE_ROUND_COPY = {
   likeButtonAriaLabel: "Me gusta",
   commentButtonAriaLabel: "Comentarios",
   commentAuthorsPreviewLabel: "Comentaron",
+  academyParticipationLink: "Conocé la academia",
+  academyParticipationNotice:
+    "Podés leer el fogón y los canales. Para publicar, responder y reaccionar, sumate a la academia.",
   mutedNotice: "Podes leer la ronda, pero tu estado actual no permite participar.",
   pinButtonAriaLabel: "Pinear mensaje",
   pinnedBadge: "Pineado",
@@ -5839,9 +5844,21 @@ function TribeRoundContent({
         />
       </Dialog>
       {!round.viewerPermissions.canCreateMessage ? (
-        <p className={styles.TribeRound__notice}>
-          {TRIBE_ROUND_COPY.mutedNotice}
-        </p>
+        round.viewerPermissions.requiresAcademyToParticipate ? (
+          <p className={styles.TribeRound__notice}>
+            {TRIBE_ROUND_COPY.academyParticipationNotice}{" "}
+            <Link
+              className={styles.TribeRound__noticeLink}
+              href={ROUTES.tribes.academy(tribeSlug)}
+            >
+              {TRIBE_ROUND_COPY.academyParticipationLink}
+            </Link>
+          </p>
+        ) : (
+          <p className={styles.TribeRound__notice}>
+            {TRIBE_ROUND_COPY.mutedNotice}
+          </p>
+        )
       ) : null}
 
     {round.viewerPermissions.canCreateMessage ? (

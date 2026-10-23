@@ -1422,6 +1422,13 @@
       "when": 1792706400000,
       "tag": "20261022220000_bind_admission_policies_to_selected_messaging",
       "breakpoints": true
+    },
+    {
+      "idx": 203,
+      "version": "7",
+      "when": 1792710000000,
+      "tag": "20261022230000_tribe_channel_access_rule",
+      "breakpoints": true
     }
   ]
 }

@@ -172,11 +172,39 @@ describe("AppRailShell", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows a basic academy member only the sections they can open", () => {
+  it("shows a free academy member the campfire and the free sections", () => {
     (usePathname as Mock).mockReturnValue("/matematica-pro/academia");
 
     renderShell({
-      memberTribes: [buildTribe({ accessModel: "academy", hasCommunityAccess: false })],
+      memberTribes: [
+        buildTribe({
+          accessModel: "academy",
+          hasChannelReadAccess: true,
+          hasCommunityAccess: false,
+        }),
+      ],
+    });
+
+    expect(within(getSidebarNavigation()).getAllByRole("button").map((row) => row.textContent)).toEqual([
+      "Academia",
+      "Fogón",
+      "Bienvenida",
+      "Cursos",
+      "Historia",
+    ]);
+  });
+
+  it("hides the campfire from a member who reads no channel", () => {
+    (usePathname as Mock).mockReturnValue("/matematica-pro/academia");
+
+    renderShell({
+      memberTribes: [
+        buildTribe({
+          accessModel: "academy",
+          hasChannelReadAccess: false,
+          hasCommunityAccess: false,
+        }),
+      ],
     });
 
     expect(within(getSidebarNavigation()).getAllByRole("button").map((row) => row.textContent)).toEqual([

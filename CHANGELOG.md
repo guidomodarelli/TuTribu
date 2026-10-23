@@ -111,6 +111,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Cada aspirante puede corregir su WhatsApp mientras la solicitud siga pendiente y vigente; el formulario conserva el cambio original si se pierde la respuesta y avisa cuando debe revisarse de nuevo.
 
 ### Changed
+
+- En las academias, los integrantes sin suscripción ya pueden leer el fogón y los canales, con sus respuestas, me gusta, encuestas y archivos adjuntos. Para publicar, responder, reaccionar o votar siguen necesitando la academia, y el fogón les muestra cómo sumarse. Eventos, La tribu y Méritos siguen siendo solo para quienes tienen la academia; el líder y los guardianes siempre leen y escriben.
 - Si una academia admite solo correos habilitados por su equipo, sin excepciones ni código adicional, y el correo de tu cuenta no está habilitado o no se puede confirmar, la página de ingreso te lo avisa antes de completar el formulario y ofrece «Cambiar de cuenta», en lugar de rechazar la solicitud recién al enviarla con un aviso genérico.
 - Al revisar membresías bloqueadas por pago, también podés elegir «No vuelve por pago: queda retirada» para una integrante común, como ya pasaba con los guardianes.
 - Cuando la academia usa el teléfono como contacto, el formulario de ingreso y la invitación personal piden un solo «Teléfono»: ese número es el que el equipo compara con el grupo.

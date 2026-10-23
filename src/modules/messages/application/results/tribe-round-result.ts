@@ -145,6 +145,12 @@ export type TribeRoundPermissionsResult = {
   canEditMessageCreatedAt?: boolean;
   canPinMessages?: boolean;
   canReact: boolean;
+  /**
+   * True when an active member reads the channels but the channel write rule
+   * needs academy access to post, reply or react (a free academy member).
+   * Missing means false.
+   */
+  requiresAcademyToParticipate?: boolean;
 };
 
 export type TribeRoundSharedDataResult = {

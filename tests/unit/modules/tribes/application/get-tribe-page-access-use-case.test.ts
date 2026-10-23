@@ -68,6 +68,7 @@ describe("getTribePageAccess", () => {
         slug: "matematica-pro",
       })
     ).resolves.toEqual({
+      channelReadAccess: true,
       communityAccess: true,
       status: "visible" as const,
       tribe: {
@@ -110,6 +111,7 @@ describe("getTribePageAccess", () => {
         slug: "Matematica-Pro",
       })
     ).resolves.toEqual({
+      channelReadAccess: true,
       communityAccess: true,
       status: "visible" as const,
       tribe: {
@@ -151,6 +153,7 @@ describe("getTribePageAccess", () => {
         slug: "matematica-pro",
       })
     ).resolves.toEqual({
+      channelReadAccess: true,
       communityAccess: true,
       status: "visible" as const,
       tribe: {
@@ -246,11 +249,14 @@ describe("getTribePageAccess", () => {
   });
 
   describe("academy community boundary", () => {
-    function buildBasicAcademyMemberRepository() {
+    function buildBasicAcademyMemberRepository({
+      channelReadAccess = true,
+    }: { channelReadAccess?: boolean } = {}) {
       return {
         findBySlug: vi.fn(),
         findCurrentMembershipAccessWithTribeBySlug: vi.fn(async () => ({
           membershipAccess: {
+            channelReadAccess,
             communityAccess: false,
             status: "active" as const,
             statusReason: "none" as const,
@@ -268,7 +274,7 @@ describe("getTribePageAccess", () => {
       };
     }
 
-    it("hides community surfaces from a basic academy member (RF-09)", async () => {
+    it("hides community surfaces from a basic academy member", async () => {
       const execute = getTribePageAccess({
         tribeReadRepository: buildBasicAcademyMemberRepository(),
       });
@@ -293,6 +299,43 @@ describe("getTribePageAccess", () => {
           slug: "matematica-pro",
         })
       ).resolves.toMatchObject({ communityAccess: false, status: "visible" });
+    });
+
+    it("opens channel surfaces to a free academy member who reads a channel", async () => {
+      const execute = getTribePageAccess({
+        tribeReadRepository: buildBasicAcademyMemberRepository(),
+      });
+
+      await expect(
+        execute({
+          allowWithChannelReadAccess: true,
+          isAuthenticated: true,
+          slug: "matematica-pro",
+        })
+      ).resolves.toMatchObject({
+        channelReadAccess: true,
+        communityAccess: false,
+        status: "visible",
+      });
+    });
+
+    it("keeps channel surfaces hidden when the channel rule grants no read access", async () => {
+      const execute = getTribePageAccess({
+        tribeReadRepository: buildBasicAcademyMemberRepository({
+          channelReadAccess: false,
+        }),
+      });
+
+      await expect(
+        execute({
+          allowWithChannelReadAccess: true,
+          isAuthenticated: true,
+          slug: "matematica-pro",
+        })
+      ).resolves.toEqual({
+        reason: "academy_access_required",
+        status: "hidden",
+      });
     });
   });
 });
