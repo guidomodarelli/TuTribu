@@ -358,7 +358,7 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
   const retryHref = state.kind === "ready" ? `${ADMISSION_NAVIGATION.publicPrefix}/${encodeURIComponent(state.overview.tribe.slug)}` : undefined;
   const hasVerification = Boolean(showContact && contactOptions);
   // An unconfirmed code operation blocks the flow, so its read is the one next action; the delivery read stays collapsed.
-  const contactRecovery = hasVerification && (contact.pending || contact.recoveryRequired) ? <Button type="button" variant="secondary" disabled={contactBusy} onClick={() => void contact.readOriginal()}>Consultar operación del código</Button> : undefined;
+  const contactRecovery = hasVerification && (contact.pending || contact.recoveryRequired) ? <><Button type="button" variant="secondary" disabled={contactBusy} onClick={() => void contact.readOriginal()}>Consultar operación del código</Button>{contact.canDiscardAbsent && <Button type="button" variant="ghost" disabled={contactBusy} onClick={() => void contact.discardAbsent()}>Descartar la referencia y pedir otro código</Button>}</> : undefined;
   const deliveryRead = hasVerification && contact.challenge?.deliveryId ? <Button type="button" variant="secondary" size="sm" disabled={contactBusy} onClick={() => void contact.readDelivery()}>Consultar envío del código</Button> : undefined;
   const flowMode = currentPending && hasVerification ? ADMISSION_REQUEST_FLOW_MODE.apply : ADMISSION_REQUEST_FLOW_MODE.submit;
   const flowSteps = admissionRequestFlowSteps(flowMode, hasVerification);

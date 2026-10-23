@@ -305,6 +305,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- Si el pedido del código de ingreso nunca llegó a registrarse, la pantalla del solicitante ya no queda trabada consultando para siempre: pasados diez minutos y con la ausencia confirmada, ofrece «Descartar la referencia y pedir otro código» sin riesgo de un envío doble.
 - Las fotos de perfil de Google de los integrantes vuelven a mostrarse en la ronda, los comentarios, los eventos y la lista de integrantes, en lugar de quedar reemplazadas por un ícono vacío.
 
 ## [1.8.0] - 2026-10-16
