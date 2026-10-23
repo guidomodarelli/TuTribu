@@ -6,10 +6,11 @@ import type {MessagingConfigurationResult} from "@/src/modules/messaging/applica
 import {MESSAGING_OPERATIONAL_ALERT_LABEL} from "@/src/modules/messaging/constants/messaging-connection-presentation";
 import {TRIBE_MEMBER_ROLE} from "@/src/modules/tribes/constants/tribe-member-role";
 import {ADMISSION_LIMIT} from "@/src/modules/academy-admissions/constants/admission-limits";
+import {MESSAGING_KEY_REPLACEMENT_COPY as REPLACEMENT_COPY} from "@/src/modules/messaging/constants/messaging-lifecycle-browser";
 import styles from "./styles.module.scss";
 
-/** The route container owns ephemeral key state, validation, consent, mutations and feedback. `busy` covers every read and write; `saving` and `validating` mark only the pressed write. */
-export type MessagingConnectionsProps={configuration:MessagingConfigurationResult;name:string;apiKey:string;confirmed:boolean;busy:boolean;saving?:boolean;validating?:boolean;canSave:boolean;validationConfirmed:boolean;canValidate:boolean;fieldErrors:Partial<Record<"name"|"apiKey"|"confirmation",string>>;onNameChange:(value:string)=>void;onApiKeyChange:(value:string)=>void;onConfirmationChange:(confirmed:boolean)=>void;onValidationConfirmationChange:(confirmed:boolean)=>void;onValidate:()=>void;onSave:()=>void};
+/** The route container owns ephemeral key state, validation, consent, mutations and feedback. `onReplaceKey` appears only while the candidate credential is not proven and opens the Clave step that retires it. `busy` covers every read and write; `saving` and `validating` mark only the pressed write. */
+export type MessagingConnectionsProps={configuration:MessagingConfigurationResult;name:string;apiKey:string;confirmed:boolean;busy:boolean;saving?:boolean;validating?:boolean;canSave:boolean;validationConfirmed:boolean;canValidate:boolean;fieldErrors:Partial<Record<"name"|"apiKey"|"confirmation",string>>;onNameChange:(value:string)=>void;onApiKeyChange:(value:string)=>void;onConfirmationChange:(confirmed:boolean)=>void;onValidationConfirmationChange:(confirmed:boolean)=>void;onValidate:()=>void;onSave:()=>void;onReplaceKey?:()=>void};
 
 /** @param props - Current own audience/view state and explicit callbacks. @returns The guardian's operational status, or the leader's credential fields grouped for one guided step (the flow owns the only form); no automatic save, fetch, provider or browser persistence occurs. */
 export function MessagingConnections(props:MessagingConnectionsProps){
@@ -20,7 +21,7 @@ export function MessagingConnections(props:MessagingConnectionsProps){
     <p className={styles.MessagingConnections__lead}>Consulta el acceso y el tipo de cuenta en Zavu. No envía mensajes, no prueba canales ni activa producción.</p>
     <div className={styles.MessagingConnections__form} role="group" aria-label="Comprobar credencial candidata">
       <Checkbox id={`${fieldId}-validation`} checked={props.validationConfirmed} disabled={props.busy} onCheckedChange={(checked)=>props.onValidationConfirmationChange(checked===true)} label="Confirmo que quiero comprobar la credencial de esta candidata." />
-      <div className={styles.MessagingConnections__actions}><Button className={styles.MessagingConnections__action} variant="primary" loading={props.validating} disabled={!props.validating&&(!props.canValidate||props.busy)} onClick={props.onValidate}>Comprobar credencial</Button></div>
+      <div className={styles.MessagingConnections__actions}><Button className={styles.MessagingConnections__action} variant="primary" loading={props.validating} disabled={!props.validating&&(!props.canValidate||props.busy)} onClick={props.onValidate}>Comprobar credencial</Button>{props.onReplaceKey&&<Button className={styles.MessagingConnections__action} variant="secondary" disabled={props.busy} onClick={props.onReplaceKey}>{REPLACEMENT_COPY.credentialAction}</Button>}</div>
     </div>
   </section>;
   return<section className={styles.MessagingConnections} aria-labelledby={titleId} data-beezping-ignore="true">

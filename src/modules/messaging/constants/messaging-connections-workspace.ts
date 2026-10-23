@@ -26,7 +26,7 @@ export const MESSAGING_CONNECTIONS_FLOW_COPY={
   usageRequired:"Antes de probar un canal, guardá Países y cupos: la prueba usa el cupo diario de códigos.",
   usageRequiredDetail:"Elegí los países permitidos y el cupo diario de códigos. Después volvé a este paso para enviar la prueba.",
   usageLink:"Ir a Países y cupos",
-  savedKey:"La clave quedó guardada como conexión candidata. Para usar otra clave, retirá esta conexión desde Seguridad y retiro.",
+  savedKey:"Esta candidata también es la conexión seleccionada, así que su clave no se reemplaza desde acá. Para usar otra clave, gestionala en Seguridad y retiro.",
   security:"Seguridad y retiro",steps:"Volver a los pasos",securityRegion:"Seguridad",
 } as const;
 /** Advisory progress derived from own metadata; the server still decides every requirement at commit time. */
@@ -38,9 +38,9 @@ export type MessagingConnectionsNextActionTarget={kind:"step";step:MessagingConn
 export const MESSAGING_CONNECTIONS_NEXT_ACTION_COPY={
   region:"Próxima acción",
   saveCandidate:{title:"Guardá la clave de Zavu",reason:"Todavía no hay una conexión candidata para probar y activar.",action:"Ir a Clave"},
-  suspendedCandidate:{title:"La candidata está suspendida",reason:"Una conexión suspendida o desconectada no puede activarse. Revisá su estado en Seguridad y retiro.",action:"Ir a Seguridad y retiro"},
+  suspendedCandidate:{title:"La candidata está suspendida",reason:"Una candidata suspendida no puede activarse y sigue ocupando su lugar. Retirala en Seguridad y retiro para guardar otra clave; la conexión seleccionada no cambia.",action:"Ir a Seguridad y retiro"},
   credentialNotValidated:{title:"Comprobá la credencial",reason:"La clave quedó guardada, pero todavía no se comprobó con Zavu.",action:"Ir a Credencial"},
-  credentialInvalid:{title:"Revisá la clave de Zavu",reason:"Zavu rechazó la clave guardada. Guardá una clave nueva o volvé a comprobarla.",action:"Ir a Credencial"},
+  credentialInvalid:{title:"Revisá la clave de Zavu",reason:"Zavu rechazó la clave guardada. Retirá esta candidata en Clave y guardá una clave nueva; la conexión seleccionada no cambia.",action:"Reemplazar la clave"},
   credentialUnavailable:{title:"Volvé a comprobar la credencial",reason:"No pudimos comprobar la clave con Zavu. Reintentá la comprobación.",action:"Ir a Credencial"},
   productionRequired:{title:"Usá una cuenta de producción",reason:"La clave comprobada es de una cuenta de prueba de Zavu. Para activar hace falta una cuenta de producción.",action:"Ir a Credencial"},
   noChannel:{title:"Prepará un canal",reason:"Ningún canal tiene remitente configurado todavía.",action:"Ir a Canales"},

@@ -25,6 +25,18 @@ describe("local connection lifecycle presenter",()=>{
     const disconnect=screen.getByRole("button",{name:"Desconectar conexión"});expect(disconnect).toHaveAttribute("aria-busy","true");expect(disconnect).not.toBeDisabled();
     expect(screen.getByRole("checkbox",{name:/Revisé la conexión/})).toBeDisabled();await user.click(disconnect);expect(props.onAct).not.toHaveBeenCalled();
   });
+  it("should name the stopped notices and codes in the confirmation before suspending the connection the academy uses",()=>{
+    const props=lifecycleProps();render(<MessagingConnectionLifecycle {...props} connections={[{...props.connections[0],name:"Piloto"}]} />);
+    expect(screen.getByRole("note")).toHaveTextContent("«Piloto» es la conexión que la academia usa ahora. Mientras esté suspendida no se envían avisos ni códigos de verificación");
+    expect(screen.getByRole("checkbox",{name:"Revisé la conexión, la acción y su impacto: mientras «Piloto» esté suspendida, la academia no envía avisos ni códigos de verificación."})).toBeVisible();
+    expect(screen.getByText(/Suspender detiene los nuevos envíos, pero la conexión sigue ocupando su lugar/)).toBeVisible();
+  });
+  it("should say that retiring a candidate leaves the selected connection untouched and frees its slot",()=>{
+    const props=lifecycleProps(),candidateId=randomUUID(),connections=[{...props.connections[0],name:"Piloto"},{id:candidateId,name:"Piloto correo y SMS",version:2,state:"draft" as const,selected:false,candidate:true}];
+    render(<MessagingConnectionLifecycle {...props} connections={connections} targetId={candidateId} retiring />);
+    expect(screen.getByText("Se retira solo la candidata «Piloto correo y SMS» y queda libre el lugar para guardar otra clave. La conexión seleccionada «Piloto» no cambia.")).toBeVisible();
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();expect(screen.getByRole("checkbox",{name:"Revisé la conexión, la acción y su impacto y quiero confirmar."})).toBeVisible();
+  });
   it("should render a safe empty state without inventing a resource or a mutation",()=>{
     const props=lifecycleProps();render(<MessagingConnectionLifecycle {...props} connections={[]} targetId="" />);expect(screen.getByText("No hay conexiones vigentes para gestionar.")).toBeVisible();expect(screen.queryByRole("button",{name:"Suspender conexión"})).not.toBeInTheDocument();expect(props.onAct).not.toHaveBeenCalled();
   });

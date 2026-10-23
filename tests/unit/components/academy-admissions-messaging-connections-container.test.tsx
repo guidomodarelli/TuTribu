@@ -100,6 +100,46 @@ describe("connection wizard first container step",()=>{
     expect(activationClient.activate).not.toHaveBeenCalled();
     expect(fixture.client.validate).toHaveBeenCalledTimes(1);
   });
+  it("should replace a rejected candidate key from Clave by retiring only that candidate after naming it, then reopen the key form",async()=>{
+    const fixture=selectedCandidateFixture(),user=userEvent.setup(),invalid={...fixture.candidate,name:"Piloto correo y SMS",state:MESSAGING_CONNECTION_STATE.draft,credentialState:MESSAGING_CREDENTIAL_PUBLIC_STATE.invalid,credentialMode:MESSAGING_CREDENTIAL_MODE.unknown,capabilities:[]};
+    const initialState={...fixture.initialState,configuration:{...fixture.configuration,candidate:invalid}} as MessagingConnectionsPageState;
+    const suspend=vi.fn<MessagingLifecycleBrowserClient["suspend"]>(),disconnect=vi.fn<MessagingLifecycleBrowserClient["disconnect"]>(async(scope,input)=>({status:"ready",value:{state:OPERATION_STATE.completed,operationId:input.operationId,replayed:false,result:{id:scope.connectionId,version:invalid.version+1,state:MESSAGING_CONNECTION_STATE.disconnected,reason:null,changed:true}}}));
+    fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:{...fixture.configuration,candidate:null}}));
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} lifecycleClient={{suspend,disconnect}} />);
+    // The next action of a rejected key opens Clave, where the candidate is retired, instead of asking to check the same key again.
+    expect(await screen.findByText(/Retirá esta candidata en Clave y guardá una clave nueva/)).toBeVisible();
+    const replacement=await screen.findByRole("region",{name:"Reemplazar la clave"});
+    expect(within(replacement).getByText(/La conexión seleccionada «Conexión anterior vigente» no cambia/)).toBeVisible();
+    const retire=within(replacement).getByRole("button",{name:"Retirar candidata y cargar otra clave"}),consent=within(replacement).getByRole("checkbox",{name:"Confirmo que quiero retirar la candidata «Piloto correo y SMS» para guardar otra clave."});
+    await waitFor(()=>expect(consent).toBeEnabled());expect(retire).toBeDisabled();
+    await user.click(consent);await user.click(retire);
+    await waitFor(()=>expect(disconnect).toHaveBeenCalledTimes(1));
+    expect(disconnect).toHaveBeenCalledWith({slug:"synthetic",connectionId:invalid.id},{operationId:expect.any(String),expectedVersion:invalid.version,confirmed:true},expect.any(AbortSignal));
+    expect(suspend).not.toHaveBeenCalled();
+    expect(await screen.findByText("Retiramos la candidata «Piloto correo y SMS». Ya podés guardar otra clave.")).toBeVisible();
+    // Back on an empty Clave form that keeps the name; the selection stays as it was.
+    await waitFor(()=>expect(screen.getByLabelText("Nombre de la conexión")).toHaveValue("Piloto correo y SMS"));
+    expect(screen.getByLabelText("Clave de Zavu")).toHaveValue("");expect(screen.getByText(fixture.selected.name,{exact:true})).toBeVisible();
+  });
+  it("should offer to replace an unproven key from Credencial and open Clave without retiring anything yet",async()=>{
+    const fixture=selectedCandidateFixture(),user=userEvent.setup(),draft={...fixture.candidate,state:MESSAGING_CONNECTION_STATE.draft,credentialState:MESSAGING_CREDENTIAL_PUBLIC_STATE.notValidated,credentialMode:MESSAGING_CREDENTIAL_MODE.unknown,capabilities:[]};
+    const initialState={...fixture.initialState,configuration:{...fixture.configuration,candidate:draft}} as MessagingConnectionsPageState,suspend=vi.fn<MessagingLifecycleBrowserClient["suspend"]>(),disconnect=vi.fn<MessagingLifecycleBrowserClient["disconnect"]>();
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} lifecycleClient={{suspend,disconnect}} />);
+    await openTab("Credencial");
+    const credential=screen.getByRole("group",{name:"Comprobar credencial candidata"});await waitFor(()=>expect(within(credential).getByRole("button",{name:"Reemplazar la clave"})).toBeEnabled());
+    await user.click(within(credential).getByRole("button",{name:"Reemplazar la clave"}));
+    expect(await screen.findByRole("region",{name:"Reemplazar la clave"})).toBeVisible();expect(disconnect).not.toHaveBeenCalled();expect(suspend).not.toHaveBeenCalled();
+  });
+  it("should open Security on a suspended candidate with that candidate and its retirement preselected, explaining that suspending keeps its slot",async()=>{
+    const fixture=selectedCandidateFixture(),suspended={...fixture.candidate,name:"Piloto correo y SMS",state:MESSAGING_CONNECTION_STATE.suspended};
+    const initialState={...fixture.initialState,configuration:{...fixture.configuration,candidate:suspended}} as MessagingConnectionsPageState;
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} lifecycleClient={{suspend:vi.fn(),disconnect:vi.fn()}} />);
+    const security=await screen.findByRole("region",{name:"Seguridad y retiro de conexiones"});
+    expect(within(security).getByRole("combobox",{name:"Conexión que querés gestionar"})).toHaveTextContent("Piloto correo y SMS · Candidata · Suspendida");
+    expect(within(security).getByRole("combobox",{name:"Acción local"})).toHaveTextContent("Desconectar y retirar recursos");
+    expect(within(security).getByText(/la conexión sigue ocupando su lugar/)).toBeVisible();
+    expect(within(security).getByText("Se retira solo la candidata «Piloto correo y SMS» y queda libre el lugar para guardar otra clave. La conexión seleccionada «Conexión anterior vigente» no cambia.")).toBeVisible();
+  });
 
   it("should disclose replacement impact and replace an existing active selection only after explicit consent",async()=>{
     const fixture=selectedCandidateFixture(),user=userEvent.setup();

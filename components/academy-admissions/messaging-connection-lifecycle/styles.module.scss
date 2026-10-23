@@ -11,4 +11,9 @@
   &__consent { @include workspace-panel.consent; }
   &__actions { @include workspace-panel.actions; }
   &__feedback { @include workspace-panel.lead; }
+  &__impact { @include workspace-panel.feedback; }
+  &__warning {
+    @include workspace-panel.feedback;
+    @include workspace-panel.feedback-alert;
+  }
 }
