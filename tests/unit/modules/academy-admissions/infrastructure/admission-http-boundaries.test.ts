@@ -14,6 +14,9 @@ import { createAdmissionProviderTransport } from "@/tests/support/admission-prov
 import { LoadAuthorizedMessagingSecretUseCase, ResolveMessagingContextUseCase } from "@/src/modules/messaging/application/use-cases/resolve-messaging-context-use-case";
 import type { MessagingAuthenticatedAccount, MessagingConnectionAuthorizationFacts, MessagingLeadershipFacts, MessagingSecretStore } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import { MessagingSecretAccessError } from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
+import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructure/encryption/messaging-cryptography-error";
+import { MESSAGING_CRYPTO_ERROR } from "@/src/modules/messaging/constants/messaging-cryptography";
+import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 
 describe("admission own HTTP boundary", () => {
   const createRequest = (body: unknown) => new Request("https://tutribu.example.test/api/tribes/synthetic/admissions/allowlist", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -98,6 +101,22 @@ describe("admission own HTTP boundary", () => {
     expect(await response.json()).toMatchObject({ code: "unexpected_failure" });
     expect(JSON.stringify(diagnostics)).not.toContain("untrusted diagnostics");
     expect(JSON.stringify(diagnostics)).not.toContain("raw thrown string");
+  });
+
+  it("should name every layer of a 500 cause chain by class and closed code without its messages", async () => {
+    const privateDetail = randomUUID();
+    const diagnostics: unknown[] = [];
+    const boundary = createAdmissionRouteBoundary({ request: createRequest({}), operation: "resolve", diagnostics: (entry) => diagnostics.push(entry) });
+    const configuration = new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.invalidConfiguration, { cause: new SyntaxError(`Unexpected token in ${privateDetail}`) });
+    const response = boundary.failure(admissionFailure("unexpected_failure", { cause: new AdmissionOperationError("unexpected_failure", { cause: configuration }) }));
+    expect(response.status).toBe(500);
+    expect(await response.json()).not.toHaveProperty("causes");
+    expect(diagnostics).toEqual([expect.objectContaining({ code: "unexpected_failure", causes: [
+      { name: "AdmissionOperationError", code: "unexpected_failure" },
+      { name: "MessagingCryptographyError", code: MESSAGING_CRYPTO_ERROR.invalidConfiguration },
+      { name: "SyntaxError" },
+    ] })]);
+    expect(JSON.stringify(diagnostics)).not.toContain(privateDetail);
   });
 
   it("should propagate intentional request cancellation without publishing an error outcome", () => {

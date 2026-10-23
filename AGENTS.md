@@ -375,6 +375,16 @@ WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
   - application use-case tests using domain ports doubles
   - infrastructure adapter or mapper tests for DTO to entity mapping
   - route-level tests to verify entrypoint wiring still renders expected UI output
+- React development warnings fail the test that logs them (`tests/support/react-warning-guard.ts`, installed by `vitest.setup.ts`): controlled/uncontrolled switches, missing or duplicated keys, updates outside `act`, unknown DOM props. Fix the component; never silence the console to get past the guard. Add an entry to `ACCEPTED_REACT_WARNINGS` only when the warning comes from a dependency and cannot be fixed here: each entry names its `pattern`, the one `testFile` where it is accepted and the `reason`, and is ignored in every other file.
+- A controlled input (`value`, `checked`) stays controlled for its whole life: map the "nothing selected" state to the component's empty value (`""`, `false`, or the `null` a shared component accepts), never to `undefined`.
+
+### Environment and local database readiness
+
+- Every environment variable a feature reads is added, in the same change, to `.env.example` and to `SERVER_ENVIRONMENT_REQUIREMENTS` (`src/modules/server-environment-requirements.ts`) with its feature and severity: `blocking` when the feature cannot work without it, `degraded` when the feature turns itself off. Add a `validate` step when a present value can still be unusable (JSON, keys, URLs).
+- The startup check (`instrumentation-node.ts`) logs every unmet requirement; in local development a blocking one stops the server before any flow runs. Production only logs, never stops. Do not paper over a missing variable with a hardcoded fallback.
+- `pnpm run dev` warns when the configured database lacks migrations from `database/migrations/`. Apply them on your own sandbox with `pnpm db:sandbox` before testing a flow manually; a missing function or constraint otherwise surfaces as a 500 mid-flow.
+- `pnpm db:sandbox` generates development-only `MESSAGING_*` keys in `.env.local` when they are missing and enrolls their proofs on the sandbox. Never copy those keys to another environment, and never enroll them on the default branch.
+- Follow `docs/conventions/error-diagnostics.htm` and `docs/conventions/local-database-sandbox.htm`.
 
 ### Neon migration push workflow
 
@@ -438,6 +448,13 @@ pnpm run dev
 - Make critical mutations safe under retries and duplicate submissions through idempotency, transactional protection, optimistic locking, or equivalent server-side controls.
 - Avoid blocking the event loop, overfetching, and repeated expensive work in latency-sensitive paths.
 - For examples and decision guidance, see the concurrency, observability, and performance convention guide at `docs/conventions/concurrency-observability-performance.htm`.
+
+### Error diagnosability (mandatory)
+
+- Every failure that reaches a route boundary keeps its real error as `cause`, and every own error class exposes a closed `code`. The shared boundary (`createOwnJsonRouteBoundary`) logs that chain as class names and codes through `summarizeErrorCauses`; it never logs messages, stacks or values, so codes must say what failed (`invalid_configuration`, `verification_unavailable`, a SQLSTATE).
+- Never let an untyped error escape an operation where it becomes an anonymous `unexpected_failure`: wrap configuration reads, provider calls and SQL in the feature's typed error with `cause` at the place they can fail, as `readFingerprint` does for the messaging keys.
+- An expected business rejection (4xx) that has a domain reason carries that reason as a typed cause with `code` (for example `AdmissionPolicyRequirementError`), so the log names the unmet requirement instead of a bare `admission_ineligible`. The browser keeps reading its own safe requirements; the cause is never serialized.
+- When reproducing a reported 500, read the logged `causes` first; if a failure still logs without them, fix the missing `cause` as part of the work.
 
 ### Pooled connection and render-abort resilience
 

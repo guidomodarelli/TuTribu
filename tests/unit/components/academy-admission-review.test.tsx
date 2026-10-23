@@ -50,10 +50,12 @@ async function confirmDecision() {
 beforeEach(() => { window.sessionStorage.clear(); vi.clearAllMocks(); });
 
 describe("visible reviewer inbox refresh", () => {
-  it("should show the account name and declared group number without claiming group verification or changing evidence", () => {
+  it("should show the account name and declared group number without claiming group verification or changing evidence", async () => {
     const data = fixture();
     data.request.whatsappNumber = "+14155552671"; data.request.requiresWhatsappNumber = true;
-    render(data.node, { wrapper: Providers });
+    // The mount reads the viewer and current detail; settle them so the shown detail is the reconciled one.
+    await act(async () => { render(data.node, { wrapper: Providers }); });
+    expect(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm })).toBeEnabled();
     expect(screen.getAllByText(data.request.applicant.name).length).toBeGreaterThan(0);
     expect(screen.getByText(data.request.whatsappNumber)).toBeVisible();
     expect(screen.getByText(ADMISSION_WHATSAPP_COPY.declared)).toBeVisible();

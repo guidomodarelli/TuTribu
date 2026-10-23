@@ -7,11 +7,12 @@ import type { AuthorizedAdmissionContext } from "../../domain/repositories/admis
 import type { AdmissionPolicyCommandWriter, AdmissionPolicyInitializationIntent, AdmissionPolicyUpdateIntent, AdmissionPolicyActivationIntent, AdmissionPolicyPauseIntent, AdmissionPolicyMutationResult, AdmissionPolicyPreparationReader } from "../../domain/repositories/admission-policy-management";
 import type { AdmissionOperationCommand, AdmissionOperationResult } from "../../domain/entities/admission-operation";
 import { createDefaultAdmissionPolicy, proposeAdmissionPolicyChange, selectAdmissionPolicyRules, type AdmissionPolicy, type AdmissionPolicyPatch, type AdmissionPolicyRulesPatch, type AdmissionPolicyConfigurationFacts } from "../../domain/entities/admission-policy";
-import { proposeAdmissionPolicyActivation } from "../../domain/policies/admission-policy-activation";
+import { proposeAdmissionPolicyActivation, type AdmissionPolicyActivationReason } from "../../domain/policies/admission-policy-activation";
 import { requiresAdmissionPolicyReadiness } from "../../domain/policies/admission-policy-readiness";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
+import { AdmissionPolicyRequirementError } from "../../domain/errors/admission-policy-requirement-error";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
-import { ADMISSION_POLICY_AUDIT, ADMISSION_POLICY_EDITABLE_FIELDS, ADMISSION_POLICY_CHANGE_OUTCOME } from "../../constants/admission-policy";
+import { ADMISSION_POLICY_ACTIVATION_ERROR, ADMISSION_POLICY_AUDIT, ADMISSION_POLICY_CONFIGURATION_ERROR, ADMISSION_POLICY_EDITABLE_FIELDS, ADMISSION_POLICY_CHANGE_OUTCOME } from "../../constants/admission-policy";
 import { ADMISSION_PROOF_STATUS, ADMISSION_VERIFICATION_PURPOSE } from "../../constants/admission-eligibility";
 import { VERIFICATION_CHALLENGE_STATE } from "../../constants/verification-challenge";
 import { REAUTHENTICATION_OPERATION, type ReauthenticationOperation } from "@/src/modules/auth/constants/reauthentication-resources";
@@ -26,6 +27,23 @@ import { createAdmissionPolicyAuditEvent } from "../../domain/entities/admission
 import { PostgresAdmissionAuditRepository } from "./postgres-admission-audit-repository";
 import { appendAdmissionProofInvalidationAudit, type InvalidatedAdmissionProofAuditRow } from "./postgres-admission-proof-invalidation-audit";
 import { readSelectedMessagingResource } from "@/src/modules/messaging/infrastructure/repositories/postgres-selected-messaging-resource-reader";
+
+/** @param code - Unmet requirement. @returns The `admission_ineligible` outcome carrying the requirement as its private, loggable cause. */
+function requirementUnmet(code: AdmissionPolicyActivationReason): AdmissionOperationError {
+  return new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible, { cause: new AdmissionPolicyRequirementError(code) });
+}
+
+/**
+ * @param preparation - Current tenant preparation facts. @param tribeId - Policy tribe.
+ * @returns The first unmet readiness requirement, in the order the activation rules check them, or null when ready.
+ */
+function unmetPreparationRequirement(preparation: { tribeId: string; isAcademy: boolean; controlActivated: boolean; preflightComplete: boolean; evaluatorEnabled: boolean; recoveryLocked: boolean }, tribeId: string): AdmissionPolicyActivationReason | null {
+  if (preparation.tribeId !== tribeId) return ADMISSION_POLICY_CONFIGURATION_ERROR.scopeMismatch;
+  if (!preparation.isAcademy) return ADMISSION_POLICY_ACTIVATION_ERROR.notAcademy;
+  if (!preparation.controlActivated || !preparation.preflightComplete) return ADMISSION_POLICY_ACTIVATION_ERROR.preflightIncomplete;
+  if (!preparation.evaluatorEnabled) return ADMISSION_POLICY_ACTIVATION_ERROR.evaluatorUnavailable;
+  return preparation.recoveryLocked ? ADMISSION_POLICY_ACTIVATION_ERROR.recoveryLocked : null;
+}
 
 type PolicyIntent = AdmissionPolicyInitializationIntent | AdmissionPolicyUpdateIntent | AdmissionPolicyActivationIntent | AdmissionPolicyPauseIntent;
 type PolicyDatabaseExecutor = <Result>(context: AuthorizedAdmissionContext, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
@@ -44,7 +62,7 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
   /** A lost policy after protection is never replaced with new editable defaults. */
   private async current(database: RequestDatabase, tribeId: string): Promise<{ policy: AdmissionPolicy | null; controlActivated: boolean }> {
     const { policy, marker } = await readAdmissionPolicyWithControlMarker(database, tribeId, true);
-    if (marker && (!policy?.activatedAt || policy.activatedAt.getTime() !== marker.getTime()) || !marker && policy?.activatedAt) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
+    if (marker && (!policy?.activatedAt || policy.activatedAt.getTime() !== marker.getTime()) || !marker && policy?.activatedAt) throw requirementUnmet(ADMISSION_POLICY_ACTIVATION_ERROR.preflightIncomplete);
     return { policy, controlActivated: Boolean(marker) };
   }
 
@@ -129,12 +147,13 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
     let configuration: AdmissionPolicyConfigurationFacts = { tribeId: policy.tribeId, channelPrepared: false, verificationQuotaPositive: false, usagePolicy: null, lockedContactType: policy.activatedAt ? policy.contactType : null };
     if (requiresReadiness) {
       const preparation = await this.composePreparation(database, intent.context).read(next);
-      if (preparation.tribeId !== policy.tribeId || !preparation.isAcademy || !preparation.controlActivated || !preparation.preflightComplete || !preparation.evaluatorEnabled || preparation.recoveryLocked) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
+      const unmet = unmetPreparationRequirement(preparation, policy.tribeId);
+      if (unmet) throw requirementUnmet(unmet);
       configuration = preparation.configuration;
     }
     const proposal = proposeAdmissionPolicyChange(policy, patch, intent.expectedVersion, configuration);
     if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.conflict) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
-    if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.invalid) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
+    if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.invalid) throw requirementUnmet(proposal.reason);
     if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.unchanged) return this.result(policy, current.controlActivated, false);
     const changedAt = await this.save(database, proposal.policy, policy.version, intent.context.userId);
     if (proposal.invalidateUnappliedEvidence) await this.invalidateUnappliedEvidence(database, intent.context, ledgerId);
@@ -147,7 +166,7 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
   private async assertCurrentPreparation(database: RequestDatabase, context: AuthorizedAdmissionContext, policy: AdmissionPolicy): Promise<void> {
     const preparation = await this.composePreparation(database, context).read(policy);
     const proposal = proposeAdmissionPolicyActivation(policy, policy.version, { ...preparation, now: await admissionPolicyDatabaseNow(database) });
-    if (proposal.outcome !== ADMISSION_POLICY_CHANGE_OUTCOME.unchanged) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
+    if (proposal.outcome !== ADMISSION_POLICY_CHANGE_OUTCOME.unchanged) throw requirementUnmet(proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.invalid ? proposal.reason : ADMISSION_POLICY_ACTIVATION_ERROR.preflightIncomplete);
   }
 
   /** @param database - Original policy transaction. @param context - Authorized actor and tribe. @param ledgerId - Original policy command. @returns After invalidating and auditing only unused admission evidence; diagnostics and applied evidence retain provenance. */
@@ -176,7 +195,7 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
       const preparation = await this.composePreparation(database, intent.context).read(bound);
       const proposal = proposeAdmissionPolicyActivation(bound, intent.expectedVersion, { ...preparation, now: await admissionPolicyDatabaseNow(database) });
       if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.conflict) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
-      if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.invalid) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
+      if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.invalid) throw requirementUnmet(proposal.reason);
       if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.unchanged) return this.result(proposal.policy, true, false);
       const changedAt = await this.save(database, proposal.policy, current.policy.version, intent.context.userId);
       const updated = (await database.execute(sql`update public.tribes set admissions_control_activated_at=${proposal.controlActivatedAt} where id=${intent.context.tribeId} and admissions_control_activated_at is null returning id`)).rows[0];

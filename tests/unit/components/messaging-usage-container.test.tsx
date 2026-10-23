@@ -11,6 +11,7 @@ import type { MessagingUsageBrowserClient } from "@/src/modules/messaging/applic
 import { readMessagingUsageIntent, writeMessagingUsageIntent } from "@/lib/messaging/messaging-usage-intent";
 import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
 import { AdmissionWorkspaceRoute } from "@/tests/support/admission-workspace-route";
+import { changeGuidedStep } from "@/tests/support/guided-steps";
 
 const slug = "synthetic-academy", viewerId = "synthetic-leader", tribeId = "83ecbfaf-0e7c-4afb-aefc-62b62800d367", operationId = "297d47c2-5419-4c3d-a339-e8b7970275ca";
 const savedText = "Los países y cupos quedaron guardados.", partialText = "La configuración se creó con los valores iniciales, pero todavía falta guardar lo que elegiste.";
@@ -40,8 +41,10 @@ async function openSteps() {
 /** Moves to the next step through the shared Continue control. */
 async function next() {
   const button = screen.getByRole("button", { name: /Continuar/ });
-  await waitFor(() => expect(button).toBeEnabled()); fireEvent.click(button);
+  await waitFor(() => expect(button).toBeEnabled()); await changeGuidedStep(button);
 }
+/** Returns to the previous step through the shared Back control. */
+async function back() { await changeGuidedStep(screen.getByRole("button", { name: /Atrás/ })); }
 /** Walks from the countries step to the review step, typing the given quotas on the way. */
 async function reviewWith(quotas: { verification?: string; notification?: string } = {}) {
   await screen.findByRole("navigation", { name: "Paso 1 de 4" });
@@ -166,10 +169,10 @@ describe("guided usage route workflow", () => {
   it("should keep the confirmation while moving between steps and clear it only when a value changes", async () => {
     const data = fixture(); render(data.node, { wrapper: Providers });
     await openSteps(); await reviewWith({ notification: "300" }); await confirm();
-    fireEvent.click(screen.getByRole("button", { name: /Atrás/ }));
+    await back();
     await screen.findByRole("spinbutton", { name: "Avisos por día" });
     await next(); expect(await screen.findByRole("checkbox", { name: /Revisé los países/ })).toBeChecked();
-    fireEvent.click(screen.getByRole("button", { name: /Atrás/ }));
+    await back();
     fireEvent.change(await screen.findByRole("spinbutton", { name: "Avisos por día" }), { target: { value: "0" } });
     expect(screen.getByText("Con 0 no se envía ningún aviso por correo o SMS.")).toBeInTheDocument();
     await next(); expect(await screen.findByRole("checkbox", { name: /Revisé los países/ })).not.toBeChecked();

@@ -546,7 +546,7 @@ describe("guided policy route workflow", () => {
       expect(data.client.updatePolicy).not.toHaveBeenCalled();
     });
 
-    it("should name a saved draft's evaluated requirement and where to resolve it as soon as the rules open", () => {
+    it("should name a saved draft's evaluated requirement and where to resolve it as soon as the rules open", async () => {
       const data = fixture();
       const state = { ...data.state, policy: { ...data.policy, preparation: { state: "evaluated" as const, requirements: ["verification_unavailable" as const] } } };
       render(<AdmissionPolicyContainer initialState={state} client={data.client} reviewClient={data.reviewClient} />, { wrapper: Providers });
@@ -554,10 +554,13 @@ describe("guided policy route workflow", () => {
       expect(block).toHaveTextContent("Todavía falta un requisito para activar las admisiones.");
       expect(block).toHaveTextContent("El canal para comprobar el contacto todavía no está preparado.");
       expect(screen.getByRole("link", { name: "Ir a Conexión" })).toHaveAttribute("href", `/${slug}/academia/admissions/messaging/connections?return=policy-review`);
+      // The mount viewer check settles without dropping the server-read requirement.
+      await waitFor(() => expect(screen.getByRole("button", { name: "Revisar y activar" })).toBeEnabled());
+      expect(screen.getByRole("region", { name: "Lo que falta resolver" })).toHaveTextContent("El canal para comprobar el contacto todavía no está preparado.");
       expect(data.client.activatePolicy).not.toHaveBeenCalled();
     });
 
-    it("should explain pending memberships through the preflight instead of an incomplete-protection platform block", () => {
+    it("should explain pending memberships through the preflight instead of an incomplete-protection platform block", async () => {
       const data = fixture();
       const state = { ...data.state, policy: { ...data.policy, preparation: { state: "evaluated" as const, requirements: ["admission_preflight_incomplete" as const] } } };
       render(<AdmissionPolicyContainer initialState={state} client={data.client} reviewClient={data.reviewClient} initialPreflight={{ prepared: false, reasons: ["preflight_unknown_commercial_history"], impact: { unknownCommercialMemberCount: 1, privilegedCommercialMemberCount: 0 } }} />, { wrapper: Providers });
@@ -565,13 +568,17 @@ describe("guided policy route workflow", () => {
       expect(block).toHaveTextContent("Hay membresías bloqueadas por pago de las que no sabemos si estaban activas o silenciadas.");
       expect(block).not.toHaveTextContent("La plataforma todavía no terminó de preparar las protecciones de admisión.");
       expect(screen.queryByRole("group", { name: "Depende del equipo de TuTribu" })).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Revisar y activar" })).toBeInTheDocument();
+      // The mount viewer check settles and the leader can still open the review step.
+      await waitFor(() => expect(screen.getByRole("button", { name: "Revisar y activar" })).toBeEnabled());
+      expect(screen.getByRole("region", { name: "Lo que falta resolver" })).toHaveTextContent("Hay membresías bloqueadas por pago de las que no sabemos si estaban activas o silenciadas.");
     });
 
     it("should open the final step from a return link", async () => {
       const data = fixture();
       render(<AdmissionPolicyContainer initialState={data.state} client={data.client} reviewClient={data.reviewClient} entryStep="review" />, { wrapper: Providers });
       expect(screen.getByRole("navigation", { name: "Paso 4 de 4" })).toBeInTheDocument();
+      // Once the mount viewer check settles, the step waits for the leader's confirmation before activating.
+      await waitFor(() => expect(screen.getByRole("checkbox", { name: /Revisé las reglas/ })).toBeEnabled());
       expect(screen.getByRole("button", { name: "Activar ahora" })).toBeDisabled();
     });
 

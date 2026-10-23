@@ -42,6 +42,7 @@ import { COMMERCIAL_MEMBERSHIP_DECISION_COPY, COMMERCIAL_MEMBERSHIP_REVIEW_COPY,
 import { ADMISSION_POLICY_ACTIVATION_REQUIREMENT_COPY, ADMISSION_POLICY_BROWSER_COPY, ADMISSION_POLICY_DESTINATION_COPY, ADMISSION_POLICY_DRAFT_COPY, ADMISSION_POLICY_PLATFORM_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 import { ADMISSION_SETUP_GUIDE_COPY, ADMISSION_SETUP_STEP_COPY } from "@/src/modules/academy-admissions/constants/admission-setup-guide";
 import { createTenantRowsPreflight } from "@/tests/support/admission-tenant-rows-preflight";
+import { AdmissionPolicyRequirementError } from "@/src/modules/academy-admissions/domain/errors/admission-policy-requirement-error";
 
 /** @param database - This run's owned branch with native pg/Drizzle. @param securityConfig - Hosting configuration a native server shares with the seed; in-process suites keep independent generated keys. @returns Current leader session, policy repository and preparation-port controls. */
 async function preparePolicy(database: AcademyAdmissionTestDatabase, securityConfig?: MessagingSecurityConfig) {
@@ -210,7 +211,8 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       const input = { tribeId: data.tribeId, requestId: randomUUID(), operationId: randomUUID(), expectedVersion: 1, confirmed: true as const };
       expect(await admissionModule.createPreflightModule({ runtime, readRecoveryLock: async () => false }).useCases.execute({ tribeId: data.tribeId, requestId: randomUUID() })).toMatchObject({ ok: true, value: { prepared: true } });
       await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_academy_settings set admission_enabled=false where tribe_id=${data.tribeId}`));
-      expect(await policy.activate({ ...input, operationId: randomUUID() })).toMatchObject({ ok: false, failure: { code: "admission_ineligible" } });
+      // The unmet requirement travels as the private cause, so the route log names it instead of a bare admission_ineligible.
+      expect(await policy.activate({ ...input, operationId: randomUUID() })).toMatchObject({ ok: false, failure: { code: "admission_ineligible", cause: { cause: expect.any(AdmissionPolicyRequirementError) } } });
       expect(await data.reader.read(data.readContext)).toMatchObject({ controlActivated: false, policy: { activatedAt: null, version: 1 } });
       await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_academy_settings set admission_enabled=true where tribe_id=${data.tribeId}`));
       expect(await policy.activate(input)).toMatchObject({ ok: true, value: { state: "completed", replayed: false, result: { controlActivated: true, changed: true, version: 2 } } });
@@ -414,7 +416,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       const data = await preparePolicy(database); await data.initialize();
       await data.repository.update({ context: data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy), operationId: randomUUID(), confirmed: true, type: "update_admission_policy", expectedVersion: 1, patch: { requiresAdditionalVerification: true } });
       const operationId = randomUUID(); data.retirePreparedAfterRead();
-      await expect(data.repository.activate({ context: data.context(REAUTHENTICATION_OPERATION.activateAdmissionPolicy), operationId, confirmed: true, type: "activate_admission_policy", expectedVersion: 2 })).rejects.toMatchObject({ code: "admission_ineligible" });
+      await expect(data.repository.activate({ context: data.context(REAUTHENTICATION_OPERATION.activateAdmissionPolicy), operationId, confirmed: true, type: "activate_admission_policy", expectedVersion: 2 })).rejects.toMatchObject({ code: "admission_ineligible", cause: { code: "verification_unavailable" } });
       expect(await data.reader.read(data.readContext)).toMatchObject({ controlActivated: false, policy: { version: 2, verificationEpoch: 2, activatedAt: null } });
       expect(await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select (select count(*) from public.academy_admission_audit_events where tribe_id=${data.tribeId})::int as audits,(select state from public.academy_admission_operations where tribe_id=${data.tribeId} and idempotency_key=${operationId}) as operation_state`)).rows)).toEqual([{ audits: 2, operation_state: "started" }]);
     });

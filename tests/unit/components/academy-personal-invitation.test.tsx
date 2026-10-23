@@ -163,10 +163,14 @@ describe("personal invitation page workflow", () => {
   it("should keep an anonymous link generic and preserve the exact internal return for sign-in without effects", async () => {
     const data = fixture();
     data.state = { kind: "ready", viewerId: null, renderedAt: data.state.kind === "ready" ? data.state.renderedAt : "", preview: { state: "sign_in_required", safeMessage: "Iniciá sesión para consultar esta invitación personal." } };
-    vi.mocked(data.client.viewer).mockResolvedValue({ status: "ready", value: null });
+    const anonymousViewer = Promise.withResolvers<Awaited<ReturnType<PersonalInvitationBrowserClient["viewer"]>>>();
+    vi.mocked(data.client.viewer).mockReturnValue(anonymousViewer.promise);
     render(<Providers token={data.token}><PersonalInvitationContainer initialState={data.state} client={data.client} contactClient={data.contactClient} /></Providers>);
     expect(screen.getByRole("link", { name: "Iniciar sesión" })).toHaveAttribute("href", `/auth/signin?callbackUrl=${encodeURIComponent(`/admissions/invitations/${data.token}`)}`);
     expect(screen.queryByText("Academia sintética")).toBeNull();
+    await waitFor(() => expect(data.client.viewer).toHaveBeenCalledOnce());
+    await act(async () => anonymousViewer.resolve({ status: "ready", value: null }));
+    expect(screen.getByRole("link", { name: "Iniciar sesión" })).toBeInTheDocument(); expect(screen.queryByText("Academia sintética")).toBeNull();
     expect(data.client.submit).not.toHaveBeenCalled(); expect(data.contactClient.issue).not.toHaveBeenCalled();
   });
 
@@ -230,6 +234,7 @@ describe("personal invitation page workflow", () => {
   it("should make common admission a separate navigation without submitting or issuing a code", async () => {
     const data = fixture(); render(data.element());
     expect(screen.getByRole("link", { name: "Elegir la vía común de ingreso" })).toHaveAttribute("href", "/admissions/synthetic-personal");
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Confirmo que quiero usar esta invitación/i })).toBeEnabled());
     expect(data.client.submit).not.toHaveBeenCalled(); expect(data.contactClient.issue).not.toHaveBeenCalled();
   });
 
@@ -315,6 +320,8 @@ describe("personal invitation page workflow", () => {
     const state: PersonalInvitationPageState = { kind: "ready", viewerId: data.viewerId, renderedAt: new Date().toISOString(), preview };
     render(<Providers token={data.token}><PersonalInvitationContainer initialState={state} client={data.client} contactClient={data.contactClient} /></Providers>);
     expect(screen.getByRole("link", { name: status === "pending" ? "Ver mi solicitud" : "Abrir academia" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirmar invitación" })).toBeNull();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Cambiar de cuenta" })).toBeEnabled());
     expect(screen.queryByRole("button", { name: "Confirmar invitación" })).toBeNull();
     expect(data.client.submit).not.toHaveBeenCalled(); expect(data.contactClient.issue).not.toHaveBeenCalled();
   });

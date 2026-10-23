@@ -149,7 +149,10 @@ export class PostgresAdmissionOperationRepository {
 
   /** @param database - Native account/resource-authorized original transaction. @returns The original-intent signer only after both HMAC identity domains retain their material. @throws AdmissionOperationError for unprovable key-id continuity. */
   private async readFingerprint(database: RequestDatabase) {
-    const config = await this.readSecurityConfig();
+    let config: MessagingSecurityConfig;
+    // Missing or invalid hosting keys are a server misconfiguration, not an absent resource: keep the typed cause for the 500 diagnostic.
+    try { config = await this.readSecurityConfig(); }
+    catch (error) { throw new AdmissionOperationError(ADMISSION_ERROR_CODE.unexpectedFailure, { cause: error }); }
     try {
       await assertMessagingAuthenticatedMacKeyMaterials(database, config, ADMISSION_OPERATION_MAC_KEY_PURPOSES);
     } catch (error) {
