@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.verification.request",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Verificación",
+    "section": "Vinculación",
+    "subflow": "Solicitar verificación"
+  },
+  "description": "Solicitar la verificación de la vinculación con un proveedor (email declarado), con el estado de cada proveedor.",
+  "routes": [
+    "/[slug]/academia/verificacion"
+  ],
+  "entries": [
+    {
+      "path": "components/academy/academy-verification/index.tsx",
+      "symbol": "ProviderRequest"
+    },
+    {
+      "follow": false,
+      "path": "components/academy/academy-verification/index.tsx",
+      "symbol": "AcademyVerification"
+    },
+    {
+      "follow": false,
+      "path": "app/(platform)/[slug]/academia/verificacion/page.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/verificacion/loading.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/api/tribes/[slug]/verifications/route.ts",
+      "symbol": "POST"
+    }
+  ],
+  "dependsOn": [
+    {
+      "path": "src/modules/member-verifications/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildMemberVerificationsModule"
+    }
+  ],
+  "origin": "curated"
+}

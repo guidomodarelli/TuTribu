@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.home.renewal-cancel",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Inicio de la academia",
+    "section": "Acceso y suscripción",
+    "subflow": "Cancelar renovación"
+  },
+  "description": "Cancelar la renovación de la academia: confirma en diálogo, cancela la suscripción actual y muestra hasta cuándo sigue el acceso.",
+  "routes": [
+    "/[slug]/academia"
+  ],
+  "entries": [
+    {
+      "path": "components/academy/academy-home/index.tsx",
+      "symbol": "AcademyHome/handleCancel"
+    },
+    {
+      "follow": false,
+      "path": "app/(platform)/[slug]/academia/page.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/api/tribes/[slug]/subscriptions/current/route.ts",
+      "symbol": "DELETE"
+    }
+  ],
+  "dependsOn": [
+    {
+      "path": "src/modules/subscriptions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildSubscriptionsModule"
+    }
+  ],
+  "origin": "curated"
+}

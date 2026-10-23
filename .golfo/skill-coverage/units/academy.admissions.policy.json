@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.admissions.policy",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Reglas de admisión",
+    "section": null,
+    "subflow": "Configurar y activar reglas de admisión"
+  },
+  "description": "Configurar las reglas de admisión: borrador, revisión comercial, preflight, activación y pausa de la política.",
+  "routes": [
+    "/[slug]/academia/admissions/settings"
+  ],
+  "entries": [
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/settings/policy-container.tsx",
+      "symbol": "AdmissionPolicyContainer"
+    },
+    {
+      "follow": false,
+      "path": "app/(platform)/[slug]/academia/admissions/settings/page.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/settings/loading.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/settings/error.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/policy/route.ts",
+      "symbol": "*"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/policy/preflight/route.ts",
+      "symbol": "*"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/policy/activate/route.ts",
+      "symbol": "*"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/policy/pause/route.ts",
+      "symbol": "*"
+    }
+  ],
+  "dependsOn": [
+    {
+      "path": "src/modules/academy-admissions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAcademyAdmissionsModule"
+    }
+  ],
+  "origin": "curated"
+}

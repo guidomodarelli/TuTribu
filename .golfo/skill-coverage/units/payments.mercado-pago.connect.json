@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "payments.mercado-pago.connect",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Pagos de la tribu",
+    "page": "Precios",
+    "section": "Cuenta de Mercado Pago",
+    "subflow": "Conectar cuenta"
+  },
+  "description": "Conectar la cuenta de Mercado Pago de la tribu (OAuth) desde la gestión de precios; es la cuenta que cobra la academia.",
+  "routes": [
+    "/[slug]/precios"
+  ],
+  "entries": [
+    {
+      "path": "components/subscriptions/tribe-subscription-price-management/index.tsx",
+      "symbol": "TribeSubscriptionPriceManagement/startMercadoPagoConnection"
+    },
+    {
+      "follow": false,
+      "path": "app/(platform)/[slug]/precios/page.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/api/tribes/[slug]/mercado-pago/oauth/start/route.ts",
+      "symbol": "GET"
+    },
+    {
+      "path": "app/api/mercado-pago/oauth/callback/route.ts",
+      "symbol": "GET"
+    }
+  ],
+  "dependsOn": [
+    {
+      "path": "src/modules/tribes/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildTribesModule"
+    },
+    {
+      "path": "src/modules/subscriptions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildSubscriptionsModule"
+    }
+  ],
+  "origin": "curated"
+}

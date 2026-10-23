@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.home.join",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Inicio de la academia",
+    "section": "Admisión",
+    "subflow": "Ingresar gratis"
+  },
+  "description": "Ingresar gratis a la academia cuando las admisiones están abiertas (ingreso clásico sin formulario de admisión).",
+  "routes": [
+    "/[slug]/academia"
+  ],
+  "entries": [
+    {
+      "path": "components/academy/academy-home/index.tsx",
+      "symbol": "AcademyHome/handleJoin"
+    },
+    {
+      "follow": false,
+      "path": "app/(platform)/[slug]/academia/page.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/api/tribes/[slug]/academy/join/route.ts",
+      "symbol": "POST"
+    }
+  ],
+  "dependsOn": [
+    {
+      "path": "src/modules/product-access/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildProductAccessModule"
+    },
+    {
+      "path": "src/modules/tribes/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildTribesModule"
+    }
+  ],
+  "origin": "curated"
+}

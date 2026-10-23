@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.manage.availability",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Gestionar academia",
+    "section": "Configuración",
+    "subflow": "Abrir o pausar admisiones y ventas"
+  },
+  "description": "Abrir o pausar admisiones y ventas de la academia con los interruptores de disponibilidad.",
+  "routes": [
+    "/[slug]/academia/gestionar"
+  ],
+  "entries": [
+    {
+      "path": "components/academy/academy-management/index.tsx",
+      "symbol": "SettingsSection/toggleAvailability"
+    },
+    {
+      "follow": false,
+      "path": "app/(platform)/[slug]/academia/gestionar/page.tsx",
+      "symbol": "default"
+    },
+    {
+      "follow": false,
+      "path": "components/academy/academy-management/index.tsx",
+      "symbol": "AcademyManagement"
+    },
+    {
+      "path": "app/api/tribes/[slug]/academy/availability/route.ts",
+      "symbol": "PUT"
+    }
+  ],
+  "dependsOn": [
+    {
+      "path": "src/modules/product-access/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildProductAccessModule"
+    }
+  ],
+  "origin": "curated"
+}

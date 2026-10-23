@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.payments.webhook",
+  "kind": "webhook",
+  "hierarchy": {
+    "module": "Academia",
+    "page": null,
+    "section": "Pagos",
+    "subflow": "Procesar notificación de pago"
+  },
+  "description": "Procesar las notificaciones del proveedor de pagos que otorgan, renuevan o revocan el acceso pago a la academia.",
+  "routes": [
+    "POST /api/mercado-pago/webhooks"
+  ],
+  "entries": [
+    {
+      "path": "app/api/mercado-pago/webhooks/route.ts",
+      "role": "server",
+      "symbol": "POST"
+    }
+  ],
+  "dependsOn": [
+    {
+      "path": "src/modules/subscriptions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildSubscriptionsModule"
+    }
+  ],
+  "origin": "curated",
+  "skills": {
+    "ui-ux-flow-patterns": {
+      "applicable": false,
+      "reason": "Sin interfaz: procesa notificaciones del proveedor de pagos en el servidor."
+    }
+  }
+}
