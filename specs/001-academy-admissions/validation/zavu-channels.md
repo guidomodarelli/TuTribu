@@ -79,3 +79,17 @@ La segunda emisión fue SMS al teléfono controlado. Zavu aceptó el intento; su
 La consulta de recursos también confirmó un número propio SMS/voz activo, todavía sin asignar a ningún remitente; el remitente SMS utilizado es distinto. Esa observación no establece por sí sola la causa de la cola y queda pendiente resolver su configuración. No se cambió el remitente ni se emitió un tercer mensaje.
 
 El piloto conserva dos solicitudes consumidas de diez y la candidata sin seleccionar. El saldo observado después del correo fue USD 16,60 frente a USD 17 antes de emitirlo; la diferencia de USD 0,40 es una observación de saldo, no una tarifa por mensaje deducida. T204 y OG-03/OG-04 siguen pendientes; WhatsApp y el contraste A/B mantienen su alcance completo.
+
+<a id="sms-queue-diagnosis-2026-10-23"></a>
+
+### Diagnóstico de la cola SMS, 23 de octubre de 2026
+
+La revisión de sólo lectura del panel de Zavu (2026-10-23 03:10Z, 00:10 en Buenos Aires) explica por qué ningún SMS de diagnóstico salió de la cola:
+
+- El sender que usa la conexión para SMS es el predeterminado del proyecto, cuyo número es el WhatsApp personal argentino del usuario. Zavu lo lista con WhatsApp y SMS, pero el canal SMS del proyecto figura «En configuración».
+- El número propio de EE. UU. incluido en Pro figura «Sin conectar: no envía ni recibe». No está asignado a ningún sender.
+- Los tres diagnósticos SMS emitidos por TuTribu (19, 21 y 22 de octubre) siguen en cola en los registros del proveedor; ninguno figura entregado ni fallido.
+
+**Ningún `verified` SMS anterior acredita recepción.** El panel de registros de Zavu muestra el cuerpo completo de cada mensaje, incluido el código. El diagnóstico del 22 de octubre quedó `verified` diez segundos después de emitirse con el SMS todavía en cola: el código no pudo leerse en el teléfono. Los diagnósticos SMS del 19 y del 21 de octubre tienen el mismo estado del proveedor. Estos resultados acreditan sólo la validación local del código y no se usan para OG-03, T106 ni T204. Esta evidencia no reproduce códigos.
+
+El conteo de «dos de diez envíos» quedó desactualizado. Desde el 19 de octubre la rama del piloto registra once diagnósticos aceptados por Zavu (ocho de correo, tres SMS) y quince avisos de admisión aceptados por otros ensayos. El saldo observado es USD 16,28. El 2026-10-22 el usuario fijó un tope nuevo de **diez envíos sólo para este ensayo**, contado desde esta revisión, y conservó el tope de USD 20; también autorizó conectar el número de EE. UU. como canal o sender SMS. Esa conexión y los envíos posteriores se registran a continuación.
