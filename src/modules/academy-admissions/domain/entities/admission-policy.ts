@@ -10,6 +10,7 @@ import {
   ADMISSION_POLICY_CONFIGURATION_WARNING,
   ADMISSION_POLICY_MODE,
   ADMISSION_POLICY_EDITABLE_FIELDS,
+  ADMISSION_POLICY_RULE_FIELDS,
   ADMISSION_POLICY_CHANGE_OUTCOME,
 } from "@/src/modules/academy-admissions/constants/admission-policy";
 import type { AdmissionContactType } from "@/src/modules/academy-admissions/domain/value-objects/admission-contact";
@@ -153,6 +154,15 @@ export function validateAdmissionPolicyDraftConfiguration(policy: AdmissionPolic
 }
 
 export type AdmissionPolicyPatch = Partial<Pick<AdmissionPolicy, (typeof ADMISSION_POLICY_EDITABLE_FIELDS)[number]>>;
+/** Rules a leader edits; the messaging reference is derived by the owner from the current selection, never sent by the browser. */
+export type AdmissionPolicyRulesPatch = Omit<AdmissionPolicyPatch, "messagingConnectionId" | "messagingConnectionVersion">;
+
+/** @param patch - Rules received from a caller, possibly carrying extra runtime fields. @returns Only the rule fields present in it, so no caller sets the owner-derived messaging reference. */
+export function selectAdmissionPolicyRules(patch: AdmissionPolicyRulesPatch): AdmissionPolicyRulesPatch {
+  const rules: Record<string, unknown> = {};
+  for (const field of ADMISSION_POLICY_RULE_FIELDS) if (field in patch) rules[field] = patch[field];
+  return rules as AdmissionPolicyRulesPatch;
+}
 export type AdmissionPolicyChangeResult =
   | { outcome: "conflict" }
   | { outcome: "invalid"; reason: Extract<AdmissionPolicyConfigurationResult, { valid: false }>["reason"] }

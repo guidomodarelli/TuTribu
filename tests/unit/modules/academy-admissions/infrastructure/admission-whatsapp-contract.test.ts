@@ -10,7 +10,7 @@ describe("declared WhatsApp contracts", () => {
   const fixtures = createAcademyAdmissionFixtures("whatsapp-contract");
   const operationId = "9307c14c-35d7-46d4-bc49-c8beb02fe664";
   const confirmation = { operationId, confirmed: true as const };
-  const draft = { mode: "manual_review", contactType: "email", isOpen: true, allowCommonExceptions: false, requiresAdditionalVerification: false, phoneChannel: null, allowSmsAlternative: false, messagingConnectionId: null, messagingConnectionVersion: null };
+  const draft = { mode: "manual_review", contactType: "email", isOpen: true, allowCommonExceptions: false, requiresAdditionalVerification: false, phoneChannel: null, allowSmsAlternative: false };
 
   it("should preserve the current requirement when an earlier policy client omits the new setting", () => {
     const { operationId: ignoredId, confirmed: ignoredConfirmation, expectedVersion, ...patch } = admissionPolicyUpdateSchema.parse({ ...confirmation, ...draft, expectedVersion: 1 });

@@ -45,7 +45,7 @@ export async function prepareMessagingRestoreReplacement(database: MessagingRest
   const closedPolicy = await database.withContext({ userId: source.context.actorUserId, email: null }, (transaction) => readAdmissionPolicy(transaction, source.context.tribeId, false));
   if (!closedPolicy || closedPolicy.isOpen) throw new Error("Messaging restore reopening failed: policy_reopened_without_confirmation");
   const admission = composeAdmissionRestoreOwnersForPrincipal(database, original.context, readSecurityConfig);
-  const updated = await admission.policy.update({ tribeId: source.context.tribeId, requestId: randomUUID(), operationId: randomUUID(), expectedVersion: closedPolicy.version, confirmed: true, patch: { isOpen: true, messagingConnectionId: replacement.context.connectionId, messagingConnectionVersion: replacement.context.connectionVersion } });
+  const updated = await admission.policy.update({ tribeId: source.context.tribeId, requestId: randomUUID(), operationId: randomUUID(), expectedVersion: closedPolicy.version, confirmed: true, patch: { isOpen: true } });
   if (!updated.ok || updated.value.state !== "completed") throw new Error("Messaging restore reopening failed: current_policy_update_unconfirmed");
   const policy = await admission.policy.activate({ tribeId: source.context.tribeId, requestId: randomUUID(), operationId: randomUUID(), expectedVersion: updated.value.result.version, confirmed: true });
   if (!policy.ok || policy.value.state !== "completed") throw new Error("Messaging restore reopening failed: current_policy_activation_unconfirmed");

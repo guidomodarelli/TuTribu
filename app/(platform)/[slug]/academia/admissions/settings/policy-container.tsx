@@ -17,7 +17,7 @@ import { readAdmissionPolicyIntent, writeAdmissionPolicyIntent } from "@/lib/aca
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
 import { ADMISSION_POLICY_BROWSER_PHASE as PHASE, ADMISSION_POLICY_BROWSER_COPY as COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 import { ADMISSION_POLICY_ACTION, ADMISSION_POLICY_FLOW_STAGE as STAGE, ADMISSION_POLICY_PREFLIGHT_COVERED_REQUIREMENTS, ADMISSION_POLICY_SELF_RESOLVED_REQUIREMENTS, type AdmissionPolicyAction, type AdmissionPolicyFlowStage } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
-import { ADMISSION_POLICY_OPERATION, ADMISSION_POLICY_PUBLIC_STATE, ADMISSION_POLICY_CONFIGURATION_ERROR, ADMISSION_POLICY_EDITABLE_FIELDS } from "@/src/modules/academy-admissions/constants/admission-policy";
+import { ADMISSION_POLICY_OPERATION, ADMISSION_POLICY_PUBLIC_STATE, ADMISSION_POLICY_CONFIGURATION_ERROR, ADMISSION_POLICY_RULE_FIELDS } from "@/src/modules/academy-admissions/constants/admission-policy";
 import { admissionPolicyStateResultSchema } from "@/src/modules/academy-admissions/application/results/admission-policy-result-schemas";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ALLOWLIST_SETTINGS_SEGMENT } from "@/src/modules/academy-admissions/constants/allowlist-browser";
@@ -70,7 +70,7 @@ function createInitialDraft(state: AdmissionPolicyStateDto): AdmissionPolicyDraf
 function differsFromSaved(draft: AdmissionPolicyDraft, state: AdmissionPolicyStateDto): boolean {
   if (!state.policy) return true;
   const saved = createAdmissionPolicyDraft(state);
-  return ADMISSION_POLICY_EDITABLE_FIELDS.some((field) => draft[field] !== saved[field]);
+  return ADMISSION_POLICY_RULE_FIELDS.some((field) => draft[field] !== saved[field]);
 }
 
 /** @param state - Freshly read state. @returns Requirements the leader still has to resolve, without the ones the flow resolves itself. */
@@ -225,8 +225,8 @@ export function AdmissionPolicyContainer({ initialState, client = admissionApiCl
     if (!ready || !current || result.policyId !== ready.tribeId) throw new Error("AdmissionPolicyContainer:applyResult policy owner mismatch");
     if (intent.type !== ADMISSION_POLICY_OPERATION.initialize && (!current.policy || current.policy.version !== intent.input.expectedVersion || result.version !== intent.input.expectedVersion + (result.changed ? 1 : 0))) throw new Error("AdmissionPolicyContainer:applyResult policy counter mismatch");
     const changes = intent.type === ADMISSION_POLICY_OPERATION.update ? intent.input : intent.type === ADMISSION_POLICY_OPERATION.pause ? { isOpen: false } : {};
-    /** A created policy starts from the server defaults, never from the unsaved draft. */
-    const base = current.policy ?? { ...createAdmissionPolicyDraft(current), id: result.policyId, usage: current.usage, requirements: [] };
+    /** A created policy starts from the server defaults, never from the unsaved draft; the server alone binds its messaging reference. */
+    const base = current.policy ?? { ...createAdmissionPolicyDraft(current), messagingConnectionId: null, messagingConnectionVersion: null, id: result.policyId, usage: current.usage, requirements: [] };
     const policy = { ...base, ...changes, version: result.version, verificationEpoch: result.verificationEpoch, activatedAt: result.activatedAt };
     const next = { ...current, policy, controlActivated: result.controlActivated, state: result.controlActivated ? policy.isOpen ? ADMISSION_POLICY_PUBLIC_STATE.active : ADMISSION_POLICY_PUBLIC_STATE.paused : ADMISSION_POLICY_PUBLIC_STATE.draft,
       impact: { ...current.impact, contactTypeLocked: result.controlActivated, historicalLinksProtected: result.controlActivated } };

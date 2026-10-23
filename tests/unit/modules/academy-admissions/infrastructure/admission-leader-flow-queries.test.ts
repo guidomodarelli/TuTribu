@@ -61,7 +61,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native leader 
         // Warm-up compiles routes and fills the pools; none of it is reported.
         for (const path of Object.values(pages)) { await send("GET", path); await observe("GET", path); }
         await measure("initialize_policy", "POST", `${api}/policy`, [{ operationId: randomUUID(), confirmed: true }]);
-        const patch = { mode: "manual_review", contactType: "email", isOpen: true, requiresAdditionalVerification: false, phoneChannel: null, allowSmsAlternative: false, messagingConnectionId: null, messagingConnectionVersion: null };
+        const patch = { mode: "manual_review", contactType: "email", isOpen: true, requiresAdditionalVerification: false, phoneChannel: null, allowSmsAlternative: false };
         await measure("save_policy", "PUT", `${api}/policy`, Array.from({ length: VALIDATION.samples }, (_, index) => ({ ...patch, operationId: randomUUID(), confirmed: true, expectedVersion: index + 1, allowCommonExceptions: index % 2 === 0 })));
         for (const [label, path] of Object.entries(pages)) await measure(`page_${label}`, "GET", path, reads);
         await measure("read_policy", "GET", `${api}/policy`, reads);

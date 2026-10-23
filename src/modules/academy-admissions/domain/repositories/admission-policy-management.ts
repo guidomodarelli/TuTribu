@@ -1,5 +1,5 @@
 /** Defines current-policy reads and original explicit commands independently of SQL/providers. @module admission-policy-management */
-import type { AdmissionPolicy, AdmissionPolicyPatch } from "../entities/admission-policy";
+import type { AdmissionPolicy, AdmissionPolicyRulesPatch } from "../entities/admission-policy";
 import type { AuthorizedAdmissionContext } from "./admission-authorization-reader";
 import type { AdmissionOperationResult } from "../entities/admission-operation";
 import type { AdmissionMessagingUsagePolicy } from "./messaging-usage-policy-reader";
@@ -21,7 +21,7 @@ export interface AdmissionPolicyPreparationReader {
   read(policy: AdmissionPolicy): Promise<Omit<AdmissionPolicyActivationFacts, "now">>;
 }
 export type AdmissionPolicyInitializationIntent = { context: AuthorizedAdmissionContext; operationId: string; confirmed: true; type: "initialize_admission_policy" };
-export type AdmissionPolicyUpdateIntent = { context: AuthorizedAdmissionContext; operationId: string; confirmed: true; type: "update_admission_policy"; expectedVersion: number; patch: AdmissionPolicyPatch };
+export type AdmissionPolicyUpdateIntent = { context: AuthorizedAdmissionContext; operationId: string; confirmed: true; type: "update_admission_policy"; expectedVersion: number; patch: AdmissionPolicyRulesPatch };
 export type AdmissionPolicyActivationIntent = { context: AuthorizedAdmissionContext; operationId: string; confirmed: true; type: "activate_admission_policy"; expectedVersion: number };
 export type AdmissionPolicyPauseIntent = { context: AuthorizedAdmissionContext; operationId: string; confirmed: true; type: "pause_admission_policy"; expectedVersion: number; reason: string };
 

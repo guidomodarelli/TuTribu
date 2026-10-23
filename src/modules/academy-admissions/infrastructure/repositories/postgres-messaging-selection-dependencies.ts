@@ -37,7 +37,7 @@ export class PostgresMessagingSelectionDependencies implements MessagingSelectio
     if(await this.notificationsEnabled(context,this.database))channels.add(MESSAGING_PUBLIC_CHANNEL.email);
     return[...channels];
   }
-  /** @param context - Actual current activation principal. @param previous - Old selected immutable scope. @param next - Prepared replacement. @param ledgerId - Private original operation audit identity. @returns Current policy counter after reference-only change, preserving flags/epoch and applied proof provenance. */
+  /** @param context - Actual current activation principal. @param previous - Old selected immutable scope. @param next - Prepared replacement. @param ledgerId - Private original operation audit identity. @returns Current policy counter after a reference-only change to the new selection, preserving flags/epoch and applied proof provenance. */
   async replaceSelection(context:AuthorizedMessagingContext,previous:MessagingEffectiveSelection|null,next:MessagingEffectiveSelection,ledgerId:string):Promise<number|null>{
     const policy=await this.policy(context.tribeId);
     if(previous){
@@ -55,12 +55,13 @@ export class PostgresMessagingSelectionDependencies implements MessagingSelectio
       await new PostgresAdmissionAuditRepository(this.database).appendMany(events);
     }
     if(!policy)return null;
-    const referencesPrevious=previous&&policy.messaging_connection_id===previous.connectionId&&policy.messaging_connection_version===previous.connectionVersion;
-    if(!referencesPrevious)return policy.version;
+    // Only the selected version can be ready, so the policy follows it: the replaced selection, no reference (rules saved first) or a retired one.
+    const referencesNext=policy.messaging_connection_id===next.connectionId&&policy.messaging_connection_version===next.connectionVersion;
+    if(referencesNext)return policy.version;
     const policyChangedAt=new Date((await this.database.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now);
     const changed=(await this.database.execute<{version:number;updated_at:Date|string}>(sql`update public.academy_admission_policies set messaging_connection_id=${next.connectionId},messaging_connection_version=${next.connectionVersion},version=version+1,changed_by_user_id=${context.actorUserId},updated_at=${policyChangedAt} where tribe_id=${context.tribeId} and version=${policy.version} returning version,updated_at`)).rows[0];
     if(!changed)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
-    await new PostgresAdmissionAuditRepository(this.database).append(createAdmissionMessagingSelectionAuditEvent({tribeId:context.tribeId,actorUserId:context.actorUserId,operationId:ledgerId,resourceVersion:changed.version,previousVersion:policy.version,previousConnectionId:previous.connectionId,previousConnectionVersion:previous.connectionVersion,connectionId:next.connectionId,connectionVersion:next.connectionVersion,verificationEpoch:policy.verification_epoch,createdAt:new Date(changed.updated_at)}));
+    await new PostgresAdmissionAuditRepository(this.database).append(createAdmissionMessagingSelectionAuditEvent({tribeId:context.tribeId,actorUserId:context.actorUserId,operationId:ledgerId,resourceVersion:changed.version,previousVersion:policy.version,previousConnectionId:policy.messaging_connection_id,previousConnectionVersion:policy.messaging_connection_version,connectionId:next.connectionId,connectionVersion:next.connectionVersion,verificationEpoch:policy.verification_epoch,createdAt:new Date(changed.updated_at)}));
     return changed.version;
   }
 }

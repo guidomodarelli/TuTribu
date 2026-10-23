@@ -24,6 +24,19 @@ describe("policy browser intention", () => {
     expect(storage.size).toBe(0);
   });
 
+  it("should keep an update stored by the previous release recoverable by its original operation without its messaging reference", () => {
+    const storage = new Map<string, string>();
+    const port = { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => { storage.set(key, value); }, removeItem: (key: string) => { storage.delete(key); } };
+    const intent = { type: "update_admission_policy" as const, input: { operationId: "297d47c2-5419-4c3d-a339-e8b7970275ca", confirmed: true as const, expectedVersion: 7, ...createAdmissionPolicyDraft(state()), requiresAdditionalVerification: true } };
+    writeAdmissionPolicyIntent("synthetic-leader", "synthetic-academy", intent, port);
+    const [key] = [...storage.keys()];
+    storage.set(key, JSON.stringify({ viewerId: "synthetic-leader", slug: "synthetic-academy", pending: { ...intent, input: { ...intent.input, messagingConnectionId: null, messagingConnectionVersion: null } } }));
+    expect(readAdmissionPolicyIntent("synthetic-leader", "synthetic-academy", port)).toEqual(intent);
+    storage.set(key, JSON.stringify({ viewerId: "synthetic-leader", slug: "synthetic-academy", pending: { ...intent, input: { ...intent.input, messagingConnectionId: null, messagingConnectionVersion: null, allowedCountries: ["AR"] } } }));
+    expect(readAdmissionPolicyIntent("synthetic-leader", "synthetic-academy", port)).toBeNull();
+    expect(storage.size).toBe(0);
+  });
+
   it("should reject imported server authority or a second country owner before storing any write", () => {
     const storage = new Map<string, string>();
     const port = { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => { storage.set(key, value); }, removeItem: (key: string) => { storage.delete(key); } };
@@ -34,11 +47,12 @@ describe("policy browser intention", () => {
 
   it("should permit an incomplete verification draft while blocking incompatible settings and a locked contact change", () => {
     const current = state(), draft = createAdmissionPolicyDraft(current);
-    expect(draft).toMatchObject({ mode: "manual_review", contactType: "email", isOpen: false, requiresAdditionalVerification: false, messagingConnectionId: null });
+    expect(draft).toMatchObject({ mode: "manual_review", contactType: "email", isOpen: false, requiresAdditionalVerification: false });
+    expect(draft).not.toHaveProperty("messagingConnectionId");
     expect(validateAdmissionPolicyBrowserDraft({ ...draft, requiresAdditionalVerification: true }, current)).toBeNull();
     expect(validateAdmissionPolicyBrowserDraft({ ...draft, contactType: "phone", mode: "allowlist" }, current)).toBe("phone_allowlist_verification_required");
     expect(validateAdmissionPolicyBrowserDraft({ ...draft, allowSmsAlternative: true }, current)).toBe("sms_alternative_invalid");
-    const protectedState: AdmissionPolicyStateDto = { ...current, state: "paused", controlActivated: true, policy: { id: "83ecbfaf-0e7c-4afb-aefc-62b62800d367", version: 3, verificationEpoch: 1, ...draft, activatedAt: "2026-10-07T09:00:00Z", usage: null, requirements: [] }, impact: { ...current.impact, contactTypeLocked: true, historicalLinksProtected: true } };
+    const protectedState: AdmissionPolicyStateDto = { ...current, state: "paused", controlActivated: true, policy: { id: "83ecbfaf-0e7c-4afb-aefc-62b62800d367", version: 3, verificationEpoch: 1, ...draft, messagingConnectionId: null, messagingConnectionVersion: null, activatedAt: "2026-10-07T09:00:00Z", usage: null, requirements: [] }, impact: { ...current.impact, contactTypeLocked: true, historicalLinksProtected: true } };
     expect(validateAdmissionPolicyBrowserDraft({ ...draft, contactType: "phone" }, protectedState)).toBe("contact_type_locked");
   });
 });

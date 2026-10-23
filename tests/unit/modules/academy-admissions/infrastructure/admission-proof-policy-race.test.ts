@@ -124,7 +124,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native proof appli
           await transaction.execute(sql`insert into public.messaging_secret_envelopes(secret_ref,tribe_id,connection_id,connection_version,environment,security_epoch,key_id,iv,ciphertext) values (${secretRef},${fixture.context.tribeId},${fixture.fixture.scope.connectionId},2,${envelope.environment},${envelope.securityEpoch},${envelope.keyId},${Buffer.from(envelope.iv)},${Buffer.from(envelope.ciphertext)})`);
           await transaction.execute(sql`insert into public.messaging_connection_capabilities(tribe_id,connection_id,connection_version,channel,sender_id,state,checked_at,tested_at) values (${fixture.context.tribeId},${fixture.fixture.scope.connectionId},2,'email',${fixture.fixture.emailSenderId},'prepared',clock_timestamp(),clock_timestamp())`);
           await transaction.execute(sql`update public.tenant_messaging_connections set selected_version=2,version=version+1 where id=${fixture.fixture.scope.connectionId}`);
-          expect(await writer.update({ context, operationId: randomUUID(), type: "update_admission_policy", confirmed: true, expectedVersion: 2, patch: { messagingConnectionVersion: 2 } })).toMatchObject({ state: "completed" });
+          expect(await writer.update({ context, operationId: randomUUID(), type: "update_admission_policy", confirmed: true, expectedVersion: 2, patch: {} })).toMatchObject({ state: "completed" });
         }
       }, () => operations.apply(input));
       if (change === "epoch") expect(result).toMatchObject({ status: "rejected", reason: { code: "challenge_invalidated" } });

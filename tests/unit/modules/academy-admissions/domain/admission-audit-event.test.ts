@@ -25,6 +25,11 @@ describe("owned admission audit events", () => {
     expect(event).toEqual({tribeId:input.tribeId,actorUserId:input.actorUserId,operationId:input.operationId,resourceType:"admission_policy",resourceId:input.tribeId,eventType:"messaging_selection_replaced",rule:"messaging_connection_replaced",cause:"messaging_connection_replaced",resourceVersion:8,metadata:{previousVersion:7,previousConnectionId:input.previousConnectionId,previousConnectionVersion:1,connectionId:input.connectionId,connectionVersion:2,verificationEpoch:5},createdAt:new Date("2026-10-13T13:00:00Z")});
     expect(event).not.toHaveProperty("credential");expect(event).not.toHaveProperty("normalizedContact");expect(event.metadata).not.toHaveProperty("policyFlags");
   });
+  it("should record a first binding without inventing a previous reference", () => {
+    const connectionId=randomUUID(),event=createAdmissionMessagingSelectionAuditEvent({tribeId:randomUUID(),actorUserId:randomUUID(),operationId:randomUUID(),resourceVersion:3,previousVersion:2,previousConnectionId:null,previousConnectionVersion:null,connectionId,connectionVersion:2,verificationEpoch:1,createdAt:new Date("2026-10-22T20:00:00Z")});
+    expect(event.metadata).toEqual({previousVersion:2,previousConnectionId:null,previousConnectionVersion:null,connectionId,connectionVersion:2,verificationEpoch:1});
+    expect(event).toMatchObject({eventType:"messaging_selection_replaced",resourceVersion:3});
+  });
   it("should retain actor, original operation and effective policy version without copying private command fields", () => {
     // Arrange: only owner-derived identity and the applied change belong to audit.
     const command = {
