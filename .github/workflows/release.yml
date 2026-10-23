@@ -28,6 +28,10 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # A normal release takes under 10 minutes; the limit stops a hung step
+    # (like `playwright install --with-deps`) instead of holding the
+    # `golfo-rp-release` concurrency group for the default six hours.
+    timeout-minutes: 30
     env:
       HUSKY: '0'
       DATABASE_MIGRATION_URL: ${{ secrets.DATABASE_MIGRATION_URL }}
