@@ -5,6 +5,8 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { MIGRATION_STATUS } from "../../../scripts/release/pending-migrations.mjs";
+
 type DevPortlessScript = {
   classifyDevHostResolution: (
     addresses: string[]
@@ -17,6 +19,10 @@ type DevPortlessScript = {
   }) => boolean;
   isPortlessVersionSupported: (versionText: string) => boolean;
   resolvePortlessStateDirectory: (homeDirectory: string) => string;
+  describePendingMigrations: (
+    result: { status: string; pending: string[]; target: string | null; reason: string | null },
+    statuses: typeof MIGRATION_STATUS
+  ) => string | null;
 };
 
 let devPortlessScript: DevPortlessScript;
@@ -126,5 +132,22 @@ describe("dev portless script", () => {
     } finally {
       rmSync(homeDirectory, { force: true, recursive: true });
     }
+  });
+
+  describe("describePendingMigrations", () => {
+    it("should stay silent when the database is up to date", () => {
+      expect(devPortlessScript.describePendingMigrations({ status: MIGRATION_STATUS.upToDate, pending: [], target: "ep-sandbox", reason: null }, MIGRATION_STATUS)).toBeNull();
+    });
+
+    it("should name the database host and every pending migration so the developer applies them before testing", () => {
+      const warning = devPortlessScript.describePendingMigrations({ status: MIGRATION_STATUS.pending, pending: ["20261022090000_allow_tribemate_commercial_retirement"], target: "ep-sandbox", reason: null }, MIGRATION_STATUS);
+      expect(warning).toContain("ep-sandbox");
+      expect(warning).toContain("20261022090000_allow_tribemate_commercial_retirement");
+      expect(warning).toContain("pnpm db:sandbox");
+    });
+
+    it("should say why the check could not run instead of claiming the database is current", () => {
+      expect(devPortlessScript.describePendingMigrations({ status: MIGRATION_STATUS.unknown, pending: [], target: null, reason: "no hay DATABASE_MIGRATION_URL ni DATABASE_URL en los .env" }, MIGRATION_STATUS)).toContain("no hay DATABASE_MIGRATION_URL");
+    });
   });
 });

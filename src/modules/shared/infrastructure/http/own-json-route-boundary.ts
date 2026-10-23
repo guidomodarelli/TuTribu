@@ -5,6 +5,7 @@ import { HTTP_STATUS } from "@/src/constants/http-status";
 import { attachRequestContextToResponse } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { resolvePrivateRequestContext } from "@/src/modules/shared/infrastructure/observability/private-request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import { summarizeErrorCauses, type ErrorCauseSummary } from "@/src/modules/shared/infrastructure/observability/error-cause-summary";
 import { summarizeValidationIssues, type ValidationIssueSummary } from "@/src/modules/shared/infrastructure/validation/validation-issue-summary";
 
 import { PRIVATE_RESPONSE_HEADERS, PRIVATE_HTTP_INPUT_BODY_PART as INPUT_BODY_PART, PRIVATE_HTTP_DIAGNOSTIC_STAGE as DIAGNOSTIC_STAGE, PRIVATE_HTTP_BOUNDARY_DIAGNOSTIC_MESSAGE as BOUNDARY_DIAGNOSTIC_MESSAGE } from "../../constants/private-http";
@@ -12,6 +13,8 @@ import { PRIVATE_RESPONSE_HEADERS, PRIVATE_HTTP_INPUT_BODY_PART as INPUT_BODY_PA
 export type OwnHttpDiagnostic = {
   stage: "input" | "public_dto" | "operation"; code: string; status: number;
   requestId: string; traceId: string; issues?: ValidationIssueSummary[];
+  /** Safe class names and closed codes of the private cause chain; never messages, stacks or values. */
+  causes?: ErrorCauseSummary[];
 };
 type OwnInputResult<Value> = { usable: true; value: Value } | { usable: false; response: Response };
 
@@ -20,13 +23,14 @@ type OwnInputResult<Value> = { usable: true; value: Value } | { usable: false; r
  *
  * Each input part is claimed before reading/validation. Every emitted value is
  * parsed against the feature's own DTO schema. Only closed diagnostic fields
- * reach the shared logger; raw exception messages, rejected values and causes do
- * not. Feature factories own semantic codes, copy and HTTP status mapping.
+ * reach the shared logger: the cause chain is reduced to class names and closed
+ * codes, while raw exception messages, stacks and rejected values never are.
+ * Feature factories own semantic codes, copy and HTTP status mapping.
  *
  * @param input - Request, fixed operation name and feature-owned contracts.
  * @returns Input parsers, response projection and a private exception boundary.
  */
-export function createOwnJsonRouteBoundary<Failure extends { code: string }, PublicError extends { requestId: string }>(input: {
+export function createOwnJsonRouteBoundary<Failure extends { code: string; cause?: unknown }, PublicError extends { requestId: string }>(input: {
   request: Request; feature: string; operation: string;
   errorSchema: z.ZodType<PublicError>;
   projectFailure: (failure: Failure, requestId: string) => { status: number; body: PublicError };
@@ -37,7 +41,8 @@ export function createOwnJsonRouteBoundary<Failure extends { code: string }, Pub
   const logger = createServerLogger({ feature: input.feature, operation: input.operation, ...requestContext });
   const consumedParts = new Set<string>();
   const diagnose = (stage: OwnHttpDiagnostic["stage"], failure: Failure, status: number, issues?: ValidationIssueSummary[]) => {
-    const diagnostic: OwnHttpDiagnostic = { stage, code: failure.code, status, ...requestContext, ...(issues ? { issues } : {}) };
+    const causes = summarizeErrorCauses(failure.cause);
+    const diagnostic: OwnHttpDiagnostic = { stage, code: failure.code, status, ...requestContext, ...(issues ? { issues } : {}), ...(causes.length > 0 ? { causes } : {}) };
     if (input.diagnostics) input.diagnostics(diagnostic);
     else logger[status >= HTTP_STATUS.serverError ? "error" : "warn"]({ message: BOUNDARY_DIAGNOSTIC_MESSAGE, metadata: diagnostic });
   };

@@ -1,5 +1,5 @@
 import { vi, describe, it, expect } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { TribeStoryAbout } from "@/components/tribes/tribe-story-about";
@@ -54,7 +54,7 @@ const STATS = {
 };
 
 describe("TribeStoryAbout", () => {
-  it("renders the story with formatting, gallery, and tribe facts", () => {
+  it("renders the story with formatting, gallery, and tribe facts", async () => {
     render(
       <TribeStoryAbout
         offerPrice={null}
@@ -100,6 +100,13 @@ describe("TribeStoryAbout", () => {
     expect(
       screen.getByAltText("Imagen 2 de la tribu")
     ).toBeInTheDocument();
+    // The gallery enables its next arrow once the carousel engine reports that
+    // the second resource can be reached.
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Diapositiva siguiente" })
+      ).not.toHaveAttribute("aria-disabled");
+    });
     expect(
       screen.getByRole("heading", { name: "Matematica Pro" })
     ).toBeInTheDocument();

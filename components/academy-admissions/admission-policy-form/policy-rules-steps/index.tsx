@@ -80,7 +80,7 @@ export function PolicyRulesSteps(props: PolicyRulesStepsProps) {
         {phone && <div className={styles.PolicyRulesSteps__group}>
           {draft.requiresAdditionalVerification
             ? <>
-              <Select id={`${instanceId}-channel`} label="Canal del código" value={draft.phoneChannel ?? undefined} options={ADMISSION_POLICY_PHONE_CHANNEL_OPTIONS} placeholder="Elegí un canal" onValueChange={(value) => { const phoneChannel = ADMISSION_POLICY_PHONE_CHANNEL_OPTIONS.find((option) => option.value === value)?.value; if (phoneChannel) change({ phoneChannel, allowSmsAlternative: phoneChannel === ADMISSION_PHONE_CHANNEL.whatsapp && draft.allowSmsAlternative }); }} />
+              <Select id={`${instanceId}-channel`} label="Canal del código" value={draft.phoneChannel ?? ""} options={ADMISSION_POLICY_PHONE_CHANNEL_OPTIONS} placeholder="Elegí un canal" onValueChange={(value) => { const phoneChannel = ADMISSION_POLICY_PHONE_CHANNEL_OPTIONS.find((option) => option.value === value)?.value; if (phoneChannel) change({ phoneChannel, allowSmsAlternative: phoneChannel === ADMISSION_PHONE_CHANNEL.whatsapp && draft.allowSmsAlternative }); }} />
               {draft.phoneChannel === ADMISSION_PHONE_CHANNEL.whatsapp && <Checkbox id={`${instanceId}-sms`} checked={draft.allowSmsAlternative} label="Ofrecer SMS como alternativa a WhatsApp" onCheckedChange={(checked) => change({ allowSmsAlternative: checked === true })} />}
             </>
             : <p className={styles.PolicyRulesSteps__note}>Con teléfono y sin código, el ingreso común manual está disponible; las invitaciones personales por teléfono no están disponibles.</p>}

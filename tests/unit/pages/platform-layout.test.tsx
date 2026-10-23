@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 import { PlatformLayoutContent } from "@/app/(platform)/layout";
 import { createRequestModules } from "@/src/modules/setup";
+import { TRIBE_SUPPORT_CHANNEL } from "@/src/modules/tribes/constants/tribe-support";
 
 
 const getAuthenticatedMember = vi.fn();
@@ -22,6 +23,13 @@ vi.mock("next/navigation", () => ({
 }));
 
 const INCOMING_REQUEST_ID = "req-platform-layout-42";
+
+/** Support settings of the tribe shown in the header support link. */
+const TRIBE_SUPPORT_SETTINGS = {
+  channel: TRIBE_SUPPORT_CHANNEL.whatsapp,
+  message: null,
+  phoneNumber: "+54 9 11 1234-5678",
+};
 
 /** A roomy shell keeps the sidebar state restored from the cookie. */
 const DESKTOP_SHELL_WIDTH_PX = 1280;
@@ -213,6 +221,10 @@ describe("PlatformLayout", () => {
         slug: "alpha-club",
       },
     ]);
+    // Inside a tribe route the header loads that tribe's support settings.
+    vi.mocked(fetch).mockResolvedValueOnce(
+      Response.json({ settings: TRIBE_SUPPORT_SETTINGS })
+    );
 
     render(
       await PlatformLayoutContent({
@@ -227,6 +239,9 @@ describe("PlatformLayout", () => {
     expect(
       within(screen.getByRole("navigation", { name: "Ruta de navegación" })).getByText("Eventos")
     ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("link", { name: "Abrir WhatsApp de soporte" })
+    ).toHaveAttribute("href", "https://wa.me/5491112345678");
   });
 
   it("skips member tribes when there is no authenticated member", async () => {

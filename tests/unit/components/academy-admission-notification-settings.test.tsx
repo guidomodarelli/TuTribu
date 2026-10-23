@@ -12,6 +12,7 @@ import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provi
 import type { AdmissionNotificationSettingsBrowserClient } from "@/src/modules/notifications/application/ports/admission-notification-settings-browser-client";
 import type { AdmissionNotificationSettingsPageState } from "@/src/modules/notifications/application/results/admission-notification-settings-page-state";
 import { readAdmissionNotificationSettingsIntent, writeAdmissionNotificationSettingsIntent } from "@/lib/academy-admissions/admission-notification-settings-intent";
+import { changeGuidedStep } from "@/tests/support/guided-steps";
 
 const tribeId = "83ecbfaf-0e7c-4afb-aefc-62b62800d367", viewerId = "synthetic-notification-leader", slug = "synthetic-academy";
 const originalId = "f5536335-668a-4b6e-a972-f76c95c7c822";
@@ -41,7 +42,8 @@ function original(timeZone = "UTC") { return { operationId: originalId, confirme
 /** Waits for the real native viewer check before explicit interactions. */
 async function ready() { await waitFor(() => expect(screen.getByRole("button", { name: "Consultar estado actual" })).not.toBeDisabled()); }
 /** Advances one guided step with the real form submit. */
-function next() { fireEvent.click(screen.getByRole("button", { name: "Continuar" })); }
+/** Moves to the next step and waits for the previous one to leave. */
+async function next() { await changeGuidedStep(screen.getByRole("button", { name: "Continuar" })); }
 /** Single review consent; never restored from storage. */
 async function confirm() { const checkbox = screen.getByRole("checkbox", { name: "Revisé el resumen y quiero guardar estos avisos." }); await waitFor(() => expect(checkbox).not.toBeDisabled()); fireEvent.click(checkbox); }
 /** Runs the final chained save. */
@@ -78,7 +80,7 @@ describe("admission notification settings guided workflow", () => {
     render(data.node(), { wrapper: Providers }); await ready();
     expect(screen.getByText("Correo de la tribu", { selector: "legend" })).toBeInTheDocument();
     expect(screen.getByText("Cambios sin guardar")).toBeInTheDocument();
-    next(); expect(screen.getByRole("radio", { name: /^Agrupar cada cinco minutos/ })).toBeChecked();
+    await next(); expect(screen.getByRole("radio", { name: /^Agrupar cada cinco minutos/ })).toBeChecked();
     expect(data.client.readPreference).not.toHaveBeenCalled(); expect(data.client.readEmail).not.toHaveBeenCalled();
     expect(data.client.changePreference).not.toHaveBeenCalled(); expect(data.client.changeEmail).not.toHaveBeenCalled();
   });
@@ -116,7 +118,7 @@ describe("admission notification settings guided workflow", () => {
     render(data.node(), { wrapper: Providers }); await ready();
     fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" }));
     expect(screen.getByLabelText("Zona horaria de la tribu")).toHaveValue("Europe/Madrid");
-    next(); await choose("Resumen diario"); next();
+    await next(); await choose("Resumen diario"); await next();
     expect(reviewRow("Correo de la tribu")).toHaveTextContent("Habilitado, zona Europe/Madrid"); expect(reviewRow("Correo de la tribu")).toHaveTextContent("Se guarda");
     expect(reviewRow("Tus avisos")).toHaveTextContent("Resumen diario"); expect(screen.getByRole("button", { name: "Guardar avisos" })).toBeDisabled();
     await confirm(); save();
@@ -138,8 +140,8 @@ describe("admission notification settings guided workflow", () => {
     render(data.node(), { wrapper: Providers }); await ready();
     expect(screen.getByText("Recibís avisos agrupados cada cinco minutos en tu correo.")).toBeInTheDocument();
     expect(screen.queryByText("Cambios sin guardar")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Cambiar avisos" })); next(); await choose("Un correo por aviso");
-    expect(screen.getByText("Cambios sin guardar")).toBeInTheDocument(); next();
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar avisos" })); await next(); await choose("Un correo por aviso");
+    expect(screen.getByText("Cambios sin guardar")).toBeInTheDocument(); await next();
     expect(reviewRow("Correo de la tribu")).toHaveTextContent("Sin cambios"); expect(reviewRow("Tus avisos")).toHaveTextContent("Se guarda");
     await confirm(); save();
     await waitFor(() => expect(screen.getByText("Tus avisos quedaron guardados.")).toBeInTheDocument());
@@ -150,12 +152,12 @@ describe("admission notification settings guided workflow", () => {
   it("should block an empty review and discard unsaved edits on cancel", async () => {
     const data = fixture(); settle(data);
     render(data.node(), { wrapper: Providers }); await ready();
-    fireEvent.click(screen.getByRole("button", { name: "Cambiar avisos" })); next(); next();
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar avisos" })); await next(); await next();
     expect(screen.getByText("No hay cambios para guardar.")).toBeInTheDocument(); expect(screen.getByRole("button", { name: "Guardar avisos" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Atrás" })); await choose("Resumen diario");
+    await changeGuidedStep(screen.getByRole("button", { name: "Atrás" })); await choose("Resumen diario");
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(screen.getByText("Recibís avisos agrupados cada cinco minutos en tu correo.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Cambiar avisos" })); next();
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar avisos" })); await next();
     expect(screen.getByRole("radio", { name: /^Agrupar cada cinco minutos/ })).toBeChecked();
     expect(data.client.changePreference).not.toHaveBeenCalled();
   });
@@ -163,7 +165,7 @@ describe("admission notification settings guided workflow", () => {
   it("should report what stayed saved and retry only the pending preference", async () => {
     const data = fixture(); data.client.changePreference.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos guardar tu preferencia ahora.", uncertain: false });
     render(data.node(), { wrapper: Providers }); await ready();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); next(); next(); await confirm(); save();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); await next(); await next(); await confirm(); save();
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No pudimos guardar tu preferencia ahora."));
     expect(screen.getByText("El correo de la tribu quedó guardado. Falta guardar tu preferencia.")).toBeInTheDocument();
     expect(reviewRow("Correo de la tribu")).toHaveTextContent("Sin cambios"); expect(reviewRow("Tus avisos")).toHaveTextContent("Se guarda");
@@ -175,7 +177,7 @@ describe("admission notification settings guided workflow", () => {
   it("should keep an uncertain email original and resend it with the same operation id after a read and fresh consent", async () => {
     const data = fixture(); data.client.changeEmail.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "Respuesta no disponible.", uncertain: true });
     render(data.node(), { wrapper: Providers }); await ready();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); next(); next(); await confirm(); save();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); await next(); await next(); await confirm(); save();
     await waitFor(() => expect(screen.getByText("Tu preferencia todavía no se guardó.")).toBeInTheDocument());
     const sent = data.client.changeEmail.mock.calls[0][1]; await ready();
     expect(data.client.changePreference).not.toHaveBeenCalled(); expect(readAdmissionNotificationSettingsIntent(viewerId, slug)).toEqual(sent);
@@ -195,11 +197,11 @@ describe("admission notification settings guided workflow", () => {
     render(data.node(), { wrapper: Providers }); await ready();
     fireEvent.click(screen.getByRole("button", { name: "Consultar estado actual" })); await ready();
     expect(screen.getByText("Recibís un correo por cada aviso de revisión.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Cambiar avisos" })); next();
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar avisos" })); await next();
     expect(screen.getByRole("radio", { name: /^Un correo por aviso/ })).toBeChecked();
     data.client.changePreference.mockResolvedValueOnce({ status: "ready", value: { viewerId, data: { status: "rejected", reason: "notification_preference_version_conflict" } } });
     data.client.readPreference.mockResolvedValueOnce({ status: "ready", value: { viewerId, data: { preference: { mode: "grouped", version: 3, source: "stored" }, canConfigureEmail: true } } });
-    await choose("Resumen diario"); next(); await confirm(); save();
+    await choose("Resumen diario"); await next(); await confirm(); save();
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Tu preferencia cambió en otra ventana."));
     expect(screen.getByRole("button", { name: "Guardar avisos" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Consultar estado actual" })); await ready();
@@ -249,7 +251,7 @@ describe("admission notification settings guided workflow", () => {
 
   it.each(["permission_denied", "resource_unavailable", "authentication_required"] as const)("should hide private settings after a personal write loses current authority with %s", async (code) => {
     const data = fixture(); data.client.changePreference.mockResolvedValueOnce({ status: "failed", code, message: "El acceso actual no permite cambiar los avisos.", uncertain: false });
-    render(data.node(), { wrapper: Providers }); await ready(); next(); next(); await confirm(); save();
+    render(data.node(), { wrapper: Providers }); await ready(); await next(); await next(); await confirm(); save();
     await waitFor(() => expect(screen.queryByRole("form", { name: "Configurar avisos de admisión" })).not.toBeInTheDocument());
     expect(screen.getByRole("alert")).toHaveTextContent("El acceso actual no permite cambiar los avisos."); expect(router.refresh).not.toHaveBeenCalled();
   });
@@ -257,7 +259,7 @@ describe("admission notification settings guided workflow", () => {
   it.each(["permission_denied", "resource_unavailable", "authentication_required"] as const)("should hide private settings and preserve the exact sent email original after %s", async (code) => {
     const data = fixture(); data.client.changeEmail.mockResolvedValueOnce({ status: "failed", code, message: "El liderazgo actual no permite cambiar el correo.", uncertain: false });
     render(data.node(), { wrapper: Providers }); await ready();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); next(); next(); await confirm(); save();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); await next(); await next(); await confirm(); save();
     await waitFor(() => expect(screen.queryByRole("form", { name: "Configurar avisos de admisión" })).not.toBeInTheDocument());
     expect(readAdmissionNotificationSettingsIntent(viewerId, slug)).toEqual(data.client.changeEmail.mock.calls[0][1]);
     expect(screen.getByRole("alert")).toHaveTextContent("El liderazgo actual no permite cambiar el correo.");
@@ -267,7 +269,7 @@ describe("admission notification settings guided workflow", () => {
   it("should recover only the current member's preference after a denied leader write without reading or erasing its original", async () => {
     const data = fixture(); data.client.changeEmail.mockResolvedValueOnce({ status: "failed", code: "permission_denied", message: "El liderazgo actual no permite cambiar el correo.", uncertain: false });
     render(data.node(), { wrapper: Providers }); await ready();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); next(); next(); await confirm(); save();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); await next(); await next(); await confirm(); save();
     await waitFor(() => expect(screen.queryByRole("form", { name: "Configurar avisos de admisión" })).not.toBeInTheDocument());
     const sent = data.client.changeEmail.mock.calls[0][1];
     data.client.readPreference.mockResolvedValueOnce({ status: "ready", value: { viewerId, data: { preference: { mode: "omitted", version: 1, source: "stored" }, canConfigureEmail: false } } });
@@ -293,7 +295,7 @@ describe("admission notification settings guided workflow", () => {
       fireEvent.click(screen.getByRole("button", { name: "Consultar estado actual" }));
     } else {
       data.client.changeEmail.mockImplementationOnce(async (_slug, input) => { interruptAcceptance(); return { status: "ready", value: { viewerId, data: { state: "completed", operationId: input.operationId, replayed: false, result: { status: "changed", settings: { enabled: input.enabled, version: 1, timeZone: input.timeZone } } } } }; });
-      fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); next(); next(); await confirm(); save();
+      fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); await next(); await next(); await confirm(); save();
     }
     await waitFor(() => expect(replacementIdentityPending).toBe(true));
     await act(async () => {});
@@ -327,7 +329,7 @@ describe("admission notification settings guided workflow", () => {
 
   it("should discard a response bound to another viewer even if the current viewer probe still matches", async () => {
     const data = fixture(); data.client.changePreference.mockResolvedValueOnce({ status: "ready", value: { viewerId: "other-viewer", data: { status: "changed", preference: { mode: "grouped", version: 1, source: "stored" } } } });
-    render(data.node(), { wrapper: Providers }); await ready(); next(); next(); await confirm(); save();
+    render(data.node(), { wrapper: Providers }); await ready(); await next(); await next(); await confirm(); save();
     await waitFor(() => expect(screen.getByText("La cuenta cambió. Volvé a cargar la página antes de continuar.")).toBeInTheDocument());
     expect(screen.queryByRole("form", { name: "Configurar avisos de admisión" })).not.toBeInTheDocument(); expect(router.refresh).not.toHaveBeenCalled();
   });
@@ -344,7 +346,7 @@ describe("admission notification settings guided workflow", () => {
     data.client.changeEmail.mockImplementationOnce(async (_slug, input) => ({ status: "ready", value: { viewerId, data: { state: "completed", operationId: input.operationId, replayed: true, result: { status: "changed", settings: { enabled: true, version: 1, timeZone: input.timeZone } } } } }));
     data.client.readEmail.mockResolvedValueOnce({ status: "ready", value: { viewerId, data: { enabled: false, version: 2, timeZone: "UTC" } } });
     render(data.node(), { wrapper: Providers }); await ready();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); next(); next(); await confirm(); save();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); await next(); await next(); await confirm(); save();
     await waitFor(() => expect(screen.getByText("Tus avisos quedaron guardados.")).toBeInTheDocument());
     expect(data.client.readEmail).toHaveBeenCalledOnce(); expect(data.client.changePreference).toHaveBeenCalledOnce();
     expect(screen.getByText("Deshabilitado")).toBeInTheDocument(); expect(readAdmissionNotificationSettingsIntent(viewerId, slug)).toBeNull();
@@ -355,7 +357,7 @@ describe("admission notification settings guided workflow", () => {
     const data = fixture(); let finish!: (result: Awaited<ReturnType<AdmissionNotificationSettingsBrowserClient["changeEmail"]>>) => void;
     data.client.changeEmail.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
     const view = render(data.node(), { wrapper: Providers }); await ready();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); next(); next(); await confirm(); save();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); await next(); await next(); await confirm(); save();
     await waitFor(() => expect(data.client.changeEmail).toHaveBeenCalledOnce()); const sent = data.client.changeEmail.mock.calls[0][1], signal = data.client.changeEmail.mock.calls[0][2];
     view.unmount(); expect(signal.aborted).toBe(true);
     await act(async () => { finish({ status: "ready", value: { viewerId, data: { state: "completed", operationId: sent.operationId, replayed: false, result: { status: "changed", settings: { enabled: sent.enabled, version: 1, timeZone: sent.timeZone } } } } }); });
@@ -366,7 +368,7 @@ describe("admission notification settings guided workflow", () => {
     const message = "Tu sesión cambió. Recargá la página e intentá de nuevo.";
     const data = fixture(); data.client.changeEmail.mockResolvedValueOnce({ status: "failed", code: "reauthentication_required", message, uncertain: false });
     render(data.node(), { wrapper: Providers }); await ready();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); next(); next(); await confirm(); save();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); await next(); await next(); await confirm(); save();
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(message));
     expect(screen.queryByRole("button", { name: /Google/ })).not.toBeInTheDocument(); expect(screen.queryByRole("link", { name: /Google/ })).not.toBeInTheDocument();
     const sent = data.client.changeEmail.mock.calls[0][1];
@@ -380,7 +382,7 @@ describe("admission notification settings guided workflow", () => {
   it("should report a terminal capability rejection without announcing a save or retrying it automatically", async () => {
     const data = fixture(); data.client.changeEmail.mockImplementationOnce(async (_slug, input) => ({ status: "ready", value: { viewerId, data: { state: "completed", operationId: input.operationId, replayed: false, result: { status: "rejected", reason: "email_capability_unavailable" } } } }));
     render(data.node(), { wrapper: Providers }); await ready();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); next(); next(); await confirm(); save();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); await next(); await next(); await confirm(); save();
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Falta un correo preparado para habilitar los avisos."));
     expect(screen.getByText("Tu preferencia todavía no se guardó.")).toBeInTheDocument(); expect(screen.queryByText("Tus avisos quedaron guardados.")).not.toBeInTheDocument();
     expect(readAdmissionNotificationSettingsIntent(viewerId, slug)).toBeNull(); expect(screen.getByRole("button", { name: "Guardar avisos" })).toBeDisabled();

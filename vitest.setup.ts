@@ -2,6 +2,9 @@
 import { vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import { installExitedBrowserStdioRelease } from "./tests/e2e/support/release-exited-browser-stdio";
+import { installReactWarningGuard } from "./tests/support/react-warning-guard";
+
+installReactWarningGuard();
 
 /** Native browser suites launch WebKit directly; on Windows its leftover network process would otherwise hang `browser.close()` after every test passed. */
 if (process.env.RUN_ADMISSION_BROWSER_TESTS === "1") {

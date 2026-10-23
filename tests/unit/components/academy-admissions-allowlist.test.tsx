@@ -10,13 +10,17 @@ import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provi
 import type { AllowlistBrowserClient } from "@/src/modules/academy-admissions/application/ports/allowlist-browser-client";
 import type { AllowlistPageState } from "@/src/modules/academy-admissions/application/results/allowlist-page-state";
 import { ALLOWLIST_BROWSER_COPY } from "@/src/modules/academy-admissions/constants/allowlist-browser";
+import { changeGuidedStep } from "@/tests/support/guided-steps";
 
 const router = { back: vi.fn(), bfcacheId: "allowlist-tests", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: vi.fn(), replace: vi.fn() } satisfies AppRouterInstance;
 /** @param props - Actual UI/router children. @returns Native framework context and unmocked shared components. */
 function Providers({ children }: { children: ReactNode }) { return <AppRouterContext.Provider value={router}><AppUIProvider>{children}<ThemedToaster /></AppUIProvider></AppRouterContext.Provider>; }
 
 /** Moves the guided entry flow forward with its own Continue button. */
-function continueStep() { fireEvent.click(screen.getByRole("button", { name: "Continuar" })); }
+/** Moves to the next step and waits for the previous one to leave. */
+async function continueStep() { await changeGuidedStep(screen.getByRole("button", { name: "Continuar" })); }
+/** Returns to the previous step and waits for the current one to leave. */
+async function backStep() { await changeGuidedStep(screen.getByRole("button", { name: "Atrás" })); }
 
 /** @returns Safe application props and mocks limited to project-owned transport ports. */
 function fixture() {
@@ -47,14 +51,14 @@ describe("allowlist route controls", () => {
     expect(screen.getByText(ALLOWLIST_BROWSER_COPY.identityRequired)).toBeVisible();
     expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
     fireEvent.change(contact, { target: { value: "invalid" } });
-    continueStep(); continueStep();
+    await continueStep(); await continueStep();
     expect(screen.getByRole("button", { name: "Agregar entrada" })).toBeDisabled();
     fireEvent.click(screen.getByRole("checkbox", { name: "Confirmo el cambio de esta entrada de lista" })); fireEvent.click(screen.getByRole("button", { name: "Agregar entrada" }));
     await screen.findByText("Revisá el contacto, su país y el nombre antes de confirmar.");
     expect(data.client.write).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Atrás" })); fireEvent.click(screen.getByRole("button", { name: "Atrás" }));
+    await backStep(); await backStep();
     fireEvent.change(screen.getByLabelText("Correo de la entrada"), { target: { value: "valid@example.test" } });
-    continueStep(); continueStep();
+    await continueStep(); await continueStep();
     expect(screen.queryByText("Revisá el contacto, su país y el nombre antes de confirmar.")).not.toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "Confirmo el cambio de esta entrada de lista" })).not.toBeChecked(); expect(router.refresh).not.toHaveBeenCalled();
   });
@@ -66,7 +70,7 @@ describe("allowlist route controls", () => {
     // Editing opens the name and status step: the contact of an existing entry is fixed.
     expect(screen.getByText(/No expulsa miembros ni libera un contacto vinculado/)).toBeVisible();
     fireEvent.change(screen.getByLabelText("Nombre orientativo (opcional)"), { target: { value: "Mi borrador" } });
-    continueStep();
+    await continueStep();
     fireEvent.click(screen.getByRole("checkbox", { name: "Confirmo el cambio de esta entrada de lista" })); fireEvent.click(screen.getByRole("button", { name: "Guardar entrada" }));
     const current = await screen.findByRole("button", { name: "Consultar versión actual" });
     expect(screen.getByText(ALLOWLIST_BROWSER_COPY.conflict)).toBeVisible();
@@ -88,7 +92,7 @@ describe("allowlist route controls", () => {
     const edit = screen.getByRole("button", { name: `Editar ${data.entry.identity}` });
     await waitFor(() => expect(edit).not.toBeDisabled()); fireEvent.click(edit);
     fireEvent.change(screen.getByLabelText("Nombre orientativo (opcional)"), { target: { value: "Nombre nuevo" } });
-    continueStep();
+    await continueStep();
     fireEvent.click(screen.getByRole("checkbox", { name: "Confirmo el cambio de esta entrada de lista" }));
     const save = screen.getByRole("button", { name: "Guardar entrada" });
     act(() => save.focus()); fireEvent.click(save);

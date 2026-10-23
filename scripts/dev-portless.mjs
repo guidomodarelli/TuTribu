@@ -32,7 +32,7 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import { lookup, Resolver } from "node:dns/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -130,10 +130,49 @@ const SCRIPT_MESSAGE = {
     "portless no está instalado. Instalalo con: npm install -g portless",
   portlessVersionUnsupported: (versionText) =>
     `portless ${versionText || "(versión ilegible)"} no soporta el TLD con punto tutribu.app: hace falta la ${PORTLESS_MIN_VERSION} o superior. Actualizalo con: npm install -g portless@latest`,
+  pendingMigrations: (databaseHost, tags) =>
+    `La base ${databaseHost} tiene ${tags.length} migración(es) sin aplicar (${tags.join(", ")}): las funciones y restricciones nuevas no existen ahí y sus flujos van a fallar. Aplicalas con \`pnpm db:sandbox\` en tu sandbox (o \`pnpm run db:migrate\` solo por pedido explícito).`,
+  pendingMigrationsUnknown: (reason) => `No se pudo verificar si la base tiene migraciones pendientes: ${reason}.`,
   proxyStartFailed: "No se pudo iniciar el proxy de portless.",
   ready: (hostName) => `Listo: la app se sirve en https://${hostName}`,
   step: (description) => `→ ${description}`,
 };
+
+/**
+ * Describes the pending-migrations check for the developer; the dev server still starts.
+ *
+ * @param {{ status: string, pending: string[], target: string | null, reason: string | null }} result - Result of `checkPendingMigrations`.
+ * @param {{ pending: string, unknown: string }} statuses - `MIGRATION_STATUS` values.
+ * @returns {string | null} Warning text, or `null` when the database is up to date.
+ */
+export function describePendingMigrations(result, statuses) {
+  if (result.status === statuses.pending) {
+    return SCRIPT_MESSAGE.pendingMigrations(result.target ?? "configurada", result.pending);
+  }
+
+  if (result.status === statuses.unknown) {
+    return SCRIPT_MESSAGE.pendingMigrationsUnknown(result.reason ?? "motivo desconocido");
+  }
+
+  return null;
+}
+
+/**
+ * Warns when the configured database lags behind `database/migrations/`, which otherwise shows up later as a 500 from a
+ * missing function or constraint. It never blocks the dev server.
+ *
+ * @returns {Promise<void>}
+ */
+async function warnAboutPendingMigrations() {
+  const { MIGRATION_JOURNAL_PATH, MIGRATION_STATUS, checkPendingMigrations, parseMigrationJournal } = await import("./release/pending-migrations.mjs");
+  const repositoryRoot = process.cwd();
+  const journalEntries = parseMigrationJournal(readFileSync(path.join(repositoryRoot, MIGRATION_JOURNAL_PATH), "utf8"));
+  const warning = describePendingMigrations(await checkPendingMigrations({ journalEntries, repositoryRoot }), MIGRATION_STATUS);
+
+  if (warning) {
+    console.warn(warning);
+  }
+}
 
 /**
  * Builds the host name portless publishes for the dev route.
@@ -595,6 +634,8 @@ async function main() {
   }
 
   ensurePortlessCaTrusted(isDryRun);
+
+  await warnAboutPendingMigrations();
 
   logStep(commands.runDevServer.description);
   console.log(SCRIPT_MESSAGE.ready(hostName));
