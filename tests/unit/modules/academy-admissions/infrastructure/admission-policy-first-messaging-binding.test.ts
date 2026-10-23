@@ -15,6 +15,7 @@ import { REAUTHENTICATION_OPERATION, type ReauthenticationOperation } from "@/sr
 import type { AuthorizedAdmissionContext } from "@/src/modules/academy-admissions/domain/repositories/admission-authorization-reader";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
+/** The fixture already ran this repair on the freshly migrated, empty schema; each case reruns it after seeding a policy stored by an earlier release. */
 const FIRST_BINDING_MIGRATION = "20261022220000_bind_admission_policies_to_selected_messaging.sql";
 const FIRST_BINDING_TIMEOUT_MS = 1_200_000;
 /** Rules a leader saves before codes can be sent: email contact checked with a code, open for requests; turning codes on moves the verification epoch to 2. */
@@ -87,7 +88,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("first binding of a
       // A policy stored by an earlier release: rules with a code and no messaging reference.
       await database.withContext(binding.own, (transaction) => transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,contact_type,requires_additional_verification,is_open,version) values (${binding.tribeId},'email',true,true,2)`));
 
-      await database.applyMigration(FIRST_BINDING_MIGRATION);
+      await database.rerunMigration(FIRST_BINDING_MIGRATION);
       expect(await binding.storedPolicy()).toEqual({ messaging_connection_id: connectionId, messaging_connection_version: connectionVersion, version: 3 });
       expect(await binding.selectionAudits()).toEqual([{ metadata: { previousVersion: 2, previousConnectionId: null, previousConnectionVersion: null, connectionId, connectionVersion, verificationEpoch: 1 }, actor_user_id: null, has_operation: false, resource_version: 3, rule: "messaging_connection_replaced", cause: "messaging_connection_replaced" }]);
       expect(await binding.activateAdmissions(3)).toMatchObject({ state: "completed", result: { controlActivated: true, version: 4 } });
@@ -103,7 +104,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("first binding of a
         await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,contact_type,requires_additional_verification,is_open,version) values (${binding.tribeId},'email',true,true,2)`);
       });
 
-      await database.applyMigration(FIRST_BINDING_MIGRATION);
+      await database.rerunMigration(FIRST_BINDING_MIGRATION);
       expect(await binding.storedPolicy()).toEqual({ messaging_connection_id: null, messaging_connection_version: null, version: 2 });
       expect(await binding.selectionAudits()).toEqual([]);
     });
