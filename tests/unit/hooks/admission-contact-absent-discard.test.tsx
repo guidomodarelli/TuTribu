@@ -6,9 +6,12 @@ import { useAdmissionContactVerification } from "@/hooks/use-admission-contact-v
 import { readAdmissionContactIntent, writeAdmissionContactIntent } from "@/lib/academy-admissions/admission-contact-intent";
 import type { AdmissionContactBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-contact-browser-client";
 import type { AdmissionChallengeSnapshot } from "@/src/modules/academy-admissions/domain/repositories/admission-contact-verification";
-import { ADMISSION_CONTACT_ABSENT_DISCARD_AFTER_MS, ADMISSION_CONTACT_COPY } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
+import { ADMISSION_CONTACT_ABSENT_DISCARD_AFTER_MS, ADMISSION_CONTACT_CLOCK_INTERVAL_MS, ADMISSION_CONTACT_COPY } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
 
 afterEach(() => { window.sessionStorage.clear(); vi.useRealTimers(); });
+
+/** The hook's clock ticks once per second, so a wait must outlast at least one late tick on a slow runner. */
+const CLOCK_TICK_WAIT = { timeout: ADMISSION_CONTACT_CLOCK_INTERVAL_MS * 4 };
 
 /** Moves only the wall clock past the discard wait; the hook's own one-second clock picks it up. */
 function passDiscardWait() { vi.setSystemTime(new Date(Date.now() + ADMISSION_CONTACT_ABSENT_DISCARD_AFTER_MS + 1)); }
@@ -46,7 +49,7 @@ describe("contact original confirmed absent", () => {
     expect(result.current.pending?.operationId).toBe(original);
 
     passDiscardWait();
-    await waitFor(() => expect(result.current.canDiscardAbsent).toBe(true));
+    await waitFor(() => expect(result.current.canDiscardAbsent).toBe(true), CLOCK_TICK_WAIT);
     expect(result.current.errorMessage).toBe(ADMISSION_CONTACT_COPY.absentDiscardable);
     await act(async () => { await result.current.discardAbsent(); });
     expect(fixture.client.operation).toHaveBeenCalledTimes(2);
@@ -74,7 +77,7 @@ describe("contact original confirmed absent", () => {
     await act(async () => { await result.current.issue(); });
     await act(async () => { await result.current.readOriginal(); });
     passDiscardWait();
-    await waitFor(() => expect(result.current.canDiscardAbsent).toBe(true));
+    await waitFor(() => expect(result.current.canDiscardAbsent).toBe(true), CLOCK_TICK_WAIT);
 
     vi.mocked(fixture.client.operation).mockImplementationOnce(async (_slug, operationId) => ({ status: "ready", value: { type: "issue_contact_challenge", state: "completed", operationId, replayed: true, result: fixture.challenge } }));
     await act(async () => { await result.current.discardAbsent(); });
@@ -108,7 +111,7 @@ describe("contact original confirmed absent", () => {
     expect(result.current.canDiscardAbsent).toBe(false);
 
     passDiscardWait();
-    await waitFor(() => expect(result.current.canDiscardAbsent).toBe(true));
+    await waitFor(() => expect(result.current.canDiscardAbsent).toBe(true), CLOCK_TICK_WAIT);
     await act(async () => { await result.current.discardAbsent(); });
     expect(result.current.pending).toBeNull();
     expect(result.current.recoveryRequired).toBe(false);

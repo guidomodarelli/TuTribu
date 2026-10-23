@@ -16,7 +16,7 @@ import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/a
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import { writeAdmissionContactIntent, readAdmissionContactIntent } from "@/lib/academy-admissions/admission-contact-intent";
 import { writeAdmissionDraft } from "@/lib/academy-admissions/admission-draft";
-import { ADMISSION_CONTACT_ABSENT_DISCARD_AFTER_MS, ADMISSION_CONTACT_COPY } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
+import { ADMISSION_CONTACT_ABSENT_DISCARD_AFTER_MS, ADMISSION_CONTACT_CLOCK_INTERVAL_MS, ADMISSION_CONTACT_COPY } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
 
 // Sonner replays every active toast to a newly mounted toaster; dismissing them keeps each test's toasts its own.
 afterEach(() => { window.sessionStorage.clear(); toast.dismiss(); });
@@ -242,7 +242,8 @@ describe("applicant contact step in the route", () => {
       expect(screen.getByRole("button", { name: "Enviar código de ingreso" })).toBeDisabled();
 
       vi.setSystemTime(new Date(Date.now() + ADMISSION_CONTACT_ABSENT_DISCARD_AFTER_MS + 1));
-      const discard = await screen.findByRole("button", { name: "Descartar la referencia y pedir otro código" });
+      // The hook clock ticks once per second; the wait outlasts a late tick on a slow runner.
+      const discard = await screen.findByRole("button", { name: "Descartar la referencia y pedir otro código" }, { timeout: ADMISSION_CONTACT_CLOCK_INTERVAL_MS * 4 });
       expect(screen.getByText(ADMISSION_CONTACT_COPY.absentDiscardable)).toBeVisible();
       await user.click(discard);
       expect(await screen.findByText(ADMISSION_CONTACT_COPY.discarded)).toBeVisible();
