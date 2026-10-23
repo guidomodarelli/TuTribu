@@ -303,3 +303,36 @@ Misma configuración que la segunda corrida, con 18 cuentas `.test` nuevas (T01�
 - **Lista de la bandeja en la UI.** No fue medible: la bandeja muestra las 25 solicitudes pendientes más antiguas y el piloto ya tenía 36 pendientes sintéticas de las corridas anteriores, así que ninguna de las 18 nuevas entró en la primera página. La pestaña del líder también quedó en segundo plano entre las 21:00:46 y las 21:06:27. Para medir la lista hace falta resolver antes las solicitudes sintéticas pendientes.
 
 Con las tres corridas, la disponibilidad desde la base y la aceptación de los correos agrupados cumplen SC-015 con infraestructura sana (p95 ≤ 2,0 s contra 30 s; aceptación ≤ 193 s contra 5 min). Siguen pendientes la observación directa de la lista y la campana en la UI y, para T206, la capacidad del pool de la aplicación (adquisiciones y espera), que esta muestra de conexiones de la base no reemplaza. T206, la parte SC-015 de T209 y OG-05 siguen abiertos.
+
+## Capacidad del pool de la aplicación durante una ráfaga en el piloto (2026-10-22)
+
+**Resultado: el pool de la aplicación no se acercó a su capacidad durante la ráfaga.** No hubo checkouts con el pool lleno, fallos de checkout ni conexiones retenidas: cada adquisición tuvo su liberación. Cada instancia de función usó como máximo 2 de sus 100 conexiones.
+
+### Instrumentación y condiciones
+
+- **Métricas del pool.** `createPostgresPool` registra ventanas de uso cuando `POSTGRES_POOL_METRICS_LOG_INTERVAL_MS` está definida ([convención](../../../docs/conventions/concurrency-observability-performance.htm)). Cada ventana trae checkouts, checkouts con el pool lleno, fallos, adquisiciones, liberaciones, tiempos de checkout, picos y conexiones retenidas al cierre. Se separa por pool (`runtime`, Better Auth y mantenimiento) y por instancia. Solo guarda contadores, tiempos y medidores. En producción la variable queda sin definir.
+- **Despliegue.** Con autorización del usuario se definió la variable en 5000 ms (no sensible) en el proyecto `tutribu-pilot`, se rotó `CRON_SECRET` y se redesplegó producción desde el commit `0f0d5ccb` (despliegue `dpl_Ae5bbnmWMfVwtdKjjedJgBjVZBfk`, funciones en `iad1`). El campo `region` de los logs dice `gru1`, que parece ser el borde de entrada y no la región de ejecución. Los checkouts que abren conexión tardaron 40–250 ms, compatibles con una función cerca de la base.
+- **Driver.** Entre las 22:50Z y las 23:29Z hizo 40 corridas, las 40 completas (200): 0,88 s en p50, 2,97 s en p95 y 3,44 s como máximo, sin minutos omitidos (intervalo máximo de 62,7 s).
+- **Ráfaga.** 18 cuentas `.test` nuevas (prefijo U), una ráfaga compartida con la observación de la UI del líder. Las 18 solicitudes quedaron registradas entre las 23:05:10Z y las 23:16:50Z, en las ventanas de las 23:05, 23:10 y 23:15. Los tres grupos de correo quedaron congelados.
+- **Lectura.** Los logs se leyeron con `vercel logs --json` cada 90 s, con 4 min de solapamiento, y se descartaron los duplicados. El [resumen saneado](admission-pool-pilot-burst.json) conserva los agregados.
+
+### Resultados durante la ráfaga (23:04:30Z–23:23Z)
+
+| Pool | Instancias | Checkouts | Con pool lleno | Fallos | Adquisiciones / liberaciones | Liberaciones con error | Checkout medio | Checkout máx. | Pico en uso por instancia |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `runtime` | 4 | 237 | 0 | 0 | 237 / 237 | 0 | 4,5 ms | 41,6 ms | 2 de 100 |
+| Better Auth | 4 | 274 | 0 | 0 | 274 / 274 | 0 | 7,5 ms | 250,1 ms | 2 de 100 |
+| Mantenimiento | 3 | 482 | 0 | 0 | 482 / 482 | 0 | 2,4 ms | 112,1 ms | 2 de 100 |
+
+- **Espera.** Ningún checkout esperó a que se liberara una conexión, así que la espera máxima con el pool lleno fue 0 ms. El pool de mantenimiento tuvo como pico un pedido en la cola interna de `pg-pool`, mientras se entregaba una conexión libre; su checkout más lento en esas ventanas tardó 37 ms. Los máximos de 112 ms y 250 ms corresponden a checkouts que abrieron una conexión nueva (TLS y guard de `idle_in_transaction_session_timeout`).
+- **Conexiones retenidas.** Ninguna ventana terminó con checkouts en cola. Solo una ventana de Better Auth terminó con una conexión en uso, porque una solicitud estaba en curso al cerrarse; las adquisiciones y liberaciones coinciden en todos los pools.
+- **Rotación.** Durante la ráfaga se abrieron 128 conexiones y se cerraron 121, por el idle de 5 s y el lifetime de 60 s del pool. Es churn esperado de funciones con tráfico intermitente, no presión.
+
+En toda la observación (22:50Z–23:27Z) los tres pools sumaron 2.012 checkouts, con los mismos ceros. El máximo anterior de 10 conexiones en `pg_stat_activity`, medido en la tercera corrida, es consistente con estos picos: a lo sumo 2 conexiones por pool e instancia, con 3 o 4 instancias por pool.
+
+### Observaciones aparte
+
+- Algo externo llamó a `/api/maintenance/admission-messaging` una vez por minuto, cerca del segundo :50, con un secreto que no es el vigente: 38 rechazos `maintenance_unauthorized` durante la observación, 18 de ellos en la ráfaga. No es el driver ni un proceso de la máquina del operador. El rechazo no afectó al driver, pero ese llamador debería identificarse y apagarse.
+- Las ventanas se emiten desde un temporizador de la instancia. Si Vercel suspende la instancia, la ventana puede abarcar el tiempo suspendido y aparecer en el log de la solicitud siguiente (mediana de 15 s, máximo de 593 s). Por eso la atribución por ruta del log no es la ruta que usó el pool.
+
+Con esto queda medida la capacidad del pool de la aplicación que T206 exige, con margen amplio. T206 sigue abierta solo por la observación directa de la lista y la campana del líder en la UI.

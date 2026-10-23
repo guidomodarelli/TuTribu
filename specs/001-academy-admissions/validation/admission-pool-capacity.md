@@ -34,3 +34,7 @@ Pasaron las cuatro pruebas del factory con `pg.Pool` y el logger del proyecto re
 El barrido conserva el único checkout de producto en `runWithGuardedTransaction`; request, mantenimiento, Better Auth, refresco de perfil y backfill usan el factory común. Se conservan guard local, liberación idempotente, protección de `onConnect`, exclusión del timeout de checkout del retry de sesión y throttle de reconciliación. La [sonda de capacidad previa](admission-submission-scope-performance.json) observó 901 conexiones y rol sin límite adicional en su rama propia; ese número no certifica por sí solo capacidad operativa de otro host.
 
 Registro privado: `.git/admission-pool-capacity-native-fcb12ede/`. El resultado no certifica HTTP, Google/Zavu reales, Workers, scheduler ni SC-021. Queda reducir o reubicar el costo de los viajes a base y volver a medir antes de cerrar el objetivo de latencia.
+
+## Pool de la aplicación en el piloto (2026-10-22)
+
+Durante una ráfaga real de 18 solicitudes en el piloto de Vercel, los pools `runtime`, Better Auth y mantenimiento (máximo 100) no tuvieron checkouts con el pool lleno, fallos ni conexiones retenidas. Usaron a lo sumo 2 conexiones por instancia y el checkout más lento tardó 250 ms, al abrir una conexión nueva. Detalle en [notifications-and-scheduler.md](notifications-and-scheduler.md#capacidad-del-pool-de-la-aplicación-durante-una-ráfaga-en-el-piloto-2026-10-22) y [resumen](admission-pool-pilot-burst.json). Esa ráfaga no reproduce la carga de cien operaciones simultáneas de este documento, que sigue abierta por latencia.

@@ -1,0 +1,175 @@
+{
+  "task": "T206",
+  "measuredAt": "2026-10-22",
+  "deployment": {
+    "project": "tutribu-pilot",
+    "deploymentId": "dpl_Ae5bbnmWMfVwtdKjjedJgBjVZBfk",
+    "sourceCommit": "0f0d5ccb",
+    "metricsLogIntervalMilliseconds": 5000
+  },
+  "burst": {
+    "applicants": 18,
+    "prefix": "U",
+    "firstSubmittedAt": "2026-10-22T23:05:10.789Z",
+    "lastSubmittedAt": "2026-10-22T23:16:50.645Z",
+    "notificationGroupsFrozen": 3
+  },
+  "driver": {
+    "runs": 40,
+    "completed": 40,
+    "firstRunAt": "2026-10-22T22:50:28Z",
+    "lastRunAt": "2026-10-22T23:29:27Z",
+    "p50Milliseconds": 878,
+    "p95Milliseconds": 2971,
+    "maximumMilliseconds": 3442,
+    "maximumIntervalSeconds": 62.7
+  },
+  "unauthorizedExternalMaintenanceCalls": {
+    "duringObservation": 38,
+    "duringBurst": 18
+  },
+  "windows": {
+    "burstWindow": {
+      "from": "2026-10-22T23:04:30Z",
+      "to": "2026-10-22T23:23:00Z",
+      "pools": {
+        "runtime_database_pool_idle_error": {
+          "windows": 65,
+          "instances": 4,
+          "maximumConnections": 100,
+          "checkouts": 237,
+          "queuedCheckouts": 0,
+          "checkoutFailures": 0,
+          "acquisitions": 237,
+          "releases": 237,
+          "errorReleases": 0,
+          "connectionsOpened": 46,
+          "connectionsRemoved": 44,
+          "meanCheckoutMilliseconds": 4.5,
+          "maximumCheckoutMilliseconds": 41.6,
+          "maximumQueuedCheckoutMilliseconds": 0,
+          "peakPendingQueue": 0,
+          "peakCheckedOutConnectionsPerInstance": 2,
+          "peakOpenConnectionsPerInstance": 2,
+          "maximumCheckedOutAtWindowEnd": 0,
+          "maximumQueuedAtWindowEnd": 0
+        },
+        "better_auth_database_pool_idle_error": {
+          "windows": 57,
+          "instances": 4,
+          "maximumConnections": 100,
+          "checkouts": 274,
+          "queuedCheckouts": 0,
+          "checkoutFailures": 0,
+          "acquisitions": 274,
+          "releases": 274,
+          "errorReleases": 0,
+          "connectionsOpened": 50,
+          "connectionsRemoved": 46,
+          "meanCheckoutMilliseconds": 7.5,
+          "maximumCheckoutMilliseconds": 250.1,
+          "maximumQueuedCheckoutMilliseconds": 0,
+          "peakPendingQueue": 0,
+          "peakCheckedOutConnectionsPerInstance": 2,
+          "peakOpenConnectionsPerInstance": 2,
+          "maximumCheckedOutAtWindowEnd": 1,
+          "maximumQueuedAtWindowEnd": 0
+        },
+        "maintenance_database_pool_idle_error": {
+          "windows": 53,
+          "instances": 3,
+          "maximumConnections": 100,
+          "checkouts": 482,
+          "queuedCheckouts": 0,
+          "checkoutFailures": 0,
+          "acquisitions": 482,
+          "releases": 482,
+          "errorReleases": 0,
+          "connectionsOpened": 32,
+          "connectionsRemoved": 31,
+          "meanCheckoutMilliseconds": 2.4,
+          "maximumCheckoutMilliseconds": 112.1,
+          "maximumQueuedCheckoutMilliseconds": 0,
+          "peakPendingQueue": 1,
+          "peakCheckedOutConnectionsPerInstance": 2,
+          "peakOpenConnectionsPerInstance": 2,
+          "maximumCheckedOutAtWindowEnd": 0,
+          "maximumQueuedAtWindowEnd": 0
+        }
+      }
+    },
+    "observation": {
+      "from": "2026-10-22T22:50:24Z",
+      "to": "2026-10-22T23:27:00Z",
+      "pools": {
+        "runtime_database_pool_idle_error": {
+          "windows": 103,
+          "instances": 6,
+          "maximumConnections": 100,
+          "checkouts": 570,
+          "queuedCheckouts": 0,
+          "checkoutFailures": 0,
+          "acquisitions": 571,
+          "releases": 571,
+          "errorReleases": 0,
+          "connectionsOpened": 71,
+          "connectionsRemoved": 69,
+          "meanCheckoutMilliseconds": 3.2,
+          "maximumCheckoutMilliseconds": 78.1,
+          "maximumQueuedCheckoutMilliseconds": 0,
+          "peakPendingQueue": 0,
+          "peakCheckedOutConnectionsPerInstance": 2,
+          "peakOpenConnectionsPerInstance": 2,
+          "maximumCheckedOutAtWindowEnd": 0,
+          "maximumQueuedAtWindowEnd": 0
+        },
+        "better_auth_database_pool_idle_error": {
+          "windows": 104,
+          "instances": 6,
+          "maximumConnections": 100,
+          "checkouts": 562,
+          "queuedCheckouts": 0,
+          "checkoutFailures": 0,
+          "acquisitions": 563,
+          "releases": 563,
+          "errorReleases": 0,
+          "connectionsOpened": 79,
+          "connectionsRemoved": 73,
+          "meanCheckoutMilliseconds": 6,
+          "maximumCheckoutMilliseconds": 262.7,
+          "maximumQueuedCheckoutMilliseconds": 0,
+          "peakPendingQueue": 0,
+          "peakCheckedOutConnectionsPerInstance": 2,
+          "peakOpenConnectionsPerInstance": 2,
+          "maximumCheckedOutAtWindowEnd": 1,
+          "maximumQueuedAtWindowEnd": 0
+        },
+        "maintenance_database_pool_idle_error": {
+          "windows": 87,
+          "instances": 5,
+          "maximumConnections": 100,
+          "checkouts": 880,
+          "queuedCheckouts": 0,
+          "checkoutFailures": 0,
+          "acquisitions": 880,
+          "releases": 880,
+          "errorReleases": 0,
+          "connectionsOpened": 50,
+          "connectionsRemoved": 49,
+          "meanCheckoutMilliseconds": 2.2,
+          "maximumCheckoutMilliseconds": 146.3,
+          "maximumQueuedCheckoutMilliseconds": 0,
+          "peakPendingQueue": 1,
+          "peakCheckedOutConnectionsPerInstance": 2,
+          "peakOpenConnectionsPerInstance": 2,
+          "maximumCheckedOutAtWindowEnd": 0,
+          "maximumQueuedAtWindowEnd": 0
+        }
+      }
+    }
+  },
+  "notes": [
+    "Only counters, durations and gauges are kept; no connection strings, hosts, SQL, identifiers of people or row data.",
+    "peakPendingQueue counts pg-pool pending items while a free connection is being handed out; queuedCheckouts counts checkouts requested with the pool full and no idle connection."
+  ]
+}
