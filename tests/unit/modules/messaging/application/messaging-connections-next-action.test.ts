@@ -28,6 +28,18 @@ describe("messaging connections next action",()=>{
     expect(resolve(connection({credentialState:"invalid"}))).toMatchObject({step:"validateCredential",title:"Revisá la clave de Zavu"});
     expect(resolve(connection({credentialState:"unavailable"}))).toMatchObject({step:"validateCredential",title:"Volvé a comprobar la credencial"});
   });
+  it("should send a rejected separate candidate to Clave to replace its key, and a rejected selection to Credencial",()=>{
+    const selected=connection({id:"00000000-0000-4000-8000-000000000002",state:"active"});
+    expect(resolve(connection({credentialState:"invalid"}),selected)).toMatchObject({title:"Revisá la clave de Zavu",action:"Reemplazar la clave",target:{kind:"step",step:"key"}});
+    const shared=resolve(connection({credentialState:"invalid",state:"active"}),connection({state:"active"}));
+    expect(shared).toMatchObject({action:"Ir a Credencial",target:{kind:"step",step:"credential"}});
+    expect(shared.reason).toContain("retirarla también quita la selección");expect(shared.reason).not.toContain("no cambia");
+  });
+  it("should not promise an untouched selection when the suspended candidate is the selection itself",()=>{
+    const shared=connection({state:"suspended"});
+    expect(resolve(shared,shared)).toMatchObject({title:"La conexión seleccionada está suspendida",target:{kind:"security"}});
+    expect(resolve(shared,shared).reason).toContain("Retirarla también quita la selección");
+  });
   it("should send a suspended candidate to Security instead of activation",()=>{
     expect(resolve(connection({state:"suspended"}))).toMatchObject({title:"La candidata está suspendida",target:{kind:"security"}});
   });

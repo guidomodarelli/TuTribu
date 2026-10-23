@@ -1,0 +1,12 @@
+@use "../../../src/styles/workspace-panel";
+
+.MessagingCandidateKeyReplacement {
+  @include workspace-panel.section;
+
+  &__title { @include workspace-panel.title; }
+  &__lead { @include workspace-panel.lead; }
+  &__impact { @include workspace-panel.feedback; }
+  &__consent { @include workspace-panel.consent; }
+  &__actions { @include workspace-panel.actions; }
+  &__action { @include workspace-panel.action; }
+}

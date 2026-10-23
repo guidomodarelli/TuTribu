@@ -112,6 +112,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
+- Conexión de mensajería permite reemplazar una clave de Zavu rechazada o sin comprobar con «Reemplazar la clave»: el paso Clave nombra la candidata, aclara que la conexión seleccionada no cambia y, tras confirmar, retira sólo esa candidata y vuelve al formulario con el mismo nombre.
+- Seguridad y retiro muestra el rol y el estado de cada conexión, explica que suspender conserva su lugar y sólo retirarla lo libera, preselecciona la candidata al llegar desde su aviso y, antes de suspender la conexión activa, avisa que se detienen los avisos y los códigos de verificación de la academia.
 - En las academias, los integrantes sin suscripción ya pueden leer el fogón y los canales, con sus respuestas, me gusta, encuestas y archivos adjuntos. Para publicar, responder, reaccionar o votar necesitan la suscripción mensual a la academia, y el fogón les ofrece suscribirse. Eventos, La tribu y Méritos siguen siendo solo para quienes tienen la academia; el líder y los guardianes siempre leen y escriben.
 - En Reglas de admisión, «Exigir el teléfono del solicitante» viene marcada por defecto en las academias que todavía no guardaron sus reglas, así quien pide ingresar tiene que dejar su teléfono salvo que el líder lo haga opcional. Las reglas ya guardadas conservan lo que se eligió.
 - Si una academia admite solo correos habilitados por su equipo, sin excepciones ni código adicional, y el correo de tu cuenta no está habilitado o no se puede confirmar, la página de ingreso te lo avisa antes de completar el formulario y ofrece «Cambiar de cuenta», en lugar de rechazar la solicitud recién al enviarla con un aviso genérico.

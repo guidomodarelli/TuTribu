@@ -8,9 +8,9 @@ import { MESSAGING_CONNECTION_SECURITY_REASON } from "@/src/modules/messaging/co
 import { MESSAGING_CONNECTION_STATE } from "@/src/modules/messaging/constants/messaging-connection";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 
-/** @param dependencies - Current own snapshot, blocking state and explicit action callback. @returns Controlled view props and renewed consent keyed to exact connection/lifecycle/action/cause. */
-export function useMessagingLifecycleController(dependencies:{configuration:MessagingConfigurationResult|null;blocked:boolean;act:(connection:MessagingLifecycleConnectionView,retiring:boolean,reason:MessagingConnectionSuspensionInput["reason"])=>Promise<void>}){
-  const[selectedId,setSelectedId]=useState(""),[retiring,setRetiring]=useState(false),[reason,setReason]=useState<MessagingConnectionSuspensionInput["reason"]>(MESSAGING_CONNECTION_SECURITY_REASON.securityStop),[consentedScope,setConsentedScope]=useState("");
+/** @param dependencies - Current own snapshot, blocking state, the connection the page opened Security for and explicit action callback. @returns Controlled view props and renewed consent keyed to exact connection/lifecycle/action/cause. */
+export function useMessagingLifecycleController(dependencies:{configuration:MessagingConfigurationResult|null;blocked:boolean;initialTarget?:{id:string;retire:boolean}|null;act:(connection:MessagingLifecycleConnectionView,retiring:boolean,reason:MessagingConnectionSuspensionInput["reason"])=>Promise<void>}){
+  const[selectedId,setSelectedId]=useState(dependencies.initialTarget?.id??""),[retiring,setRetiring]=useState(dependencies.initialTarget?.retire??false),[reason,setReason]=useState<MessagingConnectionSuspensionInput["reason"]>(MESSAGING_CONNECTION_SECURITY_REASON.securityStop),[consentedScope,setConsentedScope]=useState("");
   const connections=useMemo(()=>{
     if(dependencies.configuration?.audience!==TRIBE_MEMBER_ROLE.leader)return[];
     const current=new Map<string,MessagingLifecycleConnectionView>();
@@ -23,6 +23,8 @@ export function useMessagingLifecycleController(dependencies:{configuration:Mess
     reset:()=>setConsentedScope(""),
     /** @param id - Current own resource selection. @returns Nothing after clearing consent for the prior target. */
     targetChanged:(id:string)=>{setSelectedId(id);setConsentedScope("");},
+    /** @param id - Connection the leader arrived to manage, such as the candidate named by the next action. @param retire - Whether retirement is the action that resolves it. @returns Nothing after preselecting both without consent; the leader still confirms. */
+    preselect:(id:string,retire:boolean)=>{setSelectedId(id);setRetiring(retire);setConsentedScope("");},
     /** @param value - Explicit ordinary retirement choice. @returns Nothing after clearing prior action consent. */
     retiringChanged:(value:boolean)=>{setRetiring(value);setConsentedScope("");},
     /** @param value - Explicit safe suspension cause. @returns Nothing after clearing prior cause consent. */
