@@ -97,6 +97,19 @@ describe("AdmissionSetupGuideFallback", () => {
     expect(screen.getByText(/Depende del equipo de TuTribu: la plataforma todavía no permite activar/)).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Abrir las admisiones" })).not.toBeInTheDocument();
   });
+
+  it("sends closed academy admissions to «Gestionar academia» instead of the rules, which would stop again", () => {
+    const progress = deriveAdmissionSetupProgress({
+      policy: { exists: true, open: false, paused: false, sendsCodes: false, verifiesPhone: false },
+      messaging: null, notifications: null, activation: { platformBlocked: false, admissionsClosed: true },
+    });
+    render(<AppUIProvider><AdmissionSetupGuide slug="tribu" progress={progress} /></AppUIProvider>);
+    expect(screen.getByText(/Las admisiones de la academia están cerradas\. Encendé «Admisiones abiertas» en Gestionar academia/)).toBeInTheDocument();
+    expect(screen.getByText("Admisiones cerradas")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ir a Gestionar academia" })).toHaveAttribute("href", "/tribu/academia/gestionar");
+    expect(screen.queryByRole("link", { name: "Abrir las admisiones" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Depende del equipo de TuTribu")).not.toBeInTheDocument();
+  });
 });
 
 describe("AdmissionSetupGuide drafts", () => {

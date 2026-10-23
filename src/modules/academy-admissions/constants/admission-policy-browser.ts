@@ -53,7 +53,7 @@ export const ADMISSION_POLICY_PREFLIGHT_REASON_COPY = {
   preflight_unknown_commercial_history: "Hay membresías bloqueadas por pago de las que no sabemos si estaban activas o silenciadas. Decidí cómo vuelve cada una si regulariza el pago.",
   preflight_privileged_commercial_membership: "Hay guardianes bloqueados por pago. Decidí si vuelven como integrantes, sin su rol, o si quedan retirados.",
   preflight_runtime_unavailable: "La plataforma todavía no preparó todos los recorridos de admisión.",
-  preflight_evaluator_disabled: "La plataforma todavía no habilitó la admisión para esta academia.",
+  preflight_evaluator_disabled: "Las admisiones de la academia están cerradas. Encendé «Admisiones abiertas» en Gestionar academia y volvé a activar estas reglas.",
   preflight_recovery_locked: "La plataforma pausó las admisiones mientras recupera un servicio.",
 } satisfies Record<AdmissionPreflightReason, string>;
 
@@ -62,7 +62,7 @@ export const ADMISSION_POLICY_ACTIVATION_REQUIREMENT_COPY = {
   policy_unavailable: "Falta preparar la política de admisión.",
   academy_unavailable: "Primero hay que activar el modo academia en esta tribu.",
   admission_preflight_incomplete: "La plataforma todavía no terminó de preparar las protecciones de admisión.",
-  admission_evaluator_unavailable: "La plataforma todavía no habilitó la admisión para esta academia.",
+  admission_evaluator_unavailable: "Las admisiones de la academia están cerradas. Encendé «Admisiones abiertas» en Gestionar academia y volvé a activar estas reglas.",
   admission_recovery_locked: "La plataforma pausó las admisiones mientras recupera un servicio.",
   admission_clock_invalid: "No pudimos comprobar la vigencia de la configuración. Volvé a comprobar.",
   policy_scope_mismatch: "La configuración no corresponde a esta tribu. Volvé a comprobar.",

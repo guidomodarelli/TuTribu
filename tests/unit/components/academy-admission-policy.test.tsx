@@ -202,14 +202,14 @@ describe("guided policy presentation", () => {
 
   it("should explain platform blocks with a copyable diagnostic code, a recheck and a report fallback, without offering to publish", async () => {
     const props = fixture(); props.step = 3; props.platformBlocked = true;
-    props.activationBlock = { message: "Todavía falta un requisito para activar las admisiones.", note: "Tus reglas quedaron guardadas como borrador.", preflightReasons: ["preflight_evaluator_disabled", "preflight_runtime_unavailable"], requirements: ["admission_recovery_locked"], unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 };
+    props.activationBlock = { message: "Todavía falta un requisito para activar las admisiones.", note: "Tus reglas quedaron guardadas como borrador.", preflightReasons: ["preflight_marker_inconsistent", "preflight_runtime_unavailable"], requirements: ["admission_recovery_locked"], unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 };
     render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
     const platform = screen.getByRole("group", { name: "Depende del equipo de TuTribu" });
     expect(platform).toHaveTextContent("Esto no es algo que puedas cambiar desde tu academia. Lo que ya elegiste quedó guardado como borrador.");
-    expect(platform).toHaveTextContent("La plataforma todavía no habilitó la admisión para esta academia.");
+    expect(platform).toHaveTextContent("La activación registrada no coincide con las reglas guardadas y el equipo tiene que revisarla.");
     expect(platform).toHaveTextContent("La plataforma todavía no preparó todos los recorridos de admisión.");
     expect(platform).toHaveTextContent("La plataforma pausó las admisiones mientras recupera un servicio.");
-    expect(platform).toHaveTextContent("Código de diagnóstico: preflight_evaluator_disabled");
+    expect(platform).toHaveTextContent("Código de diagnóstico: preflight_marker_inconsistent");
     expect(within(platform).getByRole("button", { name: "Copiar código preflight_runtime_unavailable" })).toBeEnabled();
     fireEvent.click(within(platform).getByRole("button", { name: "Volver a comprobar" }));
     expect(props.onRecheck).toHaveBeenCalledOnce();
@@ -218,6 +218,17 @@ describe("guided policy presentation", () => {
     const notice = screen.getByRole("group", { name: "Tenés reglas guardadas sin publicar" });
     expect(notice).toHaveTextContent("Por ahora no se pueden activar: depende del equipo de TuTribu.");
     expect(within(notice).queryByRole("button", { name: "Revisar y activar" })).not.toBeInTheDocument();
+  });
+
+  it("should send closed academy admissions to «Gestionar academia» as a leader action, not as a TuTribu team block", () => {
+    const props = fixture(); props.step = 3;
+    props.activationBlock = { message: "Todavía falta un requisito para activar las admisiones.", note: "Tus reglas quedaron guardadas como borrador.", preflightReasons: ["preflight_evaluator_disabled"], requirements: ["admission_evaluator_unavailable"], unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 };
+    render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
+    const block = screen.getByRole("region", { name: "Lo que falta resolver" });
+    expect(block).toHaveTextContent("Las admisiones de la academia están cerradas. Encendé «Admisiones abiertas» en Gestionar academia y volvé a activar estas reglas.");
+    expect(within(block).getAllByRole("link", { name: "Ir a Gestionar academia" })[0]).toHaveAttribute("href", "/synthetic-academy/academia/gestionar");
+    expect(within(block).queryByRole("group", { name: "Depende del equipo de TuTribu" })).not.toBeInTheDocument();
+    expect(block).not.toHaveTextContent("Código de diagnóstico");
   });
 
   it("should send academy, scope and commercial blocks to the place that resolves them", () => {

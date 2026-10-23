@@ -11,6 +11,7 @@
 
 import { ArrowRightIcon, CheckIcon } from "lucide-react";
 import { ButtonLink } from "@/components/navigation/link";
+import { ROUTES } from "@/src/constants/routes";
 import type { AdmissionSetupProgress } from "@/src/modules/academy-admissions/application/queries/admission-setup-progress";
 import { ADMISSION_SETUP_GUIDE_COPY as COPY, ADMISSION_SETUP_STEP, ADMISSION_SETUP_STEP_COPY as STEP_COPY, ADMISSION_SETUP_STEP_POLICY_ENTRY, ADMISSION_SETUP_STEP_SEGMENT, ADMISSION_SETUP_STEP_STATUS as STATUS, type AdmissionSetupStepId } from "@/src/modules/academy-admissions/constants/admission-setup-guide";
 import { admissionPolicyStepHref } from "@/src/modules/academy-admissions/constants/admission-settings-navigation";
@@ -62,6 +63,7 @@ export function AdmissionSetupGuide({ slug, progress }: AdmissionSetupGuideProps
           const isNext = step.id === progress.next;
           const detail = done ? step.lowNoticeQuota ? STEP_COPY.usage.lowQuota : copy.done
             : step.id === ADMISSION_SETUP_STEP.open && step.platformBlocked ? STEP_COPY.open.platformBlocked
+            : step.id === ADMISSION_SETUP_STEP.open && step.admissionsClosed ? STEP_COPY.open.admissionsClosed
             : step.id === ADMISSION_SETUP_STEP.open && step.paused ? STEP_COPY.open.paused
             : step.emailOmitted ? STEP_COPY.notifications.omitted
             : optional && "optional" in copy ? copy.optional : copy.pending;
@@ -74,11 +76,13 @@ export function AdmissionSetupGuide({ slug, progress }: AdmissionSetupGuideProps
                   {step.draft ? <span className={styles.AdmissionSetupGuide__badge}>{COPY.draftBadge}</span> : done && <span className={`${styles.AdmissionSetupGuide__badge} ${step.lowNoticeQuota ? styles["AdmissionSetupGuide__badge--warning"] : ""}`}>{step.lowNoticeQuota ? COPY.lowQuotaBadge : COPY.doneBadge}</span>}
                   {step.emailOmitted && <span className={`${styles.AdmissionSetupGuide__badge} ${styles["AdmissionSetupGuide__badge--warning"]}`}>{COPY.emailOmittedBadge}</span>}
                   {step.platformBlocked && <span className={styles.AdmissionSetupGuide__badge}>{COPY.platformBadge}</span>}
+                  {step.admissionsClosed && <span className={`${styles.AdmissionSetupGuide__badge} ${styles["AdmissionSetupGuide__badge--warning"]}`}>{COPY.admissionsClosedBadge}</span>}
                   {optional && <span className={styles.AdmissionSetupGuide__badge}>{COPY.optionalBadge}</span>}
                 </span>
                 <span className={styles.AdmissionSetupGuide__detail}>{detail}</span>
               </div>
-              {isNext && !step.platformBlocked && <ButtonLink className={styles.AdmissionSetupGuide__action} href={href(step.id, Boolean(step.draft))} variant="primary" size="sm">{copy.action}<ArrowRightIcon aria-hidden="true" /></ButtonLink>}
+              {isNext && step.admissionsClosed && <ButtonLink className={styles.AdmissionSetupGuide__action} href={ROUTES.tribes.academyManage(slug)} variant="primary" size="sm">{STEP_COPY.open.academyAction}<ArrowRightIcon aria-hidden="true" /></ButtonLink>}
+              {isNext && !step.platformBlocked && !step.admissionsClosed && <ButtonLink className={styles.AdmissionSetupGuide__action} href={href(step.id, Boolean(step.draft))} variant="primary" size="sm">{copy.action}<ArrowRightIcon aria-hidden="true" /></ButtonLink>}
             </li>
           );
         })}

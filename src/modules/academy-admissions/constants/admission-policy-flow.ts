@@ -61,6 +61,8 @@ export const ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON = {
   contact_type_locked: ADMISSION_POLICY_BLOCK_RESOLUTION.contactStep,
   academy_unavailable: ADMISSION_POLICY_BLOCK_RESOLUTION.academy,
   preflight_academy_unavailable: ADMISSION_POLICY_BLOCK_RESOLUTION.academy,
+  preflight_evaluator_disabled: ADMISSION_POLICY_BLOCK_RESOLUTION.academy,
+  admission_evaluator_unavailable: ADMISSION_POLICY_BLOCK_RESOLUTION.academy,
   preflight_unknown_commercial_history: ADMISSION_POLICY_BLOCK_RESOLUTION.commercialReview,
   preflight_privileged_commercial_membership: ADMISSION_POLICY_BLOCK_RESOLUTION.commercialReview,
   policy_scope_mismatch: ADMISSION_POLICY_BLOCK_RESOLUTION.recheck,
@@ -72,10 +74,8 @@ export const ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON = {
   preflight_ingress_unprotected: ADMISSION_POLICY_BLOCK_RESOLUTION.platform,
   preflight_marker_inconsistent: ADMISSION_POLICY_BLOCK_RESOLUTION.platform,
   preflight_runtime_unavailable: ADMISSION_POLICY_BLOCK_RESOLUTION.platform,
-  preflight_evaluator_disabled: ADMISSION_POLICY_BLOCK_RESOLUTION.platform,
   preflight_recovery_locked: ADMISSION_POLICY_BLOCK_RESOLUTION.platform,
   admission_preflight_incomplete: ADMISSION_POLICY_BLOCK_RESOLUTION.platform,
-  admission_evaluator_unavailable: ADMISSION_POLICY_BLOCK_RESOLUTION.platform,
   admission_recovery_locked: ADMISSION_POLICY_BLOCK_RESOLUTION.platform,
 } as const satisfies Record<AdmissionPolicyBlockReason, AdmissionPolicyBlockResolution>;
 

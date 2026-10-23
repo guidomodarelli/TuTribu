@@ -55,7 +55,7 @@ export const ADMISSION_SETUP_STEP_COPY = {
   connection: { title: "Conectá el envío de mensajes", pending: "Tus reglas envían códigos o avisos: conectá Zavu y activá la conexión.", optional: "Hace falta solo si vas a enviar códigos o avisos por correo.", done: "La conexión está activa.", action: "Conectar mensajería" },
   usage: { title: "Elegí países y cupos", pending: "Indicá a qué países se envía y cuántos mensajes por día.", optional: "Hace falta solo si vas a enviar códigos o avisos por correo.", done: "Los países y cupos están guardados.", lowQuota: "Los países y cupos están guardados, pero el cupo de avisos por día es menor a 20: en un día con varias solicitudes, los avisos siguientes no se envían hasta el día siguiente.", action: "Elegir países y cupos" },
   memberships: { title: "Revisá membresías bloqueadas por pago", pending: "Decidí cómo vuelve cada membresía bloqueada por pago antes de abrir las admisiones.", done: "Las membresías bloqueadas por pago ya tienen una decisión registrada.", action: "Revisar membresías" },
-  open: { title: "Abrí las admisiones", pending: "Activá las reglas para empezar a recibir solicitudes.", paused: "Las admisiones están pausadas: nadie puede postularse.", platformBlocked: "Depende del equipo de TuTribu: la plataforma todavía no permite activar las admisiones de esta academia. Lo que guardaste queda como borrador.", done: "Las admisiones están abiertas.", action: "Abrir las admisiones" },
+  open: { title: "Abrí las admisiones", pending: "Activá las reglas para empezar a recibir solicitudes.", paused: "Las admisiones están pausadas: nadie puede postularse.", platformBlocked: "Depende del equipo de TuTribu: la plataforma todavía no permite activar las admisiones de esta academia. Lo que guardaste queda como borrador.", admissionsClosed: "Las admisiones de la academia están cerradas. Encendé «Admisiones abiertas» en Gestionar academia y después activá las reglas.", academyAction: "Ir a Gestionar academia", done: "Las admisiones están abiertas.", action: "Abrir las admisiones" },
   notifications: { title: "Elegí cómo recibir los avisos", pending: "Activá el correo de la tribu y elegí cada cuánto recibir los avisos.", optional: "Recomendado: así te enterás de cada solicitud nueva.", omitted: "El correo de la tribu está habilitado, pero elegiste «Omitir correos de revisión»: no vas a recibir correos de las solicitudes nuevas.", done: "Recibís los avisos por correo.", action: "Configurar los avisos" },
 } as const;
 
@@ -68,6 +68,7 @@ export const ADMISSION_SETUP_GUIDE_COPY = {
   doneBadge: "Listo",
   draftBadge: "Borrador sin publicar",
   platformBadge: "Depende del equipo de TuTribu",
+  admissionsClosedBadge: "Admisiones cerradas",
   lowQuotaBadge: "Listo, pero con un cupo muy bajo",
   emailOmittedBadge: "No recibís correos",
   loading: "Cargando la guía de configuración",

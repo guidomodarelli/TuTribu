@@ -645,8 +645,12 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
   it.each([{ engine: "chromium", browserType: chromium }, { engine: "webkit", browserType: webkit }])("should guide the setup, explain a platform block and open, pause, resume and edit admissions in $engine", async ({ engine, browserType }) => {
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database, await readMessagingHostingSecurityConfig()), slug = `policy-${data.tribeId}`;
-      /** Only the TuTribu team enables the admission evaluator; turning it off reproduces a block the leader cannot resolve. */
-      const setEvaluator = (enabled: boolean) => database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_academy_settings set admission_enabled=${enabled} where tribe_id=${data.tribeId}`));
+      /** The leader switches academy admissions on in academy management; a new academy starts with them off. */
+      const setAcademyAdmissions = (enabled: boolean) => database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_academy_settings set admission_enabled=${enabled} where tribe_id=${data.tribeId}`));
+      /** Only the TuTribu team restores an unprotected ingress; disabling one ingress trigger on this owned branch reproduces a block the leader cannot resolve. */
+      const setIngressProtection = (enabled: boolean) => database.withContext(data.fixture.own, (transaction) => transaction.execute(enabled
+        ? sql`alter table public.tribe_academy_settings enable trigger admission_academy_unavailable`
+        : sql`alter table public.tribe_academy_settings disable trigger admission_academy_unavailable`));
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
         const browser = await browserType.launch({ headless: true });
         try {
@@ -697,16 +701,38 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
             await shot("policy-step-review"); await capture("admission-policy-step-review");
 
             /** A platform reason stops the chained action after saving: the rules stay as a draft and the guide stops offering to open. */
-            await setEvaluator(false);
+            await setIngressProtection(false);
             await page.getByRole("button", { name: "Guardar y activar admisiones", exact: true }).click();
             await page.getByRole("group", { name: ADMISSION_POLICY_PLATFORM_COPY.title, exact: true }).waitFor({ timeout: 90_000 });
             await shot("policy-platform-block"); await capture("admission-policy-platform-block");
             await page.goto(inbox, { waitUntil: "commit" });
             await guide.getByText(ADMISSION_SETUP_STEP_COPY.open.platformBlocked, { exact: true }).waitFor({ timeout: 90_000 });
             await shot("setup-guide-platform"); await capture("admission-setup-guide-platform", guideSelector);
+            await setIngressProtection(true);
 
-            /** Once the team enables admissions, the saved draft is published from its notice with «Activar ahora». */
-            await setEvaluator(true);
+            /** Closed academy admissions are a leader requirement that links to academy management, never a team block. */
+            await setAcademyAdmissions(false);
+            await page.goto(inbox, { waitUntil: "commit" });
+            await guide.getByText(ADMISSION_SETUP_STEP_COPY.open.admissionsClosed, { exact: true }).waitFor({ timeout: 90_000 });
+            // The guide keeps a single action: here the next step is the messaging connection, so opening shows only its badge and detail.
+            expect(await guide.getByText(ADMISSION_SETUP_GUIDE_COPY.admissionsClosedBadge, { exact: true }).count()).toBe(1);
+            expect(await guide.getByText(ADMISSION_SETUP_GUIDE_COPY.platformBadge, { exact: true }).count()).toBe(0);
+            await shot("setup-guide-admissions-closed"); await capture("admission-setup-guide-admissions-closed", guideSelector);
+            await page.goto(settings, { waitUntil: "commit" });
+            await page.locator(`${rulesSelector} [aria-busy="false"]`).first().waitFor({ timeout: 90_000 });
+            await page.getByRole("button", { name: ADMISSION_POLICY_DRAFT_COPY.action, exact: true }).click({ timeout: 90_000 });
+            const activateClosed = page.getByRole("button", { name: ADMISSION_POLICY_DRAFT_COPY.activateNow, exact: true });
+            await activateClosed.waitFor({ timeout: 90_000 });
+            await confirmation.check({ timeout: 90_000 });
+            await activateClosed.click();
+            const block = page.getByRole("region", { name: "Lo que falta resolver", exact: true });
+            await block.getByText(ADMISSION_POLICY_ACTIVATION_REQUIREMENT_COPY.admission_evaluator_unavailable, { exact: true }).first().waitFor({ timeout: 90_000 });
+            expect(await block.getByRole("link", { name: ADMISSION_POLICY_DESTINATION_COPY.academy, exact: true }).first().getAttribute("href")).toBe(`/${slug}/academia/gestionar`);
+            expect(await block.getByRole("group", { name: ADMISSION_POLICY_PLATFORM_COPY.title, exact: true }).count()).toBe(0);
+            await shot("policy-admissions-closed"); await capture("admission-policy-admissions-closed");
+
+            /** Once the leader switches academy admissions on, the saved draft is published from its notice with «Activar ahora». */
+            await setAcademyAdmissions(true);
             await page.goto(settings, { waitUntil: "commit" });
             const reviewDraft = page.getByRole("button", { name: ADMISSION_POLICY_DRAFT_COPY.action, exact: true });
             await reviewDraft.waitFor({ timeout: 90_000 });
