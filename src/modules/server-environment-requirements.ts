@@ -13,8 +13,8 @@ import { CLOUDFLARE_R2_ENV } from "@/src/modules/shared/infrastructure/storage/c
  */
 export const SERVER_ENVIRONMENT_REQUIREMENTS: readonly ServerEnvironmentRequirement[] = [
   { feature: "database", severity: SERVER_ENVIRONMENT_SEVERITY.blocking, variables: [DATABASE_URL_ENV] },
-  { feature: "auth", severity: SERVER_ENVIRONMENT_SEVERITY.blocking, variables: [BETTER_AUTH_ENV.secret, BETTER_AUTH_ENV.url] },
-  { feature: "auth-google", severity: SERVER_ENVIRONMENT_SEVERITY.degraded, variables: [BETTER_AUTH_ENV.googleClientId, BETTER_AUTH_ENV.googleClientSecret] },
+  // Better Auth refuses to initialize without the Google provider, so its credentials block like the secret and URL.
+  { feature: "auth", severity: SERVER_ENVIRONMENT_SEVERITY.blocking, variables: [BETTER_AUTH_ENV.secret, BETTER_AUTH_ENV.url, BETTER_AUTH_ENV.googleClientId, BETTER_AUTH_ENV.googleClientSecret] },
   {
     feature: "messaging-security",
     severity: SERVER_ENVIRONMENT_SEVERITY.blocking,

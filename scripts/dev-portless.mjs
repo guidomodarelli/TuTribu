@@ -158,8 +158,34 @@ export function describePendingMigrations(result, statuses) {
 }
 
 /**
+ * Runs a task and then restores the environment exactly as it was, even when the task fails. The migration check loads
+ * `.env*` into `process.env`; without the restore those values would reach `next dev` as inherited variables and take
+ * precedence over later `.env.local` edits, which Next.js could then no longer reload.
+ *
+ * @template T
+ * @param {() => Promise<T>} task - Work that may change the environment.
+ * @param {Record<string, string | undefined>} [environment] - Environment to protect (`process.env`).
+ * @returns {Promise<T>} The task result.
+ */
+export async function runWithIsolatedEnvironment(task, environment = process.env) {
+  const snapshot = { ...environment };
+
+  try {
+    return await task();
+  } finally {
+    for (const key of Object.keys(environment)) {
+      if (!Object.hasOwn(snapshot, key)) {
+        delete environment[key];
+      }
+    }
+
+    Object.assign(environment, snapshot);
+  }
+}
+
+/**
  * Warns when the configured database lags behind `database/migrations/`, which otherwise shows up later as a 500 from a
- * missing function or constraint. It never blocks the dev server.
+ * missing function or constraint. It never blocks the dev server nor changes the environment it inherits.
  *
  * @returns {Promise<void>}
  */
@@ -167,7 +193,8 @@ async function warnAboutPendingMigrations() {
   const { MIGRATION_JOURNAL_PATH, MIGRATION_STATUS, checkPendingMigrations, parseMigrationJournal } = await import("./release/pending-migrations.mjs");
   const repositoryRoot = process.cwd();
   const journalEntries = parseMigrationJournal(readFileSync(path.join(repositoryRoot, MIGRATION_JOURNAL_PATH), "utf8"));
-  const warning = describePendingMigrations(await checkPendingMigrations({ journalEntries, repositoryRoot }), MIGRATION_STATUS);
+  const result = await runWithIsolatedEnvironment(() => checkPendingMigrations({ journalEntries, repositoryRoot }));
+  const warning = describePendingMigrations(result, MIGRATION_STATUS);
 
   if (warning) {
     console.warn(warning);

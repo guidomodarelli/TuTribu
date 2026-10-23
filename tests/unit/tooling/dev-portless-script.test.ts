@@ -23,6 +23,7 @@ type DevPortlessScript = {
     result: { status: string; pending: string[]; target: string | null; reason: string | null },
     statuses: typeof MIGRATION_STATUS
   ) => string | null;
+  runWithIsolatedEnvironment: <T>(task: () => Promise<T>, environment?: Record<string, string | undefined>) => Promise<T>;
 };
 
 let devPortlessScript: DevPortlessScript;
@@ -148,6 +149,31 @@ describe("dev portless script", () => {
 
     it("should say why the check could not run instead of claiming the database is current", () => {
       expect(devPortlessScript.describePendingMigrations({ status: MIGRATION_STATUS.unknown, pending: [], target: null, reason: "no hay DATABASE_MIGRATION_URL ni DATABASE_URL en los .env" }, MIGRATION_STATUS)).toContain("no hay DATABASE_MIGRATION_URL");
+    });
+  });
+
+  describe("runWithIsolatedEnvironment", () => {
+    it("should hand the dev server the environment it had before the migration check loaded the .env files", async () => {
+      const environment: Record<string, string | undefined> = { PATH: "/usr/bin", DATABASE_URL: "postgres://before" };
+
+      const result = await devPortlessScript.runWithIsolatedEnvironment(async () => {
+        environment.DATABASE_URL = "postgres://from-env-file";
+        environment.BETTER_AUTH_SECRET = "loaded-from-env-file";
+        return "checked";
+      }, environment);
+
+      expect(result).toBe("checked");
+      expect(environment).toEqual({ PATH: "/usr/bin", DATABASE_URL: "postgres://before" });
+    });
+
+    it("should restore the environment even when the check fails", async () => {
+      const environment: Record<string, string | undefined> = { PATH: "/usr/bin" };
+
+      await expect(devPortlessScript.runWithIsolatedEnvironment(async () => {
+        environment.DATABASE_URL = "postgres://from-env-file";
+        throw new Error("journal unreadable");
+      }, environment)).rejects.toThrow("journal unreadable");
+      expect(environment).toEqual({ PATH: "/usr/bin" });
     });
   });
 });

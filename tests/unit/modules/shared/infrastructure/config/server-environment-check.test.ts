@@ -33,6 +33,13 @@ describe("server environment check", () => {
     expect(await inspectServerEnvironment(completeEnvironment, SERVER_ENVIRONMENT_REQUIREMENTS)).toEqual([]);
   });
 
+  it("should block startup without the Google credentials, because Better Auth cannot initialize without its provider", async () => {
+    const { GOOGLE_CLIENT_SECRET: _googleSecret, ...environment } = completeEnvironment;
+    expect(await inspectServerEnvironment(environment, SERVER_ENVIRONMENT_REQUIREMENTS)).toEqual([
+      { feature: "auth", severity: "blocking", missing: ["GOOGLE_CLIENT_SECRET"] },
+    ]);
+  });
+
   it("should name the feature and the missing variables, never their values", async () => {
     const { MESSAGING_KEYRINGS_JSON: _keyrings, CLOUDFLARE_R2_BUCKET_NAME: _bucket, ...environment } = completeEnvironment;
     const problems = await inspectServerEnvironment(environment, SERVER_ENVIRONMENT_REQUIREMENTS);
