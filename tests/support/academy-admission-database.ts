@@ -72,6 +72,8 @@ export type AcademyAdmissionTestDatabase = {
     role?: "runtime" | "non_bypass",
   ) => Promise<Result>;
   applyMigration: (fileName: string) => Promise<void>;
+  /** Runs an idempotent repair artifact again although the journal already registered it, for rows seeded after the branch was migrated. */
+  rerunMigration: (fileName: string) => Promise<void>;
   grantTablesToNonBypass: (tableNames: readonly string[]) => Promise<void>;
   /** Passes only this owned branch's private connection to a bounded local server fixture. */
   withServerEnvironment: <Result>(run: (environment: Readonly<{ DATABASE_URL: string; DATABASE_MAINTENANCE_URL: string }>) => Promise<Result>) => Promise<Result>;
@@ -79,6 +81,18 @@ export type AcademyAdmissionTestDatabase = {
   withRestorableCopy: <Result>(run: (copy: AcademyAdmissionRestoreCopy) => Promise<Result>) => Promise<Result>;
 };
 
+
+/**
+ * Reads a versioned migration artifact by its trusted basename.
+ *
+ * @param fileName - Basename of a SQL artifact under database/migrations.
+ * @returns The exact SQL that ships, so the test covers the committed artifact.
+ * @throws When the name is not a versioned migration basename.
+ */
+function readMigrationArtifact(fileName: string): Promise<string> {
+  if (!/^\d{14}_[a-z0-9_]+\.sql$/.test(fileName)) throw new Error("AcademyAdmissionDatabase.migrate failed: invalid_artifact_name");
+  return readFile(join(process.cwd(), "database", "migrations", fileName), "utf8");
+}
 
 /**
  * Rejects a branch that is not the uniquely named child created by this run.
@@ -279,8 +293,7 @@ export async function withAcademyAdmissionDatabase<Result>(
        * @throws When the name, SQL, or guarded transaction fails.
        */
       async applyMigration(fileName) {
-        if (!/^\d{14}_[a-z0-9_]+\.sql$/.test(fileName)) throw new Error("AcademyAdmissionDatabase.migrate failed: invalid_artifact_name");
-        const artifact = await readFile(join(process.cwd(), "database", "migrations", fileName), "utf8");
+        const artifact = await readMigrationArtifact(fileName);
         await runWithGuardedTransaction(branchPool, async (transaction) => {
           const historyExists = (await transaction.execute<{ ready: boolean }>(sql`select to_regclass('drizzle.__drizzle_migrations') is not null as ready`)).rows[0].ready;
           if (historyExists) {
@@ -290,6 +303,21 @@ export async function withAcademyAdmissionDatabase<Result>(
           }
           await transaction.execute(sql.raw(artifact));
         });
+      },
+      /**
+       * Executes the real versioned artifact again on the owned branch, ignoring the migration history.
+       *
+       * The native fixture migrates the whole journal before a test seeds rows, so a data repair has already run on an
+       * empty schema and {@link AcademyAdmissionTestDatabase.applyMigration} would skip it. Use it only for artifacts that
+       * are idempotent data repairs; the history is not modified.
+       *
+       * @param fileName - Basename of a SQL artifact under database/migrations.
+       * @returns Nothing after committing the artifact's database effects.
+       * @throws When the name, SQL, or guarded transaction fails.
+       */
+      async rerunMigration(fileName) {
+        const artifact = await readMigrationArtifact(fileName);
+        await runWithGuardedTransaction(branchPool, (transaction) => transaction.execute(sql.raw(artifact)));
       },
       /**
        * Grants only explicitly selected tables to the branch's non-bypass role.
