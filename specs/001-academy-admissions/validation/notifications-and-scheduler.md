@@ -452,4 +452,15 @@ El llamador no identificado sigue activo. Desde las 01:30Z llamó a `/api/mainte
 
 - Observar la lista y la campana por el camino periódico con la pestaña del líder visible y con foco durante toda una ráfaga. Es la única parte de T206 y de SC-015 que sigue sin medición directa.
 - Identificar y apagar el llamador externo del mantenimiento.
-- T206, la parte SC-015 de T209 y OG-05 siguen abiertos solo por la observación de la UI.
+- T206, la parte SC-015 de T209 y OG-05 siguen abiertos solo por la observación de la UI. Ver el cierre siguiente.
+
+## Cierre de SC-015 y T206 (2026-10-23)
+
+**Resultado: SC-015 queda acreditado y T206 se cierra.** El usuario aceptó la cota medida de la lista y la campana en lugar de la observación directa del camino periódico, que no se logró en cuatro ráfagas porque la pestaña del líder no tuvo foco continuo (ver la cuarta corrida).
+
+| Objetivo de SC-015 | Evidencia con infraestructura sana | Resultado |
+| --- | --- | --- |
+| Aparición en bandeja y avisos internos p95 < 30 s | Desde la base: p95 ≤ 2,0 s en cinco corridas. Lista y campana en la UI: refresco cada 15 s de todas las páginas cargadas, con lecturas de 0,26–0,44 s por página (cota ≈ 17 s con cuatro páginas); al recuperar el foco, lista en 1,6–2,2 s y campana en 1,2 s. | Cumple por cota aceptada |
+| Correo agrupado aceptado ≤ 5 min desde el cierre de la ventana | Con la certificación incremental (guidomodarelli/TuTribu#160): 122 s en los tres grupos, con 78–90 fuentes en 24 h. | Cumple |
+
+T206 también reúne el driver frecuente autorizado y sano (29 de 29 y 31 de 31 corridas en 200, sin minutos omitidos) y la capacidad del pool de la aplicación (sin checkouts con el pool lleno ni fallos). OG-05 y RG-08 conservan sus propios criterios y no se cierran en este documento. Queda fuera de SC-015 identificar y apagar el llamador externo del mantenimiento, que usa un secreto anterior y recibe `maintenance_unauthorized`.

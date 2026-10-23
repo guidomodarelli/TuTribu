@@ -1609,7 +1609,7 @@ Cerrada el 2026-10-19 con el [ensayo de idempotencia](validation/zavu-idempotenc
 
 <a id="t206"></a>
 
-- [ ] T206 Verificar driver frecuente autorizado/activo en target elegido con catch-up/fallo visible y cola/capacidad saludables; medir disponibilidad→inbox/lista/avisos p95<30 s y ventana cerrada→aceptación de agrupado≤5 min, stock/pool y runs omitidos. OG-05 no pasa por cronfile/workflow simulado; no desplegar/contratar sin autorización. Archivos: `specs/001-academy-admissions/validation/notifications-and-scheduler.md`. Dependencias: `T191`, `T200`, `T197`. Trazabilidad: `SC-015`, `TC-027`, `RG-08`, `OG-05`.
+- [x] T206 Verificar driver frecuente autorizado/activo en target elegido con catch-up/fallo visible y cola/capacidad saludables; medir disponibilidad→inbox/lista/avisos p95<30 s y ventana cerrada→aceptación de agrupado≤5 min, stock/pool y runs omitidos. OG-05 no pasa por cronfile/workflow simulado; no desplegar/contratar sin autorización. Archivos: `specs/001-academy-admissions/validation/notifications-and-scheduler.md`. Dependencias: `T191`, `T200`, `T197`. Trazabilidad: `SC-015`, `TC-027`, `RG-08`, `OG-05`.
 
 Medición del 2026-10-20 en el piloto local, sin acreditar. Solicitud y aviso interno visibles desde otra conexión con p95 de 3,7 s. Campana del líder con p95 de 14,3 s (n=9). La lista de la bandeja llegó a 31,4 s y su cota es de unos 32 s, porque la lectura tarda 17,2 s en p95. Los dos agrupados enviados quedaron `unknown` a los 5 min 52 s y 9 min 58 s del cierre, y el tercero se suprimió. El driver estuvo incompleto (503) en 36 de 42 corridas. Detalle, causas y período afectado en la [medición de SC-015](validation/notifications-and-scheduler.md#medición-de-sc-015-en-el-piloto-local-2026-10-20). T206 sigue pendiente.
 
@@ -1618,6 +1618,8 @@ Capacidad del pool de la aplicación medida el 2026-10-22 en el piloto de Vercel
 Cuarta corrida del 2026-10-22 en el piloto cercano a la base, con driver y pool sanos (31 de 31 corridas en 200): solicitud y aviso interno visibles con p95 de 1,78 s y 1,58 s, pero un correo agrupado tardó 326 s desde el cierre de su ventana. La causa es el barrido de fuentes, que certifica 25 por minuto, corregido en guidomodarelli/TuTribu#160 y todavía sin desplegar en el piloto. La lista y la campana en la UI no pudieron observarse por el camino periódico con la pestaña visible; solo se midió la reconciliación al recuperar el foco (lista en 1,6–2,2 s y campana en 1,2 s). Detalle en la [cuarta corrida](validation/notifications-and-scheduler.md#medición-de-sc-015-en-el-piloto-cercano-a-la-base-2026-10-22-cuarta-corrida). T206 sigue pendiente.
 
 Quinta corrida, del 2026-10-23, con la certificación incremental (guidomodarelli/TuTribu#160) desplegada en el piloto desde `d36525a7`. El driver estuvo sano: 29 de 29 corridas en 200. Los tres correos agrupados de una ráfaga de 18 solicitudes se congelaron a 120 s del cierre y el proveedor los aceptó a los 122 s, con 78, 84 y 90 fuentes en 24 horas. La ráfaga U había tardado 145, 266 y 326 s con 42, 48 y 54 fuentes. La solicitud y el aviso interno quedaron visibles con p95 de 1,58 s y 1,62 s. El pool no tuvo checkouts con el pool lleno ni fallos. Detalle en la [quinta corrida](validation/notifications-and-scheduler.md#medición-de-sc-015-con-la-certificación-incremental-en-el-piloto-2026-10-23-quinta-corrida). T206 sigue abierta solo por la observación de la lista y la campana del líder por el camino periódico de la UI.
+
+Cierre de T206 el 2026-10-23: SC-015 queda acreditado. Driver sano y frecuente, pool sin presión, disponibilidad desde la base con p95 ≤ 2,0 s y correo agrupado aceptado a 122 s del cierre con la certificación incremental. Para la lista y la campana, el usuario aceptó la cota medida (refresco de 15 s de las páginas cargadas, ≈ 17 s, y 1,2–2,2 s al recuperar el foco) en lugar de la observación directa. [Cierre](validation/notifications-and-scheduler.md#cierre-de-sc-015-y-t206-2026-10-23). OG-05 y RG-08 conservan sus criterios.
 
 <a id="t207"></a>
 
@@ -1640,6 +1642,8 @@ Alcance actualizado el 2026-10-19 por decisión del usuario: la auditoría con l
 Parte SC-015: la [medición del 2026-10-20 en el piloto local](validation/notifications-and-scheduler.md#medición-de-sc-015-en-el-piloto-local-2026-10-20) no la acredita, porque el driver no estaba sano y la medición no corrió en un host cercano a la base. SC-013 y SC-021 conservan su estado.
 
 Parte SC-015, cuarta corrida del 2026-10-22: con infraestructura sana no se acredita. La aceptación del correo agrupado llegó a 326 s por la certificación del barrido de fuentes (guidomodarelli/TuTribu#160), y la lista de la UI sigue sin observación directa por el camino periódico. [Detalle](validation/notifications-and-scheduler.md#medición-de-sc-015-en-el-piloto-cercano-a-la-base-2026-10-22-cuarta-corrida).
+
+Parte SC-015 acreditada el 2026-10-23 con la [quinta corrida y el cierre](validation/notifications-and-scheduler.md#cierre-de-sc-015-y-t206-2026-10-23); T209 sigue abierta por SC-013, SC-021 y el resto de su alcance.
 
 
 ### Documentación
