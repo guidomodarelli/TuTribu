@@ -1,7 +1,7 @@
 // @vitest-environment node
 /**
  * Exercises the tribe channel access rule (migration
- * 20261022230000_tribe_channel_access_rule) against an explicitly isolated
+ * 20261022233000_tribe_channel_access_rule) against an explicitly isolated
  * Postgres branch: free academy members read the campfire, its channels and
  * attachments but cannot write; academy members and leaders read and write;
  * events keep the academy boundary.
