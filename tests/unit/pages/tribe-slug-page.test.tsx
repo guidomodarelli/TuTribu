@@ -718,12 +718,12 @@ describe("TribePage", () => {
     expect(listUpcomingTribeEvents).not.toHaveBeenCalled();
     expect(redirect).not.toHaveBeenCalled();
     expect(
-      screen.getByText(/Podés leer el fogón y los canales\. Para publicar, responder y reaccionar, sumate a la academia\./)
+      screen.getByText(/Podés leer el fogón y los canales\. Para publicar, responder y reaccionar, necesitás la suscripción mensual a la academia\./)
     ).toBeInTheDocument();
     expect(
       screen.queryByText("Podes leer la ronda, pero tu estado actual no permite participar.")
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Conocé la academia" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Suscribirme" })).toHaveAttribute(
       "href",
       "/matematica-pro/academia"
     );

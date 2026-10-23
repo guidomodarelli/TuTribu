@@ -224,9 +224,9 @@ const TRIBE_ROUND_COPY = {
   likeButtonAriaLabel: "Me gusta",
   commentButtonAriaLabel: "Comentarios",
   commentAuthorsPreviewLabel: "Comentaron",
-  academyParticipationLink: "Conocé la academia",
+  academyParticipationLink: "Suscribirme",
   academyParticipationNotice:
-    "Podés leer el fogón y los canales. Para publicar, responder y reaccionar, sumate a la academia.",
+    "Podés leer el fogón y los canales. Para publicar, responder y reaccionar, necesitás la suscripción mensual a la academia.",
   mutedNotice: "Podes leer la ronda, pero tu estado actual no permite participar.",
   pinButtonAriaLabel: "Pinear mensaje",
   pinnedBadge: "Pineado",
