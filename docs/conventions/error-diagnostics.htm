@@ -98,7 +98,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <li>actualizaciones fuera de <code>act</code> o durante el render de otro componente;</li>
   <li>props desconocidas o atributos no booleanos en el DOM.</li>
 </ul>
-<p>La corrección va en el componente. Un input controlado sigue controlado toda su vida: el estado sin selección se representa con el valor vacío del componente (<code>""</code>, <code>false</code> o el <code>null</code> que acepte), nunca con <code>undefined</code>. <code>ACCEPTED_REACT_WARNING_PATTERNS</code> solo admite warnings de dependencias que no se pueden corregir acá, con la suite afectada y el motivo.</p>
+<p>La corrección va en el componente. Un input controlado sigue controlado toda su vida: el estado sin selección se representa con el valor vacío del componente (<code>""</code>, <code>false</code> o el <code>null</code> que acepte), nunca con <code>undefined</code>. <code>ACCEPTED_REACT_WARNINGS</code> solo admite warnings de dependencias que no se pueden corregir acá. Cada entrada declara el texto (<code>pattern</code>), el único archivo de test donde se acepta (<code>testFile</code>, ruta relativa al repositorio) y el motivo (<code>reason</code>); en cualquier otro archivo el mismo warning sigue haciendo fallar el test.</p>
 </div>
 
 <div class="section">

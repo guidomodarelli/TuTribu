@@ -375,7 +375,7 @@ WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
   - application use-case tests using domain ports doubles
   - infrastructure adapter or mapper tests for DTO to entity mapping
   - route-level tests to verify entrypoint wiring still renders expected UI output
-- React development warnings fail the test that logs them (`tests/support/react-warning-guard.ts`, installed by `vitest.setup.ts`): controlled/uncontrolled switches, missing or duplicated keys, updates outside `act`, unknown DOM props. Fix the component; never silence the console to get past the guard. Add an entry to `ACCEPTED_REACT_WARNING_PATTERNS` only when the warning comes from a dependency and cannot be fixed here, with the suite it applies to and why.
+- React development warnings fail the test that logs them (`tests/support/react-warning-guard.ts`, installed by `vitest.setup.ts`): controlled/uncontrolled switches, missing or duplicated keys, updates outside `act`, unknown DOM props. Fix the component; never silence the console to get past the guard. Add an entry to `ACCEPTED_REACT_WARNINGS` only when the warning comes from a dependency and cannot be fixed here: each entry names its `pattern`, the one `testFile` where it is accepted and the `reason`, and is ignored in every other file.
 - A controlled input (`value`, `checked`) stays controlled for its whole life: map the "nothing selected" state to the component's empty value (`""`, `false`, or the `null` a shared component accepts), never to `undefined`.
 
 ### Environment and local database readiness
