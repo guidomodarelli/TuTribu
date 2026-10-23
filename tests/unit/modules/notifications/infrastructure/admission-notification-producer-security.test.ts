@@ -7,6 +7,7 @@ import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-
 import { prepareAdmissionNotificationCollectionProgress } from "@/tests/support/admission-notification-collection-progress-fixture";
 import { prepareAdmissionNotificationReminders } from "@/tests/support/admission-notification-reminder-fixture";
 import { ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS } from "@/tests/support/constants/admission-notification-validation";
+import type { AdmissionNotificationCollectionPageResult } from "@/src/modules/notifications/domain/repositories/admission-notification-collection-progress";
 import { ADMISSION_NOTIFICATION_SOURCE_PAGE_SIZE } from "@/src/modules/notifications/constants/admission-notification-source-selection";
 import { PostgresAdmissionNotificationProducer } from "@/src/modules/notifications/infrastructure/repositories/postgres-admission-notification-producer";
 import { buildAdmissionNotificationProducerModule } from "@/src/modules/notifications/setup";
@@ -16,8 +17,11 @@ import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructu
 import { MESSAGING_CRYPTO_ERROR } from "@/src/modules/messaging/constants/messaging-cryptography";
 import type { AdmissionNotificationCollectionExecutor } from "@/src/modules/notifications/infrastructure/repositories/postgres-admission-notification-collection-progress";
 
+/** Upper bound of pages for the retry sweep: the pending retries fit in at most two pages. */
+const MAXIMUM_RETRY_PAGES = 3;
+
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission notification producer availability and purpose", () => {
-  it("should retain an unavailable earlier page until a genuinely new complete available sweep certifies its original cutoff", async () => {
+  it("should hold certification before an unavailable earlier source until a genuinely new available sweep retries it", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAdmissionNotificationCollectionProgress(database);
       /** @returns Original delivery identities and clocks, including the fixture's historical contact verifications. */
@@ -61,12 +65,22 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission n
       expect(second.version).toBe(first.version + 1);
       expect(second).toMatchObject({ sweepComplete: true, sweepHadUnavailable: true });
       expect(second.sourceThroughMicroseconds).toBe(first.sourceThroughMicroseconds);
-      expect((await fixture.repository.readProgress(fixture.tribeId)).lastCertifiedThroughMicroseconds).toBeNull();
-      const third = await fixture.repository.collectPage({ tribeId: fixture.tribeId, operationId: randomUUID(), expectedVersion: second.version });
-      expect(third).toMatchObject({ sweepComplete: false, sweepHadUnavailable: false });
-      const fourth = await fixture.repository.collectPage({ tribeId: fixture.tribeId, operationId: randomUUID(), expectedVersion: third.version });
-      expect(fourth).toMatchObject({ sweepComplete: true, sweepHadUnavailable: false });
-      expect((await fixture.repository.readProgress(fixture.tribeId)).lastCertifiedThroughMicroseconds).toBe(third.sourceThroughMicroseconds);
+      // The unavailable sources wait as retries, so certification stops right before the oldest of them.
+      const pending = await fixture.execute(async (transaction) => (await transaction.execute<{ count: number; oldest: string }>(sql`select count(*)::int as count,(extract(epoch from min(source_created_at))*1000000)::bigint::text as oldest from public.admission_notification_collection_retries where tribe_id=${fixture.tribeId}`)).rows[0]);
+      expect(pending.count).toBeGreaterThan(0);
+      expect((await fixture.repository.readProgress(fixture.tribeId)).lastCertifiedThroughMicroseconds).toBe(Number(pending.oldest) - 1);
+      // A genuinely new available sweep examines only those retries and then certifies its own horizon.
+      const retried: AdmissionNotificationCollectionPageResult[] = [];
+      let version = second.version;
+      do {
+        if (retried.length >= MAXIMUM_RETRY_PAGES) throw new Error("The native retry sweep did not reach its end");
+        const page = await fixture.repository.collectPage({ tribeId: fixture.tribeId, operationId: randomUUID(), expectedVersion: version });
+        retried.push(page);
+        version = page.version;
+      } while (!retried.at(-1)!.sweepComplete);
+      expect(retried.reduce((total, page) => total + page.examined, 0)).toBe(pending.count);
+      expect(retried.at(-1)).toMatchObject({ sweepComplete: true, sweepHadUnavailable: false });
+      expect((await fixture.repository.readProgress(fixture.tribeId)).lastCertifiedThroughMicroseconds).toBe(retried[0].sourceThroughMicroseconds);
       expect(await deliveries()).toEqual(originalDeliveries);
     });
   }, ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS);

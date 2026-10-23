@@ -6,7 +6,7 @@ import { prepareAdmissionNotificationGroup, insertAdmissionNotificationGroup, in
 import { createAdmissionRequestSnapshotFixture } from "./admission-request-snapshot-fixture";
 import { MICROSECONDS_PER_SECOND, MILLISECONDS_PER_SECOND, SECONDS_PER_MINUTE } from "@/src/constants/time";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
-import type { AdmissionNotificationSourceCursor } from "@/src/modules/notifications/domain/repositories/admission-notification-source-reader";
+import type { AdmissionNotificationSourceCursor, AdmissionNotificationSourcePosition } from "@/src/modules/notifications/domain/repositories/admission-notification-source-reader";
 import type { AdmissionNotificationRecipientEmailScope } from "@/src/modules/notifications/domain/entities/admission-notification-recipient-email";
 import { PostgresAdmissionNotificationSourceReader } from "@/src/modules/notifications/infrastructure/repositories/postgres-admission-notification-source-reader";
 
@@ -22,8 +22,8 @@ export async function prepareAdmissionNotificationSourceSelection(database: Acad
 
   /** @param transaction - Original synthetic owner transaction. @param tribeId - Requested native scope. @returns Actual current canonical leadership, without trusting a caller's boolean role. */
   const authorize = async (transaction: RequestDatabase, tribeId: string) => Boolean((await transaction.execute(sql`select id from public.tribe_members where tribe_id=${tribeId} and user_id=public.current_app_user_id() and role='leader' and status='active'`)).rows[0]);
-  /** @param cursor - Original private continuation, or a fresh sweep. @param tribeId - Own or adversarial tenant. @returns The real adapter result after the guarded transaction finishes. */
-  const read = (cursor: AdmissionNotificationSourceCursor | null, tribeId = fixture.tribeId) => database.withContext(fixture.own, (transaction) => new PostgresAdmissionNotificationSourceReader(transaction, authorize).readPage(tribeId, cursor));
+  /** @param cursor - Original private continuation, or a new sweep. @param tribeId - Own or adversarial tenant. @param frontier - Last source examined by earlier sweeps. @returns The real adapter result after the guarded transaction finishes. */
+  const read = (cursor: AdmissionNotificationSourceCursor | null, tribeId = fixture.tribeId, frontier: AdmissionNotificationSourcePosition | null = null) => database.withContext(fixture.own, (transaction) => new PostgresAdmissionNotificationSourceReader(transaction, authorize).readPage(tribeId, cursor, frontier));
 
   /** @param count - Synthetic obligations to create with tied original instants. @param originalMicroseconds - Optional exact historical clock; absence reads the native clock now. @returns Both recipients' actual scopes and original timestamp after atomic creation through production SQL primitives. */
   const createSources = (count: number, originalMicroseconds?: number) => database.withContext(fixture.own, async (transaction) => {

@@ -1,7 +1,7 @@
 /** Maps only selected native checkpoint columns without schema-validating database rows. @module admission-notification-collection-progress-mapper */
 import type { AdmissionNotificationAudience } from "../../domain/entities/admission-notification";
 import type { AdmissionNotificationCollectionPageResult, AdmissionNotificationCollectionProgressSnapshot } from "../../domain/repositories/admission-notification-collection-progress";
-import type { AdmissionNotificationSourceCursor } from "../../domain/repositories/admission-notification-source-reader";
+import type { AdmissionNotificationSourceCursor, AdmissionNotificationSourcePosition } from "../../domain/repositories/admission-notification-source-reader";
 
 /** Retains native microseconds as textual integers until their existing safe-integer boundary. */
 export type AdmissionNotificationCollectionProgressRow = {
@@ -18,9 +18,14 @@ export function collectionProgressPageResult(row: AdmissionNotificationCollectio
   return { tribeId: row.tribe_id, operationId: row.last_operation_id, previousVersion: row.version - 1, version: row.version, examined: row.examined, collected: row.collected, existing: row.existing, suppressed: row.suppressed, unavailable: row.unavailable, bucketClosed: row.bucket_closed, sweepComplete: row.sweep_complete, completedAtMicroseconds: Number(row.last_completed_microseconds!), sourceThroughMicroseconds: row.last_page_through_microseconds === null ? null : Number(row.last_page_through_microseconds), sweepHadUnavailable: row.sweep_had_unavailable, replayed: false };
 }
 
-/** @param row - Native checkpoint whose constraints keep all continuation fields coherent. @returns Original private traversal position, or a fresh next sweep; this is never a send token. */
+/** @param row - Native checkpoint whose constraints keep all frontier fields coherent. @returns The last source examined by any sweep, or null before the first one. */
+export function collectionProgressFrontier(row: AdmissionNotificationCollectionProgressRow): AdmissionNotificationSourcePosition | null {
+  return row.after_created_microseconds === null ? null : { createdAtMicroseconds: Number(row.after_created_microseconds), obligationId: row.after_obligation_id!, recipientUserId: row.after_recipient_user_id!, audience: row.after_audience! };
+}
+
+/** @param row - Native checkpoint whose constraints keep all continuation fields coherent. @returns The open sweep's horizon and frontier, or null when the next page starts a new sweep; this is never a send token. */
 export function collectionProgressCursor(row: AdmissionNotificationCollectionProgressRow): AdmissionNotificationSourceCursor | null {
-  return row.through_microseconds === null ? null : { tribeId: row.tribe_id, throughMicroseconds: Number(row.through_microseconds), after: { createdAtMicroseconds: Number(row.after_created_microseconds!), obligationId: row.after_obligation_id!, recipientUserId: row.after_recipient_user_id!, audience: row.after_audience! } };
+  return row.through_microseconds === null ? null : { tribeId: row.tribe_id, throughMicroseconds: Number(row.through_microseconds), after: collectionProgressFrontier(row) };
 }
 
 /** @param tribeId - Existing current native scope. @param row - Existing checkpoint, without an initializing write. @returns Bounded current recovery metadata; absent continuation does not imply a globally empty queue. */

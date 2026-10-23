@@ -10,3 +10,9 @@ export const ADMISSION_NOTIFICATION_COLLECTION_PROGRESS_STORAGE = {
   clockCheck: "admission_notification_collection_progress_clock_check",
   certificationCheck: "admission_notification_collection_progress_certification_check",
 } as const;
+/** Names the private retries of unavailable sources that hold incremental certification back until examined again. */
+export const ADMISSION_NOTIFICATION_COLLECTION_RETRY_STORAGE = {
+  table: "admission_notification_collection_retries",
+  positionIndex: "admission_notification_collection_retries_position_idx",
+  clockCheck: "admission_notification_collection_retries_clock_check",
+} as const;

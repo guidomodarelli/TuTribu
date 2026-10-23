@@ -1,4 +1,4 @@
-/** Commits one bounded source page and its checkpoint together, without provider RPC or automatic retries. @module postgres-admission-notification-collection-progress */
+/** Commits one bounded incremental source page, its retries and its checkpoint together, without provider RPC or automatic retries. @module postgres-admission-notification-collection-progress */
 import "server-only";
 import { sql } from "drizzle-orm";
 import { MICROSECONDS_PER_SECOND } from "@/src/constants/time";
@@ -8,14 +8,15 @@ import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructu
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_NOTIFICATION_COLLECTED, ADMISSION_NOTIFICATION_COLLECTION_EXISTING, ADMISSION_NOTIFICATION_COLLECTION_UNAVAILABLE, ADMISSION_NOTIFICATION_COLLECTION_BUCKET_CLOSED } from "../../constants/admission-notification-collection";
-import { ADMISSION_NOTIFICATION_GROUP_REASON, ADMISSION_NOTIFICATION_SUPPRESSED_STATUS } from "../../constants/admission-notification-groups";
+import { ADMISSION_NOTIFICATION_GROUP_REASON, ADMISSION_NOTIFICATION_SUPPRESSED_STATUS, ADMISSION_NOTIFICATION_TIMING } from "../../constants/admission-notification-groups";
 import type { AdmissionNotificationCollectionProgress, AdmissionNotificationCollectionPageCommand, AdmissionNotificationCollectionPageResult, AdmissionNotificationCollectionProgressSnapshot } from "../../domain/repositories/admission-notification-collection-progress";
 import { ADMISSION_NOTIFICATION_COLLECTION_CHUNK_SIZE } from "../../constants/admission-notification-source-selection";
 import type { AdmissionNotificationCollectionResult } from "../../domain/repositories/admission-notification-repository";
 import { admissionNotificationTimestamp } from "../database/admission-notification-timestamp";
 import { PostgresAdmissionNotificationRepository } from "./postgres-admission-notification-repository";
 import { PostgresAdmissionNotificationSourceReader } from "./postgres-admission-notification-source-reader";
-import { collectionProgressCursor, collectionProgressPageResult, collectionProgressSnapshot, type AdmissionNotificationCollectionProgressRow } from "./admission-notification-collection-progress-mapper";
+import { collectionProgressCursor, collectionProgressFrontier, collectionProgressPageResult, collectionProgressSnapshot, type AdmissionNotificationCollectionProgressRow } from "./admission-notification-collection-progress-mapper";
+import type { AdmissionNotificationRecipientEmailScope } from "../../domain/entities/admission-notification-recipient-email";
 
 /** Returns only after the original guarded owner confirms commit; a lost confirmation rejects without retry. */
 export type AdmissionNotificationCollectionExecutor = <Result>(run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
@@ -51,6 +52,22 @@ export class PostgresAdmissionNotificationCollectionProgress implements Admissio
       (extract(epoch from last_certified_through_at)*${MICROSECONDS_PER_SECOND})::bigint::text as last_certified_through_microseconds,sweep_had_unavailable,
       examined,collected,existing,suppressed,unavailable,bucket_closed,sweep_complete
       from public.admission_notification_collection_progress where tribe_id=${tribeId}`)).rows[0] ?? null;
+  }
+
+  /**
+   * @param database - Original owner transaction holding the tribe fence. @param tribeId - Exact tenant.
+   * @param throughMicroseconds - Horizon of the current sweep; a retry examined in it waits for the next sweep.
+   * @param resolved - Retried sources that are no longer unavailable. @param pending - Sources that stayed or became unavailable.
+   * @returns After the retries table reflects this page's examined sources.
+   */
+  private async recordRetries(database: RequestDatabase, tribeId: string, throughMicroseconds: number, resolved: readonly AdmissionNotificationRecipientEmailScope[], pending: readonly AdmissionNotificationRecipientEmailScope[]): Promise<void> {
+    if (resolved.length) await database.execute(sql`delete from public.admission_notification_collection_retries retry using public.notifications notice, jsonb_to_recordset(${JSON.stringify(resolved)}::jsonb) as source("obligationId" uuid,"recipientUserId" text)
+      where retry.tribe_id=${tribeId} and notice.id=retry.notification_id and notice.tribe_id=${tribeId} and notice.admission_obligation_id=source."obligationId" and notice.recipient_user_id=source."recipientUserId"`);
+    if (pending.length) await database.execute(sql`insert into public.admission_notification_collection_retries(notification_id,tribe_id,source_created_at,retried_through_at)
+      select notice.id,${tribeId},obligation.created_at,${admissionNotificationTimestamp(throughMicroseconds)} from jsonb_to_recordset(${JSON.stringify(pending)}::jsonb) as source("obligationId" uuid,"recipientUserId" text)
+      join public.notifications notice on notice.tribe_id=${tribeId} and notice.admission_obligation_id=source."obligationId" and notice.recipient_user_id=source."recipientUserId"
+      join public.academy_admission_notification_obligations obligation on obligation.id=notice.admission_obligation_id and obligation.tribe_id=notice.tribe_id
+      on conflict (notification_id) do update set retried_through_at=excluded.retried_through_at`);
   }
 
   /** @param tribeId - Current server-authorized tenant. @returns Existing latest metadata without initializing storage or granting a future send. @throws AdmissionOperationError with private cause on an unavailable metadata read. */
@@ -91,7 +108,10 @@ export class PostgresAdmissionNotificationCollectionProgress implements Admissio
         if (original.version !== command.expectedVersion) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
         const reader = new PostgresAdmissionNotificationSourceReader(database, this.authorize);
         const collector = new PostgresAdmissionNotificationRepository(database, this.authorize, this.readSecurityConfig);
-        const page = await reader.readPage(command.tribeId, collectionProgressCursor(original));
+        // Retries older than the 24-hour retry limit can no longer collect, so they stop holding certification back.
+        await database.execute(sql`delete from public.admission_notification_collection_retries where tribe_id=${command.tribeId} and source_created_at<=clock_timestamp()-${ADMISSION_NOTIFICATION_TIMING.retryLimitMicroseconds}::bigint*interval '1 microsecond'`);
+        const frontierBefore = collectionProgressFrontier(original);
+        const page = await reader.readPage(command.tribeId, collectionProgressCursor(original), frontierBefore);
         // Chunks keep one page inside its phase: after the soft deadline no further chunk starts, and the checkpoint resumes
         // right after the last collected source instead of discarding the whole page at the hard deadline.
         const collected: AdmissionNotificationCollectionResult[] = [];
@@ -99,12 +119,13 @@ export class PostgresAdmissionNotificationCollectionProgress implements Admissio
           if (start > 0 && command.softDeadlineAtMilliseconds !== undefined && this.now() >= command.softDeadlineAtMilliseconds) break;
           collected.push(...await collector.collectMany(command.tribeId, page.sources.slice(start, start + ADMISSION_NOTIFICATION_COLLECTION_CHUNK_SIZE)));
         }
-        const cutPosition = collected.length < page.sources.length ? page.positions[collected.length - 1] : null;
-        const cursor = cutPosition ? { tribeId: command.tribeId, throughMicroseconds: page.throughMicroseconds, after: cutPosition } : page.continuation;
         const counts = { examined: collected.length, collected: 0, existing: 0, suppressed: 0, unavailable: 0, bucketClosed: 0 };
         let pageHadUnavailable = false;
-        for (const result of collected) {
-          if (result.status === ADMISSION_NOTIFICATION_COLLECTION_UNAVAILABLE || result.status === ADMISSION_NOTIFICATION_SUPPRESSED_STATUS && (result.reason === ADMISSION_NOTIFICATION_GROUP_REASON.capabilityUnavailable || result.reason === ADMISSION_NOTIFICATION_GROUP_REASON.windowUnavailable)) pageHadUnavailable = true;
+        const resolvedRetries: AdmissionNotificationRecipientEmailScope[] = [], pendingRetries: AdmissionNotificationRecipientEmailScope[] = [];
+        collected.forEach((result, index) => {
+          const unavailable = result.status === ADMISSION_NOTIFICATION_COLLECTION_UNAVAILABLE || result.status === ADMISSION_NOTIFICATION_SUPPRESSED_STATUS && (result.reason === ADMISSION_NOTIFICATION_GROUP_REASON.capabilityUnavailable || result.reason === ADMISSION_NOTIFICATION_GROUP_REASON.windowUnavailable);
+          if (unavailable) { pageHadUnavailable = true; pendingRetries.push(page.sources[index]); }
+          else if (index < page.retryCount) resolvedRetries.push(page.sources[index]);
           switch (result.status) {
             case ADMISSION_NOTIFICATION_COLLECTED: counts.collected++; break;
             case ADMISSION_NOTIFICATION_COLLECTION_EXISTING: counts.existing++; break;
@@ -112,14 +133,19 @@ export class PostgresAdmissionNotificationCollectionProgress implements Admissio
             case ADMISSION_NOTIFICATION_COLLECTION_UNAVAILABLE: counts.unavailable++; break;
             case ADMISSION_NOTIFICATION_COLLECTION_BUCKET_CLOSED: counts.bucketClosed++; break;
           }
-        }
+        });
+        // Only examined new sources move the frontier; a page cut at the soft deadline resumes right after the last one.
+        const frontier = collected.length > page.retryCount ? page.positions[collected.length - 1] : frontierBefore;
+        const cursor = collected.length < page.sources.length || page.continuation ? { throughMicroseconds: page.throughMicroseconds } : null;
+        // Retries are written before the checkpoint because its trigger certifies only up to the oldest pending one.
+        await this.recordRetries(database, command.tribeId, page.throughMicroseconds, resolvedRetries, pendingRetries);
         await this.assertCurrent(database, command.tribeId, originalConfig);
         await database.execute(sql`update public.admission_notification_collection_progress set version=version+1,
           last_page_through_at=${admissionNotificationTimestamp(page.throughMicroseconds)},
           page_had_unavailable=${pageHadUnavailable},
           through_at=${cursor ? admissionNotificationTimestamp(cursor.throughMicroseconds) : null},
-          after_created_at=${cursor ? admissionNotificationTimestamp(cursor.after.createdAtMicroseconds) : null},
-          after_obligation_id=${cursor?.after.obligationId ?? null},after_recipient_user_id=${cursor?.after.recipientUserId ?? null},after_audience=${cursor?.after.audience ?? null},
+          after_created_at=${frontier ? admissionNotificationTimestamp(frontier.createdAtMicroseconds) : null},
+          after_obligation_id=${frontier?.obligationId ?? null},after_recipient_user_id=${frontier?.recipientUserId ?? null},after_audience=${frontier?.audience ?? null},
           last_operation_id=${command.operationId},examined=${counts.examined},collected=${counts.collected},existing=${counts.existing},suppressed=${counts.suppressed},unavailable=${counts.unavailable},bucket_closed=${counts.bucketClosed},sweep_complete=${cursor === null}
           where tribe_id=${command.tribeId} and version=${command.expectedVersion}`);
         const saved = (await this.readRow(database, command.tribeId))!;

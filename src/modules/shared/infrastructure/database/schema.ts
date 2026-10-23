@@ -9,7 +9,7 @@ import { createSubscriptionMembershipEffectsSchema } from "@/src/modules/subscri
 import { ADMISSION_NOTIFICATION_AUDIENCE, ADMISSION_NOTIFICATION_TYPES } from "@/src/modules/notifications/constants/admission-notifications";
 import { ADMISSION_NOTIFICATION_PREFERENCE_MODE } from "@/src/modules/notifications/constants/admission-notification-preference";
 import { createAdmissionNotificationGroupSchema } from "@/src/modules/notifications/infrastructure/database/admission-notification-group-schema";
-import { createAdmissionNotificationCollectionProgressSchema } from "@/src/modules/notifications/infrastructure/database/admission-notification-collection-progress-schema";
+import { createAdmissionNotificationCollectionProgressSchema, createAdmissionNotificationCollectionRetrySchema } from "@/src/modules/notifications/infrastructure/database/admission-notification-collection-progress-schema";
 import { createAdmissionNotificationProducerProgressSchema } from "@/src/modules/notifications/infrastructure/database/admission-notification-producer-progress-schema";
 import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
 import {
@@ -1819,6 +1819,9 @@ export const { groups: admissionNotificationGroups, members: admissionNotificati
 
 /** Composes the private bounded source checkpoint after its live-tribe parent exists. */
 export const admissionNotificationCollectionProgress = createAdmissionNotificationCollectionProgressSchema(tribes.id);
+
+/** Composes pending retries of unavailable sources after their notice and live-tribe parents exist. */
+export const admissionNotificationCollectionRetries = createAdmissionNotificationCollectionRetrySchema(tribes.id, notifications.id);
 
 /** Keeps one fair, key-independent private producer turn per live tribe. */
 export const admissionNotificationProducerProgress = createAdmissionNotificationProducerProgressSchema(tribes.id);
