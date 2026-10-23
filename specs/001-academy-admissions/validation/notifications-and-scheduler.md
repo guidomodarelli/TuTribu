@@ -335,4 +335,121 @@ En toda la observación (22:50Z–23:27Z) los tres pools sumaron 2.012 checkouts
 - Algo externo llamó a `/api/maintenance/admission-messaging` una vez por minuto, cerca del segundo :50, con un secreto que no es el vigente: 38 rechazos `maintenance_unauthorized` durante la observación, 18 de ellos en la ráfaga. No es el driver ni un proceso de la máquina del operador. El rechazo no afectó al driver, pero ese llamador debería identificarse y apagarse.
 - Las ventanas se emiten desde un temporizador de la instancia. Si Vercel suspende la instancia, la ventana puede abarcar el tiempo suspendido y aparecer en el log de la solicitud siguiente (mediana de 15 s, máximo de 593 s). Por eso la atribución por ruta del log no es la ruta que usó el pool.
 
-Con esto queda medida la capacidad del pool de la aplicación que T206 exige, con margen amplio. T206 sigue abierta solo por la observación directa de la lista y la campana del líder en la UI.
+Con esto queda medida la capacidad del pool de la aplicación que T206 exige, con margen amplio. T206 sigue abierta por la observación directa de la lista y la campana del líder en la UI, y por la demora del correo agrupado que registró la cuarta corrida de SC-015.
+
+## Medición de SC-015 en el piloto cercano a la base (2026-10-22, cuarta corrida)
+
+**Resultado: SC-015 no queda acreditado.** Con el driver y el pool sanos, la disponibilidad desde la base vuelve a cumplir con margen. En cambio, un correo agrupado superó los 5 minutos, y la causa es estructural: el barrido que certifica las ventanas crece con las fuentes de avisos de la tribu. La lista de la bandeja en la UI tampoco pudo observarse con la pestaña visible durante una ráfaga. Solo quedó medida la reconciliación al recuperar el foco.
+
+### Condiciones
+
+- **Entorno y driver.** Producción de `tutribu-pilot` en `https://pilot.tutribu.app`, despliegue `dpl_Ae5bbnmWMfVwtdKjjedJgBjVZBfk` (commit `0f0d5ccb`, con la instrumentación del pool de T206). Una sola sesión rotó `CRON_SECRET`, redesplegó y manejó el único driver, una llamada por minuto desde las 22:50:24Z. Entre las 23:00 y las 23:30Z hubo 31 corridas, todas completas (200), sin 202, 503 ni minutos omitidos. La mayoría tardó entre 0,56 y 1,1 s; las cuatro más lentas (1,99–3,41 s) coinciden con los congelamientos y envíos. El pool de la aplicación no tuvo checkouts con el pool lleno ni fallos.
+- **Ráfaga U.** 18 cuentas `.test` nuevas (U01–U18), con el mismo método que las corridas anteriores, en las ventanas UTC de las 23:05, 23:10 y 23:15. Las 18 respondieron 201: 0,77 s en p50 y 1,15 s en p95 entre el clic y la respuesta (fuera de SC-015).
+- **Ráfagas cortas V, W y X.** Seis cuentas `.test` en cada una, a las 23:50Z, 00:00Z y 01:12Z, solo para intentar la observación de la UI. Las 18 respondieron 201, con p95 de 0,83 s, 0,90 s y 1,58 s. No se rotó el secreto ni se redesplegó para ellas.
+- **Observación.** El mismo observador de solo lectura, cada segundo, sobre la rama Neon del piloto, más un registrador en la pestaña del líder en Chrome. El registrador usa `MutationObserver`, `PerformanceObserver`, `visibilitychange`/`focus`/`blur` y una muestra por segundo de `document.visibilityState` y `document.hasFocus()`.
+
+### Disponibilidad desde la base
+
+| Medición | n | p50 | p95 | Máx. |
+| --- | --- | --- | --- | --- |
+| Solicitud visible desde otra conexión, desde `submitted_at` (U) | 18 | 0,42 s | 1,78 s | 1,78 s |
+| Aviso interno del líder visible, desde su creación (U) | 18 | 0,38 s | 1,58 s | 1,58 s |
+| Solicitud visible, ráfagas V/W/X | 18 | 1,15–1,35 s | 1,68–2,01 s | 2,01 s |
+| Aviso interno del líder visible, ráfagas V/W/X | 18 | 0,93–1,18 s | 1,51–1,71 s | 1,71 s |
+
+### Correos agrupados
+
+| Grupo | Ventana UTC | Creado | Congelado | Aceptado por el proveedor | Cierre → aceptado |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 23:05–23:10 | 23:07:25 | 23:12:25 | 23:12:28 | 148 s |
+| 2 | 23:10–23:15 | 23:11:25 | 23:19:25 | 23:19:26 | 266 s |
+| 3 | 23:15–23:20 | 23:17:25 | 23:25:25 | 23:25:26 | **326 s** |
+| 4 | 23:20–23:25 | 23:21:25 | 23:28:25 | 23:29:27 | 267 s |
+| V | 23:50–23:55 | — | — | 23:58:27 | 207 s |
+
+El grupo 4 recibió los avisos de U17 y U18, creados a las 23:16:30 y 23:16:50: esos dos correos salieron unos 13 minutos después de su aviso. Los grupos de W y X quedaron abiertos al terminar la observación, porque el driver se detuvo a las 24:00Z; se enviarán en la próxima corrida de mantenimiento.
+
+**Causa.** `readReadyGroups` congela un grupo solo cuando su ventana cerró antes de `last_certified_through_at`. Ese corte avanza únicamente al terminar un barrido completo de las fuentes (obligación × aviso) de las últimas 24 horas, y toma la hora en que ese barrido arrancó. Cada corrida avanza una página de `ADMISSION_NOTIFICATION_SOURCE_PAGE_SIZE` = 25 fuentes por tribu, y `readReadyGroups` corre antes de `collectPage`. Con S páginas, la demora va de S + 1 a 2S corridas, y una fuente nueva espera además al barrido siguiente para entrar en un grupo. En las cuatro corridas, 1 página dio 71 s, 2 páginas dieron entre 131 y 266 s, y 3 páginas dieron 206 y 326 s. A las 23:36:18Z, con 108 obligaciones en la ventana de reintento, el corte certificado iba casi 5 minutos atrás del reloj. Con más de unas 50 fuentes en 24 horas por tribu, el peor caso supera los 5 minutos aunque el driver esté sano. La corrección quedó integrada en `feature/academy-admissions-spec` con guidomodarelli/TuTribu#160, que certifica el barrido de forma incremental. El despliegue medido no la incluía.
+
+### Lista y campana en la UI
+
+El refresco de 15 s de la bandeja relee exactamente las páginas que el líder ya cargó (`loadedPageCount`). Se comprobó antes de la ráfaga con «Ver más solicitudes» y 3 páginas (54 pendientes): cada 15 s hubo una lectura sin cursor y dos con cursor de `/api/tribes/test/admissions/requests`, de 259 a 331 ms cada una, más `/api/notifications/unread-count`. Por eso se eligió cargar las páginas siguientes en lugar de vaciar la pendiente. El refresco exige además foco (`requireFocus`): con la ventana visible pero sin foco, también se pausa.
+
+Ninguna de las cuatro ráfagas tuvo la pestaña visible y con foco mientras llegaban las solicitudes:
+
+- **U.** A las 23:17Z, la extensión de Chrome se reconectó como otro navegador y la pestaña quedó fuera del grupo controlado. Más tarde la página se recargó y el registrador, que entonces vivía solo en memoria, se perdió. Desde ahí el registrador guarda su estado en `localStorage` cada segundo.
+- **V, W y X.** La pestaña de medición quedó oculta de 23:47:30 a 23:51:54, de 23:53:00 a 00:02:30 y de 01:06:28 a 01:17:40. Solo se volvía visible cuando el operador o la extensión la activaban. La persona que mantenía el foco también seguía las instrucciones en otra aplicación.
+
+Lo que sí quedó observado es la reconciliación al recuperar la visibilidad, que forma parte del mismo contrato de refresco:
+
+| Ráfaga | Pestaña visible y con foco | Solicitudes nuevas en la lista | Campana actualizada |
+| --- | --- | --- | --- |
+| V (V01–V03) | 23:51:54,9 | 23:51:56,5 (1,6 s) | — (ya mostraba «9+») |
+| W (W01–W06) | 00:02:30,9 | 00:02:32,9 (2,0 s) | — (ya mostraba «9+») |
+| X (X01–X06) | 01:17:40,0 | 01:17:42,2 (2,2 s) | 01:17:41,2, «6 sin leer» (1,2 s) |
+
+Antes de X, la campana estaba leída: «Notificaciones», sin contador, desde las 01:06:11Z. Al recuperar el foco mostró los 6 avisos nuevos en 1,2 s. Con la pestaña visible, la cota del camino periódico sigue siendo 15 s más una lectura por página cargada (cuatro lecturas de 0,26–0,44 s en serie, unos 17 s en total), contra los 30 s del objetivo. Esta corrida no agrega una observación directa de ese camino.
+
+### Pendiente
+
+- Desplegar en el piloto la certificación incremental del barrido (guidomodarelli/TuTribu#160) y volver a medir el cierre de ventana → aceptación con más de 50 fuentes en 24 horas.
+- Observar la lista y la campana por el camino periódico con la pestaña visible y con foco durante toda la ráfaga, en un equipo cuya ventana de Chrome no comparta el foco con la persona que coordina la medición.
+- T206, la parte SC-015 de T209 y OG-05 siguen abiertos.
+
+## Medición de SC-015 con la certificación incremental en el piloto (2026-10-23, quinta corrida)
+
+**Resultado: con la certificación incremental, la demora de los correos agrupados ya no crece con las fuentes.** Los tres grupos de la ráfaga se congelaron 120 s después del cierre de su ventana y el proveedor los aceptó a los 122 s. Había 78, 84 y 90 fuentes en las 24 horas previas. En la ráfaga U, con 42, 48 y 54 fuentes, la demora había sido de 145, 266 y 326 s. La disponibilidad desde la base y el pool siguen con margen amplio. Esta corrida no observó la lista ni la campana en la UI.
+
+### Condiciones
+
+- **Despliegue.** El checkout del piloto pasó a la punta de `origin/feature/academy-admissions-spec` (`d36525a7`). Esa punta incluye la certificación incremental (guidomodarelli/TuTribu#160) y las métricas del pool (guidomodarelli/TuTribu#158). Se conservaron solo los cambios locales de `vercel.json` (`regions: ["iad1"]` y `framework: nextjs`). Con autorización del usuario se rotó `CRON_SECRET` y se redesplegó producción de `tutribu-pilot`: despliegue `dpl_7hmbnjMHj3iDY2cxaomanhFeCJE5`, a las 01:33:59Z.
+- **Migraciones de la rama del piloto.** Antes de desplegar se aplicaron a `br-plain-recipe-ancx40v3` (y a ninguna otra rama) las tres migraciones pendientes: `20261022120000_read_own_admission_allowlist_facts`, `20261022210000_incremental_admission_notification_source_sweeps` y la vinculación de políticas a la mensajería seleccionada, hoy `20261022220000_bind_admission_policies_to_selected_messaging` en el journal ([#163](https://github.com/guidomodarelli/TuTribu/pull/163)). Esa última vinculó la única política sin conexión que había en el piloto.
+- **Barrido de reinicio.** La migración incremental borra el progreso de recolección, así que el primer barrido después del despliegue recorrió completas las 24 horas, con 72 fuentes en tres páginas. Terminó a las 01:36:00Z, sin fuentes no disponibles ni reintentos. En ese barrido entraron 12 avisos de las ráfagas W y X de la cuarta corrida (00:00–01:13Z), que nunca se habían recolectado porque el driver estaba detenido. Fueron a un solo grupo de la ventana 01:35–01:40, que se congeló y se aceptó a los 120 y 122 s de su cierre. Desde ahí cada corrida examina solo las fuentes nuevas.
+- **Driver.** Llamó una vez por minuto a `/api/maintenance/admission-messaging`, con el secreto solo en memoria. Entre las 01:34:02Z y las 02:02:01Z hizo 29 corridas, las 29 completas (200), con 0,82 s en p50, 3,05 s en p95 y 3,25 s como máximo. El intervalo máximo fue de 62,2 s, sin minutos omitidos. Se detuvo después de la aceptación del tercer grupo.
+- **Ráfaga.** 18 cuentas `.test` nuevas con el mismo método de las corridas anteriores, en las ventanas UTC de las 01:45, 01:50 y 01:55. Sus etiquetas internas repitieron el prefijo V, pero son cuentas distintas de la ráfaga corta V de la cuarta corrida. Las 18 respondieron 201, con 0,80 s en p50 y 1,28 s en p95 entre el clic y la respuesta (fuera de SC-015).
+- **Observación.** El mismo observador de solo lectura sobre la rama Neon del piloto, cada segundo. Los logs se leyeron con `vercel logs --json` cada 90 s, con 4 min de solapamiento, y se guardaron solo las ventanas del pool y los rechazos del mantenimiento, sin duplicados.
+
+### Correos agrupados
+
+| Grupo | Ventana UTC | Fuentes en 24 h al cierre | Cierre → congelado | Cierre → aceptado por el proveedor | Resultado |
+| --- | --- | ---: | ---: | ---: | --- |
+| 1 | 01:45–01:50 | 78 | 119,9 s | 121,9 s | `accepted` |
+| 2 | 01:50–01:55 | 84 | 120,2 s | 122,4 s | `accepted` |
+| 3 | 01:55–02:00 | 90 | 120,0 s | 121,6 s | `accepted` |
+
+Comparación con la ráfaga U de la cuarta corrida, con el barrido completo:
+
+| Ráfaga | Fuentes en 24 h | Cierre → congelado |
+| --- | --- | --- |
+| U (barrido completo, 25 fuentes por corrida) | 42 / 48 / 54 | 145 / 266 / 326 s |
+| Quinta corrida (barrido incremental) | 78 / 84 / 90 | 120 / 120 / 120 s |
+
+Cada grupo tuvo sus seis solicitudes, y cada aviso entró en su grupo en la corrida siguiente a su creación, a menos de un minuto. Con un 75 % más de fuentes que el peor caso de U, la demora fue la misma en los tres grupos. El congelamiento cae dos corridas después del cierre: el driver llamaba cerca del segundo :00 y una corrida coincidía con el cierre. La aceptación quedó a 2 s del congelamiento. La cota ya no depende del volumen de la tribu, sino del intervalo del driver: unas dos corridas más el envío, con margen frente a los 5 minutos.
+
+### Disponibilidad, driver y pool
+
+| Medición | n | p50 | p95 | Máx. |
+| --- | --- | --- | --- | --- |
+| Solicitud visible desde otra conexión, desde `submitted_at` | 18 | 0,66 s | 1,58 s | 1,58 s |
+| Aviso interno del líder visible, desde su creación | 18 | 0,69 s | 1,62 s | 1,62 s |
+
+Ventanas del pool de la aplicación durante la ráfaga (01:44:30Z–02:03Z), todas del despliegue nuevo:
+
+| Pool | Instancias | Checkouts | Con pool lleno | Fallos | Adquisiciones / liberaciones | Liberaciones con error | Checkout medio | Checkout máx. | Pico en uso por instancia |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `runtime` | 4 | 98 | 0 | 0 | 98 / 98 | 0 | 6,5 ms | 53 ms | 1 de 100 |
+| Better Auth | 4 | 142 | 0 | 0 | 142 / 142 | 0 | 7,2 ms | 139 ms | 1 de 100 |
+| Mantenimiento | 4 | 443 | 0 | 0 | 443 / 444 | 0 | 2,8 ms | 139,5 ms | 2 de 100 |
+
+- **Espera.** Ningún checkout esperó a que se liberara una conexión: la espera máxima con el pool lleno fue de 0 ms. El pool de mantenimiento llegó a tener un pedido en la cola interna de `pg-pool` mientras se entregaba una conexión libre. La liberación de más corresponde a un checkout adquirido en la ventana anterior al recorte. Los máximos de 139 ms corresponden a checkouts que abrieron una conexión nueva.
+- **Conexiones de la base.** En 473 muestras de `pg_stat_activity` hubo como máximo 5 conexiones de cliente abiertas, incluida la del observador, y nunca más de una `idle in transaction`.
+
+### Llamador externo del mantenimiento
+
+El llamador no identificado sigue activo. Desde las 01:30Z llamó a `/api/maintenance/admission-messaging` una vez por minuto, con un secreto que no es el vigente. Lo hizo tanto antes del redespliegue como después. Hubo 29 rechazos `maintenance_unauthorized` entre las 01:35:51Z y las 02:00:01Z, 17 de ellos durante la ráfaga. Su segundo de llegada se desplazó de :48 a :01 en esos 25 minutos, como un ciclo de 60 s más la duración de cada llamada. En la máquina del operador, el único proceso que llamaba a la ruta era el driver de esta corrida. El rechazo no afectó al driver, pero el llamador todavía tiene que identificarse y apagarse.
+
+### Pendiente
+
+- Observar la lista y la campana por el camino periódico con la pestaña del líder visible y con foco durante toda una ráfaga. Es la única parte de T206 y de SC-015 que sigue sin medición directa.
+- Identificar y apagar el llamador externo del mantenimiento.
+- T206, la parte SC-015 de T209 y OG-05 siguen abiertos solo por la observación de la UI.
