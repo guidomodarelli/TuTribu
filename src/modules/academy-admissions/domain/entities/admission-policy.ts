@@ -61,7 +61,7 @@ export type AdmissionPolicyConfigurationResult =
  * Creates the explicitly closed first configuration without activating anything.
  *
  * @param identity - IDs assigned by the server for this policy and tribe.
- * @returns Manual email/OFF settings with independent version and epoch counters.
+ * @returns Manual email/OFF settings that require the applicant phone, with independent version and epoch counters.
  */
 export function createDefaultAdmissionPolicy(identity: { id: string; tribeId: string }): AdmissionPolicy {
   return {
@@ -71,7 +71,7 @@ export function createDefaultAdmissionPolicy(identity: { id: string; tribeId: st
     isOpen: false,
     allowCommonExceptions: false,
     requiresAdditionalVerification: false,
-    requiresWhatsappNumber: false,
+    requiresWhatsappNumber: true,
     phoneChannel: null,
     allowSmsAlternative: false,
     messagingConnectionId: null,

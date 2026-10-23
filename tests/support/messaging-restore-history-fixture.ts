@@ -9,7 +9,7 @@ export function seedMessagingRestoreManualPolicy(database: MessagingRestoreSql, 
   return database.withContext({ userId: null, email: null }, async (transaction) => {
     const now = (await transaction.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now;
     await transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`);
-    await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,is_open,requires_additional_verification,activated_at) values (${tribeId},true,false,${now})`);
+    await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,requires_whatsapp_number,is_open,requires_additional_verification,activated_at) values (${tribeId},false,true,false,${now})`);
     await transaction.execute(sql`update public.tribes set admissions_control_activated_at=${now} where id=${tribeId}`);
   });
 }

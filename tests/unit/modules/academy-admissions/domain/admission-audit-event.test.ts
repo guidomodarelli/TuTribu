@@ -74,7 +74,7 @@ describe("owned admission audit events", () => {
     const tribeId = randomUUID(), policy = { ...createDefaultAdmissionPolicy({ id: tribeId, tribeId }), activatedAt: new Date("2026-10-14T22:00:00Z"), apiKey: "synthetic-policy-secret", contact: "hidden@example.test" };
     const scope = { tribeId, actorUserId: randomUUID(), operationId: randomUUID(), operation: "activate_admission_policy" as const, resourceId: tribeId, resourceVersion: 1, rule: null, createdAt: new Date("2026-10-14T22:00:00Z"), previousPolicy: null, policy };
     const event = createAdmissionPolicyAuditEvent(scope);
-    expect(event.metadata).toEqual({ previousVersion: null, fromPolicy: null, toPolicy: { mode: "manual_review", contactType: "email", isOpen: false, allowCommonExceptions: false, requiresAdditionalVerification: false, requiresWhatsappNumber: false, phoneChannel: null, allowSmsAlternative: false, messagingConnectionId: null, messagingConnectionVersion: null, verificationEpoch: 1, activatedAt: "2026-10-14T22:00:00.000Z" } });
+    expect(event.metadata).toEqual({ previousVersion: null, fromPolicy: null, toPolicy: { mode: "manual_review", contactType: "email", isOpen: false, allowCommonExceptions: false, requiresAdditionalVerification: false, requiresWhatsappNumber: true, phoneChannel: null, allowSmsAlternative: false, messagingConnectionId: null, messagingConnectionVersion: null, verificationEpoch: 1, activatedAt: "2026-10-14T22:00:00.000Z" } });
     policy.activatedAt.setUTCDate(15); policy.isOpen = true;
     expect(event.metadata).toMatchObject({ fromPolicy: null, toPolicy: { isOpen: false, activatedAt: "2026-10-14T22:00:00.000Z" } });
     expect(JSON.stringify(event)).not.toContain(policy.apiKey); expect(JSON.stringify(event)).not.toContain(policy.contact);

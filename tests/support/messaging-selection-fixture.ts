@@ -15,7 +15,7 @@ export async function seedPreviousMessagingSelection(database:AcademyAdmissionTe
   await database.withContext(own,async(transaction)=>{
     await transaction.execute(sql`update public.tenant_messaging_connections set is_candidate=false,candidate_version=null,is_selected=true,selected_version=1,state='active' where id=${connectionId}`);
     await transaction.execute(sql`update public.tenant_messaging_connections set is_candidate=true where id=${candidateId}`);
-    await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,version,verification_epoch,requires_additional_verification,is_open,messaging_connection_id,messaging_connection_version) values (${tribeId},7,5,false,false,${connectionId},1)`);
+    await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,requires_whatsapp_number,version,verification_epoch,requires_additional_verification,is_open,messaging_connection_id,messaging_connection_version) values (${tribeId},false,7,5,false,false,${connectionId},1)`);
     const now=new Date((await transaction.execute<{now:string}>(sql`select clock_timestamp() as now`)).rows[0].now),expiresAt=new Date(now.getTime()+600_000),applyBefore=new Date(now.getTime()+900_000);
     for(const evidence of[used,unused,...additionalUnused]){
       const contact=`${evidence.userId}@example.test`;

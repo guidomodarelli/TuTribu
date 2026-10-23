@@ -32,7 +32,7 @@ test("should keep manual pending outside membership and open only basic academy 
       await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${tribeId},'Academia de ejemplo',${slug},${fixture.userId})`);
       await transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`);
       await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${fixture.userId},'leader','active')`);
-      await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,is_open,activated_at) values (${tribeId},true,${now})`);
+      await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,requires_whatsapp_number,is_open,activated_at) values (${tribeId},false,true,${now})`);
       await transaction.execute(sql`update public.tribes set admissions_control_activated_at=${now} where id=${tribeId}`);
       await transaction.execute(sql`insert into public.tribe_channels(id,tribe_id,name,slug,emoji,sort_order) values (${channelId},${tribeId},'Canal privado de ejemplo','ejemplo','🔥',0)`);
       await transaction.execute(sql`insert into public.messages(id,tribe_id,channel_id,author_id,content) values (${messageId},${tribeId},${channelId},${fixture.userId},${privateMessage})`);

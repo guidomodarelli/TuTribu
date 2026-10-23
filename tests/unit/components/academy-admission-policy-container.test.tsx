@@ -100,6 +100,27 @@ describe("guided policy route workflow", () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
+  it("should check the applicant phone requirement by default on a new configuration and save it", async () => {
+    const data = fixture("not_configured");
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Continuar" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(screen.getByRole("checkbox", { name: "Exigir el teléfono del solicitante" })).toBeChecked();
+    await goToReview();
+    await confirm();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar y activar admisiones" }));
+    await waitFor(() => expect(data.client.updatePolicy).toHaveBeenCalledOnce());
+    expect(data.client.updatePolicy.mock.calls[0][1]).toMatchObject({ requiresWhatsappNumber: true });
+  });
+
+  it("should keep the applicant phone optional when a saved configuration chose it", async () => {
+    const data = fixture("draft");
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Continuar" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(screen.getByRole("checkbox", { name: "Exigir el teléfono del solicitante" })).not.toBeChecked();
+  });
+
   it("should stop before activating when requirements are missing, explain them and keep every choice", async () => {
     const data = fixture();
     data.client.readPreflight.mockResolvedValueOnce({ status: "ready", value: { prepared: false, reasons: ["preflight_evaluator_disabled"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } });

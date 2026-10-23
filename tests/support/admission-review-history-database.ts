@@ -38,7 +38,7 @@ export async function prepareAdmissionReviewHistoryDatabase(database: AcademyAdm
     for (const currentTribeId of [tribeId, foreignTribeId]) {
       await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${currentTribeId},'Academia de ejemplo',${`review-history-${currentTribeId}`},${leader.userId})`);
       await transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${currentTribeId},'academy',true)`);
-      await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,is_open,activated_at) values (${currentTribeId},true,${activatedAt})`);
+      await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,requires_whatsapp_number,is_open,activated_at) values (${currentTribeId},false,true,${activatedAt})`);
     }
     await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${leader.userId},'leader','active'),(${tribeId},${guardian.userId},'guardian','active')`);
     for (const currentTribeId of [tribeId, foreignTribeId]) await transaction.execute(sql`update public.tribes set admissions_control_activated_at=${activatedAt} where id=${currentTribeId}`);

@@ -145,7 +145,7 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     mode: text("mode").notNull().default("manual_review"), contactType: text("contact_type").notNull().default("email"),
     isOpen: boolean("is_open").notNull().default(false), allowCommonExceptions: boolean("allow_common_exceptions").notNull().default(false),
     requiresAdditionalVerification: boolean("requires_additional_verification").notNull().default(false),
-    requiresWhatsappNumber: boolean("requires_whatsapp_number").notNull().default(false),
+    requiresWhatsappNumber: boolean("requires_whatsapp_number").notNull().default(true),
     phoneChannel: text("phone_channel"), allowSmsAlternative: boolean("allow_sms_alternative").notNull().default(false),
     messagingConnectionId: uuid("messaging_connection_id"), messagingConnectionVersion: integer("messaging_connection_version"),
     verificationEpoch: integer("verification_epoch").notNull().default(1), version: integer("version").notNull().default(1),
