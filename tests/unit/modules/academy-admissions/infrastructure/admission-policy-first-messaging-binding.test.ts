@@ -15,7 +15,7 @@ import { REAUTHENTICATION_OPERATION, type ReauthenticationOperation } from "@/sr
 import type { AuthorizedAdmissionContext } from "@/src/modules/academy-admissions/domain/repositories/admission-authorization-reader";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
-const FIRST_BINDING_MIGRATION = "20261022210000_bind_admission_policies_to_selected_messaging.sql";
+const FIRST_BINDING_MIGRATION = "20261022220000_bind_admission_policies_to_selected_messaging.sql";
 const FIRST_BINDING_TIMEOUT_MS = 1_200_000;
 /** Rules a leader saves before codes can be sent: email contact checked with a code, open for requests; turning codes on moves the verification epoch to 2. */
 const RULES_WITH_CODE = { contactType: "email", requiresAdditionalVerification: true, isOpen: true } as const;
