@@ -112,3 +112,30 @@ En el piloto desplegado (tribu `test`) el usuario guardó una candidata nueva co
 **El SMS tiene recepción externa acreditada**: el usuario declaró haber recibido el mensaje en su teléfono y el código que confirmó salió de ese mensaje, no de los registros del proveedor. Así queda cubierta, para SMS, la recepción externa pendiente de OG-03. La aplicación muestra correo y SMS como «Canal comprobado» en la configuración 3, con `tested_at` 18:24:00Z y 18:25:40Z. Ningún artefacto conserva códigos, claves ni destinatarios completos.
 
 Antes de este ensayo, durante la preparación, el usuario suspendió también la conexión activa anterior («Piloto», sólo correo). La UI de reemplazo de candidatas se mejoró por separado en guidomodarelli/TuTribu#170, que todavía no está desplegado en el piloto.
+
+<a id="t106-email-real-transport-2026-10-23"></a>
+
+### T106 por correo con transporte real, 23 de octubre de 2026
+
+**Ensayo ON autorizado.** Con la autorización del usuario se encendió en el piloto (tribu `test`) «Código de comprobación: Sí» desde la UI propia del líder. La política de admisión quedó en la versión 7, con contacto `email`, y siguió vinculada a la conexión activa de configuración 3. La política de uso es la versión 4: Argentina y diez códigos diarios. El contacto de la academia quedó fijado en correo al activar el control, así que **esta tribu sólo ejerce el canal de correo**.
+
+**Solicitante controlado.** El piloto desplegado sólo admite Google. El solicitante usó un servidor local con el mismo código del piloto (`d36525a7`), la misma rama Neon y las mismas claves, con el inicio de sesión de desarrollo para una sola cuenta de prueba cuyo correo es el destino autorizado. El usuario ingresó la contraseña de prueba; el agente no la escribió en el formulario. `next dev` respondió 404 en las rutas con dos segmentos dinámicos (`challenges/[challengeId]/verify`), en el mismo checkout y en una unidad `subst`. Se usó `next build` + `next start`, igual que los e2e de admisión. El intento hecho bajo `next dev` no llegó al servidor, no creó desafío ni envío y dejó la pestaña con una operación incierta sin salida, que se trata aparte. Al terminar se detuvo el servidor y se borraron su configuración local y el worktree.
+
+| AC | Recorrido real | Resultado observado |
+| --- | --- | --- |
+| US-05-AC-01 | Pedido explícito del código por la UI del solicitante (envío 5 de 10, 19:17:57Z / 16:17 Buenos Aires) | Desafío `issued`, propósito `admission`, configuración 3; entrega aceptada por Zavu al correo de la cuenta; uso registrado como `code_request` con la versión 4 de la política de uso |
+| US-05-AC-06 | Lectura después de la aceptación del proveedor y antes de ingresar el código | Cero pruebas de admisión y cero vínculos de contacto; la UI muestra el estado de entrega separado de la comprobación |
+| US-05-AC-03 | Código incorrecto presentado contra el desafío vigente | HTTP 422 y «El código no es correcto»; `failed_attempts = 1`, sin prueba ni vínculo, registrado como `code_failure` |
+| Reenvío | Reenvío explícito del solicitante (envío 6 de 10, 19:51:58Z) | El desafío anterior pasó a `invalidated` con motivo `explicit_resend`; el nuevo envío contó como otro `code_request` con la misma versión de uso |
+| US-05-AC-02 | El usuario ingresó el código recibido en su casilla (19:52:46Z / 16:52) | Prueba de admisión `available`, configuración 3, época de verificación 2, sin aplicar todavía a una solicitud |
+
+**Cero cambios globales de autenticación.** Comparado con las líneas base de 18:54Z y de 19:03Z, la cuenta del solicitante conserva el mismo `updatedAt`, la misma credencial sin modificar, una sola sesión y `emailVerified` igual. Ninguna otra cuenta cambió después del alta de las cuentas de prueba, y la tabla global `verification` sigue con una fila. El total de usuarios creció sólo por las dos cuentas de prueba del inicio de sesión de desarrollo. La comprobación no creó sesión, no restableció contraseña, no vinculó cuentas y no marcó un contacto global como verificado.
+
+**Pendiente de T106.**
+- **SMS:** los siete AC requieren una academia cuyo contacto sea teléfono; la tribu `test` quedó fijada en correo. El usuario decidió el 2026-10-23 dejar SMS pendiente.
+- **US-05-AC-04:** el código vencido no se presentó después de su vencimiento; el usuario reenvió antes. Tampoco se ejercieron los cinco intentos fallidos con transporte real. Sigue cubierto por las pruebas automatizadas.
+- **US-05-AC-05:** depende del canal alternativo SMS.
+- **US-05-AC-07:** con contacto de correo, el contacto es el correo de la cuenta. Otra cuenta no puede presentar el mismo correo con transporte real, así que su ensayo real también espera a la academia con teléfono.
+- **Países antes y después del marker:** aplica a destinos telefónicos y queda con el ensayo SMS.
+
+Se usaron **6 de los 10 envíos** autorizados para este ensayo, todos aceptados por Zavu. Ningún artefacto conserva códigos, claves, contraseñas ni destinatarios completos. Después del ensayo, la verificación adicional sigue encendida en la tribu `test` del piloto.
