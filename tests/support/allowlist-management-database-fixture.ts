@@ -26,7 +26,7 @@ export async function seedAllowlistManagement(database: Pick<AcademyAdmissionTes
     await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${tribeId},'Synthetic allowlist tribe',${`allowlist-${tribeId}`},${fixture.userId})`);
     await transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`);
     await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${fixture.userId},'leader','active')`);
-    await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id) values (${tribeId})`);
+    await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,requires_whatsapp_number) values (${tribeId},false)`);
     await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${accountId},${fixture.userId},'google',${subject},${now},${now})`);
     await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${fixture.userId},${sessionToken},${new Date(now.getTime()+LEADER_SESSION_LIFETIME_MS)},${now},${now})`);
     await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${sessionId},${fixture.userId},${accountId},${subject},${fixture.own.email})`);

@@ -24,7 +24,7 @@ export async function prepareAdmissionEntrySampleDatabase(database: AcademyAdmis
     await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${tribeId},${ADMISSION_ENTRY_SAMPLE.tribeName},${slug},${fixture.userId})`);
     await transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},${ADMISSION_ENTRY_SAMPLE.academyAccessModel},true)`);
     await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${fixture.userId},${TRIBE_MEMBER_ROLE.leader},${TRIBE_MEMBERSHIP_STATUS.active})`);
-    await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,mode,contact_type,is_open,requires_additional_verification,activated_at) values (${tribeId},${ADMISSION_POLICY_MODE.manualReview},${ADMISSION_CONTACT_TYPE.email},true,false,${activatedAt})`);
+    await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,requires_whatsapp_number,mode,contact_type,is_open,requires_additional_verification,activated_at) values (${tribeId},false,${ADMISSION_POLICY_MODE.manualReview},${ADMISSION_CONTACT_TYPE.email},true,false,${activatedAt})`);
     await transaction.execute(sql`update public.tribes set admissions_control_activated_at=${activatedAt} where id=${tribeId}`);
   });
   return { ...fixture, tribeId, slug };

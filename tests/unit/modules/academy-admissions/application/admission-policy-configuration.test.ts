@@ -27,8 +27,8 @@ describe("policy configuration lifecycle", () => {
     expect(proposeAdmissionPolicyActivation(policy, 1, { ...facts, controlActivated: true })).toMatchObject({ outcome: "invalid", reason: "admission_preflight_incomplete" });
   });
 
-  it("should start with independent closed defaults and no implied verification or notification connection", () => {
-    expect(createDefaultAdmissionPolicy({ id: "synthetic-policy", tribeId: "synthetic-tribe" })).toMatchObject({ mode: "manual_review", contactType: "email", requiresAdditionalVerification: false, allowCommonExceptions: false, isOpen: false, activatedAt: null, messagingConnectionId: null, messagingConnectionVersion: null, version: 1, verificationEpoch: 1 });
+  it("should start with independent closed defaults that require the applicant phone without implied verification or notification connection", () => {
+    expect(createDefaultAdmissionPolicy({ id: "synthetic-policy", tribeId: "synthetic-tribe" })).toMatchObject({ mode: "manual_review", contactType: "email", requiresAdditionalVerification: false, requiresWhatsappNumber: true, allowCommonExceptions: false, isOpen: false, activatedAt: null, messagingConnectionId: null, messagingConnectionVersion: null, version: 1, verificationEpoch: 1 });
   });
 
   it("should save an incomplete ON draft while operational validation remains closed to unprepared capability", () => {

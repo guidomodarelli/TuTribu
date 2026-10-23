@@ -276,7 +276,7 @@ Eliminación/salida de academia cancela pendientes, invalida invitaciones y deti
 
 ## Ampliación: WhatsApp declarado para revisión humana
 
-FR-143–FR-146 agregan `AdmissionPolicy.requiresWhatsappNumber`, booleano por tribu con valor inicial `false`, y `AdmissionRequest.whatsappNumber`, número canónico E.164 o ausencia. El nombre sigue perteneciendo a la cuenta; no se agregan campos de nombre/apellido. El número declarado no reemplaza `contact`, su evidencia, binding ni el teléfono global, y no se somete a la lista de países de envío porque este recorrido no envía mensajes.
+FR-143–FR-146 agregan `AdmissionPolicy.requiresWhatsappNumber`, booleano por tribu con valor inicial `true` para políticas nuevas (las ya guardadas conservan su valor), y `AdmissionRequest.whatsappNumber`, número canónico E.164 o ausencia. El nombre sigue perteneciendo a la cuenta; no se agregan campos de nombre/apellido. El número declarado no reemplaza `contact`, su evidencia, binding ni el teléfono global, y no se somete a la lista de países de envío porque este recorrido no envía mensajes.
 
 La migración versionada agrega las columnas con defaults compatibles, actualiza proyecciones autorizadas y los guards de versión/retención. El guard de solicitud permite modificar este dato sólo mientras siga pendiente, con incremento de versión ante cambio efectivo; la minimización privada puede eliminarlo sin reabrir o reversionar historia terminal. Su contenido no se copia a ledger público, audit, notificación o snapshot de decisión.
 

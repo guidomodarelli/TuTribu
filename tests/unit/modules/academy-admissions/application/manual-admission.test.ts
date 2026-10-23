@@ -21,7 +21,7 @@ function manualFacts(): AdmissionSubmissionFacts {
   return {
     now: fixture.clock.now(), tribe: { id: fixture.tribes.academyA.id, isAcademy: true, controlActivated: true, evaluatorEnabled: true, recoveryLocked: false },
     account: { userId: fixture.accounts.applicantA.userId, normalizedEmail: fixture.accounts.applicantA.email, googleAccount: null },
-    policy: { ...createDefaultAdmissionPolicy({ id: randomUUID(), tribeId: fixture.tribes.academyA.id }), isOpen: true, activatedAt: fixture.clock.now() },
+    policy: { ...createDefaultAdmissionPolicy({ id: randomUUID(), tribeId: fixture.tribes.academyA.id }), requiresWhatsappNumber: false, isOpen: true, activatedAt: fixture.clock.now() },
     source: { kind: "common" }, contact: { type: "email", value: fixture.accounts.applicantA.email },
     baseEvidence: null, localProof: null, currentConnection: null, membership: null,
     allowlistEntry: { tribeId: fixture.tribes.academyA.id, contact: { type: "email", value: fixture.accounts.applicantA.email }, enabled: true, boundUserId: null },

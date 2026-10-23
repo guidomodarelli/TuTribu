@@ -11,7 +11,7 @@ import type { AdmissionReviewRecord } from "@/src/modules/academy-admissions/dom
 /** Constructs only current owned domain facts; no HTTP, database or credential is required. */
 function reviewRecord(): AdmissionReviewRecord {
   const tribeId = randomUUID(), userId = randomUUID(), now = new Date("2026-10-07T03:00:00Z");
-  const policy = { ...createDefaultAdmissionPolicy({ id: tribeId, tribeId }), isOpen: true, activatedAt: now };
+  const policy = { ...createDefaultAdmissionPolicy({ id: tribeId, tribeId }), requiresWhatsappNumber: false, isOpen: true, activatedAt: now };
   const contact = { type: "email" as const, value: "applicant@example.test" };
   const request = createPendingAdmissionRequest({ id: randomUUID(), tribeId, userId, source: "common", contact, evidence: { kind: "declared" }, policy, message: "Quiero participar.", now });
   return { request, approvalSupported: true, applicantName: "Solicitante sintético", internalReason: "Motivo privado de revisión", externalMessage: "Mensaje que puede ver el solicitante.", review: {

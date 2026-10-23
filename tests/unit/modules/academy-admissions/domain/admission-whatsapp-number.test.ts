@@ -14,7 +14,7 @@ function whatsappFacts(): AdmissionSubmissionFacts {
   const user = fixtures.accounts.applicantA;
   return { now: fixtures.clock.now(), tribe: { id: fixtures.tribes.academyA.id, isAcademy: true, controlActivated: true, evaluatorEnabled: true, recoveryLocked: false },
     account: { userId: user.userId, normalizedEmail: user.email, googleAccount: null },
-    policy: { ...createDefaultAdmissionPolicy({ id: "policy", tribeId: fixtures.tribes.academyA.id }), isOpen: true, activatedAt: fixtures.clock.now() },
+    policy: { ...createDefaultAdmissionPolicy({ id: "policy", tribeId: fixtures.tribes.academyA.id }), requiresWhatsappNumber: false, isOpen: true, activatedAt: fixtures.clock.now() },
     source: { kind: "common" }, contact: { type: "email", value: user.email }, baseEvidence: null, localProof: null,
     currentConnection: null, membership: null, allowlistEntry: null, contactBinding: null };
 }

@@ -116,7 +116,7 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
       // An academy that activated its connection first starts with that selection; a later write rebinds it if an activation was still committing.
       const policy = { ...defaults, ...await this.selectionReference(database, defaults) };
       const createdAt = await admissionPolicyDatabaseNow(database);
-      await database.execute(sql`insert into public.academy_admission_policies(tribe_id,messaging_connection_id,messaging_connection_version,changed_by_user_id,updated_at) values (${policy.tribeId},${policy.messagingConnectionId},${policy.messagingConnectionVersion},${intent.context.userId},${createdAt})`);
+      await database.execute(sql`insert into public.academy_admission_policies(tribe_id,requires_whatsapp_number,messaging_connection_id,messaging_connection_version,changed_by_user_id,updated_at) values (${policy.tribeId},${policy.requiresWhatsappNumber ?? false},${policy.messagingConnectionId},${policy.messagingConnectionVersion},${intent.context.userId},${createdAt})`);
       await this.audit(database, intent, ledgerId, null, policy, createdAt);
       return this.result(policy, false, true);
     });
