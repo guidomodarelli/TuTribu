@@ -57,7 +57,8 @@ export function resolveMessagingConnectionsNextAction(input:{selected:MessagingC
   const{candidate,selected,usage}=input,nowMs=Date.parse(input.observedAt);
   // Activating clears the candidate slot; an active selection without a new candidate is finished, not waiting for a key.
   if(!candidate)return selected?.state===MESSAGING_CONNECTION_STATE.active?{step:MESSAGING_CONNECTIONS_NEXT_STEP.active,title:COPY.activeTitle,reason:COPY.selectedActiveReason,action:null,target:null,channel:null}:actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.saveCandidate,COPY.saveCandidate,TARGET.key);
-  if(candidate.state===MESSAGING_CONNECTION_STATE.suspended||candidate.state===MESSAGING_CONNECTION_STATE.disconnected)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.activate,COPY.suspendedCandidate,TARGET.security);
+  // Retiring a candidate that is also the selection retires the selection too, so its advice never promises the selection stays.
+  if(candidate.state===MESSAGING_CONNECTION_STATE.suspended||candidate.state===MESSAGING_CONNECTION_STATE.disconnected)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.activate,candidate.id===selected?.id?COPY.suspendedSelection:COPY.suspendedCandidate,TARGET.security);
   if(candidate.credentialState===MESSAGING_CREDENTIAL_PUBLIC_STATE.notValidated)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.validateCredential,COPY.credentialNotValidated,TARGET.credential);
   // A rejected key is not fixed by checking it again: a separate candidate is retired from Clave, which leaves the selection untouched.
   if(candidate.credentialState===MESSAGING_CREDENTIAL_PUBLIC_STATE.invalid)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.validateCredential,COPY.credentialInvalid,candidate.id===selected?.id?TARGET.credential:TARGET.key);

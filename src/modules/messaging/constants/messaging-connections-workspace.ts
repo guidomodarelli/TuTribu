@@ -39,6 +39,8 @@ export const MESSAGING_CONNECTIONS_NEXT_ACTION_COPY={
   region:"Próxima acción",
   saveCandidate:{title:"Guardá la clave de Zavu",reason:"Todavía no hay una conexión candidata para probar y activar.",action:"Ir a Clave"},
   suspendedCandidate:{title:"La candidata está suspendida",reason:"Una candidata suspendida no puede activarse y sigue ocupando su lugar. Retirala en Seguridad y retiro para guardar otra clave; la conexión seleccionada no cambia.",action:"Ir a Seguridad y retiro"},
+  /** The suspended candidate is also the selection: retiring it would remove the academy's selection too. */
+  suspendedSelection:{title:"La conexión seleccionada está suspendida",reason:"Esta conexión es la seleccionada y la candidata a la vez. Retirarla también quita la selección de la academia; revisala en Seguridad y retiro antes de decidir.",action:"Ir a Seguridad y retiro"},
   credentialNotValidated:{title:"Comprobá la credencial",reason:"La clave quedó guardada, pero todavía no se comprobó con Zavu.",action:"Ir a Credencial"},
   credentialInvalid:{title:"Revisá la clave de Zavu",reason:"Zavu rechazó la clave guardada. Retirá esta candidata en Clave y guardá una clave nueva; la conexión seleccionada no cambia.",action:"Reemplazar la clave"},
   credentialUnavailable:{title:"Volvé a comprobar la credencial",reason:"No pudimos comprobar la clave con Zavu. Reintentá la comprobación.",action:"Ir a Credencial"},

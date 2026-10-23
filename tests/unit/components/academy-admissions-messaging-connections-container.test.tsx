@@ -140,6 +140,15 @@ describe("connection wizard first container step",()=>{
     expect(within(security).getByText(/la conexión sigue ocupando su lugar/)).toBeVisible();
     expect(within(security).getByText("Se retira solo la candidata «Piloto correo y SMS» y queda libre el lugar para guardar otra clave. La conexión seleccionada «Conexión anterior vigente» no cambia.")).toBeVisible();
   });
+  it("should open Security on a suspended candidate that is also the selection without preselecting its retirement",async()=>{
+    const fixture=selectedCandidateFixture(),shared={...fixture.selected,name:"Piloto",state:MESSAGING_CONNECTION_STATE.suspended};
+    const initialState={...fixture.initialState,configuration:{...fixture.configuration,selected:shared,candidate:shared}} as MessagingConnectionsPageState;
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} lifecycleClient={{suspend:vi.fn(),disconnect:vi.fn()}} />);
+    const security=await screen.findByRole("region",{name:"Seguridad y retiro de conexiones"});
+    expect(within(security).getByRole("combobox",{name:"Conexión que querés gestionar"})).toHaveTextContent("Piloto · Seleccionada y candidata · Suspendida");
+    expect(within(security).getByRole("combobox",{name:"Acción local"})).toHaveTextContent("Suspender nuevos envíos");
+    expect(screen.queryByText(/no cambia/)).not.toBeInTheDocument();
+  });
 
   it("should disclose replacement impact and replace an existing active selection only after explicit consent",async()=>{
     const fixture=selectedCandidateFixture(),user=userEvent.setup();

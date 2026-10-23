@@ -37,6 +37,11 @@ describe("local connection lifecycle presenter",()=>{
     expect(screen.getByText("Se retira solo la candidata «Piloto correo y SMS» y queda libre el lugar para guardar otra clave. La conexión seleccionada «Piloto» no cambia.")).toBeVisible();
     expect(screen.queryByRole("note")).not.toBeInTheDocument();expect(screen.getByRole("checkbox",{name:"Revisé la conexión, la acción y su impacto y quiero confirmar."})).toBeVisible();
   });
+  it("should warn that retiring the selected connection also removes the academy's selection",()=>{
+    const props=lifecycleProps();render(<MessagingConnectionLifecycle {...props} connections={[{...props.connections[0],name:"Piloto",candidate:true,state:"suspended"}]} retiring />);
+    expect(screen.getByRole("note")).toHaveTextContent("«Piloto» es la conexión seleccionada de la academia. Retirarla también quita la selección");
+    expect(screen.queryByText(/no cambia/)).not.toBeInTheDocument();
+  });
   it("should render a safe empty state without inventing a resource or a mutation",()=>{
     const props=lifecycleProps();render(<MessagingConnectionLifecycle {...props} connections={[]} targetId="" />);expect(screen.getByText("No hay conexiones vigentes para gestionar.")).toBeVisible();expect(screen.queryByRole("button",{name:"Suspender conexión"})).not.toBeInTheDocument();expect(props.onAct).not.toHaveBeenCalled();
   });

@@ -10,6 +10,8 @@ export const MESSAGING_LIFECYCLE_IMPACT_COPY={
   activeSuspensionConsent:(name:string)=>`Revisé la conexión, la acción y su impacto: mientras «${name}» esté suspendida, la academia no envía avisos ni códigos de verificación.`,
   /** @param name - Candidate to retire. @param selected - Selection that stays untouched, if any. */
   candidateRetirement:(name:string,selected:string|null)=>`Se retira solo la candidata «${name}» y queda libre el lugar para guardar otra clave.${selected?` La conexión seleccionada «${selected}» no cambia.`:""}`,
+  /** @param name - Connection that is both the selection and the candidate. */
+  selectedRetirement:(name:string)=>`«${name}» es la conexión seleccionada de la academia. Retirarla también quita la selección: hasta activar otra no se envían avisos ni códigos de verificación.`,
   consent:"Revisé la conexión, la acción y su impacto y quiero confirmar.",
 } as const;
 /** Copy of the direct replacement of a candidate key from the Clave step. */

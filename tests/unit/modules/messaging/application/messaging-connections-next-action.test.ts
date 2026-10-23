@@ -33,6 +33,11 @@ describe("messaging connections next action",()=>{
     expect(resolve(connection({credentialState:"invalid"}),selected)).toMatchObject({title:"Revisá la clave de Zavu",action:"Reemplazar la clave",target:{kind:"step",step:"key"}});
     expect(resolve(connection({credentialState:"invalid",state:"active"}),connection({state:"active"}))).toMatchObject({target:{kind:"step",step:"credential"}});
   });
+  it("should not promise an untouched selection when the suspended candidate is the selection itself",()=>{
+    const shared=connection({state:"suspended"});
+    expect(resolve(shared,shared)).toMatchObject({title:"La conexión seleccionada está suspendida",target:{kind:"security"}});
+    expect(resolve(shared,shared).reason).toContain("Retirarla también quita la selección");
+  });
   it("should send a suspended candidate to Security instead of activation",()=>{
     expect(resolve(connection({state:"suspended"}))).toMatchObject({title:"La candidata está suspendida",target:{kind:"security"}});
   });
