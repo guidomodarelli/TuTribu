@@ -16,6 +16,7 @@ import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/a
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import { writeAdmissionContactIntent, readAdmissionContactIntent } from "@/lib/academy-admissions/admission-contact-intent";
 import { writeAdmissionDraft } from "@/lib/academy-admissions/admission-draft";
+import { ADMISSION_CONTACT_ABSENT_DISCARD_AFTER_MS, ADMISSION_CONTACT_CLOCK_INTERVAL_MS, ADMISSION_CONTACT_COPY } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
 
 // Sonner replays every active toast to a newly mounted toaster; dismissing them keeps each test's toasts its own.
 afterEach(() => { window.sessionStorage.clear(); toast.dismiss(); });
@@ -226,6 +227,39 @@ describe("applicant contact step in the route", () => {
     expect(fixture.contact.operation).toHaveBeenCalledTimes(2);
     expect(fixture.contact.issue).not.toHaveBeenCalled();
     expect(fixture.client.submit).not.toHaveBeenCalled();
+  });
+
+  it("should let the applicant discard a code request whose original never registered and ask for another code once the wait passes", async () => {
+    const fixture = containerFixture(), user = userEvent.setup(), orphanOperationId = randomUUID();
+    writeAdmissionContactIntent({ viewerId: fixture.viewerId, slug: fixture.initialState.overview.tribe.slug, requestId: null, issuedOperationId: null, verifiedOperationId: null, pending: { kind: "issue", operationId: orphanOperationId } });
+    vi.mocked(fixture.contact.operation).mockResolvedValue({ status: "failed", code: "resource_unavailable", message: "La operación no está disponible.", uncertain: false });
+    try {
+      render(<AdmissionContainer initialState={fixture.initialState} client={fixture.client} contactClient={fixture.contact} />);
+      await waitFor(() => expect(fixture.contact.operation).toHaveBeenCalledTimes(1));
+      await continueToCode(user);
+      expect(await screen.findByText(ADMISSION_CONTACT_COPY.absent)).toBeVisible();
+      expect(screen.queryByRole("button", { name: "Descartar la referencia y pedir otro código" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Enviar código de ingreso" })).toBeDisabled();
+
+      vi.setSystemTime(new Date(Date.now() + ADMISSION_CONTACT_ABSENT_DISCARD_AFTER_MS + 1));
+      // The hook clock ticks once per second; the wait outlasts a late tick on a slow runner.
+      const discard = await screen.findByRole("button", { name: "Descartar la referencia y pedir otro código" }, { timeout: ADMISSION_CONTACT_CLOCK_INTERVAL_MS * 4 });
+      expect(screen.getByText(ADMISSION_CONTACT_COPY.absentDiscardable)).toBeVisible();
+      await user.click(discard);
+      expect(await screen.findByText(ADMISSION_CONTACT_COPY.discarded)).toBeVisible();
+      expect(screen.queryByRole("button", { name: "Consultar operación del código" })).not.toBeInTheDocument();
+      expect(fixture.contact.issue).not.toHaveBeenCalled();
+
+      // The new challenge is issued at the moved clock, so it stays valid for the code step.
+      vi.mocked(fixture.contact.issue).mockImplementationOnce(async (_slug, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { purpose: "admission", challengeId: randomUUID(), channel: "email", maskedDestination: "a•••@example.test", expiresAt: new Date(Date.now() + ADMISSION_LIMIT.verificationCodeValidityMs).toISOString(), resendAllowedAt: new Date(Date.now() + ADMISSION_LIMIT.verificationResendWaitMs).toISOString(), deliveryState: "queued" } } }));
+      const consent = screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i });
+      await waitFor(() => expect(consent).toBeEnabled());
+      await user.click(consent);
+      await user.click(screen.getByRole("button", { name: "Enviar código de ingreso" }));
+      expect(await screen.findByLabelText("Código de ingreso")).toBeEnabled();
+      expect(fixture.contact.issue).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(fixture.contact.issue).mock.calls[0][1].operationId).not.toBe(orphanOperationId);
+    } finally { vi.useRealTimers(); }
   });
 
   it("should start a new contact after an authorized retry of a canceled request without restoring its old checked proof", async () => {
