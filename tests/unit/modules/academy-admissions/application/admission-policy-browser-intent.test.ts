@@ -24,6 +24,19 @@ describe("policy browser intention", () => {
     expect(storage.size).toBe(0);
   });
 
+  it("should keep an update stored by the previous release recoverable by its original operation without its messaging reference", () => {
+    const storage = new Map<string, string>();
+    const port = { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => { storage.set(key, value); }, removeItem: (key: string) => { storage.delete(key); } };
+    const intent = { type: "update_admission_policy" as const, input: { operationId: "297d47c2-5419-4c3d-a339-e8b7970275ca", confirmed: true as const, expectedVersion: 7, ...createAdmissionPolicyDraft(state()), requiresAdditionalVerification: true } };
+    writeAdmissionPolicyIntent("synthetic-leader", "synthetic-academy", intent, port);
+    const [key] = [...storage.keys()];
+    storage.set(key, JSON.stringify({ viewerId: "synthetic-leader", slug: "synthetic-academy", pending: { ...intent, input: { ...intent.input, messagingConnectionId: null, messagingConnectionVersion: null } } }));
+    expect(readAdmissionPolicyIntent("synthetic-leader", "synthetic-academy", port)).toEqual(intent);
+    storage.set(key, JSON.stringify({ viewerId: "synthetic-leader", slug: "synthetic-academy", pending: { ...intent, input: { ...intent.input, messagingConnectionId: null, messagingConnectionVersion: null, allowedCountries: ["AR"] } } }));
+    expect(readAdmissionPolicyIntent("synthetic-leader", "synthetic-academy", port)).toBeNull();
+    expect(storage.size).toBe(0);
+  });
+
   it("should reject imported server authority or a second country owner before storing any write", () => {
     const storage = new Map<string, string>();
     const port = { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => { storage.set(key, value); }, removeItem: (key: string) => { storage.delete(key); } };
