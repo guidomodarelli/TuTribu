@@ -136,6 +136,7 @@ const tribeRoundPermissionsSchema = z.object({
   canPinMessages: z.boolean().optional(),
   canReact: z.boolean(),
   canReply: z.boolean(),
+  requiresAcademyToParticipate: z.boolean().optional(),
 }) satisfies z.ZodType<TribeRoundPermissionsResult>;
 
 /** One page of the round as the client `TribeRound` renders it. */

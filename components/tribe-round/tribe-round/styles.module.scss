@@ -59,6 +59,13 @@ $media-viewer-overlay-opacity: 72%;
     line-height: 1.55;
   }
 
+  &__noticeLink {
+    color: var(--foreground);
+    font-weight: 500;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
   &__composerCard,
   // Message surface: a plain element, since @golfo/ui's `Card` is a content
   // card with its own padded body and quick look.

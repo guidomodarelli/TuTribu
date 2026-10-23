@@ -620,14 +620,18 @@ export class R2MessageFileRepository implements MessageFileRepository {
           on tribes.id = message_files.tribe_id
         where message_files.id = ${command.assetId}
           and tribes.slug = ${command.tribeSlug}
-          -- The runtime role bypasses RLS: repeat the read rule (membership
-          -- plus the academy community boundary) before signing a URL.
-          and public.can_read_tribe_content(tribes.id)
+          -- The runtime role bypasses RLS: repeat the read rule before
+          -- signing a URL. An attached file follows its message's channel; a
+          -- draft belongs to its uploader while they can still write.
           and (
-            message_files.status = ${MESSAGE_FILE_STATUS.attached}
+            (
+              message_files.status = ${MESSAGE_FILE_STATUS.attached}
+              and public.can_read_tribe_message(message_files.message_id)
+            )
             or (
               message_files.status = ${MESSAGE_FILE_STATUS.draft}
               and message_files.uploaded_by = ${command.userId}
+              and public.is_active_tribe_member(tribes.id)
             )
           )
         limit 1

@@ -542,6 +542,7 @@ export async function GET(
 
   try {
     access = await modules.tribes.useCases.getTribePageAccess({
+      allowWithChannelReadAccess: true,
       isAuthenticated: true,
       slug: input.params.slug,
     });

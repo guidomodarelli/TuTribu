@@ -30,6 +30,11 @@ import { admissionAudienceForRole, resolveAdmissionPage, visibleAdmissionSection
 export type TribeNavigationItem = {
   /** Only in academy-mode tribes. */
   academyOnly?: boolean;
+  /**
+   * Hidden from members who read no channel. The channel access rule decides
+   * it, so free academy members keep the campfire.
+   */
+  channelReadersOnly?: boolean;
   /** Shows the "Pronto" badge. */
   comingSoon?: boolean;
   /** Hidden from basic academy members, who cannot read the community. */
@@ -84,7 +89,7 @@ export const TRIBE_MEMBER_NAVIGATION: readonly TribeNavigationItem[] = [
       isSameOrNestedPath(pathname, ROUTES.tribes.academyVerification(tribeSlug)),
   },
   {
-    communityOnly: true,
+    channelReadersOnly: true,
     hrefBuilder: ROUTES.tribes.bySlug,
     icon: FlameKindlingIcon,
     label: "Fogón",
@@ -192,9 +197,9 @@ export function canManageTribe(tribe: MemberTribeListItemResult): boolean {
 }
 
 /**
- * Hides academy entries in classic tribes and community entries from basic
- * academy members (the server enforces the same rules; this only avoids
- * links that would redirect).
+ * Hides academy entries in classic tribes, community entries from basic
+ * academy members and the campfire from members who read no channel (the
+ * server enforces the same rules; this only avoids links that would redirect).
  *
  * @param item - Navigation item with its optional visibility flags.
  * @param tribe - Active tribe of the member.
@@ -205,6 +210,10 @@ function isNavigationItemVisible(
   tribe: MemberTribeListItemResult
 ): boolean {
   if (item.academyOnly && tribe.accessModel !== TRIBE_ACCESS_MODEL_ACADEMY) {
+    return false;
+  }
+
+  if (item.channelReadersOnly && tribe.hasChannelReadAccess === false) {
     return false;
   }
 
