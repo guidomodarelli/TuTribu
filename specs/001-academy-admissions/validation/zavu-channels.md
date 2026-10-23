@@ -93,3 +93,22 @@ La revisión de sólo lectura del panel de Zavu (2026-10-23 03:10Z, 00:10 en Bue
 **Ningún `verified` SMS anterior acredita recepción.** El panel de registros de Zavu muestra el cuerpo completo de cada mensaje, incluido el código. El diagnóstico del 22 de octubre quedó `verified` diez segundos después de emitirse con el SMS todavía en cola: el código no pudo leerse en el teléfono. Los diagnósticos SMS del 19 y del 21 de octubre tienen el mismo estado del proveedor. Estos resultados acreditan sólo la validación local del código y no se usan para OG-03, T106 ni T204. Esta evidencia no reproduce códigos.
 
 El conteo de «dos de diez envíos» quedó desactualizado. Desde el 19 de octubre la rama del piloto registra once diagnósticos aceptados por Zavu (ocho de correo, tres SMS) y quince avisos de admisión aceptados por otros ensayos. El saldo observado es USD 16,28. El 2026-10-22 el usuario fijó un tope nuevo de **diez envíos sólo para este ensayo**, contado desde esta revisión, y conservó el tope de USD 20; también autorizó conectar el número de EE. UU. como canal o sender SMS. Esa conexión y los envíos posteriores se registran a continuación.
+
+<a id="sms-external-reception-2026-10-23"></a>
+
+### SMS con recepción externa, 23 de octubre de 2026
+
+Con la autorización expresa del usuario se conectó en Zavu el número propio de EE. UU. incluido en Pro como canal SMS («Canal SMS creado. El número ya envía y recibe»). Zavu creó un sender nuevo, sólo SMS, distinto del sender predeterminado con el WhatsApp personal. No hubo cargo mensual por el número.
+
+En el piloto desplegado (tribu `test`) el usuario guardó una candidata nueva con la clave del piloto; el agente no ingresó la clave. Un primer intento con otra candidata devolvió «Credencial no válida» y se retiró desde la UI propia. Esta candidata pasó la comprobación real de credencial (cuenta de producción) y la **configuración 3** quedó con correo en el sender TuTribu y SMS en el sender nuevo de EE. UU.
+
+| Hora (UTC / Buenos Aires) | Canal | Resultado | Envío del ensayo |
+| --- | --- | --- | --- |
+| 17:54 / 14:54 | Correo | Aceptado por Zavu; el código venció sin confirmarse | 1 de 10 |
+| 18:20 / 15:20 | Correo | Aceptado; invalidado por el reenvío siguiente | 2 de 10 |
+| 18:23 / 15:23 | Correo | Aceptado; el usuario leyó el código en su casilla y lo confirmó a las 18:24 | 3 de 10 |
+| 18:25 / 15:25 | SMS a teléfono argentino controlado | Aceptado; **el usuario informó que lo recibió en el teléfono** y lo confirmó a las 18:25:40 | 4 de 10 |
+
+**El SMS tiene recepción externa acreditada**: el usuario declaró haber recibido el mensaje en su teléfono y el código que confirmó salió de ese mensaje, no de los registros del proveedor. Así queda cubierta, para SMS, la recepción externa pendiente de OG-03. La aplicación muestra correo y SMS como «Canal comprobado» en la configuración 3, con `tested_at` 18:24:00Z y 18:25:40Z. Ningún artefacto conserva códigos, claves ni destinatarios completos.
+
+Antes de este ensayo, durante la preparación, el usuario suspendió también la conexión activa anterior («Piloto», sólo correo). La UI de reemplazo de candidatas se mejoró por separado en guidomodarelli/TuTribu#170, que todavía no está desplegado en el piloto.
