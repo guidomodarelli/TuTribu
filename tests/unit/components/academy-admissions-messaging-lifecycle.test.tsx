@@ -35,7 +35,7 @@ describe("local connection lifecycle presenter",()=>{
     const props=lifecycleProps(),candidateId=randomUUID(),connections=[{...props.connections[0],name:"Piloto"},{id:candidateId,name:"Piloto correo y SMS",version:2,state:"draft" as const,selected:false,candidate:true}];
     render(<MessagingConnectionLifecycle {...props} connections={connections} targetId={candidateId} retiring />);
     expect(screen.getByText("Se retira solo la candidata «Piloto correo y SMS» y queda libre el lugar para guardar otra clave. La conexión seleccionada «Piloto» no cambia.")).toBeVisible();
-    expect(screen.queryByRole("note")).not.toBeInTheDocument();expect(screen.getByRole("checkbox",{name:"Revisé la conexión, la acción y su impacto y quiero confirmar."})).toBeVisible();
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();expect(screen.getByRole("checkbox",{name:"Revisé la conexión, la acción y su impacto y quiero confirmar: se aplica a «Piloto correo y SMS»."})).toBeVisible();
   });
   it("should warn that retiring the selected connection also removes the academy's selection",()=>{
     const props=lifecycleProps();render(<MessagingConnectionLifecycle {...props} connections={[{...props.connections[0],name:"Piloto",candidate:true,state:"suspended"}]} retiring />);

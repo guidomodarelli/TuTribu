@@ -119,7 +119,7 @@ describe("connection wizard first container step",()=>{
     expect(await screen.findByText("Retiramos la candidata «Piloto correo y SMS». Ya podés guardar otra clave.")).toBeVisible();
     // Back on an empty Clave form that keeps the name; the selection stays as it was.
     await waitFor(()=>expect(screen.getByLabelText("Nombre de la conexión")).toHaveValue("Piloto correo y SMS"));
-    expect(screen.getByLabelText("Clave de Zavu")).toHaveValue("");expect(screen.getByText(fixture.selected.name,{exact:true})).toBeVisible();
+    expect(screen.getByLabelText("Clave de Zavu")).toHaveValue("");expect(screen.getByLabelText("Clave de Zavu")).toHaveFocus();expect(screen.getByText(fixture.selected.name,{exact:true})).toBeVisible();
   });
   it("should offer to replace an unproven key from Credencial and open Clave without retiring anything yet",async()=>{
     const fixture=selectedCandidateFixture(),user=userEvent.setup(),draft={...fixture.candidate,state:MESSAGING_CONNECTION_STATE.draft,credentialState:MESSAGING_CREDENTIAL_PUBLIC_STATE.notValidated,credentialMode:MESSAGING_CREDENTIAL_MODE.unknown,capabilities:[]};
