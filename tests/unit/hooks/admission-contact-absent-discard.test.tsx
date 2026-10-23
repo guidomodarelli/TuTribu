@@ -41,18 +41,21 @@ describe("contact original confirmed absent", () => {
     const original = vi.mocked(fixture.client.issue).mock.calls[0][1].operationId;
     expect(readAdmissionContactIntent(fixture.options.viewerId, fixture.options.slug, null)?.pending).toMatchObject({ kind: "issue", operationId: original, startedAt: expect.any(String) });
 
+    // The uncertain send already read its original once and found it absent.
+    expect(fixture.client.operation).toHaveBeenCalledTimes(1);
+    expect(result.current.errorMessage).toBe(ADMISSION_CONTACT_COPY.absent);
     await act(async () => { await result.current.readOriginal(); });
     expect(result.current.errorMessage).toBe(ADMISSION_CONTACT_COPY.absent);
     expect(result.current.canDiscardAbsent).toBe(false);
     await act(async () => { await result.current.discardAbsent(); });
-    expect(fixture.client.operation).toHaveBeenCalledTimes(1);
+    expect(fixture.client.operation).toHaveBeenCalledTimes(2);
     expect(result.current.pending?.operationId).toBe(original);
 
     passDiscardWait();
     await waitFor(() => expect(result.current.canDiscardAbsent).toBe(true), CLOCK_TICK_WAIT);
     expect(result.current.errorMessage).toBe(ADMISSION_CONTACT_COPY.absentDiscardable);
     await act(async () => { await result.current.discardAbsent(); });
-    expect(fixture.client.operation).toHaveBeenCalledTimes(2);
+    expect(fixture.client.operation).toHaveBeenCalledTimes(3);
     expect(result.current.pending).toBeNull();
     expect(result.current.phase).toBe("idle");
     expect(result.current.confirmed).toBe(false);
