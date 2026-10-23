@@ -7,7 +7,63 @@ import type { AdmissionNotificationProducer } from "@/src/modules/notifications/
 import { ADMISSION_NOTIFICATION_PRODUCER_LIMITS } from "@/src/modules/notifications/constants/admission-notification-producer";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
-import { MILLISECONDS_PER_SECOND } from "@/src/constants/time";
+import { ADMISSION_NOTIFICATION_SOURCE_PAGE_SIZE } from "@/src/modules/notifications/constants/admission-notification-source-selection";
+import { MILLISECONDS_PER_SECOND, SECONDS_PER_MINUTE } from "@/src/constants/time";
+
+/** One maintenance driver tick, as scheduled in the pilot. */
+const DRIVER_TICK_MS = SECONDS_PER_MINUTE * MILLISECONDS_PER_SECOND;
+/** Host run budget of one tick; the simulated clock only moves between ticks, so runs never reach it. */
+const RUN_BUDGET_MS = 45 * MILLISECONDS_PER_SECOND;
+/** Pilot measurement of 2026-10-22: 54 sources of 24 hours, three pages per full sweep. */
+const PILOT_SOURCE_COUNT = 54;
+/** Tick whose middle closes the simulated grouped window, between two driver runs as in SC-015. */
+const WINDOW_CLOSE_TICK = 5;
+/** Last simulated tick, well past the old `2S` delay. */
+const LAST_SIMULATED_TICK = 15;
+/** Freeze bound after the close, in driver ticks, required independently of the 24-hour source count. */
+const MAXIMUM_FREEZE_TICKS = 2;
+/** New sources arriving between two driver ticks during the simulation. */
+const NEW_SOURCES_PER_TICK = 2;
+
+/**
+ * Models the persisted certification contract tick by tick: a sweep certifies the horizon it started with once its last page
+ * completes, and a window freezes once that certificate and the clock both reach its close. A full sweep re-examines every 24-hour
+ * source (the former adapter); an incremental sweep reads only the sources after its frontier. Both start in steady state, with
+ * every existing source already examined by an earlier sweep, and receive a few new sources per tick.
+ * @param initialSourceCount - 24-hour sources of the tenant. @param incremental - Whether a new sweep starts after the frontier.
+ * @returns The real use case driven tick by tick, with the instant the window froze.
+ */
+function certificationSimulation(initialSourceCount: number, incremental: boolean) {
+  let now = 0, version = 0, examinedInSweep: number | null = null, sourceCount = initialSourceCount, frontier = initialSourceCount, horizon = 0, certifiedThrough: number | null = null, frozenAt: number | null = null, identity = 0;
+  const closesAt = WINDOW_CLOSE_TICK * DRIVER_TICK_MS + DRIVER_TICK_MS / 2;
+  const producer: AdmissionNotificationProducer = {
+    selectNextTribe: async (excluded) => excluded.length ? null : "tribe",
+    readReadyGroups: async (tribeId) => frozenAt === null && certifiedThrough !== null && closesAt <= certifiedThrough && closesAt <= now ? [{ tribeId, groupId: "grouped", expectedVersion: 1 }] : [],
+    materializeReminders: async () => 0,
+  };
+  const progress = {
+    readProgress: async (tribeId: string): Promise<AdmissionNotificationCollectionProgressSnapshot> => ({ tribeId, version, hasContinuation: examinedInSweep !== null, lastPage: null, lastSweepCompletedAtMicroseconds: null, lastCertifiedThroughMicroseconds: null }),
+    collectPage: async (command: { tribeId: string; operationId: string; expectedVersion: number }): Promise<AdmissionNotificationCollectionPageResult> => {
+      if (examinedInSweep === null) { examinedInSweep = 0; horizon = now; }
+      const due = incremental ? sourceCount - frontier : sourceCount;
+      const examined = Math.min(ADMISSION_NOTIFICATION_SOURCE_PAGE_SIZE, due - examinedInSweep);
+      examinedInSweep += examined;
+      const sweepComplete = examinedInSweep >= due;
+      if (sweepComplete) { certifiedThrough = horizon; frontier = sourceCount; examinedInSweep = null; }
+      return { ...command, previousVersion: version, version: ++version, examined, collected: 0, existing: examined, suppressed: 0, unavailable: 0, bucketClosed: 0, sweepComplete, completedAtMicroseconds: now, sourceThroughMicroseconds: horizon, sweepHadUnavailable: false, replayed: false };
+    },
+  };
+  const preparation: AdmissionNotificationGroupPreparation = { prepare: async (command) => { frozenAt = now; return { groupId: command.groupId, groupVersion: 2, status: "queued", deliveryId: command.groupId, reason: null, replayed: false }; } };
+  const useCase = new PrepareAdmissionEmailNotificationsUseCase(producer, progress, preparation, { now: () => now, createId: () => `page-${identity++}`, report: () => {} });
+  return {
+    closesAt,
+    /** @returns The freeze instant after running driver ticks until it happens, or null when it never did. */
+    runUntilFrozen: async () => {
+      for (let tickIndex = 0; tickIndex <= LAST_SIMULATED_TICK && frozenAt === null; tickIndex++) { now = tickIndex * DRIVER_TICK_MS; sourceCount += NEW_SOURCES_PER_TICK; await useCase.prepareGroups(now + RUN_BUDGET_MS); }
+      return frozenAt;
+    },
+  };
+}
 
 /** @returns Cohesive fakes of the application's own ports, without mocking a platform library or adapter. */
 function fixture() {
@@ -161,5 +217,22 @@ describe("bounded complete admission email producer", () => {
     expect(result.reminders).toEqual({ status: "not_run", count: 0, code: null });
     expect(result.tribes[0]).toMatchObject({ tribeId: "first", collection: { status: "completed", count: 1 } });
     expect(test.producer.materializeReminders).not.toHaveBeenCalled();
+  });
+
+  it("should reproduce the pilot delay when every sweep re-examines more than 50 sources of 24 hours", async () => {
+    const simulation = certificationSimulation(PILOT_SOURCE_COUNT, false);
+    const frozenAt = await simulation.runUntilFrozen();
+    // Three pages per sweep: the window waits for a whole sweep that started after its close, beyond the two-tick bound.
+    expect(frozenAt! - simulation.closesAt).toBeGreaterThan(MAXIMUM_FREEZE_TICKS * DRIVER_TICK_MS);
+  });
+
+  it("should freeze a window within two ticks of its close when each sweep reads only the sources after its frontier", async () => {
+    for (const sourceCount of [PILOT_SOURCE_COUNT, 10 * PILOT_SOURCE_COUNT]) {
+      const simulation = certificationSimulation(sourceCount, true);
+      const frozenAt = await simulation.runUntilFrozen();
+      expect(frozenAt).not.toBeNull();
+      expect(frozenAt!).toBeGreaterThanOrEqual(simulation.closesAt);
+      expect(frozenAt! - simulation.closesAt).toBeLessThanOrEqual(MAXIMUM_FREEZE_TICKS * DRIVER_TICK_MS);
+    }
   });
 });

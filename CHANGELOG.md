@@ -177,6 +177,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Los líderes de tribu ya no necesitan confirmar su cuenta con Google para operaciones sensibles de admisiones, mensajería, salida del modo academia o borrado de la tribu; desaparecen el botón y la pantalla de confirmación.
 
 ### Fixed
+- Los avisos agrupados de admisión por correo quedan listos para enviarse a más tardar dos minutos después de que cierra su ventana de cinco minutos, aunque la academia tenga muchas solicitudes del último día; antes se atrasaban más cuantas más solicitudes había (más de cinco minutos con unas cincuenta).
 - Al volver a Conexión con «Atrás» después de guardar Países y cupos, la pantalla relee el estado y deja de pedir que guardes Países y cupos otra vez.
 - Después de activar una conexión de mensajería, Conexión muestra «Conexión activa» y ya no vuelve a pedir «Guardá la clave de Zavu» como si faltara algo; guardar otra clave solo hace falta para reemplazarla.
 - En Conexión de mensajería, si la academia todavía no guardó Países y cupos, cada paso de prueba lo explica antes de enviar («Antes de probar un canal, guardá Países y cupos: la prueba usa el cupo diario de códigos.») y ofrece «Ir a Países y cupos»; antes el envío se rechazaba con «La academia todavía no tiene preparada la conexión necesaria.», aunque la conexión estaba completa.

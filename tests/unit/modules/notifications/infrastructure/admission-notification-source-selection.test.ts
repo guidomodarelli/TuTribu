@@ -7,7 +7,7 @@ import { prepareAdmissionNotificationSourceSelection } from "@/tests/support/adm
 import { ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS } from "@/tests/support/constants/admission-notification-validation";
 import { ADMISSION_NOTIFICATION_SOURCE_PAGE_SIZE } from "@/src/modules/notifications/constants/admission-notification-source-selection";
 import { PostgresAdmissionNotificationSourceReader } from "@/src/modules/notifications/infrastructure/repositories/postgres-admission-notification-source-reader";
-import type { AdmissionNotificationSourceCursor, AdmissionNotificationSourcePage } from "@/src/modules/notifications/domain/repositories/admission-notification-source-reader";
+import type { AdmissionNotificationSourceCursor, AdmissionNotificationSourcePage, AdmissionNotificationSourcePosition } from "@/src/modules/notifications/domain/repositories/admission-notification-source-reader";
 import type { AdmissionNotificationRecipientEmailScope } from "@/src/modules/notifications/domain/entities/admission-notification-recipient-email";
 
 /** @param source - Exact original source and recipient. @returns An assertion-only identity independent of how the adapter builds its SQL. */
@@ -26,7 +26,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission n
       expect(first.sources[0]).toEqual(existing);
       expect(first.continuation).not.toBeNull();
       const continuation = first.continuation!;
-      expect(continuation.after.createdAtMicroseconds).toBe(seeded.createdAtMicroseconds);
+      expect(continuation.after?.createdAtMicroseconds).toBe(seeded.createdAtMicroseconds);
 
       // When an earlier returned notice is removed and genuinely newer facts arrive, the original upper bound and full tuple remain fixed.
       const removed = first.sources[1];
@@ -68,6 +68,40 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission n
       let checks = 0;
       await expect(database.withContext(fixture.own, (transaction) => new PostgresAdmissionNotificationSourceReader(transaction, async (current, tribeId) => ++checks === 1 && await fixture.authorize(current, tribeId)).readPage(fixture.tribeId, null))).rejects.toMatchObject({ code: "permission_denied" });
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select (select count(*)::int from public.admission_notification_group_members where tribe_id=${fixture.tribeId}) as members,(select count(*)::int from public.message_deliveries where tribe_id=${fixture.tribeId} and purpose='admission_notification') as deliveries,(select count(*)::int from public.admission_email_settings where tribe_id=${fixture.tribeId}) as email_settings,(select count(*)::int from public."user" where id in (${fixture.leaderId},${fixture.guardianId}) and "emailVerified") as trusted_accounts`)).rows)).toEqual([{ members: 1, deliveries: 0, email_settings: 0, trusted_accounts: 0 }]);
+    });
+  }, ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS);
+
+  it("should start a new sweep after the frontier and examine pending retries first, once per sweep, without re-reading earlier sources", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      // Given a complete first sweep over more than two pages of tied sources.
+      const fixture = await prepareAdmissionNotificationSourceSelection(database);
+      const seeded = await fixture.createSources(ADMISSION_NOTIFICATION_SOURCE_PAGE_SIZE + 1, fixture.tiedMicroseconds);
+      let cursor: AdmissionNotificationSourceCursor | null = null, frontier: AdmissionNotificationSourcePosition | null = null, examined = 0;
+      do {
+        const page: AdmissionNotificationSourcePage = await fixture.read(cursor, fixture.tribeId, frontier);
+        examined += page.sources.length;
+        expect(page.retryCount).toBe(0);
+        frontier = page.positions.at(-1) ?? frontier;
+        cursor = page.continuation;
+      } while (cursor);
+      expect(examined).toBeGreaterThan(2 * ADMISSION_NOTIFICATION_SOURCE_PAGE_SIZE);
+
+      // When a later sweep starts after that frontier, it reads only the sources created since then.
+      expect(await fixture.read(null, fixture.tribeId, frontier)).toMatchObject({ retryCount: 0, sources: [], continuation: null });
+      const late = await fixture.createSources(1);
+      const incremental = await fixture.read(null, fixture.tribeId, frontier);
+      expect(incremental.sources.map(sourceKey).sort()).toEqual(late.sources.map(sourceKey).sort());
+      expect(incremental.continuation).toBeNull();
+
+      // Then a pending retry of an earlier source is examined first, and not again in the sweep that already examined it.
+      const retried = seeded.sources[0];
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public.admission_notification_collection_retries(notification_id,tribe_id,source_created_at,retried_through_at) select notice.id,notice.tribe_id,obligation.created_at,obligation.created_at from public.notifications notice join public.academy_admission_notification_obligations obligation on obligation.id=notice.admission_obligation_id where notice.tribe_id=${retried.tribeId} and notice.admission_obligation_id=${retried.obligationId} and notice.recipient_user_id=${retried.recipientUserId}`));
+      const withRetry = await fixture.read(null, fixture.tribeId, frontier);
+      expect(withRetry.retryCount).toBe(1);
+      expect(withRetry.sources.map(sourceKey)).toEqual([sourceKey(retried), ...incremental.sources.map(sourceKey)]);
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.admission_notification_collection_retries set retried_through_at=${withRetry.throughMicroseconds}::bigint*interval '1 microsecond'+'epoch'::timestamptz where tribe_id=${fixture.tribeId}`));
+      expect(await fixture.read({ tribeId: fixture.tribeId, throughMicroseconds: withRetry.throughMicroseconds, after: frontier }, fixture.tribeId)).toMatchObject({ retryCount: 0 });
+      await expect(fixture.read(null, fixture.tribeId, { ...frontier!, createdAtMicroseconds: Number.MAX_SAFE_INTEGER })).rejects.toMatchObject({ code: "invalid_input" });
     });
   }, ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS);
 });

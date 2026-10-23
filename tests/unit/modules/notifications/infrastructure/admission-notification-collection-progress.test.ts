@@ -10,8 +10,13 @@ import { admissionNotificationCollectionProgress } from "@/src/modules/shared/in
 import { PostgresAdmissionNotificationCollectionProgress } from "@/src/modules/notifications/infrastructure/repositories/postgres-admission-notification-collection-progress";
 import type { AdmissionNotificationCollectionPageResult } from "@/src/modules/notifications/domain/repositories/admission-notification-collection-progress";
 
+/** How long a page must stay blocked behind an uncommitted source creator to show that it waits for the tribe fence. */
+const FENCE_OBSERVATION_MS = 3_000;
+/** A late source is created this far behind the horizon already read. */
+const LATE_SOURCE_OFFSET_MICROSECONDS = 1_000_000;
+
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission notification collection progress", () => {
-  it("should commit source positions with groups, replay competing commands and resume a fresh finite sweep without duplicate members", async () => {
+  it("should commit source positions with groups, replay competing commands and start each later sweep after its frontier without duplicate members", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       // Given no initializing write on a read, genuine selected email readiness and both collectable and deliberately omitted sources.
       const fixture = await prepareAdmissionNotificationCollectionProgress(database);
@@ -60,7 +65,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission n
       await expect(fixture.repository.collectPage(command)).rejects.toMatchObject({ code: "request_conflict" });
       await expect(fixture.repository.collectPage({ ...secondCommand, expectedVersion: 0 })).rejects.toMatchObject({ code: "idempotency_conflict" });
 
-      // Then a new sweep reaches later facts, preserves original members and reports current omissions without a provider delivery.
+      // Then a new sweep examines only the later facts after the frontier, preserves original members and reports current omissions without a provider delivery.
       const nextPages: AdmissionNotificationCollectionPageResult[] = [];
       let version = completed.version;
       do {
@@ -69,10 +74,15 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission n
         nextPages.push(page);
         version = page.version;
       } while (!nextPages.at(-1)!.sweepComplete);
-      expect(nextPages.map((page) => page.examined)).toEqual([25, 7]);
-      expect(nextPages.reduce((total, page) => total + page.collected, 0)).toBe(1);
-      expect(nextPages.reduce((total, page) => total + page.existing, 0)).toBe(13);
-      expect(nextPages.reduce((total, page) => total + page.suppressed, 0)).toBe(18);
+      expect(nextPages.map((page) => page.examined)).toEqual([2]);
+      expect(nextPages[0]).toMatchObject({ collected: 1, existing: 0, suppressed: 1, sweepHadUnavailable: false });
+      expect(nextPages[0].sourceThroughMicroseconds).toBeGreaterThanOrEqual(late.createdAtMicroseconds);
+      expect(await fixture.repository.readProgress(fixture.tribeId)).toMatchObject({ lastCertifiedThroughMicroseconds: nextPages[0].sourceThroughMicroseconds });
+      // A sweep with nothing new still certifies its newer horizon without examining any earlier source.
+      const idle = await fixture.repository.collectPage({ tribeId: fixture.tribeId, operationId: randomUUID(), expectedVersion: version });
+      expect(idle).toMatchObject({ examined: 0, sweepComplete: true });
+      expect(idle.sourceThroughMicroseconds!).toBeGreaterThan(nextPages[0].sourceThroughMicroseconds!);
+      expect(await fixture.repository.readProgress(fixture.tribeId)).toMatchObject({ lastCertifiedThroughMicroseconds: idle.sourceThroughMicroseconds });
       const members = await fixture.execute(async (transaction) => (await transaction.execute<{ obligation_id: string; recipient_user_id: string }>(sql`select obligation_id,recipient_user_id from public.admission_notification_group_members where tribe_id=${fixture.tribeId} order by obligation_id`)).rows);
       expect(members).toEqual([...seeded.sources, ...late.sources].map((source) => ({ obligation_id: source.obligation_id, recipient_user_id: fixture.leaderId })).sort((firstSource, secondSource) => firstSource.obligation_id.localeCompare(secondSource.obligation_id)));
       expect(await fixture.execute(async (transaction) => (await transaction.execute<{ count: number }>(sql`select count(*)::int as count from public.message_deliveries where tribe_id=${fixture.tribeId} and purpose='admission_notification'`)).rows[0].count)).toBe(0);
@@ -135,6 +145,80 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission n
       const members = await fixture.execute(async (transaction) => (await transaction.execute<{ total: number; distinct_sources: number }>(sql`select count(*)::int as total,count(distinct (obligation_id,recipient_user_id))::int as distinct_sources from public.admission_notification_group_members where tribe_id=${fixture.tribeId}`)).rows[0]);
       expect(members.total).toBe(members.distinct_sources);
       expect(members.total).toBe(cut.collected + rest.collected);
+    });
+  }, ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS);
+
+  it("should retry only unavailable sources in the next sweep and certify up to the oldest pending retry meanwhile", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      // Given an email capability that is temporarily unusable while a sweep examines every source.
+      const fixture = await prepareAdmissionNotificationCollectionProgress(database);
+      await fixture.createSources(2);
+      /** @returns Pending retries of this tribe and the creation clock of the oldest one, in exact microseconds. */
+      const retries = () => fixture.execute(async (transaction) => (await transaction.execute<{ count: number; oldest: string | null }>(sql`select count(*)::int as count,(extract(epoch from min(source_created_at))*1000000)::bigint::text as oldest from public.admission_notification_collection_retries where tribe_id=${fixture.tribeId}`)).rows[0]);
+      await fixture.execute((transaction) => transaction.execute(sql`update public.messaging_connection_capabilities set state='unavailable' where connection_id=${fixture.connectionId} and channel='email'`));
+      const first = await fixture.repository.collectPage({ tribeId: fixture.tribeId, operationId: randomUUID(), expectedVersion: 0 });
+      expect(first).toMatchObject({ sweepComplete: true, sweepHadUnavailable: true, collected: 0 });
+      const pending = await retries();
+      expect(pending.count).toBeGreaterThan(0);
+      expect(pending.count).toBeLessThanOrEqual(first.examined);
+      // While retries are pending, every window from the oldest unavailable source on stays uncertified.
+      expect((await fixture.repository.readProgress(fixture.tribeId)).lastCertifiedThroughMicroseconds).toBe(Number(pending.oldest) - 1);
+
+      // When the capability recovers, the next sweep examines only those retries and then certifies its whole horizon.
+      await fixture.execute((transaction) => transaction.execute(sql`update public.messaging_connection_capabilities set state='prepared' where connection_id=${fixture.connectionId} and channel='email'`));
+      const second = await fixture.repository.collectPage({ tribeId: fixture.tribeId, operationId: randomUUID(), expectedVersion: first.version });
+      expect(second).toMatchObject({ examined: pending.count, sweepComplete: true, sweepHadUnavailable: false });
+      expect(second.collected).toBeGreaterThan(0);
+      expect(await retries()).toEqual({ count: 0, oldest: null });
+      expect((await fixture.repository.readProgress(fixture.tribeId)).lastCertifiedThroughMicroseconds).toBe(second.sourceThroughMicroseconds);
+      const third = await fixture.repository.collectPage({ tribeId: fixture.tribeId, operationId: randomUUID(), expectedVersion: second.version });
+      expect(third).toMatchObject({ examined: 0, sweepComplete: true });
+    });
+  }, ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS);
+
+  it("should wait behind an uncommitted source creator before reading its horizon so no source commits behind the frontier", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      // Given a source creator that holds the tribe fence and has not committed yet.
+      const fixture = await prepareAdmissionNotificationCollectionProgress(database);
+      const settled = await fixture.repository.collectPage({ tribeId: fixture.tribeId, operationId: randomUUID(), expectedVersion: 0 });
+      let releaseCreator!: () => void, signalStaged!: () => void;
+      const creatorReleased = new Promise<void>((resolve) => { releaseCreator = resolve; });
+      const creatorStaged = new Promise<void>((resolve) => { signalStaged = resolve; });
+      const creator = fixture.createSources(1, { beforeCommit: () => { signalStaged(); return creatorReleased; } });
+      await creatorStaged;
+
+      // When a page starts meanwhile, it cannot read its horizon until the creator commits.
+      const page = fixture.repository.collectPage({ tribeId: fixture.tribeId, operationId: randomUUID(), expectedVersion: settled.version });
+      const raced = await Promise.race([page.then(() => "collected"), new Promise<string>((resolve) => setTimeout(() => resolve("waiting"), FENCE_OBSERVATION_MS))]);
+      expect(raced).toBe("waiting");
+      releaseCreator();
+      const created = await creator;
+
+      // Then the page examines the late-committing source inside its horizon instead of passing it.
+      const collected = await page;
+      expect(collected.sourceThroughMicroseconds!).toBeGreaterThanOrEqual(created.createdAtMicroseconds);
+      expect(collected).toMatchObject({ examined: created.sources.length * 2, sweepComplete: true });
+      const members = await fixture.execute(async (transaction) => (await transaction.execute<{ count: number }>(sql`select count(*)::int as count from public.admission_notification_group_members where tribe_id=${fixture.tribeId} and obligation_id=${created.sources[0].obligation_id}`)).rows[0].count);
+      expect(members).toBe(1);
+    }, { concurrentTransactions: 2 });
+  }, ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS);
+
+  it("should queue a source created behind the horizon already read as a retry so the next sweep examines it", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      // Given a completed sweep whose frontier is past the creation clock of a source that appears afterwards.
+      const fixture = await prepareAdmissionNotificationCollectionProgress(database);
+      const completed = await fixture.repository.collectPage({ tribeId: fixture.tribeId, operationId: randomUUID(), expectedVersion: 0 });
+      expect(completed.sweepComplete).toBe(true);
+      const late = await fixture.createSources(1, { originalMicroseconds: completed.sourceThroughMicroseconds! - LATE_SOURCE_OFFSET_MICROSECONDS });
+
+      // When its notices are inserted, the safety net queues them as retries instead of leaving them behind the frontier.
+      const queued = await fixture.execute(async (transaction) => (await transaction.execute<{ count: number }>(sql`select count(*)::int as count from public.admission_notification_collection_retries retry join public.notifications notice on notice.id=retry.notification_id where retry.tribe_id=${fixture.tribeId} and notice.admission_obligation_id=${late.sources[0].obligation_id}`)).rows[0].count);
+      expect(queued).toBe(2);
+
+      // Then the next sweep examines exactly those two notices, even though they precede its frontier.
+      const next = await fixture.repository.collectPage({ tribeId: fixture.tribeId, operationId: randomUUID(), expectedVersion: completed.version });
+      expect(next).toMatchObject({ examined: 2, sweepComplete: true });
+      expect(next.examined - next.unavailable).toBe(2);
     });
   }, ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS);
 });
