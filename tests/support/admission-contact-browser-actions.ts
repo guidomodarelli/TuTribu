@@ -32,10 +32,11 @@ export async function continueToAdmissionCode(page: Page): Promise<void> {
   await settleGuidedStep(page);
 }
 
-/** @param page - Actual owned browser page. @returns With the code step's collapsed resend and delivery reads open. */
+/** @param page - Actual owned browser page. @returns With the code step's resend and delivery reads open; an expired or exhausted code already shows its resend outside the disclosure. */
 export async function openAdmissionCodeOptions(page: Page): Promise<void> {
-  const summary = page.getByText("¿No te llegó el código?", { exact: true });
-  await summary.waitFor({ state: "visible" });
+  const summary = page.getByText("¿No te llegó el código?", { exact: true }), resend = page.getByRole("button", { name: "Reenviar código", exact: true });
+  await summary.or(resend).first().waitFor({ state: "visible" });
+  if (!await summary.isVisible()) return;
   if (!await summary.evaluate((element) => element.parentElement instanceof HTMLDetailsElement && element.parentElement.open)) await summary.click();
 }
 

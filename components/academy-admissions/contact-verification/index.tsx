@@ -27,7 +27,7 @@ export type ContactVerificationProps = {
 };
 
 /** Which verification writes the current facts allow, shared by the standalone view and the guided steps. */
-export type ContactVerificationAvailability = { phone: boolean; noCountries: boolean; expired: boolean; issueBlocked: boolean; verifyBlocked: boolean; resendBlocked: boolean; smsBlocked: boolean; offersSms: boolean };
+export type ContactVerificationAvailability = { phone: boolean; noCountries: boolean; expired: boolean; waiting: boolean; resendInView: boolean; issueBlocked: boolean; verifyBlocked: boolean; resendBlocked: boolean; smsBlocked: boolean; offersSms: boolean };
 
 /** @param props - Current controlled verification facts. @returns Whether each write may run now; the server still checks every rule. */
 export function contactVerificationAvailability(props: ContactVerificationProps): ContactVerificationAvailability {
@@ -36,7 +36,9 @@ export function contactVerificationAvailability(props: ContactVerificationProps)
   const expired = props.expiresInSeconds !== null && props.expiresInSeconds <= 0;
   const waiting = props.resendInSeconds !== null && props.resendInSeconds > 0;
   return {
-    phone, noCountries, expired,
+    phone, noCountries, expired, waiting,
+    // An expired, exhausted or replaced code only moves forward with another send, so that send leaves its disclosure.
+    resendInView: Boolean(props.challenge) && !props.proofReady && (expired || Boolean(props.challengeUnavailable) || Boolean(props.requiresReplacement)),
     issueBlocked: controlsBlocked || !props.confirmed || !props.canIssue || noCountries,
     verifyBlocked: controlsBlocked || !props.canVerify || !props.challenge || Boolean(props.challengeUnavailable) || Boolean(props.requiresReplacement) || props.proofReady || Boolean(props.proofExpired) || expired || !ADMISSION_PUBLIC_CODE_PATTERN.test(props.verificationCode),
     resendBlocked: controlsBlocked || !props.confirmed || !props.canResend || noCountries || props.proofReady || waiting,
@@ -48,7 +50,7 @@ export function contactVerificationAvailability(props: ContactVerificationProps)
 /** @param props - Current controlled proposal, original challenge and derived blocking state. @returns Explicit accessible actions with private controls excluded from feedback screenshots; rendering and changing fields never send a message. */
 export function ContactVerification(props: ContactVerificationProps) {
   const fieldId = useId(), part = props.part ?? "all", guided = part !== "all";
-  const { phone, noCountries, expired, issueBlocked, verifyBlocked, resendBlocked, smsBlocked, offersSms } = contactVerificationAvailability(props);
+  const { phone, noCountries, expired, waiting, issueBlocked, verifyBlocked, resendBlocked, smsBlocked, offersSms } = contactVerificationAvailability(props);
   const controlsBlocked = props.busy || props.ready === false;
   const showSend = part !== "verify", showVerify = part !== "send" && Boolean(props.challenge);
 
@@ -76,8 +78,10 @@ export function ContactVerification(props: ContactVerificationProps) {
     <div className={styles.ContactVerification__field}>
       <Label htmlFor={`${fieldId}-code`}>Código de ingreso</Label>
       <Input id={`${fieldId}-code`} className={styles.ContactVerification__code} type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={ADMISSION_LIMIT.verificationCodeDigits} value={props.verificationCode} disabled={controlsBlocked || expired || props.proofExpired || props.challengeUnavailable || props.requiresReplacement} aria-invalid={Boolean(props.fieldErrors.verificationCode)} aria-describedby={`${fieldId}-code-feedback`} onChange={(event) => props.onCodeChange(event.target.value)} />
-      <p id={`${fieldId}-code-feedback`} className={props.fieldErrors.verificationCode || expired ? styles.ContactVerification__error : styles.ContactVerification__description}>{props.fieldErrors.verificationCode ?? (props.requiresReplacement ? "Para esta nueva presentación, confirmá Reenviar código. La prueba anterior no se reutiliza." : expired ? "El código venció. Podés solicitar otro cuando termine la espera." : `Ingresá los ${ADMISSION_LIMIT.verificationCodeDigits} números del código recibido.`)}</p>
+      <p id={`${fieldId}-code-feedback`} className={props.fieldErrors.verificationCode ? styles.ContactVerification__error : styles.ContactVerification__description}>{props.fieldErrors.verificationCode ?? (props.requiresReplacement ? "Para esta nueva presentación, confirmá Reenviar código. La prueba anterior no se reutiliza." : expired ? "El campo se habilita cuando llegue el código nuevo." : `Ingresá los ${ADMISSION_LIMIT.verificationCodeDigits} números del código recibido.`)}</p>
     </div>
+    {/* The expiry is a state of the code, not an input error: a quiet status next to the resend that ends it. */}
+    {expired && !props.requiresReplacement && <p role="status" className={styles.ContactVerification__notice}>{waiting ? "El código venció. Cuando termine la espera, reenviá uno nuevo para seguir." : "El código venció. Reenviá uno nuevo para seguir."}</p>}
     {props.proofExpired && <p role="status" className={styles.ContactVerification__error}>La prueba venció. Reenviá un código para el mismo contacto antes de continuar.</p>}
     {props.expiresInSeconds !== null && !expired && <p className={styles.ContactVerification__description}>Vence en {props.expiresInSeconds} segundos.</p>}
   </>;

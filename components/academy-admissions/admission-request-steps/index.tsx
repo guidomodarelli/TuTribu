@@ -51,12 +51,12 @@ export function AdmissionRequestSteps(props: AdmissionRequestStepsProps) {
       id: "verify", title: COPY.verifyTitle, description: COPY.verifyDescription,
       blockedReason: !verification.challenge && !verification.proofReady ? COPY.codeMissing : undefined,
       action: verification.proofReady ? undefined : { label: COPY.verifyAction, loading: props.verifying, disabled: availability.verifyBlocked && !props.verifying, onRun: verification.onVerify },
-      // A code that must be replaced makes the resend the step's next action; otherwise it stays collapsed.
+      // A code that expired, ran out of attempts or must be replaced makes the resend the step's next action; otherwise it stays collapsed.
       content: <>
         <ContactVerification {...verification} part="verify" />
-        {verification.requiresReplacement && !verification.proofReady && <div className={styles.AdmissionRequestSteps__resend}><ContactVerificationResendActions {...verification} /></div>}
+        {availability.resendInView && <div className={styles.AdmissionRequestSteps__resend}><ContactVerificationResendActions {...verification} /></div>}
       </>,
-      secondary: verification.challenge && !verification.proofReady && !verification.requiresReplacement || props.recovery ? <>{verification.challenge && !verification.proofReady && !verification.requiresReplacement && <ContactVerificationResendActions {...verification} />}{props.recovery}</> : undefined,
+      secondary: verification.challenge && !verification.proofReady && !availability.resendInView || props.recovery ? <>{verification.challenge && !verification.proofReady && !availability.resendInView && <ContactVerificationResendActions {...verification} />}{props.recovery}</> : undefined,
       secondaryLabel: COPY.resendLabel,
     });
   }

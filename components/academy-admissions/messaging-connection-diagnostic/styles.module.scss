@@ -24,6 +24,13 @@
     &--verified { border-inline-start-color: var(--success, var(--border)); }
   }
 
+  &__resendBlock {
+    display: grid;
+    justify-items: start;
+    min-width: 0;
+    gap: 0.5rem;
+  }
+
   &__currentHeader {
     display: flex;
     flex-wrap: wrap;

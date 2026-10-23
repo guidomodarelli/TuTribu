@@ -64,13 +64,11 @@ describe("contact verification workflow hook", () => {
     act(() => result.current.setConfirmed(true));
     await act(async () => { await result.current.issue(); });
     act(() => result.current.setConfirmed(true));
+    // The uncertain resend reads its own original once, without another send.
     await act(async () => { await result.current.resend(); });
-    expect(result.current.phase).toBe("uncertain");
-    expect(result.current.requiresReplacement).toBe(true);
-    expect(result.current.pending?.kind).toBe("resend");
-    const originalOperationId = result.current.pending?.operationId;
-    await act(async () => { await result.current.readOriginal(); });
+    const originalOperationId = vi.mocked(fixture.client.resend).mock.calls[0][2].operationId;
     expect(fixture.client.operation).toHaveBeenCalledExactlyOnceWith(fixture.options.slug, originalOperationId, expect.any(AbortSignal));
+    expect(result.current.phase).toBe("idle");
     expect(result.current.challenge?.challengeId).toBe(replacement.challengeId);
     expect(result.current.requiresReplacement).toBe(false);
     expect(result.current.pending).toBeNull();
@@ -556,7 +554,9 @@ describe("contact verification workflow hook", () => {
     act(() => result.current.setCode("123456"));
     await act(async () => { await result.current.verify(); });
     expect(fixture.client.verify).not.toHaveBeenCalled();
-    expect(result.current.errorMessage).toMatch(/venció/i);
+    // The expiry is a state of the code shown beside its resend, not an alert.
+    expect(result.current.expiresInSeconds).toBe(0);
+    expect(result.current.errorMessage).toBeNull();
     await act(async () => { await result.current.resend(); });
     expect(fixture.client.resend).not.toHaveBeenCalled();
     expect(fixture.options.authorize).toHaveBeenCalledTimes(2);
