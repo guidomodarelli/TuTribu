@@ -268,6 +268,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - La revisión de admisiones mantiene preparado el aviso accesible del resultado para que los lectores de pantalla puedan anunciar una decisión guardada o recuperada.
 - Una solicitud cuyo resultado sigue sin confirmar conserva su operación y permite consultarla, en lugar de mostrar un falso error de contrato o repetir la presentación.
 - Las solicitudes de admisión pueden guardarse mientras se actualiza el indicador de personas en línea, sin quedar inciertas por un bloqueo mutuo entre esas operaciones.
+- Los avisos de «no hay nada para mostrar», como los del calendario de eventos, vuelven a cambiar de alto con una transición suave cuando cambia su texto, también en dispositivos lentos.
 
 ### Security
 
