@@ -1,0 +1,339 @@
+{
+  "kind": "actual_node_host_restore_completed",
+  "sourceCommit": "8c8ef89c957cdc50b7ef6b82477f1fdf60c0d09d",
+  "cohortId": "61a19575-6ebb-4e09-a344-56720fe9b964",
+  "startedAt": "2026-10-18T23:16:50.85Z",
+  "passed": true,
+  "realMessages": 0,
+  "phases": [
+    {
+      "phase": "baseline",
+      "operationId": "f8612977-c29f-4378-bbd8-173cd7c00dc9",
+      "slug": "msgrestore2651fb350",
+      "sourceCommit": "8c8ef89c957cdc50b7ef6b82477f1fdf60c0d09d",
+      "bundleSha256": "f292e77e75eae4e285e92f8b5165f4549102853cb13f2270bb6426f38e972ab6",
+      "observation": {
+        "state": "completed",
+        "work_runs": 1,
+        "cipher_operations": 1,
+        "checked_rejections": 1,
+        "provider_requests": 0,
+        "invitation_round_trip": true,
+        "runtime_version": "24.16.0",
+        "source_commit": "8c8ef89c957cdc50b7ef6b82477f1fdf60c0d09d",
+        "bundle_sha256": "f292e77e75eae4e285e92f8b5165f4549102853cb13f2270bb6426f38e972ab6"
+      }
+    },
+    {
+      "phase": "locked",
+      "operationId": "163c3110-fb4a-494b-b625-369ab743bb8a",
+      "slug": "msgrestore9cc4b0d80",
+      "sourceCommit": "8c8ef89c957cdc50b7ef6b82477f1fdf60c0d09d",
+      "bundleSha256": "f292e77e75eae4e285e92f8b5165f4549102853cb13f2270bb6426f38e972ab6",
+      "observation": {
+        "state": "completed",
+        "work_runs": 1,
+        "cipher_operations": 0,
+        "checked_rejections": 5,
+        "provider_requests": 0,
+        "invitation_round_trip": false,
+        "runtime_version": "24.16.0",
+        "source_commit": "8c8ef89c957cdc50b7ef6b82477f1fdf60c0d09d",
+        "bundle_sha256": "f292e77e75eae4e285e92f8b5165f4549102853cb13f2270bb6426f38e972ab6"
+      }
+    },
+    {
+      "phase": "locked_original",
+      "operationId": "46d8d55b-bd68-4b81-b90f-5d6abf3378dc",
+      "slug": "msgrestore174353860",
+      "sourceCommit": "8c8ef89c957cdc50b7ef6b82477f1fdf60c0d09d",
+      "bundleSha256": "f292e77e75eae4e285e92f8b5165f4549102853cb13f2270bb6426f38e972ab6",
+      "observation": {
+        "state": "completed",
+        "work_runs": 1,
+        "cipher_operations": 0,
+        "checked_rejections": 5,
+        "provider_requests": 0,
+        "invitation_round_trip": false,
+        "runtime_version": "24.16.0",
+        "source_commit": "8c8ef89c957cdc50b7ef6b82477f1fdf60c0d09d",
+        "bundle_sha256": "f292e77e75eae4e285e92f8b5165f4549102853cb13f2270bb6426f38e972ab6"
+      }
+    },
+    {
+      "phase": "epoch",
+      "operationId": "8f92da0c-0101-4fb2-b7c3-c866492f9b8a",
+      "slug": "msgrestore0379feaf0",
+      "sourceCommit": "8c8ef89c957cdc50b7ef6b82477f1fdf60c0d09d",
+      "bundleSha256": "f292e77e75eae4e285e92f8b5165f4549102853cb13f2270bb6426f38e972ab6",
+      "observation": {
+        "state": "completed",
+        "work_runs": 1,
+        "cipher_operations": 0,
+        "checked_rejections": 5,
+        "provider_requests": 0,
+        "invitation_round_trip": false,
+        "runtime_version": "24.16.0",
+        "source_commit": "8c8ef89c957cdc50b7ef6b82477f1fdf60c0d09d",
+        "bundle_sha256": "f292e77e75eae4e285e92f8b5165f4549102853cb13f2270bb6426f38e972ab6"
+      }
+    },
+    {
+      "phase": "retired_key",
+      "operationId": "dd4b7bdf-5cea-44fa-8425-e6d111271836",
+      "slug": "msgrestore1d541e2c0",
+      "sourceCommit": "8c8ef89c957cdc50b7ef6b82477f1fdf60c0d09d",
+      "bundleSha256": "f292e77e75eae4e285e92f8b5165f4549102853cb13f2270bb6426f38e972ab6",
+      "observation": {
+        "state": "completed",
+        "work_runs": 1,
+        "cipher_operations": 0,
+        "checked_rejections": 2,
+        "provider_requests": 0,
+        "invitation_round_trip": false,
+        "runtime_version": "24.16.0",
+        "source_commit": "8c8ef89c957cdc50b7ef6b82477f1fdf60c0d09d",
+        "bundle_sha256": "f292e77e75eae4e285e92f8b5165f4549102853cb13f2270bb6426f38e972ab6"
+      }
+    },
+    {
+      "phase": "reconcile",
+      "operationId": "a98000fc-639c-4cae-9a60-2ea407eaec1f",
+      "slug": "msgrestore3325fc6a0",
+      "sourceCommit": "8c8ef89c957cdc50b7ef6b82477f1fdf60c0d09d",
+      "bundleSha256": "f292e77e75eae4e285e92f8b5165f4549102853cb13f2270bb6426f38e972ab6",
+      "observation": {
+        "state": "completed",
+        "work_runs": 1,
+        "cipher_operations": 0,
+        "checked_rejections": 2,
+        "provider_requests": 0,
+        "invitation_round_trip": false,
+        "runtime_version": "24.16.0",
+        "source_commit": "8c8ef89c957cdc50b7ef6b82477f1fdf60c0d09d",
+        "bundle_sha256": "f292e77e75eae4e285e92f8b5165f4549102853cb13f2270bb6426f38e972ab6"
+      }
+    },
+    {
+      "phase": "reopen",
+      "operationId": "396cd19e-a548-4802-a0bb-a4bfb98eef10",
+      "slug": "msgrestore56a7b3f10",
+      "sourceCommit": "8c8ef89c957cdc50b7ef6b82477f1fdf60c0d09d",
+      "bundleSha256": "f292e77e75eae4e285e92f8b5165f4549102853cb13f2270bb6426f38e972ab6",
+      "observation": {
+        "state": "completed",
+        "work_runs": 1,
+        "cipher_operations": 1,
+        "checked_rejections": 2,
+        "provider_requests": 4,
+        "invitation_round_trip": false,
+        "runtime_version": "24.16.0",
+        "source_commit": "8c8ef89c957cdc50b7ef6b82477f1fdf60c0d09d",
+        "bundle_sha256": "f292e77e75eae4e285e92f8b5165f4549102853cb13f2270bb6426f38e972ab6"
+      }
+    }
+  ],
+  "requests": [
+    {
+      "phase": "baseline",
+      "method": "GET",
+      "stage": "prepared",
+      "status": 202
+    },
+    {
+      "phase": "baseline",
+      "method": "POST",
+      "stage": "run",
+      "status": 200
+    },
+    {
+      "phase": "baseline",
+      "method": "GET",
+      "stage": "original_after_run",
+      "status": 200
+    },
+    {
+      "phase": "baseline",
+      "method": "POST",
+      "stage": "known_completed_replay",
+      "status": 200
+    },
+    {
+      "phase": "locked",
+      "method": "GET",
+      "stage": "prepared",
+      "status": 202
+    },
+    {
+      "phase": "locked",
+      "method": "GET",
+      "stage": "external_profile_after_restore",
+      "status": 202
+    },
+    {
+      "phase": "locked",
+      "method": "POST",
+      "stage": "run",
+      "status": 200
+    },
+    {
+      "phase": "locked",
+      "method": "GET",
+      "stage": "original_after_run",
+      "status": 200
+    },
+    {
+      "phase": "locked",
+      "method": "POST",
+      "stage": "known_completed_replay",
+      "status": 200
+    },
+    {
+      "phase": "locked_original",
+      "method": "GET",
+      "stage": "prepared",
+      "status": 202
+    },
+    {
+      "phase": "locked_original",
+      "method": "POST",
+      "stage": "run",
+      "status": 200
+    },
+    {
+      "phase": "locked_original",
+      "method": "GET",
+      "stage": "original_after_run",
+      "status": 200
+    },
+    {
+      "phase": "locked_original",
+      "method": "POST",
+      "stage": "known_completed_replay",
+      "status": 200
+    },
+    {
+      "phase": "epoch",
+      "method": "GET",
+      "stage": "prepared",
+      "status": 202
+    },
+    {
+      "phase": "epoch",
+      "method": "POST",
+      "stage": "run",
+      "status": 200
+    },
+    {
+      "phase": "epoch",
+      "method": "GET",
+      "stage": "original_after_run",
+      "status": 200
+    },
+    {
+      "phase": "epoch",
+      "method": "POST",
+      "stage": "known_completed_replay",
+      "status": 200
+    },
+    {
+      "phase": "retired_key",
+      "method": "GET",
+      "stage": "prepared",
+      "status": 202
+    },
+    {
+      "phase": "retired_key",
+      "method": "POST",
+      "stage": "run",
+      "status": 200
+    },
+    {
+      "phase": "retired_key",
+      "method": "GET",
+      "stage": "original_after_run",
+      "status": 200
+    },
+    {
+      "phase": "retired_key",
+      "method": "POST",
+      "stage": "known_completed_replay",
+      "status": 200
+    },
+    {
+      "phase": "reconcile",
+      "method": "GET",
+      "stage": "prepared",
+      "status": 202
+    },
+    {
+      "phase": "reconcile",
+      "method": "POST",
+      "stage": "run",
+      "status": 200
+    },
+    {
+      "phase": "reconcile",
+      "method": "GET",
+      "stage": "original_after_run",
+      "status": 200
+    },
+    {
+      "phase": "reconcile",
+      "method": "POST",
+      "stage": "known_completed_replay",
+      "status": 200
+    },
+    {
+      "phase": "reopen",
+      "method": "GET",
+      "stage": "prepared",
+      "status": 202
+    },
+    {
+      "phase": "reopen",
+      "method": "POST",
+      "stage": "run",
+      "status": 200
+    },
+    {
+      "phase": "reopen",
+      "method": "GET",
+      "stage": "original_after_run",
+      "status": 200
+    },
+    {
+      "phase": "reopen",
+      "method": "POST",
+      "stage": "known_completed_replay",
+      "status": 200
+    }
+  ],
+  "branchId": "br-young-bird-andaa7pt",
+  "phase": "run_reopen",
+  "copyId": "br-icy-sky-anrhan62",
+  "deploymentAttempts": 7,
+  "profileOutsideSqlSurvivedRestore": true,
+  "originalRecordsPreserved": true,
+  "auditedReturnedDeployments": 7,
+  "inputsStable": true,
+  "privateMaterialAbsent": true,
+  "functionsRemoved": true,
+  "branchesRemoved": true,
+  "tests": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "durationMs": 1105400
+  },
+  "independentCleanup": {
+    "parentAbsent": true,
+    "copyAbsent": true,
+    "persistentBranchesPreserved": true,
+    "persistentBranchCount": 4,
+    "otherBranchCount": 0
+  },
+  "providerTransport": "closed_controlled_http",
+  "workersValidated": false,
+  "operationalGatesClosed": []
+}

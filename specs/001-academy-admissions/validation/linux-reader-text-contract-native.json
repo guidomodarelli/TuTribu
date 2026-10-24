@@ -1,0 +1,1124 @@
+{
+  "kind": "native_text_sdk_contract_comparison",
+  "diagnosticRunsAfterSpeechInterval": true,
+  "nativeTextAcceptedAsSpeech": false,
+  "operationalGatesClosed": [],
+  "observations": [
+    {
+      "workflowRun": 39148285992,
+      "url": "https://github.com/guidomodarelli/TuTribu/actions/runs/39148285992",
+      "sourceCommit": "adbc41ddc3fb1843c5ba2e4e35afb6e78f895397",
+      "kind": "platform_preflight",
+      "orcaVersion": "51.1",
+      "orcaSourceCommit": "244bdadd98f07fe9bfda9326fab621d686c70d2d",
+      "passed": false,
+      "nativeTextInspectionValidated": true,
+      "productJourneysValidated": false,
+      "realMessages": 0,
+      "cases": [
+        {
+          "engine": "chromium",
+          "width": 390,
+          "markupVariant": "empty",
+          "passed": true,
+          "failureCode": null,
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 208,
+            "typedReadSuccesses": 208,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 208,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 2
+          },
+          "liveRegions": [
+            {
+              "role": "button",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "notification",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "static",
+              "nameMatchesExpected": true,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "chromium",
+          "width": 390,
+          "markupVariant": "seeded_text",
+          "passed": true,
+          "failureCode": null,
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 208,
+            "typedReadSuccesses": 208,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 208,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 2
+          },
+          "liveRegions": [
+            {
+              "role": "button",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "notification",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "static",
+              "nameMatchesExpected": true,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "chromium",
+          "width": 390,
+          "markupVariant": "seeded_marker",
+          "passed": true,
+          "failureCode": null,
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 208,
+            "typedReadSuccesses": 208,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 208,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 2
+          },
+          "liveRegions": [
+            {
+              "role": "button",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "notification",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "static",
+              "nameMatchesExpected": true,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "chromium",
+          "width": 1280,
+          "markupVariant": "empty",
+          "passed": true,
+          "failureCode": null,
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 208,
+            "typedReadSuccesses": 208,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 208,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 2
+          },
+          "liveRegions": [
+            {
+              "role": "button",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "notification",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "static",
+              "nameMatchesExpected": true,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "chromium",
+          "width": 1280,
+          "markupVariant": "seeded_text",
+          "passed": true,
+          "failureCode": null,
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 208,
+            "typedReadSuccesses": 208,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 208,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 2
+          },
+          "liveRegions": [
+            {
+              "role": "button",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "notification",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "static",
+              "nameMatchesExpected": true,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "chromium",
+          "width": 1280,
+          "markupVariant": "seeded_marker",
+          "passed": true,
+          "failureCode": null,
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 208,
+            "typedReadSuccesses": 208,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 208,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 2
+          },
+          "liveRegions": [
+            {
+              "role": "button",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "notification",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "static",
+              "nameMatchesExpected": true,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "webkit",
+          "width": 390,
+          "markupVariant": "empty",
+          "passed": false,
+          "failureCode": "native_reader_speech_missing",
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 8,
+            "typedReadSuccesses": 8,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 8,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 1
+          },
+          "liveRegions": [
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "webkit",
+          "width": 390,
+          "markupVariant": "seeded_text",
+          "passed": false,
+          "failureCode": "native_reader_speech_missing",
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 8,
+            "typedReadSuccesses": 8,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 8,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 1
+          },
+          "liveRegions": [
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "webkit",
+          "width": 390,
+          "markupVariant": "seeded_marker",
+          "passed": false,
+          "failureCode": "native_reader_speech_missing",
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 8,
+            "typedReadSuccesses": 8,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 8,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 1
+          },
+          "liveRegions": [
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "webkit",
+          "width": 1280,
+          "markupVariant": "empty",
+          "passed": false,
+          "failureCode": "native_reader_speech_missing",
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 8,
+            "typedReadSuccesses": 8,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 8,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 1
+          },
+          "liveRegions": [
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "webkit",
+          "width": 1280,
+          "markupVariant": "seeded_text",
+          "passed": false,
+          "failureCode": "native_reader_speech_missing",
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 8,
+            "typedReadSuccesses": 8,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 8,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 1
+          },
+          "liveRegions": [
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "webkit",
+          "width": 1280,
+          "markupVariant": "seeded_marker",
+          "passed": false,
+          "failureCode": "native_reader_speech_missing",
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 8,
+            "typedReadSuccesses": 8,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 8,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 1
+          },
+          "liveRegions": [
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "workflowRun": 39148285999,
+      "url": "https://github.com/guidomodarelli/TuTribu/actions/runs/39148285999",
+      "sourceCommit": "adbc41ddc3fb1843c5ba2e4e35afb6e78f895397",
+      "kind": "platform_preflight",
+      "orcaVersion": "48.9",
+      "orcaSourceCommit": "4b964097f586446b3c74a98d0d309fb4b87ceb70",
+      "passed": false,
+      "nativeTextInspectionValidated": true,
+      "productJourneysValidated": false,
+      "realMessages": 0,
+      "cases": [
+        {
+          "engine": "chromium",
+          "width": 390,
+          "markupVariant": "empty",
+          "passed": false,
+          "failureCode": "native_reader_speech_missing",
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 207,
+            "typedReadSuccesses": 207,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 207,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 2
+          },
+          "liveRegions": [
+            {
+              "role": "push button",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "notification",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "chromium",
+          "width": 390,
+          "markupVariant": "seeded_text",
+          "passed": false,
+          "failureCode": "native_reader_speech_missing",
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 208,
+            "typedReadSuccesses": 208,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 208,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 2
+          },
+          "liveRegions": [
+            {
+              "role": "push button",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "notification",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "static",
+              "nameMatchesExpected": true,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "chromium",
+          "width": 390,
+          "markupVariant": "seeded_marker",
+          "passed": true,
+          "failureCode": null,
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 208,
+            "typedReadSuccesses": 208,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 208,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 2
+          },
+          "liveRegions": [
+            {
+              "role": "push button",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "notification",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "static",
+              "nameMatchesExpected": true,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "chromium",
+          "width": 1280,
+          "markupVariant": "empty",
+          "passed": false,
+          "failureCode": "native_reader_speech_missing",
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 207,
+            "typedReadSuccesses": 207,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 207,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 2
+          },
+          "liveRegions": [
+            {
+              "role": "push button",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "notification",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "chromium",
+          "width": 1280,
+          "markupVariant": "seeded_text",
+          "passed": false,
+          "failureCode": "native_reader_speech_missing",
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 208,
+            "typedReadSuccesses": 208,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 208,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 2
+          },
+          "liveRegions": [
+            {
+              "role": "push button",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "notification",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "static",
+              "nameMatchesExpected": true,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "chromium",
+          "width": 1280,
+          "markupVariant": "seeded_marker",
+          "passed": false,
+          "failureCode": "native_reader_speech_missing",
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 208,
+            "typedReadSuccesses": 208,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 208,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 2
+          },
+          "liveRegions": [
+            {
+              "role": "push button",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "notification",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": false,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            },
+            {
+              "role": "static",
+              "nameMatchesExpected": true,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "webkit",
+          "width": 390,
+          "markupVariant": "empty",
+          "passed": false,
+          "failureCode": "native_reader_speech_missing",
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 8,
+            "typedReadSuccesses": 8,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 8,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 1
+          },
+          "liveRegions": [
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "webkit",
+          "width": 390,
+          "markupVariant": "seeded_text",
+          "passed": false,
+          "failureCode": "native_reader_speech_missing",
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 8,
+            "typedReadSuccesses": 8,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 8,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 1
+          },
+          "liveRegions": [
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "webkit",
+          "width": 390,
+          "markupVariant": "seeded_marker",
+          "passed": false,
+          "failureCode": "native_reader_speech_missing",
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 8,
+            "typedReadSuccesses": 8,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 8,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 1
+          },
+          "liveRegions": [
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "webkit",
+          "width": 1280,
+          "markupVariant": "empty",
+          "passed": false,
+          "failureCode": "native_reader_speech_missing",
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 8,
+            "typedReadSuccesses": 8,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 8,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 1
+          },
+          "liveRegions": [
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "webkit",
+          "width": 1280,
+          "markupVariant": "seeded_text",
+          "passed": false,
+          "failureCode": "native_reader_speech_missing",
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 8,
+            "typedReadSuccesses": 8,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 8,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 1
+          },
+          "liveRegions": [
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        },
+        {
+          "engine": "webkit",
+          "width": 1280,
+          "markupVariant": "seeded_marker",
+          "passed": false,
+          "failureCode": "native_reader_speech_missing",
+          "nativeTextInspectionValidated": true,
+          "textObservation": {
+            "interfaceQueryFailures": 0,
+            "interfacesReported": 8,
+            "typedReadSuccesses": 8,
+            "typedReadTypeErrors": 0,
+            "typedReadAttributeErrors": 0,
+            "typedReadPlatformErrors": 0,
+            "typedReadOtherErrors": 0,
+            "boundReadSuccesses": 0,
+            "boundReadTypeErrors": 8,
+            "boundReadAttributeErrors": 0,
+            "boundReadPlatformErrors": 0,
+            "boundReadOtherErrors": 0,
+            "differingSuccessfulReads": 0,
+            "controlTextMatches": 1
+          },
+          "liveRegions": [
+            {
+              "role": "status bar",
+              "nameMatchesExpected": false,
+              "textMatchesExpected": true,
+              "textInterfaceAvailable": true,
+              "textReadSucceeded": true,
+              "interfaceQueryFailed": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

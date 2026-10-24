@@ -1,0 +1,30 @@
+@use "../../../src/styles/workspace-panel";
+
+.AdmissionBatchResults {
+  @include workspace-panel.block;
+
+  overflow-wrap: anywhere;
+
+  &__title {
+    @include workspace-panel.title;
+  }
+
+  &__name {
+    @include workspace-panel.row-title;
+  }
+
+  &__counts {
+    @include workspace-panel.facts;
+  }
+
+  &__list {
+    @include workspace-panel.rows;
+  }
+
+  &__row {
+    display: grid;
+    gap: 0.375rem;
+    padding-block: 0.875rem;
+    border-block-end: 1px solid var(--border);
+  }
+}

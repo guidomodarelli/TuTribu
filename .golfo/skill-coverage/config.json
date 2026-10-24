@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "project": "TuTribu",
+  "sourceRoots": [
+    "app",
+    "components",
+    "lib",
+    "hooks",
+    "src"
+  ],
+  "ignore": [
+    "**/*.test.*",
+    "**/*.spec.*",
+    "tests/**",
+    "**/__tests__/**",
+    "**/*.stories.*"
+  ],
+  "boundaries": [
+    {
+      "path": "src/modules/setup.ts",
+      "symbol": "*",
+      "reason": "Raíz de composición: construye todos los módulos de la app. Seguirla haría depender cada unidad de todo el backend; cada unidad declara en dependsOn el builder del módulo que usa."
+    }
+  ],
+  "sharedInputs": [],
+  "skills": {}
+}

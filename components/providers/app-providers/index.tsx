@@ -1,11 +1,12 @@
 "use client";
 
 /** Composes the shared UI provider with application notifications and Siteping. */
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { ThemedToaster, useTheme } from "@golfo/ui";
 
-import { SitepingProvider } from "@/components/providers/siteping-provider";
+import { PrivateAwareSiteping } from "@/components/providers/private-aware-siteping";
 import { DARK_THEME_MODE, LIGHT_THEME_MODE } from "@/src/constants/theme-mode";
+import { APP_TOAST_DURATION_MS } from "@/src/constants/toast";
 import { AppUIProvider } from "./app-ui-provider";
 
 import styles from "./styles.module.scss";
@@ -15,6 +16,7 @@ const APP_PROVIDERS_TOASTER = {
   closeButton: true,
   position: "top-center",
   richColors: true,
+  toastOptions: { duration: APP_TOAST_DURATION_MS },
 } as const;
 
 type AppProvidersProps = {
@@ -37,7 +39,7 @@ export function AppProviders({
     <AppUIProvider>
       <div className={styles.AppProviders}>
         {children}
-        {isSitepingEnabled ? <SitepingProvider /> : null}
+        <Suspense fallback={null}><PrivateAwareSiteping enabled={isSitepingEnabled} /></Suspense>
         <AppToaster />
       </div>
     </AppUIProvider>

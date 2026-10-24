@@ -1,0 +1,84 @@
+{
+  "baseCommit": "aa458512f5e1b389c6f9fc72569bdd066174442f",
+  "codeState": "working_tree_before_increment_commit",
+  "contract": "nonce_bound_google_account_confirmation",
+  "confirmationWindowMinutes": 10,
+  "googleSessionLogoutRequired": false,
+  "googleFreshCredentialChallengeGuaranteed": false,
+  "local": {
+    "passed": 197,
+    "failed": 0,
+    "skipped": 30,
+    "files": 31,
+    "durationMs": 5367
+  },
+  "sql": {
+    "passed": 10,
+    "failed": 0,
+    "skipped": 0,
+    "files": 1,
+    "durationMs": 267274
+  },
+  "browser": {
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "files": 1,
+    "durationMs": 285732
+  },
+  "browserScenarios": [
+    {
+      "name": "authenticated global reauthentication browser flow should preserve a current leader session and recover consumed attempts in Chromium desktop",
+      "passed": true
+    },
+    {
+      "name": "authenticated global reauthentication browser flow should preserve a current leader session and recover consumed attempts in Chromium mobile",
+      "passed": true
+    },
+    {
+      "name": "authenticated global reauthentication browser flow should preserve a current leader session and recover consumed attempts in WebKit desktop",
+      "passed": true
+    },
+    {
+      "name": "authenticated global reauthentication browser flow should preserve a current leader session and recover consumed attempts in WebKit mobile",
+      "passed": true
+    }
+  ],
+  "runtime": {
+    "inputs": 2138,
+    "sha256": "cef4ca7795e414c76bf31d01dd4b7f81884ca426c7bbe618c75aca9337ca7acd",
+    "stableDuringNative": true,
+    "unchangedAfterBuild": true
+  },
+  "nativeFixturesAndTestsStable": true,
+  "build": {
+    "command": "next build",
+    "exitCode": 0,
+    "staticPages": 56,
+    "environment": "isolated_pilot"
+  },
+  "cleanup": {
+    "nativeTestRunsTerminal": true,
+    "persistentBranchesPreserved": 4,
+    "additionalBranchesObserved": 0
+  },
+  "realPilot": {
+    "googleAccountConfirmedInUi": true,
+    "googleSessionPreserved": true,
+    "additionalCredentialChallengeObserved": false,
+    "usagePolicyVersion": 2,
+    "allowedCountries": [
+      "AR"
+    ],
+    "dailyCodeLimit": 10,
+    "dailyNotificationLimit": 0,
+    "observedConsumedCodes": 0,
+    "observedConsumedNotifications": 0
+  },
+  "limitations": [
+    "Controlled Google transport is used by automated OAuth cases.",
+    "Real pilot observation does not complete Gmail/Workspace/external or Workers coverage.",
+    "Local skipped native cases are not counted as passed."
+  ],
+  "realMessages": 0
+}

@@ -1,0 +1,109 @@
+{
+  "source": {
+    "baseCommit": "a302139f4508c8a34763802d55cd7f6eff51e630",
+    "worktreeChanges": true,
+    "inputsStable": true,
+    "toolingStable": true,
+    "files": [
+      {
+        "path": "database/migrations/20261018134746_read_submission_actor_with_scope.sql",
+        "sha256": "ca81a27bd771d6d6493d771430fa3ad1776fdb536075d543f2a4ceabc0f2c321"
+      },
+      {
+        "path": "database/migrations/meta/_journal.json",
+        "sha256": "c3a2c22311824df6c7179d3474b6c0bd2738f75c0d3c7cf4c7e079443913f111"
+      },
+      {
+        "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-authorization-reader.ts",
+        "sha256": "96bac1a700288b23ef0c5656d58e8d625aa4f1dea7f5d8ef7bfdb26d26cbfb46"
+      },
+      {
+        "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts",
+        "sha256": "5c0c647b38bdd8590ea7709d0430fa6e511936a836fb363c48a3c4819cba6af5"
+      },
+      {
+        "path": "src/modules/academy-admissions/setup.ts",
+        "sha256": "a7ef58e8934d3876a9f5e8add58d21d1601bd7d190faebe99c46a09ebd129433"
+      },
+      {
+        "path": "src/modules/tribes/infrastructure/repositories/lock-academy-admission-membership-scope.ts",
+        "sha256": "fb2c88f8f4c42db95848e31868a51a70a25b8eb5d5e45938da739508e057bd09"
+      },
+      {
+        "path": "tests/support/constants/admission-authorization.ts",
+        "sha256": "6933b965e06608a09e6ab3c265d4aae9fd3e24ea0a44e96b4b43373e4bc86a09"
+      },
+      {
+        "path": "tests/unit/modules/academy-admissions/infrastructure/admission-authorization-reader.test.ts",
+        "sha256": "0e41d8a7ed68d6821456b1a02635c611a1e71e3c809ad84b12bb6296b04e5280"
+      }
+    ]
+  },
+  "native": {
+    "passed": 6,
+    "failed": 0,
+    "unselected": 10,
+    "testNamePattern": "should preserve ordered scope/account authority|should serialize the same applicant|should block non-key tenant|should keep absent scope|should use three real checkouts|should atomically bind a trusted exact contact",
+    "cases": [
+      {
+        "name": "should preserve ordered scope/account authority in one round trip after native waits",
+        "status": "passed"
+      },
+      {
+        "name": "should use three real checkouts and retain revocation, account deletion and changed-cookie rejection between commits",
+        "status": "passed"
+      },
+      {
+        "name": "should atomically bind a trusted exact contact and approve once as system without editing the entry or notifying reviewers of a pending request",
+        "status": "passed"
+      },
+      {
+        "name": "should serialize the same applicant and expose a membership inserted during the wait in the next statement",
+        "status": "passed"
+      },
+      {
+        "name": "should block non-key tenant updates under self admission and retain the exclusive fence for another beneficiary",
+        "status": "passed"
+      },
+      {
+        "name": "should keep absent scope closed and release the applicant lock when its transaction rolls back",
+        "status": "passed"
+      }
+    ],
+    "referenceStatements": 2,
+    "groupedMaximumStatements": 1,
+    "realPg": true,
+    "checks": [
+      "same actor after separate or grouped read",
+      "original advisory namespace retained",
+      "membership committed during advisory/account waits observed",
+      "expired session denied after account wait",
+      "invoker privileges and volatility retained",
+      "absent scope and foreign session closed",
+      "native ledger actor validation unchanged",
+      "three guarded checkouts and balanced releases",
+      "revocation, account deletion and changed identity prevent effects",
+      "self and managed tenant fences preserved",
+      "rollback releases the applicant lock",
+      "automatic approval and replay remain atomic"
+    ]
+  },
+  "quality": {
+    "typesPassed": true,
+    "testTypesPassed": true,
+    "lintPassed": true,
+    "nextBuild": {
+      "version": "16.3.4",
+      "exitCode": 0,
+      "staticPages": 56
+    }
+  },
+  "cleanup": {
+    "remainingBranches": 3,
+    "originalBranchesPreserved": true,
+    "nonOriginalBranches": 0
+  },
+  "performanceAccepted": false,
+  "productionSqlExecuted": false,
+  "realMessages": 0
+}

@@ -1,0 +1,52 @@
+/** Seeds a coherent original notice and prepared replacement on one owned native branch. @module notification-delivery-recovery-fixture */
+import { randomBytes, randomUUID } from "node:crypto";
+import { sql } from "drizzle-orm";
+import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
+import { prepareMessagingConnectionActivation } from "./messaging-activation-fixture";
+import type { NotificationDeliveryRecoveryContext } from "@/src/modules/messaging/domain/repositories/notification-delivery-recovery";
+import { PostgresNotificationDeliveryRecoveryRepository } from "@/src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository";
+import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
+import { buildMessagingModule } from "@/src/modules/messaging/setup";
+import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
+import { createDefaultAdmissionPolicy } from "@/src/modules/academy-admissions/domain/entities/admission-policy";
+import { createPendingAdmissionRequest } from "@/src/modules/academy-admissions/domain/entities/admission-request";
+import { ADMISSION_REQUEST_SOURCE } from "@/src/modules/academy-admissions/constants/admission-request";
+import { ADMISSION_EVIDENCE_KIND } from "@/src/modules/academy-admissions/constants/admission-eligibility";
+
+/** @param database - This run's isolated real PostgreSQL branch. @param deadlineMs - Optional original lifetime for real final-wait scenarios. @param deliveryState - Original state; `unknown` exercises an outcome that may already have been accepted. @param securityConfig - Optional shared native server security, without serializing key material to artifacts. @returns Actual prepared connections, original obligation and native recovery writer; provider transport is controlled solely during candidate preparation. */
+export async function prepareNotificationDeliveryRecovery(database: AcademyAdmissionTestDatabase, deadlineMs = 3_600_000, securityConfig?: MessagingSecurityConfig, deliveryState: "suppressed" | "unknown" = "suppressed") {
+  const activation = await prepareMessagingConnectionActivation(database, undefined, undefined, securityConfig);
+  const creation = activation.fixture;
+  for (const migration of ["20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261011065500_record_notification_recovery_lineage.sql", "20261011103000_index_notification_delivery_catalog.sql", "20261013234047_guard_extended_notification_recovery_audit.sql"]) await database.applyMigration(migration);
+  const { own } = creation.fixture;
+  const activated = await activation.owner.activate(activation.context, activation.input);
+  if (activated.state !== "completed") throw new Error("Notification recovery prepared selection unavailable");
+  const first = await creation.repository.create(creation.context, { operationId: randomUUID(), confirmed: true, providerId: "zavu", name: "Original notification connection", apiKey: randomUUID() });
+  if (first.state !== "completed") throw new Error("Notification recovery original encrypted connection unavailable");
+  await database.withContext(own, (transaction) => transaction.execute(sql`update public.tenant_messaging_connections set is_candidate=false,candidate_version=null where id=${first.result.id}`));
+  const originalDeliveryId = randomUUID(), requestId = randomUUID(), obligationId = randomUUID();
+  const context = await database.withContext(own, async (transaction): Promise<NotificationDeliveryRecoveryContext> => {
+    const now = new Date((await transaction.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now);
+    const deadline = new Date(now.getTime() + deadlineMs);
+    const request = createPendingAdmissionRequest({
+      id: requestId, tribeId: creation.context.tribeId, userId: own.userId,
+      source: ADMISSION_REQUEST_SOURCE.common, contact: null,
+      evidence: { kind: ADMISSION_EVIDENCE_KIND.none },
+      policy: createDefaultAdmissionPolicy({ id: randomUUID(), tribeId: creation.context.tribeId }),
+      message: null, now,
+    });
+    await transaction.execute(sql`insert into public.admission_email_settings(tribe_id,enabled,enabled_at,changed_by_user_id) values (${creation.context.tribeId},true,${now},${own.userId})`);
+    await transaction.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,original_policy_snapshot,submitted_at,expires_at) values (${request.id},${request.tribeId},${request.userId},${request.source},${JSON.stringify(request.originalPolicy)}::jsonb,${request.submittedAt},${request.expiresAt})`);
+    await transaction.execute(sql`insert into public.academy_admission_notification_obligations(id,tribe_id,request_id,applicant_user_id,event_type) values (${obligationId},${creation.context.tribeId},${requestId},${own.userId},'pending_created')`);
+    await transaction.execute(sql`select public.enqueue_admission_notification(${obligationId},${own.userId},'reviewer')`);
+    await transaction.execute(sql`insert into public.message_deliveries(id,tribe_id,connection_id,connection_version,environment,security_epoch,purpose,source_resource_id,actor_user_id,recipient_ref,channel,idempotency_key,payload_fingerprint,payload_mac_key_id,frozen_intent,queued_usage_policy_version,state,created_at,due_at,deadline_at) values (${originalDeliveryId},${creation.context.tribeId},${first.result.id},1,${creation.fixture.config.environment},${creation.fixture.config.securityEpoch},'admission_notification',${obligationId},${own.userId},${own.userId},'email',${randomUUID()},${randomBytes(32)},'synthetic-original-payload','{}',1,${deliveryState},${now},${now},${deadline})`);
+    return { ...creation.context, operation: "recover_notification_delivery", deliveryId: originalDeliveryId, resourceId: originalDeliveryId };
+  });
+  const execute = <Result>(_context: NotificationDeliveryRecoveryContext, run: (transaction: RequestDatabase) => Promise<Result>) => database.withContext(own, run);
+  const input = { operationId: randomUUID(), expectedVersion: 1, targetConnectionId: activation.context.connectionId, expectedTargetVersion: activated.result.version, confirmed: true as const };
+  const baselineUsage = await database.withContext(own, async (transaction) => (await transaction.execute<{ reservations: number; attempts: number }>(sql`select (select count(*)::int from public.messaging_usage_reservations where tribe_id=${context.tribeId}) as reservations,(select count(*)::int from public.message_delivery_attempts where tribe_id=${context.tribeId}) as attempts`)).rows[0]);
+  const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: context.actorUserId, sessionId: context.sessionId }), (_identity, run) => database.withContext(own, run));
+  const recovery = buildMessagingModule({ accounts, execute: (_account, run) => database.withContext(own, run), clock: () => new Date() }).createNotificationRecoveryModule({ readSecurityConfig: async () => creation.fixture.config }).useCases;
+  return { creation, own, context, input, recovery, requestId, obligationId, targetConfigurationVersion: activation.context.connectionVersion, baselineUsage, transport: activation.transport, originalConnectionId: first.result.id, repository: new PostgresNotificationDeliveryRecoveryRepository(execute, async () => creation.fixture.config), execute };
+}

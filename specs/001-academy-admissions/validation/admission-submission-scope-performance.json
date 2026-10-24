@@ -1,0 +1,103 @@
+{
+  "baseCommit": "1e929c419df66207f3acc9554c652eab16e8e3fd",
+  "worktreeChanges": true,
+  "productionInputs": [
+    {
+      "sha256": "960107a06cf7c3373cc1c6508710103ff657172b62a24273c4ca79d44cc2e3dd",
+      "path": "src/modules/academy-admissions/constants/admission-operation.ts"
+    },
+    {
+      "sha256": "281d92f9efa6d5a8d6d6b5c95ff985ca7a104df1b92a1732d0762f053e7cd406",
+      "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts"
+    },
+    {
+      "sha256": "52602762e73097e87ef0f66e3103e501f1f0a6a6ac3ee5d73957887c463ad7ef",
+      "path": "src/modules/academy-admissions/setup.ts"
+    },
+    {
+      "sha256": "458dd8dd26c1914088adc387554bcb97219faafa4d36fd9bc95d8df39d911e9a",
+      "path": "src/modules/tribes/constants/academy-membership.ts"
+    },
+    {
+      "sha256": "5217aa0308e75ccc1c1d6cf590436bfd3aa993d215295e4b6e5190796855dc1f",
+      "path": "src/modules/tribes/infrastructure/repositories/lock-academy-admission-membership-scope.ts"
+    },
+    {
+      "sha256": "cf877c0349dbc4b0d21dcd5f4965e6b4a0d50f2763026baf871b8bf2a396fd40",
+      "path": "src/modules/tribes/infrastructure/repositories/read-approved-academy-membership-context.ts"
+    }
+  ],
+  "productionInputsStable": true,
+  "realMessages": 0,
+  "capacityProbe": {
+    "readOnly": true,
+    "branchVerified": true,
+    "observedAt": "2026-10-18T04:36:47.243Z",
+    "lastObservedPhase": "native_performance_fixture_ready",
+    "setupStillRunning": false,
+    "settings": {
+      "max_connections": 901,
+      "superuser_reserved_connections": 4,
+      "reserved_connections": 0,
+      "max_locks_per_transaction": 64,
+      "role_connection_limit": -1
+    },
+    "completedBeforeEarliestMeasurement": true,
+    "earliestMeasurementBound": "2026-10-18T04:38:06.667Z"
+  },
+  "report": {
+    "head": "1e929c419df66207f3acc9554c652eab16e8e3fd",
+    "exitCode": 1,
+    "outputTruncated": false,
+    "cases": [
+      {
+        "kind": "load",
+        "status": "failed",
+        "durationMs": 355940.61819999997
+      },
+      {
+        "kind": "abandonment",
+        "status": "passed",
+        "durationMs": 41831.59039999999
+      }
+    ],
+    "load": {
+      "participants": 100,
+      "admitted": 9,
+      "pending": 1,
+      "failures": 90,
+      "poolCheckoutTimeouts": 90,
+      "p95Ms": 66807.04949999996,
+      "targetMs": 3000,
+      "networkQueryP95Ms": 165.33750000002328,
+      "networkSamples": 20,
+      "setupDurationMs": 170882.9286,
+      "warmupDurationMs": 106598.443,
+      "eventLoopP95Ms": 34.275327,
+      "pool": {
+        "maximum": 10,
+        "acquisitions": 407,
+        "releases": 407,
+        "peakWaitingCount": 90,
+        "waitingAfter": 0,
+        "checkedOutAfter": 0
+      },
+      "facts": {
+        "entries": 10000,
+        "requests": 10,
+        "basicMembers": 9,
+        "deliveries": 0
+      }
+    },
+    "abandonment": {
+      "observedIdleTimeoutMs": 30000,
+      "observationDurationMs": 32936.55040000001,
+      "healthy": 1,
+      "idleGuardConfirmed": true,
+      "acquisitions": 2,
+      "releases": 2,
+      "waitingAfter": 0,
+      "checkedOutAfter": 0
+    }
+  }
+}

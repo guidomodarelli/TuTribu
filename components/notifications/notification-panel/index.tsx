@@ -7,40 +7,15 @@ import { Button, AnimatedListItem, cn, MOTION_TIMING, MOTION_EASE } from "@golfo
 import { Link } from "@/components/navigation/link";
 import { describeNotification } from "@/lib/notifications/notification-presentation";
 import type { NotificationItemResult } from "@/src/modules/notifications/application/results/notification-result";
+import type { NotificationListStatus } from "@/src/modules/notifications/application/results/notification-refresh-state";
+import { NOTIFICATION_LIST_STATUS as NOTIFICATION_PANEL_STATUS } from "@/src/modules/notifications/constants/notification-center";
+import { MARK_ALL_FADE, NOTIFICATION_PANEL_VIEW } from "./constants";
 
 import styles from "./styles.module.scss";
 
-export const NOTIFICATION_PANEL_STATUS = {
-  error: "error",
-  idle: "idle",
-  loaded: "loaded",
-  loading: "loading",
-} as const;
-
-type NotificationPanelStatus =
-  (typeof NOTIFICATION_PANEL_STATUS)[keyof typeof NOTIFICATION_PANEL_STATUS];
-
-/**
- * Region the panel body shows. Each region fades in with CSS when it mounts,
- * so the new state is in the DOM at once (no JS exit to wait for).
- */
-const NOTIFICATION_PANEL_VIEW = {
-  empty: "empty",
-  error: "error",
-  idle: "idle",
-  list: "list",
-  loading: "loading",
-} as const;
-
-type NotificationPanelView = (typeof NOTIFICATION_PANEL_VIEW)[keyof typeof NOTIFICATION_PANEL_VIEW];
-
-/** Opacity-only fade for the header action, which sits next to the title. */
-const MARK_ALL_FADE = {
-  animate: { opacity: 1 },
-  exit: { opacity: 0 },
-  initial: { opacity: 0 },
-  transition: { duration: MOTION_TIMING.enter, ease: MOTION_EASE },
-} as const;
+export { NOTIFICATION_LIST_STATUS as NOTIFICATION_PANEL_STATUS } from "@/src/modules/notifications/constants/notification-center";
+type NotificationPanelStatus = NotificationListStatus;
+type NotificationPanelView = "empty" | "error" | "idle" | "list" | "loading";
 
 /**
  * Picks the body region: the list whenever there are items (a background
@@ -70,6 +45,8 @@ type NotificationPanelProps = {
   isMarkingAll: boolean;
   listStatus: NotificationPanelStatus;
   notifications: NotificationItemResult[];
+  /** Keeps cached rows visible while the latest contextual observation is unavailable. */
+  refreshUnavailable?: boolean;
   onMarkAllRead: () => void;
   onRetry: () => void;
   onSelectNotification: (notificationId: string) => void;
@@ -90,6 +67,7 @@ export function NotificationPanel({
   isMarkingAll,
   listStatus,
   notifications,
+  refreshUnavailable = false,
   onMarkAllRead,
   onRetry,
   onSelectNotification,
@@ -156,6 +134,13 @@ export function NotificationPanel({
           <p className={styles.NotificationPanel__emptyHint}>
             Te avisamos acá antes de tus eventos y cuando cambie algo que te importa.
           </p>
+        </div>
+      ) : null}
+
+      {panelView === NOTIFICATION_PANEL_VIEW.list && (refreshUnavailable || listStatus === NOTIFICATION_PANEL_STATUS.error) ? (
+        <div className={styles.NotificationPanel__state} role="alert">
+          <p className={styles.NotificationPanel__message}>No pudimos actualizar tus avisos. Mostramos la última información disponible.</p>
+          <Button onClick={onRetry} size="sm" type="button" variant="secondary">Reintentar</Button>
         </div>
       ) : null}
 

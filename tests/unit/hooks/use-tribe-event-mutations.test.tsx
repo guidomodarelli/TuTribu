@@ -528,9 +528,9 @@ describe("useTribeEventMutations streak refresh serialization", () => {
     expect(getStreakRequests()).toHaveLength(1);
   });
   it("retries a passed deadline the server keeps returning with a bounded backoff", async () => {
-    // Timers are faked too: the retries of a repeated passed deadline wait.
+    // Advance retries only from this test, independently of wall-clock CI load.
     vi.useRealTimers();
-    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"], shouldAdvanceTime: false });
     vi.setSystemTime(new Date(CLIENT_NOW));
     const { result } = renderMutations();
     const lateStreak = { attendedCount: 4, occurrenceCount: 5 };
@@ -609,11 +609,11 @@ describe("useTribeEventMutations streak refresh serialization", () => {
   });
 
   /**
-   * Fakes the timers too, so the tests can drive the bounded retries.
+   * Lets these tests alone drive retry time, independently of wall-clock CI load.
    */
   function useFakeRetryTimers() {
     vi.useRealTimers();
-    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"], shouldAdvanceTime: false });
     vi.setSystemTime(new Date(CLIENT_NOW));
   }
 
@@ -1139,7 +1139,7 @@ describe("useTribeEventMutations overlapping mutations and new server renders", 
    * drive its bounded retries.
    */
   function useFakeRetryTimers() {
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: false });
   }
 
   async function advanceTime(delayMs: number) {

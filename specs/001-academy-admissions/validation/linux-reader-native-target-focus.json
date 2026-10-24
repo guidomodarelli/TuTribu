@@ -1,0 +1,373 @@
+{
+  "workflowRun": 39141293481,
+  "url": "https://github.com/guidomodarelli/TuTribu/actions/runs/39141293481",
+  "sourceCommit": "7c009edab2ab54348609d8bd29574c0020821aff",
+  "kind": "platform_preflight",
+  "passed": false,
+  "orcaVersion": "48.9",
+  "orcaSourceCommit": "4b964097f586446b3c74a98d0d309fb4b87ceb70",
+  "productJourneysValidated": false,
+  "realMessages": 0,
+  "cases": [
+    {
+      "engine": "chromium",
+      "width": 390,
+      "passed": false,
+      "failureCode": "native_audio_did_not_settle",
+      "speechPhase": "setup",
+      "focusSpeechObserved": null,
+      "liveSpeechObserved": null,
+      "nativeControlFocus": null,
+      "nativeFocusBeforeLive": null,
+      "speechDiagnostics": {
+        "backendLogEntries": 18,
+        "fallbackOutputs": 9,
+        "labelInDebug": true,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 2,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 12,
+          "handledEntries": 0,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 0,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "translateDialogObserved": true,
+      "latestAudioPeak": 32767
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "passed": false,
+      "failureCode": "native_audio_did_not_settle",
+      "speechPhase": "setup",
+      "focusSpeechObserved": null,
+      "liveSpeechObserved": null,
+      "nativeControlFocus": null,
+      "nativeFocusBeforeLive": null,
+      "speechDiagnostics": {
+        "backendLogEntries": 14,
+        "fallbackOutputs": 7,
+        "labelInDebug": true,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 2,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 11,
+          "handledEntries": 0,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 0,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "translateDialogObserved": true,
+      "latestAudioPeak": 32767
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": null,
+      "nativeControlFocus": {
+        "scanned": 41,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "scroll pane",
+            "focused": true,
+            "active": false,
+            "showing": false,
+            "visible": false,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "document web",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "nativeFocusBeforeLive": {
+        "scanned": 41,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "scroll pane",
+            "focused": true,
+            "active": false,
+            "showing": false,
+            "visible": false,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "document web",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "speechDiagnostics": {
+        "backendLogEntries": 0,
+        "fallbackOutputs": 0,
+        "labelInDebug": false,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 0,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 19,
+          "handledEntries": 0,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 0,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "translateDialogObserved": false,
+      "latestAudioPeak": 0
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": null,
+      "nativeControlFocus": {
+        "scanned": 41,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "scroll pane",
+            "focused": true,
+            "active": false,
+            "showing": false,
+            "visible": false,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "document web",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "nativeFocusBeforeLive": {
+        "scanned": 41,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "scroll pane",
+            "focused": true,
+            "active": false,
+            "showing": false,
+            "visible": false,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "document web",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "speechDiagnostics": {
+        "backendLogEntries": 0,
+        "fallbackOutputs": 0,
+        "labelInDebug": false,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 0,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 8,
+          "handledEntries": 0,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 0,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "translateDialogObserved": false,
+      "latestAudioPeak": 0
+    }
+  ]
+}

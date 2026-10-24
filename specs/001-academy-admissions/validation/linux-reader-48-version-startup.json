@@ -1,0 +1,24 @@
+{
+  "commit": "cc5f0c2dff11d38084974146b09cc4895f86fded",
+  "productJourneysValidated": false,
+  "passed": null,
+  "failed": null,
+  "skipped": null,
+  "failureCodes": [],
+  "readerRuntime": null,
+  "sayAllOnLoadDisabledObserved": false,
+  "realMessages": 0,
+  "runId": 39123901757,
+  "runConclusion": "failure",
+  "productTestsStarted": false,
+  "preparationFailure": "compound_reader_version_output",
+  "cleanup": {
+    "keyRevoked": true,
+    "secretRemoved": true,
+    "variablesRemoved": 2,
+    "ownedBranchAbsent": true,
+    "originalBranchesPreserved": true,
+    "remainingBranches": 3,
+    "independentInventoryConfirmed": true
+  }
+}

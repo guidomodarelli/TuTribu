@@ -1,0 +1,13 @@
+@use "../../../src/styles/workspace-panel";
+
+.MessagingConnections {
+  @include workspace-panel.section;
+
+  &__title { @include workspace-panel.title; }
+  &__lead { @include workspace-panel.lead; }
+  &__form { @include workspace-panel.form; }
+  &__consent { @include workspace-panel.field; }
+  &__actions { @include workspace-panel.actions; }
+  &__action { @include workspace-panel.action; }
+  &__error { @include workspace-panel.error; }
+}

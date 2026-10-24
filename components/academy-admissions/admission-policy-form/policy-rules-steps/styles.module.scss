@@ -1,0 +1,23 @@
+@use "../../../../src/styles/workspace-panel";
+
+.PolicyRulesSteps {
+  &__group {
+    @include workspace-panel.callout;
+
+    max-width: 40rem;
+  }
+
+  &__impact {
+    display: grid;
+    min-width: 0;
+    gap: 0.5rem;
+  }
+
+  &__note {
+    @include workspace-panel.note;
+  }
+
+  &__link {
+    align-self: flex-start;
+  }
+}

@@ -18,9 +18,8 @@ $platform-header-touch-target: 2.5rem;
     > :where(main, section) {
       box-sizing: border-box;
       min-width: 0;
+      // Pages use the full content width; each one keeps its own readable measure for text and forms.
       width: 100%;
-      max-width: 720px;
-      margin-inline: auto;
       padding: clamp(1rem, 3vw, 2rem);
     }
   }

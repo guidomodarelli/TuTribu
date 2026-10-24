@@ -4,19 +4,312 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Added
+
+- Reglas incorpora el paso «Revisá membresías bloqueadas por pago»: el líder ve cada integrante bloqueada o dada de baja por falta de pago cuyo estado anterior se desconoce y decide, con confirmación y un motivo opcional, si al regularizar el pago vuelve como integrante activa o silenciada. La decisión queda registrada con su autor y fecha, vale de acá en adelante y no reactiva a nadie en el momento. Cada fila muestra por separado si quedó bloqueada o dada de baja y si fue por pago bloqueado o por suscripción inactiva, y aparecen todas las que impiden activar, cualquiera sea esa combinación.
+- En ese mismo paso, cada guardián bloqueado por pago puede volver como integrante activa o silenciada, siempre sin su rol de guardián, o quedar retirado («No vuelve por pago: queda retirada»); un pago nunca devuelve un rol ni lo conserva.
+- Cuando la activación encuentra membresías bloqueadas por pago sin decidir, el paso aparece antes de «Revisá y activá»; al terminar las decisiones vuelve al paso final con «Activar ahora», sin perder lo elegido.
+- Reglas avisa «Tenés reglas guardadas sin publicar» con la acción «Revisar y activar», que abre directamente el paso final con lo guardado.
+- Conexión de mensajería destaca una sola próxima acción según el estado real, con qué falta y por qué: por ejemplo «Falta probar SMS» con «Probá SMS», o «Todo listo para activar» cuando todos los canales configurados están comprobados.
+- Los bloqueos que dependen del equipo de TuTribu se muestran aparte, en lenguaje simple, con un código de diagnóstico para copiar, «Volver a comprobar» y «Reportar el problema».
+- La guía de configuración incorpora el paso «Revisá membresías bloqueadas por pago» cuando hay casos sin decidir, marca como «Borrador sin publicar» las reglas guardadas sin activar y la conexión candidata sin activar, y su botón lleva directo al punto de publicación.
+- Países y cupos y Conexión ofrecen «Volver a Reglas para activar» cuando se llega desde un requisito de Reglas.
+- Solicitudes muestra al líder una guía de configuración con los pasos en orden (reglas, conexión, países y cupos, abrir las admisiones y avisos), cuáles ya están listos y un único botón hacia el siguiente; desaparece cuando todo está completo.
+- Reglas de admisión se configura en pasos chicos (cómo se admite, cómo se contactan, recibir solicitudes y revisión) y termina con una sola acción, «Guardar y activar admisiones», que guarda, revisa los requisitos y activa mostrando cada etapa; si falta algo, indica qué y dónde resolverlo sin perder lo elegido.
+- Con las admisiones activas, Reglas muestra si están abiertas o pausadas y ofrece pausar con motivo, reanudar y editar las reglas sin reabrirlas por error.
+- Avisos de admisión se configura en pasos: correo de la tribu, frecuencia (agrupada cada cinco minutos por defecto) y revisión con un solo «Guardar avisos»; al volver muestra un resumen de lo que vas a recibir y marca los cambios sin guardar.
+- Países y cupos se configura en pasos (países, códigos por día, avisos por día y revisión) con un resumen del uso actual; advierte cuando un cupo en cero o muy bajo impide enviar avisos.
+- Consumo e historial de admisión avisa cuando el mantenimiento lleva más de diez minutos sin ejecutarse, porque los avisos, vencimientos y reintentos pueden atrasarse.
+- Países y cupos muestra el consumo diario de códigos y avisos con un medidor de uso por cupo.
+- Las bandejas y listas vacías de admisión explican qué falta y cómo se completan.
+- La barra lateral de las academias incorpora el grupo Admisiones con sus subsecciones: el líder ve todas y los guardianes, Solicitudes y Avisos; el grupo se abre solo al entrar en una de sus páginas.
+- Todas las páginas de admisión comparten un encabezado con acceso de vuelta, descripción y una fila de secciones que marca la página actual, también en celulares; el encabezado queda fijo al cambiar de sección y el resaltado se desliza hasta la nueva. Si deslizás la fila antes de que la página termine de cargar, queda donde la dejaste y el toque abre la sección elegida.
+- Mientras una página de admisión carga se ve un esqueleto con la forma de su contenido, y el historial de una solicitud transforma sus esqueletos en los eventos al confirmar el acceso.
+- Gestionar academia ofrece al líder un acceso a Admisiones y mensajería: reglas de admisión, solicitudes, países y cupos, y conexión de mensajería.
+- El piloto de admisión incorpora una plantilla de códigos de WhatsApp en español; todavía no está disponible para enviar porque Meta rechaza su creación.
+- El piloto de WhatsApp cuenta con un negocio propio de TuTribu y su cuenta conectada y activa en Zavu, conservando la cuenta anterior; los códigos siguen pendientes porque Meta rechaza el permiso de creación de la plantilla.
+- El piloto incorpora el correo de TuTribu desde su dominio verificado, activado con el costo mensual autorizado; falta completar la prueba de recepción en la aplicación.
+- Las conexiones candidatas abandonadas pueden retirarse mediante el proceso interno después de siete días sin actividad, conservando la conexión seleccionada y el consumo original; la programación de esa limpieza sigue pendiente.
+- Los datos temporales del CSV y su reporte pueden eliminarse por lotes al vencer las veinticuatro horas, conservando la lista y los resultados ya confirmados; la ejecución programada sigue pendiente.
+- La revisión de requisitos de activación muestra los bloqueos actuales y las membresías con historial desconocido o roles de líder y guardián que requieren revisión autorizada; descarta el resultado anterior al editar o volver a consultar. Los manuales distinguen ese control del cambio a academia, los beneficios y las vías de ingreso y pago, y explican qué conserva el silenciamiento y cuándo un cierre impide volver a entrar.
+- La salida autorizada de academia y la eliminación de una tribu cierran sus solicitudes e invitaciones de admisión y permiten consultar el resultado original, incluso después del borrado; los controles para iniciarlas desde la interfaz siguen pendientes.
+- La gestión de salida, remoción y bloqueo conserva el resultado original y puede cerrar solicitudes pendientes junto con el cambio de pertenencia, sin levantar restricciones por conducta ni permitir reingreso con una aprobación antigua; los controles nuevos del directorio siguen pendientes.
+- Los enlaces de invitación anteriores de una academia permiten solicitar ingreso con la revisión manual, la lista y la comprobación de contacto vigentes, conservando el origen del ingreso y el estado de quienes ya pertenecen.
+- El líder puede revisar avisos y registrar una recuperación explícita con otra conexión, conservando la entrega original, su plazo y sus consumos; puede consultar el resultado si pierde la respuesta. El manual explica el reemplazo y retiro de conexiones, la reconexión después de cambiar de líder y los límites de las cuentas externas compartidas. El despacho del aviso recuperado sigue pendiente.
+- Las solicitudes vencidas pueden cerrarse mediante el proceso interno sin esperar otra presentación, conservando el plazo original y las invitaciones ya canjeadas; su ejecución programada sigue pendiente.
+- El líder puede gestionar invitaciones personales desde la configuración de admisión: emitir, renombrar, reemitir o revocar con confirmaciones separadas, vigencia explícita y recuperación de respuestas inciertas sin duplicar la acción.
+- La consulta privada de invitaciones personales incorpora las fechas de creación, canje, revocación y retiro de autorización.
+- La gestión de invitaciones personales exige la confirmación explícita del líder al crear, renombrar o revocar y conserva el resultado original; el enlace completo solo se entrega una vez.
+- La invitación personal dispone de una pantalla para iniciar o cambiar de cuenta, comprobar el contacto y confirmar el ingreso por separado; las respuestas inciertas se consultan conservando la operación original.
+- El pedido y reenvío de código para una invitación personal conserva su origen y comprueba que siga autorizada; verificar el código no consume el enlace ni concede membresía.
+- La consulta de una invitación personal protege el destinatario, indica si falta comprobar el contacto y conserva las solicitudes existentes sin consumir el enlace al leerlo.
+- El canje de una invitación personal exige comprobar al destinatario y respeta la lista indicada: puede conceder ingreso básico o quedar pendiente de revisión; retirar la autorización cancela una pendiente sin expulsar a quien ya ingresó.
+- En academias en modo lista con control de admisión ya activado, una presentación común con contacto comprobado y entrada habilitada concede ingreso básico; las excepciones permitidas requieren explicación y revisión explícita, conservando la lista.
+- El líder dispone de una pantalla para cargar CSV, elegir filas válidas, descargar plantilla y reporte privado, y retomar pendientes conservando los resultados ya guardados.
+- La importación CSV de habilitados incorpora vista previa, confirmación explícita, recuperación del progreso y reporte privado para el líder.
+- El líder puede gestionar la lista de habilitados desde la configuración de admisión: buscar contactos, cambiar nombre o estado y recuperar una respuesta perdida conservando el borrador y los cambios más recientes.
+- La solicitud de ingreso permite pedir y comprobar el código del contacto, consultar respuestas inciertas y aplicar la prueba a la misma solicitud pendiente sin renovar su plazo. Una prueba ya aplicada puede sostener su revisión sin repetir el código cada día, mientras la política y la evidencia sigan vigentes.
+- La consulta de ingreso con código incluye el canal y los países configurados para la cuenta solicitante, sin mostrar credenciales ni cupos internos.
+- El ingreso común con código puede presentar una solicitud pendiente y aplicar la prueba del contacto en la misma confirmación, sin conceder membresía.
+- Las solicitudes pendientes comunes pueden pedir un código para comprobar el contacto sin renovar su plazo; pedirlo no fija el contacto ni concede membresía.
+- Los códigos de ingreso conservan el resultado original ante una respuesta perdida; su prueba puede adjuntarse a la solicitud pendiente sin renovar el plazo ni conceder membresía.
+- El asistente ofrece Seguridad y retiro para elegir una conexión, revisar el motivo y el impacto, renovar la confirmación y consultar un resultado perdido antes de continuar.
+- Los líderes pueden suspender una conexión con una confirmación explícita o retirarla cuando se resuelven sus dependencias, y recuperar el resultado original sin consultar al proveedor.
+- Los líderes pueden confirmar la activación de una candidata productiva comprobada desde el asistente, recuperar la selección si se pierde la respuesta y conservar los ajustes de admisión y avisos.
+- Los líderes pueden probar el canal de la candidata desde el asistente, consultar su entrega y confirmar el código recibido; las respuestas perdidas conservan el diagnóstico original sin volver a enviarlo.
+- Los líderes pueden elegir remitentes y configurar canales desde la conexión candidata; WhatsApp muestra sus campos de plantilla e idioma, y un guardado incierto se recupera sin repetirlo.
+- Los líderes pueden comprobar la credencial candidata desde la pantalla de conexión, distinguir cuentas de prueba y recuperar la comprobación sin repetirla; ante cambios concurrentes consultan el estado actual y confirman nuevamente.
+- Los líderes tienen un primer paso de conexión para guardar una candidata de Zavu, borrar la clave del formulario y recuperar una respuesta perdida sin repetir el guardado; los guardianes consultan sólo su alerta de disponibilidad.
+- Los líderes pueden consultar el resultado original de un guardado de conexión sin reenviar la clave ni repetir el cambio.
+- Los líderes pueden activar una conexión productiva comprobada y reemplazar la anterior, conservando cupos y pruebas de admisión ya aplicadas, sin encender verificaciones automáticamente.
+- Los líderes pueden solicitar y confirmar una prueba de conexión por canal, con destino y consumo explícitos, y consultar su entrega sin convertirla en verificación de admisión ni activar la conexión.
+- Los líderes pueden guardar remitentes y plantillas por canal en una nueva versión candidata, conservando la conexión seleccionada y requiriendo nuevas comprobaciones antes de activarla.
+- Los líderes pueden consultar remitentes y plantillas disponibles, sin enviar códigos ni activar canales.
+- Los líderes pueden comprobar la credencial de una conexión y consultar su estado sin preparar canales ni enviar códigos; los guardianes reciben sólo una alerta operativa mínima.
+- Los líderes pueden guardar una conexión candidata de mensajería con nombre y credenciales protegidas, sin sustituir la conexión seleccionada, activar códigos ni reiniciar cupos.
+- Los líderes tienen una pantalla para preparar países y cupos antes de conectar la mensajería, conservar el borrador ante conflictos y recuperar un guardado incierto sin reiniciar el consumo.
+- Los líderes tienen una pantalla para preparar reglas de admisión, revisar requisitos, conservar el borrador ante cambios concurrentes y recuperar un guardado incierto sin repetirlo.
+- Los líderes pueden preparar y pausar borradores de admisión con una confirmación explícita; guardarlos no activa la academia ni envía comprobaciones de contacto.
+- Los líderes pueden consultar el estado actual de admisión de su academia y conservar los resultados originales de cambios de configuración si se pierde una respuesta.
+- La oferta de una academia con control de admisión ofrece Solicitar ingreso y abre la solicitud sin intentar un ingreso gratuito directo.
+- Líderes y guardianes activos pueden revisar solicitudes comunes de admisión manual, separar el motivo interno del mensaje al solicitante y conservar la decisión original si se pierde una respuesta.
+- La admisión tiene una página de solicitud y un estado propio fuera del contenido privado de la academia, con confirmación, cancelación y conservación del envío cuando se pierde una respuesta.
+- La bandeja incorpora avisos propios de admisión y avisos de revisión para responsables activos, con mensajes internos que conservan la privacidad del contacto y de la revisión.
+- El inicio de sesión con Google guarda evidencia del correo autenticado para las comprobaciones de contacto de academias; si esa comprobación adicional no está disponible, se conserva el acceso a la cuenta.
+- Las comprobaciones sensibles distinguen la cuenta Google usada en cada sesión y dejan de reconocer una verificación anterior cuando cambia el correo de la cuenta.
+- Se incorpora la consulta privada de actividad y métricas de admisión para el líder, conservando el consumo diario y restringiendo datos sensibles; la pantalla de consulta sigue pendiente.
+- El acceso autorizado a habilitados, reportes CSV, invitaciones y solicitudes de admisión queda registrado con quién lo consultó y su alcance, preservando los permisos y evitando copiar datos privados en la auditoría.
+- Las consultas autorizadas de recursos de mensajería y el uso operativo de la credencial dejan un registro de alcance y configuración, sin guardar claves ni contenido del proveedor en la auditoría.
+- El historial privado registra el origen y la creación efectiva de los avisos internos de admisión, sin copiar sus destinatarios ni contenidos.
+- El mantenimiento privado puede minimizar mensajes y contactos innecesarios de solicitudes finalizadas tras ciento ochenta días y purgar auditoría tras trescientos sesenta y cinco, conservando los vínculos necesarios; su programación operativa sigue pendiente.
+- La limpieza interna agrupa sus pasos para que un fallo tardío revierta el lote completo y conserva por separado los resultados confirmados de admisión y mensajería.
+- El mantenimiento privado puede renovar el cifrado de conexiones vigentes sin cambiar la clave de Zavu, los códigos pendientes ni el consumo acumulado.
+- El historial privado conserva la configuración anterior y nueva de cada cambio efectivo de admisión, junto con los hechos permitidos al eliminar una tribu, sin copiar claves ni contactos.
+- El líder puede consultar el consumo diario UTC y el historial de admisión, con filtros, versiones originales y actualización, incluso antes de conectar mensajería.
+- El consumo e historial de admisión reconoce los lotes de conservación y avisos internos completados; muestra sólo duraciones medidas y conserva su ausencia cuando no hay datos.
+- El historial de admisión distingue los cambios de avisos por correo y muestra su habilitación y zona horaria, sin exponer contactos ni credenciales.
+- Las preferencias de avisos por correo conservan la elección propia de cada responsable y se administran por separado de la habilitación del líder y de los códigos de contacto.
+- El líder puede consultar el resultado original de un cambio de correo de admisión sin repetir el cambio.
+- Los líderes y guardianes pueden preparar su preferencia de avisos de admisión desde una pantalla propia; el líder ajusta el correo y su zona por separado y puede recuperar respuestas inciertas conservando el cambio original.
+- La consulta autorizada de solicitudes de admisión permite distinguir cuáles necesitan actualmente un motivo de excepción y combinarlo con otros filtros; el control de filtros en la bandeja sigue pendiente.
+- La bandeja de admisión incorpora búsqueda y filtros de estado, origen, fecha y requisitos actuales, y conserva la selección al revisar un detalle o recargar la página.
+- Los líderes y guardianes pueden abrir el historial de una solicitud desde su detalle, recorrer los eventos conservados y volver con los mismos filtros; el acceso se vuelve a comprobar al regresar a la pantalla.
+- Las decisiones de admisión por lote conservan un resultado por solicitud y permiten recuperar la operación original sin repetir decisiones.
+- La preparación interna de avisos puede recorrer lotes separados sin que un aviso omitido frene los siguientes; la ejecución automática y el envío de grupos siguen pendientes.
+- La preparación interna de avisos guarda el avance confirmado junto con sus grupos y puede retomarlo sin duplicarlos; la ejecución automática y el envío siguen pendientes.
+- La preparación interna de avisos conserva el contenido del correo junto con el grupo y permite recuperar el original sin duplicarlo; su envío automático sigue pendiente.
+- La preparación interna de avisos de admisión incorpora el correo completo y vuelve a comprobar preferencias y conexión antes de entregarlo al transporte; su ejecución automática sigue pendiente.
+- El procesamiento interno distingue códigos y correos completos de admisión, y conserva un estado visible para avisos antiguos sin contenido utilizable; su ejecución automática sigue pendiente.
+- Los avisos de admisión recuperados conservan el contenido completo del grupo y su vencimiento, y vuelven a comprobar el destinatario y la conexión actuales; el envío automático sigue pendiente.
+- La preparación interna de avisos revisa todas sus páginas antes de cerrar un grupo y alterna las tribus; la ejecución automática sigue pendiente.
+- El mantenimiento interno de admisión reúne vencimientos, limpieza y avisos, conserva el avance de cada paso e informa la configuración pendiente; su ejecución automática sigue pendiente.
+- La bandeja, la solicitud propia y los avisos abiertos de admisión se actualizan mientras mirás la página; conservan los datos y muestran un aviso si falla la actualización.
+- Los líderes y guardianes pueden seleccionar hasta cincuenta solicitudes visibles, confirmar sus nombres y consultar el resultado de cada decisión; recuperar el lote original evita repetir decisiones.
+- La bandeja y el detalle de admisión destacan las solicitudes que llevan tres días o más pendientes; la marca se actualiza al consultar y desaparece al resolverlas o vencer su plazo.
+- El mantenimiento interno de admisión incorpora disparadores preparados con activación explícita y fallos visibles; su ejecución automática sigue pendiente.
+- El líder puede pedir el número de WhatsApp del grupo como dato opcional u obligatorio; el equipo lo revisa junto al nombre de Google, sin pedir nuevamente nombre y apellido.
+- Cada aspirante puede corregir su WhatsApp mientras la solicitud siga pendiente y vigente; el formulario conserva el cambio original si se pierde la respuesta y avisa cuando debe revisarse de nuevo.
+
 ### Changed
 
+- Conexión de mensajería permite reemplazar una clave de Zavu rechazada o sin comprobar con «Reemplazar la clave»: el paso Clave nombra la candidata, aclara que la conexión seleccionada no cambia y, tras confirmar, retira sólo esa candidata y vuelve al formulario con el mismo nombre.
+- Seguridad y retiro muestra el rol y el estado de cada conexión, explica que suspender conserva su lugar y sólo retirarla lo libera, preselecciona la candidata al llegar desde su aviso y, antes de suspender la conexión activa, avisa que se detienen los avisos y los códigos de verificación de la academia.
+- En las academias, los integrantes sin suscripción ya pueden leer el fogón y los canales, con sus respuestas, me gusta, encuestas y archivos adjuntos. Para publicar, responder, reaccionar o votar necesitan la suscripción mensual a la academia, y el fogón les ofrece suscribirse. Eventos, La tribu y Méritos siguen siendo solo para quienes tienen la academia; el líder y los guardianes siempre leen y escriben.
+- En Reglas de admisión, «Exigir el teléfono del solicitante» viene marcada por defecto en las academias que todavía no guardaron sus reglas, así quien pide ingresar tiene que dejar su teléfono salvo que el líder lo haga opcional. Las reglas ya guardadas conservan lo que se eligió.
+- Si una academia admite solo correos habilitados por su equipo, sin excepciones ni código adicional, y el correo de tu cuenta no está habilitado o no se puede confirmar, la página de ingreso te lo avisa antes de completar el formulario y ofrece «Cambiar de cuenta», en lugar de rechazar la solicitud recién al enviarla con un aviso genérico.
+- Al revisar membresías bloqueadas por pago, también podés elegir «No vuelve por pago: queda retirada» para una integrante común, como ya pasaba con los guardianes.
+- Cuando la academia usa el teléfono como contacto, el formulario de ingreso y la invitación personal piden un solo «Teléfono»: ese número es el que el equipo compara con el grupo.
+- Al aprobar una solicitud, el motivo interno es opcional. Sigue siendo obligatorio para rechazar y para aprobar a alguien fuera de la lista como excepción.
+- El número que informa quien solicita el ingreso se llama ahora «Teléfono», en lugar de «WhatsApp del grupo», en el formulario, en la revisión y en las reglas.
+- Los avisos emergentes quedan 8 segundos en pantalla, el doble que antes, para que se puedan leer.
+
+- Pedir el código de verificación de una solicitud de admisión y confirmarlo tardan alrededor de un 40 % menos.
+- En Conexión de mensajería, guardar los canales, comprobar la conexión y enviar la prueba de un canal responden un poco más rápido.
+- Conexión de mensajería se configura en pasos cortos, uno por decisión, con «Atrás», «Siguiente» y «Activar conexión»: clave, credencial, canales, una prueba por cada canal y activación. Cada paso deja seguir recién cuando su operación terminó, y al volver se abre directamente el primer paso pendiente.
+- En Conexión de mensajería, el resultado de guardar, comprobar, configurar un canal, enviar una prueba, confirmar un código, activar y las consultas aparece como notificación en lugar de texto al pie de la pantalla; lo que sigue pendiente queda en «Acciones pendientes».
+- Una prueba cuyo canal ya quedó comprobado se muestra como confirmada en lugar de «Esperando el código», y las pruebas conservadas quedan plegadas debajo de los pasos como recuperación secundaria.
+- Habilitados se completa en pasos chicos (contacto, nombre y estado, revisión) con «Atrás», «Continuar» y un solo «Agregar entrada» o «Guardar entrada»; editar abre directamente el paso de nombre y estado, y la búsqueda queda plegada debajo.
+- Importar habilitados desde CSV se hace en tres pasos: subir el archivo y crear la vista previa, revisar filas y errores, y confirmar con «Importar filas elegidas»; la revisión se abre recién cuando la vista previa quedó guardada y, al volver, retoma donde quedó. La plantilla, el progreso y el reporte quedan plegados.
+- Las invitaciones personales se emiten en pasos (destinatario, lista de habilitados, vencimiento y revisión con «Emitir invitación»); renombrar y revocar tienen su propio camino corto, y cada paso explica por qué todavía no se puede continuar.
+- La solicitud de ingreso guía a la persona en pasos: sus datos, enviar el código, comprobarlo y enviar la solicitud. Cada paso avanza recién cuando su envío terminó, al volver retoma el primer paso pendiente y reenviar el código o consultar su envío quedan plegados en «¿No te llegó el código?». Con una solicitud pendiente que necesita el código, los pasos terminan en «Aplicar prueba a esta solicitud».
+- En habilitados, importación, invitaciones personales y la solicitud de ingreso, el progreso y el resultado de cada guardado se avisan una sola vez en una notificación; en la pantalla quedan solo los errores del formulario, los bloqueos y lo que falta consultar, sin repetir la notificación.
+- Guardar y activar las reglas de admisión tarda menos (activar, alrededor de la mitad), y las páginas de Solicitudes, Reglas, Avisos, Países y cupos y Conexión de mensajería cargan más rápido.
+- Solicitudes y Reglas cargan bastante más rápido (Reglas, en alrededor de la mitad del tiempo), y Avisos, guardar, activar y la comprobación previa a la activación también tardan menos.
+- Para el líder, Avisos de admisión muestra su configuración en alrededor de la mitad del tiempo, y en Safari la pantalla cambia antes al tocar «Avisos».
+- Conexión de mensajería carga en alrededor de la mitad del tiempo y Países y cupos, en cerca de un tercio menos.
+- Todas las páginas de admisión y mensajería del líder cargan más rápido: Países y cupos, en alrededor de la mitad del tiempo; Conexión, en un tercio menos, y Solicitudes, Reglas y Avisos, en alrededor de un 20 a 25 % menos.
+- Activar las admisiones tarda alrededor de un 20 % menos, y la comprobación previa, la lectura de las reglas y Reglas también cargan más rápido.
+- Activar las admisiones tarda alrededor de un 6 % menos, y guardar las reglas, Reglas, Solicitudes y la lectura de las reglas también hacen menos consultas a la base.
+- «Lo que falta resolver» explica cada bloqueo de la activación en lenguaje claro e indica dónde se resuelve: Conexión, Países y cupos, el paso «Cómo se contactan», Gestionar academia (para activar primero el modo academia), la revisión de membresías bloqueadas por pago o «Volver a comprobar»; deja de pedir una «revisión autorizada» sin explicar qué hacer.
+- Si la plataforma bloquea la activación, la guía de configuración lo indica en «Abrí las admisiones» («Depende del equipo de TuTribu») en lugar de mandar a Reglas a intentarlo de nuevo, y Reglas deja de ofrecer publicar hasta que se resuelva.
+- Todos los botones que guardan en admisión y mensajería muestran un indicador de carga mientras se guarda, conservan su texto y el foco, y bloquean las demás acciones de la pantalla hasta terminar; las consultas ya no cambian el texto de los botones.
+- Cada acción de Reglas confirma su propio resultado (activadas, pausadas, reanudadas o cambios guardados) en lugar de un mensaje genérico.
+- La conexión de mensajería guía el avance con un indicador de pasos: los pasos completados se pueden volver a abrir, los siguientes se habilitan al completar el actual y Seguridad y retiro queda como acción aparte.
+- Las pantallas de la plataforma usan todo el ancho disponible; los textos y formularios conservan un ancho cómodo de lectura.
+- Las páginas de admisión se rediseñaron con jerarquía más clara: la bandeja muestra estado y origen como insignias, el detalle agrupa los datos de la solicitud, las reglas empiezan por un resumen del estado actual, el historial se lee como línea de tiempo y los formularios separan datos, confirmación y acciones.
+- La conexión de mensajería se organiza en pestañas Conexión, Canales, Pruebas, Activación y Seguridad, con un resumen del estado de cada conexión, el próximo paso destacado y una sola acción principal por paso. Cambiar de pestaña conserva lo escrito y no envía ni activa nada.
+- En la conexión de mensajería, el resultado de cada acción aparece junto a la acción que lo produjo, también en pantallas angostas.
+- Los títulos y destacados de las pantallas de admisión y mensajería usan el peso de letra del sistema de diseño.
 - El indicador de carga que se convierte en un check o una cruz y el balanceo de la campana cuando llegan notificaciones nuevas son un poco más rápidos.
 - Las animaciones de la aplicación son más sobrias: las etiquetas, filas de tablas y avatares aparecen sin animación de entrada, los enlaces ya no se mueven al pasar el puntero, y los menús y desplegables se abren creciendo desde el botón que los abre.
+- Se agiliza la preparación de las operaciones de ingreso y revisión.
+- Se amplía la capacidad para procesar solicitudes de ingreso simultáneas y se reduce el trabajo repetido al confirmarlas, consultar su estado y preparar sus avisos internos, manteniendo la comprobación de sesión y permisos en cada escritura.
+- Las solicitudes de acceso de distintas personas pueden avanzar en paralelo dentro de una academia, evitando membresías duplicadas al repetir la acción y conservando los permisos vigentes, el vencimiento de la sesión y el resultado original.
+- Los formularios de admisión y mensajería adoptan los selectores y botones del diseño actual del sitio.
+
+- Al retomar una presentación con el mismo contacto, la pantalla reconoce su código propio, muestra su canal actual y diferencia la validación de un código vigente del reenvío explícito que reemplaza uno ya utilizado.
+- El paso de comprobación de contacto aclara que los códigos usan el servicio conectado por el líder y que comprobar el contacto no acredita identidad civil ni pertenencia a un grupo de WhatsApp.
+- La auditoría de la lista de habilitados conserva los estados y versiones anteriores, la operación original y el momento del cambio, sin incluir contactos ni nombres.
+- La auditoría de la lista de habilitados, sus importaciones y las invitaciones personales conserva los estados y versiones anteriores, la operación original y el momento del cambio o retiro de autorización, sin incluir contactos, nombres ni tokens.
+- La auditoría de solicitudes, lista de habilitados, importaciones e invitaciones personales conserva los estados y versiones anteriores, las decisiones, la operación original y el momento del cambio; los permisos para reintentar mantienen su motivo privado y sus fechas, sin incluir contactos, nombres ni tokens.
+- La auditoría de solicitudes, lista, importaciones, invitaciones, cupos y conexiones conserva estados, versiones, decisiones, operación original y momento del cambio; los reintentos mantienen su motivo privado y fechas, y la comprobación de credenciales registra su resultado y tipo de cuenta, sin incluir contactos, nombres ni claves.
+- La auditoría de solicitudes, lista, importaciones, invitaciones, cupos y conexiones conserva estados, versiones, decisiones, operación original y momento del cambio; los reintentos mantienen su motivo privado y fechas, y la comprobación de credenciales registra su resultado y tipo de cuenta. Las comprobaciones de contacto confirmadas registran la creación de su prueba local por separado de la entrega del mensaje, sin incluir contactos, códigos, nombres ni claves.
+- La auditoría de solicitudes, lista, importaciones, invitaciones, cupos y conexiones conserva estados, versiones, decisiones, operación original y momento del cambio; los reintentos mantienen su motivo privado y fechas, y la comprobación de credenciales registra su resultado y tipo de cuenta. Las comprobaciones de contacto confirmadas registran la creación de su prueba local por separado de la entrega del mensaje. El reemplazo de conexión registra las referencias anteriores y nuevas y el retiro de pruebas todavía disponibles, conservando las ya aplicadas, sin incluir contactos, códigos, nombres ni claves.
+- La auditoría de solicitudes, lista, importaciones, invitaciones, cupos y conexiones conserva estados, versiones, decisiones, operación original y momento del cambio; los reintentos mantienen su motivo privado y fechas, y la comprobación de credenciales registra su resultado y tipo de cuenta. Las comprobaciones de contacto confirmadas registran la creación de su prueba local por separado de la entrega del mensaje. El reemplazo de conexión registra las referencias anteriores y nuevas y el retiro de pruebas todavía disponibles, conservando las ya aplicadas. La recuperación explícita de un aviso registra la procedencia y los cambios efectivos de la entrega original y su nuevo aviso en cola, sin incluir destinatarios, contenido, códigos, nombres ni claves.
+- La auditoría de solicitudes, lista, importaciones, invitaciones, cupos y conexiones conserva estados, versiones, decisiones, operación original y momento del cambio; los reintentos mantienen su motivo privado y fechas, y la comprobación de credenciales registra su resultado y tipo de cuenta. Las comprobaciones de contacto confirmadas registran la creación de su prueba local por separado de la entrega del mensaje. El reemplazo de conexión registra las referencias anteriores y nuevas y el retiro de pruebas todavía disponibles, conservando las ya aplicadas. La recuperación explícita de un aviso registra la procedencia y los cambios efectivos de la entrega original y su nuevo aviso en cola, sin incluir destinatarios, contenido, códigos, nombres ni claves. La invalidación de pruebas por compromiso, retiro, cambio de política y reenvío conserva su estado anterior y la operación que la produjo; las pruebas históricas de una aprobación conservan su procedencia.
+- La auditoría de solicitudes, lista, importaciones, invitaciones, cupos y conexiones conserva estados, versiones, decisiones, operación original y momento del cambio; los reintentos mantienen su motivo privado y fechas, y la comprobación de credenciales registra su resultado y tipo de cuenta. Las comprobaciones de contacto confirmadas registran la creación de su prueba local por separado de la entrega del mensaje. El reemplazo de conexión registra las referencias anteriores y nuevas y el retiro de pruebas todavía disponibles, conservando las ya aplicadas. La recuperación explícita de un aviso registra la procedencia y los cambios efectivos de la entrega original y su nuevo aviso en cola, sin incluir destinatarios, contenido, códigos, nombres ni claves. La invalidación de pruebas por compromiso, retiro, cambio de política y reenvío conserva su estado anterior y la operación que la produjo; las pruebas históricas de una aprobación conservan su procedencia. La aplicación de una prueba y su invalidación al cerrar el ámbito conservan también los estados de la prueba y el momento del efecto.
+- La auditoría de solicitudes, lista, importaciones, invitaciones, cupos y conexiones conserva estados, versiones, decisiones, operación original y momento del cambio; los reintentos mantienen su motivo privado y fechas, y la comprobación de credenciales registra su resultado y tipo de cuenta. Las comprobaciones de contacto confirmadas registran la creación de su prueba local por separado de la entrega del mensaje. El reemplazo de conexión registra las referencias anteriores y nuevas y el retiro de pruebas todavía disponibles, conservando las ya aplicadas. La recuperación explícita de un aviso registra la procedencia y los cambios efectivos de la entrega original y su nuevo aviso en cola, sin incluir destinatarios, contenido, códigos, nombres ni claves. La invalidación de pruebas por compromiso, retiro, cambio de política y reenvío conserva su estado anterior y la operación que la produjo; las pruebas históricas de una aprobación conservan su procedencia. La aplicación de una prueba y su invalidación al cerrar el ámbito conservan también los estados de la prueba y el momento del efecto. Los intentos, resultados, aplazamientos por cupo y reconciliaciones de entrega conservan los cambios efectivos y su operación original; repetir una confirmación idéntica no duplica esos registros.
+- La emisión de un código registra el mensaje que quedó en cola; su reemplazo o retiro registra sólo cancelaciones confirmadas y conserva los envíos ya iniciados o inciertos, con la acción original y sin datos privados.
+- Las métricas de admisiones registran la última ejecución completa de mensajería y los tiempos de sus pasos por tribu, conservando separados los resultados de entrega.
+- Los países y cupos comparan el uso guardado con la propuesta y exigen confirmar nuevamente cada aumento, aclarando su impacto y que el consumo se conserva.
+- La documentación de mensajería explica quién controla la cuenta de envío, los cupos y los plazos de conservación, y cómo se limita el acceso durante una recuperación.
+- La preparación de canales muestra sólo las opciones disponibles para la conexión y bloquea consultas y guardados de un canal que ya no esté disponible, con un aviso para corregirlo.
+- La preparación interna de avisos agrupados comparte las comprobaciones del destinatario y conserva los permisos y la confianza de cada aviso; el envío automático sigue pendiente.
+- La recolección interna de avisos comparte comprobaciones por página, conserva un resultado por cada aviso y recupera los ya incorporados aunque la conexión actual no esté disponible; la ejecución automática sigue pendiente.
+
+### Removed
+
+- Los líderes de tribu ya no necesitan confirmar su cuenta con Google para operaciones sensibles de admisiones, mensajería, salida del modo academia o borrado de la tribu; desaparecen el botón y la pantalla de confirmación.
 
 ### Fixed
+- Al pedir ingreso, un código vencido ya no se muestra como un error rojo del campo: aparece el aviso «El código venció. Reenviá uno nuevo para seguir.» con Reenviar código y su confirmación a la vista, sin abrir «¿No te llegó el código?»; lo mismo pasa cuando el código agotó sus intentos.
+- Después de Reenviar código, el paso «Comprobar código» pasa solo al código nuevo, con el campo habilitado, su nuevo vencimiento y el aviso «Te enviamos un código nuevo»; si la respuesta del reenvío se pierde, la página consulta una vez el envío original y muestra el código nuevo sin recargar.
+- En «Probar canal» de la conexión de mensajería, Reenviar código de prueba explica qué le falta (la espera, el destino o la confirmación), lleva al campo que hay que completar y pasa a ser la acción principal cuando el código de prueba vence.
+- En escritorio, el panel de notificaciones de la campana vuelve a hacer scroll cuando hay más avisos de los que entran.
+- Los avisos agrupados de admisión por correo quedan listos para enviarse a más tardar dos minutos después de que cierra su ventana de cinco minutos, aunque la academia tenga muchas solicitudes del último día; antes se atrasaban más cuantas más solicitudes había (más de cinco minutos con unas cincuenta).
+- Al volver a Conexión con «Atrás» después de guardar Países y cupos, la pantalla relee el estado y deja de pedir que guardes Países y cupos otra vez.
+- Una academia que guardó sus reglas antes de activar su conexión de mensajería ya puede activar las admisiones con «Comprobar el contacto con un código»: las reglas toman la conexión activa al activarla o al guardarlas, y las que habían quedado sin conexión se corrigen solas, sin pasos extra.
+- Después de activar una conexión de mensajería, Conexión muestra «Conexión activa» y ya no vuelve a pedir «Guardá la clave de Zavu» como si faltara algo; guardar otra clave solo hace falta para reemplazarla.
+- En Conexión de mensajería, si la academia todavía no guardó Países y cupos, cada paso de prueba lo explica antes de enviar («Antes de probar un canal, guardá Países y cupos: la prueba usa el cupo diario de códigos.») y ofrece «Ir a Países y cupos»; antes el envío se rechazaba con «La academia todavía no tiene preparada la conexión necesaria.», aunque la conexión estaba completa.
+- Cuando una prueba de canal o una comprobación de credencial se rechaza de forma definitiva, el intento queda cerrado: ya no aparece como «Consultar guardado» ni repite el rechazo anterior, y la siguiente prueba, después de corregir la causa, se envía como un intento nuevo. Una comprobación rechazada muestra enseguida el estado actual de la credencial.
+- En Reglas de una academia con admisiones activas, pasar de revisión manual a «Lista de habilitados» y tocar «Guardar cambios» ya guarda la regla; antes podía rechazarse con un aviso de requisito faltante aunque no faltara nada.
+- Volver a probar un canal de la conexión de mensajería al mismo destino, después de que la prueba anterior quedó confirmada o vencida, ya envía el código nuevo; antes se rechazaba sin enviar nada y la pantalla pedía consultar el resultado.
+- Sin reglas de admisión guardadas, Habilitados y la importación de CSV muestran «Primero guardá las reglas de admisión» con un botón «Ir a Reglas», en lugar de un campo bloqueado.
+- En Reglas, «Cargar personas en Habilitados» y «Configurar países y cupos de mensajería» se ven como botones. El primero aparece recién cuando las reglas están guardadas; antes, una nota explica que vas a poder cargar personas después de guardar.
+- Si guardás reglas que activan el código de comprobación sin tener el canal preparado, la pantalla explica que falta prepararlo en Conexión, con el enlace, y aclara que las reglas vigentes no cambiaron, en lugar de un aviso genérico.
+- Si falla la carga de las reglas de admisión, la lista de habilitados, la importación de CSV o los avisos de admisiones, el aviso de error aparece con el título de esa página y no con el de la bandeja de revisión.
 
+- Al descargar o quitar un archivo de una lección que no existe o que no podés ver, se informa que no se encontró el archivo, aunque el almacenamiento de archivos no esté disponible, en lugar de un error al preparar la descarga.
+- Al descargar o quitar un adjunto de un mensaje que no existe o que no podés ver, se informa que no se encontró el archivo, aunque el almacenamiento de archivos no esté disponible, en lugar de un error al preparar la descarga.
+- La actividad de admisiones avisa que el mantenimiento está detenido cuando no completa una ejecución hace más de diez minutos o nunca completó una, aunque algunas tareas sueltas sigan avanzando, y muestra la última ejecución completa.
+- Los avisos agrupados de nuevas solicitudes ya no se atrasan cuando hay muchas solicitudes juntas o la bandeja del líder está abierta.
+- Los correos y SMS que el proveedor tarda en aceptar ya no quedan como «desconocidos»: se espera su respuesta y nunca se reenvían.
+- Reglas explica por qué no se pueden activar las admisiones cuando los códigos están encendidos y el canal todavía no está preparado: muestra «El canal para comprobar el contacto todavía no está preparado.» con «Ir a Conexión», también al abrir reglas guardadas sin activar.
+- Las membresías bloqueadas por pago pendientes de decisión ya no se presentan además como un bloqueo que depende del equipo de TuTribu.
+- Avisos de admisión usa todo el ancho de la pantalla, como Reglas y Países y cupos.
+- Los lectores de pantalla leen una sola vez y completa la ayuda de la zona horaria («09:00») y de los cupos diarios, sin partir los números en dígitos.
+- La guía de configuración ya no muestra un «Listo» limpio en Países y cupos cuando el cupo de avisos por día es menor a 20 («Listo, pero con un cupo muy bajo») y avisa en Avisos que no vas a recibir correos si el correo de la tribu está habilitado y elegiste «Omitir correos de revisión».
+- Países y cupos ya no anuncia como guardados los valores elegidos cuando solo se creó la configuración inicial: crea la configuración y guarda lo elegido en la misma acción.
+- Reglas de admisión ya no muestra al líder el aviso de que la configuración es solo para el líder mientras guarda o después de un error.
+- Pausar las admisiones ya no deja preparado un guardado que las reabre sin querer.
+- Guardar una entrada de habilitados muestra que el cambio quedó guardado en lugar del mensaje de recuperación.
+- Aprobar o rechazar una solicitud ya no cambia el texto de los dos botones a «Guardando decisión…» al consultar o navegar.
+- El próximo paso de la conexión de mensajería ya no se frena por un canal no disponible cuando otro canal se puede usar.
+- Las páginas de admisión ya no fallan al cambiar de sección mientras la página termina de cargar.
+- Una prueba de canal con el código ya confirmado deja de mostrar el vencimiento, el campo de código y el reenvío; la confirmación sólo se aplica a la prueba que emitió ese código.
+- La conexión de mensajería ya no muestra errores en los campos antes de que el líder los complete.
+- En Safari y otros navegadores WebKit para móviles, la conexión de mensajería ya no se desborda horizontalmente.
+- Consultar remitentes o plantillas sin resultados explica que Zavu no devolvió opciones, en lugar de dejar la lista vacía sin aviso.
+- El nombre de la conexión y el código de prueba ya no aceptan más caracteres que los permitidos.
+- Si se confirma de nuevo un envío ya aceptado por Zavu, TuTribu recupera el resultado original en lugar de dejarlo como incierto, sin enviar otro mensaje.
+- Al cancelar una solicitud o resolver una revisión individual con teclado, el resultado recibe el foco si desaparece la acción; si lo moviste a otro control, se conserva allí.
+
+- La barra lateral ignora eventos de teclado sin tecla y mantiene operativo su atajo de navegación.
+
+- El cierre de academia y la eliminación de una tribu conservan el registro privado de sus mensajes cancelados y de los resultados que llegan para envíos ya iniciados, sin duplicarlos ni devolver su consumo.
+- El guardado de conexiones reconoce la dirección pública segura de TuTribu detrás del servidor local y evita rechazos falsos de permisos.
+- Los eventos de teclado sin una tecla válida ya no interrumpen la navegación lateral; los atajos con Ctrl y Cmd siguen disponibles.
+- Una academia que ya activó su control de admisión conserva la entrada mediante solicitud aunque se pierda su configuración, sin volver a ofrecer un ingreso directo.
+- Se puede llegar con el teclado al enlace para volver a solicitar ingreso después de cancelar una solicitud.
+- El estado de una solicitud pendiente explica restricciones actuales y limpia la explicación anterior al consultar; el reintento después de cancelar también se ofrece cuando requiere comprobar contacto.
+- Una prueba aplicada conserva su confirmación si falla la consulta posterior; los responsables ven causas actuales y los avisos de una decisión se limpian al abrir otra solicitud.
+- Las solicitudes con una prueba de contacto revocada siguen indicando que necesitan verificación para solicitantes y revisores, incluso cuando se desactiva la verificación adicional.
+- La gestión de invitaciones personales completa la carga inicial en Safari sin perder las comprobaciones vigentes de sesión y permisos.
+- Después de cancelar y quedar habilitada una nueva presentación, el paso de contacto permite elegir otro teléfono; conserva las operaciones anteriores y exige consultar cualquier resultado incierto antes de otro envío.
+- La comprobación de contacto conserva el aviso de un código vencido, invalidado o con intentos agotados y bloquea nuevos intentos sobre ese código hasta recibir un reenvío confirmado.
+- La comprobación de contacto muestra el motivo seguro cuando el cupo de envíos está agotado o la mensajería no está disponible; escribir el código mantiene esa información y consultar un envío nuevo reemplaza el motivo anterior.
+- Los reenvíos de códigos que no corresponden a la cuenta o academia se rechazan sin dejar un envío registrado en progreso ni mostrar datos de otra persona.
+- La eliminación autorizada de una cuenta vinculada conserva la protección de su contacto sin mantener los datos personales del vínculo ni permitir que otra cuenta se lo apropie.
+- La eliminación física de una tribu conserva la procedencia protegida mínima y los límites de comprobación de contacto; retira sus credenciales y detiene nuevos envíos, manteniendo el resultado de los envíos ya iniciados.
+- Las confirmaciones simultáneas de ingreso pueden avanzar sin quedar detenidas en el registro inicial de la operación.
+- Los rechazos conocidos de solicitudes y decisiones de admisión conservan su resultado original; consultar una respuesta perdida muestra el motivo y mantiene el texto escrito sin repetir la acción ni anunciar un ingreso inexistente.
+- Los rechazos al pedir o reenviar un código conservan su resultado confirmado y pueden consultarse después de una respuesta perdida, sin dejar un envío pendiente ni consumir su cupo.
+- La confirmación del código de ingreso espera a que la cuenta y sus referencias estén listas, evitando perder una confirmación hecha durante la carga inicial.
+- Activar una candidata exige también el canal de correo cuando los avisos externos están habilitados, conservando esos ajustes y los cupos de la academia.
+- Las pruebas de conexión conservan el tiempo previsto para enviar el código cuando preparar la operación demora, sin reenviar automáticamente un envío incierto.
+- La candidata de mensajería muestra Preparada al completar sus pruebas y vuelve a Borrador si la credencial deja de estar comprobada, conservando la conexión seleccionada y la activación explícita.
+- Cambiar la configuración candidata permite solicitar otra prueba al mismo destino; conserva los diagnósticos anteriores y su consumo sin acreditar la nueva versión.
+- Los intentos de conexión sin resultado permiten consultar el estado actual, reanudar los mismos datos con nueva confirmación o conservar su referencia en un historial local, sin cancelar el servidor ni repetir operaciones automáticamente.
+- Una comprobación de credencial interrumpida conserva su consumo y puede cerrar como no disponible sin otra consulta al proveedor; un resultado tardío no reemplaza el original confirmado.
+- Las solicitudes de conexión con un proveedor no disponible informan que falta esa capacidad, sin guardar la credencial ni elegir otro proveedor.
+- Una conexión no se activa si su diagnóstico vence mientras espera la confirmación en la base de datos.
+- Las consultas y los envíos de mensajería cierran al alcanzar el tiempo límite, sin repetir operaciones cuyo resultado sigue incierto.
+- Las solicitudes pendientes se cierran ante la salida de academia, la eliminación de pertenencia o un bloqueo no recuperable, y no se reabren al volver al estado anterior.
+- La recuperación paga de una membresía cierra su solicitud de admisión pendiente y avisa el resultado, sin agregar otra aprobación ni perder el silenciamiento.
+- Volver a confirmar el ingreso con una membresía ya recuperada cierra la solicitud anterior sin fingir una aprobación; conserva su vencimiento y los resultados de envíos anteriores.
+- El ingreso anterior a una academia con control no informa una membresía creada cuando el resultado real es una solicitud pendiente.
+- Los resultados tardíos de envío conservan el intento pendiente para su reconciliación, sin repetir el mensaje ni alterar un resultado ya informado.
+- La recuperación de operaciones de admisión conserva los resultados confirmados de un lote sin repetir cambios; una falla inesperada revierte el lote completo.
+- Las academias con control protegido rechazan ingresos por enlaces antiguos y conservan las restricciones de recuperación; el modo clásico y los reintentos de membresías pagas mantienen sus recorridos.
+- Una solicitud de pago malformada se rechaza sin iniciar un reintento de suscripción.
+- La revisión de suscripciones de academia conserva la membresía básica; las revisiones de membresía respetan silenciamientos y bloqueos y muestran el estado confirmado en esa revisión.
+- La recuperación paga de membresías protegidas conserva el silenciamiento y la fecha de ingreso, sin levantar bloqueos por conducta ni reutilizar una admisión anterior.
+- La recuperación de acceso por pago evita bloquearse cuando se intenta eliminar al mismo tiempo la cuenta que creó la tribu.
+- La eliminación de una tribu con avisos recuperados conserva su procedencia y su historial sin quedar bloqueada ni reiniciar consumos.
+- El inicio de sesión, la confirmación de acciones sensibles y las consultas privadas protegen las credenciales en respuestas y registros, conservando la sesión y los errores recuperables.
+- Al perder permisos con la misma cuenta, los países, cupos y datos administrativos anteriores se ocultan hasta comprobar el acceso vigente.
+- Las pantallas de configuración de admisión conservan una sola región principal para la navegación con tecnologías de asistencia.
+- Al revisar admisiones, una excepción permite preparar su motivo antes de aprobar; las decisiones confirmadas actualizan la selección visible y «Mostrar pendientes» limpia también las ediciones sin aplicar.
+- Los filtros de admisión rechazan los rangos de fecha invertidos aunque la diferencia sea menor a un milisegundo.
+- Los envíos de mensajería rechazan canales vacíos o no admitidos antes de contactar al proveedor.
+- Los avisos agrupados de admisión conservan un origen separado de los avisos individuales al retirar una tribu; el envío de esos grupos sigue en preparación.
+- La revisión de admisiones mantiene preparado el aviso accesible del resultado para que los lectores de pantalla puedan anunciar una decisión guardada o recuperada.
+- Una solicitud cuyo resultado sigue sin confirmar conserva su operación y permite consultarla, en lugar de mostrar un falso error de contrato o repetir la presentación.
+- Las solicitudes de admisión pueden guardarse mientras se actualiza el indicador de personas en línea, sin quedar inciertas por un bloqueo mutuo entre esas operaciones.
 - Los avisos de «no hay nada para mostrar», como los del calendario de eventos, vuelven a cambiar de alto con una transición suave cuando cambia su texto, también en dispositivos lentos.
+- Si el pedido del código de ingreso nunca llegó a registrarse, la pantalla del solicitante ya no queda trabada consultando para siempre: pasados diez minutos y con la ausencia confirmada, ofrece «Descartar la referencia y pedir otro código» sin riesgo de un envío doble.
+
+### Security
+
+- La recuperación interna de una copia puede cerrar admisiones y retirar conexiones, códigos y pruebas anteriores por lotes, conservando los intentos inciertos y su consumo; reabrir requiere una conexión y una confirmación de política vigentes. El ensayo operativo sigue pendiente.
+- El procesamiento interno de avisos por correo bloquea todo el grupo si cambian sus permisos o preferencias y conserva el aviso ante problemas reparables de protección; el envío automático sigue pendiente.
+- Los campos de códigos de ingreso, pruebas de mensajería y claves de conexión quedan excluidos de las capturas al reportar un problema.
+- Las referencias mínimas de tribus eliminadas quedan protegidas frente a su reactivación o reutilización.
+- Cambiar o perder el liderazgo activo suspende las conexiones del líder anterior en el mismo cambio, conservando las membresías, las invitaciones y el consumo.
+- El historial de decisiones de admisión conserva la evidencia mínima usada al decidir, sin guardar códigos ni datos privados del proveedor.
+- La recuperación de una admisión permite consultar el resultado propio sin pertenecer todavía a la academia y conserva los permisos actuales de sus responsables.
+- Adelantar un reintento requiere un líder activo con su sesión vigente; conserva la decisión original y rechaza la corrección si la sesión vence durante la operación.
+- Las consultas de admisión permiten leer sólo la solicitud propia sin exigir pertenencia; conservan el estado existente cuando la configuración de una academia protegida deja de estar disponible.
+- Los reintentos de presentación conservan el resultado originalmente confirmado, y las mutaciones rechazan peticiones desde un origen web ajeno antes de ejecutar cambios.
+- Las operaciones sensibles de mensajería conservan la sesión y cuenta originales; si vencen durante la operación, informan que hace falta iniciar sesión sin confirmar cambios pendientes.
+- La comprobación de países de mensajería distingue la conexión seleccionada de la candidata y deja de usar restricciones de una versión reemplazada.
+- Las respuestas de admisión separan los datos del solicitante de la revisión y rechazan progreso no confirmado o pruebas de contacto de otro propósito.
+- Los diagnósticos de errores de envío conservan sólo la referencia del intento y no incluyen su autorización privada completa.
+- Las comprobaciones de credenciales de mensajería comparten un límite por academia aunque cambie la clave, y los reintentos conservan su consumo original.
+- Los avisos de admisión quedan ligados a la solicitud y tribu de origen; su acceso distingue al solicitante de los responsables activos y evita duplicados.
+- Un código de verificación que vence mientras espera una comprobación se rechaza sin confirmar el contacto ni consumirlo.
+- Las operaciones de purga de credenciales retiradas requieren autorización vigente y conservan sus referencias e historial al eliminar el material privado.
+- Los controles de mensajería rechazan sesiones vencidas y recursos de otro entorno antes de consultar material privado.
+- El historial de admisiones conserva la relación con su tribu y sus operaciones, evitando referencias cruzadas entre comunidades.
+- Los resultados confirmados de las operaciones de admisión quedan protegidos contra sobrescrituras y cambios de identidad.
+- Las credenciales de mensajería retiradas o vinculadas a una cuenta o recurso sin autorización quedan fuera de uso; su eliminación conserva el historial de la conexión.
+- Las operaciones sensibles de admisiones, mensajería y ciclo de vida de la tribu exigen la sesión activa del líder y la confirmación explícita de cada acción.
 
 ## [1.8.1] - 2026-10-16
 
 ### Fixed
 
+- Cuando las admisiones de la academia están cerradas (como queda toda academia recién activada), Reglas y la guía de configuración ya no dicen que depende del equipo de TuTribu: explican que hay que encender «Admisiones abiertas» y llevan a Gestionar academia.
 - Las fotos de perfil de Google de los integrantes vuelven a mostrarse en la ronda, los comentarios, los eventos y la lista de integrantes, en lugar de quedar reemplazadas por un ícono vacío.
 
 ## [1.8.0] - 2026-10-16

@@ -45,7 +45,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-num">01</div>
   <div class="section-title">Overview</div>
 <p>Google OAuth es una redirección del navegador hacia Google y de vuelta al callback de Better Auth: no se puede simular con MSW como los proveedores server-side (los mocks de <code>MOCK_EXTERNAL_APIS</code>). Para trabajar en local sin cuenta de Google, sin red hacia Google o con la base de una branch sandbox de Neon, el servidor de desarrollo puede registrar el método email y contraseña de Better Auth para un único usuario de prueba.</p>
-<p>La sesión que crea es una sesión real de Better Auth (misma tabla <code>session</code>, misma cookie, mismo keep-alive), así que el resto de la app no distingue cómo entró el miembro.</p>
+<p>La sesión que crea es una sesión real de Better Auth: usa la misma tabla <code>session</code>, cookie y renovación. La aplicación la consulta con el mismo contrato de sesión. Desde la decisión del 2026-10-19, las acciones sensibles de admisión, mensajería y ciclo de vida de la tribu no piden volver a autenticarse: exigen la sesión activa, la autorización vigente y la confirmación explícita de cada acción. Las operaciones con credenciales de mensajería requieren además la cuenta Google y el vínculo de sesión (<code>global_session_identity_bindings</code>) que se crea al iniciar sesión con Google; una sesión de la credencial de desarrollo no lo tiene, por lo que esas operaciones responden <code>authentication_required</code>.</p>
 </div>
 
 <div class="section">
@@ -97,6 +97,16 @@ DEV_SIGN_IN_NAME=</pre></div>
   <li><code>tests/integration/modules/auth/dev-sign-in.test.ts</code>: Better Auth real con el adapter en memoria. Cubre el alta en el primer login, la reutilización y el cambio de contraseña, el vínculo con un miembro existente, el rechazo de otros emails, el sign-up cerrado y que con <code>NODE_ENV=production</code> el endpoint responde <code>EMAIL_PASSWORD_DISABLED</code> aunque la flag esté activa.</li>
   <li><code>tests/unit/pages/signin-page.test.tsx</code>: el formulario solo aparece en <code>next dev</code> con la flag, no se redirige a Google y los errores se muestran junto al formulario.</li>
 </ul>
+</div>
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Ensayo de admisión con diez cuentas</div>
+<p><code>tests/e2e/admission-entry-sample.spec.ts</code> ejecuta el criterio funcional SC-014 con diez cuentas ficticias independientes, repartidas entre Chromium y WebKit y anchos de 390 y 1280 píxeles. El escenario inicial usa revisión manual y comprobación adicional desactivada; la confirmación visible de una solicitud pendiente termina la medición.</p>
+<p>El arnés de <code>tests/support/admission-entry-sample-auth.ts</code> compone el mismo <code>withDevSignIn</code> con el adapter real de Drizzle y el handler HTTP real de Better Auth en un servidor de pruebas limitado a loopback. Cada instancia admite su único correo configurado. Las direcciones <code>.test</code> y contraseñas se generan en memoria, Better Auth guarda los hashes y el navegador recibe sus cookies por HTTP. El endpoint de sesión del build de Next confirma después cada identidad y sesión. La aplicación conserva su configuración normal: el método de contraseña continúa deshabilitado en su build productivo.</p>
+<p>La preparación ocurre únicamente en una rama Neon propia del ensayo, migrada por el arnés existente. Cuentas, claves y cookies no se incluyen en reportes ni capturas. La rama se elimina al salir, también ante fallos. El reporte conserva las diez observaciones, incluidas las fallidas; exige al menos nueve confirmaciones estrictamente antes de 120.000 ms desde la navegación inicial y comprueba el replay del identificador original sin solicitudes duplicadas. En este escenario no existe espera externa que restar.</p>
+<div class="code-block"><pre>pnpm build
+pnpm exec playwright test --config playwright.admission-entry-sample.config.ts</pre></div>
+<p>La ejecución necesita el entorno privado local y acceso al proyecto Neon ya configurados. El reporte adjunto contiene alias, motor, ancho, tiempos y conteos de efectos; la medición técnica no acredita usabilidad humana, verificación de Google, entrega real de códigos ni validación con lector de pantalla. El protocolo y el resultado observado se conservan en <code>specs/001-academy-admissions/validation/admission-entry-sample.md</code>.</p>
 </div>
 </body>
 </html>

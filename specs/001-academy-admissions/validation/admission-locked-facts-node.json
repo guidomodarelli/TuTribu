@@ -1,0 +1,61 @@
+{
+  "sourceCommit": "08ca022fa7af487faf2960e444e5f8d95c874033",
+  "bundleSha256": "9e1d36ec07cf61ddbc80a8c764732d494cae08e392e998ca404d38d650d47a85",
+  "nodeVersion": "24.16.0",
+  "databaseCompute": {
+    "minimum": 2,
+    "maximum": 2,
+    "region": "aws-us-east-1"
+  },
+  "participants": 100,
+  "admitted": 50,
+  "pending": 50,
+  "p95Ms": 6327.19142999989,
+  "targetMs": 3000,
+  "networkQueryP95Ms": 4.5083000001031905,
+  "setupDurationMs": 2519.6092659998685,
+  "warmupDurationMs": 2852.7970469999127,
+  "facts": {
+    "entries": 10000,
+    "requests": 100,
+    "basic_members": 50,
+    "deliveries": 0
+  },
+  "pool": {
+    "maximum": 100,
+    "acquisitions": 300,
+    "releases": 300,
+    "errorReleases": 0,
+    "peakWaitingCount": 0,
+    "peakTotalCount": 100,
+    "waitingAfter": 0,
+    "checkedOutAfter": 0
+  },
+  "diagnostics": {
+    "wallDurationMs": 6334.56691399985,
+    "cpuUserMs": 1275.487,
+    "cpuSystemMs": 262.061,
+    "eventLoopActiveMs": 1323.2872129997704,
+    "eventLoopIdleMs": 5011.286979000084,
+    "eventLoopUtilization": 0.20889915768466238,
+    "accountTransactions": 100,
+    "commandTransactions": 200,
+    "accountTransactionP95Ms": 728.5392439998686,
+    "commandTransactionP95Ms": 4619.752990999958,
+    "admittedP95Ms": 6327.4999959999695,
+    "pendingP95Ms": 6326.865856999997
+  },
+  "failures": [],
+  "latencyAccepted": false,
+  "sourceInputsStable": true,
+  "toolingStable": true,
+  "cleanup": {
+    "remainingBranches": 3,
+    "originalBranchesPreserved": true,
+    "nonOriginalBranches": 0,
+    "functionRemovalConfirmedByHelper": true,
+    "independentInventoryConfirmed": true
+  },
+  "productionSqlExecuted": false,
+  "realMessages": 0
+}

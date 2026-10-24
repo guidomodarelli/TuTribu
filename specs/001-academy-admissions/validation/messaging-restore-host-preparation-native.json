@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-18",
+  "kind": "native_postgres_restore_composition_regression",
+  "sourceCommit": "e908ccf9f4a61fbee2cbbf2e6846356855781449",
+  "testFile": "tests/unit/modules/messaging/infrastructure/messaging-restore-safety.test.ts",
+  "runtime": "local_node",
+  "nodeVersion": "24.21.0",
+  "testFiles": 1,
+  "passedTests": 1,
+  "failedTests": 0,
+  "skippedTests": 0,
+  "durationMs": 1696998.8168,
+  "originalExternalHostingConfiguration": true,
+  "purposeSeparatedKeyringCount": 6,
+  "configurationRestoredFromSql": false,
+  "completeRestoreAndReopeningScenarioPassed": true,
+  "providerTransport": "real_sdk_closed_http",
+  "hostedNodeRestoreValidated": false,
+  "hostedWorkersRestoreValidated": false,
+  "sourceAudit": {
+    "inputsStable": true,
+    "inputs": 3226,
+    "observedHead": "ef7f1d95492dc33e3c451a5ab95ef5d18e027f4c"
+  },
+  "cleanup": {
+    "originalBranches": 4,
+    "currentBranches": 4,
+    "originalBranchesPreserved": true,
+    "ownTemporaryBranchesAbsent": true
+  },
+  "documentationQa": {
+    "views": 4,
+    "inputsStable": true,
+    "widths": [
+      390,
+      1280
+    ],
+    "localDestinations": 6,
+    "engines": [
+      "chromium",
+      "webkit"
+    ]
+  },
+  "realMessages": 0,
+  "privateMaterialIncluded": false,
+  "operationalGatesClosed": []
+}

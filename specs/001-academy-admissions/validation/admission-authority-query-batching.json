@@ -1,0 +1,175 @@
+{
+  "source": {
+    "baseCommit": "8094e9efaefb9ea44ce91cc8ee17a187e803e572",
+    "worktreeChanges": true,
+    "inputs": [
+      {
+        "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-authorization-reader.ts",
+        "sha256": "9a4865832f27b19af51af78a22e663a690524a64a4862c7bee6ecaebc2a0bef9"
+      },
+      {
+        "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts",
+        "sha256": "c4d216aa4527ae87feb5db86e89a03289dfc4ed1bf8bfdfc422988ecac251852"
+      },
+      {
+        "path": "tests/unit/modules/academy-admissions/infrastructure/admission-authorization-reader.test.ts",
+        "sha256": "a6ef770869560a9011a27d0aa317f7934106e42b4b12395e9028579e2200584b"
+      },
+      {
+        "path": "tests/unit/modules/academy-admissions/infrastructure/admission-request-session-transactions.test.ts",
+        "sha256": "a521ae5fd66f0c8f7e06bd358a89eb01d88cecb026eaa391c41644bd06ec24c4"
+      },
+      {
+        "path": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+        "sha256": "de3df3dc419f0bce7c3781dbf60df0d88ed2c07d8e043c74375c7a2d4c2dd54d"
+      },
+      {
+        "path": "tests/support/constants/admission-authorization.ts",
+        "sha256": "540dafa6fcd758a8047e97f03533c60bc1a9d5a96c8e52258eddafc8f7c2c07c"
+      }
+    ]
+  },
+  "baseline": {
+    "commit": "8094e9efaefb9ea44ce91cc8ee17a187e803e572",
+    "p95Ms": 7013.182326000184,
+    "targetMs": 3000,
+    "status": "latency_not_passed"
+  },
+  "beforeAccountDeletion": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "cases": [
+      {
+        "name": "native admission session transaction scope should use three real checkouts and retain revocation, account deletion and changed-cookie rejection between commits",
+        "status": "passed",
+        "durationMs": 108952.24590000001
+      }
+    ]
+  },
+  "beforeActorGate": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 7,
+    "cases": [
+      {
+        "name": "native actor guard before scope locks should reject a missing or mismatched SQL actor without touching a locked tribe",
+        "status": "passed",
+        "durationMs": 24251.3141
+      }
+    ]
+  },
+  "native": {
+    "passed": 9,
+    "failed": 0,
+    "skipped": 0,
+    "cases": [
+      {
+        "name": "native actor guard before scope locks should reject a missing or mismatched SQL actor without touching a locked tribe",
+        "status": "passed",
+        "durationMs": 25272.597999999998
+      },
+      {
+        "name": "admission current authorization storage should resolve canonical leadership instead of the historical creator and retain a nonmember applicant",
+        "status": "passed",
+        "durationMs": 26104.834699999996
+      },
+      {
+        "name": "admission current authorization storage should observe a membership inserted after the actor query begins waiting on the tribe",
+        "status": "passed",
+        "durationMs": 23975.3131
+      },
+      {
+        "name": "admission current authorization storage should return the current role and status after waiting on a changed membership",
+        "status": "passed",
+        "durationMs": 23733.776400000002
+      },
+      {
+        "name": "admission current authorization storage should reject a session that expires while waiting for the membership lock",
+        "status": "passed",
+        "durationMs": 30119.300900000002
+      },
+      {
+        "name": "admission current authorization storage should restrict current reviewer resources to the exact tribe and close after session revocation",
+        "status": "passed",
+        "durationMs": 22980.271799999988
+      },
+      {
+        "name": "admission current authorization storage should not disclose another account request or allow a guardian to inspect a leader resource",
+        "status": "passed",
+        "durationMs": 19444.013599999977
+      },
+      {
+        "name": "admission current authorization storage should retain retired connection metadata for current authorized readers while closing sensitive use",
+        "status": "passed",
+        "durationMs": 22516.334300000017
+      },
+      {
+        "name": "native admission session transaction scope should use three real checkouts and retain revocation, account deletion and changed-cookie rejection between commits",
+        "status": "passed",
+        "durationMs": 105859.49220000001
+      }
+    ]
+  },
+  "sensitiveFirst": {
+    "passed": 1,
+    "failed": 1,
+    "skipped": 20,
+    "cases": [
+      {
+        "name": "manual admission decision atomicity should reach the manual writer through its request root and application use cases with native current identity",
+        "status": "passed",
+        "durationMs": 83182.0318
+      },
+      {
+        "name": "manual admission decision atomicity should advance only retry metadata with exact current leader recency, preserve terminal effects and replay before CAS",
+        "status": "failed",
+        "durationMs": 129769.7046,
+        "failure": "Error: promise resolved \"{ state: 'completed', …(3) }\" instead of rejecting"
+      }
+    ]
+  },
+  "sensitiveDeadlineAfter": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 21,
+    "cases": [
+      {
+        "name": "manual admission decision atomicity should advance only retry metadata with exact current leader recency, preserve terminal effects and replay before CAS",
+        "status": "passed",
+        "durationMs": 150060.5149
+      }
+    ]
+  },
+  "harnessAdjustment": {
+    "reason": "delay_was_bound_to_second_account_projection",
+    "preserved": [
+      "authentication_required_after_real_deadline",
+      "unchanged_retry_state",
+      "unchanged_retry_audit",
+      "registered_claim_only"
+    ]
+  },
+  "ordinary": {
+    "passed": 735,
+    "failed": 0,
+    "skipped": 3
+  },
+  "checks": {
+    "productTypes": "passed",
+    "testTypes": "passed",
+    "lint": "passed",
+    "nextBuild": "passed"
+  },
+  "cleanup": {
+    "remainingBranchIds": [
+      "br-shiny-paper-ankn86x2",
+      "br-aged-morning-an5ejge1",
+      "br-wispy-sun-anwpxm2x"
+    ],
+    "protectedBranchesPreserved": true,
+    "ownedBranchesAbsent": true
+  },
+  "realMessages": 0,
+  "latencyGate": "pending_full_measurement"
+}

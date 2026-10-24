@@ -2,7 +2,9 @@ import "server-only";
 
 import { Pool } from "pg";
 
+import { attachPostgresPoolMetrics } from "@/src/modules/shared/infrastructure/database/postgres-pool-metrics";
 import { normalizePostgresSslMode } from "@/src/modules/shared/infrastructure/database/postgres-ssl-mode";
+import { getPostgresPoolMetricsEnvironment } from "@/src/modules/shared/infrastructure/database/server-environment";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 const POSTGRES_DEPENDENCY = "postgres";
@@ -42,16 +44,17 @@ const POSTGRES_POOL_CONFIGURATION = {
   allowExitOnIdle: true,
   connectionTimeoutMillis: 10000,
   idleTimeoutMillis: 5000,
-  // Headroom for concurrent server renders. The Neon pooler tolerates hundreds
-  // of connections, so a small per-pool ceiling only starves legitimate
-  // concurrency. Three runtime pools at this size stay far below the limit.
-  max: 10,
+  // Headroom for the one-hundred-operation workload. Each runtime pool stays
+  // bounded, and unused connections close under the explicit idle timeout.
+  max: 100,
   maxLifetimeSeconds: 60,
 } as const;
 
 type CreatePostgresPoolInput = {
   connectionString: string;
   operation: string;
+  /** Optional owner-selected capacity; existing runtime pools retain their default. */
+  maximumConnections?: number;
 };
 
 type PostgresErrorLike = {
@@ -83,11 +86,17 @@ function getPostgresErrorMetadata(error: unknown) {
 
 /**
  * Creates a Postgres pool with safe background error handling for idle clients.
+ * When `POSTGRES_POOL_METRICS_LOG_INTERVAL_MS` is set, the pool also logs its
+ * usage windows (see `attachPostgresPoolMetrics`).
  *
  * @param input - Connection string and operation label used to configure the pool.
  * @returns Configured Postgres pool.
  */
 export function createPostgresPool(input: CreatePostgresPoolInput) {
+  const maximumConnections = input.maximumConnections ?? POSTGRES_POOL_CONFIGURATION.max;
+  if (!Number.isSafeInteger(maximumConnections) || maximumConnections < 1) {
+    throw new Error("PostgresPool.create failed: maximum_connections_must_be_a_positive_integer");
+  }
   const logger = createServerLogger({
     feature: "database",
     operation: input.operation,
@@ -95,6 +104,7 @@ export function createPostgresPool(input: CreatePostgresPoolInput) {
   });
   const pool = new Pool({
     ...POSTGRES_POOL_CONFIGURATION,
+    max: maximumConnections,
     connectionString: normalizePostgresSslMode(input.connectionString),
     onConnect: async (client) => {
       try {
@@ -131,6 +141,16 @@ export function createPostgresPool(input: CreatePostgresPoolInput) {
       error,
     });
   });
+
+  const { logIntervalMilliseconds } = getPostgresPoolMetricsEnvironment();
+  if (logIntervalMilliseconds !== null) {
+    attachPostgresPoolMetrics({
+      pool,
+      poolOperation: input.operation,
+      maximumConnections,
+      logIntervalMilliseconds,
+    });
+  }
 
   return pool;
 }

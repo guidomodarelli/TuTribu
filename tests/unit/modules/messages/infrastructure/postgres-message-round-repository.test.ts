@@ -87,6 +87,7 @@ describe("PostgresMessageRoundRepository", () => {
           {
             liked_message_ids: ["message-1"],
             viewer_membership_role: "leader",
+            viewer_can_write: true,
             viewer_membership_status: "active",
           },
         ],
@@ -117,6 +118,7 @@ describe("PostgresMessageRoundRepository", () => {
         canCreateMessage: true,
         canEditMessageCreatedAt: true,
         canReact: true,
+        requiresAcademyToParticipate: false,
         canPinMessages: true,
       },
       messages: [
@@ -229,6 +231,7 @@ describe("PostgresMessageRoundRepository", () => {
             liked_message_ids: [],
             selected_poll_option_ids: [],
             viewer_membership_role: "tribemate",
+            viewer_can_write: true,
             viewer_membership_status: "active",
           },
         ],
@@ -305,6 +308,7 @@ describe("PostgresMessageRoundRepository", () => {
           {
             liked_message_ids: [],
             viewer_membership_role: "tribemate",
+            viewer_can_write: true,
             viewer_membership_status: "active",
           },
         ],
@@ -335,6 +339,7 @@ describe("PostgresMessageRoundRepository", () => {
         canCreateMessage: true,
         canEditMessageCreatedAt: false,
         canReact: true,
+        requiresAcademyToParticipate: false,
         canPinMessages: false,
       },
       messages: [],
@@ -386,6 +391,7 @@ describe("PostgresMessageRoundRepository", () => {
             liked_message_ids: [],
             selected_poll_option_ids: [],
             viewer_membership_role: "tribemate",
+            viewer_can_write: false,
             viewer_membership_status: "muted",
           },
         ],
@@ -405,6 +411,7 @@ describe("PostgresMessageRoundRepository", () => {
         canEditMessageCreatedAt: false,
         canPinMessages: false,
         canReact: false,
+        requiresAcademyToParticipate: false,
         canReply: false,
       },
       messages: [
@@ -485,6 +492,7 @@ describe("PostgresMessageRoundRepository", () => {
           {
             liked_message_ids: ["message-1"],
             viewer_membership_role: "tribemate",
+            viewer_can_write: true,
             viewer_membership_status: "active",
           },
         ],
@@ -889,6 +897,7 @@ describe("PostgresMessageRoundRepository", () => {
         {
           liked_message_ids: ["message-1", "message-2"],
           viewer_membership_role: "guardian",
+          viewer_can_write: true,
           viewer_membership_status: "active",
         },
       ],
@@ -911,6 +920,7 @@ describe("PostgresMessageRoundRepository", () => {
         canEditMessageCreatedAt: false,
         canPinMessages: true,
         canReact: true,
+        requiresAcademyToParticipate: false,
         canReply: true,
       },
     });
@@ -923,6 +933,7 @@ describe("PostgresMessageRoundRepository", () => {
           liked_message_ids: ["message-1", "message-2"],
           selected_poll_option_ids: ["option-1", "option-2"],
           viewer_membership_role: "tribemate",
+          viewer_can_write: true,
           viewer_membership_status: "active",
         },
       ],

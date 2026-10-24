@@ -1,0 +1,27 @@
+@use "../../../src/styles/workspace-panel";
+
+.AdmissionDecisionForm {
+  @include workspace-panel.form;
+
+  max-width: 40rem;
+
+  &__field {
+    @include workspace-panel.field;
+  }
+
+  &__label {
+    @include workspace-panel.subtitle;
+  }
+
+  &__help {
+    @include workspace-panel.note;
+  }
+
+  &__confirmation {
+    @include workspace-panel.consent;
+  }
+
+  &__actions {
+    @include workspace-panel.actions;
+  }
+}

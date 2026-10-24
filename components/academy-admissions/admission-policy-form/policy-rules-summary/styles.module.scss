@@ -1,0 +1,19 @@
+@use "../../../../src/styles/workspace-panel";
+
+.PolicyRulesSummary {
+  @include workspace-panel.facts;
+
+  &__fact {
+    display: grid;
+    min-width: 0;
+    gap: 0.25rem;
+  }
+
+  &__term {
+    @include workspace-panel.fact-term;
+  }
+
+  &__value {
+    @include workspace-panel.fact-value;
+  }
+}

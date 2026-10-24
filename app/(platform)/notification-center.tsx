@@ -33,7 +33,7 @@ export function NotificationCenter({ initialInbox }: NotificationCenterProps) {
       ? NOTIFICATION_BELL_SURFACE.sheet
       : NOTIFICATION_BELL_SURFACE.popover;
   const [isOpen, setIsOpen] = useState(false);
-  const center = useNotificationCenter(initialInbox);
+  const center = useNotificationCenter(initialInbox, { isOpen });
 
   const handleOpenChange = (nextIsOpen: boolean) => {
     setIsOpen(nextIsOpen);
@@ -54,6 +54,7 @@ export function NotificationCenter({ initialInbox }: NotificationCenterProps) {
       isOpen={isOpen}
       listStatus={center.listStatus}
       notifications={center.notifications}
+      refreshUnavailable={center.refreshUnavailable}
       onMarkAllRead={() => void center.markAllRead()}
       onOpenChange={handleOpenChange}
       onRetry={center.refreshList}

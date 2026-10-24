@@ -1,0 +1,2162 @@
+{
+  "workflowRun": 39143977170,
+  "url": "https://github.com/guidomodarelli/TuTribu/actions/runs/39143977170",
+  "sourceCommit": "19fe4dffb9985fa9a149f311320f8e8c27f914ea",
+  "kind": "platform_preflight",
+  "passed": false,
+  "orcaVersion": "48.9",
+  "orcaSourceCommit": "4b964097f586446b3c74a98d0d309fb4b87ceb70",
+  "productJourneysValidated": false,
+  "realMessages": 0,
+  "cases": [
+    {
+      "engine": "chromium",
+      "width": 390,
+      "markupVariant": "empty",
+      "passed": true,
+      "failureCode": null,
+      "speechPhase": "live",
+      "initialInterruptCount": 4,
+      "automaticReadingDisabledObserved": true,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32768,
+      "liveSpeechObserved": true,
+      "liveAudioPeak": 32768,
+      "latestAudioPeak": null,
+      "nativeControlFocus": {
+        "scanned": 210,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "nativeFocusBeforeLive": {
+        "scanned": 210,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "speechDiagnostics": null,
+      "nativeAccessibility": null
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "markupVariant": "seeded_text",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "initialInterruptCount": 1,
+      "automaticReadingDisabledObserved": false,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32768,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "latestAudioPeak": 0,
+      "nativeControlFocus": {
+        "scanned": 211,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "nativeFocusBeforeLive": {
+        "scanned": 211,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "speechDiagnostics": {
+        "backendLogEntries": 2,
+        "fallbackOutputs": 1,
+        "labelInDebug": true,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 0,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 9,
+          "handledEntries": 1,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 1,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "nativeAccessibility": {
+        "scanned": 211,
+        "unavailable": 208,
+        "matches": [
+          [
+            {
+              "role": "static",
+              "attributes": {
+                "container-live": "polite",
+                "atomic": "false",
+                "container-relevant": "additions text",
+                "relevant": "additions text",
+                "container-atomic": "true"
+              }
+            },
+            {
+              "role": "status bar",
+              "attributes": {
+                "atomic": "true",
+                "id": "status",
+                "tag": "p",
+                "live": "polite",
+                "xml-roles": "status",
+                "container-relevant": "additions text",
+                "container-live": "polite",
+                "container-atomic": "true",
+                "relevant": "additions text"
+              }
+            },
+            {
+              "role": "document web",
+              "attributes": {
+                "tag": "#document"
+              }
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            }
+          ]
+        ],
+        "liveRegions": [
+          {
+            "role": "push button",
+            "attributes": {
+              "live": "polite",
+              "atomic": "true",
+              "container-relevant": "additions text",
+              "container-live": "polite",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          },
+          {
+            "role": "notification",
+            "attributes": {
+              "container-live": "polite",
+              "container-relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          },
+          {
+            "role": "status bar",
+            "attributes": {
+              "atomic": "true",
+              "id": "status",
+              "tag": "p",
+              "live": "polite",
+              "xml-roles": "status",
+              "container-relevant": "additions text",
+              "container-live": "polite",
+              "container-atomic": "true",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          },
+          {
+            "role": "static",
+            "attributes": {
+              "container-live": "polite",
+              "atomic": "false",
+              "container-relevant": "additions text",
+              "relevant": "additions text",
+              "container-atomic": "true"
+            },
+            "nameMatchesExpected": true,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          }
+        ]
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "markupVariant": "seeded_marker",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "initialInterruptCount": 1,
+      "automaticReadingDisabledObserved": false,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32635,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "latestAudioPeak": 0,
+      "nativeControlFocus": {
+        "scanned": 211,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "nativeFocusBeforeLive": {
+        "scanned": 211,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "speechDiagnostics": {
+        "backendLogEntries": 0,
+        "fallbackOutputs": 1,
+        "labelInDebug": true,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 0,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 9,
+          "handledEntries": 1,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 1,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "nativeAccessibility": {
+        "scanned": 211,
+        "unavailable": 208,
+        "matches": [
+          [
+            {
+              "role": "static",
+              "attributes": {
+                "container-live": "polite",
+                "atomic": "false",
+                "container-relevant": "additions text",
+                "relevant": "additions text",
+                "container-atomic": "true"
+              }
+            },
+            {
+              "role": "status bar",
+              "attributes": {
+                "atomic": "true",
+                "id": "status",
+                "tag": "p",
+                "live": "polite",
+                "xml-roles": "status",
+                "container-relevant": "additions text",
+                "container-live": "polite",
+                "container-atomic": "true",
+                "relevant": "additions text"
+              }
+            },
+            {
+              "role": "document web",
+              "attributes": {
+                "tag": "#document"
+              }
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            }
+          ]
+        ],
+        "liveRegions": [
+          {
+            "role": "push button",
+            "attributes": {
+              "live": "polite",
+              "atomic": "true",
+              "container-relevant": "additions text",
+              "container-live": "polite",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          },
+          {
+            "role": "notification",
+            "attributes": {
+              "container-live": "polite",
+              "container-relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          },
+          {
+            "role": "status bar",
+            "attributes": {
+              "atomic": "true",
+              "id": "status",
+              "tag": "p",
+              "live": "polite",
+              "xml-roles": "status",
+              "container-relevant": "additions text",
+              "container-live": "polite",
+              "container-atomic": "true",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          },
+          {
+            "role": "static",
+            "attributes": {
+              "container-live": "polite",
+              "atomic": "false",
+              "container-relevant": "additions text",
+              "relevant": "additions text",
+              "container-atomic": "true"
+            },
+            "nameMatchesExpected": true,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          }
+        ]
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "markupVariant": "empty",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "initialInterruptCount": 1,
+      "automaticReadingDisabledObserved": false,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32768,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "latestAudioPeak": 0,
+      "nativeControlFocus": {
+        "scanned": 210,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "nativeFocusBeforeLive": {
+        "scanned": 210,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "speechDiagnostics": {
+        "backendLogEntries": 2,
+        "fallbackOutputs": 1,
+        "labelInDebug": true,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 0,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 9,
+          "handledEntries": 1,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 0,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "nativeAccessibility": {
+        "scanned": 211,
+        "unavailable": 208,
+        "matches": [
+          [
+            {
+              "role": "static",
+              "attributes": {
+                "container-live": "polite",
+                "atomic": "false",
+                "container-relevant": "additions text",
+                "relevant": "additions text",
+                "container-atomic": "true"
+              }
+            },
+            {
+              "role": "status bar",
+              "attributes": {
+                "atomic": "true",
+                "id": "status",
+                "tag": "p",
+                "live": "polite",
+                "xml-roles": "status",
+                "container-relevant": "additions text",
+                "container-live": "polite",
+                "container-atomic": "true",
+                "relevant": "additions text"
+              }
+            },
+            {
+              "role": "document web",
+              "attributes": {
+                "tag": "#document"
+              }
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            }
+          ]
+        ],
+        "liveRegions": [
+          {
+            "role": "push button",
+            "attributes": {
+              "live": "polite",
+              "atomic": "true",
+              "container-relevant": "additions text",
+              "container-live": "polite",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          },
+          {
+            "role": "notification",
+            "attributes": {
+              "container-live": "polite",
+              "container-relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          },
+          {
+            "role": "status bar",
+            "attributes": {
+              "atomic": "true",
+              "id": "status",
+              "tag": "p",
+              "live": "polite",
+              "xml-roles": "status",
+              "container-relevant": "additions text",
+              "container-live": "polite",
+              "container-atomic": "true",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          },
+          {
+            "role": "static",
+            "attributes": {
+              "container-live": "polite",
+              "atomic": "false",
+              "container-relevant": "additions text",
+              "relevant": "additions text",
+              "container-atomic": "true"
+            },
+            "nameMatchesExpected": true,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          }
+        ]
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "markupVariant": "seeded_text",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "initialInterruptCount": 1,
+      "automaticReadingDisabledObserved": false,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32589,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "latestAudioPeak": 0,
+      "nativeControlFocus": {
+        "scanned": 211,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "nativeFocusBeforeLive": {
+        "scanned": 211,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "speechDiagnostics": {
+        "backendLogEntries": 2,
+        "fallbackOutputs": 1,
+        "labelInDebug": true,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 0,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 9,
+          "handledEntries": 0,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 1,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "nativeAccessibility": {
+        "scanned": 211,
+        "unavailable": 208,
+        "matches": [
+          [
+            {
+              "role": "static",
+              "attributes": {
+                "container-live": "polite",
+                "atomic": "false",
+                "container-relevant": "additions text",
+                "relevant": "additions text",
+                "container-atomic": "true"
+              }
+            },
+            {
+              "role": "status bar",
+              "attributes": {
+                "atomic": "true",
+                "id": "status",
+                "tag": "p",
+                "live": "polite",
+                "xml-roles": "status",
+                "container-relevant": "additions text",
+                "container-live": "polite",
+                "container-atomic": "true",
+                "relevant": "additions text"
+              }
+            },
+            {
+              "role": "document web",
+              "attributes": {
+                "tag": "#document"
+              }
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            }
+          ]
+        ],
+        "liveRegions": [
+          {
+            "role": "push button",
+            "attributes": {
+              "live": "polite",
+              "atomic": "true",
+              "container-relevant": "additions text",
+              "container-live": "polite",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          },
+          {
+            "role": "notification",
+            "attributes": {
+              "container-live": "polite",
+              "container-relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          },
+          {
+            "role": "status bar",
+            "attributes": {
+              "atomic": "true",
+              "id": "status",
+              "tag": "p",
+              "live": "polite",
+              "xml-roles": "status",
+              "container-relevant": "additions text",
+              "container-live": "polite",
+              "container-atomic": "true",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          },
+          {
+            "role": "static",
+            "attributes": {
+              "container-live": "polite",
+              "atomic": "false",
+              "container-relevant": "additions text",
+              "relevant": "additions text",
+              "container-atomic": "true"
+            },
+            "nameMatchesExpected": true,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          }
+        ]
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "markupVariant": "seeded_marker",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "initialInterruptCount": 1,
+      "automaticReadingDisabledObserved": false,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32582,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "latestAudioPeak": 0,
+      "nativeControlFocus": {
+        "scanned": 211,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "nativeFocusBeforeLive": {
+        "scanned": 211,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "speechDiagnostics": {
+        "backendLogEntries": 1,
+        "fallbackOutputs": 1,
+        "labelInDebug": true,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 0,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 9,
+          "handledEntries": 1,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 1,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "nativeAccessibility": {
+        "scanned": 211,
+        "unavailable": 208,
+        "matches": [
+          [
+            {
+              "role": "static",
+              "attributes": {
+                "container-live": "polite",
+                "atomic": "false",
+                "container-relevant": "additions text",
+                "relevant": "additions text",
+                "container-atomic": "true"
+              }
+            },
+            {
+              "role": "status bar",
+              "attributes": {
+                "atomic": "true",
+                "id": "status",
+                "tag": "p",
+                "live": "polite",
+                "xml-roles": "status",
+                "container-relevant": "additions text",
+                "container-live": "polite",
+                "container-atomic": "true",
+                "relevant": "additions text"
+              }
+            },
+            {
+              "role": "document web",
+              "attributes": {
+                "tag": "#document"
+              }
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            },
+            {
+              "role": "panel",
+              "attributes": {}
+            }
+          ]
+        ],
+        "liveRegions": [
+          {
+            "role": "push button",
+            "attributes": {
+              "live": "polite",
+              "atomic": "true",
+              "container-relevant": "additions text",
+              "container-live": "polite",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          },
+          {
+            "role": "notification",
+            "attributes": {
+              "container-live": "polite",
+              "container-relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          },
+          {
+            "role": "status bar",
+            "attributes": {
+              "atomic": "true",
+              "id": "status",
+              "tag": "p",
+              "live": "polite",
+              "xml-roles": "status",
+              "container-relevant": "additions text",
+              "container-live": "polite",
+              "container-atomic": "true",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          },
+          {
+            "role": "static",
+            "attributes": {
+              "container-live": "polite",
+              "atomic": "false",
+              "container-relevant": "additions text",
+              "relevant": "additions text",
+              "container-atomic": "true"
+            },
+            "nameMatchesExpected": true,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          }
+        ]
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "markupVariant": "empty",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "initialInterruptCount": 1,
+      "automaticReadingDisabledObserved": true,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32767,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "latestAudioPeak": 0,
+      "nativeControlFocus": {
+        "scanned": 41,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "scroll pane",
+            "focused": true,
+            "active": false,
+            "showing": false,
+            "visible": false,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "document web",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "nativeFocusBeforeLive": {
+        "scanned": 41,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "scroll pane",
+            "focused": true,
+            "active": false,
+            "showing": false,
+            "visible": false,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "document web",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "speechDiagnostics": {
+        "backendLogEntries": 0,
+        "fallbackOutputs": 0,
+        "labelInDebug": false,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 0,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 19,
+          "handledEntries": 0,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 0,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "nativeAccessibility": {
+        "scanned": 41,
+        "unavailable": 8,
+        "matches": [],
+        "liveRegions": [
+          {
+            "role": "status bar",
+            "attributes": {
+              "tag": "p",
+              "atomic": "true",
+              "live": "polite",
+              "xml-roles": "status",
+              "id": "status",
+              "container-live": "polite",
+              "toolkit": "WebKitGTK",
+              "container-atomic": "true",
+              "container-relevant": "additions text",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          }
+        ]
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "markupVariant": "seeded_text",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "initialInterruptCount": 1,
+      "automaticReadingDisabledObserved": false,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32679,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "latestAudioPeak": 0,
+      "nativeControlFocus": {
+        "scanned": 42,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "scroll pane",
+            "focused": true,
+            "active": false,
+            "showing": false,
+            "visible": false,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "document web",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "nativeFocusBeforeLive": {
+        "scanned": 41,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "scroll pane",
+            "focused": true,
+            "active": false,
+            "showing": false,
+            "visible": false,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "document web",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "speechDiagnostics": {
+        "backendLogEntries": 0,
+        "fallbackOutputs": 0,
+        "labelInDebug": false,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 0,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 19,
+          "handledEntries": 0,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 0,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "nativeAccessibility": {
+        "scanned": 41,
+        "unavailable": 8,
+        "matches": [],
+        "liveRegions": [
+          {
+            "role": "status bar",
+            "attributes": {
+              "tag": "p",
+              "atomic": "true",
+              "live": "polite",
+              "xml-roles": "status",
+              "id": "status",
+              "container-live": "polite",
+              "toolkit": "WebKitGTK",
+              "container-atomic": "true",
+              "container-relevant": "additions text",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          }
+        ]
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "markupVariant": "seeded_marker",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "initialInterruptCount": 1,
+      "automaticReadingDisabledObserved": false,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32667,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "latestAudioPeak": 0,
+      "nativeControlFocus": {
+        "scanned": 42,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "scroll pane",
+            "focused": true,
+            "active": false,
+            "showing": false,
+            "visible": false,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "document web",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "nativeFocusBeforeLive": {
+        "scanned": 41,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "scroll pane",
+            "focused": true,
+            "active": false,
+            "showing": false,
+            "visible": false,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "document web",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "speechDiagnostics": {
+        "backendLogEntries": 0,
+        "fallbackOutputs": 0,
+        "labelInDebug": false,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 0,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 19,
+          "handledEntries": 0,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 0,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "nativeAccessibility": {
+        "scanned": 41,
+        "unavailable": 8,
+        "matches": [],
+        "liveRegions": [
+          {
+            "role": "status bar",
+            "attributes": {
+              "tag": "p",
+              "atomic": "true",
+              "live": "polite",
+              "xml-roles": "status",
+              "id": "status",
+              "container-live": "polite",
+              "toolkit": "WebKitGTK",
+              "container-atomic": "true",
+              "container-relevant": "additions text",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          }
+        ]
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "markupVariant": "empty",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "initialInterruptCount": 1,
+      "automaticReadingDisabledObserved": true,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32689,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "latestAudioPeak": 0,
+      "nativeControlFocus": {
+        "scanned": 41,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "scroll pane",
+            "focused": true,
+            "active": false,
+            "showing": false,
+            "visible": false,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "document web",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "nativeFocusBeforeLive": {
+        "scanned": 41,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "scroll pane",
+            "focused": true,
+            "active": false,
+            "showing": false,
+            "visible": false,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "document web",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "speechDiagnostics": {
+        "backendLogEntries": 0,
+        "fallbackOutputs": 0,
+        "labelInDebug": false,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 0,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 29,
+          "handledEntries": 0,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 0,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "nativeAccessibility": {
+        "scanned": 41,
+        "unavailable": 8,
+        "matches": [],
+        "liveRegions": [
+          {
+            "role": "status bar",
+            "attributes": {
+              "tag": "p",
+              "atomic": "true",
+              "live": "polite",
+              "xml-roles": "status",
+              "id": "status",
+              "container-live": "polite",
+              "toolkit": "WebKitGTK",
+              "container-atomic": "true",
+              "container-relevant": "additions text",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          }
+        ]
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "markupVariant": "seeded_text",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "initialInterruptCount": 1,
+      "automaticReadingDisabledObserved": true,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32767,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "latestAudioPeak": 0,
+      "nativeControlFocus": {
+        "scanned": 41,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "scroll pane",
+            "focused": true,
+            "active": false,
+            "showing": false,
+            "visible": false,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "document web",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "nativeFocusBeforeLive": {
+        "scanned": 41,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "scroll pane",
+            "focused": true,
+            "active": false,
+            "showing": false,
+            "visible": false,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "document web",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "speechDiagnostics": {
+        "backendLogEntries": 0,
+        "fallbackOutputs": 0,
+        "labelInDebug": false,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 0,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 16,
+          "handledEntries": 0,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 0,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "nativeAccessibility": {
+        "scanned": 41,
+        "unavailable": 8,
+        "matches": [],
+        "liveRegions": [
+          {
+            "role": "status bar",
+            "attributes": {
+              "tag": "p",
+              "atomic": "true",
+              "live": "polite",
+              "xml-roles": "status",
+              "id": "status",
+              "container-live": "polite",
+              "toolkit": "WebKitGTK",
+              "container-atomic": "true",
+              "container-relevant": "additions text",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          }
+        ]
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "markupVariant": "seeded_marker",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "initialInterruptCount": 1,
+      "automaticReadingDisabledObserved": true,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32728,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "latestAudioPeak": 0,
+      "nativeControlFocus": {
+        "scanned": 41,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "scroll pane",
+            "focused": true,
+            "active": false,
+            "showing": false,
+            "visible": false,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "document web",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "nativeFocusBeforeLive": {
+        "scanned": 41,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "scroll pane",
+            "focused": true,
+            "active": false,
+            "showing": false,
+            "visible": false,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "document web",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "speechDiagnostics": {
+        "backendLogEntries": 0,
+        "fallbackOutputs": 0,
+        "labelInDebug": false,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 0,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 19,
+          "handledEntries": 0,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 0,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "nativeAccessibility": {
+        "scanned": 41,
+        "unavailable": 8,
+        "matches": [],
+        "liveRegions": [
+          {
+            "role": "status bar",
+            "attributes": {
+              "tag": "p",
+              "atomic": "true",
+              "live": "polite",
+              "xml-roles": "status",
+              "id": "status",
+              "container-live": "polite",
+              "toolkit": "WebKitGTK",
+              "container-atomic": "true",
+              "container-relevant": "additions text",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,188 @@
+{
+  "workflowRun": 39149426394,
+  "url": "https://github.com/guidomodarelli/TuTribu/actions/runs/39149426394",
+  "sourceCommit": "77f95e5e0765948bba3fc905a1a111c9e51382df",
+  "orcaVersion": "51.1",
+  "passed": false,
+  "productJourneysValidated": false,
+  "realMessages": 0,
+  "paragraphProtocolFailure": "status_role_locator_in_paragraph_comparison",
+  "cases": [
+    {
+      "engine": "chromium",
+      "width": 390,
+      "markupVariant": "empty",
+      "passed": true,
+      "failureCode": null,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "recordedExpectedSpeech": true,
+      "nativeTextInspectionValidated": true
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "markupVariant": "seeded_text",
+      "passed": true,
+      "failureCode": null,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "recordedExpectedSpeech": true,
+      "nativeTextInspectionValidated": true
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "markupVariant": "seeded_marker",
+      "passed": true,
+      "failureCode": null,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "recordedExpectedSpeech": true,
+      "nativeTextInspectionValidated": true
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "markupVariant": "polite_paragraph",
+      "passed": false,
+      "failureCode": "reader_probe_runtime_failed",
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "recordedExpectedSpeech": true,
+      "nativeTextInspectionValidated": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "markupVariant": "empty",
+      "passed": true,
+      "failureCode": null,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "recordedExpectedSpeech": true,
+      "nativeTextInspectionValidated": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "markupVariant": "seeded_text",
+      "passed": true,
+      "failureCode": null,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "recordedExpectedSpeech": true,
+      "nativeTextInspectionValidated": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "markupVariant": "seeded_marker",
+      "passed": true,
+      "failureCode": null,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "recordedExpectedSpeech": true,
+      "nativeTextInspectionValidated": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "markupVariant": "polite_paragraph",
+      "passed": false,
+      "failureCode": "reader_probe_runtime_failed",
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "recordedExpectedSpeech": true,
+      "nativeTextInspectionValidated": true
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "markupVariant": "empty",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "recordedExpectedSpeech": false,
+      "nativeTextInspectionValidated": true
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "markupVariant": "seeded_text",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "recordedExpectedSpeech": false,
+      "nativeTextInspectionValidated": true
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "markupVariant": "seeded_marker",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "recordedExpectedSpeech": false,
+      "nativeTextInspectionValidated": true
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "markupVariant": "polite_paragraph",
+      "passed": false,
+      "failureCode": "reader_probe_runtime_failed",
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "recordedExpectedSpeech": false,
+      "nativeTextInspectionValidated": true
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "markupVariant": "empty",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "recordedExpectedSpeech": false,
+      "nativeTextInspectionValidated": true
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "markupVariant": "seeded_text",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "recordedExpectedSpeech": false,
+      "nativeTextInspectionValidated": true
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "markupVariant": "seeded_marker",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "recordedExpectedSpeech": false,
+      "nativeTextInspectionValidated": true
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "markupVariant": "polite_paragraph",
+      "passed": false,
+      "failureCode": "reader_probe_runtime_failed",
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "recordedExpectedSpeech": false,
+      "nativeTextInspectionValidated": true
+    }
+  ]
+}

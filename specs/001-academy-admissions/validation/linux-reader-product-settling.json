@@ -1,0 +1,238 @@
+{
+  "workflowRun": 39157556572,
+  "url": "https://github.com/guidomodarelli/TuTribu/actions/runs/39157556572",
+  "sourceCommit": "cfc3a631416040b61f1a33a600fed3848e46a9fb",
+  "productJourneysValidated": false,
+  "vitest": {
+    "passed": 0,
+    "failed": 1,
+    "skipped": 0
+  },
+  "readerRuntime": {
+    "orcaVersion": "51.1",
+    "orcaSourceCommit": "244bdadd98f07fe9bfda9326fab621d686c70d2d"
+  },
+  "platform": {
+    "atspiVersion": "2.58.6",
+    "atspiSourceCommit": "1e883ff1739ad584571d38d63735e1cc67a18b0b",
+    "orcaSourceCommit": "244bdadd98f07fe9bfda9326fab621d686c70d2d",
+    "configuredProfileBackend": "gsettings"
+  },
+  "uiObservations": [
+    {
+      "engine": "chromium",
+      "width": 390,
+      "surface": "public",
+      "speechObserved": true,
+      "audioPeak": 32768,
+      "focusEmulationDisabled": true
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "surface": "administrative",
+      "speechObserved": true,
+      "audioPeak": 32768,
+      "focusEmulationDisabled": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "surface": "public",
+      "speechObserved": true,
+      "audioPeak": 32768,
+      "focusEmulationDisabled": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "surface": "administrative",
+      "speechObserved": true,
+      "audioPeak": 32768,
+      "focusEmulationDisabled": true
+    }
+  ],
+  "sqlEffectMilestones": [
+    {
+      "stage": "effects_confirmed",
+      "engine": "chromium",
+      "width": 390
+    },
+    {
+      "stage": "effects_confirmed",
+      "engine": "chromium",
+      "width": 1280
+    }
+  ],
+  "sqlMilestoneMeaning": "Emitted after the exact independent SQL assertion for cancellation, approval, one basic member and zero deliveries",
+  "fullMatrixSqlVerified": false,
+  "allEightSurfacesValidated": false,
+  "failures": [
+    {
+      "stage": "public_cancel_announcement",
+      "engine": "webkit",
+      "width": 390,
+      "code": "native_reader_speech_missing",
+      "interfaces": [
+        {
+          "cancellationMessages": 2,
+          "ownedCancellationMessages": 1,
+          "approvalMessages": 0,
+          "busyMainRegions": 0,
+          "documentFocused": true
+        }
+      ],
+      "interfaceObservationUnavailable": false
+    },
+    {
+      "stage": "public_cancel_announcement",
+      "engine": "webkit",
+      "width": 1280,
+      "code": "native_reader_speech_missing",
+      "interfaces": [
+        {
+          "cancellationMessages": 2,
+          "ownedCancellationMessages": 1,
+          "approvalMessages": 0,
+          "busyMainRegions": 0,
+          "documentFocused": true
+        }
+      ],
+      "interfaceObservationUnavailable": false
+    }
+  ],
+  "speechDiagnostics": [
+    {
+      "stage": "public_cancel_announcement",
+      "engine": "webkit",
+      "width": 390,
+      "backendLogEntries": 0,
+      "fallbackOutputs": 0,
+      "labelInDebug": true,
+      "exactMatch": false,
+      "normalizedMatch": false,
+      "expectedWords": 4,
+      "observedWords": 0,
+      "actionKeyEchoOutputs": 0,
+      "liveRegionPipeline": {
+        "textInsertionEntries": 18,
+        "handledEntries": 0,
+        "rejectedEntries": 0,
+        "inactiveDocumentEntries": 0,
+        "focusedAlertEntries": 0,
+        "queuePresentationEntries": 0,
+        "monitoringDisabledEntries": 0,
+        "pageSwitchInsertionEntries": 0
+      },
+      "audioPeak": 0,
+      "nativeAccessibility": {
+        "scanned": 62,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          }
+        ],
+        "expectedNodes": []
+      },
+      "nativeControlFocusAtFailure": {
+        "scanned": 62,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          }
+        ],
+        "expectedNodes": []
+      },
+      "focusEmulationDisabled": false
+    },
+    {
+      "stage": "public_cancel_announcement",
+      "engine": "webkit",
+      "width": 1280,
+      "backendLogEntries": 0,
+      "fallbackOutputs": 0,
+      "labelInDebug": true,
+      "exactMatch": false,
+      "normalizedMatch": false,
+      "expectedWords": 4,
+      "observedWords": 0,
+      "actionKeyEchoOutputs": 0,
+      "liveRegionPipeline": {
+        "textInsertionEntries": 18,
+        "handledEntries": 0,
+        "rejectedEntries": 0,
+        "inactiveDocumentEntries": 0,
+        "focusedAlertEntries": 0,
+        "queuePresentationEntries": 0,
+        "monitoringDisabledEntries": 0,
+        "pageSwitchInsertionEntries": 0
+      },
+      "audioPeak": 0,
+      "nativeAccessibility": {
+        "scanned": 62,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          }
+        ],
+        "expectedNodes": []
+      },
+      "nativeControlFocusAtFailure": {
+        "scanned": 62,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          }
+        ],
+        "expectedNodes": []
+      },
+      "focusEmulationDisabled": false
+    }
+  ],
+  "diagnosticMarkerCompatibility": "historical_markers_before_535a5354",
+  "cleanup": {
+    "workflowRun": 39157556572,
+    "sourceCommit": "cfc3a631416040b61f1a33a600fed3848e46a9fb",
+    "terminalSourceConfirmed": true,
+    "temporaryKeyAbsent": true,
+    "secretAbsent": true,
+    "variablesAbsent": true,
+    "ownedBranchesAbsent": true,
+    "persistentBranchesPreserved": true,
+    "passed": true
+  },
+  "realMessages": 0,
+  "operationalGatesClosed": []
+}

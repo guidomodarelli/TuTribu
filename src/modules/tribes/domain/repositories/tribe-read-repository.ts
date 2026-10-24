@@ -11,6 +11,12 @@ export type TribeMembershipStatusReason =
 
 export type TribeMembershipAccess = {
   /**
+   * Whether the member reads at least one channel (the campfire included)
+   * under the channel access rule. Free members of an academy tribe read
+   * them without community access. Missing means it follows the membership.
+   */
+  channelReadAccess?: boolean;
+  /**
    * Whether the member may read the private community content. In academy
    * mode it requires academy access (or an active leader or guardian role);
    * in legacy tribes it always matches the membership. Missing means legacy.

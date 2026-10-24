@@ -410,7 +410,7 @@ export class PostgresMessageMutationRepository
         select
           messages.id as message_id,
           messages.tribe_id,
-          public.is_active_tribe_member(messages.tribe_id) as can_write
+          public.can_write_tribe_channel(messages.channel_id) as can_write
         from public.messages
         inner join public.tribes
           on tribes.id = messages.tribe_id
@@ -684,7 +684,7 @@ export class PostgresMessageMutationRepository
             (
               (
                 messages.author_id = ${command.userId}
-                and public.is_active_tribe_member(messages.tribe_id)
+                and public.can_write_tribe_channel(messages.channel_id)
               )
               or public.can_pin_tribe_messages(messages.tribe_id)
             ) as can_delete
@@ -793,7 +793,7 @@ export class PostgresMessageMutationRepository
             messages.tribe_id,
             (
               messages.author_id = ${command.userId}
-              and public.is_active_tribe_member(messages.tribe_id)
+              and public.can_write_tribe_channel(messages.channel_id)
             ) as can_edit,
             existing_poll.id as poll_id,
             existing_poll.allow_multiple_votes as poll_allow_multiple_votes,
@@ -1021,7 +1021,7 @@ export class PostgresMessageMutationRepository
           from target_tribe
           inner join target_channel
             on true
-          where public.is_active_tribe_member(target_tribe.id)
+          where public.can_write_tribe_channel(target_channel.id)
           returning id, tribe_id, channel_id, author_id, title, content, created_at
         ),
         created_message as (
@@ -1502,7 +1502,7 @@ export class PostgresMessageMutationRepository
         message_polls.id as poll_id,
         message_polls.tribe_id,
         message_polls.allow_multiple_votes,
-        public.is_active_tribe_member(message_polls.tribe_id) as can_write
+        public.can_write_tribe_channel(messages.channel_id) as can_write
       from public.message_polls
       inner join public.messages
         on messages.id = message_polls.message_id
@@ -1647,7 +1647,7 @@ export class PostgresMessageMutationRepository
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         with target_message as (
-          select messages.id, messages.tribe_id
+          select messages.id, messages.tribe_id, messages.channel_id
           from public.messages
           inner join public.tribes
             on tribes.id = messages.tribe_id
@@ -1659,7 +1659,7 @@ export class PostgresMessageMutationRepository
           insert into public.message_replies (message_id, tribe_id, author_id, content, created_at)
           select target_message.id, target_message.tribe_id, ${command.authorId}, ${command.content}, timezone('utc', now())
           from target_message
-          where public.is_active_tribe_member(target_message.tribe_id)
+          where public.can_write_tribe_channel(target_message.channel_id)
           returning id, tribe_id, author_id, content, created_at
         ),
         created_reply as (

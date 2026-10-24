@@ -50,6 +50,13 @@ const DATABASE_POOL_OPERATION = {
   maintenanceIdleError: "maintenance_database_pool_idle_error",
 } as const;
 
+/**
+ * Opens the transaction and applies its local idle guard in one simple-protocol
+ * round trip. Both values are server constants, so no caller input is ever
+ * interpolated; request settings stay parameterized in their own statement.
+ */
+const GUARDED_TRANSACTION_BEGIN = `${DATABASE_TRANSACTION.begin}; select set_config('${DATABASE_TRANSACTION_SETTING.idleInTransactionSessionTimeout}', '${String(IDLE_IN_TRANSACTION_TIMEOUT_MILLISECONDS)}', true)`;
+
 type GlobalDatabase = typeof globalThis & {
   __tuTribuDatabasePool?: Pool;
   __tuTribuMaintenanceDatabasePool?: Pool;
@@ -136,12 +143,9 @@ export async function runWithGuardedTransaction<T>(
 
   try {
     client.on("error", handleCheckedOutClientError);
-    await client.query(DATABASE_TRANSACTION.begin);
+    await client.query(GUARDED_TRANSACTION_BEGIN);
 
     const database = createRequestDatabase(client);
-    await database.execute(
-      sql`select set_config(${DATABASE_TRANSACTION_SETTING.idleInTransactionSessionTimeout}, ${String(IDLE_IN_TRANSACTION_TIMEOUT_MILLISECONDS)}, true)`
-    );
 
     if (prepare) {
       await prepare(database);
@@ -162,27 +166,81 @@ export async function runWithGuardedTransaction<T>(
   }
 }
 
+/**
+ * Runs one self-contained statement on a freshly checked-out pool client, without opening a transaction.
+ *
+ * Use it only for a statement that sets and restores its own request-local settings, such as
+ * `read_authenticated_account` in standalone mode: PostgreSQL runs it in its own implicit transaction,
+ * so those settings end with it and nothing stays on the pooled connection. The client is released
+ * exactly like in `runWithGuardedTransaction`, including on connection death.
+ *
+ * @param pool - Pool to check a client out from.
+ * @param runStatement - The single statement to run.
+ * @returns The value returned by `runStatement`.
+ */
+export async function runWithGuardedStatement<T>(
+  pool: Pool,
+  runStatement: (database: RequestDatabase) => Promise<T>
+): Promise<T> {
+  const client = await pool.connect();
+  let wasClientReleased = false;
+  const releaseClient = (error?: Error) => {
+    if (wasClientReleased) {
+      return;
+    }
+
+    wasClientReleased = true;
+    client.release(error);
+  };
+  const handleCheckedOutClientError = (error: Error) => {
+    releaseClient(error);
+  };
+
+  try {
+    client.on("error", handleCheckedOutClientError);
+    return await runStatement(createRequestDatabase(client));
+  } finally {
+    client.removeListener("error", handleCheckedOutClientError);
+    releaseClient();
+  }
+}
+
 export async function createServerDatabaseClient(
   usage: DatabaseConnectionUsage = DATABASE_CONNECTION_USAGE.request
 ) {
-  const pool = getDatabasePool(usage);
+  return createPostgresDatabaseClient(getDatabasePool(usage));
+}
 
+/**
+ * Applies the standard request context and guarded checkout to an explicitly owned real pool.
+ * @param pool - Runtime pool whose lifecycle remains with its composition root.
+ * @returns The same request-scoped executor used by the cached server client.
+ */
+export function createPostgresDatabaseClient(pool: Pool) {
   return {
     async withRequestContext<T>(
       context: RequestDatabaseContext,
       callback: (database: RequestDatabase) => Promise<T>
     ): Promise<T> {
-      return runWithGuardedTransaction(pool, callback, async (database) => {
-        await database.execute(
-          sql`select set_config(${DATABASE_CONTEXT_SETTING.currentUserId}, ${context.userId ?? ""}, true)`
-        );
-        await database.execute(
-          sql`select set_config(${DATABASE_CONTEXT_SETTING.currentUserEmail}, ${context.email ?? ""}, true)`
-        );
-        await database.execute(
-          sql`select set_config(${DATABASE_CONTEXT_SETTING.mercadoPagoWebhookVerified}, ${context.mercadoPagoWebhookVerified ? DATABASE_TRANSACTION.verifiedSettingValue : ""}, true)`
-        );
-      });
+      return runWithGuardedTransaction(pool, callback, (database) => prepareRequestDatabaseContext(database, context));
+    },
+    /** @param callback - One self-contained statement that sets and restores its own request-local settings. @returns Its result, without a transaction. */
+    async withStandaloneStatement<T>(callback: (database: RequestDatabase) => Promise<T>): Promise<T> {
+      return runWithGuardedStatement(pool, callback);
     },
   };
+}
+
+/**
+ * Sets independent request-local settings in one round trip before any application statement.
+ * @param database - Existing guarded transaction, after any trusted role selection.
+ * @param context - Server-derived identity and explicit webhook authority.
+ * @returns After all settings are visible to the next SQL statement; commit and rollback reset them together.
+ */
+export async function prepareRequestDatabaseContext(database: RequestDatabase, context: RequestDatabaseContext): Promise<void> {
+  await database.execute(sql`select
+    set_config(${DATABASE_CONTEXT_SETTING.currentUserId}, ${context.userId ?? ""}, true),
+    set_config(${DATABASE_CONTEXT_SETTING.currentUserEmail}, ${context.email ?? ""}, true),
+    set_config(${DATABASE_CONTEXT_SETTING.mercadoPagoWebhookVerified}, ${context.mercadoPagoWebhookVerified ? DATABASE_TRANSACTION.verifiedSettingValue : ""}, true)
+  `);
 }

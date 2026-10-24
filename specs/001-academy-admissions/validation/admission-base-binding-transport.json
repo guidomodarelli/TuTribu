@@ -1,0 +1,100 @@
+{
+  "source": {
+    "baseCommit": "4b06986a806bb4d3a38fdcd6462178927e6bdaef",
+    "worktreeChanges": true,
+    "inputsStable": true,
+    "toolingStable": true,
+    "files": [
+      {
+        "path": "database/migrations/20261018132205_batch_base_admission_binding.sql",
+        "sha256": "7dcbf6499bc7c0aed26b3a8730950ca5a7f5dd0262f2ba2c2a879b4a202f1975"
+      },
+      {
+        "path": "database/migrations/meta/_journal.json",
+        "sha256": "f6531fc777ee56b5dff37c7e117f696ff96e6f4ad74b684377bb478417ae48ea"
+      },
+      {
+        "path": "src/modules/academy-admissions/infrastructure/repositories/assert-unreserved-admission-contact.ts",
+        "sha256": "dab62a6379fe508d1c780e825e443fb82938e1977361d1ff2d4f7cbbd8862d0d"
+      },
+      {
+        "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-base-admission-binding-storage.ts",
+        "sha256": "ceb49bb8a0be1bed495796bde5ebc986cbd53cadd147b2f38f6a5200f64631b2"
+      },
+      {
+        "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-base-admission-binding.ts",
+        "sha256": "0740000300517cfcdb5037470737ff9a1b3eac78931d6e3fedd4c0bc9f00c9f3"
+      },
+      {
+        "path": "tests/support/constants/admission-base-binding-validation.ts",
+        "sha256": "47662a1ee68d0bbf88e57d7a821a20dfd045ed5f76bf5ced1d1a3bda3dee57c1"
+      },
+      {
+        "path": "tests/unit/modules/academy-admissions/infrastructure/admission-base-binding-transport.test.ts",
+        "sha256": "59c2cac21a17c2cc97ff3339156047ff37e97c8dfbee40612de098ebf4227c3d"
+      }
+    ]
+  },
+  "red": {
+    "passed": 0,
+    "failed": 1,
+    "observedStatements": 8,
+    "maximumStatements": 5,
+    "failedAssertion": "statementCount <= maximumStatements"
+  },
+  "native": {
+    "passed": 3,
+    "failed": 0,
+    "files": [
+      {
+        "path": "tests/unit/modules/academy-admissions/infrastructure/admission-base-account-deletion-race.test.ts",
+        "status": "passed",
+        "tests": 1
+      },
+      {
+        "path": "tests/unit/modules/academy-admissions/infrastructure/admission-base-binding-transport.test.ts",
+        "status": "passed",
+        "tests": 1
+      },
+      {
+        "path": "tests/unit/modules/academy-admissions/infrastructure/allowlist-admission-persistence.test.ts",
+        "status": "passed",
+        "tests": 1
+      }
+    ],
+    "checks": [
+      "current base capture and fingerprint persisted",
+      "original advisory namespace blocks the contender",
+      "request CAS rejects a stale version",
+      "new binding rolls back with a failed request CAS",
+      "helpers retain SECURITY INVOKER and VOLATILE",
+      "table privileges still required by both helpers",
+      "concurrent owner deletion retains minimized reservation",
+      "automatic approval and original replay do not duplicate effects"
+    ],
+    "maximumStatements": 5
+  },
+  "domain": {
+    "passed": 117,
+    "failed": 0,
+    "files": 2
+  },
+  "quality": {
+    "typesPassed": true,
+    "testTypesPassed": true,
+    "lintPassed": true,
+    "nextBuild": {
+      "version": "16.3.4",
+      "exitCode": 0,
+      "staticPages": 56
+    }
+  },
+  "cleanup": {
+    "remainingBranches": 3,
+    "originalBranchesPreserved": true,
+    "nonOriginalBranches": 0
+  },
+  "productionSqlExecuted": false,
+  "realMessages": 0,
+  "performanceAccepted": false
+}

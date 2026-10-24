@@ -1,0 +1,71 @@
+{
+  "baseCommit": "6d89c40d8c4dc1bd58dd3d19b7e1bb9418c528e9",
+  "worktreeChanges": true,
+  "inputs": [
+    {
+      "path": "src/modules/shared/infrastructure/database/postgres-pool.ts",
+      "sha256": "3f7d3fbef8518fee12f51ecd47dc8e9fc5201dbdf85d552ca4aabbccfd84d89c"
+    },
+    {
+      "path": "tests/unit/modules/shared/infrastructure/postgres-pool.test.ts",
+      "sha256": "1654764ef68400309ae1ae34d38fa00c675f2230943943d0cb594b27be256b7e"
+    }
+  ],
+  "inputsStable": true,
+  "realMessages": 0,
+  "report": {
+    "head": "6d89c40d8c4dc1bd58dd3d19b7e1bb9418c528e9",
+    "exitCode": 1,
+    "outputTruncated": false,
+    "cases": [
+      {
+        "kind": "load",
+        "status": "failed",
+        "durationMs": 290745.3898
+      },
+      {
+        "kind": "abandonment",
+        "status": "passed",
+        "durationMs": 41774.45499999996
+      }
+    ],
+    "load": {
+      "participants": 100,
+      "admitted": 50,
+      "pending": 50,
+      "failures": 0,
+      "poolCheckoutTimeouts": 0,
+      "p95Ms": 18954.820599999977,
+      "targetMs": 3000,
+      "networkQueryP95Ms": 169.47120000002906,
+      "networkSamples": 20,
+      "setupDurationMs": 154655.2653,
+      "warmupDurationMs": 104454.13580000002,
+      "eventLoopP95Ms": 29.523967,
+      "pool": {
+        "maximum": 100,
+        "acquisitions": 500,
+        "releases": 500,
+        "peakWaitingCount": 0,
+        "waitingAfter": 0,
+        "checkedOutAfter": 0
+      },
+      "facts": {
+        "entries": 10000,
+        "requests": 100,
+        "basicMembers": 50,
+        "deliveries": 0
+      }
+    },
+    "abandonment": {
+      "observedIdleTimeoutMs": 30000,
+      "observationDurationMs": 32995.21220000001,
+      "healthy": 1,
+      "idleGuardConfirmed": true,
+      "acquisitions": 2,
+      "releases": 2,
+      "waitingAfter": 0,
+      "checkedOutAfter": 0
+    }
+  }
+}

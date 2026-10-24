@@ -78,6 +78,18 @@ describe("AcademyManagement", () => {
     expect(screen.queryByRole("heading", { name: "Configuración" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Bonificar" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Solicitudes de verificación" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Admisiones y mensajería" })).not.toBeInTheDocument();
+  });
+
+  it("gives the leader a visible way into admission and messaging setup without requesting anything", () => {
+    render(<AcademyManagement {...props()} />);
+
+    const shortcuts = screen.getByRole("navigation", { name: "Admisiones y mensajería" });
+    expect(within(shortcuts).getByRole("link", { name: "Reglas de admisión" })).toHaveAttribute("href", "/tribu/academia/admissions/settings");
+    expect(within(shortcuts).getByRole("link", { name: "Solicitudes de ingreso" })).toHaveAttribute("href", "/tribu/academia/admissions");
+    expect(within(shortcuts).getByRole("link", { name: "Países y cupos de mensajería" })).toHaveAttribute("href", "/tribu/academia/admissions/messaging");
+    expect(within(shortcuts).getByRole("link", { name: "Conexión de mensajería" })).toHaveAttribute("href", "/tribu/academia/admissions/messaging/connections");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("points a legacy tribe to Ajustes and labels an inactive provider", () => {

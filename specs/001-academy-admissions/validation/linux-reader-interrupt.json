@@ -1,0 +1,65 @@
+{
+  "commit": "0f0c493e707932fb315855d5a69b7400aa6cd2d9",
+  "runUrl": "https://github.com/guidomodarelli/TuTribu/actions/runs/39118653124",
+  "kind": "platform_preflight",
+  "orcaVersion": "47.2",
+  "orcaSourceCommit": "7da13d868338c4c75751155258b51a82ab273583",
+  "speechDispatcherVersion": "speech-dispatcher 0.12.0-rc2",
+  "productJourneysValidated": false,
+  "realMessages": 0,
+  "passed": false,
+  "cases": [
+    {
+      "engine": "chromium",
+      "width": 390,
+      "height": 900,
+      "browserVersion": "148.0.7778.96",
+      "passed": false,
+      "initialInterruptSent": true,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 3280,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "failureCode": "native_reader_speech_missing"
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "height": 900,
+      "browserVersion": "148.0.7778.96",
+      "passed": false,
+      "initialInterruptSent": true,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 20769,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "failureCode": "native_audio_did_not_settle"
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "height": 900,
+      "browserVersion": "26.4",
+      "passed": false,
+      "initialInterruptSent": true,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32768,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "failureCode": "native_reader_speech_missing"
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "height": 900,
+      "browserVersion": "26.4",
+      "passed": false,
+      "initialInterruptSent": true,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32745,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "failureCode": "native_reader_speech_missing"
+    }
+  ]
+}

@@ -1,0 +1,190 @@
+{
+  "capturedAt": "2026-10-15T20:19:15.999Z",
+  "baseHead": "267e3adba0b29bf13e63d54f649b732c0b0e25b5",
+  "status": "original_email_settings_recovery_verified",
+  "scope": "Lector común readonly de operaciones para el cambio original de correo; sin nueva UI ni autoridad de escritura.",
+  "sourceFiles": [
+    {
+      "path": "src/modules/academy-admissions/application/results/admission-operation-recovery.ts",
+      "sha256": "08e3bb7982308b781d6d9291e1be4b844021ff65c431dde559e09795a8f5e1f3"
+    },
+    {
+      "path": "src/modules/academy-admissions/application/use-cases/read-admission-operation-use-case.ts",
+      "sha256": "a6f64549eca3a91c6da52adc3161d416fa2fcf109c0750eaa1557c7f06078257"
+    },
+    {
+      "path": "src/modules/academy-admissions/constants/admission-request.ts",
+      "sha256": "616d44ec153d276b84aba667fc6fe1e66e2ceb71ba57facd0a7b12a63f4ed598"
+    },
+    {
+      "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-reader.ts",
+      "sha256": "331cf698465d0dd76374b92e62279e2d6f75132ffdd22fc941a8bf980a07118f"
+    },
+    {
+      "path": "src/modules/notifications/constants/admission-notification-settings-schemas.ts",
+      "sha256": "707c1fefc5c115aa8502779a15cac384f133863a6772772dd89618b3eca8589d"
+    },
+    {
+      "path": "src/modules/notifications/infrastructure/api/admission-notification-settings-mapper.ts",
+      "sha256": "69580cd78f7e432bc8dda9e6f532add9bb87873e278ea308f33143fab6122e22"
+    },
+    {
+      "path": "src/modules/academy-admissions/constants/admission-operation-recovery-schemas.ts",
+      "sha256": "0277c330d29a98c88e657232088632e619be949c1d562b746c84b0f1231b327f"
+    },
+    {
+      "path": "src/modules/notifications/application/results/admission-notification-settings-projection.ts",
+      "sha256": "0f8e508fbf7ad9ee1e1f15b3518f79e595b8d0a71f05b00d7fdfec2512a61b4a"
+    },
+    {
+      "path": "tests/unit/modules/notifications/application/admission-email-settings-recovery.test.ts",
+      "sha256": "a8da0e48d90cbc8c06699b4b029186a4cdb0d2fb1894fbbe679d0fbdf4e35330"
+    },
+    {
+      "path": "tests/unit/modules/notifications/infrastructure/admission-email-settings-recovery-native-http.test.ts",
+      "sha256": "81d75b5f3ca5cbec4e9c473b5be38f96b71b33f0e220547b60299ae5ae9657c5"
+    },
+    {
+      "path": "tests/unit/modules/notifications/infrastructure/admission-email-settings-recovery.test.ts",
+      "sha256": "9c06f93dae015a87ca76bede2747d41e45f3172fb7e0d0c03bcc253ae683c464"
+    }
+  ],
+  "local": {
+    "passed": 54,
+    "failed": 0,
+    "skipped": 0,
+    "completeFiles": 3,
+    "newCases": 5,
+    "regressionCases": 49,
+    "preRunSnapshot": false,
+    "reportSha256": "4dc6d23a78ab06294780ea800a622295916e24732c0241afcc7fecb075497922",
+    "limitation": "El anchor local se registró después de ejecutar. No se afirma un snapshot previo; los Native y el build tienen sus registros propios."
+  },
+  "red": {
+    "passed": 2,
+    "failed": 3,
+    "executed": 5,
+    "meaning": "Namespace nuevo todavía desconocido; no es SQL rojo."
+  },
+  "native": {
+    "completedAt": "2026-10-15T20:10:44.332Z",
+    "exitCode": 0,
+    "signal": null,
+    "sourceInputsStable": true,
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "failedFiles": 0,
+    "completeFiles": 1,
+    "registeredInputs": 1999,
+    "filtered": false,
+    "scope": "Original histórico mínimo, current separado, recencia invalidada y runtime locked, permiso vigente, started real sin renovar lease."
+  },
+  "http": {
+    "completedAt": "2026-10-15T20:17:15.695Z",
+    "exitCode": 0,
+    "signal": null,
+    "sourceInputsStable": true,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "productFilesEquivalent": 1750,
+    "completeFiles": 1,
+    "registeredInputs": 2000,
+    "filtered": false,
+    "scope": "App Router construido y cookies Better Auth reales: original sin recencia, current separado y POST nuevo cerrado; sin efecto de lectura."
+  },
+  "distinctCurrentCases": 57,
+  "completeCurrentFiles": 5,
+  "initialNative": {
+    "passed": 0,
+    "failed": 2,
+    "stage": "CLI GET project timeout15s, antes de crear rama o consultar PostgreSQL",
+    "rerun": "Mismo código y assertions; acceso readonly comprobado y archivo completo repetido en serie."
+  },
+  "build": {
+    "finishedAt": "2026-10-15T20:11:04.046Z",
+    "exitCode": 0,
+    "sourceInputsStable": true,
+    "productFilesEquivalent": 1750,
+    "overlayFiles": 10,
+    "pages": 53
+  },
+  "checks": {
+    "focusedLint": "passed",
+    "productTypes": "passed",
+    "testTypes": "passed_including_new_native_http_file",
+    "diffCheck": "passed"
+  },
+  "architecture": {
+    "views": 8,
+    "engines": [
+      "chromium",
+      "webkit"
+    ],
+    "widths": [
+      390,
+      1280
+    ],
+    "sourceInputsStable": true,
+    "proofSha256": "5bb90709ba259cd79935d646016de924503a585d89114f2d1ebfb90dadac1ec0"
+  },
+  "resources": {
+    "at": "2026-10-15T20:18:49.506Z",
+    "branches": [
+      {
+        "id": "br-shiny-paper-ankn86x2",
+        "name": "production",
+        "default": true
+      },
+      {
+        "id": "br-aged-morning-an5ejge1",
+        "name": "dev-sandbox-guido",
+        "parent_id": "br-shiny-paper-ankn86x2",
+        "default": false
+      },
+      {
+        "id": "br-wispy-sun-anwpxm2x",
+        "name": "codex-academy-admissions-073ddb78-62a8-4aff-ace4-8811d48ffa9f",
+        "parent_id": "br-shiny-paper-ankn86x2",
+        "default": false
+      }
+    ],
+    "temporaryOwned": [],
+    "ownedTemporaryBranches": 0,
+    "productionPreserved": true,
+    "originalPilotPreserved": true,
+    "unrelatedPreserved": [
+      {
+        "id": "br-aged-morning-an5ejge1",
+        "name": "dev-sandbox-guido",
+        "parent_id": "br-shiny-paper-ankn86x2",
+        "default": false
+      }
+    ],
+    "externalMessagesSent": 0,
+    "ownershipFromExactReceipts": true
+  },
+  "previousCi": {
+    "head": "267e3adba0b29bf13e63d54f649b732c0b0e25b5",
+    "runId": 38796636371,
+    "conclusion": "success",
+    "passedFiles": 519,
+    "skippedFiles": 276,
+    "passedCases": 5402,
+    "skippedCases": 801,
+    "pages": 53,
+    "validatesCurrentRecovery": false
+  },
+  "inventory": {
+    "total": 212,
+    "completed": 174,
+    "pending": 38
+  },
+  "pending": [
+    "Pantalla y recuperación del intent en el cliente",
+    "Agrupación y resumen enviado",
+    "Outbox, dispatcher, mantenimiento y driver",
+    "Ensayos operativos y gates originales"
+  ]
+}

@@ -10,8 +10,10 @@
  *   node scripts/dev-database-sandbox.mjs [--reset | --delete] [--dry-run]
  *
  * - No flag: creates the branch when missing (or reuses it), applies the
- *   pending migrations of `database/migrations/` to it, and writes its direct
- *   connection string (runtime, migrations and maintenance) to `.env.local`.
+ *   pending migrations of `database/migrations/` to it, enrolls the local
+ *   messaging HMAC keys (generating development ones in `.env.local` when
+ *   `MESSAGING_KEYRINGS_JSON` is missing) and writes its
+ *   direct connection string (runtime, migrations and maintenance) to `.env.local`.
  * - `--reset`: resets the branch from its parent (a fresh copy of the default
  *   branch, discarding local data), then migrates and rewrites `.env.local`.
  * - `--delete`: deletes the branch and removes its block from `.env.local`, so
@@ -28,6 +30,7 @@
  */
 
 import { spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -45,6 +48,24 @@ const PREFERRED_DATABASE_NAME = "neondb";
 const NEON_ENDPOINT_TYPE = "read_write";
 const ENVIRONMENT_FILE_NAME = ".env.local";
 const MIGRATIONS_SCRIPT_PATH = "scripts/push-migrations.js";
+const MESSAGING_KEY_ENROLLMENT_SCRIPT_PATH = "scripts/enroll-messaging-key-materials.mjs";
+/** Hosting keyrings the enrollment reads; without them there is nothing to enroll. */
+const MESSAGING_KEYRINGS_ENVIRONMENT_KEY = "MESSAGING_KEYRINGS_JSON";
+/** Values of `MESSAGING_KEY_PURPOSE` (`src/modules/messaging/constants/messaging-cryptography.ts`); a test keeps them in sync. */
+const MESSAGING_KEY_PURPOSES = ["credential", "otp_envelope", "verification_mac", "invitation_token", "contact_fingerprint", "operation_payload"];
+/** Independent HMAC/AES material per key, as `.env.example` requires. */
+const MESSAGING_KEY_MATERIAL_BYTES = 32;
+const DEVELOPMENT_MESSAGING_KEY_SUFFIX = "-dev-1";
+/** Development-only hosting security: recovery unlocked so admissions work locally. */
+const DEVELOPMENT_MESSAGING_SECURITY = {
+  MESSAGING_RECOVERY_LOCK: "false",
+  MESSAGING_SECURITY_ENVIRONMENT: "development",
+  MESSAGING_SECURITY_EPOCH: "1",
+};
+const MESSAGING_ENVIRONMENT_BLOCK_MARKER = {
+  end: "# <<< dev-messaging-keys",
+  start: "# >>> dev-messaging-keys: claves de mensajería solo para desarrollo, generadas por `pnpm db:sandbox`; nunca las reutilices en otro entorno.",
+};
 const OPERATION_PREFIX = "dev-database-sandbox";
 const EXIT_CODE = { failure: 1, success: 0 };
 const REDACTED_VALUE = "***";
@@ -67,6 +88,8 @@ const ENVIRONMENT_BLOCK_MARKER = {
 const SANDBOX_STEP = {
   createBranch: "createBranch",
   deleteBranch: "deleteBranch",
+  enrollMessagingKeys: "enrollMessagingKeys",
+  generateMessagingKeys: "generateMessagingKeys",
   migrate: "migrate",
   removeEnvironment: "removeEnvironment",
   resetBranch: "resetBranch",
@@ -80,6 +103,8 @@ const SCRIPT_MESSAGE = {
   environmentRemoved: `Bloque del sandbox quitado de ${ENVIRONMENT_FILE_NAME}; la app vuelve a la conexión configurada antes del sandbox.`,
   environmentWritten: (redactedConnectionString) =>
     `${ENVIRONMENT_FILE_NAME} actualizado: runtime, migraciones y mantenimiento usan la conexión directa ${redactedConnectionString}.`,
+  messagingKeyEnrollmentFailed: "El enrolamiento de las claves de mensajería falló en el sandbox; .env.local no se modificó.",
+  messagingKeysGenerated: `Sin ${MESSAGING_KEYRINGS_ENVIRONMENT_KEY}: se generaron claves de mensajería de desarrollo en ${ENVIRONMENT_FILE_NAME}.`,
   migrationsFailed: "Las migraciones fallaron en el sandbox; .env.local no se modificó.",
   missingCredentials: `Definí ${SANDBOX_ENVIRONMENT.apiKey} y ${SANDBOX_ENVIRONMENT.projectId} (en el entorno o en ${ENVIRONMENT_FILE_NAME}).`,
   plan: (branchName, steps) => `Branch ${branchName}: ${steps.join(" -> ")}`,
@@ -87,6 +112,8 @@ const SCRIPT_MESSAGE = {
   step: {
     createBranch: (branchName) => `Creando la branch ${branchName} desde la branch default.`,
     deleteBranch: (branchName) => `Eliminando la branch ${branchName}.`,
+    enrollMessagingKeys: "Enrolando las claves de mensajería locales en el sandbox.",
+    generateMessagingKeys: "Generando claves de mensajería de desarrollo.",
     migrate: "Aplicando las migraciones pendientes al sandbox.",
     resetBranch: (branchName) => `Reseteando ${branchName} desde su branch padre.`,
     reuseBranch: (branchName) => `Reutilizando la branch existente ${branchName}.`,
@@ -156,11 +183,12 @@ export function resolveSandboxBranchName({ branchNameOverride, username }) {
 /**
  * Decides the steps for a mode given the branch found by name.
  *
- * @param {{ mode: "ensure" | "reset" | "delete", existingBranch: { id: string, name: string, default?: boolean, primary?: boolean, protected?: boolean } | undefined }} input
+ * @param {{ mode: "ensure" | "reset" | "delete", existingBranch: { id: string, name: string, default?: boolean, primary?: boolean, protected?: boolean } | undefined, hasMessagingKeyrings?: boolean }} input
+ *   The local messaging keys are always enrolled after the migrations; `hasMessagingKeyrings: false` generates development ones first.
  * @returns {string[]} Ordered steps (values of `SANDBOX_STEP`).
  * @throws {Error} When the branch is the default, primary or protected branch.
  */
-export function planSandboxSteps({ mode, existingBranch }) {
+export function planSandboxSteps({ mode, existingBranch, hasMessagingKeyrings = false }) {
   if (existingBranch && (existingBranch.default || existingBranch.primary || existingBranch.protected)) {
     throw new Error(
       `${OPERATION_PREFIX}: la branch ${existingBranch.name} (${existingBranch.id}) es default, primary o protegida; el sandbox nunca la modifica. Elegí otro ${SANDBOX_ENVIRONMENT.branchName}.`
@@ -178,7 +206,8 @@ export function planSandboxSteps({ mode, existingBranch }) {
     branchStep = mode === SANDBOX_MODE.reset ? SANDBOX_STEP.resetBranch : SANDBOX_STEP.reuseBranch;
   }
 
-  return [branchStep, SANDBOX_STEP.migrate, SANDBOX_STEP.writeEnvironment];
+  const keySteps = hasMessagingKeyrings ? [SANDBOX_STEP.enrollMessagingKeys] : [SANDBOX_STEP.generateMessagingKeys, SANDBOX_STEP.enrollMessagingKeys];
+  return [branchStep, SANDBOX_STEP.migrate, ...keySteps, SANDBOX_STEP.writeEnvironment];
 }
 
 /**
@@ -450,8 +479,31 @@ function buildSandboxEnvironment(connectionString) {
  * @returns {Promise<number>} Exit code of the migration runner.
  */
 function migrateSandbox(connectionString) {
+  return runAgainstSandbox(MIGRATIONS_SCRIPT_PATH, connectionString);
+}
+
+/**
+ * Enrolls the local messaging HMAC key proofs in the sandbox, so the admission
+ * ledger can sign operations there. The enrollment is idempotent and never
+ * replaces a proof; it only sees the sandbox through every database variable.
+ *
+ * @param {string} connectionString - Direct connection string of the sandbox.
+ * @returns {Promise<number>} Exit code of the enrollment command.
+ */
+function enrollSandboxMessagingKeys(connectionString) {
+  return runAgainstSandbox(MESSAGING_KEY_ENROLLMENT_SCRIPT_PATH, connectionString);
+}
+
+/**
+ * Runs a project Node script with every database variable pointing at the sandbox.
+ *
+ * @param {string} scriptPath - Script path relative to the project.
+ * @param {string} connectionString - Direct connection string of the sandbox.
+ * @returns {Promise<number>} Exit code of the script.
+ */
+function runAgainstSandbox(scriptPath, connectionString) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [MIGRATIONS_SCRIPT_PATH], {
+    const child = spawn(process.execPath, [scriptPath], {
       env: {
         ...process.env,
         ...buildSandboxEnvironment(connectionString),
@@ -461,6 +513,39 @@ function migrateSandbox(connectionString) {
     child.on("error", reject);
     child.on("exit", (code) => resolve(code ?? EXIT_CODE.failure));
   });
+}
+
+/**
+ * Builds development-only messaging hosting security with fresh, independent key material per purpose.
+ *
+ * @param {(size: number) => Buffer} [generateBytes] - Random source (`crypto.randomBytes`).
+ * @returns {Record<string, string>} Values keyed by `MESSAGING_*` variable.
+ */
+export function buildDevelopmentMessagingEnvironment(generateBytes = randomBytes) {
+  const keyrings = Object.fromEntries(
+    MESSAGING_KEY_PURPOSES.map((purpose) => {
+      const keyId = `${purpose}${DEVELOPMENT_MESSAGING_KEY_SUFFIX}`;
+      return [purpose, { activeKeyId: keyId, keys: [{ id: keyId, materialBase64: generateBytes(MESSAGING_KEY_MATERIAL_BYTES).toString("base64") }] }];
+    })
+  );
+  return { ...DEVELOPMENT_MESSAGING_SECURITY, [MESSAGING_KEYRINGS_ENVIRONMENT_KEY]: JSON.stringify(keyrings) };
+}
+
+/**
+ * Appends the development messaging block once; an existing block is kept, because enrolled proofs are bound to its keys.
+ *
+ * @param {string} environmentFileText - Current `.env.local` contents.
+ * @param {Record<string, string>} messagingEnvironment - Values from `buildDevelopmentMessagingEnvironment`.
+ * @returns {string} Contents with the block.
+ */
+export function appendDevelopmentMessagingEnvironment(environmentFileText, messagingEnvironment) {
+  if (environmentFileText.includes(MESSAGING_ENVIRONMENT_BLOCK_MARKER.start)) {
+    return environmentFileText;
+  }
+  const lineBreak = detectLineEnding(environmentFileText);
+  const separator = environmentFileText.length === 0 || environmentFileText.endsWith(lineBreak) ? "" : lineBreak;
+  const lines = [MESSAGING_ENVIRONMENT_BLOCK_MARKER.start, ...Object.entries(messagingEnvironment).map(([key, value]) => `${key}=${value}`), MESSAGING_ENVIRONMENT_BLOCK_MARKER.end];
+  return `${environmentFileText}${separator}${lines.join(lineBreak)}${lineBreak}`;
 }
 
 /**
@@ -504,7 +589,8 @@ async function main(scriptArguments) {
   }
 
   const existingBranch = hasCredentials ? await findBranchByName({ apiKey, branchName, projectId }) : undefined;
-  const steps = planSandboxSteps({ existingBranch, mode });
+  const hasMessagingKeyrings = Boolean(process.env[MESSAGING_KEYRINGS_ENVIRONMENT_KEY]?.trim());
+  const steps = planSandboxSteps({ existingBranch, hasMessagingKeyrings, mode });
   console.log(SCRIPT_MESSAGE.plan(branchName, steps));
 
   if (isDryRun) {
@@ -544,6 +630,25 @@ async function main(scriptArguments) {
         if (migrationExitCode !== EXIT_CODE.success) {
           console.error(SCRIPT_MESSAGE.migrationsFailed);
           return migrationExitCode;
+        }
+        break;
+      }
+      case SANDBOX_STEP.generateMessagingKeys: {
+        console.log(SCRIPT_MESSAGE.step.generateMessagingKeys);
+        const messagingEnvironment = buildDevelopmentMessagingEnvironment();
+        writeFileSync(environmentFilePath, appendDevelopmentMessagingEnvironment(readEnvironmentFile(environmentFilePath), messagingEnvironment));
+        // The enrollment child process inherits these values in this same run.
+        Object.assign(process.env, messagingEnvironment);
+        console.log(SCRIPT_MESSAGE.messagingKeysGenerated);
+        break;
+      }
+      case SANDBOX_STEP.enrollMessagingKeys: {
+        console.log(SCRIPT_MESSAGE.step.enrollMessagingKeys);
+        const enrollmentExitCode = await enrollSandboxMessagingKeys(connectionString);
+
+        if (enrollmentExitCode !== EXIT_CODE.success) {
+          console.error(SCRIPT_MESSAGE.messagingKeyEnrollmentFailed);
+          return enrollmentExitCode;
         }
         break;
       }

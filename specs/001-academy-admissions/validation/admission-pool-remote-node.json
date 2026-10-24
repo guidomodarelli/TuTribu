@@ -1,0 +1,55 @@
+{
+  "head": "59c1a9bc013013921a52f0949e6a951e86cea28d",
+  "exitCode": 1,
+  "outputTruncated": false,
+  "cases": [
+    {
+      "kind": "load",
+      "status": "failed",
+      "durationMs": 94827.900991
+    },
+    {
+      "kind": "abandonment",
+      "status": "passed",
+      "durationMs": 33951.952605
+    }
+  ],
+  "load": {
+    "participants": 100,
+    "admitted": 50,
+    "pending": 50,
+    "failures": 0,
+    "poolCheckoutTimeouts": 0,
+    "p95Ms": 6714.959407000002,
+    "targetMs": 3000,
+    "networkQueryP95Ms": 56.496931000001496,
+    "networkSamples": 20,
+    "setupDurationMs": 50703.465743,
+    "warmupDurationMs": 33767.790825,
+    "eventLoopP95Ms": 21.364735,
+    "pool": {
+      "maximum": 100,
+      "acquisitions": 500,
+      "releases": 500,
+      "peakWaitingCount": 0,
+      "waitingAfter": 0,
+      "checkedOutAfter": 0
+    },
+    "facts": {
+      "entries": 10000,
+      "requests": 100,
+      "basicMembers": 50,
+      "deliveries": 0
+    }
+  },
+  "abandonment": {
+    "observedIdleTimeoutMs": 30000,
+    "observationDurationMs": 30951.647431999998,
+    "healthy": 1,
+    "idleGuardConfirmed": true,
+    "acquisitions": 2,
+    "releases": 2,
+    "waitingAfter": 0,
+    "checkedOutAfter": 0
+  }
+}

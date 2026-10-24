@@ -1,0 +1,58 @@
+.AdmissionWorkspaceFrame {
+  display: grid;
+  // Pin the track to the available width so long tokens and scrolling tables never widen the page.
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 1.5rem;
+  // Admission pages use the full content width; forms and paragraphs keep their own readable measures.
+  width: 100%;
+  min-width: 0;
+  padding: clamp(1rem, 3vw, 2rem);
+  overflow-wrap: anywhere;
+
+  &__header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+    min-width: 0;
+    gap: 1rem;
+  }
+
+  // Reserves the header height while the route params resolve, so the page below does not jump.
+  &__headerFallback {
+    min-height: 4.5rem;
+  }
+
+  &__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    color: var(--text-secondary, var(--muted-foreground));
+    font-size: 0.875rem;
+    line-height: 1.4;
+    text-decoration: none;
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        color: var(--foreground);
+      }
+    }
+  }
+
+  &__header > nav {
+    justify-self: stretch;
+  }
+
+  &__content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  &__backIcon {
+    width: 1rem;
+    height: 1rem;
+    flex: none;
+    stroke-width: 1.75;
+  }
+}

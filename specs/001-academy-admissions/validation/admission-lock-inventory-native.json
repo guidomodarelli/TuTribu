@@ -1,0 +1,52 @@
+{
+  "source": {
+    "baseCommit": "bba3aa8cee5204611548702214e6d358b3161811",
+    "worktreeChanges": true,
+    "inputsStable": true,
+    "toolingStable": true,
+    "files": [
+      {
+        "path": "tests/performance/academy-admissions-node-host.test.ts",
+        "sha256": "700597bd07ed6f7b11e4804e2470623fd5da60bf5b2ecb29b0dd40db29140d78"
+      },
+      {
+        "path": "tests/support/admission-backend-observation.ts",
+        "sha256": "cb357443cb899e8511655e1cace08e37a4ed6a2190da72e65eddb485a4b73a31"
+      },
+      {
+        "path": "tests/support/constants/admission-backend-observation.ts",
+        "sha256": "01b65ad214ff1b7d98cc813f683ce80fa36ada1ca045ebb6a45203d0d5c936a2"
+      },
+      {
+        "path": "tests/unit/support/admission-backend-observation.native.test.ts",
+        "sha256": "d2c74a185b9692cc0efbea066e26d961a8823a60bab89e2517569ddb6f0c2c3f"
+      }
+    ]
+  },
+  "native": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "realPg": true,
+    "checks": [
+      "ordinary observation omits lock inventory",
+      "unrelated client and its table locks excluded",
+      "owned fast-path relation lock observed",
+      "owned main-table relation lock observed",
+      "exact advisory waiter counted",
+      "original backend states preserved",
+      "sampler drained",
+      "zero matching lock inventory after rollback"
+    ]
+  },
+  "testTypesPassed": true,
+  "lintPassed": true,
+  "cleanup": {
+    "remainingBranches": 3,
+    "originalBranchesPreserved": true,
+    "nonOriginalBranches": 0
+  },
+  "performanceAccepted": false,
+  "productionSqlExecuted": false,
+  "realMessages": 0
+}

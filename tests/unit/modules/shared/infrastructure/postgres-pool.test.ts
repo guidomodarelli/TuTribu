@@ -1,247 +1,107 @@
 /** @vitest-environment node */
+/** Exercises the real pg pool and project logger without opening network connections. */
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
+import type { Pool } from "pg";
+import { createPostgresPool } from "@/src/modules/shared/infrastructure/database/postgres-pool";
 
-import { vi, describe, it, expect, beforeEach } from "vitest";
+/** Own consumed protocol for deliberate guard failure; native Neon suites exercise real SQL. */
+type ConnectionGuard = { onConnect: (client: { query: (...argumentsList: unknown[]) => Promise<unknown> }) => Promise<void> };
+
 describe("Postgres pool factory", () => {
-  const loggerError = vi.fn();
-  const loggerWarn = vi.fn();
+  const pools: Pool[] = [];
+  const errorOutput = vi.fn();
+  const warningOutput = vi.fn();
 
   beforeEach(() => {
-    vi.resetModules();
-    loggerError.mockReset();
-    loggerWarn.mockReset();
+    errorOutput.mockReset();
+    warningOutput.mockReset();
+    vi.spyOn(console, "error").mockImplementation(errorOutput);
+    vi.spyOn(console, "warn").mockImplementation(warningOutput);
+  });
+  afterEach(async () => {
+    await Promise.all(pools.splice(0).map((pool) => pool.end()));
+    vi.restoreAllMocks();
   });
 
-  it("logs idle client termination errors without exposing client connection details", async () => {
-    const poolOn = vi.fn();
-    const poolInstance = {
-      on: poolOn,
-    };
-    const Pool = vi.fn(function (...args: unknown[]) { void args; return poolInstance; });
+  /** @param operation - Own diagnostic context. @returns A real unconnected pool tracked for cleanup. */
+  function createPool(operation: string) {
+    const pool = createPostgresPool({ connectionString: "postgres://user:secret@database.example.com/db", operation });
+    pools.push(pool);
+    return pool;
+  }
 
-    vi.doMock("pg", () => ({
-      Pool,
-    }));
-    vi.doMock(
-      "@/src/modules/shared/infrastructure/observability/server-logger",
-      () => ({
-        createServerLogger: () => ({
-          error: loggerError,
-          info: vi.fn(),
-          warn: loggerWarn,
-        }),
-      })
-    );
+  it.each([0, -1, 1.5, Number.NaN])("rejects invalid owner capacity %s before inspecting connection credentials", (maximumConnections) => {
+    let inspectedConnection = false;
+    expect(() => createPostgresPool({
+      operation: "owned_capacity_validation", maximumConnections,
+      get connectionString() { inspectedConnection = true; return "unavailable_connection"; },
+    })).toThrow("PostgresPool.create failed: maximum_connections_must_be_a_positive_integer");
+    expect(inspectedConnection).toBe(false);
+    expect(errorOutput).not.toHaveBeenCalled();
+    expect(warningOutput).not.toHaveBeenCalled();
+  });
 
-    const { createPostgresPool } = await import(
-      "@/src/modules/shared/infrastructure/database/postgres-pool"
-    );
-
-    createPostgresPool({
-      connectionString: "postgres://user:secret@database.example.com/db",
-      operation: "runtime_database_pool_idle_error",
-    });
-
-    expect(Pool).toHaveBeenCalledWith({
+  it("logs idle client termination through the real logger without exposing client connection details", () => {
+    const pool = createPool("runtime_database_pool_idle_error");
+    expect(pool.options).toMatchObject({
       allowExitOnIdle: true,
       connectionString: "postgres://user:secret@database.example.com/db",
       connectionTimeoutMillis: 10000,
       idleTimeoutMillis: 5000,
-      max: 10,
+      max: 100,
       maxLifetimeSeconds: 60,
       onConnect: expect.any(Function),
     });
-    expect(poolOn).toHaveBeenCalledWith("error", expect.any(Function));
-
-    const [, idleErrorHandler] = poolOn.mock.calls[0] as [
-      string,
-      (error: unknown, client: unknown) => void,
-    ];
-
-    idleErrorHandler(
-      {
-        code: "57P01",
-        severity: "FATAL",
-        message: "terminating connection due to administrator command",
-      },
-      {
-        connectionParameters: {
-          host: "database.example.com",
-          password: "secret",
-        },
-      }
-    );
-
-    expect(loggerWarn).toHaveBeenCalledWith({
+    pool.emit("error", { code: "57P01", severity: "FATAL", message: "terminating connection due to administrator command" }, { connectionParameters: { host: "database.example.com", password: "secret" } });
+    expect(warningOutput).toHaveBeenCalledTimes(1);
+    const log = JSON.parse(String(warningOutput.mock.calls[0][0]));
+    expect(log).toMatchObject({
+      level: "warn", feature: "database", operation: "runtime_database_pool_idle_error", requestId: "background",
       message: "Postgres idle client was closed by the database backend.",
-      metadata: {
-        dependency: "postgres",
-        errorCode: "57P01",
-        errorSeverity: "FATAL",
-        isTransientConnectionTermination: true,
-      },
-      error: expect.objectContaining({
-        code: "57P01",
-      }),
+      metadata: { dependency: "postgres", errorCode: "57P01", errorSeverity: "FATAL", isTransientConnectionTermination: true },
+      error: { message: "terminating connection due to administrator command" },
     });
-    expect(loggerError).not.toHaveBeenCalled();
-    expect(loggerWarn).not.toHaveBeenCalledWith(
-      expect.objectContaining({
-        metadata: expect.objectContaining({
-          client: expect.anything(),
-          connectionString: expect.anything(),
-          host: expect.anything(),
-        }),
-      })
-    );
+    expect(errorOutput).not.toHaveBeenCalled();
+    expect(log.metadata).not.toHaveProperty("client");
+    expect(String(warningOutput.mock.calls[0][0])).not.toContain("database.example.com");
+    expect(String(warningOutput.mock.calls[0][0])).not.toContain("secret");
+    expect(pool.totalCount).toBe(0);
   });
 
-  it("logs unexpected idle client errors as errors with safe metadata", async () => {
-    const poolOn = vi.fn();
-
-    vi.doMock("pg", () => ({
-      Pool: vi.fn(function () { return ({
-        on: poolOn,
-      }); }),
-    }));
-    vi.doMock(
-      "@/src/modules/shared/infrastructure/observability/server-logger",
-      () => ({
-        createServerLogger: () => ({
-          error: loggerError,
-          info: vi.fn(),
-          warn: loggerWarn,
-        }),
-      })
-    );
-
-    const { createPostgresPool } = await import(
-      "@/src/modules/shared/infrastructure/database/postgres-pool"
-    );
-
-    createPostgresPool({
-      connectionString: "postgres://user:secret@database.example.com/db",
-      operation: "better_auth_database_pool_idle_error",
-    });
-
-    const [, idleErrorHandler] = poolOn.mock.calls[0] as [
-      string,
-      (error: unknown, client: unknown) => void,
-    ];
-
-    idleErrorHandler({
-      code: "08006",
-      severity: "FATAL",
-      message: "connection failure",
-    }, undefined);
-
-    expect(loggerError).toHaveBeenCalledWith({
+  it("logs unexpected idle client errors through the real logger with safe metadata", () => {
+    const pool = createPool("better_auth_database_pool_idle_error");
+    pool.emit("error", { code: "08006", severity: "FATAL", message: "connection failure" }, undefined);
+    expect(errorOutput).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(errorOutput.mock.calls[0][0]))).toMatchObject({
+      level: "error", feature: "database", operation: "better_auth_database_pool_idle_error", requestId: "background",
       message: "Postgres idle client emitted an unexpected connection error.",
-      metadata: {
-        dependency: "postgres",
-        errorCode: "08006",
-        errorSeverity: "FATAL",
-        isTransientConnectionTermination: false,
-      },
-      error: expect.objectContaining({
-        code: "08006",
-      }),
+      metadata: { dependency: "postgres", errorCode: "08006", errorSeverity: "FATAL", isTransientConnectionTermination: false },
+      error: { message: "connection failure" },
     });
-    expect(loggerWarn).not.toHaveBeenCalled();
+    expect(warningOutput).not.toHaveBeenCalled();
   });
 
   it("applies the idle-in-transaction guard on every new connection", async () => {
-    const Pool = vi.fn(function (...args: unknown[]) { void args; return ({
-      on: vi.fn(),
-    }); });
-
-    vi.doMock("pg", () => ({
-      Pool,
-    }));
-    vi.doMock(
-      "@/src/modules/shared/infrastructure/observability/server-logger",
-      () => ({
-        createServerLogger: () => ({
-          error: loggerError,
-          info: vi.fn(),
-          warn: loggerWarn,
-        }),
-      })
-    );
-
-    const { createPostgresPool } = await import(
-      "@/src/modules/shared/infrastructure/database/postgres-pool"
-    );
-
-    createPostgresPool({
-      connectionString: "postgres://user:secret@database.example.com/db",
-      operation: "better_auth_database_pool_idle_error",
-    });
-
-    const poolConfig = Pool.mock.calls[0][0] as {
-      onConnect: (client: unknown) => Promise<void>;
-    };
+    const pool = createPool("better_auth_database_pool_idle_error");
     const query = vi.fn().mockResolvedValue({ rows: [] });
-
-    await expect(poolConfig.onConnect({ query })).resolves.toBeUndefined();
-
-    expect(query).toHaveBeenCalledWith("select set_config($1, $2, false)", [
-      "idle_in_transaction_session_timeout",
-      "30000",
-    ]);
+    const configuration = pool.options as unknown as ConnectionGuard;
+    await expect(configuration.onConnect({ query })).resolves.toBeUndefined();
+    expect(query).toHaveBeenCalledWith("select set_config($1, $2, false)", ["idle_in_transaction_session_timeout", "30000"]);
+    expect(warningOutput).not.toHaveBeenCalled();
+    expect(errorOutput).not.toHaveBeenCalled();
   });
 
   it("rejects new connections when the idle-in-transaction guard cannot be applied", async () => {
-    const Pool = vi.fn(function (...args: unknown[]) { void args; return ({
-      on: vi.fn(),
-    }); });
-
-    vi.doMock("pg", () => ({
-      Pool,
-    }));
-    vi.doMock(
-      "@/src/modules/shared/infrastructure/observability/server-logger",
-      () => ({
-        createServerLogger: () => ({
-          error: loggerError,
-          info: vi.fn(),
-          warn: loggerWarn,
-        }),
-      })
-    );
-
-    const { createPostgresPool } = await import(
-      "@/src/modules/shared/infrastructure/database/postgres-pool"
-    );
-
-    createPostgresPool({
-      connectionString: "postgres://user:secret@database.example.com/db",
-      operation: "better_auth_database_pool_idle_error",
-    });
-
-    const poolConfig = Pool.mock.calls[0][0] as {
-      onConnect: (client: unknown) => Promise<void>;
-    };
-    const guardError = Object.assign(new Error("set_config failed"), {
-      code: "42501",
-      severity: "ERROR",
-    });
-
-    await expect(
-      poolConfig.onConnect({
-        query: vi.fn().mockRejectedValue(guardError),
-      })
-    ).rejects.toBe(guardError);
-
-    expect(loggerWarn).toHaveBeenCalledWith({
-      message:
-        "Failed to apply the idle-in-transaction guard to a new Postgres connection.",
-      metadata: {
-        dependency: "postgres",
-        errorCode: "42501",
-        errorSeverity: "ERROR",
-        isTransientConnectionTermination: false,
-      },
-      error: guardError,
+    const pool = createPool("better_auth_database_pool_idle_error");
+    const configuration = pool.options as unknown as ConnectionGuard;
+    const guardError = Object.assign(new Error("set_config failed"), { code: "42501", severity: "ERROR" });
+    await expect(configuration.onConnect({ query: vi.fn().mockRejectedValue(guardError) })).rejects.toBe(guardError);
+    expect(warningOutput).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(warningOutput.mock.calls[0][0]))).toMatchObject({
+      level: "warn", feature: "database", operation: "better_auth_database_pool_idle_error", requestId: "background",
+      message: "Failed to apply the idle-in-transaction guard to a new Postgres connection.",
+      metadata: { dependency: "postgres", errorCode: "42501", errorSeverity: "ERROR", isTransientConnectionTermination: false },
+      error: { name: "Error", message: "set_config failed" },
     });
   });
 });

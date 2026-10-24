@@ -2,6 +2,7 @@ import {
   type NOTIFICATION_PROPOSAL_DECISION,
   NOTIFICATION_TYPE,
 } from "@/src/modules/notifications/constants/notifications";
+import { ADMISSION_NOTIFICATION_TYPE, ADMISSION_NOTIFICATION_AUDIENCE } from "@/src/modules/notifications/constants/admission-notifications";
 
 /**
  * In-app notification model. It is generic (type, recipient, tribe, payload,
@@ -14,6 +15,11 @@ export type NotificationType = (typeof NOTIFICATION_TYPE)[keyof typeof NOTIFICAT
 
 export type NotificationProposalDecision =
   (typeof NOTIFICATION_PROPOSAL_DECISION)[keyof typeof NOTIFICATION_PROPOSAL_DECISION];
+
+/** Original admission notice types retain their own subject and visibility contract. */
+export type AdmissionNotificationType = (typeof ADMISSION_NOTIFICATION_TYPE)[keyof typeof ADMISSION_NOTIFICATION_TYPE];
+/** Minimal owned request reference, without applicant/contact/review text or permission flags. */
+export type NotificationAdmissionSubject = { requestId: string; audience: (typeof ADMISSION_NOTIFICATION_AUDIENCE)[keyof typeof ADMISSION_NOTIFICATION_AUDIENCE] };
 
 /**
  * One occurrence of an event series, by its stable identity
@@ -33,6 +39,12 @@ export type NotificationEventOccurrenceTimedPayload = NotificationEventOccurrenc
  * Stored payload of each notification type: ids and instants only.
  */
 export type NotificationPayloadByType = {
+  [NOTIFICATION_TYPE.admissionPendingCreated]: Record<string, never>;
+  [NOTIFICATION_TYPE.admissionApproved]: Record<string, never>;
+  [NOTIFICATION_TYPE.admissionRejected]: Record<string, never>;
+  [NOTIFICATION_TYPE.admissionCancelled]: Record<string, never>;
+  [NOTIFICATION_TYPE.admissionExpired]: Record<string, never>;
+  [NOTIFICATION_TYPE.admissionReminder]: Record<string, never>;
   [NOTIFICATION_TYPE.eventOccurrenceCancelled]: NotificationEventOccurrencePayload;
   [NOTIFICATION_TYPE.eventOccurrenceMoved]: NotificationEventOccurrenceTimedPayload;
   [NOTIFICATION_TYPE.eventProposalReviewed]: {
@@ -48,7 +60,7 @@ export type NotificationPayloadByType = {
 
 export type NotificationEventOccurrenceType = Exclude<
   NotificationType,
-  typeof NOTIFICATION_TYPE.eventProposalReviewed
+  typeof NOTIFICATION_TYPE.eventProposalReviewed | AdmissionNotificationType
 >;
 
 /**
@@ -102,6 +114,7 @@ type InboxNotificationBase = {
 };
 
 export type InboxNotification =
+  | (InboxNotificationBase & { admission: NotificationAdmissionSubject; type: AdmissionNotificationType })
   | (InboxNotificationBase & {
       event: NotificationEventOccurrenceSubject;
       type: NotificationEventOccurrenceType;

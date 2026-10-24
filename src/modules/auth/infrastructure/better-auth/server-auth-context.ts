@@ -1,42 +1,17 @@
+/** Resolves readonly native sessions and preserves safe correlation during bounded recovery. @module server-auth-context */
 import "server-only";
 
 import { headers } from "next/headers";
 
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
+import { resolvePrivateRequestContext } from "@/src/modules/shared/infrastructure/observability/private-request-context";
+import { memoizeForRequest } from "@/src/modules/shared/infrastructure/request-scope/request-memo";
+import { runWithBetterAuthLoggingContext } from "./better-auth-logger";
+import { BETTER_AUTH_DEPENDENCY, BETTER_AUTH_SESSION_FAILURE, BETTER_AUTH_SESSION_LOG_CONTEXT, BETTER_AUTH_SESSION_LOG_MESSAGE, CONNECTION_TIMEOUT_ERROR_SIGNATURE, BETTER_AUTH_SESSION_ERROR_CAUSE_MAX_DEPTH, SERVER_RENDER_SESSION_QUERY, SERVER_RENDER_SESSION_MEMO_KEY } from "../../constants/better-auth-session";
 
 import { auth } from "./auth";
 
 export type BetterAuthSession = Awaited<ReturnType<typeof auth.api.getSession>>;
-
-const BETTER_AUTH_DEPENDENCY = "better-auth";
-
-const BETTER_AUTH_SESSION_FAILURE = {
-  bodyCode: "FAILED_TO_GET_SESSION",
-  message: "Failed to get session",
-  numericStatus: 500,
-  operation: "get_session",
-  stringStatus: "INTERNAL_SERVER_ERROR",
-} as const;
-
-const BETTER_AUTH_SESSION_LOG_CONTEXT = {
-  feature: "auth",
-  operation: "better_auth_session_lookup",
-} as const;
-
-const BETTER_AUTH_SESSION_LOG_MESSAGE = {
-  retry: "Better Auth session lookup failed transiently; retrying once.",
-} as const;
-
-/**
- * node-postgres signature emitted when a pooled connection cannot be acquired in
- * time. Retrying this is futile while the pool stays saturated, so the retry is
- * skipped to avoid doubling the connection pressure that caused the timeout.
- */
-const CONNECTION_TIMEOUT_ERROR_SIGNATURE =
-  "timeout exceeded when trying to connect";
-
-const ERROR_CAUSE_MAX_DEPTH = 5;
 
 /**
  * Detects whether an error, or any error in its `cause` chain, is a pooled
@@ -49,7 +24,7 @@ const ERROR_CAUSE_MAX_DEPTH = 5;
 function isConnectionAcquisitionTimeout(error: unknown): boolean {
   let current: unknown = error;
 
-  for (let depth = 0; depth < ERROR_CAUSE_MAX_DEPTH; depth += 1) {
+  for (let depth = 0; depth < BETTER_AUTH_SESSION_ERROR_CAUSE_MAX_DEPTH; depth += 1) {
     if (typeof current !== "object" || current === null) {
       return false;
     }
@@ -134,51 +109,52 @@ function isRetryableBetterAuthSessionFailure(error: unknown) {
 }
 
 /**
- * Reads the session without renewing it. Server Components cannot write
- * cookies, so a renewal here would push the database expiration forward while
- * the browser cookie kept its old `Max-Age`: the member would be signed out
- * when the cookie expired and the next keep-alive would find nothing left to
- * renew. Renewals only happen in the `/api/auth/get-session` route handler,
- * which returns the refreshed cookie to the browser.
- */
-const SERVER_RENDER_SESSION_QUERY = { disableRefresh: true } as const;
-
-/**
  * Resolves the Better Auth session for the current server request, retrying a
  * transient lookup failure once.
  *
+ * The parallel loaders of one server render share a single lookup: the cookie
+ * identity cannot change within the request, and the lookup never refreshes the
+ * session. Every account projection still revalidates the session in SQL.
+ * Route handlers and other non-render callers look it up on each call.
+ *
  * @returns The session of the signed-in member, or `null` for visitors.
  */
-export async function getServerBetterAuthSession(): Promise<BetterAuthSession> {
+export function getServerBetterAuthSession(): Promise<BetterAuthSession> {
+  return memoizeForRequest(SERVER_RENDER_SESSION_MEMO_KEY, readServerBetterAuthSession);
+}
+
+/** @returns The session read from Better Auth for the incoming request headers. */
+async function readServerBetterAuthSession(): Promise<BetterAuthSession> {
   const requestHeaders = await headers();
-  const { requestId } = resolveRequestContext(requestHeaders);
+  const requestContext = resolvePrivateRequestContext(requestHeaders);
   const sessionLookup = {
     headers: requestHeaders,
     query: SERVER_RENDER_SESSION_QUERY,
   };
 
-  try {
-    return await auth.api.getSession(sessionLookup);
-  } catch (error) {
-    if (
-      !isRetryableBetterAuthSessionFailure(error) ||
-      isConnectionAcquisitionTimeout(error)
-    ) {
-      throw error;
+  return runWithBetterAuthLoggingContext(requestContext, async () => {
+    try {
+      return await auth.api.getSession(sessionLookup);
+    } catch (error) {
+      if (
+        !isRetryableBetterAuthSessionFailure(error) ||
+        isConnectionAcquisitionTimeout(error)
+      ) {
+        throw error;
+      }
+
+      const logger = createServerLogger({
+        ...BETTER_AUTH_SESSION_LOG_CONTEXT,
+        ...requestContext,
+      });
+      logger.warn({
+        message: BETTER_AUTH_SESSION_LOG_MESSAGE.retry,
+        metadata: getBetterAuthSessionFailureMetadata(error),
+      });
+
+      return auth.api.getSession(sessionLookup);
     }
-
-    const logger = createServerLogger({
-      ...BETTER_AUTH_SESSION_LOG_CONTEXT,
-      requestId,
-    });
-    logger.warn({
-      message: BETTER_AUTH_SESSION_LOG_MESSAGE.retry,
-      metadata: getBetterAuthSessionFailureMetadata(error),
-      error,
-    });
-
-    return auth.api.getSession(sessionLookup);
-  }
+  });
 }
 
 export async function getRequestAuthContext(): Promise<RequestAuthContext> {

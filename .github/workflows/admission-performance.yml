@@ -1,0 +1,82 @@
+name: Native admission performance
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/admission-performance.yml"
+      - "scripts/ci/run-admission-performance.mjs"
+      - "tests/performance/academy-admissions.performance.test.ts"
+      - "tests/support/admission-performance*"
+      - "tests/support/constants/admission-performance*"
+      - "tests/support/academy-admission-database.ts"
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: native-admission-performance-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  native-performance:
+    name: Native admission performance
+    if: github.repository_owner == 'guidomodarelli'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEON_ADMISSION_TEST_API_KEY: ${{ secrets.NEON_ADMISSION_TEST_API_KEY }}
+      ADMISSION_PERFORMANCE_LOAD_BRANCH_NONCE: ${{ vars.ADMISSION_PERFORMANCE_LOAD_BRANCH_NONCE }}
+      ADMISSION_PERFORMANCE_ABANDONMENT_BRANCH_NONCE: ${{ vars.ADMISSION_PERFORMANCE_ABANDONMENT_BRANCH_NONCE }}
+      ADMISSION_PERFORMANCE_EXPECTED_COMMIT: ${{ vars.ADMISSION_PERFORMANCE_EXPECTED_COMMIT }}
+      DATABASE_URL: postgresql://neondb_owner@selection.invalid/neondb
+    steps:
+      - name: Check explicit temporary capability
+        id: capability
+        shell: bash
+        run: |
+          if [ -n "$NEON_ADMISSION_TEST_API_KEY" ] && [ -n "$ADMISSION_PERFORMANCE_LOAD_BRANCH_NONCE" ] && [ -n "$ADMISSION_PERFORMANCE_ABANDONMENT_BRANCH_NONCE" ] && [ "$GITHUB_SHA" = "$ADMISSION_PERFORMANCE_EXPECTED_COMMIT" ]; then
+            printf 'enabled=true\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'enabled=false\n' >> "$GITHUB_OUTPUT"
+            printf 'Native pendiente: falta la capacidad temporal y sus dos recursos planificados.\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Check out source
+        if: steps.capability.outputs.enabled == 'true'
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        if: steps.capability.outputs.enabled == 'true'
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        if: steps.capability.outputs.enabled == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        if: steps.capability.outputs.enabled == 'true'
+        run: pnpm install --frozen-lockfile
+        env:
+          PNPM_CONFIG__AUTH: '{"https://npm.pkg.github.com":{"@guidomodarelli":{"authToken":"${{ secrets.GITHUB_TOKEN }}"}}}'
+
+      - name: Run real database workload and abandonment guard
+        id: native
+        if: steps.capability.outputs.enabled == 'true'
+        run: node scripts/ci/run-admission-performance.mjs
+
+      - name: Keep sanitized native evidence
+        if: always() && steps.capability.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: admission-native-performance
+          path: ${{ steps.native.outputs.artifact_path }}
+          if-no-files-found: error
+          retention-days: 7

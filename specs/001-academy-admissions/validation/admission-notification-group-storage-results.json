@@ -1,0 +1,175 @@
+{
+  "capturedAt": "2026-10-15T15:50:27.142Z",
+  "status": "native_private_group_storage_verified",
+  "baseHead": "8827c805f8d57e888eb27045ee20bf032c84ece3",
+  "scope": "Almacenamiento privado de grupos y miembros; sin productor público ni autoridad de envío.",
+  "native": {
+    "startedAt": "2026-10-15T15:44:32.666Z",
+    "completedAt": "2026-10-15T15:47:41.094Z",
+    "completeFiles": 1,
+    "passed": 3,
+    "failed": 0,
+    "filtered": 0,
+    "sourceInputsStable": true,
+    "sourceFiles": [
+      {
+        "path": "tests/unit/modules/notifications/infrastructure/admission-notification-groups.test.ts",
+        "sha256": "72b6a22ce948d3b49eef5f23b2e755b862d5c1330a41904563dcf41019954d41"
+      },
+      {
+        "path": "tests/support/admission-notification-group-fixture.ts",
+        "sha256": "68a44fb1cab8836aabd298fdd08b673bcdf15d92127c53b587cf5e0e85516033"
+      },
+      {
+        "path": "tests/support/constants/admission-notification-validation.ts",
+        "sha256": "a6386e3b3a7cb458f824ab65a7911ace548de64a05ac0a2efb168f92055c0ec5"
+      },
+      {
+        "path": "database/migrations/20261015150300_add_admission_notification_groups.sql",
+        "sha256": "67d4b2e3245e06803870696407c87b9dd182f51cdb21c321351614d3b2f02e2a"
+      },
+      {
+        "path": "database/migrations/meta/_journal.json",
+        "sha256": "8dadc5a0b5508fa8798ca8910fd6533faccce6f0c64626e1972fd4b64cc2a93d"
+      },
+      {
+        "path": "src/modules/shared/infrastructure/database/schema.ts",
+        "sha256": "448169b9e8aa529596e3e30be69ac53862a7145f13f8a98d7f4f5430ace2927c"
+      },
+      {
+        "path": "src/modules/notifications/infrastructure/database/admission-notification-group-schema.ts",
+        "sha256": "7b82837495bef5d0b16fa4769761fe03fc1946b5c74f90519343bb324ca08ef6"
+      },
+      {
+        "path": "src/modules/notifications/constants/admission-notification-group-storage.ts",
+        "sha256": "8125f2e54ccefffe527931714cb7e2dc18f875aa6110893eb2bdd903d72c71f3"
+      },
+      {
+        "path": "src/modules/notifications/domain/entities/admission-notification-group.ts",
+        "sha256": "444493da2d3bc19d796433db96dc22d75fc3b3b156e441f0a4d96b57e6ae7f8e"
+      },
+      {
+        "path": "src/modules/notifications/domain/entities/admission-notification.ts",
+        "sha256": "212274f200d5274b9845a448a0588db417253ce05a2fe6ad19abf32e9d3c556f"
+      },
+      {
+        "path": "src/modules/notifications/domain/policies/admission-notification-groups.ts",
+        "sha256": "14e1b401bdd0dd0f336888d81eed7c81d38c844096266faf84a62c86fee95637"
+      },
+      {
+        "path": "src/modules/notifications/constants/admission-notification-groups.ts",
+        "sha256": "22f213c753d3ef053ee0cd512d45ec9029b2244097a2de9013dd99c185b59e6e"
+      },
+      {
+        "path": "src/constants/time.ts",
+        "sha256": "98b5459a77a709b081d3fbb847a656089183910f1b6b6621504b23ec22004927"
+      },
+      {
+        "path": "tests/support/academy-admission-database.ts",
+        "sha256": "0a5c298742290d16bfa4663b539352e4d40246be616e41bd254659fc0b343482"
+      },
+      {
+        "path": "tests/support/admission-migration-command.ts",
+        "sha256": "7914b750b7077fcc3828097d8a928a64427765fd8964885fd8c5ed5813034630"
+      }
+    ],
+    "cases": [
+      {
+        "title": "native admission notification groups should retain one group and logical member under concurrent replay and reject crossed scoped references",
+        "status": "passed",
+        "durationMs": 62603.4761
+      },
+      {
+        "title": "native admission notification groups should freeze only live original sources and preserve identity, minimal payload and rollback atomically",
+        "status": "passed",
+        "durationMs": 62701.4603
+      },
+      {
+        "title": "native admission notification groups should retain explicit expiry and deny direct request access without granting an applicant membership",
+        "status": "passed",
+        "durationMs": 61136.31009999999
+      }
+    ]
+  },
+  "initialSqlRed": {
+    "sqlState": "42P01",
+    "passed": 0,
+    "failed": 1,
+    "filtered": 2,
+    "sourceInputsStable": true,
+    "reason": "Tabla de grupos inexistente tras preparar el journal original.",
+    "countedInCurrent": false
+  },
+  "previousCompleteRun": {
+    "passed": 3,
+    "failed": 0,
+    "filtered": 0,
+    "countedInCurrent": false,
+    "limitation": "Anterior a la cobertura actual de manifest/plazo alterados, coherencia diferida, catálogo RLS/ACL y unicidad del recordatorio."
+  },
+  "dependencyDoublesInGroupTests": false,
+  "fullVersionedJournal": true,
+  "nativeSqlAndForcedRls": true,
+  "observedRollback": {
+    "includedMemberBeforeDeferredCommit": true,
+    "pendingMemberAfterCommitRejected": true,
+    "frozenGroupBeforeOwnerAbort": true,
+    "openOriginalGroupAfterRollback": true
+  },
+  "reminderPrimitiveUniqueVerified": true,
+  "automaticReminderProducerImplemented": false,
+  "staticChecks": {
+    "focusedLint": "passed",
+    "productTypes": "passed_on_same_product_sources",
+    "testTypes": "passed",
+    "diffCheck": "passed"
+  },
+  "resources": {
+    "inventoryAt": "2026-10-15T15:48:47.843Z",
+    "productionPreserved": true,
+    "originalPilotPreserved": true,
+    "temporaryBranches": 0,
+    "externalMessagesSent": 0
+  },
+  "minimalReferenceManifestImplemented": true,
+  "fullSealedOutboxIntentImplemented": false,
+  "groupProducerRepositoryImplemented": false,
+  "currentTrustedEmailResolverImplemented": false,
+  "groupRecoveryAndRetentionImplemented": false,
+  "publicApiImplemented": false,
+  "publicUiImplemented": false,
+  "fullT180Approved": false,
+  "fullT181Approved": false,
+  "fullT185Approved": false,
+  "fullUs8Approved": false,
+  "taskClosure": false,
+  "originalTasks": {
+    "total": 212,
+    "completed": 174,
+    "pending": 38
+  },
+  "previousSavedCi": {
+    "head": "8827c805f8d57e888eb27045ee20bf032c84ece3",
+    "runId": 38758622861,
+    "conclusion": "success",
+    "doesNotApproveLaterGroupStorage": true
+  },
+  "nextCommitCiApproved": false,
+  "docs": {
+    "sourceHash": "fc41cc54f868414f8d01cc4592a3612d0c7b683df5cc67cbd9d13fcc12e6cdae",
+    "views": 4,
+    "engines": [
+      "chromium",
+      "webkit"
+    ],
+    "widths": [
+      390,
+      1280
+    ],
+    "visuallyInspected": [
+      "chromium-1280",
+      "webkit-390"
+    ],
+    "horizontalOverflow": false
+  }
+}

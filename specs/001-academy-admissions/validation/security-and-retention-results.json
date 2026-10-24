@@ -1,0 +1,1046 @@
+{
+  "formatVersion": 1,
+  "taskId": "T175",
+  "generatedAt": "2026-10-15T10:22:37.223Z",
+  "scope": "Five original US-11 acceptance criteria, concurrent counters, key rotation, actual PostgreSQL retention, output surfaces and concrete operational blockers; no operational gate or whole-feature completion.",
+  "sourceHashConvention": "SHA-256 of UTF-8 source with CRLF normalized to LF. Case ids hash file, full title and same-title parametrization ordinal; raw runtime input is excluded.",
+  "summary": {
+    "fullFilePassedCases": 429,
+    "completeFiles": 54,
+    "additionalFocalPassedCases": 1,
+    "additionalFocalFilteredCases": 13,
+    "failedCurrentCases": 0
+  },
+  "executionGroups": [
+    {
+      "id": "local_contract",
+      "environment": {
+        "RUN_ADMISSION_SQL_TESTS": "0",
+        "RUN_ADMISSION_BROWSER_TESTS": "0"
+      },
+      "files": [
+        "tests/unit/modules/academy-admissions/application/admission-audit-and-metrics.test.ts",
+        "tests/unit/modules/academy-admissions/domain/admission-resource-audit-event.test.ts",
+        "tests/unit/modules/academy-admissions/infrastructure/admission-error-contracts.test.ts",
+        "tests/unit/modules/academy-admissions/infrastructure/admission-flow-contracts.test.ts",
+        "tests/unit/modules/academy-admissions/infrastructure/admission-http-boundaries.test.ts",
+        "tests/unit/modules/auth/infrastructure/better-auth-client.test.ts",
+        "tests/unit/modules/auth/infrastructure/better-auth-private-http-contract.test.ts",
+        "tests/unit/modules/auth/infrastructure/better-auth-public-session.test.ts",
+        "tests/unit/modules/auth/infrastructure/better-auth-server-auth-context.test.ts",
+        "tests/unit/modules/auth/infrastructure/better-auth-session-lifetime.test.ts",
+        "tests/unit/modules/auth/infrastructure/google-evidence-plugin.test.ts",
+        "tests/unit/modules/auth/infrastructure/message-delivery-reauthentication-http.test.ts",
+        "tests/unit/modules/auth/infrastructure/reauthentication-http.test.ts",
+        "tests/unit/modules/messaging/application/message-dispatch-observation.test.ts",
+        "tests/unit/modules/messaging/infrastructure/messaging-crypto.test.ts",
+        "tests/unit/modules/messaging/infrastructure/messaging-hosting-security.test.ts",
+        "tests/unit/modules/messaging/infrastructure/messaging-public-contracts.test.ts",
+        "tests/unit/modules/messaging/infrastructure/messaging-retention-and-key-rotation.test.ts",
+        "tests/unit/modules/shared/infrastructure/has-allowed-request-origin.test.ts",
+        "tests/unit/modules/shared/infrastructure/private-next-request-logging.test.ts",
+        "tests/unit/pages/academy-contact-verification-routes.test.ts"
+      ],
+      "passed": 316
+    },
+    {
+      "id": "browser_and_sdk",
+      "environment": {
+        "RUN_ADMISSION_SQL_TESTS": "0",
+        "RUN_ADMISSION_BROWSER_TESTS": "1"
+      },
+      "files": [
+        "tests/unit/components/admission-private-widget-capture.test.tsx",
+        "tests/unit/modules/messaging/infrastructure/zavu-message-delivery-sender.test.ts"
+      ],
+      "passed": 20
+    },
+    {
+      "id": "native_postgres",
+      "environment": {
+        "RUN_ADMISSION_SQL_TESTS": "1",
+        "RUN_ADMISSION_BROWSER_TESTS": "0"
+      },
+      "files": [
+        "tests/unit/modules/academy-admissions/infrastructure/admission-observability-reader.test.ts",
+        "tests/unit/modules/academy-admissions/infrastructure/admission-private-data-retention.test.ts",
+        "tests/unit/modules/academy-admissions/infrastructure/admission-retention-composition.test.ts",
+        "tests/unit/modules/academy-admissions/infrastructure/admission-security-and-privacy.test.ts",
+        "tests/unit/modules/academy-admissions/infrastructure/admission-tribe-deleted-budgets.test.ts",
+        "tests/unit/modules/academy-admissions/infrastructure/admission-verification-scope-isolation.test.ts",
+        "tests/unit/modules/academy-admissions/infrastructure/allowlist-binding-account-deletion.test.ts",
+        "tests/unit/modules/academy-admissions/infrastructure/allowlist-import-material-retention.test.ts",
+        "tests/unit/modules/academy-admissions/infrastructure/contact-verification-channel-failure-limits.test.ts",
+        "tests/unit/modules/auth/infrastructure/better-auth-private-http-native.test.ts",
+        "tests/unit/modules/auth/infrastructure/better-auth-private-logger-native.test.ts",
+        "tests/unit/modules/messaging/application/messaging-usage-and-abuse.test.ts",
+        "tests/unit/modules/messaging/application/messaging-zero-quota-admission.test.ts",
+        "tests/unit/modules/messaging/infrastructure/account-code-request-budget.test.ts",
+        "tests/unit/modules/messaging/infrastructure/code-request-budget.test.ts",
+        "tests/unit/modules/messaging/infrastructure/contact-budget-continuity.test.ts",
+        "tests/unit/modules/messaging/infrastructure/credential-validation-budget.test.ts",
+        "tests/unit/modules/messaging/infrastructure/delivery-attempts-and-usage.test.ts",
+        "tests/unit/modules/messaging/infrastructure/encrypted-secret-store.test.ts",
+        "tests/unit/modules/messaging/infrastructure/messaging-candidate-expiration.test.ts",
+        "tests/unit/modules/messaging/infrastructure/messaging-isolation-and-rotation.test.ts",
+        "tests/unit/modules/messaging/infrastructure/messaging-key-material-continuity.test.ts",
+        "tests/unit/modules/messaging/infrastructure/messaging-protection-key-rotation-deletion.test.ts",
+        "tests/unit/modules/messaging/infrastructure/messaging-protection-key-rotation.test.ts",
+        "tests/unit/modules/messaging/infrastructure/payload-key-rotation-persistence.test.ts",
+        "tests/unit/modules/messaging/infrastructure/platform-country-marker.test.ts",
+        "tests/unit/modules/messaging/infrastructure/retired-secret-purge-deadline.test.ts",
+        "tests/unit/modules/messaging/infrastructure/shared-verification-bucket.test.ts",
+        "tests/unit/modules/messaging/infrastructure/verification-material-maintenance.test.ts",
+        "tests/unit/modules/messaging/infrastructure/verification-quota-connection-session.test.ts"
+      ],
+      "passed": 92
+    },
+    {
+      "id": "native_final_reporter",
+      "environment": {
+        "RUN_ADMISSION_SQL_TESTS": "1",
+        "RUN_ADMISSION_BROWSER_TESTS": "1"
+      },
+      "files": [
+        "tests/unit/pages/admission-dispatch-final-logger-native.test.ts"
+      ],
+      "passed": 1
+    }
+  ],
+  "files": [
+    {
+      "path": "tests/unit/components/admission-private-widget-capture.test.tsx",
+      "sourceSha256": "79ffbf471c36f514d4fb039028d3528350c0f030e2488c46d4f4ad43fe7322e7",
+      "executionMode": "browser_and_sdk",
+      "passed": 4,
+      "caseIdSha256": [
+        "f8492507482f82449c749a42d58fa24ea190bcaec0a5867b0f9f86d1665c72c9",
+        "09eb5d5f5961cf61cc6ca2c02afdb17497415b320b2a0397216a6fa7fc2c5af9",
+        "fb67aba74b18936c761c92b865d95306c12f79830aabd9ddc51c9c4241fc9989",
+        "546b476682685d73417a344befbbfa2e830c5d0d87ce33037b8d16c9668e8676"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/academy-admissions/application/admission-audit-and-metrics.test.ts",
+      "sourceSha256": "c64352fcdb66dbc08cf4446ea3b25e674814b672728c6fa2d54e7c0b316cdea9",
+      "executionMode": "local_contract",
+      "passed": 15,
+      "caseIdSha256": [
+        "e9211c27642f36190806649943dab6997ea623031c139a2df2959ed2152e1508",
+        "0310bbea343cf861292cefa6e2b5f01ffd45ffba810208e33d3fb351888519f3",
+        "a9cc359e234beebb45691439127f160c119b6ec263709cf56268b759215f74d8",
+        "254a1001a9c2835bbff97b69ee3f455b721246de5a07c002555ff69786aae523",
+        "1dc9d2dd5aa811e5825d30e477ba9efd446ab5514dd9ca2cf7f827fc6eeef6a7",
+        "04a42222ccb540097f65a93725ad4c5a1266013040f6903bea251f2537b9a0e8",
+        "bd44c52fdb6b697ac455daee15fb223f0d922e62e715320fdae49a6a9376b515",
+        "41373122d9e0b99e4d53817858b6b747735744a503c5d3cd3a13470ea77f3cb9",
+        "c7eb7c283206b7ea732d988a51abfc401ca1aad8d387be1e2c62327d4c16491b",
+        "be240d40d841c7bdf43208c7a16e286b472a210829e7d7202d63b0c8bce33f27",
+        "caee10b7a0795168be8c9a29a13034e1098f3684be6af00bd4c1439401e94d30",
+        "3df1ba7b9e4b1fca591d2f2097bf491d7d556767c08a80d40f5f4c6d19278308",
+        "9ea17bd05340930b7f6081f0692b01eaefa1c13432278555682367166ad3cd66",
+        "f483664fe4715c26ff00071e3e2b8c69e9d9f045783dae20227529c5c830db03",
+        "3eec7ffb76cf603c14af2b66b8aba77581451afef022eaebd4941cbdc49ee9af"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/academy-admissions/domain/admission-resource-audit-event.test.ts",
+      "sourceSha256": "bfa3cfba92ed692875f181ed2e9dfbd2886f4e7f5d5bd558323aa5a6d509b556",
+      "executionMode": "local_contract",
+      "passed": 27,
+      "caseIdSha256": [
+        "457cec0c83e9f5c25d5b925a73234a6a43ee408d943221b02678e1e725718fa3",
+        "3e750831433e1ee7cf12bc9fc1f628f43bdf3369e67b090aff15a357fcfb3e50",
+        "5f8212a421b94580c2efb64789e03d4e0b55df38ef648f8beb93e65ce306792f",
+        "b98de0504d25329618e4500839383ce2ad64a366bfc6c14a212cb54309661503",
+        "9d2060d9d2d454c30f741f7002a433809b8fe81b46d4626988fb7047722f2546",
+        "d02a1483b96925d83874f8b1a91757e90ed81b40e3194c9e90a7d42e7d911292",
+        "4cf3970669518cb833dbf6eaffa8800ae20aada46aab0bcabf8ed54a646591b9",
+        "ca648bb6f95f4595272b103cd22f85e0ad45e56ac7ea34ee1bf7d4ce89e93600",
+        "a0353d3f8f80a4c95d7a13111dd256a1eb9cf26972a0a02077f752f0ddb12102",
+        "42e0c6fab7bbf980444feab371e44a202375338336a42f1aefb38468d81a021f",
+        "1884da460245c0bf02f8c2f91884e5f5cf7404121cc9bb8d825a6d60d25912f8",
+        "1d1dc51b198be1cda0c0197a4c485b702119a8abc7c45a0ed71e2172ba503d43",
+        "1b78b32671500a92fa65da74ab6ab14b39a382358c5e005de23b7a1a56f6f7f5",
+        "cab72edf8f0d3a47fa3601887c5078df6f2fa8516faf59365b1368d556c88f7d",
+        "96cd30e27c71e9e90844d2d96d65926fc68ab00c17b7dee2dcd706698de979f0",
+        "2e202a069ddfde54440f4fdfeec4bec1693706eb80c729e12fe3341c56b497b4",
+        "76500dff4654d1fb173a8d7a888cb89e8c7c4bd40c3ff59f411199827e42d638",
+        "26e5b51e7b489c82dcf0ce3dc1bd6ad374971595f70c4abffb6d2cab39557f62",
+        "6b5be9a0be26a1cb0555537ac4e5764c93cf9103c9d855cfde939848ccc150f2",
+        "67842eb88741514c369e57f05bea3ba99794ad2333e8d0fc7eb7120daa2b4f52",
+        "f376727e7334056d215dccd2c9f3f062b16301fc1604c3f7c8821eff6c5342ac",
+        "e570b24ebaaf84ebbb6124f0bf8c00b8bcb6bf35df7e9cda1a70743b8c8a2226",
+        "e109fa139979f2258cfe6af3b27d60016167cde3980e68ee47a6a1acfcc2883f",
+        "5efd052e26596f37b1f493e146e0ef0bd1e079f6a3c60b1a105864748d9fb3b6",
+        "e0b68d72235019f4fe9be75f07650cb5a890ed623eb1365b745cf12a034f0cc0",
+        "5514c710d4b57b8dd54298da04550378fb6e2ce876fdd789538b9e8477b01943",
+        "2b0785c409c74f1c8b14774eecb0fcb2da6783eff375fcc42d30d3be2e053e7a"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/academy-admissions/infrastructure/admission-error-contracts.test.ts",
+      "sourceSha256": "94fc24cdcba0d6e5a5579e95447ce434b26fbf3e9f2dcf08d4860c623c4a01a4",
+      "executionMode": "local_contract",
+      "passed": 8,
+      "caseIdSha256": [
+        "045b1a7c1ef06820133983b5c62663b0f45ec8bcfe93a78499036ac157efff65",
+        "b8773c02faee4fcbed944762782780e647f8cbb9971ae665547db4501717a0eb",
+        "2be5243edcf94329d69684a4b5bc3d90ed696d374ff2625918a2f73fc0b592cd",
+        "66d45982c3f1ec3086f79a547e56c190fb7618c5dae7a6c881755c8ead32c0bc",
+        "96f8944d1853b208c1953177e2eede5e4f6717e8b2a80ac510b6aafdd134284b",
+        "6ea79515309e6728d909a97aed9b0268841599783c903414a38480658df15033",
+        "b0143ab3fb32818d30cbb9c339a14c1150ec090cacb58f379c12ea6a487c4788",
+        "702cd941783d8964819e7d18bca90586e60c16d9440480d342c8491868e8679d"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/academy-admissions/infrastructure/admission-flow-contracts.test.ts",
+      "sourceSha256": "93647dca055b7c22204e1b6d8058a6b6ffdf958e9ae76ac6122b2b24907ac259",
+      "executionMode": "local_contract",
+      "passed": 9,
+      "caseIdSha256": [
+        "2b9d761545c28ede8c0023ca5a492717c9240c9fe8d54cde70e68b1570e4093c",
+        "0d9fc482251f3427e1c02304bcc3ab86aea69a7df6246dcdaa9d652357a1cd6d",
+        "9d83c4c1e68d665df1279fa2945952a3311f7417aa45c87cf28f7ece9df106b5",
+        "27672a4dfa4eea7c9d97e5cbea30029bb4a88dad085aac15d596792d91e1eaa5",
+        "449d0342008ffcf876568a7c38d5d4e86976c1b44d84620cc476506006d79fc6",
+        "bffd2340f8dd2265fe2072df7f8b056954e453afa916179c6734b26691b01ff9",
+        "815489459fab03e3878761a41a9e5bfdd16ef6ee3fdf12b768bf925fbb11d9c1",
+        "2d01d0b08566a60f974ceb26272ba7e92675165a049e283f4b34b65b666839fb",
+        "4f2394997e6b4342e0eca3a967de77a4db97a0e244e48abc39b6bf979da7cabe"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/academy-admissions/infrastructure/admission-http-boundaries.test.ts",
+      "sourceSha256": "2a36e1b6e812878b6007192018f8c51ee03105dfb883c92f877772b6e05ffd81",
+      "executionMode": "local_contract",
+      "passed": 58,
+      "caseIdSha256": [
+        "cddde9701d948125acef2e2aeaee7a79abeefd5b90915af0327064cc307c148a",
+        "46150c27a74e4c4b127369220894d54248455e76af4d56de67e7daf5e1c74a94",
+        "71493915d4467993193a4fd9912706bdaa34ed534e4eb78a4341736cbfdd76f7",
+        "21dcd5f0e294e7474b524a341f96d7fd54f9f06ae2daa8857bcd836c5ffdbd5f",
+        "432a3a242bccf445de34cb26172f68cfb8a0cedcd4ca43a9f1c1913dde9682a7",
+        "97348f72dcbea9505c7b27de5eab46f7e39351344567f54debcd30459bb38d71",
+        "1678c28d51853f4b2d0c25866f99a08d31834379953d1905d013be0672f50bfc",
+        "b4fdad70431a90a62a635e44b6a58c8282417358c73c27fa2c9efcddf0df3fc5",
+        "1890a0efbf5d6f79363a836112cc8cfc4cadb46c0bf9896a993abae0c5a8a3a8",
+        "d92fb83432958a665367691be34a07fbe4529f448876ec9be79b7557d643df73",
+        "07a0813f45e603ddd43e098ca83186de31053900f505676bb95f183e8bb03cdf",
+        "bdaffd7d30cec11f6bc352c6f63f56929ca170fc0b799ff95f0fbeafe431ccc2",
+        "afd20df3d7347837f7e0357eb8660f2dd7eb0866966bdecefea68285fa40f977",
+        "2b7259c4ab75cf2ca7f73d4e522520e8e98bc16f9f65fce65ce7f7168975779d",
+        "74b8bc2686d39b852492749a8279dddb9ae1dd70e7cc157be067fea4248062cf",
+        "bd9af3a35fcf4315bd8e3f90c53ab9bdee364ba9225678a3b8e347818cc8e05d",
+        "00f9293ead6b9bfd22028de7e3efacf6c3b574fe26692675ab55afdb3b8a8e48",
+        "c30c0557d82195915df84c5f7d7d2faf2ac47366563d264dca605fceb725f4ba",
+        "9568fd7720c292b0dba0889d5de2f1582e2d530838dd2c028af6b685b4649618",
+        "dec2222aa0a8bf4851191113c8ff330b5e9fe7e7aa116a12644aa4de5de9ad0b",
+        "74958855af89011084fea4a8d27d4702d8d146f852abd2ddcf58ccef8b25b71c",
+        "ea6423dd1e5893a9434c60819e121867bcfff85b958c011e3d74b5fe8df45c98",
+        "074e184ddcb40f3cd087e06f573ea0e5593d79966cf3eb6cf3a1eeb283e1ef38",
+        "3314bc84b860864f6117bc92b8f2f27ac0679d63afb7158828ea527a16f7a239",
+        "8fdf7f9278b436560da6b194f92f530ba60c76672e64fbd4a04ff8d7e668b08f",
+        "66a941905c1dc731dd7ebe8dd2472c3ee9d468fcd4bf9c629c685edc0e39da6a",
+        "c0ecc081cc6a16185eb77bccfb85c49f443f1ff9959b78caa4d844e04546c696",
+        "b9c3bc038a541e86e25e0b0b2328d90d81fd4535a2bd8e64076e57848563dc7c",
+        "59c9c56474704ea82cadd2ecf27f1de527b8bcffea3a5a02645a2ed542f4a937",
+        "455ebe76131f82bad1d4a5ad400d28fe2a0cc7a4df50f60fd9fb9586c14cba3a",
+        "67ccdf578cfebf7a16a44494805f8554183c983be895b55e2e156945f07c5bf2",
+        "2c85b8c3b49dee6e167c281f065ffaef2578dccda0f99bf74473cb634cf50b35",
+        "dc8bb42a38bcf754254ebb4be971002e5f36d612341c08b3da10fcd9a0a6350e",
+        "9dc9ec6967910df060ff9b6cfa273d4f6a89d0e2403f6512c420aef45cb9251b",
+        "e453919f634481bd53fbff315a7621f7d41ec48ed6597e8af7523d305d4149c2",
+        "c7a89a1f27523e2a7ab4b0b6197df5c9d1de0a07fbe1f245e9f64948bf67963f",
+        "d545689f529f00f3bed006ad7578fe281bc3e399d91854cac926c35bc24b3802",
+        "f2aa90649c66ee55ae42555f123b8d8095d6404d1a8556d9ba04be5b1a0d4dea",
+        "2cf0acc1a0fffd51bf0714bd473802fb2d55bfdec1766faffb3af0c6df5fa413",
+        "0a25f58f6bfc58e0d79adbf90c5cee8ab32ff1ae300dc9009054b264e4e8a980",
+        "7dc7f0bcf384ee18715d988c5c98ca5f3c5974f588f22a730281af0c4da24afc",
+        "013fc842fe3137d5527cbfb8b04e60f363212679d352a8dda87974836d13e482",
+        "23a27b6131abe0a019885f1edc4c93d45f615f894f1f0f6cc2f0d3bd77c89ada",
+        "53dcd692efc15d940569f0c86668bd3e7cdfd4a6d7b3a89f13ad5aa987c15bc4",
+        "fa0d002cf9270b4a954b800ef2408b75556877da97df8b4a059fb824aaa4b9a2",
+        "5bcd99e5e35bd6939aae6aafbb83895be7a07b441981306c92311aaf22360bcd",
+        "4acde6d7e3c1f00bcbf4568ff9d0ae226ec656f25fe4f3c8ce4a2eb33573f787",
+        "a414f5b71375e5464a3d69efa73b6bfcecd5ff52fc0adc1c62f7f62eba0195df",
+        "71cd1f63b7786b89dead5f767fd8f9b150bcaab95972654daf76e6cdb671c0c5",
+        "f279246c27c7027b37de7de2adc928a731fa0fce67ec62fe959577e5ca76d1ff",
+        "586beaa80fae8e7f43b8d2eaa8068098f3e1bc528031f91890d04add7919d5ad",
+        "50ecced565ca89bc62efa52656d07520c5449bece4036026ebabfa82227ac1d3",
+        "860641e380b6e51b3d691a166e879bf303c6e52c1a5cd3ca1a19ae52fce02e80",
+        "fdef693aa844a639a4210900d2d316c2cb2577faf1a10a8998483c07f8c1a0ea",
+        "9608dd3d2bace21d4403f9ba180de984fa975942194d16835156887be84b3854",
+        "7f2d5dbd46f92374cc08bf159c644b00fd28cad030990e4d640687959c8b7db1",
+        "482aca66e3deb1762b20025ddb38e808198093b17cb1024563efad168b64809e",
+        "ecadbecf5fc2c9db7ad6a961d9117dcf33e7d10f36174774a782cb27f5e71345"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/academy-admissions/infrastructure/admission-observability-reader.test.ts",
+      "sourceSha256": "13a723b810b5682ff1d5e02d6e81482cfb3543500dbc7420594c79eb3f78f7ef",
+      "executionMode": "native_postgres",
+      "passed": 5,
+      "caseIdSha256": [
+        "00900f02cd70b980e551ec28728ba1a6f043e8be49123b48df8f42f68a8c7cc6",
+        "b8b38e7829a52f05a330f4bf93a2b9d90756bd2bf21a51d520ba00bed20b9dd4",
+        "dcbf150837f2e44d7eeba90bea74182287e25cf847aba641d09079c9f4092cf8",
+        "5bbfb0b5124a511a8331c281406eff445f8ee9ca715ac4782fb6e360c354fe45",
+        "04b43470a092a51ba03906e1945c8e5fae5861869b1db3d310956ceb67879907"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/academy-admissions/infrastructure/admission-private-data-retention.test.ts",
+      "sourceSha256": "8e5ce2d9c1ac5e47e144d95dc3ada3714b2d7b58508793fb65a4a08a221b593f",
+      "executionMode": "native_postgres",
+      "passed": 3,
+      "caseIdSha256": [
+        "8c579009744a1214c1fd6f447a5a1878817277f67f2a5520f80a3011b5c217d2",
+        "a37928b937fe852631eefa9d2073ad3654c92e380984244c835cf27fd4c84cf6",
+        "c516433e658965e74c5fadcb61fe8243e26439c39bf4d3ff5d3476fb97f48d97"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/academy-admissions/infrastructure/admission-retention-composition.test.ts",
+      "sourceSha256": "ac484abafe64b95c175b0c76cd7c04e8f82d448e54a710db80e528e441d2cd96",
+      "executionMode": "native_postgres",
+      "passed": 4,
+      "caseIdSha256": [
+        "b1e5d5b402f25392c6532b35420f41189f1cde2640f78ffdea02da5d238b04e4",
+        "83117e4d3d91e61d51025fb4535cdac047b485eb50e8b48109e98bb316c0a22f",
+        "bff8a04ef6b610bfff6240d5b957264989636cfd469dc4c4bc6b80c169d591aa",
+        "9b99c1004fc49f450964ad63757d83f6acaa65704e067bf412786ae6f7a3f6b0"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/academy-admissions/infrastructure/admission-security-and-privacy.test.ts",
+      "sourceSha256": "3ec926f4b7777e2fcd7b55816a1845bbaa34f575ad5ef4361be1f274e84d6f7b",
+      "executionMode": "native_postgres",
+      "passed": 1,
+      "caseIdSha256": [
+        "0432e97e8179a127655aae76215bde9edec4a8bb373c81af11b048e0cb028bf5"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/academy-admissions/infrastructure/admission-tribe-deleted-budgets.test.ts",
+      "sourceSha256": "2d50e487dbc3d92729aef9970a6f9049eba13a6a29e1ee685f47abdd43552a02",
+      "executionMode": "native_postgres",
+      "passed": 1,
+      "caseIdSha256": [
+        "05082d0b44c8926c8c44f09b0efb2e4adbc897da36926da35ba75a95249268dd"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/academy-admissions/infrastructure/admission-verification-scope-isolation.test.ts",
+      "sourceSha256": "3650165c15cb2f19536432810b510e57f49b04f5ce2e18ab76e0b8a4f2b4ea59",
+      "executionMode": "native_postgres",
+      "passed": 3,
+      "caseIdSha256": [
+        "6305878c4f0ceb06b3cd7da32f658ba360d39569936db77a34a3b74ffd735937",
+        "65569188de287dcba3584361e8df4710096e1208ecd40b5e8585b3adbc564c90",
+        "ab6bcc079f8efc97cf6f90653b1104d0d846a0a59db7ff9b9fff574120d2de35"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/academy-admissions/infrastructure/allowlist-binding-account-deletion.test.ts",
+      "sourceSha256": "fbe801a979931b812043691e9e5671cfeb32b04e48af516e9f2e65a61ff4146e",
+      "executionMode": "native_postgres",
+      "passed": 1,
+      "caseIdSha256": [
+        "d3977206453e7b9806e9a274faf9597ff3515e52230750c3a8713fefe514704c"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/academy-admissions/infrastructure/allowlist-import-material-retention.test.ts",
+      "sourceSha256": "45d0c67f2dfcde682f1e6ee56f6224f3a01bbbd487131a1e6044249c9330b7fb",
+      "executionMode": "native_postgres",
+      "passed": 2,
+      "caseIdSha256": [
+        "5787f744adc558c269b68b84a3c3714e1588485964de71c3531e4aa75df456e7",
+        "877f0e5e2aea6b045e61f6790979a4c54a0d761b3cd8f11d2cd66d68bc313037"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/academy-admissions/infrastructure/contact-verification-channel-failure-limits.test.ts",
+      "sourceSha256": "1ee94a589b02648d7dea97bf33009055264d560423fa77cf850ae37059f8b72b",
+      "executionMode": "native_postgres",
+      "passed": 3,
+      "caseIdSha256": [
+        "cdc6dcafbdba8e39587a28538a016a9c8c33fb46c3f9d958ef3be4b077bd8698",
+        "ee589db231f5bf1c11da6fe22f0015c3743fc01cdbbdbc7da5c97c7fba7b0efe",
+        "6144b0b5b85bb6565dcc817b18d449efdcd54549e46a8097bbe105af1e1232d0"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/auth/infrastructure/better-auth-client.test.ts",
+      "sourceSha256": "b0cc57398b017a59d33d6aeba0a8cbb6cb5cb3ddfb2662690e0da21c43e42e05",
+      "executionMode": "local_contract",
+      "passed": 8,
+      "caseIdSha256": [
+        "742ed9e49158ded979916c6dcd385b5d03723cf7094754b192c8af299250c253",
+        "4ba37c6badb903891a2bc64ca9a02421840adeea4a5179fd4d306de11cd2feba",
+        "0ba8cd1baff66ade29859bb27a8795f028ee68ce5cca0d08215130b5dcead026",
+        "08a50613720bb7380d563da4dfef5b6054fe9c15b5482ec30bfb6763e4149766",
+        "5543ee4fd57db0b30acc575309969a54318d10cfb8aefcfe41031e370461c67f",
+        "8a6c8e3df9616d7a8c357681dd9463ca620b440758b8f4a8a49582e1a858c1f0",
+        "7bb6634210bda2b8badc5e4f90e2030a2df25825692e766ea38fda96b7e6287d",
+        "5d8ea8c88f52f904c7984b7d15129b1d3af856881576c762b337f3c43196ffc9"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/auth/infrastructure/better-auth-private-http-contract.test.ts",
+      "sourceSha256": "be1a1dd92063e6df2f4b42349d4409f83dad5fccd64b4d6b38f026d8edc21637",
+      "executionMode": "local_contract",
+      "passed": 8,
+      "caseIdSha256": [
+        "58e933bf8ea00b333786ce1d167a455b0d42bc22503fdb04bc087376cf346aad",
+        "90776a29397dee26eedb0e2671a841312d47b7cd7f3b8d84c8f2b5186ea39e94",
+        "676e0e34ba3085489b18e8a8babaf0a89229359104a0cc648a31196641198a96",
+        "6786dd271b96262bcb416b1e425bb6e1959d96de8d8f984c29c4c766b202ba12",
+        "84aa63027915b6a8d1812849e1907994bde42027f98df01b382d9e71ba5cacc7",
+        "e296a92c7182a1e24de99e532f573485ea2597994cd9db8a24c9fe56cd1c84db",
+        "857c62328f51fbb4a8a45435998a5c9bb29d2959828b7239f4bc7a7359391906",
+        "736fea2401747bc8adb83c4e1a7042a490fbb11e99f6bd151a38df6f6af77032"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/auth/infrastructure/better-auth-private-http-native.test.ts",
+      "sourceSha256": "92cfb00a9d50f8558028410756c0e0b9c47967739a3479cd5472fe06f81a8648",
+      "executionMode": "native_postgres",
+      "passed": 1,
+      "caseIdSha256": [
+        "f28444736cd0770f4f7eb8c544eec4a7bd69a8df34b27dcdca199d09ff7fef0a"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/auth/infrastructure/better-auth-private-logger-native.test.ts",
+      "sourceSha256": "4fc45c2181b2f343ecadc6c92b16a5731dfc89361fa8e0e9271dfe7ec0bf587f",
+      "executionMode": "native_postgres",
+      "passed": 2,
+      "caseIdSha256": [
+        "d1843d871dff01ae0c5880e82e50c6ec00aeb7eca7aa68d456b3339db96edcda",
+        "0b8b2cd32c3806047b259f77635fe33e0b7c57c5bfa4bb5468ab988b8fa3d785"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/auth/infrastructure/better-auth-public-session.test.ts",
+      "sourceSha256": "996aea7f4b75c56434d912a33aa6527891ddc46b7923c65c6120cee5086520fb",
+      "executionMode": "local_contract",
+      "passed": 4,
+      "caseIdSha256": [
+        "ae8a51bb5a08312ce5d7ab03d5e4f562896ed2e381340376510c6e285d3b7764",
+        "b06f64ad3237c4ee576d1c781b3489daf887471a9ceee1e6563ac22ad3f432e2",
+        "9e56d55d9436c70fefd7d22d795926033b6a4c5ef76cbc8679577a205c6e0813",
+        "2fcd945a9adc28e2a62c523d39dc1f030fa81f587cc7e22bb9cd8747742a5ec3"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/auth/infrastructure/better-auth-server-auth-context.test.ts",
+      "sourceSha256": "b2b76b2cf25992b9a87c8556556b47888aa61a9beae90b0fc48b56d3354ab1c0",
+      "executionMode": "local_contract",
+      "passed": 3,
+      "caseIdSha256": [
+        "ac2796e8b642036d23dd1df0e2e253ea183e90c092541384df920817a9061caa",
+        "cba8ce8df9c3335cb826d38614cf243ece81e97564746deb83b6b71b4b041bf6",
+        "bd1fdc24acc984a2acd1376824ddea2ae1fa3fa968e657c84afe67db64510faa"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/auth/infrastructure/better-auth-session-lifetime.test.ts",
+      "sourceSha256": "b6257b42dc582a00b702d1811f77b70be8e2e4ff4d04587e53ffd10b60eeeb35",
+      "executionMode": "local_contract",
+      "passed": 3,
+      "caseIdSha256": [
+        "5a3773af2cea234dd56b23c6d67cbca76a6cb829332c24706e225bf78dcfd478",
+        "989a763a5b8e33eb82135f27c09f7662161497e7db56e2ba142ef255c40e6af4",
+        "004dccd64d617bb9b39e7a17cd401ac3e6734f151fae7dc9dc9487b1aeb5ab32"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/auth/infrastructure/google-evidence-plugin.test.ts",
+      "sourceSha256": "5c4275764c5f364cdd6e2d59e2280d7fd25704c5dab4cd9664675991877e1cb3",
+      "executionMode": "local_contract",
+      "passed": 17,
+      "caseIdSha256": [
+        "9a33f070018fd7cc76734d7cd1e52fb871bbf25ffe6a40c8b3370dc02829fc0d",
+        "cac3f4d0dec08b2e631d580ab65e03263b7ebeb6394fe04b9ab23a3444e2d4a1",
+        "2c87b5e23a2e14784c0ba553cec275d6500e8c9851b202fdffd0013dd6a872ab",
+        "4e12357297cacaf4adf645a7299daa1e27743704144ffffb23ff0cf54fd99df8",
+        "5bb866a3b6ae250c634489dd037e110d2984da26bb52f6f3030beb300a2a37b2",
+        "c677958852f69aea21dbf5da50555be1eff9862e00facd166e4ce39545d5ab8a",
+        "0956b438c2d4502ff0d513e5ffe386563792d330df0fee3bbc6fb38b12b90b6e",
+        "72b1664b9b348e069a93b4706d6b54d925458766f6a46cdbc3ae4f5891218f15",
+        "1b99ee5adf21e8a16bfcbdc829752be194b0c378e9fffe238c097646dd966938",
+        "e19a250772233654dfdbdcadaf502feb7bb536ddaca5aaeaec588637a1a38686",
+        "4a7f63a217a98fd50fda7e76a44b6e66fd661849b15fb00d9b48b9c6aa0250ee",
+        "a34641e6e320cf265519e73ce6b9184481b42d2a322490dac14799a84aa9babb",
+        "392bf24d28bd93c9e23d2914bc7a972ec0f199c52846a7904d091b56a1eba0bd",
+        "e7160eff9ceeaf50e323af95036437f9a2a0ef7ddaf184f569cc4b2e9cee1912",
+        "f2a652c22ab1aac998afe97044a962d11c8b708a0e6346c9d5ad650100ec5445",
+        "47ffe612dd19955d632ab5e949c994d452d0c14ed3dd55ee4246c6966e200ef8",
+        "f7e53d12081b33eeae6847fcd7c0227c80b62dcd23d532e131e3e9eef6deb6d0"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/auth/infrastructure/message-delivery-reauthentication-http.test.ts",
+      "sourceSha256": "df7799681699235c22332dc4a98c58cba1e15f53f7b91cc8f9614433390b1c3d",
+      "executionMode": "local_contract",
+      "passed": 3,
+      "caseIdSha256": [
+        "7b89b1e5287aed6ab05600255ee30d038f7872c6bf70266e98ff29fbe77b0835",
+        "ffa5b70cfb5dc5138e708103c863f27aa7c70e65f9d36ef623246feffd316c56",
+        "199127e17fcd7b43f1e33143d8a379ae9b6b56fc0eac2027621603595e4a4d7e"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/auth/infrastructure/reauthentication-http.test.ts",
+      "sourceSha256": "f038097f49caaaed0325c15ca23e0b0dc58bdebb1e9085c1813bb635b671c27b",
+      "executionMode": "local_contract",
+      "passed": 6,
+      "caseIdSha256": [
+        "cd362c707d7a38d0fdd6b0e3715cdfd47e63b6d9a3ad4f7b53bdae0cb6e9ae9f",
+        "f30fe4038b9e6907bb364cb18c6a5ed66fa26180061a8f15fc473885a6f72ed9",
+        "cd634e473bc7e03531945af390a849a6b6482a8964293ea512b4a073e7ea78ef",
+        "bb0c1622d76214d5c33eb6551224284b2363a9465185525b52e2aca91c968e61",
+        "f32a1343c5f01f4578d68c8a2af65e1b789fc62920edc7f1a745e4452c27b1f5",
+        "4edaf9a95465da3983d9330663b72d624adbf780353907d736d22c9cdb824c4a"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/application/message-dispatch-observation.test.ts",
+      "sourceSha256": "01abf46d4c2d5ba98a40689109d151b72287b3f2df23748799ee9dbd01ddc15c",
+      "executionMode": "local_contract",
+      "passed": 9,
+      "caseIdSha256": [
+        "39e26b4a7270fe1e818deea337da55d77072b74e98f853abe1cd5e33324e8e88",
+        "9d0058860bb5db690193aadcea57ddcdab77ad01fc39a12964fba51d161ac989",
+        "4be5efe547f7ff3a5440831035d462c20c22e894c9e141cc15987b9695903c08",
+        "b99cda9f122637813ba689bf67bde5874b1ff24119c754f4dc19ae98532814df",
+        "e9c10d3fcdd851ca9b8f5cdfd7233a463258a4eed8186759c50f80f921ee68b1",
+        "80b204c1bff8a8a22309ed123344a74e166c1f8b9aefbf1083d2589545fd1f9a",
+        "e076156d4c815f328e5f52eb54de37c80218dafea43b65f4110627552bc0c876",
+        "039f805128a49ba127600701404df78838c48564ab95b285795576c9067f783e",
+        "722aae072d9ac438e6abf880de6e7c7fe344e8b75e71bae1cf769e45249fcc21"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/application/messaging-usage-and-abuse.test.ts",
+      "sourceSha256": "12fca164b76d8d6c422dfd9ebe73e29edf9e5900bb8699a2d17a9e26f2b8087b",
+      "executionMode": "native_postgres",
+      "passed": 3,
+      "caseIdSha256": [
+        "514e221192933c583806f8d56c6d15d85da7befb3f15efac55a536467a1074ae",
+        "c5c7ad598231ea02ebeaaace8d47aab59fcdf905ea341295d228ebe99612e527",
+        "224884fa49e9a272997b936d23bf5551ecf9a019dfa28cce191accd33a1e0140"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/application/messaging-zero-quota-admission.test.ts",
+      "sourceSha256": "0296f3691e66586dde9efa4bedc3a2b0508a187c7f689cab5db1c4b7d0442b41",
+      "executionMode": "native_postgres",
+      "passed": 3,
+      "caseIdSha256": [
+        "6018ef5646e55024e729fe7fdcb27fce75938aa0485c83ff6991e74ad8848e2c",
+        "b70c422815f89b2e9bdeb753be4bd205fee31a84ca58472d93aaf3879c00985d",
+        "3d92813424e43c411e54c767811958b4969169029566993d35d860cc1c85b212"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/account-code-request-budget.test.ts",
+      "sourceSha256": "3912870937422e03fcd27b45208603b7ab0cd9883d4dda9afd812f14cbf4eb3a",
+      "executionMode": "native_postgres",
+      "passed": 1,
+      "caseIdSha256": [
+        "64c36785a000700dcb468192c24cae9ec15baba28b9ff6f48587ceb3f9ed2188"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/code-request-budget.test.ts",
+      "sourceSha256": "6103349bf42fe10eda261e91866218d52c38fcf25306eee4165fbc0bed13ec3f",
+      "executionMode": "native_postgres",
+      "passed": 5,
+      "caseIdSha256": [
+        "73f30570b514ca8968d5c58e116e81efd00211c4a5c04c3f8343cb34b470a4f0",
+        "18b3ec5d4e6d857f56a97158380771b1f4090a3b19b7a1342596974a1e8d1095",
+        "c9479b3850f4f7efb5f0975b14698c116231a0b84c27cd98c0a13ef857a309ab",
+        "a8feac2b373ec15cde235ff06d21dfd2c13c2d3f37a2920b491cefdadf02f2ee",
+        "32311d03d87cd5a9ae2ba7c4f2e595f1d542ca6d528501c7d278c3bc50494a5a"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/contact-budget-continuity.test.ts",
+      "sourceSha256": "fb4eaf85d47857ca7e9c59f2ba81c8b75898465e6f01aa34c0b3ce981dd13627",
+      "executionMode": "native_postgres",
+      "passed": 3,
+      "caseIdSha256": [
+        "2daac8962e9e4e5f93a79b00789b1b0df0850082f3683906fcc4daefa39fbac5",
+        "a93617d279c88b9507ad9f2faacb2f78604413d70d05822a8186229d8d115c2a",
+        "523e53b4d4bc3066301871a96d859cef24fc7dd38770536b6018bbf0f5edf0ac"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/credential-validation-budget.test.ts",
+      "sourceSha256": "41603b40ed341147e288e4e617163e592ff8ddc68f632a4e5fde9652b358d2d4",
+      "executionMode": "native_postgres",
+      "passed": 8,
+      "caseIdSha256": [
+        "1d69bbf927010b75ddf01aca3adc1fba636b5d938c01e68771219e4b23fe0ab2",
+        "5bc8fae835fe5b8f87845cd830453c3087e77f0b174163383a9a0bf2e3892f26",
+        "d43a3eba3329a4c91ec8b0ff127032efdd13c508824f9acc0d74714d90e01efe",
+        "162c19b986c0436acc4fee4dd87b42eee1ff9e7df2e11aff4c2ef0f14cb8c120",
+        "5228df5347ff0a55162dc0cbcf672c487327167b97267df02264cd17076369a7",
+        "4702f0206672264075196ef9772a47e0b54ffbd4ab00184ba1f09252054f42ca",
+        "5dcd9893bc2fbd90407b01ec70d8e5eab55134740ed271d89297cd732054f8be",
+        "a0d8ef5890dc966ee72a268f1d4ab4a7c843e20172e63a0efe771ab6ce90e89c"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/delivery-attempts-and-usage.test.ts",
+      "sourceSha256": "9670d7b73a12cb1ed05ab2ff9738c255308531295cf6518aa1e5d223d3f827f5",
+      "executionMode": "native_postgres",
+      "passed": 7,
+      "caseIdSha256": [
+        "df1c8f2c1b5115864f476526c247c60be8d4a64d7f337487e09127c383d2285c",
+        "e42a87146c78ecbcf889f6b3e5f915f1ae5d9434cd5e66e6b3196880339118b6",
+        "7cc5d7c795d913a874a2be06c464c1d69352fe9eceb0b4e0b951fc94960873c7",
+        "914fedc2292f280b3a652d9d6f7376093cc0d7eebc3300c294adad38805c4c3d",
+        "502a9653deac9be56322016fc1dde76e303412d4d98428de3141f463ceb484a2",
+        "c28570fef90c43e21e2f0f96f88fa1ca5dbad16b79e9cb8a8d4ac136f6f86f58",
+        "3f201acbc72b82c66286fd8c83fa4276788ff7a7492316c3d87f1fee69786357"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/encrypted-secret-store.test.ts",
+      "sourceSha256": "f218135730caafe992116c7e92d4ff5056afdb181db370846ebe679ba047017d",
+      "executionMode": "native_postgres",
+      "passed": 12,
+      "caseIdSha256": [
+        "04590f02948601671e45baee072d079ea0cce1fe73f388457531bbe4b2b94239",
+        "3d09e236f2591c9a04eba1492fcccaef57a964477cbbae7bd68a232c61b3adbf",
+        "3c5dade30bc54d5f40243979ca0e879e45907d0ddacf6049ee30d1980346a570",
+        "137ab925e7edf6f547851d8f9a925992193e2e49bb5a53a17152a876ad087cd2",
+        "0283f294d363604ea7ae75af5ab0f58b5e178483079adc5a48958a2d9aa4f3ae",
+        "f3801ac411ff056173656837c54be4a56ddd0fb90aa02d1768a5c569ab7f6ddf",
+        "0e1464f434a3428d5ef6cdef4e653e22db93ba565d5686b119deba28b72fa032",
+        "484c2bce7f2d96140fc2c08851da55afb70ec4684e4c4badcc32564ab6bc246b",
+        "301ce40ab3383a8de3f33db06dc96189a479bf47d7d7ff9f6f65b630862babea",
+        "c1561a44968856f9d756011bc1dd9a6258c3986701c02094b9e500ff1aad6592",
+        "b6c235c84af6f51a3c9ce809b0995c65b57da2f2f95bfca2f1e792670178e623",
+        "5a5c29d2351975fcd4658fab1e547dae8d2779641c01af26a88419c42a465422"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/messaging-candidate-expiration.test.ts",
+      "sourceSha256": "629e0f684b300861f0e02e6062e675f4a0bcdff999494240b5e95000ac7afd0f",
+      "executionMode": "native_postgres",
+      "passed": 3,
+      "caseIdSha256": [
+        "9efd95aeb5e726c977f343b1f0b38e3cd83b60cc9126ef6a9ee625c5ed394be9",
+        "3e10d93b88335ab0da7d08788774a9b040d3e0474b59b7408a70b0ed54a67f68",
+        "ef1e0e67c2141936c273f78d676aa0b0e2b6ecbd934c0e69d642e4b7b4dbb22c"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/messaging-crypto.test.ts",
+      "sourceSha256": "e89fa861cd22e54003a9104286d72e45fc6b5da01849cc305644b9260e2489d4",
+      "executionMode": "local_contract",
+      "passed": 28,
+      "caseIdSha256": [
+        "b406283d3a9e5db4009089151472f9fd12a36a5d38af2bad60d94a2501450be9",
+        "5b2436ad2ad2a0eb8be00330b6b14f37051bb5458fd80722a87c88c8b4a3e0b8",
+        "3ddbfbbea17c4a8b689f463bbc72983d7b20c4d0eaacb40fb0a5e785254cf659",
+        "3eaeba400e310a8c219e5024b693ee91c1124adcf3c59f12ffc3210c80a72e22",
+        "0a514f1d42b5a46ebcb16314e47a82d09eae59ef70936ea98762dd4452ed2c44",
+        "e2f653ead4dd5d28fd273b4651c96ff03341427eb13b8110a1f47e2910279e12",
+        "27789632b34ba97b93657e033ae7d2d5b80129039d4366b263c3fcd9af87a65b",
+        "4b8615ff17c99ca5437531bb023017390195ab5cb4609e8d7ca36eddc3097831",
+        "0a616e33500d8d39712150d5e50a23985bf4bec7d5662103b1ce68e9e8e2a270",
+        "3f64a4d7dbf78bcb5f30cc6e523378b4bf250951025c782b95849ea3a18a1339",
+        "911cc9755cf0e9dd2c4139557097b02ac81b87085cb013a8dbf561c38cff27fe",
+        "c8b760dc996ab0a4267bee5fe67e29ef61aa874f44374a26beac89ef98e42ae3",
+        "dc382ea2bd9ce201f3492bb363be67495a33ede61c406ad30d70e58554ae24f9",
+        "08f5a275b82ff69df170af54095a5fa17b399c3b2da271a09744738b388c05e2",
+        "accdd48d463c4d673baa15865349a864399b8e619be508725cf5178c0c1498a8",
+        "b2b98283cc4dfdfa90b278a5e1ebe9f874c97c1580751fab069abddc0facb328",
+        "6df88451f56ba1b3c38f79566ee82876b1043c812e10e403becda2655b57206e",
+        "cd27028b437364afc0bda4ea74bbd51d6673898aa186764e9a75f740d6f23244",
+        "7ac4ef1074e3213f596b44332668f15c324fdcbc33e1b56d58b10fef17399253",
+        "d8b7df338cae3a25a6cc611a76f3e500762917f31dee7849ccfd89257a3e6823",
+        "e93bdfbd8f4905a8e02207e7337fdcc600c862b57807a6e1b7c0a5c20e477425",
+        "c431ce58abbe12ee90595f84f1ce4fd68bc8fe7804c6dfb39455c89606824397",
+        "d97328d624010f8f2632805eecaf7d825968509bde265eaf9399dd273b22798a",
+        "b9440b51435073e56995373acaf5a5e3abc97521a8ee8ff54d3ba141bc933d8e",
+        "cf6bcea003ac108e0412f22b148f666249e63034be44a44bb7e83eb906fbc7f5",
+        "e5e73fba3f2bdba4277edfe5261c5eb89ab0514bfda4d6ab6511172dcfa34ae9",
+        "1b3e58e801d32ba95406217ad7fd8c69184440f301ca356f919e36af35a6001d",
+        "cc8382d52291c29a6b5687f6244a99d672de6c704adaa403d29e2347abf7a0d0"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/messaging-hosting-security.test.ts",
+      "sourceSha256": "bfc1b5de41a453bedb104bb24277842efdd8b4abf4fa94642014eeb179053073",
+      "executionMode": "local_contract",
+      "passed": 3,
+      "caseIdSha256": [
+        "a34207eeac51e408d130fd61645eff8754c21e2400b82baf39710c3cfb78d1f8",
+        "3640c4241c2242dae03aea530725d61355d33091749f8d60f577208feb1ede30",
+        "dc8fa87be7afe4ca0899ccf0b8768052755349b23907a93254b25bb6ecd25b99"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/messaging-isolation-and-rotation.test.ts",
+      "sourceSha256": "e9d21dc8f13e216d44ef9cba6612fdb67b55ba5ffaf7196e0a3eac780f43cb85",
+      "executionMode": "native_postgres",
+      "passed": 2,
+      "caseIdSha256": [
+        "bf98c01b8a842a8bdb3b2aecfd9688e137eb81fcde1dbb98e65ac8d0c6642780",
+        "16fff8d12a734f594da0dae671a7885bc5b71a6bcdc0e4d3ac6c25328572d9b2"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/messaging-key-material-continuity.test.ts",
+      "sourceSha256": "7c720ae6ad1291b3ad644b4f6fe07d211d9a94438dd1a0bbebe19eb8085321b1",
+      "executionMode": "native_postgres",
+      "passed": 3,
+      "caseIdSha256": [
+        "d41831be53db88e88b84988d32fee48728673802ae68138fae990c3f0e90cd07",
+        "9f2d04b4e1b5cfe1821135c7ae8e16b96ae90f17e749c8b819b9e829b63c15ca",
+        "f4beb18e7379e0c35483dd658db5dcd668bcdedb897a7bf15bef0d02df396e5c"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/messaging-protection-key-rotation-deletion.test.ts",
+      "sourceSha256": "dc711fd78e1381ea8a3092e655b3b08cf2be717be1a650bc1b19f27d360e7918",
+      "executionMode": "native_postgres",
+      "passed": 2,
+      "caseIdSha256": [
+        "9f8f011f1a294fcbb10dc66d78f315ddf9407aa094c0d7fe67a322c612893cec",
+        "55dc11f3a3f8bac0609b13748138dc8853cc3c60d6498ee4581da186f3c4ee6a"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/messaging-protection-key-rotation.test.ts",
+      "sourceSha256": "41878ec40a704cf7256cf5bd070ece5e4343fcc040fe93198eed41077c47b59c",
+      "executionMode": "native_postgres",
+      "passed": 5,
+      "caseIdSha256": [
+        "0493cfa0a43a508186ee6a172ae624110e64d8f7d76dbac396dd4b4db2dee6f0",
+        "2d8d96ecb0c0c057fdfe67ac3df54254a4cbbd11e8efc87dcb677d4b1423ebf5",
+        "d5d0f9a7be22a9c05e7277cac130305164e0a9aecf1246d18870f5c0e5282fce",
+        "b819985d3c781ea4db0e262818573d3792e645cb3234dbb3a4ef6633697a189c",
+        "2a8e5efc634726e7aa8efe7302ec8b97950c1d89f63380bb272ba844006a1536"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/messaging-public-contracts.test.ts",
+      "sourceSha256": "6632aa07cf7c4f058c0c4fd965215b7c670521c4e55eabc1ac86d23fcd3d0ab5",
+      "executionMode": "local_contract",
+      "passed": 10,
+      "caseIdSha256": [
+        "4d9b7eca8b513d6aa0b8b03c6092c112338db679fa780d00aee25e292287d397",
+        "5b6febe883f805917a9b820fff9831cca912fcaf34aae7e6c481e847cab90d5d",
+        "01e313e964bda9d434129e0640019d381b23d6c55bf64a87d239dae6382e828f",
+        "0fe863c8f7d7a3064a55d48d6608bab33ec411cc4263232570fb678d6f917381",
+        "847ce64d9daf07f1ef912e01ac386bab6ebc9b23938171fa44aa4806e3c93d45",
+        "5830b88114aa597d4f7b3ae47ecf060e80fc9f25fd9561e66daa0ef258f8dcdf",
+        "58a6f00367ea59697e7896ee2a468f9ac0924de172b907e0665bb06f98b86e75",
+        "96781e98341f5aa220f534bb767767bcaad95fca45ae2eab1ad6bc966fc28514",
+        "cb89892808d6c562c61ae7199408ecce553e9dc8918f8fc9c58218744e712f91",
+        "91a113d3f3e0f51225b64b635f4b51379abbc83e02b884c0316081c39956e93d"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/messaging-retention-and-key-rotation.test.ts",
+      "sourceSha256": "675e01c8c99164649d69531993af670540b78b335cc269397e26f03ace38d336",
+      "executionMode": "local_contract",
+      "passed": 2,
+      "caseIdSha256": [
+        "d50c5863ee802a41e024f753c643c43ecef0fe3ff8e8a73b9069feba9528e7ac",
+        "ac9d6d385d003074cdaf2024754141d82df4b98cda0afb21ad4d539c5f1d1d00"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/payload-key-rotation-persistence.test.ts",
+      "sourceSha256": "f733132a604e7a84c4d7a673a9e3c95d6315a220fce9f053d8802af60125f449",
+      "executionMode": "native_postgres",
+      "passed": 1,
+      "caseIdSha256": [
+        "a313788db23ae5d6952b28faa5ab5f483aa5bc04311079ade75f880f5b279d21"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/platform-country-marker.test.ts",
+      "sourceSha256": "b8fc2bf81fd50fd9c770b9d6610dadd73f7d6cf7078c6730546f13a2f419215f",
+      "executionMode": "native_postgres",
+      "passed": 2,
+      "caseIdSha256": [
+        "542c7a4f6044e7c8a3cb6a3d12c53d33ac14f13b3a9af784dceb6518990766c5",
+        "96846ed40d29218c334981c41515c7ae972f43bf31e2b4a55a91b03baf2f20d8"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/retired-secret-purge-deadline.test.ts",
+      "sourceSha256": "9e4b633a38f0a526a6fe10567bbd9b10010b6a78eea288568748bdb81409714f",
+      "executionMode": "native_postgres",
+      "passed": 1,
+      "caseIdSha256": [
+        "671319124dc04ded7f1a4f7b3d9ca22844bc08c4a2424f682919a9779b8cbb45"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/shared-verification-bucket.test.ts",
+      "sourceSha256": "813f2ed1a30f4b53b28ac7f7b526dab151d06362b8153618402a585b23988dd4",
+      "executionMode": "native_postgres",
+      "passed": 1,
+      "caseIdSha256": [
+        "07ceb16a192061c49cb8d2b7212d7ca8b78917e83e85de987283eb553b0fe46c"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/verification-material-maintenance.test.ts",
+      "sourceSha256": "9a89cf7687d7743d38e47dc7b46ddac250a84eb233fbad92440ea4a4bba718a6",
+      "executionMode": "native_postgres",
+      "passed": 3,
+      "caseIdSha256": [
+        "8fc345d8b7ee82b8bfc071c903339bcaf5f39e0c3acf043532a393234d9f2323",
+        "e2c72f29989c812d38392088b5449c74dc552ff212eec5e47b01aca0c4e77043",
+        "7178534497a3a0ddb4d25de99204e4d752158293b1d0866e6640e43a0c81babb"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/verification-quota-connection-session.test.ts",
+      "sourceSha256": "9c28147f665be5ab58880992d0d4c8c68a21dbf31a7d13d77c7139732b2de77f",
+      "executionMode": "native_postgres",
+      "passed": 1,
+      "caseIdSha256": [
+        "a6b75cc5a8963e56dfd423eb2730dd51774c200132e68de07423d36550f702c0"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/messaging/infrastructure/zavu-message-delivery-sender.test.ts",
+      "sourceSha256": "d8566af1868eb85679fac732db41a471984cb3f6e88d0d03414be072f92d6278",
+      "executionMode": "browser_and_sdk",
+      "passed": 16,
+      "caseIdSha256": [
+        "6ad515424c2e520962d76dc3e1346748f7421ff6e6ce24976bf64af9679ec8c5",
+        "19ac021248bacf395016066ba1976705dd8973914bbfaba0557d4d2eeed39261",
+        "cab2765ae17e36e46bf2411ce449d3e712766cd76520c97d9559e00cecd55e99",
+        "b59afadd356cb71f6ea8a564e657b2e4851c15800f731e042a2f01e431a64a5c",
+        "c939e0070fc6266e88e29f6dcfe40335be9d00dbf04da1d57921eab6e5d18c67",
+        "7e27c79289181b983a071b14f505bbd3aa64106a8218d051015de378e6e8753c",
+        "3e97ac3ceeaf5509d80f9130f26a9538952ee29d710487078bb394b39dfc4b12",
+        "a5105fbf1060df47466c0dbe98fe6ea8c244595382a4b349d19b48e58aa39887",
+        "1e6ad7341aa5a1ea2bb3bb3da5d83f6fd9d591621c5b0bbd56eed619e1333b74",
+        "09073cae02bc15addbc27490028edf5918ba467c5459a0b9d198efc1c21a40e4",
+        "1d93af7662e63e01c7011d6bf94a9374f1eca021d731afa358346ca3a6aff945",
+        "3336e03c01af083adbc42d2d421b0accad28a50a097127f32043adfe7b5c7d75",
+        "3e0e30e9a83fb439b20d88a00dc507437208e08230ce36d69937e6dd02c0730b",
+        "2698f9ffc4c1c55ec5c6c27c611c0ae9b87e799b72a007199956342f4326132c",
+        "a1b80666e74000a510dc802362497520759a6bce37303b041a7fe566f2d421a6",
+        "33aa9efbc4ea6e4ff2b497068ea5ab2ad9c10e6d2a4fad19d5573e8f996e0531"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/shared/infrastructure/has-allowed-request-origin.test.ts",
+      "sourceSha256": "56eeca59d803bc29ba3bce956cf13de5b59f6292ee3d0ba1054001c3250e2690",
+      "executionMode": "local_contract",
+      "passed": 16,
+      "caseIdSha256": [
+        "5787da26b15d55defa1def2864a84ad2041389c861f3172dd8988ba750f6b27b",
+        "dcec3d0bafdc67d86731efc13095668dec71b36e9ee46cbc41ffaafa9fd551d3",
+        "396e1356fc02e8f2b9c18209115efbac23adcc7182676a033c0db0a0902ee14b",
+        "8d2b2980a10595f4f20a309863be33a6c5361b97ac22ad9b73f4fdb5fb2be01f",
+        "75110f0201b02c95a445b936ce40766c1d7e1114f828ac10b2a3ef8037a41afb",
+        "a891deb595b1006882e6447bf18ae041098a9489b306aebe09b3cbd05cef6441",
+        "f5a6c3e1e6405914fb3589310f155109dfdd7c954cfbd594d4048b7c31d72cea",
+        "a27f1599c83e0bebedb9c95245249396140b445936f368237fcf6dcabb546c2d",
+        "450d54f8d11fb94c6a6e51f983b342496689205a62a9731f871368f53813678f",
+        "a9e13cc6d8cd59e7dc4567ddc17fdb62b404567b6479788bdec7d1f470536966",
+        "9f50c3be5590443e6f6831e0a1f4619033c0795e1662cd6d5e44e980162eaaf7",
+        "cf6bd9bf92fa3eadd3512329c3570a2d59f017d36afff93780db26dd06bbb7e5",
+        "2aa6219e5555e7837c4b5c4210bd888e32a172f37756760bfc11a15d658f257d",
+        "98e3a0b8f0b8e0d12fedde82569d361d0a9568fa448154798a9ace1517f8bdcf",
+        "e724e994e9cddd8261d18b2bbe9cf339d73acfddcfe74728e369942e0efbbe02",
+        "3415d508df734436f59733f8694cbb7f0a13bde6d795b64b010099ba49f52d4c"
+      ]
+    },
+    {
+      "path": "tests/unit/modules/shared/infrastructure/private-next-request-logging.test.ts",
+      "sourceSha256": "8369a4149064e8c2a08c3f7064d0b42c7f39264991a1fe93b4e578723aaaece0",
+      "executionMode": "local_contract",
+      "passed": 1,
+      "caseIdSha256": [
+        "a3b06a0a062f337514c85ac2323f8e91d44a3fee4ac0e6ff58718dcf38f89a75"
+      ]
+    },
+    {
+      "path": "tests/unit/pages/academy-contact-verification-routes.test.ts",
+      "sourceSha256": "8b55f0e41de1078ac7cf56293aa945fc64148ec4ba80d37baf675f64b5c79ddb",
+      "executionMode": "local_contract",
+      "passed": 78,
+      "caseIdSha256": [
+        "368e58ba8305ef0bc088af4cb6f2b2a3d4ec0592ccce80cc53761638d2715021",
+        "b6c94a014df3d900c86aad7edd46878970ff8c3b11bba74ab58caef5910a3080",
+        "7749f673c1647eb57ca8da5a6682b0dd54aae497c4e8bc287301e786657883cd",
+        "10e683a2e3954a1ff472903a93748daa30e69a91b2da9ea9cd3c5897870cc62c",
+        "f0436dcff6f1d29e9dcbfbdcaeeccb60c5cbe9528a49188dd1ae00290d169f38",
+        "6813c1b6d0c0163bba82e9d4966df206e3f2a9d16bfe75dec2d46df52204721d",
+        "e5e464666b54a015c23cff7328d66be186dac665a14262ed5cd82894ec4634ed",
+        "65c7ca3f451b215ca352665128bb9043cb6decdcc3c25dfb09b4e70400c7f359",
+        "8dedd7c783b7c0f4a2938621970d5ef8091a9525d2cbdae60fd8846d9c364416",
+        "0e407999a018cca2a12ae9fdbd95ce0e863ce07ca8cd329e00c29b167f34e355",
+        "4da0b1f429b79da2545f498014ad5ad8aa385796f85262134924f9dfab111420",
+        "5074a65184d443e1ca37e7ea783a6eb58fce4d91f317389f9f79e6e499fd9ac0",
+        "f885e41a98027d541b726c06de09161e5d38584138ca669170f7911d7ff825c7",
+        "f0a16d63fdbf8ac9c70d93ca8c93c51485ff54310dd400b5c935b02a86ce2db4",
+        "8091bc9ab28116cc6f45a9e42783099a6fd71fe2a898638d7720c5a78858dae8",
+        "e0358c85ebd65e5c741e9768d96573bf62c0eb83be9d57f072a2a4d0f09a7fcc",
+        "c95f4e44c5353f34b19e7aa1b8e2ee7dd2bf04c619254e25d588de208fa1b78a",
+        "1cdb7b2ef8df93306fa8f91a5c5967488555335f9bb5beee1cf49e05eef94763",
+        "b7bf16d05f30023cc9598356014bee0ba6b56a5704b17101b103440edbec3b4c",
+        "877a327ea0e3567fdb1385bd39259bfbebf17103d6c6480686e94bf3b38891b8",
+        "d3ce2492241c72a7588518c36dc4230f553de1cd7eec77435451aa2157dee719",
+        "3df8691fe997958a5b4aaacb5c87c43f9953e34f046e49c9f930ba1def4b2228",
+        "2a0571dfcb2c1ccc395cb5ee6424609d9a9529ceea402d3f4d4b6f71c4f201b0",
+        "17acbc4aaf4d53ac03331c297a1f567274da241140a8da2f7375ce0c029648ea",
+        "ae0a7d364b0492b37028905c27dad06236f011340c520ff0161bc3d7ccd910f4",
+        "e37f379b6438085e11efd0310c1ac7432ad34d97d9b87519aeba13ac35388ba0",
+        "b864131567b81c61312953fbf4fa1c781eaf2c44e2057a3d5013a68da1cc1502",
+        "6b09444a375ca527bec6310aa6fa5f3171a60bcb8621a7b4dffbc7b264e85796",
+        "e051af9fc73e409991b2d6e6d226c13b9d916abca99cd9bfb7abbb6a7680492a",
+        "34a4037303ee7ecc0edfa1bfa4ae410d51ea315dd5abdd6572e39ca579443fa7",
+        "8ca421d7a0cbf266a750082e974d4bfecfef9539e218c64221ca46722b32d3c3",
+        "cc838ad1a15157e68d36a87c24625b2c0652fdc58b6f8d6f09651f6777dab24f",
+        "f87626a3a303bef0bf310423de20329ad4b7e7902dfe4ea5153fddb34652e6a3",
+        "4e70fbdbcf9334da6396b45500544f714cfee26d6aefab275b06b0e5a7075a21",
+        "981a0c47e9bc3d4387bf26830dd5ec2ac99718f77291011cf9de126fe6ca87c7",
+        "dcc57b20db0fec2cfc31ea03d39f48e365ac3d5bc6b1e69bef7e7a61d8df5ebe",
+        "62ff6cee6d6a0b36e51827db6f2c47a21690c7c37fa05511e63d6802bea03438",
+        "b2c4e6a3f23456ae332f76a3fc00d9a148facdf4178c34b1f4c72c3a1765bbab",
+        "7ae45c34d9a3c5fa3c4c28441f03d41891f40dd9ebd3383ce35b5378cecca614",
+        "54b8383e4edbf7750a7a6db2b4cfdb567aa871e077d435354837ec395d02b2aa",
+        "fb25cb43a2e8275c5fb066769d55fa183ae4c174537a90cbbe75d85f5b6a5bfd",
+        "33ec873e6acddfb817fd97f5c9ce036b90c44e1ebc862d99ae0e2fefaa8bebb1",
+        "543bae552e419bcbe261b85924bfdb474650d35838c6819f8720ba61bf70dbe2",
+        "8dbefb7eac1ad008b9a32437947228907177c32b195040e4c88ce5b2d39bf63e",
+        "4bbecc05a4dc1c02053779fcbfbda7639c751d77c2f1b2c275816ffcc0a17477",
+        "f51eb570f496ff79477969ca874329c9870244d237d97c95d71a61ed02339a53",
+        "b281582459a88fd367c00d27991d386636c620942c6e0f8162e467d9e72cf53a",
+        "7df07ecaaf794d0b75bf1a09c76368e87302f7c250246f6d5933110bafbf8d35",
+        "314b74be140618a5f9229bfff45f8eec9d5c07906d65e3afc1c25ac2fca9ed49",
+        "e5782f17c0530f50a7987b49d80b211ec3a57f5b3032ee45b14b29a4373aa8bb",
+        "2a5c6a82dacaaf4f90ce2bac88480264ced9e37b5155bf4482cef857c0aff4cd",
+        "f2ffbacb8825df909c5e99d6ade775a3edea8005f98e683bcd18990e389de092",
+        "965e010e93fad7af7c8a86a7ea102ec8a75cbf32704364efc46a7e6edb3aff08",
+        "6655587410e1dd4bad869bd8c9a320e32e0591d75eba7be8bfab7314ca2aaa10",
+        "9fcdff6068bb58ea9d0db3b515e4ad3e51536ac140a37ecaa68a9743d77b83f5",
+        "246061436df68c6fe1bd9b4182e5753fda2874d1db25b654aee9d96f7f6bf2c5",
+        "16ff8698d144961594d494ede26dda18b64113d4683b90bc9eb6fb9bef75319c",
+        "4419b1c79c2b49b83f2472ac0aa77757bc9cd4ca0a02bb0ef11312ea0872b677",
+        "04d7ce5bc216554f8710d70dac481715c486c71a4cda5e260310985373427d80",
+        "1bef8acacea34c455ec0722d7d054d179b58aae92fd646f2a7864444a374fb54",
+        "71d74c927f4fef94aa22284569c9ab4e33d9bf9b6206959747f74ae9c8039606",
+        "8a0464dab5c7f9893653b84811e631c5a3378f09fc6129be0b8c43f6271941b0",
+        "46da2d526771896c2fe830f335686b7129e9cb870f23b29eded5e57f33b77def",
+        "d7214338df77e8cdcf7b8991366860699328329abe9617624521abce9813b6ee",
+        "c7ee1bbcd7eeed2764436d1ae50e3cb73419cd434bb1efca7b8d47ff3c2cf144",
+        "2075aaa8a86f70a34e511003503804e5b53357eea08dd68fef913a6f5e72de43",
+        "5601376a723fdbd1be2988c7cac82b842ee2365482539c0ee147ecc883e5c765",
+        "0594e4dede43e457eed7a4a1851bb7ef0b1383cf2d8aa9e07a31592b4eaf1c67",
+        "8c1bf3f92673c5dae20e54bf7b90705b21a3f3c09a13c4000dcfbad07231df3a",
+        "05751fe366314e3930a287a780c10136aa03fdd9e813aff84aa1369f92c249c4",
+        "c8d1676ceacb03ae10edde366680c323d06be31a1d1025cb9224afc6587b142c",
+        "fe9f1efd6f67a35cf5f8d135d3772d5c5187ef980260d6dee0a576b96acc7332",
+        "1166fdc4d927619dd5ce3e464af278a3bd58c0d9aa39771836e47c3f32435f4f",
+        "01d97ff8eef8afea2927fed815e06a29410b0a0aac0c3a8596d1c3c69c191997",
+        "80def8ebffad0faf24afb6a37b590b65eba5f4459b454be1eb6eb264be970db3",
+        "fce5fce47e1080fedecddee78e9820b7dc9ae16e5261c69d13c92aa51c9c29c8",
+        "0a1e510ec4166d5ac6651b3abe5fa63ef8623c9010852626ca833b581c5785a1",
+        "9796c223133379c720ba5bd67ee3bd176c3deaac71b16bb0eda6b3ab6858b6cd"
+      ]
+    },
+    {
+      "path": "tests/unit/pages/admission-dispatch-final-logger-native.test.ts",
+      "sourceSha256": "10d760898d1b9a5324f73abfbf79a453043786a30577bb5224b9ebba4dc76300",
+      "executionMode": "native_final_reporter",
+      "passed": 1,
+      "caseIdSha256": [
+        "62d775d18f89c0e12327d78aa553b3a0eaffdb72ef0c0eb941aa28364e946240"
+      ]
+    }
+  ],
+  "additionalFocalEvidence": {
+    "path": "tests/unit/modules/messaging/infrastructure/message-delivery-repository.test.ts",
+    "sourceSha256": "0fe3fb16d1f8f160011edb1b2a677dc32117c03dd494c62e28bc3afa265f0f77",
+    "testNamePattern": "should audit quota deferral once without claiming an attempt or treating evaluated policy as authorized usage",
+    "environment": {
+      "RUN_ADMISSION_SQL_TESTS": "1",
+      "RUN_ADMISSION_BROWSER_TESTS": "0"
+    },
+    "passed": 1,
+    "filtered": 13,
+    "caseIdSha256": "7d8ae8f79438b460fb4b597fd3cf80a294bc261be07d1dd174b31ed7dfefe99e",
+    "scope": "Only the explicitly selected queued-policy-reduction scenario; the thirteen filtered cases are not certified."
+  },
+  "build": {
+    "observedAt": "2026-10-15T10:08:20.954Z",
+    "head": "9abf8c1e594df63d52c63ec326f12da80b9de33a",
+    "builtHead": "9890f3213257ba27a76ded3887d0861a8112c569",
+    "productFiles": 1727,
+    "matched": 1727,
+    "eolOnlyDifferences": 121,
+    "otherDifferences": 0,
+    "buildExitCode": 0,
+    "buildIdSha256": "24e0d42cbf681d3d7e6b6bb5b63d8933e8e7354ae730b366cc0891915a669b40",
+    "normalizedProductManifestSha256": "01ce55df6e699565d129b8ac129e7655d8fa4b33067b8dd261c097319ef5c1b4",
+    "versionedMigrationFiles": 175,
+    "normalizedMigrationManifestSha256": "bf982dc13fd647822b95fe7f3b231b284e6dc74ac7f510ed3881e798f2c9fe84",
+    "node": "24.21.0",
+    "pnpm": "12.6.0",
+    "next": "16.3.4"
+  },
+  "resources": {
+    "observedAt": "2026-10-15T10:18:52.145Z",
+    "allOwnedValidationBranchesAbsent": true,
+    "productionAndPilotPreserved": true,
+    "otherBranches": 0
+  },
+  "operationalObservation": {
+    "observedAt": "2026-10-15T10:18:45.381Z",
+    "localInputs": {
+      "scope": "Configured inputs of this local observation process only; not the running app or original hosting",
+      "environmentPresent": false,
+      "epochPresent": false,
+      "recoverySetting": "unconfigured",
+      "keyringsInputPresent": false,
+      "keysDecoded": false,
+      "originalMaterialMatch": "not_verified"
+    },
+    "pilot": {
+      "scope": "Exact existing protected pilot; aggregate metadata only",
+      "readOnly": true,
+      "branchVerified": true,
+      "queryCompleted": true,
+      "secretBytesSelected": false,
+      "decryptionAttempted": false,
+      "providerCalled": false,
+      "mutationAttempted": false,
+      "ownerVisibility": true,
+      "tribes": 1,
+      "candidates": 1,
+      "selected": 0,
+      "protected_credential_records": 1,
+      "connection_states": [
+        "draft"
+      ],
+      "credential_states": [
+        "valid"
+      ],
+      "prepared_capabilities": 0,
+      "external_attempts": 0
+    }
+  },
+  "operationalGatesApproved": false,
+  "fullNewCommitCiApproved": false
+}

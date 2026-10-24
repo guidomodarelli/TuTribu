@@ -1,0 +1,131 @@
+name: Recorridos reales con lector
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/admission-reader-journeys.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admission-reader-journeys-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  HUSKY: "0"
+  NEXT_TELEMETRY_DISABLED: "1"
+  SITEPING_ENABLED: "false"
+
+jobs:
+  reader-journeys:
+    name: Lectura nativa de admisiones
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Verificar la capacidad temporal exacta
+        id: capability
+        env:
+          READER_EVENT_NAME: ${{ github.event_name }}
+          NEON_ADMISSION_READER_TEST_API_KEY: ${{ secrets.NEON_ADMISSION_READER_TEST_API_KEY }}
+          ADMISSION_READER_BRANCH_NONCE: ${{ vars.ADMISSION_READER_BRANCH_NONCE }}
+          ADMISSION_READER_EXPECTED_COMMIT: ${{ vars.ADMISSION_READER_EXPECTED_COMMIT }}
+        run: |
+          if [ "$READER_EVENT_NAME" = 'workflow_dispatch' ] && [ -n "$NEON_ADMISSION_READER_TEST_API_KEY" ] && [ -n "$ADMISSION_READER_BRANCH_NONCE" ] && [ "$ADMISSION_READER_EXPECTED_COMMIT" = "$GITHUB_SHA" ]; then
+            printf 'enabled=true\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'enabled=false\n' >> "$GITHUB_OUTPUT"
+            printf 'Pendiente: falta la capacidad efímera vinculada a este commit.\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Obtener las fuentes
+        if: steps.capability.outputs.enabled == 'true'
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Preparar herramientas aisladas
+        if: steps.capability.outputs.enabled == 'true'
+        uses: ./.github/actions/setup-quality-gate
+
+      - name: Compartir la caché de navegadores del runner
+        if: steps.capability.outputs.enabled == 'true'
+        run: printf '%s\n' "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/admission-reader-browsers" >> "$GITHUB_ENV"
+
+      - name: Instalar la infraestructura nativa
+        if: steps.capability.outputs.enabled == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y locales orca dbus-x11 at-spi2-core gsettings-desktop-schemas dconf-cli openbox xvfb xauth xdotool pulseaudio pulseaudio-utils speech-dispatcher speech-dispatcher-espeak-ng meson ninja-build pkg-config libatspi2.0-dev libatk-bridge2.0-dev python-gi-dev python3-dasbus gettext itstool yelp-tools gobject-introspection libgirepository1.0-dev libdbus-1-dev libglib2.0-dev libxml2-dev libxi-dev libxtst-dev
+          pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Compilar AT-SPI oficial con sus overrides Python
+        if: steps.capability.outputs.enabled == 'true'
+        run: |
+          git -c advice.detachedHead=false clone --depth 1 --branch 2.58.6 https://github.com/GNOME/at-spi2-core.git "$RUNNER_TEMP/admission-current-atspi-source"
+          test "$(git -C "$RUNNER_TEMP/admission-current-atspi-source" rev-parse HEAD)" = "1e883ff1739ad584571d38d63735e1cc67a18b0b"
+          PATH="/usr/bin:$PATH" meson setup "$RUNNER_TEMP/admission-current-atspi-build" "$RUNNER_TEMP/admission-current-atspi-source" --prefix=/usr --libdir=lib/x86_64-linux-gnu -Dintrospection=enabled -Ddocs=false -Dpython=/usr/bin/python3
+          meson compile -C "$RUNNER_TEMP/admission-current-atspi-build"
+          sudo meson install -C "$RUNNER_TEMP/admission-current-atspi-build"
+          sudo ldconfig
+          test "$(pkg-config --modversion atspi-2)" = "2.58.6"
+          /usr/bin/python3 -c 'import gi; gi.require_version("Atspi", "2.0"); from gi.repository import Atspi; assert Atspi.Accessible.__hash__.__module__ == "gi.overrides.Atspi"'
+
+      - name: Preparar la publicación oficial del lector
+        if: steps.capability.outputs.enabled == 'true'
+        run: |
+          git -c advice.detachedHead=false clone --depth 1 --branch 51.1 https://github.com/GNOME/orca.git "$RUNNER_TEMP/admission-orca-source"
+          test "$(git -C "$RUNNER_TEMP/admission-orca-source" rev-parse HEAD)" = "244bdadd98f07fe9bfda9326fab621d686c70d2d"
+          PATH="/usr/bin:$PATH" meson setup "$RUNNER_TEMP/admission-orca-build" "$RUNNER_TEMP/admission-orca-source" --prefix="$RUNNER_TEMP/admission-orca-install" -Dmathcat=false
+          meson compile -C "$RUNNER_TEMP/admission-orca-build"
+          meson install -C "$RUNNER_TEMP/admission-orca-build"
+          glib-compile-schemas "$RUNNER_TEMP/admission-orca-install/share/glib-2.0/schemas"
+          printf '%s\n' "ORCA_BINARY_PATH=$RUNNER_TEMP/admission-orca-install/bin/orca" "GSETTINGS_SCHEMA_DIR=$RUNNER_TEMP/admission-orca-install/share/glib-2.0/schemas" 'ORCA_SOURCE_COMMIT=244bdadd98f07fe9bfda9326fab621d686c70d2d' 'ORCA_EXPECTED_VERSION=51.1' 'ORCA_SETTINGS_FORMAT=gsettings' >> "$GITHUB_ENV"
+
+      - name: Compilar la aplicación real
+        if: steps.capability.outputs.enabled == 'true'
+        run: pnpm run build
+
+      - name: Ejecutar los recorridos reales con lector
+        id: native
+        if: steps.capability.outputs.enabled == 'true'
+        env:
+          RUN_ADMISSION_SQL_TESTS: "1"
+          RUN_ADMISSION_READER_JOURNEYS: "1"
+          NEON_ADMISSION_READER_TEST_API_KEY: ${{ secrets.NEON_ADMISSION_READER_TEST_API_KEY }}
+          ADMISSION_READER_BRANCH_NONCE: ${{ vars.ADMISSION_READER_BRANCH_NONCE }}
+        run: |
+          export ADMISSION_READER_ARTIFACT_ROOT="$RUNNER_TEMP/admission-reader-journeys"
+          mkdir -p "$ADMISSION_READER_ARTIFACT_ROOT"
+          printf '{"atspiVersion":"%s","atspiSourceCommit":"1e883ff1739ad584571d38d63735e1cc67a18b0b","orcaSourceCommit":"244bdadd98f07fe9bfda9326fab621d686c70d2d","configuredProfileBackend":"gsettings"}\n' "$(pkg-config --modversion atspi-2)" > "$ADMISSION_READER_ARTIFACT_ROOT/native-platform.json"
+          dbus-run-session -- xvfb-run -a --server-args="-screen 0 1600x1200x24" bash scripts/ci/run-admission-reader-session.sh pnpm exec vitest run tests/manual/admission-linux-reader.native.test.ts --no-file-parallelism --reporter=json --outputFile="$RUNNER_TEMP/admission-reader-results.json"
+
+      - name: Proyectar el resultado sin datos privados
+        if: always() && steps.capability.outputs.enabled == 'true'
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile, mkdir, writeFile, rm } from 'node:fs/promises';
+          import { join } from 'node:path';
+          import { ADMISSION_READER_PROBE } from './tests/support/constants/admission-reader-probe.mjs';
+          const directory = join(process.env.RUNNER_TEMP, 'admission-reader-journeys');
+          await mkdir(directory, {recursive:true});
+          const results = await readFile(join(process.env.RUNNER_TEMP, 'admission-reader-results.json'), 'utf8').then(JSON.parse, () => null);
+          const codes = Object.values(ADMISSION_READER_PROBE.failures);
+          const collected = await readFile(join(directory, 'failures.json'), 'utf8').then(JSON.parse, () => []);
+          const collectedCodes = Array.isArray(collected) ? collected.flatMap(failure => codes.includes(failure?.code) ? [failure.code] : []) : [];
+          const failures = [...new Set(collectedCodes.length ? collectedCodes : results?.testResults.flatMap(suite => suite.assertionResults.filter(test => test.status === 'failed').map(test => codes.find(code => test.failureMessages.some(message => message.includes(code))) ?? ADMISSION_READER_PROBE.failures.journey)) ?? [ADMISSION_READER_PROBE.failures.journeyNotStarted])];
+          const nativeLog = await readFile(join(process.env.RUNNER_TEMP, 'admission-reader-native.out'), 'utf8').catch(() => '');
+          const readerRuntime = await readFile(join(directory, 'runtime.json'), 'utf8').then(JSON.parse, () => null);
+          await writeFile(join(directory, 'result.json'), JSON.stringify({commit:process.env.GITHUB_SHA,productJourneysValidated:results?.success === true,passed:results?.numPassedTests ?? null,failed:results?.numFailedTests ?? null,skipped:results?.numPendingTests ?? null,failureCodes:failures,readerRuntime,sayAllOnLoadDisabledObserved:nativeLog.includes(ADMISSION_READER_PROBE.automaticReadingDisabledMarker),realMessages:0},null,2)+'\n');
+          await rm(join(process.env.RUNNER_TEMP, 'admission-reader-results.json'), {force:true});
+          NODE
+
+      - name: Conservar la evidencia saneada
+        if: always() && steps.capability.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: admission-reader-journeys
+          path: ${{ runner.temp }}/admission-reader-journeys/
+          if-no-files-found: error
+          retention-days: 7

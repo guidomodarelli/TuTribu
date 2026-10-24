@@ -1,0 +1,416 @@
+{
+  "sourceCommit": "def0f9fded43b1ab8cc7251f1975f0980bf83eb3",
+  "bundleSha256": "76921bff9fa4cfd0b712074265f6ba78690c1600300b961e944c04d359c2e09b",
+  "compute": {
+    "minimum": 2,
+    "maximum": 2,
+    "region": "aws-us-east-1"
+  },
+  "databaseStatistics": {
+    "trackingMode": "top",
+    "planningEnabled": false,
+    "serverVersionNum": 170011
+  },
+  "measurement": {
+    "warmupDurationMs": 3627.667301000096,
+    "setupDurationMs": 2928.4384779999964,
+    "networkQueryP95Ms": 2.7465540000703186,
+    "networkSamples": 20,
+    "participants": 100,
+    "admitted": 50,
+    "pending": 50,
+    "failures": [],
+    "p95Ms": 4971.4229500000365,
+    "targetMs": 3000,
+    "peakInFlight": 100,
+    "pool": {
+      "maximum": 100,
+      "acquisitions": 300,
+      "releases": 300,
+      "errorReleases": 0,
+      "peakWaitingCount": 0,
+      "peakTotalCount": 100,
+      "waitingAfter": 0,
+      "checkedOutAfter": 0
+    },
+    "eventLoopP95Ms": 102.039551,
+    "facts": {
+      "entries": 10000,
+      "requests": 100,
+      "basic_members": 50,
+      "deliveries": 0
+    },
+    "realMessages": 0,
+    "nodeVersion": "24.16.0",
+    "sourceCommit": "def0f9fded43b1ab8cc7251f1975f0980bf83eb3",
+    "bundleSha256": "76921bff9fa4cfd0b712074265f6ba78690c1600300b961e944c04d359c2e09b",
+    "databaseConnection": {
+      "sourceVariable": "DATABASE_URL_UNPOOLED",
+      "hostnameHasPoolerMarker": false
+    },
+    "measurementWindow": {
+      "startedAt": "2026-10-18T14:27:39.717Z",
+      "finishedAt": "2026-10-18T14:27:44.691Z"
+    },
+    "diagnostics": {
+      "wallDurationMs": 4973.278950999957,
+      "cpuUserMs": 1521.366,
+      "cpuSystemMs": 391.924,
+      "eventLoopActiveMs": 1993.3219359999057,
+      "eventLoopIdleMs": 2979.9607979999855,
+      "eventLoopUtilization": 0.4008060757078102,
+      "accountTransactions": 100,
+      "commandTransactions": 200,
+      "accountTransactionP95Ms": 544.9248369999696,
+      "commandTransactionP95Ms": 3793.6151370001025,
+      "admittedP95Ms": 4971.7725820001215,
+      "pendingP95Ms": 4959.878772000084
+    }
+  },
+  "databaseProfile": {
+    "status": "available",
+    "source": "neon_inspect_db_outliers",
+    "scope": "owned_compute_since_start",
+    "limit": 25,
+    "statements": [
+      {
+        "position": 1,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "stage_admission_notification_obligation"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 4792.11,
+        "meanExecutionMs": 47.921099999999996,
+        "sharePercent": 19
+      },
+      {
+        "position": 2,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "current_app_user_id"
+        ],
+        "calls": 500,
+        "totalExecutionMs": 4350.088000000001,
+        "meanExecutionMs": 8.700176,
+        "sharePercent": 17.3
+      },
+      {
+        "position": 3,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [],
+        "calls": 100,
+        "totalExecutionMs": 2365.692,
+        "meanExecutionMs": 23.65692,
+        "sharePercent": 9.4
+      },
+      {
+        "position": 4,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "read_own_admission_request_eligibility"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 2337.574,
+        "meanExecutionMs": 46.75148,
+        "sharePercent": 9.3
+      },
+      {
+        "position": 5,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "tribe_members"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 1365.699,
+        "meanExecutionMs": 27.31398,
+        "sharePercent": 5.4
+      },
+      {
+        "position": 6,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_requests"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 1254.289,
+        "meanExecutionMs": 12.54289,
+        "sharePercent": 5
+      },
+      {
+        "position": 7,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_audit_events"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 1019.806,
+        "meanExecutionMs": 10.19806,
+        "sharePercent": 4
+      },
+      {
+        "position": 8,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_decisions"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 971.054,
+        "meanExecutionMs": 19.42108,
+        "sharePercent": 3.9
+      },
+      {
+        "position": 9,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [],
+        "calls": 100,
+        "totalExecutionMs": 961.431,
+        "meanExecutionMs": 9.61431,
+        "sharePercent": 3.8
+      },
+      {
+        "position": 10,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [],
+        "calls": 100,
+        "totalExecutionMs": 541.585,
+        "meanExecutionMs": 5.415850000000001,
+        "sharePercent": 2.1
+      },
+      {
+        "position": 11,
+        "operation": "with",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "assert_authorized_messaging_key_material_proof"
+        ],
+        "calls": 400,
+        "totalExecutionMs": 524.675,
+        "meanExecutionMs": 1.3116875,
+        "sharePercent": 2.1
+      },
+      {
+        "position": 12,
+        "operation": "update",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_operations",
+          "clock_timestamp"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 481.41200000000003,
+        "meanExecutionMs": 4.81412,
+        "sharePercent": 1.9
+      },
+      {
+        "position": 13,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_allowlist_entries"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 465.769,
+        "meanExecutionMs": 4.65769,
+        "sharePercent": 1.8
+      },
+      {
+        "position": 14,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_operations",
+          "clock_timestamp"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 450.746,
+        "meanExecutionMs": 4.50746,
+        "sharePercent": 1.8
+      },
+      {
+        "position": 15,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "read_own_admission_request_summary"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 433.102,
+        "meanExecutionMs": 8.66204,
+        "sharePercent": 1.7
+      },
+      {
+        "position": 16,
+        "operation": "update",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_requests",
+          "clock_timestamp"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 417.562,
+        "meanExecutionMs": 8.35124,
+        "sharePercent": 1.7
+      },
+      {
+        "position": 17,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "messaging_key_material_context_is_current"
+        ],
+        "calls": 400,
+        "totalExecutionMs": 330.423,
+        "meanExecutionMs": 0.8260575,
+        "sharePercent": 1.3
+      },
+      {
+        "position": 18,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_membership_effects"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 229.936,
+        "meanExecutionMs": 4.59872,
+        "sharePercent": 0.9
+      },
+      {
+        "position": 19,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "account",
+          "clock_timestamp",
+          "current_app_user_id",
+          "global_identity_evidence",
+          "global_session_identity_bindings",
+          "recent_authentication_evidence",
+          "session",
+          "user"
+        ],
+        "calls": 400,
+        "totalExecutionMs": 112.44999999999999,
+        "meanExecutionMs": 0.28112499999999996,
+        "sharePercent": 0.4
+      },
+      {
+        "position": 20,
+        "operation": "with",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_decisions",
+          "academy_admission_policies",
+          "academy_admission_requests",
+          "clock_timestamp",
+          "current_app_user_id",
+          "tribe_academy_settings",
+          "tribe_members",
+          "tribes"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 109.66499999999999,
+        "meanExecutionMs": 2.1933,
+        "sharePercent": 0.4
+      },
+      {
+        "position": 21,
+        "operation": "create",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "account",
+          "global_identity_evidence",
+          "user"
+        ],
+        "calls": 1,
+        "totalExecutionMs": 70.97,
+        "meanExecutionMs": 70.97,
+        "sharePercent": 0.3
+      },
+      {
+        "position": 22,
+        "operation": "create",
+        "scalarProjection": false,
+        "mentionedObjects": [],
+        "calls": 1,
+        "totalExecutionMs": 63.272999999999996,
+        "meanExecutionMs": 63.272999999999996,
+        "sharePercent": 0.3
+      },
+      {
+        "position": 23,
+        "operation": "other",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_decisions",
+          "academy_admission_requests"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 62.437,
+        "meanExecutionMs": 1.24874,
+        "sharePercent": 0.2
+      },
+      {
+        "position": 24,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_decisions",
+          "academy_admission_requests",
+          "academy_admission_verification_proofs",
+          "global_identity_evidence"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 56.698,
+        "meanExecutionMs": 0.56698,
+        "sharePercent": 0.2
+      },
+      {
+        "position": 25,
+        "operation": "create",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "account",
+          "clock_timestamp",
+          "session",
+          "tribes",
+          "user"
+        ],
+        "calls": 1,
+        "totalExecutionMs": 47.468999999999994,
+        "meanExecutionMs": 47.468999999999994,
+        "sharePercent": 0.2
+      }
+    ]
+  },
+  "acceptance": {
+    "exitCode": 1,
+    "passed": false,
+    "failedAssertions": [
+      "p95Ms < 3000"
+    ],
+    "inputsStable": true,
+    "toolingStable": true,
+    "cpuProfilerEnabled": false,
+    "computeOverride": false,
+    "poolOverride": false
+  },
+  "cleanup": {
+    "remainingBranches": 3,
+    "originalBranchesPreserved": true,
+    "nonOriginalBranches": 0
+  },
+  "productionSqlExecuted": false,
+  "realMessages": 0
+}

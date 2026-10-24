@@ -1,0 +1,40 @@
+{
+  "commit": "100f5d7ef0580a94263759109b12744c154533d7",
+  "runId": 39120899104,
+  "runConclusion": "failure",
+  "productJourneysValidated": false,
+  "passed": 0,
+  "failed": 1,
+  "skipped": 0,
+  "failureCodes": ["native_reader_speech_missing"],
+  "lastMilestone": {
+    "stage": "public_confirmation_focus",
+    "engine": "chromium",
+    "width": 390
+  },
+  "session": {
+    "commandExitCode": 1,
+    "cleanupStarted": true,
+    "cleanupFinished": true,
+    "workflowCancellationRequired": false,
+    "gtkPortalActivated": true
+  },
+  "cleanup": {
+    "keyRevoked": true,
+    "secretRemoved": true,
+    "variablesRemoved": 2,
+    "ownedBranchAbsent": true,
+    "originalBranchesPreserved": true,
+    "remainingBranches": 3,
+    "independentInventoryConfirmed": true,
+    "failures": 0,
+    "ownerSourceStable": true
+  },
+  "qualityGate": {
+    "pushRunId": 39120880796,
+    "pushConclusion": "success",
+    "pullRequestRunId": 39120884353,
+    "pullRequestConclusion": "success"
+  },
+  "realMessages": 0
+}

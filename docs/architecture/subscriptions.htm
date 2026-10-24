@@ -29,7 +29,7 @@ a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
 .c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
 .c-ok{background:#e8f7f2;border-color:#4aaa8c;color:#1a6b52;}
 .c-red{background:#fef8f6;border-color:#e8917a;color:#9e3d25;}
-table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+.table-wrap{overflow-x:auto;max-width:100%;}code{overflow-wrap:anywhere;}table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
 th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
 td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
 tr:last-child td{border-bottom:none;}
@@ -116,7 +116,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <p>El estado de la membresía refleja la combinación entre la suscripción remota y la política local. <code>tribe_members.status = blocked</code> se reserva para bloqueos recuperables del checkout pendiente o para bloqueos de conducta.</p>
 <p>Cuando Mercado Pago confirma que una suscripción vigente dejó de estar activa, la membresía se conserva como historial.</p>
 
-<table>
+<div class="table-wrap"><table>
   <thead>
     <tr><th>Situación</th><th>Status</th><th>Reason</th><th>Acceso</th></tr>
   </thead>
@@ -140,7 +140,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
       <td>Sin acceso, historial conservado</td>
     </tr>
   </tbody>
-</table>
+</table></div>
 
 <p>Un usuario bloqueado por pago puede iniciar un nuevo checkout con el precio actual de la tribu. Un usuario bloqueado por conducta no puede reingresar por el flujo de pago. Una membresía <code>removed/subscription_inactive</code> no tiene acceso ni aparece como miembro visible; puede conservarse para auditoría, webhooks y reconciliación.</p>
 </div>
@@ -189,7 +189,7 @@ mercado-pago-plan-webhook:&lt;preapprovalPlanId&gt;:&lt;contentHash&gt;</pre></d
 
 <p>Los webhooks <code>subscription_preapproval_plan</code> reflejan los cambios del proveedor sobre el precio local:</p>
 
-<table>
+<div class="table-wrap"><table>
   <thead>
     <tr><th>Mercado Pago</th><th>Efecto local</th><th>Permite nuevas suscripciones</th></tr>
   </thead>
@@ -210,7 +210,7 @@ mercado-pago-plan-webhook:&lt;preapprovalPlanId&gt;:&lt;contentHash&gt;</pre></d
       <td><span class="badge b-red">no</span></td>
     </tr>
   </tbody>
-</table>
+</table></div>
 
 <p>La app modela el trial con <code>trial_frequency</code> y <code>trial_frequency_type</code>, mapeados desde <code>auto_recurring.free_trial.frequency</code> y <code>auto_recurring.free_trial.frequency_type</code>. Si Mercado Pago no devuelve <code>free_trial</code>, el precio local queda sin período de prueba.</p>
 </div>
@@ -250,8 +250,15 @@ mercado-pago-plan-webhook:&lt;preapprovalPlanId&gt;:&lt;contentHash&gt;</pre></d
 </div>
 
 <p>La reconciliación de suscriptores de un precio es un <strong>caso de uso reusable</strong>, no una regla propia de la pantalla de precios. Puede dispararse desde el botón manual, un webhook, un job periódico o una reparación puntual de admin. El caso de uso consulta cada <code>mercado_pago_preapproval_id</code> local contra Mercado Pago y reconcilia la base local antes de responder.</p>
+<p>La reconciliación por precio y la de diagnóstico general proyectan los registros devueltos por <code>UPDATE RETURNING</code> sobre el snapshot de la sentencia antes de calcular membresía y cantidades. Una CTE modificadora no puede releer sus propios cambios desde la tabla base dentro de esa misma sentencia. La tercera vía, desde la suscripción del miembro, consume los datos ya persistidos. El cálculo compartido pertenece a <code>subscriptions/infrastructure/repositories/subscription-membership-reconciliation-sql.ts</code> y queda limitado a la tribu afectada.</p>
+<p>Solo el producto <code>membership</code> produce efectos en <code>tribe_members</code>. Se conserva un estado legible <code>active/muted</code> ante una suscripción vigente, y se recupera el snapshot comercial cuando corresponde. Los bloqueos por conducta, remociones administrativas, roles privilegiados y un fundamento básico de admisión vigente no se modifican desde billing. Las suscripciones de academia conservan su estado comercial y acceso por su propio owner. La procedencia paga y el fence de tribu de los tres escritores de reconciliación están integrados con el owner de resolución externa; T026 conserva sus pruebas SQL reales. Esta composición integra los owners actuales de membresía/moderación y resolución externa. No acredita la habilitación de producción ni los ensayos operativos de OG-06.</p>
+<h3 id="protected-paid-membership">Procedencia paga y fundamento básico</h3>
+<p>Webhook de membresía, reconciliación de precio y diagnóstico leen estado externo autoritativo y ejecutan su owner en el mismo fence de tribu. Una fuente <code>membership</code> legítima y actual puede recuperar un snapshot comercial conocido y consumir su receipt; si existe una pendiente, la cancela por <code>external_resolution</code> con decisión de sistema y aviso indivisibles. No inventa aprobación de admisión, efecto básico ni liberación de un canje personal. La respuesta incremental permite actualizar el resultado sin recargar toda la ruta.</p>
+<p>Una suscripción anterior inactiva solo retira su propia procedencia; no revoca <code>admission_membership_effect_id</code> vigente ni otra fuente paga todavía válida. La aprobación básica sobre la misma instancia preserva rol, fecha y <code>muted</code> sin reactivar pagos, grants o matrícula. Conducta y remoción administrativa prevalecen ante las tres vías de pago; el owner de moderación revoca todos los fundamentos consumidos de esa instancia y cierra su pendiente sin una segunda aprobación.</p>
+<p>Historial <code>NULL</code> y restricciones comerciales de <code>leader</code>/<code>guardian</code> permanecen cerrados ante recuperación automática. La comparación de productos, beneficios y cursos está acreditada por los repositorios reales y no convierte un contrato <code>academy</code> en autoridad de pertenencia. Ver <a href="academy-access.htm#protected-membership-access">los límites de acceso</a> y <a href="academy-admissions.htm#membership-protected-boundaries-validation">la conservación de fundamentos</a>.</p>
 
-<table>
+
+<div class="table-wrap"><table>
   <thead>
     <tr><th>Estado en Mercado Pago</th><th>Cuenta como suscripción del precio</th><th>Acceso</th></tr>
   </thead>
@@ -282,7 +289,7 @@ mercado-pago-plan-webhook:&lt;preapprovalPlanId&gt;:&lt;contentHash&gt;</pre></d
       <td>Removido por suscripción inactiva</td>
     </tr>
   </tbody>
-</table>
+</table></div>
 </div>
 
 <div class="section">
@@ -305,7 +312,7 @@ mercado-pago-plan-webhook:&lt;preapprovalPlanId&gt;:&lt;contentHash&gt;</pre></d
 <div class="section">
   <div class="section-num">09</div>
   <div class="section-title">Ingreso público por plan actual (open join)</div>
-<p>El link "crudo" de la tribu (<code>tutribu.app/&lt;slug&gt;</code>) permite que una persona que no es miembro se suscriba usando el <strong>plan pago marcado como actual</strong>, sin necesidad de un token de invitación.</p>
+<p>Este recorrido corresponde al modo clásico que nunca activó el corte protegido. En ese scope, el link "crudo" de la tribu (<code>tutribu.app/&lt;slug&gt;</code>) permite suscribirse con el <strong>plan pago marcado como actual</strong>, sin token de invitación. El selector exige <code>admissions_control_activated_at IS NULL</code> y excluye el acceso de academia: precio actual, <code>is_current</code> y <code>free_join_is_current</code> no sortean el marcador ni ofrecen un checkout alternativo de admisión protegida.</p>
 <ul>
   <li>Un visitante <strong>autenticado</strong> que no es miembro y abre el link recibe la pantalla de pago cuando existe un precio <code>is_current = true</code> y la tribu lo ofrece como vigente (<code>free_join_is_current = false</code>). Si no hay plan pago actual, el link no hace nada (<code>notFound</code>).</li>
   <li>Un visitante <strong>autenticado cuya membresía quedó bloqueada o removida por un pago fallido</strong> (<code>blocked / payment_blocked</code> o <code>removed / subscription_inactive</code>) también recibe la misma pantalla de pago para reintentar la suscripción, en lugar de un <code>notFound</code>. Un bloqueo por conducta (<code>blocked / conduct_blocked</code>) o cualquier otro motivo no relacionado al pago sigue oculto con <code>notFound</code>. La rama de render reusa el conjunto <code>SUBSCRIPTION_RETURN_BLOCKED_REASONS</code> (solo <code>payment_blocked</code> y <code>subscription_inactive</code>), que refleja exactamente las policies RLS de recuperación del open join.</li>
@@ -313,7 +320,7 @@ mercado-pago-plan-webhook:&lt;preapprovalPlanId&gt;:&lt;contentHash&gt;</pre></d
   <li>Un visitante <strong>no autenticado</strong> es redirigido a <code>sign-in</code> con <code>callbackUrl</code> al link de la tribu; al volver autenticado ve la oferta o <code>notFound</code> según corresponda.</li>
   <li>El checkout reusa el motor existente de Mercado Pago a través del nuevo caso de uso <code>startTribeOpenJoinSubscription</code>, que arranca el checkout <strong>sin invitación</strong> y sin exigir una membresía recuperable previa.</li>
 </ul>
-<p>El entrypoint de la ruta lee la oferta con <code>getTribeCurrentSubscriptionOffer</code>, que se apoya en la función <code>SECURITY DEFINER</code> <code>tribe_open_join_current_paid_offer(slug)</code>. La función resuelve la tribu por <code>slug</code> y devuelve el precio actual (nombre, monto, moneda, frecuencia) solo cuando la tribu lo ofrece como vigente (<code>free_join_is_current = false</code>) y el precio tiene plan de proveedor sincronizado, sin requerir token.</p>
+<p>El entrypoint de la ruta lee la oferta con <code>getTribeCurrentSubscriptionOffer</code>, que se apoya en la función <code>SECURITY DEFINER</code> <code>tribe_open_join_current_paid_offer(slug)</code>. La función resuelve la tribu por <code>slug</code> y devuelve el precio actual (nombre, monto, moneda, frecuencia) únicamente en ese modo clásico sin corte, cuando la tribu lo ofrece como vigente (<code>free_join_is_current = false</code>) y el precio tiene plan de proveedor sincronizado, sin requerir token. Los retornos y cobros legítimos existentes conservan su reconciliación; no autorizan una nueva alta por el writer antiguo de una academia protegida.</p>
 <p>Las funciones de open join comparan <code>tribes.slug</code> de forma sensible a mayúsculas. Los slugs se guardan en minúscula (el value object <code>tribe-slug</code> los normaliza al crearlos) y las lecturas de la tribu (<code>getTribePageAccess</code>, <code>getTribeBySlug</code>) resuelven el slug sin distinguir mayúsculas. Para que un link con otra capitalización (por ejemplo <code>/Matematica-Pro</code>) llegue a la misma tribu, los casos de uso <code>getTribeCurrentSubscriptionOffer</code> y <code>startTribeOpenJoinSubscription</code> normalizan el slug del route param (lo recortan y pasan a minúscula) antes de invocar las funciones <code>SECURITY DEFINER</code>; de lo contrario la oferta quedaría como no disponible y el checkout colapsaría a pago no disponible aunque exista un plan pago actual.</p>
 <p>El checkout (<code>startCurrentPriceSubscriptionCheckout</code>, usado por <code>startTribeOpenJoinSubscription</code>) parte de la misma lectura de <code>public.tribes</code> por <code>slug</code> para resolver <code>target_tribe</code>. Para el visitante de open join esa lectura queda oculta por RLS y, sin tribu, <code>current_price_id</code> y el resto del contexto colapsaban a <code>null</code>, devolviendo <code>missing_current_price</code> en lugar de reservar la suscripción y la membresía pendientes. Por eso, solo en la rama de open join, <code>target_tribe</code> hace <code>coalesce</code> de la lectura RLS con la función <code>SECURITY DEFINER</code> <code>tribe_open_join_id_by_slug(slug)</code>, que devuelve únicamente el id de la tribu cuando ofrece su plan pago actual como vigente. Los flujos de invitación y de reintento siguen usando la lectura RLS directa.</p>
 <div class="callout c-warn">

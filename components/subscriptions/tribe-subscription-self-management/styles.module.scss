@@ -14,7 +14,7 @@
   align-content: start;
   display: grid;
   gap: 1rem;
-  max-width: 42rem;
+  max-width: none;
 
   &__eyebrow {
     color: var(--muted-foreground);

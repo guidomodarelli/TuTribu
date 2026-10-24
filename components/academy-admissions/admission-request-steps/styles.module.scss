@@ -1,0 +1,45 @@
+@use "../../../src/styles/workspace-panel";
+
+.AdmissionRequestSteps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  overflow-wrap: anywhere;
+
+  &__facts {
+    @include workspace-panel.facts;
+  }
+
+  &__fact {
+    display: grid;
+    min-width: 0;
+    gap: 0.25rem;
+  }
+
+  &__term {
+    @include workspace-panel.fact-term;
+  }
+
+  &__value {
+    @include workspace-panel.fact-value;
+  }
+
+  &__success {
+    margin: 0;
+    color: var(--success);
+    font-weight: 500;
+  }
+
+  &__error {
+    @include workspace-panel.feedback;
+    @include workspace-panel.feedback-alert;
+  }
+
+  &__resend {
+    @include workspace-panel.callout;
+  }
+
+  &__note {
+    @include workspace-panel.note;
+  }
+}

@@ -1,0 +1,400 @@
+{
+  "workflowRun": 39146945762,
+  "url": "https://github.com/guidomodarelli/TuTribu/actions/runs/39146945762",
+  "sourceCommit": "4a6d45975c8a6bca7cebcec473ab20d44fd334f5",
+  "kind": "platform_preflight",
+  "passed": false,
+  "orcaVersion": "51.1",
+  "orcaSourceCommit": "244bdadd98f07fe9bfda9326fab621d686c70d2d",
+  "platform": {
+    "atspiVersion": "2.58.6",
+    "atspiSourceCommit": "1e883ff1739ad584571d38d63735e1cc67a18b0b",
+    "orcaSourceCommit": "244bdadd98f07fe9bfda9326fab621d686c70d2d",
+    "configuredProfileBackend": "gsettings"
+  },
+  "productJourneysValidated": false,
+  "realMessages": 0,
+  "diagnosticLimitations": {
+    "legacyPipelineMarkersVersion": "48.9",
+    "legacyTextInterfaceFlagMeans": "bound_read_completed_not_interface_presence"
+  },
+  "cases": [
+    {
+      "engine": "chromium",
+      "width": 390,
+      "markupVariant": "empty",
+      "passed": true,
+      "failureCode": null,
+      "speechPhase": "live",
+      "initialInterruptCount": 6,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32768,
+      "liveSpeechObserved": true,
+      "liveAudioPeak": 27760,
+      "nativeAccessibility": null,
+      "speechDiagnostic": null
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "markupVariant": "seeded_text",
+      "passed": true,
+      "failureCode": null,
+      "speechPhase": "live",
+      "initialInterruptCount": 5,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32738,
+      "liveSpeechObserved": true,
+      "liveAudioPeak": 30279,
+      "nativeAccessibility": null,
+      "speechDiagnostic": null
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "markupVariant": "seeded_marker",
+      "passed": true,
+      "failureCode": null,
+      "speechPhase": "live",
+      "initialInterruptCount": 5,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32767,
+      "liveSpeechObserved": true,
+      "liveAudioPeak": 31032,
+      "nativeAccessibility": null,
+      "speechDiagnostic": null
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "markupVariant": "empty",
+      "passed": true,
+      "failureCode": null,
+      "speechPhase": "live",
+      "initialInterruptCount": 5,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32676,
+      "liveSpeechObserved": true,
+      "liveAudioPeak": 17445,
+      "nativeAccessibility": null,
+      "speechDiagnostic": null
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "markupVariant": "seeded_text",
+      "passed": true,
+      "failureCode": null,
+      "speechPhase": "live",
+      "initialInterruptCount": 5,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32767,
+      "liveSpeechObserved": true,
+      "liveAudioPeak": 30855,
+      "nativeAccessibility": null,
+      "speechDiagnostic": null
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "markupVariant": "seeded_marker",
+      "passed": true,
+      "failureCode": null,
+      "speechPhase": "live",
+      "initialInterruptCount": 4,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32715,
+      "liveSpeechObserved": true,
+      "liveAudioPeak": 31649,
+      "nativeAccessibility": null,
+      "speechDiagnostic": null
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "markupVariant": "empty",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "initialInterruptCount": 1,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32768,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "nativeAccessibility": {
+        "scanned": 41,
+        "unavailable": 8,
+        "matches": [],
+        "liveRegions": [
+          {
+            "role": "status bar",
+            "attributes": {
+              "tag": "p",
+              "atomic": "true",
+              "live": "polite",
+              "xml-roles": "status",
+              "id": "status",
+              "container-live": "polite",
+              "toolkit": "WebKitGTK",
+              "container-atomic": "true",
+              "container-relevant": "additions text",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          }
+        ]
+      },
+      "speechDiagnostic": {
+        "backendLogEntries": 0,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "labelInDebug": false,
+        "expectedWords": 4,
+        "observedWords": 0
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "markupVariant": "seeded_text",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "initialInterruptCount": 1,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32680,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "nativeAccessibility": {
+        "scanned": 41,
+        "unavailable": 8,
+        "matches": [],
+        "liveRegions": [
+          {
+            "role": "status bar",
+            "attributes": {
+              "tag": "p",
+              "atomic": "true",
+              "live": "polite",
+              "xml-roles": "status",
+              "id": "status",
+              "container-live": "polite",
+              "toolkit": "WebKitGTK",
+              "container-atomic": "true",
+              "container-relevant": "additions text",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          }
+        ]
+      },
+      "speechDiagnostic": {
+        "backendLogEntries": 0,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "labelInDebug": false,
+        "expectedWords": 4,
+        "observedWords": 0
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "markupVariant": "seeded_marker",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "initialInterruptCount": 1,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32767,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "nativeAccessibility": {
+        "scanned": 41,
+        "unavailable": 8,
+        "matches": [],
+        "liveRegions": [
+          {
+            "role": "status bar",
+            "attributes": {
+              "tag": "p",
+              "atomic": "true",
+              "live": "polite",
+              "xml-roles": "status",
+              "id": "status",
+              "container-live": "polite",
+              "toolkit": "WebKitGTK",
+              "container-atomic": "true",
+              "container-relevant": "additions text",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          }
+        ]
+      },
+      "speechDiagnostic": {
+        "backendLogEntries": 0,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "labelInDebug": false,
+        "expectedWords": 4,
+        "observedWords": 0
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "markupVariant": "empty",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "initialInterruptCount": 1,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32538,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "nativeAccessibility": {
+        "scanned": 41,
+        "unavailable": 8,
+        "matches": [],
+        "liveRegions": [
+          {
+            "role": "status bar",
+            "attributes": {
+              "tag": "p",
+              "atomic": "true",
+              "live": "polite",
+              "xml-roles": "status",
+              "id": "status",
+              "container-live": "polite",
+              "toolkit": "WebKitGTK",
+              "container-atomic": "true",
+              "container-relevant": "additions text",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          }
+        ]
+      },
+      "speechDiagnostic": {
+        "backendLogEntries": 0,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "labelInDebug": false,
+        "expectedWords": 4,
+        "observedWords": 0
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "markupVariant": "seeded_text",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "initialInterruptCount": 1,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32767,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "nativeAccessibility": {
+        "scanned": 41,
+        "unavailable": 8,
+        "matches": [],
+        "liveRegions": [
+          {
+            "role": "status bar",
+            "attributes": {
+              "tag": "p",
+              "atomic": "true",
+              "live": "polite",
+              "xml-roles": "status",
+              "id": "status",
+              "container-live": "polite",
+              "toolkit": "WebKitGTK",
+              "container-atomic": "true",
+              "container-relevant": "additions text",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          }
+        ]
+      },
+      "speechDiagnostic": {
+        "backendLogEntries": 0,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "labelInDebug": false,
+        "expectedWords": 4,
+        "observedWords": 0
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "markupVariant": "seeded_marker",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "initialInterruptCount": 1,
+      "focusSpeechObserved": true,
+      "focusAudioPeak": 32767,
+      "liveSpeechObserved": null,
+      "liveAudioPeak": null,
+      "nativeAccessibility": {
+        "scanned": 41,
+        "unavailable": 8,
+        "matches": [],
+        "liveRegions": [
+          {
+            "role": "status bar",
+            "attributes": {
+              "tag": "p",
+              "atomic": "true",
+              "live": "polite",
+              "xml-roles": "status",
+              "id": "status",
+              "container-live": "polite",
+              "toolkit": "WebKitGTK",
+              "container-atomic": "true",
+              "container-relevant": "additions text",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          }
+        ]
+      },
+      "speechDiagnostic": {
+        "backendLogEntries": 0,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "labelInDebug": false,
+        "expectedWords": 4,
+        "observedWords": 0
+      }
+    }
+  ],
+  "qualityGate": {
+    "push": {
+      "run": 39146945764,
+      "conclusion": "success"
+    },
+    "pullRequest": {
+      "run": 39146950403,
+      "conclusion": "success"
+    },
+    "scope": "general_checks_do_not_replace_native_reader_cases"
+  }
+}

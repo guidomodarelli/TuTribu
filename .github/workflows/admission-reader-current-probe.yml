@@ -1,0 +1,107 @@
+name: Contraste del lector actual en Linux
+
+on:
+  workflow_dispatch:
+    inputs:
+      webkit_backend:
+        description: Configuración real de WebKit para el contraste del lector
+        type: choice
+        options: [playwright, webkitgtk]
+        default: playwright
+  push:
+    paths:
+      - ".github/workflows/admission-reader-current-probe.yml"
+      - "scripts/ci/run-admission-reader-probe.*"
+      - "scripts/ci/run-admission-reader-session.sh"
+      - "tests/support/admission-reader-atspi.py"
+      - "tests/support/admission-reader-observation.*"
+      - "tests/support/admission-native-events.*"
+      - "tests/support/admission-reader-events.py"
+      - "tests/support/constants/admission-reader-events.mjs"
+      - "tests/support/admission-reader-probe-page.*"
+      - "tests/support/admission-reader-probe-browser.mjs"
+      - "tests/support/admission-reader-webdriver.mjs"
+      - "tests/support/constants/admission-reader-webdriver.mjs"
+      - "tests/support/admission-browser-native-focus.mjs"
+      - "tests/support/constants/admission-reader-probe.mjs"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admission-reader-current-probe-${{ github.ref }}-${{ inputs.webkit_backend || 'playwright' }}
+  cancel-in-progress: false
+
+env:
+  HUSKY: "0"
+  NEXT_TELEMETRY_DISABLED: "1"
+  ADMISSION_READER_WEBKIT_BACKEND: ${{ inputs.webkit_backend || 'playwright' }}
+
+jobs:
+  reader-current-probe:
+    name: Contrastar Orca 51.1 con AT-SPI 2.58.6
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Obtener las fuentes
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Preparar herramientas aisladas
+        uses: ./.github/actions/setup-quality-gate
+
+      - name: Compartir la caché de navegadores del runner
+        run: printf '%s\n' "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/admission-reader-browsers" >> "$GITHUB_ENV"
+
+      - name: Instalar dependencias nativas oficiales
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y locales orca dbus-x11 at-spi2-core gsettings-desktop-schemas dconf-cli openbox xvfb xauth xdotool pulseaudio pulseaudio-utils speech-dispatcher speech-dispatcher-espeak-ng meson ninja-build pkg-config libatspi2.0-dev libatk-bridge2.0-dev python-gi-dev python3-dasbus gettext itstool yelp-tools gobject-introspection libgirepository1.0-dev libdbus-1-dev libglib2.0-dev libxml2-dev libxi-dev libxtst-dev
+          pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Preparar WebKitGTK oficial adicional
+        if: inputs.webkit_backend == 'webkitgtk'
+        run: |
+          sudo apt-get install -y webkit2gtk-driver
+          command -v WebKitWebDriver
+          mkdir -p "$RUNNER_TEMP/admission-reader-probe"
+          dpkg-query -W -f='${Package} ${Version}\n' webkit2gtk-driver libwebkit2gtk-4.1-0 | tee "$RUNNER_TEMP/admission-reader-probe/webkitgtk-packages.txt"
+          dpkg-query -L libwebkit2gtk-4.1-0 | grep -E '/MiniBrowser$'
+          WebKitWebDriver --help
+
+      - name: Compilar AT-SPI oficial con sus overrides Python
+        run: |
+          git -c advice.detachedHead=false clone --depth 1 --branch 2.58.6 https://github.com/GNOME/at-spi2-core.git "$RUNNER_TEMP/admission-current-atspi-source"
+          test "$(git -C "$RUNNER_TEMP/admission-current-atspi-source" rev-parse HEAD)" = "1e883ff1739ad584571d38d63735e1cc67a18b0b"
+          PATH="/usr/bin:$PATH" meson setup "$RUNNER_TEMP/admission-current-atspi-build" "$RUNNER_TEMP/admission-current-atspi-source" --prefix=/usr --libdir=lib/x86_64-linux-gnu -Dintrospection=enabled -Ddocs=false -Dpython=/usr/bin/python3
+          meson compile -C "$RUNNER_TEMP/admission-current-atspi-build"
+          sudo meson install -C "$RUNNER_TEMP/admission-current-atspi-build"
+          sudo ldconfig
+          test "$(pkg-config --modversion atspi-2)" = "2.58.6"
+          /usr/bin/python3 -c 'import gi; gi.require_version("Atspi", "2.0"); from gi.repository import Atspi; assert Atspi.Accessible.__hash__.__module__ == "gi.overrides.Atspi"'
+
+      - name: Compilar la publicación oficial de Orca
+        run: |
+          git -c advice.detachedHead=false clone --depth 1 --branch 51.1 https://github.com/GNOME/orca.git "$RUNNER_TEMP/admission-current-orca-source"
+          test "$(git -C "$RUNNER_TEMP/admission-current-orca-source" rev-parse HEAD)" = "244bdadd98f07fe9bfda9326fab621d686c70d2d"
+          PATH="/usr/bin:$PATH" meson setup "$RUNNER_TEMP/admission-current-orca-build" "$RUNNER_TEMP/admission-current-orca-source" --prefix="$RUNNER_TEMP/admission-current-orca-install" -Dmathcat=false
+          meson compile -C "$RUNNER_TEMP/admission-current-orca-build"
+          meson install -C "$RUNNER_TEMP/admission-current-orca-build"
+          glib-compile-schemas "$RUNNER_TEMP/admission-current-orca-install/share/glib-2.0/schemas"
+          printf '%s\n' "ORCA_BINARY_PATH=$RUNNER_TEMP/admission-current-orca-install/bin/orca" "GSETTINGS_SCHEMA_DIR=$RUNNER_TEMP/admission-current-orca-install/share/glib-2.0/schemas" 'ORCA_SOURCE_COMMIT=244bdadd98f07fe9bfda9326fab621d686c70d2d' 'ORCA_EXPECTED_VERSION=51.1' 'ORCA_SETTINGS_FORMAT=gsettings' >> "$GITHUB_ENV"
+
+      - name: Contrastar las cuatro variantes con teclado, voz y audio reales
+        run: |
+          mkdir -p "$RUNNER_TEMP/admission-reader-probe"
+          printf '{"atspiVersion":"%s","atspiSourceCommit":"1e883ff1739ad584571d38d63735e1cc67a18b0b","orcaSourceCommit":"244bdadd98f07fe9bfda9326fab621d686c70d2d","configuredProfileBackend":"gsettings"}\n' "$(pkg-config --modversion atspi-2)" > "$RUNNER_TEMP/admission-reader-probe/native-platform.json"
+          dbus-run-session -- xvfb-run -a --server-args="-screen 0 1600x1200x24" bash scripts/ci/run-admission-reader-probe.sh
+
+      - name: Conservar sólo el canario sintético y su resultado
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.webkit_backend == 'webkitgtk' && 'admission-reader-webkitgtk-probe' || 'admission-reader-current-probe' }}
+          path: ${{ runner.temp }}/admission-reader-probe/
+          if-no-files-found: warn
+          retention-days: 7

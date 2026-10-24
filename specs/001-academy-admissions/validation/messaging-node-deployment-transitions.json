@@ -1,0 +1,44 @@
+{
+  "kind": "real_restore_runtime_deployment_transition_probe",
+  "startedAt": "2026-10-18T23:14:46.046Z",
+  "passed": true,
+  "realMessages": 0,
+  "rounds": [
+    {
+      "sourceCommit": "c33cc730391da3961ba1d7f052c960927729ba4b",
+      "bundleSha256": "f292e77e75eae4e285e92f8b5165f4549102853cb13f2270bb6426f38e972ab6",
+      "anonymousStatus": 401,
+      "invalidInputStatus": 500,
+      "invalidInputCode": "private_input_invalid",
+      "inputsStable": true,
+      "privateMaterialAbsent": true,
+      "functionRemoved": true
+    },
+    {
+      "sourceCommit": "c33cc730391da3961ba1d7f052c960927729ba4b",
+      "bundleSha256": "f292e77e75eae4e285e92f8b5165f4549102853cb13f2270bb6426f38e972ab6",
+      "anonymousStatus": 401,
+      "invalidInputStatus": 500,
+      "invalidInputCode": "private_input_invalid",
+      "inputsStable": true,
+      "privateMaterialAbsent": true,
+      "functionRemoved": true
+    }
+  ],
+  "branchId": "br-plain-haze-anoxmiec",
+  "branchesRemoved": true,
+  "tests": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "durationMs": 68303
+  },
+  "independentCleanup": {
+    "ownedBranchAbsent": true,
+    "persistentBranchesPreserved": true,
+    "branchCount": 4
+  },
+  "fullRestoreValidated": false,
+  "workersValidated": false,
+  "operationalGatesClosed": []
+}

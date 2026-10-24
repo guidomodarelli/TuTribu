@@ -1,0 +1,109 @@
+@use "../../../src/styles/workspace-panel";
+
+.AdmissionActivity {
+  @include workspace-panel.block;
+
+  &__header {
+    @include workspace-panel.heading;
+
+    & > p {
+      @include workspace-panel.lead;
+    }
+  }
+
+  &__title {
+    @include workspace-panel.title;
+  }
+
+  &__form {
+    @include workspace-panel.form;
+
+    max-width: 40rem;
+  }
+
+  &__filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+    min-inline-size: 0;
+    margin: 0;
+    padding: 0;
+    gap: 1rem;
+    border: 0;
+  }
+
+  &__legend {
+    @include workspace-panel.subtitle;
+
+    padding: 0;
+    margin-block-end: 0.75rem;
+  }
+
+  &__field {
+    @include workspace-panel.field;
+
+    align-content: start;
+  }
+
+  &__help {
+    @include workspace-panel.note;
+  }
+
+  &__error {
+    @include workspace-panel.error;
+  }
+
+  &__list {
+    @include workspace-panel.rows;
+  }
+
+  &__item {
+    border-block-end: 1px solid var(--border);
+
+    &:first-child {
+      border-block-start: 1px solid var(--border);
+    }
+  }
+
+  &__summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.25rem 1rem;
+    padding-block: 0.875rem;
+    cursor: pointer;
+    line-height: 1.5;
+  }
+
+  &__event {
+    font-weight: 500;
+  }
+
+  &__time {
+    color: var(--text-secondary, var(--muted-foreground));
+    font-size: 0.875rem;
+  }
+
+  &__facts {
+    @include workspace-panel.facts;
+
+    padding-block-end: 1.25rem;
+  }
+
+  &__fact {
+    display: grid;
+    min-width: 0;
+    gap: 0.25rem;
+  }
+
+  &__term {
+    @include workspace-panel.fact-term;
+  }
+
+  &__value {
+    margin: 0;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+}

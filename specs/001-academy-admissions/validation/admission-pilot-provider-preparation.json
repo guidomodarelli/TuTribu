@@ -1,0 +1,106 @@
+{
+  "kind": "authorized_pilot_provider_preparation",
+  "recordedAt": "2026-10-18T16:34:29.199Z",
+  "sdkVersion": "0.57.0",
+  "realMessages": 0,
+  "resourceRead": {
+    "kind": "authorized_provider_resource_read",
+    "sdkVersion": "0.57.0",
+    "startedAt": "2026-10-18T16:29:28.025Z",
+    "realMessages": 0,
+    "operations": [
+      "credential_read",
+      "senders_read",
+      "templates_read",
+      "balance_read"
+    ],
+    "productionCredential": true,
+    "senders": [
+      {
+        "alias": "sender_1",
+        "channels": [
+          "whatsapp"
+        ],
+        "whatsappTemplatesEnabled": false
+      }
+    ],
+    "templateCount": 0,
+    "approvedAuthenticationTemplates": [],
+    "billing": {
+      "currency": "usd",
+      "hasPositiveBalance": true,
+      "isSubAccount": false
+    },
+    "completed": true,
+    "finishedAt": "2026-10-18T16:29:30.986Z"
+  },
+  "senderDetail": {
+    "kind": "authorized_sender_detail_read",
+    "startedAt": "2026-10-18T16:30:26.579Z",
+    "realMessages": 0,
+    "sender": {
+      "channels": [
+        "whatsapp"
+      ],
+      "hasWhatsappBusinessMetadata": true,
+      "hasWhatsappPhoneNumberId": true,
+      "hasPaymentStatus": true,
+      "canSendTemplates": false
+    },
+    "completed": true,
+    "finishedAt": "2026-10-18T16:30:27.591Z"
+  },
+  "templatePreparation": {
+    "created": true,
+    "submitted": true,
+    "initialApiStatus": "pending",
+    "language": "es",
+    "category": "AUTHENTICATION",
+    "name": "tutribu_admission_otp_es",
+    "codeExpirationMinutes": 10,
+    "copyCodeButton": true,
+    "securityRecommendation": true,
+    "payment": {
+      "setupStatus": "NOT_STARTED",
+      "methodStatus": "NONE",
+      "canSendTemplates": false
+    },
+    "startedAt": "2026-10-18T16:31:10.169Z",
+    "finishedAt": "2026-10-18T16:31:14.069Z"
+  },
+  "browserObservation": {
+    "url": "https://dashboard.zavu.dev/es/templates",
+    "status": "rejected",
+    "rejectionReasonAvailable": false,
+    "metaManagerSessionAvailable": false
+  },
+  "limits": {
+    "maximumMessages": 10,
+    "maximumSpendUsd": 20,
+    "authorizedChannels": [
+      "email",
+      "sms",
+      "whatsapp"
+    ]
+  },
+  "scope": {
+    "applicationFlowValidated": false,
+    "providerDeliveryValidated": false,
+    "tenantIsolationValidated": false,
+    "operationalGatesClosed": []
+  },
+  "tooling": [
+    {
+      "path": "codex-pilot-zavu-resources-read.mjs",
+      "sha256": "c2c969b8991169f217914790e7a27a7a583a2c3a09d103f4b7bab117ec530569"
+    },
+    {
+      "path": "codex-pilot-zavu-sender-detail.mjs",
+      "sha256": "f148ce67ca732c69f1292e9d28b02dbe84dc5d2008cb734cbce5d458cde289a8"
+    },
+    {
+      "path": "codex-pilot-zavu-prepare-template.mjs",
+      "sha256": "2eb898fe255311aee603f42fb4c476eb2659b0547204d9364dbeb44a31ff26e3"
+    }
+  ]
+}

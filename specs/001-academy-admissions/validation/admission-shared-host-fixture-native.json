@@ -1,0 +1,81 @@
+{
+  "date": "2026-10-18",
+  "kind": "native_sql_shared_host_fixture_contract",
+  "baseCommit": "54f1cfddfcd4ae93343efb8a79032fbf2c08402e",
+  "postImplementationInputs": [
+    {
+      "path": "tests/support/admission-performance-fixture.ts",
+      "sha256": "62203f3a49edd7aedce62bd2172ab388611917a89cbd413ddb04731f7c13df71"
+    },
+    {
+      "path": "tests/support/run-admission-performance-workload.ts",
+      "sha256": "a3af5e46e11d579a4cfeb226564e8bd44e0fdbca44a588b64bf94dafe8b7953a"
+    },
+    {
+      "path": "tests/support/constants/admission-performance.ts",
+      "sha256": "8d2fa88cc5ddb8d6f2cede8f996d400c996154eed93f501888ef8ee822a64fe8"
+    },
+    {
+      "path": "tests/support/admission-synthetic-hosting-environment.ts",
+      "sha256": "ec69406d9fe2e3fe7a2b15e5b856be452965d34ed8a2a219ee05f7fe685612c3"
+    },
+    {
+      "path": "tests/unit/modules/academy-admissions/infrastructure/admission-shared-host-fixture.test.ts",
+      "sha256": "cb80307e39864143f30e5f319c5c6edc2a2bdbdba899b1b3ac229cca630bb122"
+    }
+  ],
+  "initial": {
+    "passed": 0,
+    "failed": 2,
+    "skipped": 0,
+    "oldDefaultParticipants": 100,
+    "oldDefaultEntries": 10000
+  },
+  "final": {
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "cases": [
+      {
+        "title": "preserves actual admissions when another host imports the original external keys",
+        "status": "passed",
+        "durationMs": 83082.304
+      },
+      {
+        "title": "closes commands with unrelated host keys without creating admission effects",
+        "status": "passed",
+        "durationMs": 76690.4576
+      }
+    ]
+  },
+  "positive": {
+    "participants": 4,
+    "entries": 20,
+    "admitted": 2,
+    "pending": 2,
+    "requests": 4,
+    "basicMembers": 2,
+    "deliveries": 0,
+    "independentlyImportedHostingConfiguration": true,
+    "confirmationsObserved": 4,
+    "noCauseOrSessionTokenInProjection": true,
+    "poolBalanced": true,
+    "waitingAfter": 0,
+    "checkedOutAfter": 0
+  },
+  "negative": {
+    "sameEnvironmentAndEpoch": true,
+    "unrelatedKeyrings": true,
+    "participants": 4,
+    "closed": 4,
+    "requests": 0,
+    "basicMembers": 0,
+    "deliveries": 0
+  },
+  "acceptanceLoadMeasured": false,
+  "distributedHostMeasured": false,
+  "restoreMeasured": false,
+  "realMessages": 0,
+  "persistentBranchesAfterIndependentCleanup": 4,
+  "operationalGatesClosed": []
+}

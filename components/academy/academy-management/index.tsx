@@ -29,6 +29,10 @@ import {
 } from "@/lib/academy/academy-api-client";
 import { buildBonusEndsAt, formatAcademyDate, getTodayDateKey } from "@/lib/academy/academy-format";
 import { ROUTES } from "@/src/constants/routes";
+import { ADMISSION_NAVIGATION } from "@/src/modules/academy-admissions/constants/admission-navigation";
+import { ADMISSION_POLICY_SETTINGS_SEGMENT } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
+import { MESSAGING_USAGE_SETTINGS_SEGMENT } from "@/src/modules/messaging/constants/messaging-usage";
+import { MESSAGING_CONNECTIONS_SETTINGS_SEGMENT } from "@/src/modules/messaging/constants/messaging-connections-browser";
 import type {
   ReviewQueueItemDto,
   VerificationProviderDto,
@@ -41,6 +45,12 @@ import type {
 import styles from "./styles.module.scss";
 
 const MANAGEMENT_COPY = {
+  admissionsDescription: "Configurá cómo se pide el ingreso y con qué servicio se envían los códigos.",
+  admissionsLinkPolicy: "Reglas de admisión",
+  admissionsLinkReview: "Solicitudes de ingreso",
+  admissionsLinkUsage: "Países y cupos de mensajería",
+  admissionsLinkConnection: "Conexión de mensajería",
+  admissionsTitle: "Admisiones y mensajería",
   accessColumn: "Acceso",
   accessNo: "Sin academia",
   admissionDescription: "Permite que nuevas personas ingresen gratis a la tribu.",
@@ -189,9 +199,37 @@ export function AcademyManagement({
       </header>
       {isLeader && settings ? <SettingsSection initialSettings={settings} tribeSlug={tribeSlug} /> : null}
       {isLeader && providers ? <ProvidersSection initialProviders={providers} tribeSlug={tribeSlug} /> : null}
+      {isLeader ? <AdmissionsShortcutsSection tribeSlug={tribeSlug} /> : null}
       <ReviewQueueSection initialQueue={initialQueue} tribeSlug={tribeSlug} />
       <MembersSection initialMembers={initialMembers} isLeader={isLeader} tribeSlug={tribeSlug} />
     </main>
+  );
+}
+
+/**
+ * Gives leaders a visible way into the admission and messaging setup pages, which have no other entry from the academy.
+ * @param props - The current tribe slug.
+ * @returns Ordinary navigation links; opening them reads state only and never saves, sends or activates anything.
+ */
+function AdmissionsShortcutsSection({ tribeSlug }: { tribeSlug: string }) {
+  const titleId = useId();
+  const href = (segment: string) => `/${encodeURIComponent(tribeSlug)}/${segment}`;
+  const links = [
+    { href: href(ADMISSION_POLICY_SETTINGS_SEGMENT), label: MANAGEMENT_COPY.admissionsLinkPolicy },
+    { href: href(ADMISSION_NAVIGATION.reviewSegment), label: MANAGEMENT_COPY.admissionsLinkReview },
+    { href: href(MESSAGING_USAGE_SETTINGS_SEGMENT), label: MANAGEMENT_COPY.admissionsLinkUsage },
+    { href: href(MESSAGING_CONNECTIONS_SETTINGS_SEGMENT), label: MANAGEMENT_COPY.admissionsLinkConnection },
+  ];
+  return (
+    <section aria-labelledby={titleId} className={styles.AcademyManagement__section}>
+      <h2 className={styles.AcademyManagement__sectionTitle} id={titleId}>{MANAGEMENT_COPY.admissionsTitle}</h2>
+      <p className={styles.AcademyManagement__hint}>{MANAGEMENT_COPY.admissionsDescription}</p>
+      <nav aria-label={MANAGEMENT_COPY.admissionsTitle}>
+        <ul className={styles.AcademyManagement__shortcuts}>
+          {links.map((link) => <li key={link.href}><Link className={styles.AcademyManagement__inlineLink} href={link.href}>{link.label}</Link></li>)}
+        </ul>
+      </nav>
+    </section>
   );
 }
 

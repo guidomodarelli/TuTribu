@@ -12,6 +12,30 @@
 
 import { EXTERNAL_API_MOCKS_ACTIVATION } from "@/src/modules/shared/constants/external-api-mocks";
 
+/** Next.js phase of `next build`, which has no runtime secrets to check. */
+const PRODUCTION_BUILD_PHASE = "phase-production-build";
+
+/**
+ * Reports missing or unusable environment variables per feature once the server starts, so a misconfiguration
+ * shows up at startup instead of as a 500 in the middle of a flow. Local development stops on blocking ones.
+ *
+ * @returns Promise resolved once the check is logged.
+ */
+async function checkStartupEnvironment(): Promise<void> {
+  if (process.env.NEXT_PHASE === PRODUCTION_BUILD_PHASE) {
+    return;
+  }
+
+  const [{ checkServerEnvironment }, { SERVER_ENVIRONMENT_REQUIREMENTS }] = await Promise.all([
+    import("@/src/modules/shared/infrastructure/config/server-environment-check"),
+    import("@/src/modules/server-environment-requirements"),
+  ]);
+
+  await checkServerEnvironment(process.env, SERVER_ENVIRONMENT_REQUIREMENTS, {
+    failOnBlocking: process.env.NODE_ENV === "development",
+  });
+}
+
 /**
  * Starts the Node.js instrumentation for one server instance.
  *
@@ -20,6 +44,8 @@ import { EXTERNAL_API_MOCKS_ACTIVATION } from "@/src/modules/shared/constants/ex
  * @returns Promise resolved once startup work is done.
  */
 export async function registerNodeInstrumentation(): Promise<void> {
+  await checkStartupEnvironment();
+
   const { reportIgnoredExternalApiMocksFlag, resolveExternalApiMocksActivation } =
     await import(
       "@/src/modules/shared/infrastructure/dev-mocks/external-api-mocks-activation"

@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.verification.request",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Verificación",
+    "section": "Vinculación",
+    "subflow": "Solicitar verificación"
+  },
+  "description": "Solicitar la verificación de la vinculación con un proveedor (email declarado), con el estado de cada proveedor.",
+  "routes": [
+    "/[slug]/academia/verificacion"
+  ],
+  "entries": [
+    {
+      "path": "components/academy/academy-verification/index.tsx",
+      "symbol": "ProviderRequest"
+    },
+    {
+      "follow": false,
+      "path": "components/academy/academy-verification/index.tsx",
+      "symbol": "AcademyVerification"
+    },
+    {
+      "follow": false,
+      "path": "app/(platform)/[slug]/academia/verificacion/page.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/verificacion/loading.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/api/tribes/[slug]/verifications/route.ts",
+      "symbol": "POST"
+    }
+  ],
+  "dependsOn": [
+    {
+      "path": "src/modules/member-verifications/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildMemberVerificationsModule"
+    },
+    {
+      "path": "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresMemberVerificationRepository"
+    },
+    {
+      "path": "src/modules/product-access/infrastructure/repositories/academy-access-sql.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "recordAcademyAuditEvent"
+    }
+  ],
+  "origin": "curated"
+}

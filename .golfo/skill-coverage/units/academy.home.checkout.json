@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.home.checkout",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Inicio de la academia",
+    "section": "Acceso y suscripción",
+    "subflow": "Contratar (checkout)"
+  },
+  "description": "Contratar la academia: inicia el checkout del proveedor de pagos con la versión de oferta aceptada y abandona la página.",
+  "routes": [
+    "/[slug]/academia"
+  ],
+  "entries": [
+    {
+      "path": "components/academy/academy-home/index.tsx",
+      "symbol": "AcademyHome/handleCheckout"
+    },
+    {
+      "follow": false,
+      "path": "app/(platform)/[slug]/academia/page.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/api/tribes/[slug]/academy/checkout/route.ts",
+      "symbol": "POST"
+    }
+  ],
+  "dependsOn": [
+    {
+      "path": "src/modules/subscriptions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildSubscriptionsModule"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/repositories/postgres-academy-subscription-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresAcademySubscriptionRepository"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/repositories/postgres-tribe-member-subscription-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresTribeMemberSubscriptionRepository"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/repositories/postgres-tribe-payment-integration-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresTribePaymentIntegrationRepository"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/repositories/postgres-tribe-subscription-price-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresTribeSubscriptionPriceRepository"
+    },
+    {
+      "path": "src/modules/product-access/infrastructure/config/academy-sales-activation.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "isAcademySalesActivationAllowed"
+    },
+    {
+      "path": "src/modules/product-access/infrastructure/repositories/academy-access-sql.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "insertAcademyGrantWithEnrollment"
+    },
+    {
+      "path": "src/modules/product-access/infrastructure/repositories/academy-access-sql.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "recordAcademyAuditEvent"
+    },
+    {
+      "path": "src/modules/academy-admissions/setup.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "createPaidAdmissionResolutionWriter"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "createMercadoPagoPendingPreapprovalSubscription"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "createMercadoPagoPreapprovalPlan"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "createMercadoPagoPreapprovalSubscription"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "findMercadoPagoSubscriptionCheckoutByReference"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "getMercadoPagoAuthorizedPayment"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "getMercadoPagoPayment"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "getMercadoPagoPreapprovalDetails"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "getMercadoPagoPreapprovalPlan"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "getMercadoPagoPreapprovalPlanStatus"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "getMercadoPagoPreapprovalStatus"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "refreshMercadoPagoAccessToken"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "searchMercadoPagoAuthorizedPayments"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "updateMercadoPagoPreapprovalBackUrl"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "updateMercadoPagoPreapprovalPlan"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "updateMercadoPagoPreapprovalSubscriptionStatus"
+    }
+  ],
+  "origin": "curated"
+}

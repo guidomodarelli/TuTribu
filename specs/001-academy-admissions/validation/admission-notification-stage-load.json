@@ -1,0 +1,444 @@
+{
+  "source": {
+    "commit": "c30e78fc78035d6258747bb23c4bb913747e4ca7",
+    "worktreeChanges": false,
+    "bundleSha256": "d6a8a6b3b57720360c64ea1da21fa857f337d58e912dd37454e9319f8ea4f5c5"
+  },
+  "compute": {
+    "minimum": 2,
+    "maximum": 2,
+    "region": "aws-us-east-1"
+  },
+  "databaseStatistics": {
+    "trackingMode": "top",
+    "planningEnabled": false,
+    "serverVersionNum": 170011
+  },
+  "measurement": {
+    "warmupDurationMs": 3232.5071980003268,
+    "setupDurationMs": 2727.699924000539,
+    "networkQueryP95Ms": 3.203226000070572,
+    "networkSamples": 20,
+    "participants": 100,
+    "admitted": 50,
+    "pending": 50,
+    "failures": [],
+    "p95Ms": 6372.482019999996,
+    "targetMs": 3000,
+    "peakInFlight": 100,
+    "pool": {
+      "maximum": 100,
+      "acquisitions": 300,
+      "releases": 300,
+      "errorReleases": 0,
+      "peakWaitingCount": 0,
+      "peakTotalCount": 100,
+      "waitingAfter": 0,
+      "checkedOutAfter": 0
+    },
+    "eventLoopP95Ms": 101.908479,
+    "facts": {
+      "entries": 10000,
+      "requests": 100,
+      "basic_members": 50,
+      "deliveries": 0
+    },
+    "realMessages": 0,
+    "nodeVersion": "24.16.0",
+    "sourceCommit": "c30e78fc78035d6258747bb23c4bb913747e4ca7",
+    "bundleSha256": "d6a8a6b3b57720360c64ea1da21fa857f337d58e912dd37454e9319f8ea4f5c5",
+    "diagnostics": {
+      "wallDurationMs": 6377.466544999741,
+      "cpuUserMs": 1731.048,
+      "cpuSystemMs": 375.419,
+      "eventLoopActiveMs": 2008.6202659988776,
+      "eventLoopIdleMs": 4368.845751000568,
+      "eventLoopUtilization": 0.31495585560860734,
+      "accountTransactions": 100,
+      "commandTransactions": 200,
+      "accountTransactionP95Ms": 528.3859619991854,
+      "commandTransactionP95Ms": 4730.1087249992415,
+      "admittedP95Ms": 6373.825349000283,
+      "pendingP95Ms": 6363.979875999503
+    }
+  },
+  "databaseProfile": {
+    "status": "available",
+    "source": "neon_inspect_db_outliers",
+    "scope": "owned_compute_since_start",
+    "limit": 25,
+    "statements": [
+      {
+        "position": 1,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "stage_admission_notification_obligation"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 4523.123,
+        "meanExecutionMs": 45.23123,
+        "sharePercent": 20.1
+      },
+      {
+        "position": 2,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "current_app_user_id",
+          "read_admission_reviewer_context"
+        ],
+        "calls": 500,
+        "totalExecutionMs": 2779.049,
+        "meanExecutionMs": 5.558098,
+        "sharePercent": 12.3
+      },
+      {
+        "position": 3,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "read_own_admission_request_eligibility"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 2658.786,
+        "meanExecutionMs": 53.17572,
+        "sharePercent": 11.8
+      },
+      {
+        "position": 4,
+        "operation": "with",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "current_app_user_id",
+          "pg_advisory_xact_lock",
+          "tribes"
+        ],
+        "calls": 550,
+        "totalExecutionMs": 1269.3970000000002,
+        "meanExecutionMs": 2.307994545454546,
+        "sharePercent": 5.6
+      },
+      {
+        "position": 5,
+        "operation": "update",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_requests",
+          "clock_timestamp"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 1236.167,
+        "meanExecutionMs": 12.361669999999998,
+        "sharePercent": 5.5
+      },
+      {
+        "position": 6,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "tribe_members"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 1030.141,
+        "meanExecutionMs": 20.60282,
+        "sharePercent": 4.6
+      },
+      {
+        "position": 7,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "messaging_key_material_context_is_current"
+        ],
+        "calls": 400,
+        "totalExecutionMs": 985.1529999999999,
+        "meanExecutionMs": 2.4628824999999996,
+        "sharePercent": 4.4
+      },
+      {
+        "position": 8,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_decisions"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 769.279,
+        "meanExecutionMs": 15.38558,
+        "sharePercent": 3.4
+      },
+      {
+        "position": 9,
+        "operation": "update",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_operations",
+          "clock_timestamp"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 761.499,
+        "meanExecutionMs": 7.614990000000001,
+        "sharePercent": 3.4
+      },
+      {
+        "position": 10,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_contact_bindings"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 656.137,
+        "meanExecutionMs": 6.561369999999999,
+        "sharePercent": 2.9
+      },
+      {
+        "position": 11,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_requests"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 593.178,
+        "meanExecutionMs": 5.93178,
+        "sharePercent": 2.6
+      },
+      {
+        "position": 12,
+        "operation": "with",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "assert_authorized_messaging_key_material_proof"
+        ],
+        "calls": 400,
+        "totalExecutionMs": 513.93,
+        "meanExecutionMs": 1.2848249999999999,
+        "sharePercent": 2.3
+      },
+      {
+        "position": 13,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_allowlist_entries"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 485.031,
+        "meanExecutionMs": 4.85031,
+        "sharePercent": 2.2
+      },
+      {
+        "position": 14,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_operations",
+          "clock_timestamp"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 415.325,
+        "meanExecutionMs": 4.15325,
+        "sharePercent": 1.8
+      },
+      {
+        "position": 15,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_decisions",
+          "academy_admission_requests",
+          "academy_admission_verification_proofs",
+          "global_identity_evidence"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 406.348,
+        "meanExecutionMs": 4.06348,
+        "sharePercent": 1.8
+      },
+      {
+        "position": 16,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "read_own_admission_request_summary"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 366.265,
+        "meanExecutionMs": 7.3252999999999995,
+        "sharePercent": 1.6
+      },
+      {
+        "position": 17,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_audit_events"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 338.45599999999996,
+        "meanExecutionMs": 3.3845599999999996,
+        "sharePercent": 1.5
+      },
+      {
+        "position": 18,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "account",
+          "clock_timestamp",
+          "current_app_user_id",
+          "global_identity_evidence",
+          "global_session_identity_bindings",
+          "recent_authentication_evidence",
+          "session",
+          "user"
+        ],
+        "calls": 400,
+        "totalExecutionMs": 295.165,
+        "meanExecutionMs": 0.7379125000000001,
+        "sharePercent": 1.3
+      },
+      {
+        "position": 19,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_membership_effects"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 288.823,
+        "meanExecutionMs": 5.776459999999999,
+        "sharePercent": 1.3
+      },
+      {
+        "position": 20,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "user"
+        ],
+        "calls": 500,
+        "totalExecutionMs": 117.795,
+        "meanExecutionMs": 0.23559,
+        "sharePercent": 0.5
+      },
+      {
+        "position": 21,
+        "operation": "update",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_requests",
+          "clock_timestamp"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 113.09700000000001,
+        "meanExecutionMs": 2.26194,
+        "sharePercent": 0.5
+      },
+      {
+        "position": 22,
+        "operation": "with",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_decisions",
+          "academy_admission_policies",
+          "academy_admission_requests",
+          "clock_timestamp",
+          "current_app_user_id",
+          "tribe_academy_settings",
+          "tribe_members",
+          "tribes"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 108.309,
+        "meanExecutionMs": 2.1661799999999998,
+        "sharePercent": 0.5
+      },
+      {
+        "position": 23,
+        "operation": "create",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "account",
+          "global_identity_evidence",
+          "user"
+        ],
+        "calls": 1,
+        "totalExecutionMs": 89.325,
+        "meanExecutionMs": 89.325,
+        "sharePercent": 0.4
+      },
+      {
+        "position": 24,
+        "operation": "create",
+        "scalarProjection": false,
+        "mentionedObjects": [],
+        "calls": 1,
+        "totalExecutionMs": 63.135,
+        "meanExecutionMs": 63.135,
+        "sharePercent": 0.3
+      },
+      {
+        "position": 25,
+        "operation": "other",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "account"
+        ],
+        "calls": 1,
+        "totalExecutionMs": 63.03,
+        "meanExecutionMs": 63.03,
+        "sharePercent": 0.3
+      }
+    ]
+  },
+  "nativeTest": {
+    "passed": 0,
+    "failed": 1,
+    "exitCode": 1,
+    "failure": "AssertionError: expected 6372.482019999996 to be less than 3000"
+  },
+  "cleanup": {
+    "remainingBranchIds": [
+      "br-shiny-paper-ankn86x2",
+      "br-aged-morning-an5ejge1",
+      "br-wispy-sun-anwpxm2x"
+    ],
+    "protectedBranchesPreserved": true,
+    "ownedBranchAbsent": true
+  },
+  "runtimeProbe": {
+    "result": {
+      "nodeVersion": "24.16.0",
+      "availableParallelism": 2,
+      "cgroupReadable": false,
+      "quotaMicroseconds": null,
+      "periodMicroseconds": null,
+      "quotaCpus": null,
+      "cpuStat": {}
+    },
+    "resourcesRemoved": true,
+    "cleanup": {
+      "remainingBranchIds": [
+        "br-shiny-paper-ankn86x2",
+        "br-aged-morning-an5ejge1",
+        "br-wispy-sun-anwpxm2x"
+      ],
+      "protectedBranchesPreserved": true,
+      "ownedBranchAbsent": true
+    },
+    "inputs": [
+      {
+        "path": ".git/admission-cpu-probe-function/index.mjs",
+        "sha256": "73adc311d2a93156b9605b5b7ffb0f05a5fbd121148b6275b4b360daac64b687"
+      },
+      {
+        "path": ".git/admission-cpu-probe-owner.ts",
+        "sha256": "a0797b746033669a8d962a0e11c7431feea2cb41889cc7e4e6261ee06ac83b45"
+      }
+    ]
+  },
+  "status": "latency_not_passed"
+}

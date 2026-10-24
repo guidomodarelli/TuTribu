@@ -1,0 +1,60 @@
+{
+  "commit": "1ecdb009ccd033bb9bc4b67a68b0ec7bfd876ad7",
+  "runId": 39126934367,
+  "kind": "platform_preflight",
+  "orcaVersion": "48.9",
+  "orcaSourceCommit": "4b964097f586446b3c74a98d0d309fb4b87ceb70",
+  "passed": false,
+  "productJourneysValidated": false,
+  "realMessages": 0,
+  "cases": [
+    {
+      "engine": "chromium",
+      "width": 390,
+      "passed": false,
+      "failureCode": "native_audio_did_not_settle",
+      "focusSpeechObserved": null,
+      "liveSpeechObserved": null,
+      "focusSpokenSincePageLoad": false,
+      "statusSpokenSincePageLoad": false,
+      "focusEmulationDisabled": true,
+      "actionKeyEchoOutputs": 0
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "focusSpeechObserved": null,
+      "liveSpeechObserved": null,
+      "focusSpokenSincePageLoad": false,
+      "statusSpokenSincePageLoad": false,
+      "focusEmulationDisabled": true,
+      "actionKeyEchoOutputs": 0
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": null,
+      "focusSpokenSincePageLoad": true,
+      "statusSpokenSincePageLoad": false,
+      "focusEmulationDisabled": false,
+      "actionKeyEchoOutputs": 0
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": null,
+      "focusSpokenSincePageLoad": true,
+      "statusSpokenSincePageLoad": false,
+      "focusEmulationDisabled": false,
+      "actionKeyEchoOutputs": 0
+    }
+  ]
+}

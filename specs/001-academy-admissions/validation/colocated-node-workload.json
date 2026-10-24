@@ -1,0 +1,152 @@
+{
+  "kind": "colocated_native_application_workload",
+  "latencyGatePassed": false,
+  "worktreeChanges": true,
+  "runs": [
+    {
+      "run": "after2",
+      "compute": null,
+      "bundleSha256": "803eb1adc97a7dd414a606af8fbb9b8018b6cfef90e33f03e5741ef61a3dbc2c",
+      "measurement": {
+        "warmupDurationMs": 3708.7241210006177,
+        "setupDurationMs": 2947.391274999827,
+        "networkQueryP95Ms": 4.601789001375437,
+        "networkSamples": 20,
+        "participants": 100,
+        "admitted": 50,
+        "pending": 50,
+        "failures": [],
+        "p95Ms": 9432.663901001215,
+        "targetMs": 3000,
+        "peakInFlight": 100,
+        "pool": {
+          "maximum": 100,
+          "acquisitions": 500,
+          "releases": 500,
+          "errorReleases": 0,
+          "peakWaitingCount": 0,
+          "peakTotalCount": 100,
+          "waitingAfter": 0,
+          "checkedOutAfter": 0
+        },
+        "eventLoopP95Ms": 100.401151,
+        "facts": {
+          "entries": 10000,
+          "requests": 100,
+          "basic_members": 50,
+          "deliveries": 0
+        },
+        "realMessages": 0,
+        "nodeVersion": "24.16.0",
+        "sourceCommit": "6c2aef07cd0c38fd671d5ffef97c2d68e093263b",
+        "bundleSha256": "803eb1adc97a7dd414a606af8fbb9b8018b6cfef90e33f03e5741ef61a3dbc2c"
+      },
+      "testStatus": "failed",
+      "sourceCommit": "6c2aef07cd0c38fd671d5ffef97c2d68e093263b"
+    },
+    {
+      "run": "after3",
+      "compute": {
+        "minimum": 2,
+        "maximum": 2,
+        "region": "aws-us-east-1"
+      },
+      "bundleSha256": "f8d28fa1044d47b99c55119f653997db5c5416a19baa6f80b517ca7dab7dc156",
+      "measurement": {
+        "warmupDurationMs": 2958.8973580000456,
+        "setupDurationMs": 2449.0098180000205,
+        "networkQueryP95Ms": 2.627559999935329,
+        "networkSamples": 20,
+        "participants": 100,
+        "admitted": 50,
+        "pending": 50,
+        "failures": [],
+        "p95Ms": 8035.1468269999605,
+        "targetMs": 3000,
+        "peakInFlight": 100,
+        "pool": {
+          "maximum": 100,
+          "acquisitions": 500,
+          "releases": 500,
+          "errorReleases": 0,
+          "peakWaitingCount": 0,
+          "peakTotalCount": 100,
+          "waitingAfter": 0,
+          "checkedOutAfter": 0
+        },
+        "eventLoopP95Ms": 100.925439,
+        "facts": {
+          "entries": 10000,
+          "requests": 100,
+          "basic_members": 50,
+          "deliveries": 0
+        },
+        "realMessages": 0,
+        "nodeVersion": "24.16.0",
+        "sourceCommit": "6c2aef07cd0c38fd671d5ffef97c2d68e093263b",
+        "bundleSha256": "f8d28fa1044d47b99c55119f653997db5c5416a19baa6f80b517ca7dab7dc156"
+      },
+      "testStatus": "failed",
+      "sourceCommit": "6c2aef07cd0c38fd671d5ffef97c2d68e093263b"
+    },
+    {
+      "run": "after4",
+      "compute": {
+        "minimum": 2,
+        "maximum": 2,
+        "region": "aws-us-east-1"
+      },
+      "bundleSha256": "b573d848f4eb587b09ae2d582f4fa84977a3ab7eab599512c0221486e2900baa",
+      "measurement": {
+        "warmupDurationMs": 3032.5693540000357,
+        "setupDurationMs": 2809.994851999916,
+        "networkQueryP95Ms": 3.4222860001027584,
+        "networkSamples": 20,
+        "participants": 100,
+        "admitted": 50,
+        "pending": 50,
+        "failures": [],
+        "p95Ms": 7669.957169999834,
+        "targetMs": 3000,
+        "peakInFlight": 100,
+        "pool": {
+          "maximum": 100,
+          "acquisitions": 500,
+          "releases": 500,
+          "errorReleases": 0,
+          "peakWaitingCount": 0,
+          "peakTotalCount": 100,
+          "waitingAfter": 0,
+          "checkedOutAfter": 0
+        },
+        "eventLoopP95Ms": 100.925439,
+        "facts": {
+          "entries": 10000,
+          "requests": 100,
+          "basic_members": 50,
+          "deliveries": 0
+        },
+        "realMessages": 0,
+        "nodeVersion": "24.16.0",
+        "sourceCommit": "6c2aef07cd0c38fd671d5ffef97c2d68e093263b",
+        "bundleSha256": "b573d848f4eb587b09ae2d582f4fa84977a3ab7eab599512c0221486e2900baa",
+        "diagnostics": {
+          "wallDurationMs": 7678.802535000024,
+          "cpuUserMs": 1767.796,
+          "cpuSystemMs": 399.246,
+          "eventLoopActiveMs": 1952.98748599994,
+          "eventLoopIdleMs": 5725.815105000045,
+          "eventLoopUtilization": 0.25433489959605915,
+          "accountTransactions": 300,
+          "commandTransactions": 200,
+          "accountTransactionP95Ms": 499.37296099984087,
+          "commandTransactionP95Ms": 5194.916168000083,
+          "admittedP95Ms": 7669.703281000024,
+          "pendingP95Ms": 7670.16321499995
+        }
+      },
+      "testStatus": "failed",
+      "sourceCommit": "6c2aef07cd0c38fd671d5ffef97c2d68e093263b"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+# Reconciliación comercial y membresía básica
+
+**Feature**: `001-academy-admissions`. **Base inicial**: `567d53603702521c128bec87bc7291528147cec6`. Ampliación sobre `dc9479db759481455349aef936573967b2b14a0a`: procedencia paga propia y lifecycle de T026. Dependencias e integración operativa/OG-06 mantienen su alcance.
+
+## Cambio y evidencia
+
+Los métodos públicos de reconciliación por precio y diagnóstico general ahora actualizan membresía exclusivamente por suscripciones del producto `membership`. El método público de reconciliación del miembro usa el mismo cálculo. Se conservan silenciamientos, causas no comerciales, roles privilegiados, fecha y fundamento básico de admisión vigente; el estado comercial de academia sigue con su owner.
+
+Se reprodujeron en PostgreSQL real dos defectos por ambas vías: una suscripción `academy` convertía `muted` en `active`; un UPDATE de suscripción a canceled se combinaba con la lectura anterior de esa misma fila y dejaba la membresía activa. El helper propio superpone las filas de RETURNING sobre el snapshot para calcular membresía y cantidad del precio con la misma información confirmada. No se revalidan schemas de filas ni payloads upstream.
+
+La revisión señaló carreras entre precios actual/histórico y un orden inverso de locks en el escritor del miembro. Todos esos callers toman ahora el lock de tribu en una sentencia previa a modificar suscripciones/miembros; la sentencia siguiente obtiene un snapshot posterior a la espera. En webhook el lock se toma después de consultar al proveedor. La extracción no agrega pools ni RPC dentro de ese límite.
+
+Se ejecutaron nueve casos SQL completos verdes y un caso concurrente adicional desde los métodos públicos. Cubren academia sin alterar muted, dato actual de suscripción, captura del estado legible antes de ocultarlo, método del miembro, conducta/remoción administrativa y fundamento básico no revocado por billing antiguo. Dos reconciliaciones públicas de precios actual/histórico cancelados terminaron sin revivir membresía. Cada escenario aplica SQL versionado sólo en una rama Neon propia, usa datos sintéticos y elimina esa rama con verificación.
+
+Se agregó un undécimo escenario de oscilación real durante la lectura del proveedor en webhook. El replay usaba el estado anterior al lock y omitía reparar paused aunque el proveedor confirmara authorized. Se reprodujo `duplicate_webhook` con estado incorrecto; tras releer estado/motivo en una nueva sentencia bajo el lock, la misma operación produjo processed y persistió active sin otra RPC.
+
+Los adapters de proveedor se inyectan en el puerto propio del repositorio; no se mockean librerías internas ni se realizan pagos, mensajes o llamadas reales al proveedor. Las 117 pruebas existentes conservaron sus expectativas y pasaron con los fixtures del executor propio ajustados a la consulta de bloqueo. Lint y ambos chequeos de tipos pasaron.
+
+La documentación y los manuales relacionados se mantienen en el mismo trabajo. El validador de manuales no encontró errores; sus advertencias se deben a documentos locales sin URL de visor y a la ausencia de catálogo de traducciones. Chromium/WebKit a 390/1280 comprobaron enlaces y ausencia de desborde. Se conservan las ilustraciones existentes y su atribución, sin presentarlas como capturas nuevas.
+
+## Alcance pendiente
+
+La procedencia paga ya está implementada mediante `subscription_membership_effects`, privada y consumida junto a la instancia. FK/unique/guards ligan cuenta/tribu/instancia/suscripción membership/precio/integración y el timestamp exacto del estado confirmado. El writer posterior a la persistencia de proveedor toma hechos visibles de una nueva sentencia, usa elegibilidad de dominio y conserva snapshot conocido, rol, fecha y moderación. El timestamp se obtiene como texto para no perder microsegundos; actor/manager/webhook actuales preceden a la fuente. Una flag del cliente no crea procedencia.
+
+La primera prueba de las tres vías públicas reprodujo `23514`: la guarda anterior sólo aceptaba admisión. Los tres casos corregidos pasaron focalmente en 63,35 segundos. La ampliación completa mantuvo verdes diecinueve casos y encontró un 401 administrativo antes del escenario de lifecycle. La revisión reprodujo además un P2 real: después de dos recuperaciones, el DELETE intentaba archivar un efecto histórico no revocado. La metadata de pg confirmó `23514` desde la guarda de transición ejecutada por la FK SET NULL. Remoción/borrado ahora revocan todas las fuentes de la misma instancia/cuenta/tribu; el caso exige ambas revocadas y luego archivadas, y pasó en 45,90 segundos.
+
+El arnés leía una ruta legacy de credenciales mientras el CLI instalado usa perfiles. Se sustituyó por la API nativa del CLI, con argv sin shell, stdout privado, scope/ownership intactos y sin retry de red/mutación incierta. Se retiró el lector obsoleto y sus tests; cuatro casos actuales del arnés pasaron en 25,38 segundos (dos HTTP controlados y dos SQL de aislamiento/rollback/cleanup). Su revisión final cerró con cero hallazgos y dos hashes estables.
+
+La ejecución final de veinte SQL de pagos pasó sin skips en 533,73 segundos usando la autenticación nativa y cleanup verificado. Cubre las tres vías, desconocidos, conducta, remoción administrativa, privilegios, producto academy, billing actual/histórico, fundamento básico, dos fuentes consumidas y archivo. Los 117 unitarios anteriores siguen verdes en 1,93 segundos; sólo su executor propio declara ausencia de tribus protegidas para esas fixtures legacy, sin mockear plataformas ni cambiar expectativas. La revisión final cerró con cero hallazgos accionables y diez hashes estables.
+
+T026 queda completada por el alcance comprobado de sus tres métodos y procedencia paga. El control de admisión y su preflight permanecen sin habilitar; los restantes writers, alta/recuperación por nuevas presentaciones y el gate operativo no se deducen de estos casos. No se acredita recuperación histórica desconocida ni se inventa una interfaz de resolución.
+
+Documentación/changelog/manual e índice están actualizados. La build normal Node 24.21.0/Next 16.3.4, con config original y variables sintéticas de proceso hacia loopback inaccesible, compiló en 41 segundos, terminó tipos y generó las 40 páginas. El manual y el índice detallado tienen cero errores de validación; las advertencias corresponden a documentos locales sin URL de visor y ausencia de catálogo de traducciones. Se normalizó la copia del script de navegación contra Heritage Spec. Chromium/WebKit a 390/1280 verificaron menú, ancla/recarga, rendered QA, hoja/Escape, teclado/Inicio y regreso al menú, sin desbordes ni errores de página y con cierre de navegadores. La traza registra HEAD más cambios locales revisados; las ilustraciones siguen siendo los esquemas existentes, sin afirmar capturas nuevas.
+
+La entrega completa conserva sus 212 tareas, documentos normativos, matrices e identificadores. No se ejecutan migraciones en default/producción ni se configura un proveedor externo.

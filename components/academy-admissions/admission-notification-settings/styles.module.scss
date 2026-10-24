@@ -1,0 +1,99 @@
+@use "../../../src/styles/workspace-panel";
+
+.AdmissionNotificationSettings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: 1.25rem;
+
+  &__lead {
+    @include workspace-panel.lead;
+  }
+
+  &__toolbar {
+    @include workspace-panel.actions;
+
+    justify-content: space-between;
+  }
+
+  &__toolbarActions {
+    @include workspace-panel.actions;
+
+    margin-inline-start: auto;
+  }
+
+  &__section {
+    @include workspace-panel.block;
+  }
+
+  &__subtitle {
+    @include workspace-panel.title;
+  }
+
+  &__fields {
+    @include workspace-panel.form;
+  }
+
+  &__facts {
+    @include workspace-panel.facts;
+  }
+
+  &__fact {
+    display: grid;
+    min-width: 0;
+    gap: 0.25rem;
+  }
+
+  &__term {
+    @include workspace-panel.fact-term;
+  }
+
+  &__value {
+    @include workspace-panel.fact-value;
+
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  &__actions {
+    @include workspace-panel.actions;
+  }
+
+  &__callout {
+    @include workspace-panel.callout;
+
+    margin: 0;
+    max-width: 65ch;
+  }
+
+  &__note {
+    @include workspace-panel.note;
+  }
+
+  &__zone {
+    display: grid;
+    min-width: 0;
+  }
+
+  &__help {
+    @include workspace-panel.note;
+
+    margin: 0;
+    padding-top: 0.5rem;
+  }
+
+  &__success {
+    @include workspace-panel.feedback;
+  }
+
+  &__error {
+    @include workspace-panel.feedback;
+    @include workspace-panel.feedback-alert;
+  }
+
+  &__hidden {
+    @include workspace-panel.visually-hidden;
+  }
+}
