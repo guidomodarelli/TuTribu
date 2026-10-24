@@ -2933,14 +2933,22 @@ describe("TribeRound", () => {
     await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
     await user.click(await screen.findByRole("button", { name: "Compartir" }));
 
-    await waitFor(() => expect(refreshMock).toHaveBeenCalled());
+    // The stored publication is read back by reloading the current page in place, never by remounting the round.
+    await waitFor(() =>
+      expect(
+        (global.fetch as Mock).mock.calls.some(
+          ([url, init]) => String(url).startsWith("/api/tribes/matematica-pro/messages") && init?.method !== "POST"
+        )
+      ).toBe(true)
+    );
+    expect(refreshMock).not.toHaveBeenCalled();
     const createBodies = (global.fetch as Mock).mock.calls
       .filter(([url, init]) => url === "/api/tribes/matematica-pro/messages" && init?.method === "POST")
       .map(([, init]) => JSON.parse(String(init.body)) as { clientRequestId: string });
     expect(createBodies).toHaveLength(2);
     expect(createBodies[0].clientRequestId).toMatch(/^[0-9a-f-]{36}$/);
     expect(createBodies[1]).toEqual(createBodies[0]);
-    // The publication stays visible until the refreshed server view replaces it, and the draft is never restored.
+    // The publication stays visible until the reloaded page replaces it, and the draft is never restored.
     expect(screen.getByText("Nuevo encuentro")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });

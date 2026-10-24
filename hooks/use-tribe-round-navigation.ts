@@ -39,6 +39,8 @@ type HistoryMode = (typeof HISTORY_MODE)[keyof typeof HISTORY_MODE];
 type RoundNavigationRequest = {
   historyMode: HistoryMode;
   location: TribeRoundLocation;
+  /** Loads the location even when it is the one already shown (a refresh in place). */
+  reload?: boolean;
 };
 
 const POPSTATE_EVENT = "popstate";
@@ -62,6 +64,11 @@ export type TribeRoundNavigation = {
   pendingLocation: TribeRoundLocation | null;
   /** Repeats the last failed load. */
   retry: () => void;
+  /**
+   * Reloads the page already shown, in place and without touching history, so server changes appear without remounting
+   * the round (the composer draft survives).
+   */
+  reloadCurrentPage: () => Promise<void>;
 };
 
 type UseTribeRoundNavigationInput = {
@@ -95,12 +102,12 @@ export function useTribeRoundNavigation({
   });
 
   const loadRoundPage = useCallback(
-    async ({ historyMode, location }: RoundNavigationRequest): Promise<void> => {
+    async ({ historyMode, location, reload = false }: RoundNavigationRequest): Promise<void> => {
       abortControllerRef.current?.abort();
       requestSequenceRef.current += 1;
       const requestSequence = requestSequenceRef.current;
 
-      if (isSameTribeRoundLocation(location, displayedLocationRef.current)) {
+      if (!reload && isSameTribeRoundLocation(location, displayedLocationRef.current)) {
         // Selecting the page already shown only cancels a pending load.
         abortControllerRef.current = null;
         failedRequestRef.current = null;
@@ -169,6 +176,11 @@ export function useTribeRoundNavigation({
     [loadRoundPage]
   );
 
+  const reloadCurrentPage = useCallback(
+    () => loadRoundPage({ historyMode: HISTORY_MODE.none, location: displayedLocationRef.current, reload: true }),
+    [loadRoundPage]
+  );
+
   const retry = useCallback(() => {
     if (failedRequestRef.current) {
       void loadRoundPage(failedRequestRef.current);
@@ -206,6 +218,7 @@ export function useTribeRoundNavigation({
     isLoading: pendingLocation !== null,
     navigateToLocation,
     pendingLocation,
+    reloadCurrentPage,
     retry,
   };
 }

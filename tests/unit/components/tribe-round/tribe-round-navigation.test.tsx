@@ -444,4 +444,44 @@ describe("TribeRound in-place navigation", () => {
     });
     expect(screen.getByText("Ronda del viernes")).toBeInTheDocument();
   });
+
+  it("reloads the current page in place after a replayed publication and keeps a draft started meanwhile", async () => {
+    const user = userEvent.setup();
+    const reload = createDeferredResponse();
+    const storedMessage = { ...firstPageRound.messages[0], id: "3c1b6f0e-8d2a-4f7b-9e1c-5a4d3b2c1f00", title: "Nuevo encuentro" };
+    const storedRound = { ...firstPageRound, messages: [storedMessage, ...firstPageRound.messages] };
+    let publications = 0;
+    (global.fetch as Mock).mockImplementation((url: string, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        publications += 1;
+        // The first attempt loses its response; the automatic resend finds it stored.
+        return publications === 1
+          ? Promise.reject(new TypeError("Failed to fetch"))
+          : Promise.resolve(jsonResponse({ message: "El mensaje ya estaba publicado.", messageId: storedMessage.id, replayed: true }));
+      }
+      return reload.promise;
+    });
+    renderRound();
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(screen.getByRole("textbox", { name: "Título del mensaje" }), "Nuevo encuentro");
+    typeInMessageEditor(screen.getByRole("textbox", { name: "Contenido del mensaje" }), "Nos vemos el viernes.");
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    await waitFor(() => expect(requestedUrls()).toContain(ROUND_API_PATH));
+    // A new draft started while the stored publication is being read must survive the reload.
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(screen.getByRole("textbox", { name: "Título del mensaje" }), "Otro borrador");
+    await act(async () => {
+      reload.resolve(roundResponse(storedRound));
+    });
+
+    await waitFor(() => expect(screen.getAllByText("Nuevo encuentro").length).toBeGreaterThan(0));
+    expect(screen.getByRole("textbox", { name: "Título del mensaje" })).toHaveValue("Otro borrador");
+    expect(refreshMock).not.toHaveBeenCalled();
+    expect(window.location.pathname + window.location.search).toBe(TRIBE_PATH);
+    expect(publications).toBe(2);
+  });
 });
