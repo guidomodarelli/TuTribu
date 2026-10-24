@@ -84,8 +84,10 @@ describe("notification recovery browser transport", () => {
     const { scope, input } = originalRecovery();
     const controller = new AbortController();
     const transport = vi.fn<typeof fetch>(async (_url, options) => {
-      expect(options?.signal).toBe(controller.signal);
+      // The request's signal follows the caller's cancellation (it also carries the shared deadline).
+      expect(options?.signal?.aborted).toBe(false);
       controller.abort();
+      expect(options?.signal?.aborted).toBe(true);
       throw new DOMException("Synthetic cancelled observation", "AbortError");
     });
     expect(await createNotificationRecoveryBrowserClient({ fetch: transport }).recover(scope, input, controller.signal)).toEqual({ status: "aborted" });
