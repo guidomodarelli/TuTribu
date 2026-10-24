@@ -2915,7 +2915,7 @@ describe("TribeRound", () => {
     }
   });
 
-  it("resends a restored draft with the same publication key and shows the stored message when the server replays it", async () => {
+  it("reconciles a publication whose response was lost by resending it once with the same key, without restoring the draft", async () => {
     const user = userEvent.setup();
     (global.fetch as Mock)
       .mockRejectedValueOnce(new TypeError("Failed to fetch"))
@@ -2933,25 +2933,40 @@ describe("TribeRound", () => {
     await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
     await user.click(await screen.findByRole("button", { name: "Compartir" }));
 
-    // The lost response restores the draft for another attempt.
-    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
-    await user.click(await screen.findByRole("button", { name: "Compartir" }));
-
     await waitFor(() => expect(refreshMock).toHaveBeenCalled());
     const createBodies = (global.fetch as Mock).mock.calls
       .filter(([url, init]) => url === "/api/tribes/matematica-pro/messages" && init?.method === "POST")
       .map(([, init]) => JSON.parse(String(init.body)) as { clientRequestId: string });
     expect(createBodies).toHaveLength(2);
     expect(createBodies[0].clientRequestId).toMatch(/^[0-9a-f-]{36}$/);
-    expect(createBodies[1].clientRequestId).toBe(createBodies[0].clientRequestId);
-    // The publication stays visible until the refreshed server view replaces it: no empty feed in between.
+    expect(createBodies[1]).toEqual(createBodies[0]);
+    // The publication stays visible until the refreshed server view replaces it, and the draft is never restored.
     expect(screen.getByText("Nuevo encuentro")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("does not resend a publication the server rejected with an HTTP error", async () => {
+    const user = userEvent.setup();
+    (global.fetch as Mock).mockResolvedValueOnce({ json: async () => ({ message: "No tenes permisos para publicar en esta tribu." }), ok: false, statusText: "Forbidden" } as Response);
+
+    render(<TribeRound authenticatedMember={authenticatedMember} tribeSlug="matematica-pro" round={round} />);
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(screen.getByRole("textbox", { name: "Título del mensaje" }), "Nuevo encuentro");
+    setMessageEditorContent(screen.getByRole("textbox", { name: "Contenido del mensaje" }), "Nos vemos el viernes.");
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+    await user.click(await screen.findByRole("button", { name: "Compartir" }));
+
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    expect((global.fetch as Mock).mock.calls.filter(([url]) => url === "/api/tribes/matematica-pro/messages")).toHaveLength(1);
   });
 
   it("uses a new publication key once the restored draft is edited", async () => {
     const user = userEvent.setup();
     (global.fetch as Mock)
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
       .mockRejectedValueOnce(new TypeError("Failed to fetch"))
       .mockRejectedValueOnce(new TypeError("Failed to fetch"));
 
@@ -2967,16 +2982,20 @@ describe("TribeRound", () => {
     await user.type(screen.getByRole("textbox", { name: "Título del mensaje" }), " corregido");
     await user.click(await screen.findByRole("button", { name: "Compartir" }));
 
-    await waitFor(() => expect((global.fetch as Mock).mock.calls.filter(([url]) => url === "/api/tribes/matematica-pro/messages")).toHaveLength(2));
-    const [first, second] = (global.fetch as Mock).mock.calls
+    // The first failure is reconciled once with the same key; the edited draft is the third request.
+    await waitFor(() => expect((global.fetch as Mock).mock.calls.filter(([url]) => url === "/api/tribes/matematica-pro/messages")).toHaveLength(4));
+    const [first, reconcile, edited] = (global.fetch as Mock).mock.calls
       .filter(([url]) => url === "/api/tribes/matematica-pro/messages")
       .map(([, init]) => JSON.parse(String(init.body)) as { clientRequestId: string });
-    expect(second.clientRequestId).not.toBe(first.clientRequestId);
+    expect(reconcile.clientRequestId).toBe(first.clientRequestId);
+    expect(edited.clientRequestId).not.toBe(first.clientRequestId);
   });
 
   it("uses a new publication key when only the restored poll changes", async () => {
     const user = userEvent.setup();
     (global.fetch as Mock)
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
       .mockRejectedValueOnce(new TypeError("Failed to fetch"))
       .mockRejectedValueOnce(new TypeError("Failed to fetch"));
 
@@ -2996,12 +3015,12 @@ describe("TribeRound", () => {
     await user.click(screen.getByLabelText("Voto múltiple"));
     await user.click(await screen.findByRole("button", { name: "Compartir" }));
 
-    await waitFor(() => expect((global.fetch as Mock).mock.calls.filter(([url]) => url === "/api/tribes/matematica-pro/messages")).toHaveLength(2));
-    const [first, second] = (global.fetch as Mock).mock.calls
+    await waitFor(() => expect((global.fetch as Mock).mock.calls.filter(([url]) => url === "/api/tribes/matematica-pro/messages")).toHaveLength(4));
+    const [first, , edited] = (global.fetch as Mock).mock.calls
       .filter(([url]) => url === "/api/tribes/matematica-pro/messages")
       .map(([, init]) => JSON.parse(String(init.body)) as { clientRequestId: string; poll: { allowMultipleVotes: boolean } });
-    expect(second.poll.allowMultipleVotes).not.toBe(first.poll.allowMultipleVotes);
-    expect(second.clientRequestId).not.toBe(first.clientRequestId);
+    expect(edited.poll.allowMultipleVotes).not.toBe(first.poll.allowMultipleVotes);
+    expect(edited.clientRequestId).not.toBe(first.clientRequestId);
   });
 
   it("restores a displaced visible message when optimistic creation fails on a full page", async () => {

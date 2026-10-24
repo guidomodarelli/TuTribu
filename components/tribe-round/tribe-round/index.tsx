@@ -3700,11 +3700,23 @@ function TribeRoundContent({
         : crypto.randomUUID();
     pendingCreateMessageKeyRef.current = { fingerprint: createMessageFingerprint, key: clientRequestId };
 
-    try {
-      const response = await submitJsonRequest<CreateMessageResponse>(
+    const submitCreateMessage = () =>
+      submitJsonRequest<CreateMessageResponse>(
         TRIBE_ROUND_ENDPOINT.message(actionTribeSlug),
         { ...createMessagePayload, clientRequestId }
       );
+
+    try {
+      // A network failure leaves the outcome unknown: before rolling back (which also cleans transient attachments and
+      // changes the draft), reconcile it once by sending the same publication with the same key. The server either
+      // replays the stored one or creates it for the first time, so this retry can never duplicate it.
+      const response = await submitCreateMessage().catch((error: unknown) => {
+        if (error instanceof TypeError && isCurrentAction(actionToken, actionTribeSlug)) {
+          return submitCreateMessage();
+        }
+
+        throw error;
+      });
 
       if (!isCurrentAction(actionToken, actionTribeSlug)) {
         return;

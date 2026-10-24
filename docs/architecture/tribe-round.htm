@@ -64,5 +64,19 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   </table>
 </div>
 
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Publicar y reaccionar sin duplicar ni invertir</div>
+  <p>Publicar y dar Me gusta son optimistas en el cliente, pero el servidor decide el resultado. Una respuesta perdida no prueba que la escritura falló, así que los dos contratos son idempotentes.</p>
+  <table>
+    <tr><th>Aspecto</th><th>Decisión</th></tr>
+    <tr><td>Clave de publicación</td><td>El compositor manda <code>clientRequestId</code> (UUID) en <code>POST /api/tribes/[slug]/messages</code>. Se reutiliza solo cuando se envía exactamente el mismo payload (texto, canal, encuesta y adjuntos); cualquier cambio es una publicación nueva con otra clave. <code>public.messages.client_request_id</code> tiene un índice único parcial por autor (<code>messages_author_client_request_id_key</code>).</td></tr>
+    <tr><td>Reproducción</td><td>Si la clave ya existe para ese autor, el repositorio no inserta (<code>on conflict … do nothing</code>) ni vuelve a adjuntar medios, archivos o encuesta, y devuelve <code>replayed</code> con el id del mensaje guardado. La ruta responde 200 <code>{ replayed: true }</code> y revalida la caché de la ronda.</td></tr>
+    <tr><td>Resultado incierto</td><td>Si el request falla sin respuesta HTTP (<code>TypeError</code> de red), el cliente reenvía una sola vez la misma publicación con la misma clave antes de revertir: el servidor la reproduce o la crea por primera vez. Un error HTTP no se reenvía. Solo si el reenvío también falla se revierte la copia optimista y se restaura el borrador.</td></tr>
+    <tr><td>Después de una reproducción</td><td>La copia optimista queda a la vista y <code>router.refresh()</code> trae el mensaje guardado; el remount por key lo reemplaza sin mostrar la ronda vacía.</td></tr>
+    <tr><td>Me gusta</td><td><code>POST /api/tribes/[slug]/messages/[messageId]/like</code> acepta <code>{ liked: boolean }</code> (validado con Zod). Con estado deseado, la escritura es idempotente: <code>liked: true</code> nunca borra y <code>liked: false</code> nunca inserta. Sin body o sin <code>liked</code> conserva el toggle histórico. El cliente siempre envía el estado que eligió el integrante.</td></tr>
+  </table>
+</div>
+
 </body>
 </html>

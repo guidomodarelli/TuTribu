@@ -182,7 +182,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Los líderes de tribu ya no necesitan confirmar su cuenta con Google para operaciones sensibles de admisiones, mensajería, salida del modo academia o borrado de la tribu; desaparecen el botón y la pantalla de confirmación.
 
 ### Fixed
-- Volver a compartir en el fogón un mensaje cuya publicación no tuvo respuesta ya no lo duplica: si la primera vez se publicó, avisa «El mensaje ya estaba publicado.».
+- Cuando una publicación del fogón se queda sin respuesta, la página la reenvía sola una vez sin duplicarla: si ya se había publicado, avisa «El mensaje ya estaba publicado.» y la muestra, también cuando tenía imágenes o archivos.
 - Repetir un Me gusta después de una falla de conexión ya no lo invierte: se guarda el estado que elegiste.
 - Al volver a la ventana de invitaciones también se comprueba que sigas pudiendo gestionarlas; si perdiste ese permiso, el enlace recién emitido se oculta.
 - El enlace de una invitación personal recién emitida ya no desaparece si el líder cambia de ventana antes de copiarlo, y «Copiar enlace» lo copia también en Safari.
