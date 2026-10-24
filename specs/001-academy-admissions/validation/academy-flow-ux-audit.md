@@ -227,4 +227,6 @@ La línea base y el después de cada optimización se registran acá y en su PR,
 | PERF-01 | Páginas de integrantes (`resolveTribePageAccess`) | Viajes secuenciales por request | pendiente | pendiente | pendiente |
 | PERF-02 | Gestionar academia | Viajes secuenciales por request | pendiente | pendiente | pendiente |
 | PERF-03 | Conexión de mensajería (MEN-09) | Renders por segundo en reposo | pendiente | pendiente | pendiente |
-| PERF-04 | Invitaciones: copiar el enlace recién emitido (LID-01) | Espera desde que aparece el enlace hasta poder copiarlo; requests de admisiones al volver a la ventana y copiar | 17,4 s (Chromium 1280) y 17,2 s (WebKit 390); 1 request | 0,016 s y 0,013 s; 0 requests | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |
+| PERF-04 | Invitaciones: copiar el enlace recién emitido (LID-01) | Espera desde que aparece el enlace hasta poder copiarlo | 17,4 s (Chromium 1280) y 17,2 s (WebKit 390) | 0,016 s y 0,013 s | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |
+| PERF-05 | Fogón: publicar con clave idempotente (INT-15) | Sentencias SQL y latencia por publicación (repositorio real, mediana de 3) | 1 sentencia; 637 ms | 1 sentencia; 638 ms (ruido) | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |
+| PERF-06 | Fogón: Me gusta con estado deseado (INT-15) | Sentencias SQL y latencia por Me gusta; requests al reintentar tras una respuesta perdida | 4 sentencias; 1111 ms; 2 requests | 3 sentencias; 948 ms; 1 request | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |
