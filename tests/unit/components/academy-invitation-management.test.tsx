@@ -206,6 +206,23 @@ describe("personal invitation management controls", () => {
     expect(screen.queryByLabelText("Enlace personal")).not.toBeInTheDocument();
   });
 
+  it("should discard a slow focus recheck once an explicit read has published a newer page", async () => {
+    const data = fixture(), user = userEvent.setup(); data.initial.page.items = [data.metadata];
+    let resolveFocusRead!: (value: Awaited<ReturnType<PersonalInvitationManagementBrowserClient["page"]>>) => void;
+    vi.mocked(data.client.page)
+      .mockImplementationOnce(async () => new Promise((resolve) => { resolveFocusRead = resolve; }))
+      .mockResolvedValueOnce({ status: "ready", value: { ...data.initial, page: { items: [{ ...data.metadata, internalName: "Grupo actualizado", version: 2 }], nextCursor: null } } });
+    await mount(data);
+    await act(async () => { window.dispatchEvent(new FocusEvent("focus")); });
+    await waitFor(() => expect(data.client.page).toHaveBeenCalledTimes(1));
+    await user.click(screen.getByText("Consultar y ver más")); await user.click(screen.getByRole("button", { name: "Consultar estado actual" }));
+    expect(await screen.findByRole("button", { name: "Renombrar Grupo actualizado" })).toBeInTheDocument();
+    // The superseded focus answer arrives last with the older page.
+    await act(async () => resolveFocusRead({ status: "ready", value: { ...data.initial, page: { items: [data.metadata], nextCursor: null } } }));
+    expect(screen.getByRole("button", { name: "Renombrar Grupo actualizado" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Renombrar Grupo inicial" })).not.toBeInTheDocument();
+  });
+
   it("should keep the one-time link silently when the focus recheck cannot reach the server", async () => {
     const data = fixture(), user = userEvent.setup(); await mount(data); await emailProposal(user);
     await user.click(screen.getByRole("button", { name: "Emitir invitación" }));

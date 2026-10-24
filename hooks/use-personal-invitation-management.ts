@@ -27,6 +27,8 @@ export function usePersonalInvitationManagement(options: { initialState: Persona
   const [pending, setPending] = useState<PersonalInvitationManagementReference | null>(null), [errorMessage, setErrorMessage] = useState<string | null>(null), [fieldError, setFieldError] = useState<string | null>(null), [statusMessage, setStatusMessage] = useState<string | null>(null), [conflict, setConflict] = useState(false), [needsCurrent, setNeedsCurrent] = useState(false), [invitationUrl, setInvitationUrl] = useState<string | null>(null);
   const mounted = useRef(false), closed = useRef(false), generation = useRef(0), busy = useRef(false), controller = useRef<AbortController | null>(null), pendingRef = useRef<PersonalInvitationManagementReference | null>(null), draftRef = useRef(draft), stateRef = useRef(state);
   const [selectionBlocked, setSelectionBlocked] = useState(false), [step, setStep] = useState(0), writeToast = useRef<WriteToast | null>(null);
+  /** A focus recheck in flight and the revision of explicit operations: any newer operation supersedes it. */
+  const focusCheck = useRef<AbortController | null>(null), operationRevision = useRef(0);
   const live = (signal: AbortSignal, scope: number) => mounted.current && generation.current === scope && !signal.aborted;
 
   /** A changed viewer permanently closes this mounted scope and removes transient private material. */
@@ -69,6 +71,7 @@ export function usePersonalInvitationManagement(options: { initialState: Persona
   const run = useCallback(async (action: (signal: AbortSignal, scope: number) => Promise<void>, writing = false) => {
     if (!initial || closed.current || busy.current) return;
     const next = new AbortController(), scope = generation.current; controller.current?.abort(); controller.current = next; busy.current = true;
+    focusCheck.current?.abort(); focusCheck.current = null; operationRevision.current += 1;
     // A write's progress and outcome are its own toast; an unconfirmed original stays on screen.
     const timeout = window.setTimeout(() => next.abort(), PERSONAL_INVITATION_MANAGEMENT_TIMEOUT_MS), notice = writing ? startWriteToast(COPY.saving) : null; writeToast.current = notice;
     /** A failure the leader can retry: the write's toast, or the page for a read or an unconfirmed original. */
@@ -123,20 +126,23 @@ export function usePersonalInvitationManagement(options: { initialState: Persona
      */
     const regainedFocus = () => {
       if (!mounted.current || closed.current || busy.current || !stateRef.current) return;
-      const check = new AbortController(), checkScope = generation.current, checkTimeout = window.setTimeout(() => check.abort(), PERSONAL_INVITATION_MANAGEMENT_TIMEOUT_MS);
+      focusCheck.current?.abort();
+      const check = new AbortController(), checkScope = generation.current, revision = operationRevision.current, checkTimeout = window.setTimeout(() => check.abort(), PERSONAL_INVITATION_MANAGEMENT_TIMEOUT_MS);
+      focusCheck.current = check;
       void (async () => {
         if (!await authorize(check.signal, checkScope)) return;
         const result = await client.page(initial!.slug, stateRef.current!.query, check.signal);
-        if (!live(check.signal, checkScope) || closed.current || busy.current) return;
+        // An explicit read or write started meanwhile owns the page state: this older answer must not overwrite it.
+        if (!live(check.signal, checkScope) || closed.current || busy.current || operationRevision.current !== revision) return;
         if (result.status === "failed") { if (result.code === ADMISSION_ERROR_CODE.permissionDenied || result.code === ADMISSION_ERROR_CODE.authenticationRequired) close(); return; }
         if (result.status !== "ready") return;
         if (result.value.viewerId !== initial!.viewerId || result.value.tribeId !== initial!.tribeId) { close(); return; }
         stateRef.current = result.value; setState(result.value); observeReference();
-      })().catch(() => undefined).finally(() => window.clearTimeout(checkTimeout));
+      })().catch(() => undefined).finally(() => { window.clearTimeout(checkTimeout); if (focusCheck.current === check) focusCheck.current = null; });
     };
     window.addEventListener("pageshow", restored);
     window.addEventListener("focus", regainedFocus);
-    return () => { mounted.current = false; generation.current += 1; hydration.abort(); controller.current?.abort(); window.clearTimeout(timeout); window.removeEventListener("pageshow", restored); window.removeEventListener("focus", regainedFocus); busy.current = false; };
+    return () => { mounted.current = false; generation.current += 1; hydration.abort(); controller.current?.abort(); focusCheck.current?.abort(); window.clearTimeout(timeout); window.removeEventListener("pageshow", restored); window.removeEventListener("focus", regainedFocus); busy.current = false; };
   }, [authorize, client, close, initial, observeReference, refresh, run]);
 
   const save = useCallback(async () => {
