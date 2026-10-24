@@ -116,10 +116,16 @@ export function usePersonalInvitationManagement(options: { initialState: Persona
       observeReference(); if (!live(hydration.signal, scope)) return; setReady(true); setConfirmed(false); setPhase(pendingRef.current ? PHASE.uncertain : PHASE.idle);
     })().catch(() => { if (live(hydration.signal, scope)) { setErrorMessage(COPY.storage); setPhase(PHASE.idle); } }).finally(() => { window.clearTimeout(timeout); if (hydration.signal.aborted && mounted.current && generation.current === scope) { setErrorMessage(ADMISSION_ERROR_MESSAGE.dependency_unavailable); setPhase(PHASE.idle); } }); });
     /** Restoring a document rereads identity/progress and never restarts its original mutation. */
-    const restored = () => { if (!mounted.current || closed.current || busy.current) return; setPrivateVisible(false); setConfirmed(false); setInvitationUrl(null); void run(async (signal, observedScope) => { observeReference(); if (await refresh(stateRef.current!.query, signal, observedScope) && !closed.current) setPrivateVisible(true); }); };
+    const restored = (event: PageTransitionEvent) => { if (!event.persisted || !mounted.current || closed.current || busy.current) return; setPrivateVisible(false); setConfirmed(false); setInvitationUrl(null); void run(async (signal, observedScope) => { observeReference(); if (await refresh(stateRef.current!.query, signal, observedScope) && !closed.current) setPrivateVisible(true); }); };
+    /** Returning to the window only rechecks the viewer and adopted progress: the one-time link and its feedback stay until the leader acts or the account changes. */
+    const regainedFocus = () => {
+      if (!mounted.current || closed.current || busy.current) return;
+      const check = new AbortController(), checkScope = generation.current, checkTimeout = window.setTimeout(() => check.abort(), PERSONAL_INVITATION_MANAGEMENT_TIMEOUT_MS);
+      void authorize(check.signal, checkScope).then((authorized) => { if (authorized && !busy.current) observeReference(); }).catch(() => undefined).finally(() => window.clearTimeout(checkTimeout));
+    };
     window.addEventListener("pageshow", restored);
-    window.addEventListener("focus", restored);
-    return () => { mounted.current = false; generation.current += 1; hydration.abort(); controller.current?.abort(); window.clearTimeout(timeout); window.removeEventListener("pageshow", restored); window.removeEventListener("focus", restored); busy.current = false; };
+    window.addEventListener("focus", regainedFocus);
+    return () => { mounted.current = false; generation.current += 1; hydration.abort(); controller.current?.abort(); window.clearTimeout(timeout); window.removeEventListener("pageshow", restored); window.removeEventListener("focus", regainedFocus); busy.current = false; };
   }, [authorize, observeReference, refresh, run]);
 
   const save = useCallback(async () => {
@@ -163,12 +169,13 @@ export function usePersonalInvitationManagement(options: { initialState: Persona
   }), [observeReference, refresh, run]);
   const changeDraft = (next: PersonalInvitationManagementDraft) => { if (busy.current || pendingRef.current || closed.current || !ready) return; draftRef.current = next; setDraft(next); setConfirmed(false); setFieldError(null); setErrorMessage(null); setStatusMessage(null); setInvitationUrl(null); };
   const select = (item: PersonalInvitationManagementResult, mode: "rename" | "revoke" | "create") => { if (!stateRef.current || conflict || busy.current || pendingRef.current || closed.current || !ready) return; const next = emptyPersonalInvitationManagementDraft(stateRef.current); changeDraft({ ...next, mode, selected: item, internalName: item.internalName, identity: item.recipient.value, country: item.recipient.country ?? next.country, requiresAllowlist: item.requiresAllowlist, replaceSelected: mode === MODE.create }); setStep(0); };
-  const copyUrl = () => run(async (signal, scope) => {
-    if (!invitationUrl || !await refresh(stateRef.current!.query, signal, scope) || closed.current) return;
+  /** Copies within the click itself: WebKit drops the user activation after a network round trip. The link is already on screen, and focus changes recheck the viewer. */
+  const copyUrl = async () => {
+    if (!invitationUrl || closed.current || busy.current) return;
     if (!navigator.clipboard?.writeText) { toast.info(COPY.clipboard); return; }
-    try { await navigator.clipboard.writeText(invitationUrl); if (live(signal, scope)) toast.success(COPY.copied); }
-    catch { if (live(signal, scope)) toast.info(COPY.clipboard); }
-  });
+    try { await navigator.clipboard.writeText(invitationUrl); if (mounted.current && !closed.current) toast.success(COPY.copied); }
+    catch { if (mounted.current) toast.info(COPY.clipboard); }
+  };
   const discardSelection = () => { if (!selectionBlocked || !stateRef.current || busy.current || pendingRef.current || closed.current || !ready) return; changeDraft(emptyPersonalInvitationManagementDraft(stateRef.current)); setSelectionBlocked(false); setConflict(false); setNeedsCurrent(false); setStep(0); };
   return { state, draft, pending, ready, privateVisible, phase, confirmed, errorMessage, fieldError, statusMessage, conflict, needsCurrent, selectionBlocked, discardSelection, invitationUrl, step, setStep: (value: number) => { if (!busy.current) setStep(value); }, changeDraft, select, newInvitation: () => { if (stateRef.current && !conflict && !busy.current && !pendingRef.current) { changeDraft(emptyPersonalInvitationManagementDraft(stateRef.current)); setStep(0); } }, setConfirmed: (value: boolean) => { if (!ready || busy.current || pendingRef.current || closed.current) return; setConfirmed(value); setFieldError(null); }, save, readOriginal, readCurrent, copyUrl, hideUrl: () => setInvitationUrl(null) };
 }

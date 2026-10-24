@@ -180,6 +180,30 @@ describe("personal invitation management controls", () => {
     expect(screen.queryByLabelText("Enlace personal")).not.toBeInTheDocument();
   });
 
+  it("should keep the one-time link and its feedback when the leader returns to the window with the same account", async () => {
+    const data = fixture(), user = userEvent.setup(); await mount(data); await emailProposal(user);
+    await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
+    expect(await screen.findByLabelText("Enlace personal")).toHaveValue(data.invitationUrl);
+    await waitFor(() => expect(data.client.page).toHaveBeenCalledTimes(1));
+    const viewerChecks = vi.mocked(data.client.viewer).mock.calls.length;
+    await act(async () => { window.dispatchEvent(new FocusEvent("focus")); });
+    await waitFor(() => expect(data.client.viewer).toHaveBeenCalledTimes(viewerChecks + 1));
+    expect(screen.getByLabelText("Enlace personal")).toHaveValue(data.invitationUrl);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    // Regaining focus is not a restored document: it neither rereads the page nor writes again.
+    expect(data.client.page).toHaveBeenCalledTimes(1); expect(data.client.write).toHaveBeenCalledTimes(1);
+  });
+
+  it("should hide the one-time link when the window regains focus under another account", async () => {
+    const data = fixture(), user = userEvent.setup(); await mount(data); await emailProposal(user);
+    await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
+    expect(await screen.findByLabelText("Enlace personal")).toHaveValue(data.invitationUrl);
+    vi.mocked(data.client.viewer).mockResolvedValue({ status: "ready", value: { id: randomUUID() } });
+    await act(async () => { window.dispatchEvent(new FocusEvent("focus")); });
+    expect(await screen.findByRole("alert")).toHaveTextContent(PERSONAL_INVITATION_MANAGEMENT_COPY.account);
+    expect(screen.queryByLabelText("Enlace personal")).not.toBeInTheDocument();
+  });
+
   it("should recover a lost creation response by original GET without repeating the POST or recovering its URL", async () => {
     const data = fixture(), user = userEvent.setup();
     vi.mocked(data.client.write).mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "La respuesta no llegó.", uncertain: true });
@@ -297,6 +321,18 @@ describe("personal invitation save feedback", () => {
     await act(async () => resolveWrite({ status: "ready", value: { viewerId: data.initial.viewerId, outcome: { state: "completed", operationId: intent.input.operationId, replayed: false, result: { invitationId: data.metadata.id, version: 1, changed: true, created: true }, invitationUrl: data.invitationUrl } } }));
     await waitFor(() => expect(document.querySelector("[data-sonner-toaster]")).toHaveTextContent(PERSONAL_INVITATION_MANAGEMENT_COPY.saved));
     expect(within(management).queryByText(PERSONAL_INVITATION_MANAGEMENT_COPY.saved)).not.toBeInTheDocument();
+  });
+
+  it("should copy the one-time link within the click without waiting for another request", async () => {
+    const data = fixture(), user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await mountWithToaster(data); await emailProposal(user);
+    await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
+    expect(await screen.findByLabelText("Enlace personal")).toHaveValue(data.invitationUrl);
+    await waitFor(() => expect(data.client.page).toHaveBeenCalledTimes(1));
+    await user.click(screen.getByRole("button", { name: "Copiar enlace" }));
+    expect(await screen.findByText(PERSONAL_INVITATION_MANAGEMENT_COPY.copied)).toBeInTheDocument();
+    await expect(navigator.clipboard.readText()).resolves.toBe(data.invitationUrl);
+    expect(data.client.page).toHaveBeenCalledTimes(1);
   });
 
   it("should keep the final action idle while only the current state is read", async () => {
