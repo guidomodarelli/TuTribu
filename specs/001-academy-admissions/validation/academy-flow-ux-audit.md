@@ -97,7 +97,7 @@ Todas las escrituras son pending-first y confirmadas por el servidor, que es la 
 | Volver a comprobar | — | — | Lectura | cumple |
 | Alta y baja en la allowlist | Casilla | 120 s | Relectura | cumple |
 | Importar CSV | Selección y confirmación | 120 s | Reanudar y conciliar | pendiente (LID-10) |
-| Crear, reemitir, renombrar y revocar invitaciones | Motivo y reconocimiento si ya se canjeó | 120 s | Relectura; enlace de un solo uso | pendiente (LID-01) |
+| Crear, reemitir, renombrar y revocar invitaciones | Motivo y reconocimiento si ya se canjeó | 120 s | Relectura; enlace de un solo uso, copiable mientras corre la relectura | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |
 | Decidir una solicitud o un lote | Casilla; motivo para rechazar | Sin deadline | Recuperación del lote por `operation` | pendiente (LID-09) |
 | Decidir una membresía comercial | Casilla | Sin deadline | Relectura | pendiente (LID-09) |
 | Guardar avisos | — | Sin deadline | Cadena correo → preferencia con progreso parcial | pendiente (LID-09) |
@@ -106,7 +106,7 @@ Todas las escrituras son pending-first y confirmadas por el servidor, que es la 
 
 | Id | Skill | Hallazgo | Evidencia | Estado |
 |---|---|---|---|---|
-| LID-01 | estados, mutaciones | Volver a la ventana (`focus`) borra el enlace de invitación de un solo uso antes de copiarlo y muestra «La cuenta o el acceso cambió». | `use-personal-invitation-management.ts` (listener de `focus`) | pendiente |
+| LID-01 | estados, mutaciones | Volver a la ventana (`focus`) borra el enlace de invitación de un solo uso antes de copiarlo y muestra «La cuenta o el acceso cambió». | `use-personal-invitation-management.ts` (listener de `focus`) | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |
 | LID-02 | estados | La actividad oculta su contenido cada vez que la pestaña vuelve a estar visible, y al filtrar o paginar reemplaza todo por un texto de carga. | `activity/admission-activity-container.tsx` | pendiente |
 | LID-03 | boundaries, estados | La bandeja y el historial ocultan los datos del SSR al hidratar y los vuelven a mostrar tras el chequeo de viewer (contenido, vacío, contenido). | `admission-review-container.tsx`, `history/[requestId]/history-container.tsx` | pendiente |
 | LID-04 | estados, a11y | El error de la bandeja no usa `embedded`: anida un `<main>` y duplica el `<h1>`. | `admission-review-container.tsx` | pendiente |
@@ -227,3 +227,4 @@ La línea base y el después de cada optimización se registran acá y en su PR,
 | PERF-01 | Páginas de integrantes (`resolveTribePageAccess`) | Viajes secuenciales por request | pendiente | pendiente | pendiente |
 | PERF-02 | Gestionar academia | Viajes secuenciales por request | pendiente | pendiente | pendiente |
 | PERF-03 | Conexión de mensajería (MEN-09) | Renders por segundo en reposo | pendiente | pendiente | pendiente |
+| PERF-04 | Invitaciones: copiar el enlace recién emitido (LID-01) | Espera desde que aparece el enlace hasta poder copiarlo; requests de admisiones al volver a la ventana y copiar | 17,4 s (Chromium 1280) y 17,2 s (WebKit 390); 1 request | 0,016 s y 0,013 s; 0 requests | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |
