@@ -6,7 +6,7 @@ import { useAdmissionContactVerification } from "@/hooks/use-admission-contact-v
 import type { AdmissionContactBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-contact-browser-client";
 import type { AdmissionChallengeSnapshot } from "@/src/modules/academy-admissions/domain/repositories/admission-contact-verification";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
-import { ADMISSION_CONTACT_COPY } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
+import { ADMISSION_CONTACT_BROWSER_TIMEOUT_MS, ADMISSION_CONTACT_COPY } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
 import { ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 
 afterEach(() => window.sessionStorage.clear());
@@ -105,6 +105,30 @@ describe("expired applicant code", () => {
     const resentOperationId = vi.mocked(fixture.client.resend).mock.calls[0][2].operationId;
     expect(fixture.client.operation).toHaveBeenCalledExactlyOnceWith("synthetic-academy", resentOperationId, expect.any(AbortSignal));
     expect(fixture.client.resend).toHaveBeenCalledTimes(1);
+  });
+
+  it("should read the original once when the resend outlives the browser deadline and adopt the code it registered", async () => {
+    // Given a resend the server commits but whose answer arrives after the browser deadline.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const fixture = expiredFixture();
+      vi.mocked(fixture.client.resend).mockImplementationOnce((_slug, _challengeId, _input, signal) => new Promise((resolve) => signal.addEventListener("abort", () => resolve({ status: "aborted" }), { once: true })));
+      vi.mocked(fixture.client.operation).mockImplementation(async (_slug, operationId) => ({ status: "ready", value: { type: "resend_contact_challenge", state: "completed", operationId, replayed: true, result: fixture.replacement } }));
+      const { result } = await renderExpired(fixture);
+
+      // When the deadline aborts the pending resend.
+      let resending!: Promise<void>;
+      act(() => { resending = result.current.resend(); });
+      await waitFor(() => expect(fixture.client.resend).toHaveBeenCalledTimes(1));
+      await act(async () => { await vi.advanceTimersByTimeAsync(ADMISSION_CONTACT_BROWSER_TIMEOUT_MS); await resending; });
+
+      // Then that original is read once and its new code replaces the expired one without another send.
+      await waitFor(() => expect(result.current.challenge?.challengeId).toBe(fixture.replacement.challengeId));
+      expect(result.current.pending).toBeNull();
+      expect(result.current.errorMessage).toBeNull();
+      expect(fixture.client.operation).toHaveBeenCalledTimes(1);
+      expect(fixture.client.resend).toHaveBeenCalledTimes(1);
+    } finally { vi.useRealTimers(); }
   });
 
   it("should keep the explicit recovery when the lost resend is still absent from the registry", async () => {

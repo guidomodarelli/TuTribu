@@ -161,7 +161,9 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
       setDelivery(null);
     }
     const scopeGeneration = generation.current, actionController = new AbortController(); controller.current = actionController;
-    const timeout = window.setTimeout(() => actionController.abort(), ADMISSION_CONTACT_BROWSER_TIMEOUT_MS);
+    // The browser deadline aborts its own request; unlike an unmount or a scope change, that abort still leaves this scope to reconcile.
+    let timedOut = false;
+    const timeout = window.setTimeout(() => { timedOut = true; actionController.abort(); }, ADMISSION_CONTACT_BROWSER_TIMEOUT_MS);
     // A send whose answer was lost may already hold a new code on the server; one read of its original shows it without a reload.
     const issuance = intent.kind === ADMISSION_CONTACT_ACTION.issue || intent.kind === ADMISSION_CONTACT_ACTION.resend || intent.kind === ADMISSION_CONTACT_ACTION.sms;
     let reconcile = false;
@@ -182,9 +184,10 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
       } else if (result.status === ADMISSION_CONTACT_BROWSER_STATUS.failed && !result.uncertain) { save({ pending: null }); if (intent.kind === ADMISSION_CONTACT_ACTION.verify) recordChallengeFailure(result.code); setErrorMessage(intent.kind === ADMISSION_CONTACT_ACTION.verify ? challengeAlert(result.code, result.message) : result.message); setPhase(ADMISSION_CONTACT_PHASE.idle); }
       else { reconcile = issuance; setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); }
     } catch { if (live(scopeGeneration, actionController.signal)) { reconcile = issuance; setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); } }
-    finally { window.clearTimeout(timeout); if (writeToast.current === notice) writeToast.current = null; notice.finish(); if (controller.current === actionController) { busy.current = false; controller.current = null; if (active.current && generation.current === scopeGeneration) { setPhase(record.current?.pending ? ADMISSION_CONTACT_PHASE.uncertain : ADMISSION_CONTACT_PHASE.idle); if (actionController.signal.aborted && record.current?.pending) setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); } } }
-    // Read-only and once: an original still absent or in progress keeps the explicit "Consultar operación del código".
-    if (reconcile && active.current && generation.current === scopeGeneration && record.current?.pending?.operationId === intent.operationId) await readOriginalCurrent.current();
+    finally { window.clearTimeout(timeout); if (writeToast.current === notice) writeToast.current = null; notice.finish(); if (controller.current === actionController) { busy.current = false; controller.current = null; if (active.current && generation.current === scopeGeneration) { setPhase(record.current?.pending ? ADMISSION_CONTACT_PHASE.uncertain : ADMISSION_CONTACT_PHASE.idle); if (actionController.signal.aborted && record.current?.pending) setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); } }
+      // Inside finally, so the early returns after a deadline abort still reach it. Read-only and once: an original still absent or in progress keeps the explicit "Consultar operación del código".
+      if ((reconcile || issuance && timedOut) && active.current && generation.current === scopeGeneration && record.current?.pending?.operationId === intent.operationId) await readOriginalCurrent.current();
+    }
   }, [consume, ready, recoveryRequired, recordChallengeFailure, save, setAbsence]);
 
   /** Resolves durable references from the actual registry before treating any recovered result as usable UI data. */
