@@ -117,16 +117,27 @@ export function usePersonalInvitationManagement(options: { initialState: Persona
     })().catch(() => { if (live(hydration.signal, scope)) { setErrorMessage(COPY.storage); setPhase(PHASE.idle); } }).finally(() => { window.clearTimeout(timeout); if (hydration.signal.aborted && mounted.current && generation.current === scope) { setErrorMessage(ADMISSION_ERROR_MESSAGE.dependency_unavailable); setPhase(PHASE.idle); } }); });
     /** Restoring a document rereads identity/progress and never restarts its original mutation. */
     const restored = (event: PageTransitionEvent) => { if (!event.persisted || !mounted.current || closed.current || busy.current) return; setPrivateVisible(false); setConfirmed(false); setInvitationUrl(null); void run(async (signal, observedScope) => { observeReference(); if (await refresh(stateRef.current!.query, signal, observedScope) && !closed.current) setPrivateVisible(true); }); };
-    /** Returning to the window only rechecks the viewer and adopted progress: the one-time link and its feedback stay until the leader acts or the account changes. */
+    /**
+     * Returning to the window rechecks the account and the tribe authority behind the page read: losing either closes the private view.
+     * The one-time link, its feedback and the draft stay for an unchanged authorized leader, and a transient read failure stays silent.
+     */
     const regainedFocus = () => {
-      if (!mounted.current || closed.current || busy.current) return;
+      if (!mounted.current || closed.current || busy.current || !stateRef.current) return;
       const check = new AbortController(), checkScope = generation.current, checkTimeout = window.setTimeout(() => check.abort(), PERSONAL_INVITATION_MANAGEMENT_TIMEOUT_MS);
-      void authorize(check.signal, checkScope).then((authorized) => { if (authorized && !busy.current) observeReference(); }).catch(() => undefined).finally(() => window.clearTimeout(checkTimeout));
+      void (async () => {
+        if (!await authorize(check.signal, checkScope)) return;
+        const result = await client.page(initial!.slug, stateRef.current!.query, check.signal);
+        if (!live(check.signal, checkScope) || closed.current || busy.current) return;
+        if (result.status === "failed") { if (result.code === ADMISSION_ERROR_CODE.permissionDenied || result.code === ADMISSION_ERROR_CODE.authenticationRequired) close(); return; }
+        if (result.status !== "ready") return;
+        if (result.value.viewerId !== initial!.viewerId || result.value.tribeId !== initial!.tribeId) { close(); return; }
+        stateRef.current = result.value; setState(result.value); observeReference();
+      })().catch(() => undefined).finally(() => window.clearTimeout(checkTimeout));
     };
     window.addEventListener("pageshow", restored);
     window.addEventListener("focus", regainedFocus);
     return () => { mounted.current = false; generation.current += 1; hydration.abort(); controller.current?.abort(); window.clearTimeout(timeout); window.removeEventListener("pageshow", restored); window.removeEventListener("focus", regainedFocus); busy.current = false; };
-  }, [authorize, observeReference, refresh, run]);
+  }, [authorize, client, close, initial, observeReference, refresh, run]);
 
   const save = useCallback(async () => {
     if (!ready || !confirmed || busy.current || closed.current || pendingRef.current || needsCurrent || conflict || !stateRef.current || !draftRef.current) { if (!confirmed) setFieldError(COPY.confirm); return; }
