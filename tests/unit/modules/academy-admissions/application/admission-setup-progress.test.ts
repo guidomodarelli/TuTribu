@@ -88,6 +88,8 @@ describe("deriveAdmissionSetupProgress", () => {
     expect(steps.rules).toEqual({ id: "rules", status: "done", draft: true });
     expect(steps.connection).toEqual({ id: "connection", status: "optional", draft: true });
     expect(steps.open).toEqual({ id: "open", status: "pending", draft: true, platformBlocked: true });
+    const closed: AdmissionSetupFacts = { ...facts, activation: { platformBlocked: false, admissionsClosed: true } };
+    expect(Object.fromEntries(deriveAdmissionSetupProgress(closed).steps.map((step) => [step.id, step])).open).toEqual({ id: "open", status: "pending", draft: true, admissionsClosed: true });
     const paused: AdmissionSetupFacts = { ...facts, policy: { ...facts.policy, paused: true } };
     expect(Object.fromEntries(deriveAdmissionSetupProgress(paused).steps.map((step) => [step.id, step])).open).toEqual({ id: "open", status: "pending", paused: true });
   });

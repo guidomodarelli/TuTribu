@@ -133,9 +133,11 @@ describe("guided policy route workflow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Guardar y activar admisiones" }));
     const block = await screen.findByRole("region", { name: "Lo que falta resolver" });
     expect(block).toHaveTextContent("Todavía falta un requisito para activar las admisiones.");
-    expect(block).toHaveTextContent("La plataforma todavía no habilitó la admisión para esta academia.");
-    expect(block).toHaveTextContent("Código de diagnóstico: preflight_evaluator_disabled");
-    expect(screen.getByRole("group", { name: "Tenés reglas guardadas sin publicar" })).toHaveTextContent("Por ahora no se pueden activar: depende del equipo de TuTribu.");
+    expect(block).toHaveTextContent("Las admisiones de la academia están cerradas. Encendé «Admisiones abiertas» en Gestionar academia y volvé a activar estas reglas.");
+    expect(within(block).getByRole("link", { name: "Ir a Gestionar academia" })).toHaveAttribute("href", expect.stringMatching(/\/academia\/gestionar$/));
+    expect(block).not.toHaveTextContent("Depende del equipo de TuTribu");
+    expect(block).not.toHaveTextContent("Código de diagnóstico");
+    expect(screen.getByRole("group", { name: "Tenés reglas guardadas sin publicar" })).not.toHaveTextContent("depende del equipo de TuTribu");
     expect(block).toHaveTextContent("Tus reglas quedaron guardadas como borrador.");
     expect(data.client.updatePolicy.mock.calls[0][1]).toMatchObject({ expectedVersion: 3, requiresAdditionalVerification: true });
     // The server binds the messaging selection; the saved rules never carry a connection reference.

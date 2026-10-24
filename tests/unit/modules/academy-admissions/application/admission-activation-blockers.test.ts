@@ -15,7 +15,7 @@ describe("activation blockers", () => {
     expect(Object.fromEntries(reasons.map((reason) => [reason, ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON[reason]]))).toEqual({
       preflight_academy_unavailable: "academy", preflight_policy_unavailable: "self_resolved", preflight_marker_inconsistent: "platform",
       preflight_storage_unavailable: "platform", preflight_ingress_unprotected: "platform", preflight_unknown_commercial_history: "commercial_review",
-      preflight_privileged_commercial_membership: "commercial_review", preflight_runtime_unavailable: "platform", preflight_evaluator_disabled: "platform", preflight_recovery_locked: "platform",
+      preflight_privileged_commercial_membership: "commercial_review", preflight_runtime_unavailable: "platform", preflight_evaluator_disabled: "academy", preflight_recovery_locked: "platform",
     });
     expect(ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON[evaluateAdmissionActivationPreflight("synthetic-tribe", { ...inventory(), tribeId: "other" }).reasons[0]]).toBe("recheck");
   });
@@ -25,7 +25,10 @@ describe("activation blockers", () => {
     expect(ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON.recipient_countries_restricted).toBe("usage");
     expect(ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON.contact_type_locked).toBe("contact_step");
     expect(ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON.admission_clock_invalid).toBe("recheck");
-    expect(["admission_preflight_incomplete", "admission_evaluator_unavailable", "admission_recovery_locked"].every((reason) => isAdmissionPolicyPlatformReason(reason as "admission_recovery_locked"))).toBe(true);
+    expect(["admission_preflight_incomplete", "admission_recovery_locked"].every((reason) => isAdmissionPolicyPlatformReason(reason as "admission_recovery_locked"))).toBe(true);
+    // Closed academy admissions are switched on by the leader in academy management, never by the TuTribu team.
+    expect(ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON.admission_evaluator_unavailable).toBe("academy");
+    expect(isAdmissionPolicyPlatformReason("admission_evaluator_unavailable")).toBe(false);
     expect(isAdmissionPolicyPlatformReason("preflight_unknown_commercial_history")).toBe(false);
   });
 });

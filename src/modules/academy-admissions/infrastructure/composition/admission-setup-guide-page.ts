@@ -18,6 +18,7 @@ import { loadAdmissionPreflightState } from "./admission-preflight-page";
 import type { CommercialMembershipReviewPageState } from "@/src/modules/academy-admissions/application/results/commercial-membership-review-page-state";
 import type { AdmissionPolicyPreflightDto } from "@/src/modules/academy-admissions/application/ports/admission-policy-browser-client";
 import { isAdmissionPolicyPlatformReason } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
+import { ADMISSION_PREFLIGHT_REASON } from "@/src/modules/academy-admissions/constants/admission-preflight";
 
 /** Server-selected openers of each area's own page use case, supplied by the route entrypoint. */
 export type AdmissionSetupGuideOpeners = {
@@ -65,9 +66,14 @@ function readMembershipFacts(state: CommercialMembershipReviewPageState | null):
   return state?.kind === "ready" ? { pendingCount: state.list.pendingCount, resolvedCount: state.list.resolvedCount } : null;
 }
 
-/** A platform reason in the informational check means only the TuTribu team can let the leader open admissions. */
+/**
+ * A platform reason in the informational check means only the TuTribu team can let the leader open admissions;
+ * closed academy admissions are switched on by the leader in academy management.
+ */
 function readActivationFacts(preflight: AdmissionPolicyPreflightDto | null): AdmissionSetupFacts["activation"] {
-  return preflight ? { platformBlocked: !preflight.prepared && preflight.reasons.some(isAdmissionPolicyPlatformReason) } : null;
+  if (!preflight) return null;
+  const blocked = !preflight.prepared;
+  return { platformBlocked: blocked && preflight.reasons.some(isAdmissionPolicyPlatformReason), admissionsClosed: blocked && preflight.reasons.includes(ADMISSION_PREFLIGHT_REASON.evaluatorDisabled) };
 }
 
 /** Maps the rules page state to the guide's policy facts. */
