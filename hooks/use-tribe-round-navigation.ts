@@ -136,7 +136,7 @@ export function useTribeRoundNavigation({
         }
 
         if (!result.isSuccess) {
-          failedRequestRef.current = { historyMode, location };
+          failedRequestRef.current = { historyMode, location, reload };
           setErrorMessage(result.message ?? TRIBE_ROUND_NAVIGATION_COPY.loadFailure);
           return;
         }
@@ -157,7 +157,7 @@ export function useTribeRoundNavigation({
         // unmount): the newer flow owns the view. Any other rejection is a
         // network failure, reported with the safe fallback copy.
         if (isLatestRequest()) {
-          failedRequestRef.current = { historyMode, location };
+          failedRequestRef.current = { historyMode, location, reload };
           setErrorMessage(TRIBE_ROUND_NAVIGATION_COPY.loadFailure);
         }
       } finally {

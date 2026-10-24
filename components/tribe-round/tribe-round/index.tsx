@@ -3724,7 +3724,8 @@ function TribeRoundContent({
 
       if (response.replayed) {
         // The earlier attempt was stored: keep the optimistic copy until the current page reloads in place with the stored
-        // message, so the feed never flashes an empty state and a draft started meanwhile is not lost to a remount.
+        // message, so the feed never flashes an empty state and a draft started meanwhile is not lost to a remount. The
+        // action stays pending until that reload settles, so a newer publication cannot be erased by its older snapshot.
         pendingCreateMessageKeyRef.current = null;
         clearPersistingMessageImages(persistingImageAssetIds);
         clearPersistingMessageFiles(persistingFileAssetIds);
@@ -3733,8 +3734,8 @@ function TribeRoundContent({
           resetMessageComposer({ shouldRevokeImagePreviewUrls: false });
           setIsMessageComposerOpen(false);
         }
-        void roundNavigation.reloadCurrentPage();
         toast.success(response.message ?? TRIBE_ROUND_COPY.submitMessageReplayed);
+        await roundNavigation.reloadCurrentPage();
         return;
       }
 
