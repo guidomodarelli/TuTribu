@@ -204,6 +204,24 @@ describe("personal invitation management controls", () => {
     expect(screen.queryByLabelText("Enlace personal")).not.toBeInTheDocument();
   });
 
+  it("should copy the one-time link within the click, without another request, while the read that follows the write is pending", async () => {
+    const data = fixture(), user = userEvent.setup();
+    let resolvePage!: (value: Awaited<ReturnType<PersonalInvitationManagementBrowserClient["page"]>>) => void;
+    vi.mocked(data.client.page).mockImplementationOnce(async () => new Promise((resolve) => { resolvePage = resolve; }));
+    await mount(data); await emailProposal(user);
+    await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
+    expect(await screen.findByLabelText("Enlace personal")).toHaveValue(data.invitationUrl);
+    await waitFor(() => expect(data.client.page).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("button", { name: "Copiar enlace" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Copiar enlace" }));
+    await waitFor(async () => expect(await navigator.clipboard.readText()).toBe(data.invitationUrl));
+    // Copying never sends its own request: only the read that follows the write is in flight.
+    expect(data.client.page).toHaveBeenCalledTimes(1);
+    await act(async () => resolvePage({ status: "ready", value: { ...data.initial, page: { items: [data.metadata], nextCursor: null } } }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Renombrar Grupo inicial" })).toBeEnabled());
+    expect(data.client.write).toHaveBeenCalledTimes(1);
+  });
+
   it("should recover a lost creation response by original GET without repeating the POST or recovering its URL", async () => {
     const data = fixture(), user = userEvent.setup();
     vi.mocked(data.client.write).mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "La respuesta no llegó.", uncertain: true });
@@ -321,18 +339,6 @@ describe("personal invitation save feedback", () => {
     await act(async () => resolveWrite({ status: "ready", value: { viewerId: data.initial.viewerId, outcome: { state: "completed", operationId: intent.input.operationId, replayed: false, result: { invitationId: data.metadata.id, version: 1, changed: true, created: true }, invitationUrl: data.invitationUrl } } }));
     await waitFor(() => expect(document.querySelector("[data-sonner-toaster]")).toHaveTextContent(PERSONAL_INVITATION_MANAGEMENT_COPY.saved));
     expect(within(management).queryByText(PERSONAL_INVITATION_MANAGEMENT_COPY.saved)).not.toBeInTheDocument();
-  });
-
-  it("should copy the one-time link within the click without waiting for another request", async () => {
-    const data = fixture(), user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    await mountWithToaster(data); await emailProposal(user);
-    await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
-    expect(await screen.findByLabelText("Enlace personal")).toHaveValue(data.invitationUrl);
-    await waitFor(() => expect(data.client.page).toHaveBeenCalledTimes(1));
-    await user.click(screen.getByRole("button", { name: "Copiar enlace" }));
-    expect(await screen.findByText(PERSONAL_INVITATION_MANAGEMENT_COPY.copied)).toBeInTheDocument();
-    await expect(navigator.clipboard.readText()).resolves.toBe(data.invitationUrl);
-    expect(data.client.page).toHaveBeenCalledTimes(1);
   });
 
   it("should keep the final action idle while only the current state is read", async () => {

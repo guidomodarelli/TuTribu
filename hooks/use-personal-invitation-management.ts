@@ -169,9 +169,9 @@ export function usePersonalInvitationManagement(options: { initialState: Persona
   }), [observeReference, refresh, run]);
   const changeDraft = (next: PersonalInvitationManagementDraft) => { if (busy.current || pendingRef.current || closed.current || !ready) return; draftRef.current = next; setDraft(next); setConfirmed(false); setFieldError(null); setErrorMessage(null); setStatusMessage(null); setInvitationUrl(null); };
   const select = (item: PersonalInvitationManagementResult, mode: "rename" | "revoke" | "create") => { if (!stateRef.current || conflict || busy.current || pendingRef.current || closed.current || !ready) return; const next = emptyPersonalInvitationManagementDraft(stateRef.current); changeDraft({ ...next, mode, selected: item, internalName: item.internalName, identity: item.recipient.value, country: item.recipient.country ?? next.country, requiresAllowlist: item.requiresAllowlist, replaceSelected: mode === MODE.create }); setStep(0); };
-  /** Copies within the click itself: WebKit drops the user activation after a network round trip. The link is already on screen, and focus changes recheck the viewer. */
+  /** Copies within the click itself: WebKit drops the user activation after a network round trip. The link is already on screen, focus changes recheck the viewer and copying never competes with the read that follows the write. */
   const copyUrl = async () => {
-    if (!invitationUrl || closed.current || busy.current) return;
+    if (!invitationUrl || closed.current) return;
     if (!navigator.clipboard?.writeText) { toast.info(COPY.clipboard); return; }
     try { await navigator.clipboard.writeText(invitationUrl); if (mounted.current && !closed.current) toast.success(COPY.copied); }
     catch { if (mounted.current) toast.info(COPY.clipboard); }
