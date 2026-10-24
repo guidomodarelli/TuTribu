@@ -2944,7 +2944,9 @@ describe("TribeRound", () => {
     expect(createBodies).toHaveLength(2);
     expect(createBodies[0].clientRequestId).toMatch(/^[0-9a-f-]{36}$/);
     expect(createBodies[1].clientRequestId).toBe(createBodies[0].clientRequestId);
-    await waitFor(() => expect(screen.queryByText("Nuevo encuentro")).not.toBeInTheDocument());
+    // The publication stays visible until the refreshed server view replaces it: no empty feed in between.
+    expect(screen.getByText("Nuevo encuentro")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("uses a new publication key once the restored draft is edited", async () => {

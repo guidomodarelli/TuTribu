@@ -3711,11 +3711,9 @@ function TribeRoundContent({
       }
 
       if (response.replayed) {
-        // The earlier attempt was stored: drop the optimistic copy and let the server view show the stored message.
+        // The earlier attempt was stored: keep the optimistic copy until the refreshed server view remounts the round with
+        // the stored message, so the feed never flashes an empty state in between.
         pendingCreateMessageKeyRef.current = null;
-        setMessages((currentMessages) =>
-          currentMessages.filter((message) => message.id !== optimisticMessageId)
-        );
         clearPersistingMessageImages(persistingImageAssetIds);
         clearPersistingMessageFiles(persistingFileAssetIds);
         pendingCreateMessageIntentRef.current = null;

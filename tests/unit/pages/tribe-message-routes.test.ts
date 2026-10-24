@@ -270,6 +270,7 @@ describe("Tribe message routes", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ message: "El mensaje ya estaba publicado.", messageId: "message-1", replayed: true });
     expect(createTribeMessage).toHaveBeenCalledWith(expect.objectContaining({ clientRequestId: "6f1c2b8e-3d4a-4f5b-8c9d-0e1f2a3b4c5d" }));
+    expect(revalidateTag).toHaveBeenCalledWith("tribe-round:matematica-pro", { expire: 0 });
   });
 
   it("rejects a publication whose idempotency key is not a UUID before creating anything", async () => {

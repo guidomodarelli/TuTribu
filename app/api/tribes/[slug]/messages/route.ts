@@ -450,6 +450,9 @@ export async function POST(
 
     switch (result.status) {
       case MESSAGE_MUTATION_STATUS.replayed:
+        // The stored publication may come from an attempt whose response was lost: refresh the round like a creation.
+        revalidateTribeRoundCache(slug);
+
         return createJsonResponse(
           {
             message: CREATE_MESSAGE_ROUTE_RESPONSE.replayedMessage,
