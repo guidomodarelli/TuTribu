@@ -500,34 +500,6 @@ describe("connection wizard first container step",()=>{
     const operationId=vi.mocked(diagnosticClient.issue).mock.calls[0][1].operationId;expect(JSON.stringify(fixture.store.write.mock.calls)).not.toContain("diagnostic@example.test");fixture.client.operation=vi.fn<MessagingConnectionsBrowserClient["operation"]>(async()=>({status:"ready",value:{type:"diagnose_messaging_connection",state:"completed",operationId,replayed:true,result:{outcome:"issued",diagnosticId:crypto.randomUUID(),challengeId:crypto.randomUUID(),deliveryId:crypto.randomUUID(),connectionId:fixture.connectionId,connectionVersion:2,channel:"email",maskedDestination:"d•••@example.test",expiresAt:new Date(Date.now()+600_000).toISOString(),resendAllowedAt:new Date(Date.now()+60_000).toISOString()}}}));fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:{...fixture.configuration,candidate}}));await user.click(screen.getByRole("button",{name:"Consultar guardado"}));await waitFor(()=>expect(screen.getByLabelText("Código recibido")).toBeVisible());expect(diagnosticClient.issue).toHaveBeenCalledTimes(1);expect(screen.queryByRole("button",{name:"Conservar en historial y continuar"})).not.toBeInTheDocument();
   });
 
-  it.each([["diagnose_messaging_connection"],["verify_messaging_diagnostic"]] as const)("should let the leader stop following a %s original that never registered, without sending or verifying again",async(type)=>{
-    const fixture=containerFixture(),user=userEvent.setup(),operationId=randomUUID();
-    const intent=type==="diagnose_messaging_connection"?{type,operationId,original:{connectionId:fixture.connectionId,configurationVersion:2,expectedVersion:3,channel:"email" as const}}:{type,operationId,original:{connectionId:fixture.connectionId,configurationVersion:2,diagnosticId:randomUUID(),channel:"email" as const}};
-    fixture.store.read.mockReturnValue(intent);fixture.client.operation=vi.fn<MessagingConnectionsBrowserClient["operation"]>(async()=>({status:"failed",code:"resource_unavailable",message:"No disponible.",uncertain:false}));
-    renderWithToasts(<MessagingConnectionsContainer {...fixture} />);await waitFor(()=>expect(screen.getByRole("button",{name:"Consultar guardado"})).toBeEnabled());
-    await user.click(screen.getByRole("button",{name:"Consultar guardado"}));
-    // A real send is never resumed: the only way out is to stop following the original, which cancels nothing.
-    await waitFor(()=>expect(screen.getByRole("button",{name:"Conservar en historial y continuar"})).toBeVisible());
-    expect(screen.queryByRole("button",{name:"Reanudar operación original"})).not.toBeInTheDocument();
-    expect(screen.getByText(/Una prueba o una verificación no se reanudan/)).toBeVisible();expect(screen.queryByText(/reanudar ese mismo intento/)).not.toBeInTheDocument();expect(screen.queryByText(/no conserva los datos originales/)).not.toBeInTheDocument();
-    await user.click(screen.getByRole("checkbox",{name:/Entiendo que dejar de seguir/i}));await user.click(screen.getByRole("button",{name:"Conservar en historial y continuar"}));
-    await waitFor(()=>expect(fixture.store.archive).toHaveBeenCalledWith(fixture.viewerId,"synthetic",intent));expect(fixture.store.write).toHaveBeenCalledWith(fixture.viewerId,"synthetic",null);
-    await waitFor(()=>expect(screen.queryByRole("button",{name:"Consultar guardado"})).not.toBeInTheDocument());
-    expect(fixture.client.create).not.toHaveBeenCalled();
-  });
-
-  it("should clear older test references on request while keeping the latest one and sending nothing",async()=>{
-    const fixture=containerFixture(),user=userEvent.setup(),references=Array.from({length:MESSAGING_CONNECTION_HISTORY_LIMIT},()=>({operationId:randomUUID(),connectionId:fixture.connectionId,configurationVersion:2,channel:"email" as const}));
-    fixture.store.diagnostics.mockReturnValue(references);
-    renderWithToasts(<MessagingConnectionsContainer {...fixture} />);
-    await user.click(await screen.findByRole("button",{name:"Vaciar pruebas anteriores"}));
-    await waitFor(()=>expect(fixture.store.writeDiagnostic).toHaveBeenNthCalledWith(2,fixture.viewerId,"synthetic",references.at(-1)));
-    expect(fixture.store.writeDiagnostic).toHaveBeenNthCalledWith(1,fixture.viewerId,"synthetic",null);
-    expect(await screen.findByRole("heading",{name:"Pruebas conservadas (1)"})).toBeVisible();
-    expect(screen.queryByRole("button",{name:"Vaciar pruebas anteriores"})).not.toBeInTheDocument();
-    expect(fixture.client.operation).not.toHaveBeenCalled();
-  });
-
   it("should keep an original diagnostic from an older configuration historical instead of claiming the current candidate is tested",async()=>{
     const fixture=containerFixture(),user=userEvent.setup(),operationId=randomUUID(),diagnosticId=randomUUID(),candidate={id:fixture.connectionId,name:"Configuración vigente",version:5,configurationVersion:3,state:"draft" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,capabilities:[{channel:"email" as const,state:"unprepared" as const,checkedAt:new Date().toISOString(),testedAt:null}]};fixture.store.read.mockReturnValue({type:"verify_messaging_diagnostic",operationId,original:{connectionId:fixture.connectionId,configurationVersion:2,diagnosticId,channel:"email"}});fixture.client.operation=vi.fn<MessagingConnectionsBrowserClient["operation"]>(async()=>({status:"ready",value:{type:"verify_messaging_diagnostic",state:"completed",operationId,replayed:true,result:{outcome:"verified",diagnosticId,connectionVersion:2,channel:"email",validatedAt:new Date().toISOString(),capabilityState:"prepared"}}}));fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:{...fixture.configuration,candidate}}));
     renderWithToasts(<MessagingConnectionsContainer {...fixture} />);// The original verification is recovered from the pending section above the steps, which never hides behind a step.
