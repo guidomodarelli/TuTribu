@@ -28,12 +28,26 @@ const diagnosticHistorySchema=z.union([diagnosticReferenceSchema,z.array(diagnos
 /** @returns An owned session-only metadata store; construction never reads browser state during SSR. */
 export function createMessagingConnectionsIntentStore():MessagingConnectionsIntentStore{
   const key=(viewerId:string,slug:string)=>`${MESSAGING_CONNECTIONS_INTENT_STORAGE_PREFIX}:${encodeURIComponent(viewerId)}:${encodeURIComponent(slug)}`;
-  /** @param viewerId - Current own viewer. @param slug - Current route. @returns Exact validated issued references or absence, without clearing an original on read failure. */
-  const diagnostics=(viewerId:string,slug:string)=>{if(typeof window==="undefined")return[];const value=window.sessionStorage.getItem(`${key(viewerId,slug)}${MESSAGING_DIAGNOSTIC_OBSERVATION_STORAGE_SUFFIX}`);return value?diagnosticHistorySchema.parse(JSON.parse(value)):[];};
+  /**
+   * Reads a bounded list kept only in this tab. A value this version cannot read is dropped, like a corrupt reference in `read`: keeping it would block the page on every reload.
+   * @param storageKey - Owned list key. @param schema - Its exact list schema. @returns The validated list, or an empty one after removing an unreadable value.
+   * @throws When the browser storage itself cannot be read or cleaned.
+   */
+  const readList=<Item,>(storageKey:string,schema:z.ZodType<Item[]>):Item[]=>{
+    if(typeof window==="undefined")return[];
+    let value:string|null;try{value=window.sessionStorage.getItem(storageKey);}catch{throw new Error("MessagingConnectionsIntentStore.list failed: storage_unavailable");}
+    if(!value)return[];
+    let parsed;try{parsed=schema.safeParse(JSON.parse(value));}catch{parsed=null;}
+    if(parsed?.success)return parsed.data;
+    try{window.sessionStorage.removeItem(storageKey);}catch{throw new Error("MessagingConnectionsIntentStore.list failed: corrupt_list_cleanup_unavailable");}
+    return[];
+  };
+  /** @param viewerId - Current own viewer. @param slug - Current route. @returns Exact validated issued references, or none when absent or unreadable. */
+  const diagnostics=(viewerId:string,slug:string)=>readList(`${key(viewerId,slug)}${MESSAGING_DIAGNOSTIC_OBSERVATION_STORAGE_SUFFIX}`,diagnosticHistorySchema);
   return{
     read(viewerId,slug){if(typeof window==="undefined")return null;const ownedKey=key(viewerId,slug);let value:string|null;try{value=window.sessionStorage.getItem(ownedKey);}catch{throw new Error("MessagingConnectionsIntentStore.read failed: storage_unavailable");}if(!value)return null;let parsed;try{parsed=intentSchema.safeParse(JSON.parse(value));}catch{parsed=null;}if(parsed?.success)return parsed.data;try{window.sessionStorage.removeItem(ownedKey);}catch{throw new Error("MessagingConnectionsIntentStore.read failed: corrupt_reference_cleanup_unavailable");}return null;},
     write(viewerId,slug,intent){if(typeof window==="undefined")return false;try{if(intent===null)window.sessionStorage.removeItem(key(viewerId,slug));else window.sessionStorage.setItem(key(viewerId,slug),JSON.stringify(intentSchema.parse(intent)));return true;}catch{return false;}},
-    history(viewerId,slug){if(typeof window==="undefined")return[];const value=window.sessionStorage.getItem(`${key(viewerId,slug)}${MESSAGING_CONNECTION_HISTORY_STORAGE_SUFFIX}`);if(!value)return[];return historySchema.parse(JSON.parse(value));},
+    history(viewerId,slug){return readList(`${key(viewerId,slug)}${MESSAGING_CONNECTION_HISTORY_STORAGE_SUFFIX}`,historySchema);},
     archive(viewerId,slug,intent){if(typeof window==="undefined")return false;try{const historyKey=`${key(viewerId,slug)}${MESSAGING_CONNECTION_HISTORY_STORAGE_SUFFIX}`,value=window.sessionStorage.getItem(historyKey),previous=value?historySchema.parse(JSON.parse(value)):[],original=intentSchema.parse(intent);if(previous.some((entry)=>entry.operationId===original.operationId&&entry.type===original.type))return true;if(previous.length>=MESSAGING_CONNECTION_HISTORY_LIMIT)return false;window.sessionStorage.setItem(historyKey,JSON.stringify([...previous,original]));return true;}catch{return false;}},
     diagnostic(viewerId,slug){return diagnostics(viewerId,slug).at(-1)??null;},
     diagnostics,
