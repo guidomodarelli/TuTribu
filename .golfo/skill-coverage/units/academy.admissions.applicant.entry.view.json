@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.admissions.applicant.entry.view",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Solicitar ingreso",
+    "section": null,
+    "subflow": "Abrir el enlace de admisión"
+  },
+  "description": "Carga de la página pública de admisión y del enlace heredado: validación del input de la ruta (la query descarta claves desconocidas), estado inicial, carga y error.",
+  "routes": [
+    "/admissions/[slug]",
+    "/admissions/[slug]/legacy/[token]"
+  ],
+  "entries": [
+    {
+      "follow": false,
+      "path": "app/(admission)/admissions/[slug]/page.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(admission)/admissions/[slug]/loading.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(admission)/admissions/[slug]/error.tsx",
+      "symbol": "default"
+    },
+    {
+      "follow": false,
+      "path": "app/(admission)/admissions/[slug]/legacy/[token]/page.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "src/modules/academy-admissions/infrastructure/composition/admission-page.ts",
+      "symbol": "loadAdmissionPageState"
+    }
+  ],
+  "dependsOn": [
+    {
+      "path": "src/modules/academy-admissions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAcademyAdmissionsModule"
+    },
+    {
+      "path": "src/modules/auth/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAuthModule"
+    }
+  ],
+  "origin": "curated"
+}

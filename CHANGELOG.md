@@ -182,6 +182,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Los líderes de tribu ya no necesitan confirmar su cuenta con Google para operaciones sensibles de admisiones, mensajería, salida del modo academia o borrado de la tribu; desaparecen el botón y la pantalla de confirmación.
 
 ### Fixed
+- Los enlaces de admisión e invitación personal y las páginas de mensajería abren normalmente aunque traigan parámetros de campañas o redes sociales (por ejemplo `utm_source` o `fbclid`), en lugar de mostrar «No podemos mostrar esta admisión».
 - Al pedir ingreso, un código vencido ya no se muestra como un error rojo del campo: aparece el aviso «El código venció. Reenviá uno nuevo para seguir.» con Reenviar código y su confirmación a la vista, sin abrir «¿No te llegó el código?»; lo mismo pasa cuando el código agotó sus intentos.
 - Después de Reenviar código, el paso «Comprobar código» pasa solo al código nuevo, con el campo habilitado, su nuevo vencimiento y el aviso «Te enviamos un código nuevo»; si la respuesta del reenvío se pierde, la página consulta una vez el envío original y muestra el código nuevo sin recargar.
 - En «Probar canal» de la conexión de mensajería, Reenviar código de prueba explica qué le falta (la espera, el destino o la confirmación), lleva al campo que hay que completar y pasa a ser la acción principal cuando el código de prueba vence.

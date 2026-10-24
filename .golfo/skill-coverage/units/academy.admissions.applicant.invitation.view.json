@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.admissions.applicant.invitation.view",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Invitación personal",
+    "section": null,
+    "subflow": "Abrir una invitación personal"
+  },
+  "description": "Carga de la vista previa de una invitación personal; la query no afirma pruebas, cuentas ni permisos y descarta claves desconocidas.",
+  "routes": [
+    "/admissions/invitations/[token]"
+  ],
+  "entries": [
+    {
+      "follow": false,
+      "path": "app/(admission)/admissions/invitations/[token]/page.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(admission)/admissions/invitations/[token]/loading.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(admission)/admissions/invitations/[token]/error.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "src/modules/academy-admissions/infrastructure/composition/personal-invitation-page.ts",
+      "symbol": "loadPersonalInvitationPageState"
+    }
+  ],
+  "dependsOn": [
+    {
+      "path": "src/modules/academy-admissions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAcademyAdmissionsModule"
+    },
+    {
+      "path": "src/modules/auth/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAuthModule"
+    }
+  ],
+  "origin": "curated"
+}

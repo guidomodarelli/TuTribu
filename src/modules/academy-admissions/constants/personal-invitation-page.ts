@@ -9,8 +9,8 @@ import type { PersonalInvitationPageState } from "../application/results/persona
 export const PERSONAL_INVITATION_PAGE_KIND = { ready: "ready", unavailable: "unavailable" } as const;
 /** Runtime failures use a fixed operation instead of the secret route path. */
 export const PERSONAL_INVITATION_PAGE_OPERATION = "load_personal_invitation_page";
-/** No public query can assert a proof, account, permission or successful redemption. */
-export const personalInvitationPageInputSchema = z.strictObject({ params: personalInvitationPreviewParamsSchema, query: z.strictObject({}) });
+/** No public query can assert a proof, account, permission or successful redemption: unknown keys (tracking parameters) are dropped, never read. */
+export const personalInvitationPageInputSchema = z.strictObject({ params: personalInvitationPreviewParamsSchema, query: z.object({}) });
 /** A viewer reference scopes browser recovery and never grants authority or exposes a session. */
 export const personalInvitationPageStateSchema = z.union([
   z.strictObject({ kind: z.literal(PERSONAL_INVITATION_PAGE_KIND.ready), preview: personalInvitationOverviewSchema, viewerId: z.string().min(1).nullable(), renderedAt: z.iso.datetime() }).refine((state) => state.preview.state === PERSONAL_INVITATION_OVERVIEW_STATE.signInRequired ? state.viewerId === null : state.viewerId !== null),

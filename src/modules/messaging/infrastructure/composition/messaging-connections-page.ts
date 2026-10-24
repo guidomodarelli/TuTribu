@@ -9,7 +9,8 @@ import {resolveRequestContext} from "@/src/modules/shared/infrastructure/observa
 import {createServerLogger} from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 /** Browser role, actor, readiness and key inputs are forbidden on a read-only page. */
-const pageInputSchema=z.strictObject({params:messagingTribeParamsSchema,query:z.strictObject({})});
+/** Unknown query keys (tracking parameters) are dropped, never read; the connection APIs stay strict. */
+const pageInputSchema=z.strictObject({params:messagingTribeParamsSchema,query:z.object({})});
 /** @param input - Untrusted resolved runtime values. @param open - Native single metadata entrypoint. @returns Safe Spanish own state with no partial private result or implicit initialization. */
 export async function loadMessagingConnectionsPageState(input:unknown,open:()=>Promise<Pick<GetMessagingConnectionsPageUseCase,"execute">>):Promise<MessagingConnectionsPageState>{
   const failure=(code:typeof MESSAGING_ERROR_CODE[keyof typeof MESSAGING_ERROR_CODE]):MessagingConnectionsPageState=>({kind:"unavailable",code,message:MESSAGING_ERROR_MESSAGE[code]}),parsed=pageInputSchema.safeParse(input);if(!parsed.success)return failure(MESSAGING_ERROR_CODE.invalidInput);

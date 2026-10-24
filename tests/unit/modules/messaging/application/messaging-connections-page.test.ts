@@ -1,5 +1,6 @@
 /** @vitest-environment node */
 /** Exercises one server entrypoint for current connection metadata without provider queries or write effects. @module messaging-connections-page-tests */
+import {loadMessagingConnectionsPageState} from "@/src/modules/messaging/infrastructure/composition/messaging-connections-page";
 import {randomUUID} from "node:crypto";
 import {describe,expect,it,vi} from "vitest";
 import {GetMessagingConnectionsPageUseCase} from "@/src/modules/messaging/application/use-cases/get-messaging-connections-page-use-case";
@@ -75,5 +76,13 @@ describe("connection wizard server state",()=>{
   });
   it("should discard data if the session expires while the current configuration is being read",async()=>{
     const fixture=pageFixture();fixture.read.mockImplementationOnce(async()=>{fixture.account.session.expiresAt=new Date(fixture.now.getTime()-1);return{ok:true,value:fixture.configuration};});expect(await fixture.useCase.execute(fixture.query)).toMatchObject({ok:false,failure:{code:"authentication_required"}});
+  });
+  it("should drop tracking query keys without reading them and still reject a malformed slug",async()=>{
+    const open=vi.fn(async()=>{throw new Error("Synthetic composition stop");});
+    expect(await loadMessagingConnectionsPageState({params:{slug:"Not A Slug!"},query:{}},open)).toMatchObject({kind:"unavailable",code:"invalid_input"});
+    expect(open).not.toHaveBeenCalled();
+    // The tracking key passes the boundary and the loader reaches composition, which this test stops on purpose.
+    expect(await loadMessagingConnectionsPageState({params:{slug:"synthetic-academy"},query:{utm_source:"mail",fbclid:"x"}},open)).not.toMatchObject({code:"invalid_input"});
+    expect(open).toHaveBeenCalledOnce();
   });
 });
