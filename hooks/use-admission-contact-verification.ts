@@ -42,6 +42,9 @@ function confirmsAbsence(result: AdmissionContactBrowserResult<unknown>): boolea
   return result.status === ADMISSION_CONTACT_BROWSER_STATUS.failed && result.code === ADMISSION_ERROR_CODE.resourceUnavailable;
 }
 
+/** @param code - Confirmed rejection of a code check. @param message - Its safe copy. @returns The alert to show, or null for an expired code, which the code step presents as a status beside its resend. */
+const challengeAlert = (code: AdmissionErrorCode, message: string) => code === ADMISSION_ERROR_CODE.challengeExpired ? null : message;
+
 /** @param options - Native parent scope, controlled draft and explicit own transport/authorization callbacks. @returns Current safe UI state and actions; no write runs on mount, timer, field change or recovery. */
 export function useAdmissionContactVerification(options: AdmissionContactHookOptions) {
   const client = options.client ?? admissionContactApiClient, latest = useRef(options);
@@ -58,6 +61,8 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
   /** A confirmed write is announced by its own toast; a restored result stays on screen as feedback. */
   const confirmWrite = useCallback((message: string) => { if (writeToast.current) writeToast.current.announce({ kind: "success", message }); else setFeedback(message); }, []);
   const previousUnresolved = useRef<AdmissionContactIntent | null>(null);
+  /** Latest read of an unconfirmed original, so a write can reconcile its own lost answer once. */
+  const readOriginalCurrent = useRef<() => Promise<void>>(async () => {});
   const restoring = useRef<{ original: AdmissionContactIntent; patch: Partial<AdmissionContactIntent> } | null>(null);
   const live = (scopeGeneration: number, signal: AbortSignal) => active.current && generation.current === scopeGeneration && !signal.aborted;
   const [absence, setAbsenceState] = useState<ConfirmedAbsence | null>(null), absenceRef = useRef<ConfirmedAbsence | null>(null);
@@ -123,13 +128,13 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
       if (!save({ pending: null, issuedOperationId: selected ? null : original.operationId, verifiedOperationId: null, selectedOperationId: selected ? original.operationId : undefined })) return;
       for (const previousController of deliveryControllers.current) previousController.abort();
       deliveryControllers.current.clear();
-      setChallenge(parsed.data); setChallengeFailureCode(null); setProof(null); setCodeValue(""); setDelivery(null); setRequiresReplacement(selected); if (selected) setConfirmed(false); latest.current.onProof(null); if (selected) setFeedback(ADMISSION_CONTACT_COPY.selected); else confirmWrite(ADMISSION_CONTACT_COPY.requested); setPhase(ADMISSION_CONTACT_PHASE.idle);
+      setChallenge(parsed.data); setChallengeFailureCode(null); setProof(null); setCodeValue(""); setDelivery(null); setRequiresReplacement(selected); if (selected) setConfirmed(false); latest.current.onProof(null); if (selected) setFeedback(ADMISSION_CONTACT_COPY.selected); else confirmWrite(intent.kind === ADMISSION_CONTACT_ACTION.resend || intent.kind === ADMISSION_CONTACT_ACTION.sms ? ADMISSION_CONTACT_COPY.resent : ADMISSION_CONTACT_COPY.requested); setPhase(ADMISSION_CONTACT_PHASE.idle);
       void readDelivery(parsed.data); return;
     }
     if (intent.kind === ADMISSION_CONTACT_ACTION.verify) {
       const parsed = admissionChallengeVerificationSnapshotSchema.safeParse(original.result);
       if (!parsed.success) throw new Error(ADMISSION_ERROR_CODE.publicContractUnusable);
-      if (parsed.data.result === VERIFICATION_TRANSITION_OUTCOME.denied) { save({ pending: null, verifiedOperationId: null }); recordChallengeFailure(parsed.data.code); setErrorMessage(ADMISSION_ERROR_MESSAGE[parsed.data.code]); setPhase(ADMISSION_CONTACT_PHASE.idle); return; }
+      if (parsed.data.result === VERIFICATION_TRANSITION_OUTCOME.denied) { save({ pending: null, verifiedOperationId: null }); recordChallengeFailure(parsed.data.code); setErrorMessage(challengeAlert(parsed.data.code, ADMISSION_ERROR_MESSAGE[parsed.data.code])); setPhase(ADMISSION_CONTACT_PHASE.idle); return; }
       if (!save({ pending: null, verifiedOperationId: original.operationId, issuedOperationId: record.current?.selectedOperationId ?? record.current?.issuedOperationId ?? null, selectedOperationId: undefined })) return;
       setProof(parsed.data); latest.current.onProof(parsed.data); setCodeValue(""); confirmWrite(ADMISSION_CONTACT_COPY.verified); setPhase(ADMISSION_CONTACT_PHASE.idle); return;
     }
@@ -156,7 +161,12 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
       setDelivery(null);
     }
     const scopeGeneration = generation.current, actionController = new AbortController(); controller.current = actionController;
-    const timeout = window.setTimeout(() => actionController.abort(), ADMISSION_CONTACT_BROWSER_TIMEOUT_MS);
+    // The browser deadline aborts its own request; unlike an unmount or a scope change, that abort still leaves this scope to reconcile.
+    let timedOut = false;
+    const timeout = window.setTimeout(() => { timedOut = true; actionController.abort(); }, ADMISSION_CONTACT_BROWSER_TIMEOUT_MS);
+    // A send whose answer was lost may already hold a new code on the server; one read of its original shows it without a reload.
+    const issuance = intent.kind === ADMISSION_CONTACT_ACTION.issue || intent.kind === ADMISSION_CONTACT_ACTION.resend || intent.kind === ADMISSION_CONTACT_ACTION.sms;
+    let reconcile = false;
     // Failures and unconfirmed originals stay next to the code fields; only a confirmed result becomes the success toast.
     const notice = startWriteToast(actionPhase === ADMISSION_CONTACT_PHASE.verifying ? ADMISSION_CONTACT_COPY.checking : actionPhase === ADMISSION_CONTACT_PHASE.applying ? ADMISSION_CONTACT_COPY.applying : ADMISSION_CONTACT_COPY.sending); writeToast.current = notice;
     try {
@@ -169,12 +179,15 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
       if (!live(scopeGeneration, actionController.signal)) return;
       if (result.status === ADMISSION_CONTACT_BROWSER_STATUS.ready) {
         const parsed = admissionOperationRecoverySchema.safeParse(typeof result.value === "object" && result.value !== null ? { type, ...result.value } : null);
-        if (!parsed.success) { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); return; }
-        await consume(parsed.data, intent);
-      } else if (result.status === ADMISSION_CONTACT_BROWSER_STATUS.failed && !result.uncertain) { save({ pending: null }); if (intent.kind === ADMISSION_CONTACT_ACTION.verify) recordChallengeFailure(result.code); setErrorMessage(result.message); setPhase(ADMISSION_CONTACT_PHASE.idle); }
-      else { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); }
-    } catch { if (live(scopeGeneration, actionController.signal)) { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); } }
-    finally { window.clearTimeout(timeout); if (writeToast.current === notice) writeToast.current = null; notice.finish(); if (controller.current === actionController) { busy.current = false; controller.current = null; if (active.current && generation.current === scopeGeneration) { setPhase(record.current?.pending ? ADMISSION_CONTACT_PHASE.uncertain : ADMISSION_CONTACT_PHASE.idle); if (actionController.signal.aborted && record.current?.pending) setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); } } }
+        if (!parsed.success) { reconcile = issuance; setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); }
+        else await consume(parsed.data, intent);
+      } else if (result.status === ADMISSION_CONTACT_BROWSER_STATUS.failed && !result.uncertain) { save({ pending: null }); if (intent.kind === ADMISSION_CONTACT_ACTION.verify) recordChallengeFailure(result.code); setErrorMessage(intent.kind === ADMISSION_CONTACT_ACTION.verify ? challengeAlert(result.code, result.message) : result.message); setPhase(ADMISSION_CONTACT_PHASE.idle); }
+      else { reconcile = issuance; setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); }
+    } catch { if (live(scopeGeneration, actionController.signal)) { reconcile = issuance; setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); } }
+    finally { window.clearTimeout(timeout); if (writeToast.current === notice) writeToast.current = null; notice.finish(); if (controller.current === actionController) { busy.current = false; controller.current = null; if (active.current && generation.current === scopeGeneration) { setPhase(record.current?.pending ? ADMISSION_CONTACT_PHASE.uncertain : ADMISSION_CONTACT_PHASE.idle); if (actionController.signal.aborted && record.current?.pending) setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); } }
+      // Inside finally, so the early returns after a deadline abort still reach it. Read-only and once: an original still absent or in progress keeps the explicit "Consultar operación del código".
+      if ((reconcile || issuance && timedOut) && active.current && generation.current === scopeGeneration && record.current?.pending?.operationId === intent.operationId) await readOriginalCurrent.current();
+    }
   }, [consume, ready, recoveryRequired, recordChallengeFailure, save, setAbsence]);
 
   /** Resolves durable references from the actual registry before treating any recovered result as usable UI data. */
@@ -268,6 +281,7 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
 
   const restoreCurrent = useRef(restore);
   useEffect(() => { restoreCurrent.current = restore; }, [restore]);
+  useEffect(() => { readOriginalCurrent.current = readOriginal; }, [readOriginal]);
 
   useEffect(() => {
     active.current = true; generation.current += 1; const scopeGeneration = generation.current, hydrationController = new AbortController(), scopeDeliveryControllers = deliveryControllers.current; record.current = null; previousUnresolved.current = null; restoring.current = null;
@@ -335,9 +349,10 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
   }, [challenge, client, confirmed, proof, run, selectCurrent]);
   const verify = useCallback(async () => {
     if (requiresReplacement) { setErrorMessage(ADMISSION_CONTACT_COPY.selected); return; }
-    if (challengeFailureCode) { setErrorMessage(ADMISSION_ERROR_MESSAGE[challengeFailureCode]); return; }
+    if (challengeFailureCode) { setErrorMessage(challengeAlert(challengeFailureCode, ADMISSION_ERROR_MESSAGE[challengeFailureCode])); return; }
     if (!challenge || !ADMISSION_PUBLIC_CODE_PATTERN.test(code)) { setFieldErrors({ verificationCode: ADMISSION_CONTACT_COPY.code }); return; }
-    if (new Date(challenge.expiresAt) <= new Date(now)) { setErrorMessage(ADMISSION_ERROR_MESSAGE[ADMISSION_ERROR_CODE.challengeExpired]); return; }
+    // The code step already shows the expiry as a status with its resend; a check must not add an alert.
+    if (new Date(challenge.expiresAt) <= new Date(now)) return;
     if (proof) return;
     const current = latest.current, operationId = newAdmissionOperationId();
     await run({ kind: ADMISSION_CONTACT_ACTION.verify, operationId, challengeId: challenge.challengeId }, (signal) => client.verify(current.slug, challenge.challengeId, { operationId, confirmed: true, verificationCode: code }, signal), ADMISSION_CONTACT_VERIFICATION_OPERATION, ADMISSION_CONTACT_PHASE.verifying);
@@ -360,12 +375,13 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
   const setCode = useCallback((value: string) => { setCodeValue(value); setErrorMessage(null); setFeedback(null); setFieldErrors({}); }, []);
   const changeConfirmation = useCallback((value: boolean) => { setConfirmed(value); setErrorMessage(null); setFeedback(null); }, []);
   const clearFieldFeedback = useCallback(() => { setFieldErrors({}); setErrorMessage(null); setFeedback(null); }, []);
-  const expiresInSeconds = challenge ? Math.max(0, Math.ceil((new Date(challenge.expiresAt).getTime() - new Date(now).getTime()) / MILLISECONDS_PER_SECOND)) : null;
+  // A server-confirmed expiry wins over a client clock that still counts down.
+  const expiresInSeconds = challenge ? challengeFailureCode === ADMISSION_ERROR_CODE.challengeExpired ? 0 : Math.max(0, Math.ceil((new Date(challenge.expiresAt).getTime() - new Date(now).getTime()) / MILLISECONDS_PER_SECOND)) : null;
   const resendInSeconds = challenge ? Math.max(0, Math.ceil((new Date(challenge.resendAllowedAt).getTime() - new Date(now).getTime()) / MILLISECONDS_PER_SECOND)) : null;
   const proofFresh = Boolean(proof && new Date(proof.applyBefore) > new Date(now));
   // Transport feedback remains bound to its current delivery independently of code-field errors.
   const deliveryMessage = delivery?.safeReason ? Object.entries(ADMISSION_ERROR_MESSAGE).find(([code]) => code === delivery.safeReason)?.[1] ?? ADMISSION_ERROR_MESSAGE[ADMISSION_ERROR_CODE.dependencyUnavailable] : null;
-  const challengeMessage = challengeFailureCode && phase !== ADMISSION_CONTACT_PHASE.issuing && phase !== ADMISSION_CONTACT_PHASE.resending ? ADMISSION_ERROR_MESSAGE[challengeFailureCode] : null;
+  const challengeMessage = challengeFailureCode && phase !== ADMISSION_CONTACT_PHASE.issuing && phase !== ADMISSION_CONTACT_PHASE.resending ? challengeAlert(challengeFailureCode, ADMISSION_ERROR_MESSAGE[challengeFailureCode]) : null;
   // The wait follows the live clock, so the discard offer appears without another read once every deadline has passed.
   const canDiscardAbsent = Boolean(absence && phase === ADMISSION_CONTACT_PHASE.uncertain && new Date(now).getTime() >= absence.discardableAt);
   const visibleErrorMessage = canDiscardAbsent && errorMessage === ADMISSION_CONTACT_COPY.absent ? ADMISSION_CONTACT_COPY.absentDiscardable : errorMessage;

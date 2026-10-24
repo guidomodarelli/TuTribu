@@ -1,3 +1,5 @@
+@use "../../../src/styles/workspace-panel";
+
 .ContactVerification {
   display: grid;
   gap: 1rem;
@@ -70,6 +72,15 @@
   &__error {
     margin: 0;
     color: var(--destructive);
+    overflow-wrap: anywhere;
+  }
+
+  // A state of the code that asks for the next step, not a field error: quiet text with a warning rule.
+  &__notice {
+    @include workspace-panel.callout;
+
+    margin: 0;
+    border-inline-start-color: var(--warning, var(--accent));
     overflow-wrap: anywhere;
   }
 
