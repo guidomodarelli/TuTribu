@@ -140,10 +140,10 @@ Todas son pending-first y confirmadas por el servidor; ninguna anticipa un enví
 | Reemplazar clave candidata | Casilla con alcance; botón de peligro | Sin deadline | pendiente (MEN-08) |
 | Consultar remitentes y plantillas | — | Sin deadline; botones sin `loading` | pendiente (MEN-07) |
 | Configurar canal | Casilla | Sin deadline | pendiente (MEN-08) |
-| Enviar, reenviar y verificar prueba | Casilla de destino y consumo | Sin deadline | pendiente (MEN-01, MEN-08) |
+| Enviar, reenviar y verificar prueba | Casilla de destino y consumo | Sin deadline | [PR #178](https://github.com/guidomodarelli/TuTribu/pull/178) (MEN-01, MEN-02); pendiente (MEN-08) |
 | Activar conexión | Casilla con alcance | Sin deadline | pendiente (MEN-08) |
 | Suspender y desconectar | Casilla con alcance y motivo | Sin deadline; suspender sin tono de peligro | pendiente (MEN-10) |
-| Reanudar o archivar original | Casilla | Sin deadline | pendiente (MEN-01) |
+| Reanudar o archivar original | Casilla | Sin deadline; las pruebas se archivan, nunca se reanudan | [PR #178](https://github.com/guidomodarelli/TuTribu/pull/178) (timeout: MEN-08) |
 | Recuperar aviso | Casilla; «Dejar de observar» | Observación cancelable | pendiente (MEN-11) |
 | Guardar uso | Casilla | Sin deadline | pendiente (MEN-08) |
 
@@ -151,9 +151,9 @@ Todas son pending-first y confirmadas por el servidor; ninguna anticipa un enví
 
 | Id | Skill | Hallazgo | Evidencia | Estado |
 |---|---|---|---|---|
-| MEN-01 | estados, mutaciones | Una prueba o verificación pendiente que quedó `started` o ausente bloquea todas las acciones: no se puede reanudar ni archivar y solo queda «Consultar guardado» en bucle. | `messaging-connections-container.tsx` (`recover`) | pendiente |
-| MEN-02 | estados | Después de 20 pruebas la pestaña no puede emitir más: el historial no se puede limpiar. | `messaging-connections-container.tsx`, `messaging-diagnostic-history` | pendiente |
-| MEN-03 | estados | Un `sessionStorage` corrupto deja la página en «no disponible» y «Reintentar» relee el mismo dato. | `messaging-intent-store`, `messaging-connections-container.tsx` | pendiente |
+| MEN-01 | estados, mutaciones | Una prueba o verificación pendiente que quedó `started` o ausente bloquea todas las acciones: no se puede reanudar ni archivar y solo queda «Consultar guardado» en bucle. | `messaging-connections-container.tsx` (`recover`) | [PR #178](https://github.com/guidomodarelli/TuTribu/pull/178) |
+| MEN-02 | estados | Después de 20 pruebas la pestaña no puede emitir más: el historial no se puede limpiar. | `messaging-connections-container.tsx`, `messaging-diagnostic-history` | [PR #178](https://github.com/guidomodarelli/TuTribu/pull/178) |
+| MEN-03 | estados | Un `sessionStorage` corrupto deja la página en «no disponible» y «Reintentar» relee el mismo dato. | `messaging-intent-store`, `messaging-connections-container.tsx` | [PR #178](https://github.com/guidomodarelli/TuTribu/pull/178) |
 | MEN-04 | estados | Un parámetro de query extra rompe las dos páginas de mensajería (`z.strictObject({})`). | `messaging-usage-page.ts`, `messaging-connections-page.ts` | pendiente; misma decisión que SOL-04 |
 | MEN-05 | estados | Sin sesión o sin permiso se muestra el error genérico con «Reintentar», sin acción para iniciar sesión. | `messaging-usage-container.tsx`, `messaging-connections-container.tsx` | pendiente |
 | MEN-06 | validación | «Guardar conexión» queda deshabilitado sin explicar qué falta; los mensajes de validación nunca se ven. | `messaging-connections` | pendiente |
