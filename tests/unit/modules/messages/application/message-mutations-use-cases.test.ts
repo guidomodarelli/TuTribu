@@ -351,6 +351,34 @@ describe("message mutation use cases", () => {
     );
   });
 
+  it("forwards the idempotency key and never deletes images when the publication is a replay", async () => {
+    const create = vi.fn(async () => ({ messageId: "message-1", status: "replayed" as const }));
+    const prepareForAttachment = vi.fn(async () => ({
+      images: [{ altText: "", assetId: firstImageAssetId, sortOrder: 0 }],
+      status: "ready" as const,
+    }));
+    const deleteImage = vi.fn(async () => ({ status: "deleted" as const }));
+    const execute = createTribeMessage({
+      messageCreationRepository: { create },
+      messageImageRepository: { prepareForAttachment, deleteImage },
+    });
+
+    await expect(
+      execute({
+        authorId: "member-1",
+        channelId: "channel-ronda",
+        clientRequestId: "6f1c2b8e-3d4a-4f5b-8c9d-0e1f2a3b4c5d",
+        tribeSlug: "matematica-pro",
+        content: "Miren estas capturas",
+        media: [{ assetId: firstImageAssetId, kind: "image" }],
+        title: "Capturas",
+      })
+    ).resolves.toEqual({ messageId: "message-1", status: "replayed" as const });
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ clientRequestId: "6f1c2b8e-3d4a-4f5b-8c9d-0e1f2a3b4c5d" }));
+    // The stored message may already use these assets: a replay leaves them to the orphan cleanup.
+    expect(deleteImage).not.toHaveBeenCalled();
+  });
+
   it("deletes prepared image drafts when message creation is rejected", async () => {
     const create = vi.fn(async () => ({
       status: "invalid_channel" as const,

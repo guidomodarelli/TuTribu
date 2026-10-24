@@ -400,6 +400,52 @@ describe("PostgresMessageMutationRepository", () => {
     });
   });
 
+  it("keeps a desired like idempotent: liking never deletes and unliking never inserts", async () => {
+    const target = { rows: [{ can_write: true, message_id: "message-1", tribe_id: "tribe-1" }] };
+    const likeExecute = vi.fn()
+      .mockResolvedValueOnce(target)
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ like_count: "3" }] });
+    const liking = new PostgresMessageMutationRepository(async (callback) => callback({ execute: likeExecute } as never));
+
+    await expect(
+      liking.toggle({ liked: true, messageId: "message-1", tribeSlug: "matematica-pro", userId: "member-1" })
+    ).resolves.toEqual({ likedByViewer: true, likeCount: 3, status: "liked" as const });
+    // Target, insert and count: the "liked" intent has no delete step.
+    expect(likeExecute).toHaveBeenCalledTimes(3);
+
+    const unlikeExecute = vi.fn()
+      .mockResolvedValueOnce(target)
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ like_count: "2" }] });
+    const unliking = new PostgresMessageMutationRepository(async (callback) => callback({ execute: unlikeExecute } as never));
+
+    // Repeating "not liked" after the like was already removed stays unliked instead of inserting it back.
+    await expect(
+      unliking.toggle({ liked: false, messageId: "message-1", tribeSlug: "matematica-pro", userId: "member-1" })
+    ).resolves.toEqual({ likedByViewer: false, likeCount: 2, status: "unliked" as const });
+    // Target, delete and count: the "not liked" intent has no insert step.
+    expect(unlikeExecute).toHaveBeenCalledTimes(3);
+  });
+
+  it("answers a repeated publication key as a replay without attaching anything again", async () => {
+    const execute = vi.fn(async () => ({ rows: [{ replayed_message_id: "message-1", status: "replayed" }] }));
+    const repository = new PostgresMessageMutationRepository(async (callback) => callback({ execute } as never));
+
+    await expect(
+      repository.create({
+        authorId: "member-1",
+        channelId: "channel-ronda",
+        clientRequestId: "6f1c2b8e-3d4a-4f5b-8c9d-0e1f2a3b4c5d",
+        content: "Primera mensaje",
+        images: [{ altText: "", assetId: "asset-1", sortOrder: 0 }],
+        title: "Anuncio inicial",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ messageId: "message-1", status: "replayed" as const });
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
   it("returns like failures without message state fields", async () => {
     const execute = vi
       .fn()

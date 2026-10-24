@@ -184,11 +184,11 @@ Todas son pending-first y confirmadas por el servidor; ninguna anticipa un enví
 | Contratar (checkout) | Confirmada por el servidor | La misma (pago) | INT-07, INT-13 | pendiente |
 | Cancelar renovación | Confirmada, con diálogo | La misma | INT-05, INT-13 | pendiente |
 | Actualizar cobertura | Confirmada | La misma | INT-09 | pendiente |
-| Ingresar gratis (academia) | Confirmada + `router.refresh()` | La misma | INT-12 | pendiente |
+| Ingresar gratis (academia) | Confirmada + `router.refresh()` | La misma | INT-12 (descartado) | cumple |
 | Ingresar gratis (historia) | Confirmada (server action) | La misma | INT-10 | pendiente |
 | Cancelar suscripción y reintentar pago | Confirmada | La misma (pago) | INT-13 | pendiente |
-| Publicar en el fogón | Optimista con rollback | La misma | INT-15 | pendiente |
-| Reaccionar | Optimista con coalescencia | La misma | INT-15 | pendiente |
+| Publicar en el fogón | Optimista con rollback | La misma, con clave idempotente | INT-15 | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |
+| Reaccionar | Optimista con coalescencia | La misma, enviando el estado deseado | INT-15 | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |
 | Crear, editar y borrar canales | Confirmada | La misma | INT-13 | pendiente |
 | Guardar oferta y disponibilidad | Confirmada con versión | La misma | INT-04 | pendiente |
 | Guardar proveedor | Confirmada | La misma | — | cumple |
@@ -212,10 +212,10 @@ Todas son pending-first y confirmadas por el servidor; ninguna anticipa un enví
 | INT-09 | estados | La respuesta `throttled` de actualizar cobertura nunca se muestra y una relectura fallida queda en silencio. | `academy-home` (`handleRefresh`) | pendiente |
 | INT-10 | estados | El ingreso gratis desde la historia falla en silencio: redirige sin mensaje. | `app/(platform)/[slug]/historia/page.tsx` | pendiente |
 | INT-11 | a11y | `<main>` anidados dentro del `<main>` del shell. | `academy-home`, `academy-management`, `academy-verification`, `suscripcion/page.tsx`, `canales/page.tsx`, `[slug]/page.tsx` | pendiente |
-| INT-12 | seguridad | Ingresar gratis a la academia usa la conexión de mantenimiento en un request de usuario. | `app/api/tribes/[slug]/academy/join/route.ts` | pendiente; el usuario decidió pasar a la conexión de request |
+| INT-12 | seguridad | Ingresar gratis a la academia usa la conexión de mantenimiento en un request de usuario. | `app/api/tribes/[slug]/academy/join/route.ts` | cumple: hallazgo descartado. `docs/architecture/academy-admissions.htm` documenta que las escrituras de admisión abren su root de request con propósito `maintenance` y el actor de la sesión, y `academy/join` delega en la misma admisión que `/submissions`. El JSDoc de `DATABASE_CONNECTION_USAGE`, que decía solo «cron», se corrigió en [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177). La decisión del usuario de cambiar la conexión se tomó sobre esa descripción equivocada y queda para revisarla con él al cierre. |
 | INT-13 | mutaciones | Ninguna mutación de integrantes tiene deadline: si se cuelga el checkout, el botón queda en «Abriendo el pago…» y no se puede reintentar. | `lib/academy/academy-api-client.ts` | pendiente |
 | INT-14 | estados | Paginar y filtrar en gestionar no muestran carga, y decidir deja el ítem en «pendientes». | `academy-management` | pendiente |
-| INT-15 | mutaciones | Publicar no lleva clave idempotente y el like es un toggle: un reintento tras una respuesta perdida puede duplicar o invertir el resultado. | `tribe-round`, `messages/[id]/like` | pendiente; el usuario decidió corregirlo en el servidor sin cambiar quién puede publicar o reaccionar |
+| INT-15 | mutaciones | Publicar no lleva clave idempotente y el like es un toggle: un reintento tras una respuesta perdida puede duplicar o invertir el resultado. | `tribe-round`, `messages/[id]/like` | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177); migración `20261024210000_add_message_client_request_id.sql` validada en rama efímera |
 | INT-16 | boundaries | Academia, gestionar, verificación, suscripción y canales re-exportan el skeleton del fogón, que no tiene su forma. | `loading.tsx` de cada segmento | pendiente |
 
 ## 5. Rendimiento

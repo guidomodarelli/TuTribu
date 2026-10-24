@@ -254,6 +254,34 @@ describe("Tribe message routes", () => {
     );
   });
 
+  it("forwards the publication idempotency key and answers a replay without a new message", async () => {
+    createTribeMessage.mockResolvedValue({ messageId: "message-1", status: "replayed" as const });
+
+    const response = await POST_CREATE(
+      buildJsonRequest({
+        channelId: "channel-ronda",
+        clientRequestId: "6f1c2b8e-3d4a-4f5b-8c9d-0e1f2a3b4c5d",
+        content: "Primera mensaje",
+        title: "Anuncio inicial",
+      }),
+      buildCreateRouteContext()
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ message: "El mensaje ya estaba publicado.", messageId: "message-1", replayed: true });
+    expect(createTribeMessage).toHaveBeenCalledWith(expect.objectContaining({ clientRequestId: "6f1c2b8e-3d4a-4f5b-8c9d-0e1f2a3b4c5d" }));
+  });
+
+  it("rejects a publication whose idempotency key is not a UUID before creating anything", async () => {
+    const response = await POST_CREATE(
+      buildJsonRequest({ channelId: "channel-ronda", clientRequestId: "retry-1", content: "Primera mensaje", title: "Anuncio inicial" }),
+      buildCreateRouteContext()
+    );
+
+    expect(response.status).toBe(400);
+    expect(createTribeMessage).not.toHaveBeenCalled();
+  });
+
   it("passes optional poll data when creating a tribe message", async () => {
     createTribeMessage.mockResolvedValue({
       message: { replyCount: 0,
@@ -772,6 +800,45 @@ describe("Tribe message routes", () => {
     expect(body).toEqual({
       message: "No pudimos encontrar el mensaje.",
     });
+    expect(toggleMessageLike).not.toHaveBeenCalled();
+  });
+
+  it("forwards the desired like state so a retried request cannot invert it", async () => {
+    toggleMessageLike.mockResolvedValue({ likedByViewer: false, likeCount: 2, status: "unliked" as const });
+
+    const response = await POST_LIKE(
+      buildJsonRequest({ liked: false }),
+      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+
+    expect(response.status).toBe(200);
+    expect(toggleMessageLike).toHaveBeenCalledWith({
+      liked: false,
+      messageId: "7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2",
+      tribeSlug: "matematica-pro",
+      userId: "member-1",
+    });
+  });
+
+  it("keeps the historical toggle when the like body carries no desired state", async () => {
+    toggleMessageLike.mockResolvedValue({ likedByViewer: true, likeCount: 3, status: "liked" as const });
+
+    await POST_LIKE(buildJsonRequest(), buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2"));
+
+    expect(toggleMessageLike).toHaveBeenCalledWith({
+      messageId: "7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2",
+      tribeSlug: "matematica-pro",
+      userId: "member-1",
+    });
+  });
+
+  it("rejects a like body that is not a reaction without touching the reaction", async () => {
+    const response = await POST_LIKE(
+      buildJsonRequest({ liked: "yes" }),
+      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+
+    expect(response.status).toBe(400);
     expect(toggleMessageLike).not.toHaveBeenCalled();
   });
 

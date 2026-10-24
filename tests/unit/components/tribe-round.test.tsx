@@ -636,6 +636,18 @@ function createDeferredResponse(): DeferredResponse {
   };
 }
 
+/**
+ * Asserts the publication request: its fields plus the idempotency key the composer adds to every draft it sends.
+ *
+ * @param expected - Payload fields other than `clientRequestId`.
+ */
+function expectCreateMessageRequest(expected: Record<string, unknown>) {
+  const bodies = (global.fetch as Mock).mock.calls
+    .filter(([url, init]) => url === "/api/tribes/matematica-pro/messages" && init?.method === "POST")
+    .map(([, init]) => JSON.parse(String(init.body)) as Record<string, unknown>);
+  expect(bodies).toContainEqual({ ...expected, clientRequestId: expect.stringMatching(/^[0-9a-f-]{36}$/) });
+}
+
 describe("TribeRound", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -1883,18 +1895,12 @@ describe("TribeRound", () => {
     await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/tribes/matematica-pro/messages",
-        expect.objectContaining({
-          body: JSON.stringify({
+      expectCreateMessageRequest({
             channelId: "channel-intro",
             content:
               "Sumate al [encuentro](https://meet.google.com/abc-defg-hij)",
             title: "Nuevo encuentro",
-          }),
-          method: "POST",
-        })
-      );
+          });
     });
 
     await act(async () => {
@@ -1948,17 +1954,11 @@ describe("TribeRound", () => {
     await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/tribes/matematica-pro/messages",
-        expect.objectContaining({
-          body: JSON.stringify({
+      expectCreateMessageRequest({
             channelId: "channel-intro",
             content: "Revisá [Clase \\[PDF\\]](https://example.com/a(b))",
             title: "Nuevo material",
-          }),
-          method: "POST",
-        })
-      );
+          });
     });
 
     await act(async () => {
@@ -2079,18 +2079,12 @@ describe("TribeRound", () => {
     await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/tribes/matematica-pro/messages",
-        expect.objectContaining({
-          body: JSON.stringify({
+      expectCreateMessageRequest({
             channelId: "channel-intro",
             content: "Sumate al encuentro",
             media: [{ altText: "", assetId: "asset-1", kind: "image" }],
             title: "Nuevo encuentro",
-          }),
-          method: "POST",
-        })
-      );
+          });
     });
 
     Object.defineProperty(URL, "createObjectURL", {
@@ -2290,18 +2284,12 @@ describe("TribeRound", () => {
     await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/tribes/matematica-pro/messages",
-        expect.objectContaining({
-          body: JSON.stringify({
+      expectCreateMessageRequest({
             channelId: "channel-intro",
             content: "Sumate al encuentro",
             files: [{ assetId: "file-asset-1" }],
             title: "Nuevo encuentro",
-          }),
-          method: "POST",
-        })
-      );
+          });
     });
 
     expect(
@@ -2925,6 +2913,63 @@ describe("TribeRound", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("resends a restored draft with the same publication key and shows the stored message when the server replays it", async () => {
+    const user = userEvent.setup();
+    (global.fetch as Mock)
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce({
+        json: async () => ({ message: "El mensaje ya estaba publicado.", messageId: "message-stored", replayed: true }),
+        ok: true,
+      } as Response);
+
+    render(<TribeRound authenticatedMember={authenticatedMember} tribeSlug="matematica-pro" round={round} />);
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(screen.getByRole("textbox", { name: "Título del mensaje" }), "Nuevo encuentro");
+    setMessageEditorContent(screen.getByRole("textbox", { name: "Contenido del mensaje" }), "Nos vemos el viernes.");
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+    await user.click(await screen.findByRole("button", { name: "Compartir" }));
+
+    // The lost response restores the draft for another attempt.
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    await user.click(await screen.findByRole("button", { name: "Compartir" }));
+
+    await waitFor(() => expect(refreshMock).toHaveBeenCalled());
+    const createBodies = (global.fetch as Mock).mock.calls
+      .filter(([url, init]) => url === "/api/tribes/matematica-pro/messages" && init?.method === "POST")
+      .map(([, init]) => JSON.parse(String(init.body)) as { clientRequestId: string });
+    expect(createBodies).toHaveLength(2);
+    expect(createBodies[0].clientRequestId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(createBodies[1].clientRequestId).toBe(createBodies[0].clientRequestId);
+    await waitFor(() => expect(screen.queryByText("Nuevo encuentro")).not.toBeInTheDocument());
+  });
+
+  it("uses a new publication key once the restored draft is edited", async () => {
+    const user = userEvent.setup();
+    (global.fetch as Mock)
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    render(<TribeRound authenticatedMember={authenticatedMember} tribeSlug="matematica-pro" round={round} />);
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(screen.getByRole("textbox", { name: "Título del mensaje" }), "Nuevo encuentro");
+    setMessageEditorContent(screen.getByRole("textbox", { name: "Contenido del mensaje" }), "Nos vemos el viernes.");
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+    await user.click(await screen.findByRole("button", { name: "Compartir" }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    await user.type(screen.getByRole("textbox", { name: "Título del mensaje" }), " corregido");
+    await user.click(await screen.findByRole("button", { name: "Compartir" }));
+
+    await waitFor(() => expect((global.fetch as Mock).mock.calls.filter(([url]) => url === "/api/tribes/matematica-pro/messages")).toHaveLength(2));
+    const [first, second] = (global.fetch as Mock).mock.calls
+      .filter(([url]) => url === "/api/tribes/matematica-pro/messages")
+      .map(([, init]) => JSON.parse(String(init.body)) as { clientRequestId: string });
+    expect(second.clientRequestId).not.toBe(first.clientRequestId);
   });
 
   it("restores a displaced visible message when optimistic creation fails on a full page", async () => {
@@ -4609,17 +4654,11 @@ describe("TribeRound", () => {
       })
     ).not.toBeInTheDocument();
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/tribes/matematica-pro/messages",
-        expect.objectContaining({
-          body: JSON.stringify({
+      expectCreateMessageRequest({
             channelId: "channel-intro",
             content: "[https://zoom.us/j/123456789](#)",
             title: "Nuevo encuentro",
-          }),
-          method: "POST",
-        })
-      );
+          });
     });
 
     await act(async () => {
@@ -4684,17 +4723,11 @@ describe("TribeRound", () => {
       })
     ).not.toBeInTheDocument();
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/tribes/matematica-pro/messages",
-        expect.objectContaining({
-          body: JSON.stringify({
+      expectCreateMessageRequest({
             channelId: "channel-intro",
             content: "[https://zoom.us/j/123456789](#)",
             title: "Nuevo encuentro",
-          }),
-          method: "POST",
-        })
-      );
+          });
     });
 
     await act(async () => {
@@ -4841,18 +4874,12 @@ describe("TribeRound", () => {
     await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/tribes/matematica-pro/messages",
-        expect.objectContaining({
-          body: JSON.stringify({
+      expectCreateMessageRequest({
             channelId: "channel-intro",
             content:
               "[Curso avanzado](https://example.com/curso) uno y [curso dos](https://example.com/segundo)",
             title: "Nuevo encuentro",
-          }),
-          method: "POST",
-        })
-      );
+          });
     });
 
     await act(async () => {
@@ -4976,17 +5003,11 @@ describe("TribeRound", () => {
     await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/tribes/matematica-pro/messages",
-        expect.objectContaining({
-          body: JSON.stringify({
+      expectCreateMessageRequest({
             channelId: "channel-intro",
             content: "Nos vemos el viernes.",
             title: "Nuevo encuentro",
-          }),
-          method: "POST",
-        })
-      );
+          });
     });
 
     await act(async () => {
@@ -5041,10 +5062,7 @@ describe("TribeRound", () => {
     await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/tribes/matematica-pro/messages",
-        expect.objectContaining({
-          body: JSON.stringify({
+      expectCreateMessageRequest({
             channelId: "channel-intro",
             content: "Nos vemos el viernes.",
             poll: {
@@ -5052,10 +5070,7 @@ describe("TribeRound", () => {
               options: ["Álgebra", "Geometría"],
             },
             title: "Nuevo encuentro",
-          }),
-          method: "POST",
-        })
-      );
+          });
     });
   });
 
@@ -5408,17 +5423,11 @@ describe("TribeRound", () => {
     await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/tribes/matematica-pro/messages",
-        expect.objectContaining({
-          body: JSON.stringify({
+      expectCreateMessageRequest({
             channelId: "channel-intro",
             content: "Nos vemos el viernes.",
             title: "Nuevo encuentro",
-          }),
-          method: "POST",
-        })
-      );
+          });
     });
 
     await act(async () => {
@@ -6041,6 +6050,8 @@ describe("TribeRound", () => {
         expect(global.fetch).toHaveBeenCalledWith(
           "/api/tribes/matematica-pro/messages/message-1/like",
           expect.objectContaining({
+            // The intended state travels with the request, so a retry cannot invert it.
+            body: JSON.stringify({ liked: true }),
             method: "POST",
           })
         );
@@ -7632,10 +7643,7 @@ describe("TribeRound", () => {
     await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/tribes/matematica-pro/messages",
-        expect.objectContaining({
-          body: JSON.stringify({
+      expectCreateMessageRequest({
             channelId: "channel-intro",
             content: "Miren este video.",
             media: [
@@ -7645,10 +7653,7 @@ describe("TribeRound", () => {
               },
             ],
             title: "Recurso",
-          }),
-          method: "POST",
-        })
-      );
+          });
     });
   });
 
@@ -8234,10 +8239,7 @@ describe("TribeRound", () => {
       await user.click(screen.getByRole("button", { name: "Compartir" }));
 
       await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith(
-          "/api/tribes/matematica-pro/messages",
-          expect.objectContaining({
-            body: JSON.stringify({
+        expectCreateMessageRequest({
               channelId: "channel-intro",
               content: "Imagen y video.",
               media: [
@@ -8248,10 +8250,7 @@ describe("TribeRound", () => {
                 },
               ],
               title: "Recurso mixto",
-            }),
-            method: "POST",
-          })
-        );
+            });
       });
     } finally {
       Object.defineProperty(URL, "createObjectURL", {

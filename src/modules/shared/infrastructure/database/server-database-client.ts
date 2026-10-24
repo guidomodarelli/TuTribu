@@ -20,6 +20,11 @@ import {
  * request flows. `maintenance` is the privileged connection used by scheduled
  * maintenance work (the orphan-image cleanup cron), which must run as a role
  * that retains EXECUTE on the owner-only SECURITY DEFINER maintenance functions.
+ * Admission and messaging write handlers (admission policy, submissions and
+ * the academy entry that delegates to them, decisions, cancellations and
+ * usage policy) also open their request root with this purpose and derive the
+ * actor from the session, as `docs/architecture/academy-admissions.htm`
+ * documents; it is not a shortcut around RLS for ordinary request flows.
  */
 export const DATABASE_CONNECTION_USAGE = {
   maintenance: "maintenance",

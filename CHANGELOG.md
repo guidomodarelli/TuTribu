@@ -182,6 +182,9 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Los líderes de tribu ya no necesitan confirmar su cuenta con Google para operaciones sensibles de admisiones, mensajería, salida del modo academia o borrado de la tribu; desaparecen el botón y la pantalla de confirmación.
 
 ### Fixed
+- Volver a compartir en el fogón un mensaje cuya publicación no tuvo respuesta ya no lo duplica: si la primera vez se publicó, avisa «El mensaje ya estaba publicado.».
+- Repetir un Me gusta después de una falla de conexión ya no lo invierte: se guarda el estado que elegiste.
+- Al volver a la ventana de invitaciones también se comprueba que sigas pudiendo gestionarlas; si perdiste ese permiso, el enlace recién emitido se oculta.
 - El enlace de una invitación personal recién emitida ya no desaparece si el líder cambia de ventana antes de copiarlo, y «Copiar enlace» lo copia también en Safari.
 - Al pedir ingreso, un código vencido ya no se muestra como un error rojo del campo: aparece el aviso «El código venció. Reenviá uno nuevo para seguir.» con Reenviar código y su confirmación a la vista, sin abrir «¿No te llegó el código?»; lo mismo pasa cuando el código agotó sus intentos.
 - Después de Reenviar código, el paso «Comprobar código» pasa solo al código nuevo, con el campo habilitado, su nuevo vencimiento y el aviso «Te enviamos un código nuevo»; si la respuesta del reenvío se pierde, la página consulta una vez el envío original y muestra el código nuevo sin recargar.

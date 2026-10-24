@@ -236,9 +236,12 @@ export function createTribeMessage({
         ...(poll ? { poll } : {}),
         ...(videos.length > 0 ? { videos } : {}),
         title,
+        ...(command.clientRequestId ? { clientRequestId: command.clientRequestId } : {}),
       });
 
-      if (result.status !== MESSAGE_MUTATION_STATUS.created) {
+      // A replay keeps its stored attachments; unattached preparations are left to the orphan cleanup
+      // rather than risk deleting an asset the stored message already uses.
+      if (result.status !== MESSAGE_MUTATION_STATUS.created && result.status !== MESSAGE_MUTATION_STATUS.replayed) {
         await cleanupPreparedAttachments();
       }
 

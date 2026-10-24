@@ -340,6 +340,7 @@ const TRIBE_ROUND_COPY = {
   submitReplySuccess: "Respuesta publicada.",
   submitMessageError: "No pudimos crear el mensaje.",
   submitMessageSuccess: "Mensaje creado.",
+  submitMessageReplayed: "El mensaje ya estaba publicado.",
   toggleLikeError: "No pudimos actualizar la reaccion.",
 } as const;
 
@@ -603,7 +604,15 @@ type ApiErrorResponse = {
 
 type CreateMessageResponse = {
   message?: string;
+  /** The server already stored this publication under the same idempotency key. */
+  replayed?: boolean;
   tribeMessage?: TribeRoundMessageResult;
+};
+
+/** Idempotency key of the last submitted draft, reused only when that same draft is sent again. */
+type PendingCreateMessageKey = {
+  fingerprint: string;
+  key: string;
 };
 
 type MessagePollResponse = {
@@ -1764,6 +1773,7 @@ function TribeRoundContent({
 
   const currentTribeSlugRef = useRef(tribeSlug);
   const currentActionTokenRef = useRef(0);
+  const pendingCreateMessageKeyRef = useRef<PendingCreateMessageKey | null>(null);
   const likeDebounceTimersRef = useRef<LikeDebounceTimers>({});
   const pendingLikeIntentsRef = useRef<PendingLikeIntents>({});
   const pinDebounceTimersRef = useRef<PinDebounceTimers>({});
@@ -3664,12 +3674,21 @@ function TribeRoundContent({
       setIsMessageComposerOpen(false);
     }
     setPendingActionId(TRIBE_ROUND_COPY.messageButton);
+    // Sending the same restored draft again reuses its key, so a publication whose response was lost is not duplicated;
+    // any edit makes it a new publication with a new key.
+    const createMessageFingerprint = JSON.stringify([selectedChannelId, title, content]);
+    const clientRequestId =
+      pendingCreateMessageKeyRef.current?.fingerprint === createMessageFingerprint
+        ? pendingCreateMessageKeyRef.current.key
+        : crypto.randomUUID();
+    pendingCreateMessageKeyRef.current = { fingerprint: createMessageFingerprint, key: clientRequestId };
 
     try {
       const response = await submitJsonRequest<CreateMessageResponse>(
         TRIBE_ROUND_ENDPOINT.message(actionTribeSlug),
         {
           channelId: selectedChannelId,
+          clientRequestId,
           content,
           ...(isPollComposerEnabled
             ? {
@@ -3691,9 +3710,29 @@ function TribeRoundContent({
         return;
       }
 
+      if (response.replayed) {
+        // The earlier attempt was stored: drop the optimistic copy and let the server view show the stored message.
+        pendingCreateMessageKeyRef.current = null;
+        setMessages((currentMessages) =>
+          currentMessages.filter((message) => message.id !== optimisticMessageId)
+        );
+        clearPersistingMessageImages(persistingImageAssetIds);
+        clearPersistingMessageFiles(persistingFileAssetIds);
+        pendingCreateMessageIntentRef.current = null;
+        if (!shouldShowOptimisticMessageInCurrentView) {
+          resetMessageComposer({ shouldRevokeImagePreviewUrls: false });
+          setIsMessageComposerOpen(false);
+        }
+        router.refresh();
+        toast.success(response.message ?? TRIBE_ROUND_COPY.submitMessageReplayed);
+        return;
+      }
+
       if (!response.tribeMessage) {
         throw new Error(TRIBE_ROUND_COPY.submitMessageError);
       }
+
+      pendingCreateMessageKeyRef.current = null;
 
       const createdMessage = response.tribeMessage as TribeRoundMessageResult;
 
@@ -3977,8 +4016,10 @@ function TribeRoundContent({
     };
 
     try {
+      // Sending the intended state keeps a retry after a lost response from inverting the reaction.
       const response = await submitJsonRequest<ToggleLikeResponse>(
-        TRIBE_ROUND_ENDPOINT.like(actionTribeSlug, messageId)
+        TRIBE_ROUND_ENDPOINT.like(actionTribeSlug, messageId),
+        { liked: pendingLikeIntent.intendedLikedByViewer }
       );
 
       if (currentTribeSlugRef.current !== actionTribeSlug) {

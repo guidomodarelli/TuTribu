@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import {
   MESSAGE_FILES,
   MESSAGE_MEDIA,
@@ -34,6 +36,7 @@ import { createServerLogger } from "@/src/modules/shared/infrastructure/observab
 const CREATE_MESSAGE_ROUTE_FIELD = {
   allowMultipleVotes: "allowMultipleVotes",
   channelId: "channelId",
+  clientRequestId: "clientRequestId",
   content: "content",
   files: "files",
   media: "media",
@@ -88,6 +91,8 @@ const CREATE_MESSAGE_ROUTE_RESPONSE = {
   invalidMediaMessage:
     "Podés adjuntar hasta 10 archivos entre imágenes y videos.",
   invalidContentMessage: "Completá el título y el contenido antes de publicar.",
+  invalidRequestIdMessage: "No pudimos leer la publicación. Recargá la página e intentalo de nuevo.",
+  replayedMessage: "El mensaje ya estaba publicado.",
   invalidChannelMessage: "Seleccioná un canal antes de publicar.",
   notFoundMessage: "No pudimos encontrar la tribu.",
   invalidPollDuplicateOptionsMessage: "Usá opciones distintas para publicar la encuesta.",
@@ -109,6 +114,7 @@ const HTTP_STATUS = {
   created: 201,
   forbidden: 403,
   notFound: 404,
+  ok: 200,
   serverError: 500,
   unauthorized: 401,
 } as const;
@@ -135,6 +141,26 @@ function readChannelIdFromBody(body: unknown): string {
   const channelId = (body as Record<string, unknown>)[CREATE_MESSAGE_ROUTE_FIELD.channelId];
 
   return typeof channelId === "string" ? channelId : "";
+}
+
+const CLIENT_REQUEST_ID_SCHEMA = z.uuid();
+
+/**
+ * Reads the optional idempotency key of a publication.
+ *
+ * @param body - Parsed request body.
+ * @returns The key, `undefined` when absent, or `null` when present but not a UUID.
+ */
+function readClientRequestIdFromBody(body: unknown): string | undefined | null {
+  if (!body || typeof body !== "object" || !(CREATE_MESSAGE_ROUTE_FIELD.clientRequestId in body)) {
+    return undefined;
+  }
+
+  const parsed = CLIENT_REQUEST_ID_SCHEMA.safeParse(
+    (body as Record<string, unknown>)[CREATE_MESSAGE_ROUTE_FIELD.clientRequestId]
+  );
+
+  return parsed.success ? parsed.data : null;
 }
 
 function readTitleFromBody(body: unknown): string {
@@ -363,6 +389,14 @@ export async function POST(
     const poll = readPollFromBody(body);
     const mediaResult = readMediaFromBody(body);
     const filesResult = readFilesFromBody(body);
+    const clientRequestId = readClientRequestIdFromBody(body);
+
+    if (clientRequestId === null) {
+      return createJsonResponse(
+        { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidRequestIdMessage },
+        HTTP_STATUS.badRequest
+      );
+    }
 
     if (
       filesResult.status === CREATE_MESSAGE_ROUTE_FILES_READ_STATUS.invalidFile
@@ -410,10 +444,20 @@ export async function POST(
       ...(files !== undefined ? { files } : {}),
       ...(media !== undefined ? { media } : {}),
       ...(poll ? { poll } : {}),
+      ...(clientRequestId ? { clientRequestId } : {}),
       title: readTitleFromBody(body),
     });
 
     switch (result.status) {
+      case MESSAGE_MUTATION_STATUS.replayed:
+        return createJsonResponse(
+          {
+            message: CREATE_MESSAGE_ROUTE_RESPONSE.replayedMessage,
+            replayed: true,
+            ...(result.messageId ? { messageId: result.messageId } : {}),
+          },
+          HTTP_STATUS.ok
+        );
       case MESSAGE_MUTATION_STATUS.created:
         revalidateTribeRoundCache(slug);
 
