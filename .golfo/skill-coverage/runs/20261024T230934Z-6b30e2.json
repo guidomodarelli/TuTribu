@@ -1,0 +1,70 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-messaging-recovery-dead-ends",
+    "commit": "966f3707e2c7d3b7890ddbbe0ce7d0d129c8feb6",
+    "fingerprint": "sha256:ed3805f8a28afdc3edc3b3a55d8ad6d0cf6f8a5363ca3a0a2ed08def921fa964",
+    "uncommittedFiles": [],
+    "fileCount": 282,
+    "inputCount": 1599
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run [redacted]-connections-intent-store.test.ts",
+      "durationMs": 3325,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "a4585a528376abd104aaac260baca51ea6b1419dc68803862671093018c59bd9",
+      "recordedAt": "2026-10-24T23:09:38.186Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-24T23:09:38.604Z",
+      "source": "attested",
+      "summary": "Revisión completa: la restauración solo lee intenciones guardadas, no repite mutaciones ni infiere resultados; una lectura ilegible se descarta y solo falla si el storage mismo falla."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-24T23:09:39.001Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: con el historial de conexiones ilegible en localStorage la página de conexiones carga y queda usable (4/4 targets), sin el error de restauración."
+    }
+  ],
+  "limitations": [],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-24T23:09:40.532Z",
+  "result": "verified",
+  "runId": "20261024T230934Z-6b30e2",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "no previous coverage: the whole unit is analyzed"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit academy.admissions.messaging.connections.restore: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "edc05978e69da764",
+      "references/action-catalog.md": "3011dc2f28c2e91c",
+      "references/concurrency-reconciliation.md": "1bb4d0816b1a483d",
+      "references/framework-primitives.md": "16fc928cc9cc1f3c",
+      "references/interaction-state-machine.md": "c09f8f0c506bdd54",
+      "references/optimistic-decision.md": "62c41b62a67ed97a"
+    },
+    "definitionHash": "sha256:dd15a0530a5e006cb85c263e146db04b998dcd88a4841dada65d0e9377c4dfda",
+    "name": "optimistic-action-mutations",
+    "version": "1.1.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-24T23:09:34.403Z",
+  "unitId": "academy.admissions.messaging.connections.restore"
+}
