@@ -58,7 +58,7 @@ Inventario de cada segmento, subflujo y acción de la academia, auditado con las
 | SOL-01 | boundaries, estados | El `loading.tsx` de invitación y de solicitud muestra el encabezado «Solicitar ingreso» y un texto «Consultando estado…» en lugar de un skeleton con la forma de cada pantalla. | `components/academy-admissions/admission-screen/index.tsx` (`AdmissionLoading`) | pendiente |
 | SOL-02 | boundaries | `AdmissionRouteError` reintenta con `reset`, que no vuelve a pedir el RSC; Next 16.3 recomienda `retry`. | `components/academy-admissions/admission-route-error/index.tsx` | pendiente |
 | SOL-03 | estados | El estado `unavailable` del enlace y de la solicitud no ofrece reintento: solo «Ir al inicio». | `admission-screen/index.tsx` | pendiente |
-| SOL-04 | estados | Un parámetro de seguimiento (`?utm_source`, `?fbclid`) hace que el enlace de admisión muestre «No podemos mostrar esta admisión», porque la query se valida con `z.strictObject({})`. | `src/modules/academy-admissions/infrastructure/composition/admission-page.ts`, `personal-invitation-page.ts` | pendiente |
+| SOL-04 | estados | Un parámetro de seguimiento (`?utm_source`, `?fbclid`) hace que el enlace de admisión muestre «No podemos mostrar esta admisión», porque la query se valida con `z.strictObject({})`. | `src/modules/academy-admissions/infrastructure/composition/admission-page.ts`, `personal-invitation-page.ts` | pendiente; el usuario decidió que las páginas ignoren los parámetros desconocidos y las APIs sigan estrictas |
 | SOL-05 | mutaciones | Enviar, cancelar, actualizar WhatsApp, leer y cambiar de cuenta no tienen deadline: un request colgado deja la fase `writing` y el toast de carga sin fin. | `app/(admission)/admissions/[slug]/admission-container.tsx`, `lib/academy-admissions/admission-api-client.ts` | pendiente |
 | SOL-06 | estados | Un resultado incierto muestra el mismo texto dos veces, en el aviso de incierto y en la alerta de error. | `admission-container.tsx`, `admission-screen/index.tsx` | pendiente |
 | SOL-07 | estados | Aceptar una invitación muestra el éxito en línea y en un toast a la vez. | `components/academy-admissions/personal-invitation/hooks/use-personal-invitation.ts` | pendiente |
@@ -154,7 +154,7 @@ Todas son pending-first y confirmadas por el servidor; ninguna anticipa un enví
 | MEN-01 | estados, mutaciones | Una prueba o verificación pendiente que quedó `started` o ausente bloquea todas las acciones: no se puede reanudar ni archivar y solo queda «Consultar guardado» en bucle. | `messaging-connections-container.tsx` (`recover`) | pendiente |
 | MEN-02 | estados | Después de 20 pruebas la pestaña no puede emitir más: el historial no se puede limpiar. | `messaging-connections-container.tsx`, `messaging-diagnostic-history` | pendiente |
 | MEN-03 | estados | Un `sessionStorage` corrupto deja la página en «no disponible» y «Reintentar» relee el mismo dato. | `messaging-intent-store`, `messaging-connections-container.tsx` | pendiente |
-| MEN-04 | estados | Un parámetro de query extra rompe las dos páginas de mensajería (`z.strictObject({})`). | `messaging-usage-page.ts`, `messaging-connections-page.ts` | pendiente |
+| MEN-04 | estados | Un parámetro de query extra rompe las dos páginas de mensajería (`z.strictObject({})`). | `messaging-usage-page.ts`, `messaging-connections-page.ts` | pendiente; misma decisión que SOL-04 |
 | MEN-05 | estados | Sin sesión o sin permiso se muestra el error genérico con «Reintentar», sin acción para iniciar sesión. | `messaging-usage-container.tsx`, `messaging-connections-container.tsx` | pendiente |
 | MEN-06 | validación | «Guardar conexión» queda deshabilitado sin explicar qué falta; los mensajes de validación nunca se ven. | `messaging-connections` | pendiente |
 | MEN-07 | estados | Un resultado vacío de remitentes o plantillas solo se avisa con un toast; después el select vuelve a pedir que se consulten. Los botones de consulta no muestran carga. | `messaging-resource-controller.ts`, `messaging-connection-resources` | pendiente |
@@ -184,7 +184,7 @@ Todas son pending-first y confirmadas por el servidor; ninguna anticipa un enví
 | Contratar (checkout) | Confirmada por el servidor | La misma (pago) | INT-07, INT-13 | pendiente |
 | Cancelar renovación | Confirmada, con diálogo | La misma | INT-05, INT-13 | pendiente |
 | Actualizar cobertura | Confirmada | La misma | INT-09 | pendiente |
-| Ingresar gratis (academia) | Confirmada + `router.refresh()` | La misma | INT-12 | decisión pendiente |
+| Ingresar gratis (academia) | Confirmada + `router.refresh()` | La misma | INT-12 | pendiente |
 | Ingresar gratis (historia) | Confirmada (server action) | La misma | INT-10 | pendiente |
 | Cancelar suscripción y reintentar pago | Confirmada | La misma (pago) | INT-13 | pendiente |
 | Publicar en el fogón | Optimista con rollback | La misma | INT-15 | pendiente |
@@ -212,10 +212,10 @@ Todas son pending-first y confirmadas por el servidor; ninguna anticipa un enví
 | INT-09 | estados | La respuesta `throttled` de actualizar cobertura nunca se muestra y una relectura fallida queda en silencio. | `academy-home` (`handleRefresh`) | pendiente |
 | INT-10 | estados | El ingreso gratis desde la historia falla en silencio: redirige sin mensaje. | `app/(platform)/[slug]/historia/page.tsx` | pendiente |
 | INT-11 | a11y | `<main>` anidados dentro del `<main>` del shell. | `academy-home`, `academy-management`, `academy-verification`, `suscripcion/page.tsx`, `canales/page.tsx`, `[slug]/page.tsx` | pendiente |
-| INT-12 | seguridad | Ingresar gratis a la academia usa la conexión de mantenimiento en un request de usuario. | `app/api/tribes/[slug]/academy/join/route.ts` | decisión pendiente |
+| INT-12 | seguridad | Ingresar gratis a la academia usa la conexión de mantenimiento en un request de usuario. | `app/api/tribes/[slug]/academy/join/route.ts` | pendiente; el usuario decidió pasar a la conexión de request |
 | INT-13 | mutaciones | Ninguna mutación de integrantes tiene deadline: si se cuelga el checkout, el botón queda en «Abriendo el pago…» y no se puede reintentar. | `lib/academy/academy-api-client.ts` | pendiente |
 | INT-14 | estados | Paginar y filtrar en gestionar no muestran carga, y decidir deja el ítem en «pendientes». | `academy-management` | pendiente |
-| INT-15 | mutaciones | Publicar no lleva clave idempotente y el like es un toggle: un reintento tras una respuesta perdida puede duplicar o invertir el resultado. | `tribe-round`, `messages/[id]/like` | decisión pendiente |
+| INT-15 | mutaciones | Publicar no lleva clave idempotente y el like es un toggle: un reintento tras una respuesta perdida puede duplicar o invertir el resultado. | `tribe-round`, `messages/[id]/like` | pendiente; el usuario decidió corregirlo en el servidor sin cambiar quién puede publicar o reaccionar |
 | INT-16 | boundaries | Academia, gestionar, verificación, suscripción y canales re-exportan el skeleton del fogón, que no tiene su forma. | `loading.tsx` de cada segmento | pendiente |
 
 ## 5. Rendimiento
