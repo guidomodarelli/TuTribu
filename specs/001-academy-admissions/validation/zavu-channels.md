@@ -79,3 +79,92 @@ La segunda emisión fue SMS al teléfono controlado. Zavu aceptó el intento; su
 La consulta de recursos también confirmó un número propio SMS/voz activo, todavía sin asignar a ningún remitente; el remitente SMS utilizado es distinto. Esa observación no establece por sí sola la causa de la cola y queda pendiente resolver su configuración. No se cambió el remitente ni se emitió un tercer mensaje.
 
 El piloto conserva dos solicitudes consumidas de diez y la candidata sin seleccionar. El saldo observado después del correo fue USD 16,60 frente a USD 17 antes de emitirlo; la diferencia de USD 0,40 es una observación de saldo, no una tarifa por mensaje deducida. T204 y OG-03/OG-04 siguen pendientes; WhatsApp y el contraste A/B mantienen su alcance completo.
+
+<a id="sms-queue-diagnosis-2026-10-23"></a>
+
+### Diagnóstico de la cola SMS, 23 de octubre de 2026
+
+La revisión de sólo lectura del panel de Zavu (2026-10-23 03:10Z, 00:10 en Buenos Aires) explica por qué ningún SMS de diagnóstico salió de la cola:
+
+- El sender que usa la conexión para SMS es el predeterminado del proyecto, cuyo número es el WhatsApp personal argentino del usuario. Zavu lo lista con WhatsApp y SMS, pero el canal SMS del proyecto figura «En configuración».
+- El número propio de EE. UU. incluido en Pro figura «Sin conectar: no envía ni recibe». No está asignado a ningún sender.
+- Los tres diagnósticos SMS emitidos por TuTribu (19, 21 y 22 de octubre) siguen en cola en los registros del proveedor; ninguno figura entregado ni fallido.
+
+**Ningún `verified` SMS anterior acredita recepción.** El panel de registros de Zavu muestra el cuerpo completo de cada mensaje, incluido el código. El diagnóstico del 22 de octubre quedó `verified` diez segundos después de emitirse con el SMS todavía en cola: el código no pudo leerse en el teléfono. Los diagnósticos SMS del 19 y del 21 de octubre tienen el mismo estado del proveedor. Estos resultados acreditan sólo la validación local del código y no se usan para OG-03, T106 ni T204. Esta evidencia no reproduce códigos.
+
+El conteo de «dos de diez envíos» quedó desactualizado. Desde el 19 de octubre la rama del piloto registra once diagnósticos aceptados por Zavu (ocho de correo, tres SMS) y quince avisos de admisión aceptados por otros ensayos. El saldo observado es USD 16,28. El 2026-10-22 el usuario fijó un tope nuevo de **diez envíos sólo para este ensayo**, contado desde esta revisión, y conservó el tope de USD 20; también autorizó conectar el número de EE. UU. como canal o sender SMS. Esa conexión y los envíos posteriores se registran a continuación.
+
+<a id="sms-external-reception-2026-10-23"></a>
+
+### SMS con recepción externa, 23 de octubre de 2026
+
+Con la autorización expresa del usuario se conectó en Zavu el número propio de EE. UU. incluido en Pro como canal SMS («Canal SMS creado. El número ya envía y recibe»). Zavu creó un sender nuevo, sólo SMS, distinto del sender predeterminado con el WhatsApp personal. No hubo cargo mensual por el número.
+
+En el piloto desplegado (tribu `test`) el usuario guardó una candidata nueva con la clave del piloto; el agente no ingresó la clave. Un primer intento con otra candidata devolvió «Credencial no válida» y se retiró desde la UI propia. Esta candidata pasó la comprobación real de credencial (cuenta de producción) y la **configuración 3** quedó con correo en el sender TuTribu y SMS en el sender nuevo de EE. UU.
+
+| Hora (UTC / Buenos Aires) | Canal | Resultado | Envío del ensayo |
+| --- | --- | --- | --- |
+| 17:54 / 14:54 | Correo | Aceptado por Zavu; el código venció sin confirmarse | 1 de 10 |
+| 18:20 / 15:20 | Correo | Aceptado; invalidado por el reenvío siguiente | 2 de 10 |
+| 18:23 / 15:23 | Correo | Aceptado; el usuario leyó el código en su casilla y lo confirmó a las 18:24 | 3 de 10 |
+| 18:25 / 15:25 | SMS a teléfono argentino controlado | Aceptado; **el usuario informó que lo recibió en el teléfono** y lo confirmó a las 18:25:40 | 4 de 10 |
+
+**El SMS tiene recepción externa acreditada**: el usuario declaró haber recibido el mensaje en su teléfono y el código que confirmó salió de ese mensaje, no de los registros del proveedor. Así queda cubierta, para SMS, la recepción externa pendiente de OG-03. La aplicación muestra correo y SMS como «Canal comprobado» en la configuración 3, con `tested_at` 18:24:00Z y 18:25:40Z. Ningún artefacto conserva códigos, claves ni destinatarios completos.
+
+Antes de este ensayo, durante la preparación, el usuario suspendió también la conexión activa anterior («Piloto», sólo correo). La UI de reemplazo de candidatas se mejoró por separado en guidomodarelli/TuTribu#170, que todavía no está desplegado en el piloto.
+
+<a id="t106-email-real-transport-2026-10-23"></a>
+
+### T106 por correo con transporte real, 23 de octubre de 2026
+
+**Ensayo ON autorizado.** Con la autorización del usuario se encendió en el piloto (tribu `test`) «Código de comprobación: Sí» desde la UI propia del líder. La política de admisión quedó en la versión 7, con contacto `email`, y siguió vinculada a la conexión activa de configuración 3. La política de uso es la versión 4: Argentina y diez códigos diarios. El contacto de la academia quedó fijado en correo al activar el control, así que **esta tribu sólo ejerce el canal de correo**.
+
+**Solicitante controlado.** El piloto desplegado sólo admite Google. El solicitante usó un servidor local con el mismo código del piloto (`d36525a7`), la misma rama Neon y las mismas claves, con el inicio de sesión de desarrollo para una sola cuenta de prueba cuyo correo es el destino autorizado. El usuario ingresó la contraseña de prueba; el agente no la escribió en el formulario. `next dev` respondió 404 en las rutas con dos segmentos dinámicos (`challenges/[challengeId]/verify`), en el mismo checkout y en una unidad `subst`. Se usó `next build` + `next start`, igual que los e2e de admisión. El intento hecho bajo `next dev` no llegó al servidor, no creó desafío ni envío y dejó la pestaña con una operación incierta sin salida, que se trata aparte. Al terminar se detuvo el servidor y se borraron su configuración local y el worktree.
+
+| AC | Recorrido real | Resultado observado |
+| --- | --- | --- |
+| US-05-AC-01 | Pedido explícito del código por la UI del solicitante (envío 5 de 10, 19:17:57Z / 16:17 Buenos Aires) | Desafío `issued`, propósito `admission`, configuración 3; entrega aceptada por Zavu al correo de la cuenta; uso registrado como `code_request` con la versión 4 de la política de uso |
+| US-05-AC-06 | Lectura después de la aceptación del proveedor y antes de ingresar el código | Cero pruebas de admisión y cero vínculos de contacto; la UI muestra el estado de entrega separado de la comprobación |
+| US-05-AC-03 | Código incorrecto presentado contra el desafío vigente | HTTP 422 y «El código no es correcto»; `failed_attempts = 1`, sin prueba ni vínculo, registrado como `code_failure` |
+| Reenvío | Reenvío explícito del solicitante (envío 6 de 10, 19:51:58Z) | El desafío anterior pasó a `invalidated` con motivo `explicit_resend`; el nuevo envío contó como otro `code_request` con la misma versión de uso |
+| US-05-AC-02 | El usuario ingresó el código recibido en su casilla (19:52:46Z / 16:52) | Prueba de admisión `available`, configuración 3, época de verificación 2, sin aplicar todavía a una solicitud |
+
+**Cero cambios globales de autenticación.** Comparado con las líneas base de 18:54Z y de 19:03Z, la cuenta del solicitante conserva el mismo `updatedAt`, la misma credencial sin modificar, una sola sesión y `emailVerified` igual. Ninguna otra cuenta cambió después del alta de las cuentas de prueba, y la tabla global `verification` sigue con una fila. El total de usuarios creció sólo por las dos cuentas de prueba del inicio de sesión de desarrollo. La comprobación no creó sesión, no restableció contraseña, no vinculó cuentas y no marcó un contacto global como verificado.
+
+**Pendiente de T106.**
+- **SMS:** los siete AC requieren una academia cuyo contacto sea teléfono; la tribu `test` quedó fijada en correo. El usuario decidió el 2026-10-23 dejar SMS pendiente.
+- **US-05-AC-04:** el código vencido no se presentó después de su vencimiento; el usuario reenvió antes. Tampoco se ejercieron los cinco intentos fallidos con transporte real. Sigue cubierto por las pruebas automatizadas.
+- **US-05-AC-05:** depende del canal alternativo SMS.
+- **US-05-AC-07:** con contacto de correo, el contacto es el correo de la cuenta. Otra cuenta no puede presentar el mismo correo con transporte real, así que su ensayo real también espera a la academia con teléfono.
+- **Países antes y después del marker:** aplica a destinos telefónicos y queda con el ensayo SMS.
+
+Se usaron **6 de los 10 envíos** autorizados para este ensayo, todos aceptados por Zavu. Ningún artefacto conserva códigos, claves, contraseñas ni destinatarios completos. Después del ensayo, la verificación adicional sigue encendida en la tribu `test` del piloto.
+
+<a id="t106-sms-real-transport-2026-10-23"></a>
+
+### T106 por SMS con transporte real, 23 de octubre de 2026
+
+El usuario amplió la autorización de envíos hasta agotar el saldo de Zavu. Para ejercer SMS se creó en el piloto la tribu privada **«Prueba SMS T106»**. Su academia y «Admisiones abiertas» se encendieron desde la UI del líder, con países y cupos AR+UY (versión 2) y una conexión propia solo SMS desde el sender de EE. UU. El diagnóstico se confirmó con el código recibido en el teléfono (21:13:07Z). La conexión la activó el usuario. Las reglas quedaron con revisión manual, contacto `phone` fijo y código por SMS. El solicitante usó el mismo servidor local de producción (`next start`) y la misma cuenta de prueba del ensayo por correo.
+
+| AC / condición | Recorrido real | Resultado observado |
+| --- | --- | --- |
+| US-05-AC-01 | Pedido del código por SMS a un teléfono argentino (21:18:57Z / 18:18 Buenos Aires) | Desafío `issued`, entrega aceptada por Zavu, intento autorizado con países y cupos versión 2 y país `AR` |
+| US-05-AC-06 | Lectura con la entrega aceptada | Cero pruebas y cero vínculos de contacto |
+| US-05-AC-03 | Código incorrecto contra el desafío vigente | Rechazado; `failed_attempts = 1`, sin prueba |
+| Países después de emitir | Se quitó Argentina con el código vigente (versión 3, 21:22:36Z) | La UI de revisión informa «Los códigos ya enviados siguen valiendo»; el desafío siguió `issued`, sin reinicio ni dispensa |
+| US-05-AC-04 (vencido) | El código venció a las 21:28:57Z sin usarse | La UI del solicitante muestra «El código venció» y no permite comprobarlo |
+| Países antes de emitir | Reenvío con sólo Uruguay habilitado | HTTP 422 `recipient_not_allowed`, «La academia no tiene habilitado el país de ese teléfono»; sin desafío ni envío nuevo |
+| Reenvío | Con AR restaurado y cupo de 20 (versión 4) | El desafío vencido pasó a `invalidated` (`explicit_resend`) y se emitió uno nuevo (21:33:33Z) |
+
+**Pendiente de T106 por SMS.**
+- **US-05-AC-02:** el código del último reenvío venció sin ingresarse, así que no se generó la prueba por SMS. Tampoco se comprobó un código vigente después de la reducción de países: Argentina se quitó otra vez (versión 5, 21:34:51Z) con ese desafío emitido.
+- **US-05-AC-05:** requiere WhatsApp como canal principal, bloqueado por Meta.
+- **US-05-AC-07 real:** no se ejecutó.
+
+**Hallazgos de UI en el ensayo:**
+- La pestaña quedaba trabada cuando la operación nunca llegaba al servidor (corregido en guidomodarelli/TuTribu#172).
+- El aviso de código vencido se mostraba como error y no cambiaba al desafío nuevo después del reenvío (guidomodarelli/TuTribu#173).
+- El cartel de Reglas atribuía al equipo de TuTribu las admisiones cerradas de la academia (guidomodarelli/TuTribu#174).
+- «Reenviar código de prueba» seguía deshabilitado hasta volver a completar el destino; está incluido en #173.
+
+**Envíos de la jornada:** 10, todos aceptados por Zavu: correo 5 y SMS 5. Al cerrar se detuvo el servidor local y se borraron su configuración y el worktree. En el piloto quedan la tribu «Prueba SMS T106» con Uruguay como único país, el desafío SMS vencido y la verificación adicional encendida en `test`.
