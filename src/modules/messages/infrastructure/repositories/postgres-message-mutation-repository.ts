@@ -11,6 +11,7 @@ import type {
 import type {
   CreateTribeMessageRepositoryCommand,
   MessageCreationRepository,
+  MessagePublicationKeyQuery,
 } from "@/src/modules/messages/domain/repositories/message-creation-repository";
 import type {
   MessageContentUpdateRepository,
@@ -403,6 +404,23 @@ export class PostgresMessageMutationRepository
     }
 
     return this.createMessage(command);
+  }
+
+  async findPublicationByClientRequestId(query: MessagePublicationKeyQuery): Promise<string | null> {
+    return this.executeWithDatabase(async (database) => {
+      const storedResult = await database.execute(sql`
+        select messages.id
+        from public.messages
+        inner join public.tribes
+          on tribes.id = messages.tribe_id
+        where tribes.slug = ${query.tribeSlug}
+          and messages.author_id = ${query.authorId}
+          and messages.client_request_id = ${query.clientRequestId}::uuid
+        limit 1
+      `);
+
+      return ((storedResult.rows?.[0] ?? null) as { id: string } | null)?.id ?? null;
+    });
   }
 
   async toggle(command: ToggleMessageLikeCommand): Promise<MessageLikeToggleResult> {

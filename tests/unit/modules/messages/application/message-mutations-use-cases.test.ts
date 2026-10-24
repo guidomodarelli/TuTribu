@@ -351,6 +351,56 @@ describe("message mutation use cases", () => {
     );
   });
 
+  it("answers a stored publication key before preparing, attaching or deleting any attachment", async () => {
+    const create = vi.fn();
+    const findPublicationByClientRequestId = vi.fn(async () => "message-stored");
+    const prepareForAttachment = vi.fn();
+    const deleteImage = vi.fn();
+    const execute = createTribeMessage({
+      messageCreationRepository: { create, findPublicationByClientRequestId },
+      messageImageRepository: { prepareForAttachment, deleteImage },
+    });
+
+    await expect(
+      execute({
+        authorId: "member-1",
+        channelId: "channel-ronda",
+        clientRequestId: "6f1c2b8e-3d4a-4f5b-8c9d-0e1f2a3b4c5d",
+        tribeSlug: "matematica-pro",
+        content: "Miren estas capturas",
+        media: [{ assetId: firstImageAssetId, kind: "image" }],
+        title: "Capturas",
+      })
+    ).resolves.toEqual({ messageId: "message-stored", status: "replayed" as const });
+    expect(findPublicationByClientRequestId).toHaveBeenCalledWith({
+      authorId: "member-1",
+      clientRequestId: "6f1c2b8e-3d4a-4f5b-8c9d-0e1f2a3b4c5d",
+      tribeSlug: "matematica-pro",
+    });
+    // The stored publication's media is never prepared again nor deleted.
+    expect(prepareForAttachment).not.toHaveBeenCalled();
+    expect(deleteImage).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("skips the extra key lookup for a text-only publication, which the repository replays in one statement", async () => {
+    const create = vi.fn(async () => ({ messageId: null, status: "replayed" as const }));
+    const findPublicationByClientRequestId = vi.fn(async () => null);
+    const execute = createTribeMessage({ messageCreationRepository: { create, findPublicationByClientRequestId } });
+
+    await execute({
+      authorId: "member-1",
+      channelId: "channel-ronda",
+      clientRequestId: "6f1c2b8e-3d4a-4f5b-8c9d-0e1f2a3b4c5d",
+      tribeSlug: "matematica-pro",
+      content: "Primera mensaje",
+      title: "Bienvenida",
+    });
+
+    expect(findPublicationByClientRequestId).not.toHaveBeenCalled();
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ clientRequestId: "6f1c2b8e-3d4a-4f5b-8c9d-0e1f2a3b4c5d" }));
+  });
+
   it("forwards the idempotency key and never deletes images when the publication is a replay", async () => {
     const create = vi.fn(async () => ({ messageId: "message-1", status: "replayed" as const }));
     const prepareForAttachment = vi.fn(async () => ({

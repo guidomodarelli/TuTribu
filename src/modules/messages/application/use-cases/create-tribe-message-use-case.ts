@@ -148,6 +148,23 @@ export function createTribeMessage({
 
     const tribeSlug = command.tribeSlug.trim();
     const userId = command.authorId;
+
+    // A retry of a stored publication with attachments must be answered before attachment preparation: its assets are
+    // already attached, preparation would reject them and the cleanup that follows would delete the stored media.
+    // Without attachments the repository's single statement already replays the key, so no extra lookup is needed.
+    const hasAttachments = normalizedMedia.images.length > 0 || normalizedFiles.files.length > 0;
+    if (command.clientRequestId && hasAttachments && messageCreationRepository.findPublicationByClientRequestId) {
+      const storedMessageId = await messageCreationRepository.findPublicationByClientRequestId({
+        authorId: userId,
+        clientRequestId: command.clientRequestId,
+        tribeSlug,
+      });
+
+      if (storedMessageId) {
+        return { messageId: storedMessageId, status: MESSAGE_MUTATION_STATUS.replayed };
+      }
+    }
+
     const videos = normalizedMedia.videos;
     let images = normalizedMedia.images;
     let files = normalizedFiles.files;

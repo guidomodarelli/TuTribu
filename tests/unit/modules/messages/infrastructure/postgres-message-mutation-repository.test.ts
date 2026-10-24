@@ -428,6 +428,17 @@ describe("PostgresMessageMutationRepository", () => {
     expect(unlikeExecute).toHaveBeenCalledTimes(3);
   });
 
+  it("finds a stored publication by its key or reports that none exists", async () => {
+    const execute = vi.fn()
+      .mockResolvedValueOnce({ rows: [{ id: "message-stored" }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const repository = new PostgresMessageMutationRepository(async (callback) => callback({ execute } as never));
+    const query = { authorId: "member-1", clientRequestId: "6f1c2b8e-3d4a-4f5b-8c9d-0e1f2a3b4c5d", tribeSlug: "matematica-pro" };
+
+    await expect(repository.findPublicationByClientRequestId(query)).resolves.toBe("message-stored");
+    await expect(repository.findPublicationByClientRequestId(query)).resolves.toBeNull();
+  });
+
   it("answers a repeated publication key as a replay without attaching anything again", async () => {
     const execute = vi.fn(async () => ({ rows: [{ replayed_message_id: "message-1", status: "replayed" }] }));
     const repository = new PostgresMessageMutationRepository(async (callback) => callback({ execute } as never));
