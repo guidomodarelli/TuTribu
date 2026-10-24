@@ -139,3 +139,32 @@ Antes de este ensayo, durante la preparación, el usuario suspendió también la
 - **Países antes y después del marker:** aplica a destinos telefónicos y queda con el ensayo SMS.
 
 Se usaron **6 de los 10 envíos** autorizados para este ensayo, todos aceptados por Zavu. Ningún artefacto conserva códigos, claves, contraseñas ni destinatarios completos. Después del ensayo, la verificación adicional sigue encendida en la tribu `test` del piloto.
+
+<a id="t106-sms-real-transport-2026-10-23"></a>
+
+### T106 por SMS con transporte real, 23 de octubre de 2026
+
+El usuario amplió la autorización de envíos hasta agotar el saldo de Zavu. Para ejercer SMS se creó en el piloto la tribu privada **«Prueba SMS T106»**. Su academia y «Admisiones abiertas» se encendieron desde la UI del líder, con países y cupos AR+UY (versión 2) y una conexión propia solo SMS desde el sender de EE. UU. El diagnóstico se confirmó con el código recibido en el teléfono (21:13:07Z). La conexión la activó el usuario. Las reglas quedaron con revisión manual, contacto `phone` fijo y código por SMS. El solicitante usó el mismo servidor local de producción (`next start`) y la misma cuenta de prueba del ensayo por correo.
+
+| AC / condición | Recorrido real | Resultado observado |
+| --- | --- | --- |
+| US-05-AC-01 | Pedido del código por SMS a un teléfono argentino (21:18:57Z / 18:18 Buenos Aires) | Desafío `issued`, entrega aceptada por Zavu, intento autorizado con países y cupos versión 2 y país `AR` |
+| US-05-AC-06 | Lectura con la entrega aceptada | Cero pruebas y cero vínculos de contacto |
+| US-05-AC-03 | Código incorrecto contra el desafío vigente | Rechazado; `failed_attempts = 1`, sin prueba |
+| Países después de emitir | Se quitó Argentina con el código vigente (versión 3, 21:22:36Z) | La UI de revisión informa «Los códigos ya enviados siguen valiendo»; el desafío siguió `issued`, sin reinicio ni dispensa |
+| US-05-AC-04 (vencido) | El código venció a las 21:28:57Z sin usarse | La UI del solicitante muestra «El código venció» y no permite comprobarlo |
+| Países antes de emitir | Reenvío con sólo Uruguay habilitado | HTTP 422 `recipient_not_allowed`, «La academia no tiene habilitado el país de ese teléfono»; sin desafío ni envío nuevo |
+| Reenvío | Con AR restaurado y cupo de 20 (versión 4) | El desafío vencido pasó a `invalidated` (`explicit_resend`) y se emitió uno nuevo (21:33:33Z) |
+
+**Pendiente de T106 por SMS.**
+- **US-05-AC-02:** el código del último reenvío venció sin ingresarse, así que no se generó la prueba por SMS. Tampoco se comprobó un código vigente después de la reducción de países: Argentina se quitó otra vez (versión 5, 21:34:51Z) con ese desafío emitido.
+- **US-05-AC-05:** requiere WhatsApp como canal principal, bloqueado por Meta.
+- **US-05-AC-07 real:** no se ejecutó.
+
+**Hallazgos de UI en el ensayo:**
+- La pestaña quedaba trabada cuando la operación nunca llegaba al servidor (corregido en guidomodarelli/TuTribu#172).
+- El aviso de código vencido se mostraba como error y no cambiaba al desafío nuevo después del reenvío (guidomodarelli/TuTribu#173).
+- El cartel de Reglas atribuía al equipo de TuTribu las admisiones cerradas de la academia (guidomodarelli/TuTribu#174).
+- «Reenviar código de prueba» seguía deshabilitado hasta volver a completar el destino; está incluido en #173.
+
+**Envíos de la jornada:** 10, todos aceptados por Zavu: correo 5 y SMS 5. Al cerrar se detuvo el servidor local y se borraron su configuración y el worktree. En el piloto quedan la tribu «Prueba SMS T106» con Uruguay como único país, el desafío SMS vencido y la verificación adicional encendida en `test`.
