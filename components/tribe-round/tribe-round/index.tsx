@@ -3674,9 +3674,26 @@ function TribeRoundContent({
       setIsMessageComposerOpen(false);
     }
     setPendingActionId(TRIBE_ROUND_COPY.messageButton);
-    // Sending the same restored draft again reuses its key, so a publication whose response was lost is not duplicated;
-    // any edit makes it a new publication with a new key.
-    const createMessageFingerprint = JSON.stringify([selectedChannelId, title, content]);
+    const createMessagePayload = {
+      channelId: selectedChannelId,
+      content,
+      ...(isPollComposerEnabled
+        ? {
+            poll: {
+              allowMultipleVotes: pollAllowsMultipleVotes,
+              options: pollOptions
+                .map((option) => option.trim())
+                .filter(Boolean),
+            },
+          }
+        : {}),
+      ...(filesPayload.length > 0 ? { files: filesPayload } : {}),
+      ...(mediaPayload.length > 0 ? { media: mediaPayload } : {}),
+      title,
+    };
+    // Sending exactly the same publication again reuses its key, so one whose response was lost is not duplicated;
+    // any change to the text, poll or attachments makes it a new publication with a new key.
+    const createMessageFingerprint = JSON.stringify(createMessagePayload);
     const clientRequestId =
       pendingCreateMessageKeyRef.current?.fingerprint === createMessageFingerprint
         ? pendingCreateMessageKeyRef.current.key
@@ -3686,24 +3703,7 @@ function TribeRoundContent({
     try {
       const response = await submitJsonRequest<CreateMessageResponse>(
         TRIBE_ROUND_ENDPOINT.message(actionTribeSlug),
-        {
-          channelId: selectedChannelId,
-          clientRequestId,
-          content,
-          ...(isPollComposerEnabled
-            ? {
-                poll: {
-                  allowMultipleVotes: pollAllowsMultipleVotes,
-                  options: pollOptions
-                    .map((option) => option.trim())
-                    .filter(Boolean),
-                },
-              }
-            : {}),
-          ...(filesPayload.length > 0 ? { files: filesPayload } : {}),
-          ...(mediaPayload.length > 0 ? { media: mediaPayload } : {}),
-          title,
-        }
+        { ...createMessagePayload, clientRequestId }
       );
 
       if (!isCurrentAction(actionToken, actionTribeSlug)) {

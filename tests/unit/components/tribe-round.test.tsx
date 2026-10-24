@@ -2972,6 +2972,36 @@ describe("TribeRound", () => {
     expect(second.clientRequestId).not.toBe(first.clientRequestId);
   });
 
+  it("uses a new publication key when only the restored poll changes", async () => {
+    const user = userEvent.setup();
+    (global.fetch as Mock)
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    render(<TribeRound authenticatedMember={authenticatedMember} tribeSlug="matematica-pro" round={round} />);
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(screen.getByRole("textbox", { name: "Título del mensaje" }), "Votación");
+    setMessageEditorContent(screen.getByRole("textbox", { name: "Contenido del mensaje" }), "Elegí un tema.");
+    await user.click(screen.getByRole("button", { name: "Agregar encuesta" }));
+    await user.type(screen.getByRole("textbox", { name: "Opción 1" }), "Álgebra");
+    await user.type(screen.getByRole("textbox", { name: "Opción 2" }), "Geometría");
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    // Same title and text, different vote setting: it is a different publication.
+    await user.click(screen.getByLabelText("Voto múltiple"));
+    await user.click(await screen.findByRole("button", { name: "Compartir" }));
+
+    await waitFor(() => expect((global.fetch as Mock).mock.calls.filter(([url]) => url === "/api/tribes/matematica-pro/messages")).toHaveLength(2));
+    const [first, second] = (global.fetch as Mock).mock.calls
+      .filter(([url]) => url === "/api/tribes/matematica-pro/messages")
+      .map(([, init]) => JSON.parse(String(init.body)) as { clientRequestId: string; poll: { allowMultipleVotes: boolean } });
+    expect(second.poll.allowMultipleVotes).not.toBe(first.poll.allowMultipleVotes);
+    expect(second.clientRequestId).not.toBe(first.clientRequestId);
+  });
+
   it("restores a displaced visible message when optimistic creation fails on a full page", async () => {
     const user = userEvent.setup();
     const deferredResponse = createDeferredResponse();
