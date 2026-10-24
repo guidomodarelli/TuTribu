@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "tribe.campfire.react",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Tribu",
+    "page": "Fogón",
+    "section": "Mensajes",
+    "subflow": "Dar o quitar Me gusta"
+  },
+  "description": "Me gusta optimista con coalescencia de intenciones por mensaje; envía el estado deseado para que un reintento no lo invierta.",
+  "routes": [
+    "/[slug]"
+  ],
+  "entries": [
+    {
+      "path": "components/tribe-round/tribe-round/index.tsx",
+      "symbol": "TribeRoundContent/flushPendingLikeIntent"
+    },
+    {
+      "path": "app/api/tribes/[slug]/messages/[messageId]/like/route.ts",
+      "symbol": "POST"
+    }
+  ],
+  "dependsOn": [
+    {
+      "path": "src/modules/messages/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildMessagesModule"
+    },
+    {
+      "path": "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresMessageMutationRepository"
+    },
+    {
+      "path": "src/modules/auth/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAuthModule"
+    },
+    {
+      "path": "src/modules/auth/infrastructure/repositories/better-auth-session-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "BetterAuthSessionRepository"
+    }
+  ],
+  "origin": "curated"
+}

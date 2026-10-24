@@ -1,0 +1,83 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-invitation-link-focus",
+    "commit": "0569c8d0c20e2ec8a70d0e8da7fe6957be3c8052",
+    "fingerprint": "sha256:1a4c75adf475950ae74660222cc56b9a7e26816daed6969051c49e528c2794a9",
+    "uncommittedFiles": [],
+    "fileCount": 158,
+    "inputCount": 1761
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/modules/messages tests/unit/pages/tribe-message-routes.test.ts",
+      "durationMs": 23998,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "482992831ec14d6a28c66d2954f0b60ed2ddd508f19a77b5b059b93ae755223b",
+      "recordedAt": "2026-10-24T22:29:16.274Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "measurement",
+      "outcome": "measured",
+      "recordedAt": "2026-10-24T22:29:16.694Z",
+      "source": "attested",
+      "summary": "La clave idempotente vive en la misma sentencia: no agrega viajes",
+      "tool": "contador de execute sobre el repositorio real",
+      "metric": "sentencias SQL por publicación",
+      "before": "1",
+      "after": "1",
+      "conditions": "rama Neon efímera, repositorio real, mediana de 3 muestras"
+    },
+    {
+      "kind": "measurement",
+      "outcome": "measured",
+      "recordedAt": "2026-10-24T22:29:17.108Z",
+      "source": "attested",
+      "summary": "Diferencia dentro del ruido",
+      "tool": "contador de execute sobre el repositorio real",
+      "metric": "latencia de la publicación en el repositorio (ms)",
+      "before": "637",
+      "after": "638",
+      "conditions": "rama Neon efímera, repositorio real, mediana de 3 muestras"
+    }
+  ],
+  "limitations": [],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-24T22:29:18.609Z",
+  "result": "verified",
+  "runId": "20261024T222851Z-dc5c4c",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "pending from the previous run: missing passing evidence of kind measurement",
+      "measure the complete flow /[slug] before and after, same build, data and throttling; median of 3 for noisy metrics"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "d10c4cd971fd4967",
+      "references/bundle-lazy-loading.md": "91990bd1796b9884",
+      "references/database-queries-n-plus-one.md": "3064b23acc3e9f7e",
+      "references/images-fonts-scripts.md": "1ab02d4b1a421c87",
+      "references/incremental-sweep-jobs.md": "c5c8e71bdba2e4a9",
+      "references/measurement-tools.md": "e3e96c85be264c0c",
+      "references/requests-caching.md": "981544e05dee2e5c",
+      "references/unnecessary-renders.md": "2d440f22533a2149"
+    },
+    "definitionHash": "sha256:d161fd46a024c0e9f2698edae2bf21fa465a82b6584c335aaee66a26db4be4c0",
+    "name": "measured-performance-optimization",
+    "version": "1.4.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-24T22:28:51.833Z",
+  "unitId": "tribe.campfire.publish"
+}

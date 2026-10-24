@@ -1,0 +1,71 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-invitation-link-focus",
+    "commit": "0569c8d0c20e2ec8a70d0e8da7fe6957be3c8052",
+    "fingerprint": "sha256:b7b59f2ed06ec9431332eb7f7d6af1e9eaf41276964d46c3b767d4e5cc8290ae",
+    "uncommittedFiles": [],
+    "fileCount": 70,
+    "inputCount": 842
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/tribe-round.test.tsx tests/unit/modules/messages tests/unit/pages/tribe-message-routes.test.ts",
+      "durationMs": 131508,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "874fdc999c81ae963ac2ecf240e1ccce1eb3a6b8b1a2cf673b2fd364d4834510",
+      "recordedAt": "2026-10-24T21:38:53.988Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-24T22:27:07.281Z",
+      "source": "attested",
+      "summary": "Reenvío tras respuesta perdida: aviso El mensaje ya estaba publicado. y relectura; like repetido conserva el estado elegido; errores en toast como antes"
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-24T22:27:07.755Z",
+      "source": "attested",
+      "summary": "dev.tutribu.app a 390 y 1280 con respuestas cortadas tras llegar al servidor: 1 publicación guardada y like dado en los 4 objetivos",
+      "tool": "Playwright headless Chromium y WebKit"
+    }
+  ],
+  "limitations": [],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-24T22:27:26.392Z",
+  "result": "verified",
+  "runId": "20261024T212255Z-e87ecf",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "no previous coverage: the whole unit is analyzed"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit tribe.campfire.react: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a27ab40c70e78c90",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:262d130d4e0582dad8bd65e40b350a22b52d1393120ae35689e1bc817203bf14",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.4.1"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-24T21:22:55.772Z",
+  "unitId": "tribe.campfire.react"
+}
