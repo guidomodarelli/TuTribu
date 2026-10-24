@@ -182,6 +182,9 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Los líderes de tribu ya no necesitan confirmar su cuenta con Google para operaciones sensibles de admisiones, mensajería, salida del modo academia o borrado de la tribu; desaparecen el botón y la pantalla de confirmación.
 
 ### Fixed
+- En la conexión de mensajería, una prueba o verificación cuyo resultado original quedó en curso o no aparece ya no bloquea la página: «Conservar en historial y continuar» deja de seguirla sin reenviarla ni cancelarla.
+- Al llenarse el historial de pruebas de la pestaña, «Vaciar pruebas anteriores» permite pedir otra prueba conservando la última referencia.
+- La conexión de mensajería ya no queda en «no disponible» al recargar cuando el navegador guardó un historial que no puede leer: lo descarta y la página sigue funcionando.
 - Al pedir ingreso, un código vencido ya no se muestra como un error rojo del campo: aparece el aviso «El código venció. Reenviá uno nuevo para seguir.» con Reenviar código y su confirmación a la vista, sin abrir «¿No te llegó el código?»; lo mismo pasa cuando el código agotó sus intentos.
 - Después de Reenviar código, el paso «Comprobar código» pasa solo al código nuevo, con el campo habilitado, su nuevo vencimiento y el aviso «Te enviamos un código nuevo»; si la respuesta del reenvío se pierde, la página consulta una vez el envío original y muestra el código nuevo sin recargar.
 - En «Probar canal» de la conexión de mensajería, Reenviar código de prueba explica qué le falta (la espera, el destino o la confirmación), lleva al campo que hay que completar y pasa a ser la acción principal cuando el código de prueba vence.
