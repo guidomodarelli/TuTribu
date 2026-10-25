@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "fix/academy-leader-recovery-exits",
+      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
       "files": {
         "app/(admission)/admissions/[slug]/legacy/[token]/legacy-admission-container.tsx": "2c7cabded6cd1d2e",
         "app/(admission)/admissions/[slug]/legacy/[token]/page.tsx": "1f9a8bc3a26f005c",
@@ -25,7 +25,7 @@
         "src/modules/academy-admissions/constants/admission-errors.ts": "4a393e9826800086",
         "app/(admission)/admissions/[slug]/admission-container.tsx": "c241519f0d3f3cf0",
         "src/modules/academy-admissions/application/results/admission-page-state.ts": "257070d64a948071",
-        "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
+        "components/academy-admissions/admission-route-error/index.tsx": "f1d403b2508a4b3e",
         "src/modules/academy-admissions/constants/legacy-admission-arrival.ts": "3b70a5d41f0d9afe",
         "lib/academy-admissions/admission-routes.ts": "adac74b9727d9a17",
         "lib/academy-admissions/legacy-admission-scope.ts": "1c2acb52c9a82e81",
@@ -175,7 +175,7 @@
         "lib/browser-navigation.ts": "f01888198bf9f346",
         "src/modules/academy-admissions/application/results/admission-contract-fields.ts": "a4913419cef9bbde",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
-        "components/academy-admissions/admission-route-error/styles.module.scss": "e8e041d2af1c8b74",
+        "components/academy-admissions/admission-route-error/styles.module.scss": "06d52f5195bb701e",
         "src/modules/messaging/domain/value-objects/messaging-key-purpose.ts": "3cb73fd082b826f2",
         "src/modules/academy-admissions/constants/admission-route-input.ts": "8322931e28733bcb",
         "components/academy-admissions/admission-form/index.tsx": "c9e419348d7e884a",
@@ -291,7 +291,7 @@
         "src/modules/notifications/constants/admission-notification-groups.ts": "22f213c753d3ef05",
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f"
       },
-      "fingerprint": "sha256:e6cc87ef219088f96428f7a91661fed722c51a79796e9527bf8e41004644a219",
+      "fingerprint": "sha256:a5cfee7895818fba34ad7fe3d42643538f20ead0454feb901afb1fb0258feb9f",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
@@ -481,7 +481,7 @@
         "src/modules/academy-admissions/application/results/admission-page-state.ts#AdmissionPageState": "794e6be7eaa995a6",
         "src/modules/academy-admissions/application/results/admission-page-state.ts#admissionPageStateSchema": "fb1d81e639a88629",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
+        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "5a2f7ced3b9852bf",
         "src/modules/academy-admissions/constants/legacy-admission-arrival.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/legacy-admission-arrival.ts#LEGACY_ADMISSION_ARRIVAL~frame": "94d8dfc7d3fca7f6",
         "src/modules/academy-admissions/constants/legacy-admission-arrival.ts#LEGACY_ADMISSION_ARRIVAL.canonicalTokenPattern": "18fec888c70328e3",
@@ -1138,9 +1138,10 @@
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#admissionOwnRequestSchema": "7065d1154bcb72eb",
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#overviewPolicySchema": "d2243a40ce2dd57d",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.home": "85367e5a8619d58b",
+        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.signIn": "64d70cb245bd5f5f",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.unavailableTitle": "e0283f6892b6a014",
         "components/navigation/link/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/academy-admissions/admission-route-error/styles.module.scss#*": "e8e041d2af1c8b74",
+        "components/academy-admissions/admission-route-error/styles.module.scss#*": "06d52f5195bb701e",
         "src/modules/academy-admissions/constants/legacy-admission-arrival.ts#LEGACY_ADMISSION_ARRIVAL.segment": "d1f05fdf88ca0b4b",
         "src/modules/academy-admissions/constants/legacy-admission-arrival.ts#LEGACY_ADMISSION_ARRIVAL.hashAlgorithm": "ca47d80f392abbb8",
         "src/modules/academy-admissions/constants/legacy-admission-arrival.ts#LEGACY_ADMISSION_ARRIVAL.hashDomain": "f99da6ab444212b5",
@@ -1165,7 +1166,6 @@
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.reading": "97be1c6a4df67cfb",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.reloadAccount": "0f1a0dcc8cc0292d",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.retryOriginal": "ed8d9ff4c6e35df9",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.signIn": "64d70cb245bd5f5f",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.statusTitle": "053054fa7f78ab17",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.title": "61c7d760288ff309",
         "components/academy-admissions/admission-form/index.tsx#<module>": "2da3ec2294295eb1",
@@ -2529,43 +2529,43 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 71121,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
+        "durationMs": 109958,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "0bb578f52acaed3b0a3c687a0f27a0b0e7a629b65df349eb3f92f3108837aea0",
-        "recordedAt": "2026-10-25T13:25:39.405Z",
+        "outputSha256": "bc04d971ccb28ddcd145cc07c9a74626d54dfddc2de2770001ed18ac680df7c2",
+        "recordedAt": "2026-10-25T15:42:32.839Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 3318,
+        "durationMs": 2212,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T13:25:43.348Z",
+        "recordedAt": "2026-10-25T15:42:35.471Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T13:25:43.940Z",
+        "recordedAt": "2026-10-25T15:42:35.910Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados de recuperación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T13:25:46.391Z",
+    "recordedAt": "2026-10-25T15:42:37.578Z",
     "result": "partial",
-    "runId": "20261025T132427Z-e6c839",
+    "runId": "20261025T154042Z-ade0f2",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -2575,7 +2575,7 @@
       "relevantChangesAtBegin": [
         {
           "change": "modified",
-          "key": "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen",
+          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
           "reason": "code rendered by the route changed"
         }
       ],
@@ -2596,7 +2596,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T132427Z-e6c839.json"
+    "report": "runs/20261025T154042Z-ade0f2.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

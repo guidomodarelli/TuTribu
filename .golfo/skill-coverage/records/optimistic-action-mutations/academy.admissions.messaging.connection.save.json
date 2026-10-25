@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "fix/academy-leader-recovery-exits",
+      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
       "files": {
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "52358cd766afdaa0",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "9f70561aa07c33cb",
         "app/api/tribes/[slug]/messaging/connections/route.ts": "78b3317283264385",
         "app/api/tribes/[slug]/messaging/connections/[connectionId]/validate/route.ts": "a4e4bc02a839bd52",
         "app/api/tribes/[slug]/messaging/configuration/route.ts": "d2637ecb2e0f8614",
@@ -17,7 +17,7 @@
         "src/modules/notifications/infrastructure/messaging/admission-notification-resource-authority.ts": "f6e7d09293eba381",
         "src/modules/shared/infrastructure/database/server-database-client.ts": "895a53cd3c3f72ab",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
-        "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
+        "components/academy-admissions/admission-route-error/index.tsx": "f1d403b2508a4b3e",
         "src/modules/messaging/constants/messaging-connections-browser.ts": "6324cc25a232f60b",
         "src/modules/messaging/application/ports/messaging-activation-browser-client.ts": "1c4aefbdb29c8cc8",
         "src/modules/messaging/application/ports/messaging-connections-browser-client.ts": "0ed8eda234a11a70",
@@ -41,6 +41,7 @@
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx": "8318b9343ef315b2",
         "src/constants/operation-state.ts": "8658825f51feae9a",
         "src/modules/auth/constants/reauthentication-resources.ts": "73b5e0d97c9862f7",
+        "src/constants/routes.ts": "f7766aea8d0ef37e",
         "src/modules/tribes/constants/tribe-member-role.ts": "bcd5a756222224ce",
         "src/modules/academy-admissions/constants/verification-issuance.ts": "05c4beb516c6c286",
         "src/modules/messaging/application/commands/messaging-connections-next-action.ts": "630cec3c60b015d4",
@@ -51,6 +52,7 @@
         "lib/messaging/messaging-diagnostic-api-client.ts": "4a8912274fe10b5d",
         "lib/messaging/messaging-lifecycle-api-client.ts": "e4f9fba74a07442e",
         "lib/messaging/messaging-resources-api-client.ts": "aac9732195a7a043",
+        "lib/messaging/messaging-route-recovery.ts": "798ea6aaf2345c96",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts": "c6ecb49e3254189a",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts": "f1a0ddbb068af1c1",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-lifecycle-controller.ts": "8028dcf181ee8a1b",
@@ -227,7 +229,6 @@
         "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts": "c7f308ccbaa1356b",
         "src/modules/academy-admissions/constants/admission-ui.ts": "a57d7d4286770b34",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
-        "src/constants/routes.ts": "f7766aea8d0ef37e",
         "src/modules/academy-admissions/domain/entities/admission-operation.ts": "3cefd00867036cfe",
         "src/modules/messaging/domain/repositories/messaging-connection-activation.ts": "25f4099e8811cd94",
         "src/modules/messaging/application/results/messaging-connection-mutation-result.ts": "5cfa43929fd1d7e3",
@@ -263,6 +264,8 @@
         "src/modules/academy-admissions/constants/admission-public-contract.ts": "f9491ce66f74206d",
         "src/modules/messaging/application/results/messaging-connection-configuration-result.ts": "96f7d72f278d4685",
         "src/modules/messaging/constants/messaging-connection-lifecycle.ts": "ed2f2eec167a6a73",
+        "lib/auth/sign-in-redirect.ts": "896cfa9806af6656",
+        "lib/browser-navigation.ts": "f01888198bf9f346",
         "src/constants/time.ts": "98b5459a77a709b0",
         "src/modules/messaging/application/commands/messaging-activation-requirements.ts": "0cceee4ac44ac418",
         "src/modules/messaging/application/commands/messaging-diagnostic-draft.ts": "f76a9730fd4db503",
@@ -539,6 +542,7 @@
         "lib/messaging/notification-recovery-local-snapshot-store.ts": "12a2d6f34d90b89b",
         "src/modules/academy-admissions/application/results/admission-contract-fields.ts": "a4913419cef9bbde",
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
+        "src/constants/query-params.ts": "adb538cd11f8e88a",
         "src/modules/messaging/infrastructure/api/messaging-error-status.ts": "f0679ac41380b265",
         "src/modules/shared/infrastructure/http/own-json-route-boundary.ts": "27889d5d9779d486",
         "src/modules/shared/constants/http-origin.ts": "2673947688a2b43e",
@@ -658,15 +662,16 @@
         "src/modules/academy-admissions/constants/admission-review-dates.ts": "ed6ccaa0d7bbce25",
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f"
       },
-      "fingerprint": "sha256:5d70bfd2745f2e4b30b1f68c02d5275faebb1dd259b73615a0bfb3f6e82e8808",
+      "fingerprint": "sha256:20b6eb7e2ea1da87ed17eaa786ab1223aa8a6e16d85b06a17e2a64aa4103b070",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/emit": "de5c828cbc366dc2",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/holdPending": "212e43e40665b50b",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell": "a17794a55cdde176",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell": "48395c7cc22fd6db",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#ContainerProps": "54c55af7fe2f98e9",
         "pkg:react": "374a4508a198654b",
+        "pkg:next": "ef28293b49c7bae1",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/collectFeedback": "df94a3a621733b77",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/applyConfiguration": "1503d186a98d900c",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/startWriting": "b5d78c2c7ef74d49",
@@ -767,7 +772,7 @@
         "src/modules/academy-admissions/setup.ts#buildAcademyAdmissionsModule/executeVerification": "707d588e39064e42",
         "src/modules/academy-admissions/setup.ts#buildAcademyAdmissionsModule~shell": "644ae422572afd83",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
+        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "5a2f7ced3b9852bf",
         "src/modules/messaging/constants/messaging-connections-browser.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/constants/messaging-connections-browser.ts#MESSAGING_CREDENTIAL_CHECK_UI_COPY~frame": "bcf5b6730ac04c98",
         "src/modules/messaging/constants/messaging-connections-browser.ts#MESSAGING_CREDENTIAL_CHECK_UI_COPY.stale": "4ae88fd54af7d22d",
@@ -887,6 +892,9 @@
         "src/modules/auth/constants/reauthentication-resources.ts#ReauthenticationOperation": "7e9d5c879cd1e2a3",
         "src/modules/auth/constants/reauthentication-resources.ts#REAUTHENTICATION_OPERATION.diagnoseMessagingConnection": "f8ecaf3d75579d8f",
         "src/modules/auth/constants/reauthentication-resources.ts#REAUTHENTICATION_OPERATION.saveMessagingCredentials": "fea60a08d191b6dc",
+        "src/constants/routes.ts#<module>": "2da3ec2294295eb1",
+        "src/constants/routes.ts#ROUTES~frame": "0506fddc4c13fa99",
+        "src/constants/routes.ts#ROUTES.home": "417f8dff1ce6dd72",
         "src/modules/messaging/constants/messaging-connections-workspace.ts#MESSAGING_CONNECTIONS_STEP_KIND~frame": "d4d80077673f087b",
         "src/modules/messaging/constants/messaging-connections-workspace.ts#MessagingConnectionsStepKind": "5376353c57a3d5ea",
         "src/modules/messaging/constants/messaging-connections-workspace.ts#MESSAGING_CONNECTIONS_STEP_KIND.activation": "bec9b84dffd1c112",
@@ -959,6 +967,9 @@
         "src/modules/messaging/application/commands/messaging-connections-next-action.ts#isMessagingCapabilityFreshlyTested": "adce7ef1ce9796d7",
         "src/modules/messaging/application/commands/messaging-connections-next-action.ts#joinChannels": "24147d08c6dc350f",
         "src/modules/messaging/application/commands/messaging-connections-next-action.ts#CHANNEL_LIST_FORMAT": "c926f646d3b63509",
+        "lib/messaging/messaging-route-recovery.ts#<module>": "2da3ec2294295eb1",
+        "lib/messaging/messaging-route-recovery.ts#resolveMessagingRouteRecovery": "0eedf9fb86bb3b1f",
+        "lib/messaging/messaging-route-recovery.ts#MessagingRouteRecovery": "ae20ab1a49edbe57",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-feedback.ts#toastMessagingRead": "ee8ebc0f003f0530",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#useMessagingActivationController": "8960f8ba4374919c",
@@ -1310,7 +1321,6 @@
         "src/modules/auth/infrastructure/better-auth/server-auth-context.ts#readServerBetterAuthSession": "532ef184800e2933",
         "src/modules/auth/infrastructure/better-auth/server-auth-context.ts#getBetterAuthSessionFailureMetadata": "1aa0b3a709dc047d",
         "src/modules/auth/infrastructure/better-auth/server-auth-context.ts#BetterAuthSessionFailure": "9ae8aeb0c36b54d8",
-        "pkg:next": "ef28293b49c7bae1",
         "src/modules/auth/infrastructure/better-auth/server-auth-context.ts#isConnectionAcquisitionTimeout": "44f403da21a2a4c0",
         "src/modules/auth/infrastructure/better-auth/server-auth-context.ts#isRetryableBetterAuthSessionFailure": "e7483d4bc461c959",
         "src/modules/messaging/constants/messaging-hosting.ts#<module>": "2da3ec2294295eb1",
@@ -1625,11 +1635,9 @@
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY~frame": "b43b1bd347ba2c95",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.home": "85367e5a8619d58b",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.readFailed": "e40e9012cde9fe54",
+        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.signIn": "64d70cb245bd5f5f",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.unavailableTitle": "e0283f6892b6a014",
         "components/navigation/link/index.tsx#<module>": "2da3ec2294295eb1",
-        "src/constants/routes.ts#<module>": "2da3ec2294295eb1",
-        "src/constants/routes.ts#ROUTES~frame": "0506fddc4c13fa99",
-        "src/constants/routes.ts#ROUTES.home": "417f8dff1ce6dd72",
         "src/modules/academy-admissions/domain/entities/admission-operation.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/domain/entities/admission-operation.ts#AdmissionOperationResult": "0008dba7f5f35898",
         "src/modules/messaging/domain/repositories/messaging-connection-activation.ts#<module>": "2da3ec2294295eb1",
@@ -1890,6 +1898,11 @@
         "src/modules/messaging/constants/messaging-connections-workspace.ts#MessagingConnectionsNextActionTarget": "6a72a3693e49efb7",
         "src/modules/messaging/constants/messaging-connection-lifecycle.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/constants/messaging-connection-lifecycle.ts#MESSAGING_CONNECTION_DIAGNOSTIC_MAXIMUM_AGE_MS": "42eadfb4dfab30dd",
+        "lib/auth/sign-in-redirect.ts#<module>": "2da3ec2294295eb1",
+        "lib/auth/sign-in-redirect.ts#buildSignInRedirectUrl": "4b67671152b6df6a",
+        "lib/auth/sign-in-redirect.ts#URL_QUERY_SEPARATOR": "8153fb82eaf61238",
+        "lib/browser-navigation.ts#<module>": "2da3ec2294295eb1",
+        "lib/browser-navigation.ts#reloadCurrentPage": "fa294b932fa1a9ad",
         "src/constants/time.ts#<module>": "2da3ec2294295eb1",
         "src/constants/time.ts#MILLISECONDS_PER_SECOND": "cfac244fa1960be9",
         "src/modules/messaging/application/commands/messaging-activation-requirements.ts#<module>": "2da3ec2294295eb1",
@@ -3511,6 +3524,10 @@
         "src/modules/messaging/application/ports/messaging-usage-browser-client.ts#MessagingUsageBrowserClient": "8a84cde8c14fb48c",
         "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_MASK_MARKER_PATTERN": "a10086d0f7443322",
         "src/modules/messaging/constants/connection-diagnostic.ts#CONNECTION_DIAGNOSTIC_VERIFICATION_OUTCOME.denied": "aeb94433ec5c7036",
+        "src/constants/query-params.ts#<module>": "2da3ec2294295eb1",
+        "src/constants/query-params.ts#QUERY_PARAMS~frame": "de6c4831e66d2d65",
+        "src/constants/query-params.ts#QUERY_PARAMS.auth": "1256fb5f409a695c",
+        "src/constants/routes.ts#ROUTES.auth": "2f4afe04c75871a4",
         "src/modules/messaging/constants/messaging-activation-browser.ts#MESSAGING_ACTIVATION_UI_COPY.channelRequired": "f2c7b1639438a145",
         "src/modules/messaging/constants/messaging-activation-browser.ts#MESSAGING_ACTIVATION_UI_COPY.countriesRequired": "d1f322d7cc6c6a6f",
         "src/modules/messaging/constants/messaging-activation-browser.ts#MESSAGING_ACTIVATION_UI_COPY.credentialRequired": "f72290d7d73aede7",
@@ -6142,32 +6159,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 49410,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
+        "durationMs": 134245,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "9bd365570420dc9125129cb9dbd2513129bdef3ec9f1e72da31d126aec914891",
-        "recordedAt": "2026-10-25T13:43:51.098Z",
+        "outputSha256": "ed52c351cf70caa4e1257ee41904259d0b010b1f6cf04d02ee548ae337c7fda1",
+        "recordedAt": "2026-10-25T16:57:30.600Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T13:43:51.608Z",
+        "recordedAt": "2026-10-25T16:57:31.202Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados de recuperación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T13:43:54.047Z",
+    "recordedAt": "2026-10-25T16:57:34.407Z",
     "result": "partial",
-    "runId": "20261025T134301Z-a25f77",
+    "runId": "20261025T165515Z-ba18e2",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -6177,8 +6194,73 @@
       "relevantChangesAtBegin": [
         {
           "change": "modified",
-          "key": "components/academy-admissions/messaging-connection-lifecycle/index.tsx#MessagingConnectionLifecycle",
+          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell",
+          "reason": "component state or render changed"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
           "reason": "code reached by the unit changed"
+        },
+        {
+          "change": "added",
+          "key": "lib/auth/sign-in-redirect.ts#<module>",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/auth/sign-in-redirect.ts#buildSignInRedirectUrl",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/auth/sign-in-redirect.ts#URL_QUERY_SEPARATOR",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-navigation.ts#<module>",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-navigation.ts#reloadCurrentPage",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/messaging/messaging-route-recovery.ts#<module>",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/messaging/messaging-route-recovery.ts#MessagingRouteRecovery",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/messaging/messaging-route-recovery.ts#resolveMessagingRouteRecovery",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/query-params.ts#<module>",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/query-params.ts#QUERY_PARAMS.auth",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/query-params.ts#QUERY_PARAMS~frame",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/routes.ts#ROUTES.auth",
+          "reason": "unclassified object member: lifecycle impact unknown"
         }
       ],
       "suggestedScope": [
@@ -6198,7 +6280,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T134301Z-a25f77.json"
+    "report": "runs/20261025T165515Z-ba18e2.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",
