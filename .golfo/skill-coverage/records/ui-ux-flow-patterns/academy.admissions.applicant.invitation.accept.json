@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-readable-dates",
-      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
       "files": {
         "app/(admission)/admissions/invitations/[token]/personal-invitation-container.tsx": "a456bf4f01d5e9ae",
         "hooks/use-personal-invitation.ts": "3597e722fb7e889a",
@@ -24,11 +24,11 @@
         "src/modules/messaging/constants/messaging-public-contract.ts": "d8e21158a5fb4c77",
         "src/modules/academy-admissions/constants/personal-invitation-browser.ts": "1d7fa3bd96773d04",
         "src/modules/academy-admissions/constants/personal-invitation-overview.ts": "5216fcae6a91834b",
-        "src/modules/academy-admissions/constants/personal-invitation-ui.ts": "df555b34352e8fb4",
+        "src/modules/academy-admissions/constants/personal-invitation-ui.ts": "75d4a491bbcde1fd",
         "src/modules/academy-admissions/application/ports/admission-contact-browser-client.ts": "4343dce501c9c6e4",
         "src/modules/academy-admissions/application/ports/personal-invitation-browser-client.ts": "83483ed85877621a",
         "src/modules/academy-admissions/application/results/personal-invitation-page-state.ts": "2e2796ab8e364e43",
-        "components/academy-admissions/personal-invitation/index.tsx": "c99fc4f14eab4897",
+        "components/academy-admissions/personal-invitation/index.tsx": "d31a731aef012397",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
         "lib/academy-admissions/admission-routes.ts": "adac74b9727d9a17",
         "lib/auth/sign-in-redirect.ts": "896cfa9806af6656",
@@ -243,7 +243,7 @@
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f",
         "src/modules/academy-admissions/domain/entities/admission-policy.ts": "a602f5d4e4fee0b2"
       },
-      "fingerprint": "sha256:483b62501c402a7448acbb77e9f00528c21f2c077e309305997e06f995b4bcd5",
+      "fingerprint": "sha256:94854c23ffbb4927eb4f004b08bf7ed7450d0fdebbc319422b9a587682d345e4",
       "inputs": {
         "app/(admission)/admissions/invitations/[token]/personal-invitation-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(admission)/admissions/invitations/[token]/personal-invitation-container.tsx#PersonalInvitationContainer": "889caeb28894f738",
@@ -372,7 +372,7 @@
         "src/modules/academy-admissions/application/results/personal-invitation-page-state.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/results/personal-invitation-page-state.ts#PersonalInvitationPageState": "3d610fcea2cdf9fd",
         "components/academy-admissions/personal-invitation/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/personal-invitation/index.tsx#PersonalInvitation": "ad8d809d34e66909",
+        "components/academy-admissions/personal-invitation/index.tsx#PersonalInvitation": "52dd729dd0b190f6",
         "src/constants/routes.ts#<module>": "2da3ec2294295eb1",
         "src/constants/routes.ts#ROUTES~frame": "0506fddc4c13fa99",
         "src/constants/routes.ts#ROUTES.tribes": "096ad71391f5d942",
@@ -922,6 +922,7 @@
         "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.confirm": "933c4f79125f0a0d",
         "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.description": "7fc5ccf4675be951",
         "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.exemption": "d0faa74bde897808",
+        "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.eyebrow": "7e9e5f250972b8cf",
         "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.openAcademy": "f8102d30725f8db0",
         "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.original": "ccad6c83ab0dad86",
         "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.ownRequest": "eabf019108539517",
@@ -1569,32 +1570,39 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
-        "durationMs": 65163,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
+        "durationMs": 30488,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "1c69c5a9f3687055458c4916632cd7069b946f202e3e3c83d6ea110df4377341",
-        "recordedAt": "2026-10-25T09:13:59.570Z",
+        "outputSha256": "2647e8f35cc4c7bc8a67e144d231f70cff065460c5d91bfb94cdc66d63ca3012",
+        "recordedAt": "2026-10-25T11:20:02.565Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T09:14:00.128Z",
+        "recordedAt": "2026-10-25T11:20:03.077Z",
         "source": "attested",
-        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
+        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+      },
+      {
+        "kind": "browser",
+        "outcome": "pass",
+        "recordedAt": "2026-10-25T11:20:03.588Z",
+        "source": "attested",
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app, capturando el fallback durante una navegación: antes, academia, gestionar, verificación, suscripción y canales mostraban el esqueleto de la ronda («Cargando sección de tribu») y la invitación «Solicitar ingreso»; después, cada ruta anuncia su propia carga con su forma (panel de pasos en Reglas e Invitaciones, filas en Solicitudes, «Tu solicitud de ingreso» e «Invitación personal» en el solicitante) (4/4)."
       }
     ],
     "limitations": [
-      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T09:14:02.109Z",
+    "recordedAt": "2026-10-25T11:20:05.607Z",
     "result": "partial",
-    "runId": "20261025T091253Z-68f518",
+    "runId": "20261025T111931Z-798f3b",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -1604,17 +1612,12 @@
       "relevantChangesAtBegin": [
         {
           "change": "modified",
-          "key": "components/academy-admissions/contact-verification/index.tsx#ContactVerification",
+          "key": "components/academy-admissions/personal-invitation/index.tsx#PersonalInvitation",
           "reason": "visible or interactive code changed"
         },
         {
           "change": "added",
-          "key": "components/academy-admissions/contact-verification/index.tsx#formatContactCountdown",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "src/constants/time.ts#SECONDS_PER_MINUTE",
+          "key": "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.eyebrow",
           "reason": "new visible or interactive code"
         }
       ],
@@ -1635,7 +1638,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T091253Z-68f518.json"
+    "report": "runs/20261025T111931Z-798f3b.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

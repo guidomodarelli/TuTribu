@@ -1,0 +1,90 @@
+// Mirrors components/tribe-round/tribe-channel-management: rows stack on phones, actions sit beside the fields from
+// 40rem and each section gets an intro column from 56rem.
+$channels-loading-inline: 40rem;
+$channels-loading-columns: 56rem;
+
+.ChannelsLoading {
+  gap: clamp(1.5rem, 4vw, 2.25rem);
+
+  &__header,
+  &__intro {
+    display: grid;
+    align-content: start;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  &__title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 4vw, 2.25rem);
+    line-height: 1.2;
+  }
+
+  &__sectionTitle {
+    font-size: 1.125rem;
+    font-weight: 500;
+  }
+
+  &__section {
+    display: grid;
+    gap: 1rem;
+    min-width: 0;
+
+    @media (min-width: $channels-loading-columns) {
+      grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+      gap: 2.5rem;
+    }
+  }
+
+  &__create {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.75rem;
+
+    > :last-child {
+      grid-column: 1 / -1;
+      width: 100%;
+    }
+
+    @media (min-width: $channels-loading-inline) {
+      grid-template-columns: auto minmax(0, 1fr) auto;
+
+      > :last-child {
+        grid-column: auto;
+        width: 7rem;
+      }
+    }
+  }
+
+  &__list {
+    display: grid;
+    border-top: 1px solid var(--border);
+  }
+
+  &__item {
+    display: grid;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    padding-block: 0.875rem;
+
+    @media (min-width: $channels-loading-inline) {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+    }
+  }
+
+  &__fields {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+  }
+}

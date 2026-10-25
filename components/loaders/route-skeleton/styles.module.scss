@@ -1,0 +1,191 @@
+@use "../../../src/styles/motion";
+@use "../../../src/styles/workspace-panel";
+
+// Placeholders appear only when loading is not instant, so a fast route never flashes them.
+$route-skeleton-reveal-delay: 120ms;
+// Arc's block pulse: a calm 1.8s breath that rests after eleven rounds (about twenty seconds).
+$route-skeleton-pulse-duration: 1.8s;
+$route-skeleton-pulse-rounds: 11;
+$route-skeleton-row-step: 90ms;
+$route-skeleton-steps-compact: 26.25rem;
+
+@include motion.define-keyframes;
+
+@keyframes RouteSkeletonPulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.RouteSkeleton {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 1.5rem;
+  min-width: 0;
+
+  &__status {
+    @include workspace-panel.visually-hidden;
+  }
+}
+
+.SkeletonBlock {
+  display: block;
+  max-width: 100%;
+  border-radius: var(--radius-control, var(--radius-md, 6px));
+  background-color: color-mix(in oklab, var(--border-strong, var(--border)) 38%, var(--surface, var(--background)));
+  animation: RouteSkeletonPulse $route-skeleton-pulse-duration ease-in-out $route-skeleton-pulse-rounds both;
+
+  @include motion.reduced {
+    animation: none;
+  }
+
+  &--eyebrow {
+    height: 0.75rem;
+  }
+
+  &--title {
+    height: 2.25rem;
+  }
+
+  &--heading {
+    height: 1.25rem;
+  }
+
+  &--text {
+    height: 0.875rem;
+  }
+
+  &--control {
+    height: var(--control-height-md, 2.5rem);
+  }
+
+  &--area {
+    height: 6rem;
+  }
+
+  &--button {
+    width: 7rem;
+    height: var(--control-height-md, 2.5rem);
+  }
+
+  &--badge {
+    width: 5.5rem;
+    height: 1.5rem;
+    border-radius: 999px;
+  }
+
+  &--marker {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 999px;
+  }
+
+  // Widths only apply to blocks that stretch; buttons, badges and markers keep their own size.
+  &--short:not(.SkeletonBlock--button, .SkeletonBlock--badge, .SkeletonBlock--marker) {
+    width: min(8rem, 40%);
+  }
+
+  &--medium:not(.SkeletonBlock--button, .SkeletonBlock--badge, .SkeletonBlock--marker) {
+    width: min(16rem, 65%);
+  }
+
+  &--long:not(.SkeletonBlock--button, .SkeletonBlock--badge, .SkeletonBlock--marker) {
+    width: min(28rem, 90%);
+  }
+
+  &--full:not(.SkeletonBlock--button, .SkeletonBlock--badge, .SkeletonBlock--marker) {
+    width: 100%;
+  }
+}
+
+.SkeletonGroup {
+  display: grid;
+  gap: 0.625rem;
+
+  @include motion.fade($route-skeleton-reveal-delay);
+}
+
+.SkeletonField {
+  display: grid;
+  gap: 0.5rem;
+
+  @include motion.fade($route-skeleton-reveal-delay);
+}
+
+.SkeletonActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+
+  @include motion.fade($route-skeleton-reveal-delay);
+
+  &--start {
+    justify-content: flex-start;
+  }
+}
+
+.SkeletonFacts {
+  @include workspace-panel.summary;
+  @include workspace-panel.facts;
+  @include motion.fade($route-skeleton-reveal-delay);
+
+  &__fact {
+    display: grid;
+    gap: 0.5rem;
+  }
+}
+
+.SkeletonRows {
+  @include workspace-panel.rows;
+  @include motion.fade($route-skeleton-reveal-delay);
+
+  &__row {
+    @include workspace-panel.row;
+
+    &:nth-child(2) .SkeletonBlock {
+      animation-delay: $route-skeleton-row-step;
+    }
+
+    &:nth-child(3) .SkeletonBlock {
+      animation-delay: $route-skeleton-row-step * 2;
+    }
+  }
+
+  &__text {
+    @include workspace-panel.row-main;
+
+    display: grid;
+    gap: 0.5rem;
+  }
+}
+
+// Mirrors the shared guided steps panel: border, radius, padding and the compact layout on narrow phones.
+.SkeletonStepsPanel {
+  display: grid;
+  gap: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  padding: 1.25rem;
+  background: var(--surface);
+
+  @include motion.fade($route-skeleton-reveal-delay);
+
+  @media (max-width: $route-skeleton-steps-compact) {
+    padding: 1rem;
+  }
+
+  &__progress {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  &__markers {
+    display: flex;
+    gap: 0.75rem;
+  }
+}

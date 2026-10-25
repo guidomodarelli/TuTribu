@@ -2,12 +2,12 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
       "files": {
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "components/academy/academy-management/index.tsx": "34f2bdb8739e7845",
-        "app/(platform)/[slug]/academia/gestionar/loading.tsx": "f9871c638174780b",
+        "app/(platform)/[slug]/academia/gestionar/loading.tsx": "efdd51c1e0f631dd",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
         "src/modules/product-access/infrastructure/repositories/postgres-product-access-repository.ts": "b6d068802851a5fa",
@@ -19,7 +19,7 @@
         "src/modules/member-verifications/application/results/member-verification-public-dto-schemas.ts": "c658dcf96affa74b",
         "src/modules/product-access/application/results/academy-dto-mappers.ts": "a40a6cfaf7d3d9c4",
         "src/modules/member-verifications/application/results/member-verification-dto-mappers.ts": "d206542561c4b8d9",
-        "app/(platform)/[slug]/academia/loading.tsx": "f9871c638174780b",
+        "components/loaders/route-skeleton/index.tsx": "24ca012df2b27747",
         "src/modules/product-access/application/ports/academy-cross-module-readers.ts": "fd9c4c26a016ce2b",
         "src/modules/product-access/application/use-cases/manage-academy-access-use-cases.ts": "be7d66da32a71b5d",
         "src/modules/product-access/domain/repositories/product-access-repository.ts": "e6c80ad074be4f87",
@@ -36,13 +36,12 @@
         "src/modules/shared/infrastructure/backend/public-app-base-url.ts": "d9895a88e9a67e6d",
         "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-status-mapper.ts": "b62802e2786f6277",
         "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-access-token.ts": "84e7661b4a92ef99",
-        "app/(platform)/[slug]/loading.tsx": "7bca37b96a4432ce",
         "src/modules/product-access/domain/services/academy-access-status.ts": "a29877b6da702662",
         "src/modules/product-access/domain/services/academy-access-policy.ts": "d04a7ffb4ed6f2da",
         "src/modules/subscriptions/domain/services/monthly-billing-cycle.ts": "1e253b01e98f41b8",
         "src/constants/time.ts": "98b5459a77a709b0"
       },
-      "fingerprint": "sha256:33231a3575e398d244d58fc438a67e3d332b50b1ce8ac69b5e3caa46fe1d7eee",
+      "fingerprint": "sha256:bbf46a0d193aea4112dca3ef3440d2e1c6cc13539d04a6a510e5da326b5d55d3",
       "inputs": {
         "app/(platform)/[slug]/academia/gestionar/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": "3ebed5c9c877c3bf",
@@ -53,6 +52,10 @@
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-management/index.tsx#AcademyManagement": "3c4bdf0f81d5efd8",
         "app/(platform)/[slug]/academia/gestionar/loading.tsx#<module>": "2da3ec2294295eb1",
+        "app/(platform)/[slug]/academia/gestionar/loading.tsx#AcademyManagementLoading": "48f873efcce5a514",
+        "app/(platform)/[slug]/academia/gestionar/loading.tsx#ACADEMY_MANAGEMENT_LOADING_SHAPE~frame": "3c4d955afc283296",
+        "app/(platform)/[slug]/academia/gestionar/loading.tsx#ACADEMY_MANAGEMENT_LOADING_SHAPE.rowCount": "4f6b5b70a016126c",
+        "app/(platform)/[slug]/academia/gestionar/loading.tsx#ACADEMY_MANAGEMENT_LOADING_SHAPE.toggleCount": "a35b3ac10c2f786c",
         "src/modules/product-access/setup.ts#<module>": "2da3ec2294295eb1",
         "src/modules/product-access/setup.ts#buildProductAccessModule": "6e92164f8b667891",
         "src/modules/product-access/setup.ts#ProductAccessModuleDependencies": "38e6e925960e4f4c",
@@ -166,7 +169,18 @@
         "src/modules/member-verifications/application/results/member-verification-dto-mappers.ts#toMemberVerificationDto": "04e0b70f671e4537",
         "src/modules/member-verifications/application/results/member-verification-dto-mappers.ts#toVerificationProviderDto": "6f88a7b91f16e0ac",
         "src/modules/member-verifications/application/results/member-verification-public-dto-schemas.ts#verificationProviderDtoSchema": "2a384efe41cf8231",
-        "app/(platform)/[slug]/academia/loading.tsx#<module>": "2da3ec2294295eb1",
+        "components/loaders/route-skeleton/index.tsx#<module>": "2da3ec2294295eb1",
+        "components/loaders/route-skeleton/index.tsx#RouteSkeleton": "223b4db7f24fd665",
+        "pkg:react": "374a4508a198654b",
+        "components/loaders/route-skeleton/index.tsx#SkeletonBlock": "c340a37ce4ab55ed",
+        "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind": "a357496f078189ee",
+        "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth": "175b5e3780859001",
+        "components/loaders/route-skeleton/index.tsx#SkeletonLines": "60d9052267ae7426",
+        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame": "42404c67903a5744",
+        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount": "b251bfcb1dd93f46",
+        "components/loaders/route-skeleton/index.tsx#placeholderKeys": "a1ec4c5ff5f87bbe",
+        "components/loaders/route-skeleton/index.tsx#SkeletonRows": "350cf9c04a654cf3",
+        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.rowCount": "4f6b5b70a016126c",
         "src/modules/product-access/application/ports/academy-cross-module-readers.ts#<module>": "2da3ec2294295eb1",
         "src/modules/product-access/application/ports/academy-cross-module-readers.ts#OwnAcademyRenewalReader": "1b99b914e04a83e1",
         "src/modules/product-access/application/ports/academy-cross-module-readers.ts#OwnVerificationStatesReader": "41b723fc8e521725",
@@ -373,16 +387,6 @@
         "src/modules/product-access/application/results/academy-public-dto-schemas.ts#AcademySettingsDto": "d78d462d71808119",
         "src/modules/member-verifications/application/results/member-verification-public-dto-schemas.ts#ReviewQueueItemDto": "35f99356f9bf7356",
         "src/modules/member-verifications/application/results/member-verification-public-dto-schemas.ts#VerificationProviderDto": "0bb059e033e7fb13",
-        "app/(platform)/[slug]/loading.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/loading.tsx#TribeLoadingPage": "9d20796fb5186f24",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON~frame": "aff7438bb5a53b5f",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.filterCount": "3ae064e3d11de24c",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.filterKeyPrefix": "3ae042de2b44226b",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.keySeparator": "5f8aa621b5bba5b8",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.roundItemCount": "37ee9ed8ad8c9e61",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.roundItemKeyPrefix": "cc618c248c4e5d45",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusAriaRole": "45bd83611f8ba7de",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusLabel": "91b448f9dc994012",
         "src/modules/product-access/constants/product-access.ts#AcademyRenewalStatus": "0d60a43d87d2d326",
         "src/modules/product-access/domain/services/academy-access-status.ts#<module>": "2da3ec2294295eb1",
         "src/modules/product-access/domain/services/academy-access-status.ts#MemberVerificationState": "fa9efd3e0cd1eba3",
@@ -549,19 +553,27 @@
     },
     "evidence": [],
     "limitations": [],
-    "mode": "full",
+    "mode": "incremental",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T05:28:14.485Z",
+    "recordedAt": "2026-10-25T12:35:02.574Z",
     "result": "not-applicable",
-    "runId": "20261025T052813Z-090b0c",
+    "runId": "20261025T123501Z-0af5cf",
     "scope": {
-      "decision": "full",
+      "decision": "incremental",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "relevant changes since the skill was recorded not applicable: re-evaluate applicability"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "added",
+          "key": "pkg:react",
+          "reason": "new package in the flow (bundle or server cost)"
+        }
+      ],
       "suggestedScope": [
-        "measure the complete flow /[slug]/academia/gestionar before and after, same build, data and throttling; median of 3 for noisy metrics"
+        "measure the complete flow /[slug]/academia/gestionar: before = revision 04d180795c89 (last measured), after = working tree",
+        "package react — new package in the flow (bundle or server cost)"
       ]
     },
     "skill": {
@@ -579,8 +591,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "El cambio de boundaries no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T052813Z-090b0c.json"
+    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T123501Z-0af5cf.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

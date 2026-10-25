@@ -3,6 +3,7 @@ import { Button } from "@golfo/ui";
 import { Link } from "@/components/navigation/link";
 import { AdmissionForm } from "@/components/academy-admissions/admission-form";
 import { RequestStatus } from "@/components/academy-admissions/request-status";
+import { SkeletonFacts, SkeletonLines, SkeletonStepsPanel } from "@/components/loaders/route-skeleton";
 import type { AdmissionPageState } from "@/src/modules/academy-admissions/application/results/admission-page-state";
 import type { AdmissionDraft } from "@/lib/academy-admissions/admission-draft";
 import { ADMISSION_UI_COPY, ADMISSION_UI_PHASE } from "@/src/modules/academy-admissions/constants/admission-ui";
@@ -10,6 +11,9 @@ import { ADMISSION_OVERVIEW_STATE, ADMISSION_NEXT_ACTION } from "@/src/modules/a
 import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ROUTES } from "@/src/constants/routes";
 import { buildOwnAdmissionRequestRoute } from "@/lib/academy-admissions/admission-routes";
+
+/** Placeholder counts that mirror the entry form's steps and the own request's facts. */
+const ADMISSION_LOADING_SHAPE = { entryStepCount: 4, requestFactCount: 3 } as const;
 import type { ReactNode, Ref } from "react";
 import styles from "./styles.module.scss";
 
@@ -44,9 +48,12 @@ export function AdmissionScreen({ state, draft = { phone: "", country: "", messa
   // Keep the newer terminal request visible without repeating an older pending hint.
   const stalePendingOverview = ready && state.request && state.request.status !== ADMISSION_REQUEST_STATUS.pending && state.overview.state === ADMISSION_OVERVIEW_STATE.pending;
   return <main className={styles.AdmissionScreen} aria-busy={busy || loading}>
-    <header className={styles.AdmissionScreen__header}><p className={styles.AdmissionScreen__eyebrow}>TuTribu{ready ? ` · ${state.overview.tribe.name}` : " · Admisión"}</p><h1 className={styles.AdmissionScreen__title}>{state.kind === "unavailable" ? ADMISSION_UI_COPY.unavailableTitle : ready && state.request ? ADMISSION_UI_COPY.statusTitle : ADMISSION_UI_COPY.title}</h1><p className={styles.AdmissionScreen__description}>{ADMISSION_UI_COPY.description}</p></header>
+    <header className={styles.AdmissionScreen__header}><p className={styles.AdmissionScreen__eyebrow}>TuTribu{ready ? ` · ${state.overview.tribe.name}` : " · Admisión"}</p><h1 className={styles.AdmissionScreen__title}>{state.kind === "unavailable" ? ADMISSION_UI_COPY.unavailableTitle : (ready && state.request) || (loading && requestPage) ? ADMISSION_UI_COPY.statusTitle : ADMISSION_UI_COPY.title}</h1><p className={styles.AdmissionScreen__description}>{ADMISSION_UI_COPY.description}</p></header>
     <section className={styles.AdmissionScreen__content} aria-label="Admisión a la academia">
-      {loading ? <p role="status" className={styles.AdmissionScreen__loading}>{ADMISSION_UI_COPY.reading}</p> : state.kind === "unavailable" ? <p role="alert">{state.message}</p> : accountChanged ? null : <>
+      {loading ? <>
+        <p role="status" className={styles.AdmissionScreen__loading}>{ADMISSION_UI_COPY.reading}</p>
+        {requestPage ? <><SkeletonFacts count={ADMISSION_LOADING_SHAPE.requestFactCount} /><SkeletonLines /></> : <SkeletonStepsPanel stepCount={ADMISSION_LOADING_SHAPE.entryStepCount} />}
+      </> : state.kind === "unavailable" ? <p role="alert">{state.message}</p> : accountChanged ? null : <>
         {!stalePendingOverview && <p role="status">{state.overview.safeMessage}</p>}
         {state.request && <RequestStatus request={state.request} statusRef={requestStatusRef} now={now ?? state.renderedAt} confirmed={cancelConfirmed} disabled={blocked} busy={phase === ADMISSION_UI_PHASE.writing} errorMessage={null} retryHref={readyToRetry ? retryHref : undefined} onConfirm={(value) => onCancelConfirm?.(value)} onCancel={() => onCancel?.()} />}
         {whatsappEditor}
@@ -75,4 +82,8 @@ export function AdmissionScreen({ state, draft = { phone: "", country: "", messa
 }
 
 /** Deterministic leaf fallback with no runtime account or params access. */
-export function AdmissionLoading() { return <AdmissionScreen state={{ kind: "loading" }} />; }
+/** @param props.requestPage - Whether the own request page is loading. @returns The admission shell with placeholders shaped like the entry form or the request status, without actions that could submit stale state. */
+export function AdmissionLoading({ requestPage = false }: { requestPage?: boolean }) { return <AdmissionScreen state={{ kind: "loading" }} requestPage={requestPage} />; }
+
+/** @returns The own request page placeholder, under its own title. */
+export function AdmissionRequestLoading() { return <AdmissionLoading requestPage />; }

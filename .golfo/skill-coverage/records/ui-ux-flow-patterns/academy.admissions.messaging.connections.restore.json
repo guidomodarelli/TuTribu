@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "52358cd766afdaa0",
         "lib/messaging/messaging-connections-intent-store.ts": "7dbed3748a05812b",
@@ -1111,22 +1111,22 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
-        "durationMs": 32467,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
+        "durationMs": 29543,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "d2f0d16a536ab5977a4d23c2e360ad51f17aba17648a6330b6fe9f391a3fb1c4",
-        "recordedAt": "2026-10-25T04:37:46.877Z",
+        "outputSha256": "0a3e9d1dac5c053ea6b4464f162cf691a8ce29fd491638575c5edc3a89f35db4",
+        "recordedAt": "2026-10-25T11:48:56.576Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T04:37:47.478Z",
+        "recordedAt": "2026-10-25T11:48:57.059Z",
         "source": "attested",
-        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
+        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
       }
     ],
     "limitations": [],
@@ -1134,30 +1134,18 @@
     "pendingChecks": [
       "missing passing evidence of kind browser or accessibility"
     ],
-    "recordedAt": "2026-10-25T04:37:49.401Z",
+    "recordedAt": "2026-10-25T11:48:58.683Z",
     "result": "partial",
-    "runId": "20261025T043713Z-406293",
+    "runId": "20261025T114826Z-cd1c4b",
     "scope": {
       "decision": "incremental",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "2 relevant change(s) since the verified run"
+        "previous run was partial"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell",
-          "reason": "visible or interactive code changed"
-        },
-        {
-          "change": "modified",
-          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
-          "reason": "visible or interactive code changed"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx › MessagingConnectionsContainer (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
-        "components/academy-admissions/admission-route-error/index.tsx › AdmissionRouteError — behavior of this code in every state of the unit that uses it"
+        "pending from the previous run: missing passing evidence of kind browser or accessibility"
       ]
     },
     "skill": {
@@ -1173,7 +1161,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T043713Z-406293.json"
+    "report": "runs/20261025T114826Z-cd1c4b.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

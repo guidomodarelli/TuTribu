@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-readable-dates",
-      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx": "b100620d825a2ff5",
         "app/api/tribes/[slug]/messaging/usage-policy/route.ts": "bd74481f6c2f3172",
@@ -5161,14 +5161,14 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T09:49:46.167Z",
+    "recordedAt": "2026-10-25T11:57:56.771Z",
     "result": "not-applicable",
-    "runId": "20261025T094943Z-9b7312",
+    "runId": "20261025T115754Z-7aacef",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: El cambio de boundaries no agrega requests, consultas ni pasos al flujo."
+        "recorded not applicable: El cambio de copy de fechas no agrega requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": []
@@ -5188,8 +5188,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "El cambio de copy de fechas no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T094943Z-9b7312.json"
+    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T115754Z-7aacef.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",
