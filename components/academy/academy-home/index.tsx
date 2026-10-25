@@ -135,6 +135,18 @@ type ActionErrors = Record<AcademyHomeAction, string | null>;
 const NO_ACTION_ERRORS: ActionErrors = { cancel: null, checkout: null, join: null, refresh: null };
 
 /**
+ * Whether a subscription payment may still be confirmed: a renewal that is
+ * pending, or one already active whose first period is not covered yet (the
+ * provider authorized the subscription before approving its invoice).
+ *
+ * @param access - Confirmed access status.
+ * @returns True while the member should keep waiting instead of contracting again.
+ */
+function isPaymentInProgress(access: AcademyAccessStatusDto): boolean {
+  return access.renewalStatus === "pending" || (access.renewalStatus === "active" && access.level === "basic");
+}
+
+/**
  * Picks the outcome of a confirmed status refresh. A payment is only shown as
  * confirmed by the status itself; this message never anticipates it.
  *
@@ -154,7 +166,7 @@ function describeRefreshOutcome({
     return ACADEMY_HOME_COPY.refreshThrottled;
   }
 
-  if (access.renewalStatus === "pending") {
+  if (isPaymentInProgress(access)) {
     return ACADEMY_HOME_COPY.paymentStillPending;
   }
 
@@ -459,8 +471,8 @@ export function AcademyHome({
         })
       );
 
-      // A throttled check did not ask the provider: the checkout return keeps waiting for it.
-      if (reconcileStatus !== RECONCILE_THROTTLED_STATUS) {
+      // A throttled check did not ask the provider, and a payment still in progress may yet be confirmed: both keep waiting.
+      if (reconcileStatus !== RECONCILE_THROTTLED_STATUS && !isPaymentInProgress(updated)) {
         setIsAwaitingCheckoutReturn(false);
       }
     });
@@ -494,7 +506,7 @@ export function AcademyHome({
   const title = offer?.title || ACADEMY_HOME_COPY.defaultTitle;
   const showConfirming =
     access !== null &&
-    (access.renewalStatus === "pending" || (isAwaitingCheckoutReturn && access.level === "basic"));
+    (isPaymentInProgress(access) || (isAwaitingCheckoutReturn && access.level === "basic"));
   const isAcademyMode = access?.accessModel === "academy";
   const status = access && isAcademyMode ? resolveAccessStatus(access) : null;
   const steps = access && isAcademyMode && status?.showSteps ? buildAccessSteps(access) : [];

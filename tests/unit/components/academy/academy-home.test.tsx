@@ -415,6 +415,26 @@ describe("AcademyHome", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("keeps waiting with its refresh when the subscription is active but its first payment is not confirmed yet", async () => {
+    const user = userEvent.setup();
+    const authorizedAccess = access({ eligibility: "verified", nextAction: "view_offer", renewalStatus: "active" });
+    respondWithJson({ message: null, status: "reconciled" }, 200);
+    respondWithJson(authorizedAccess, 200);
+
+    render(<AcademyHome access={access({ canStartCheckout: true, eligibility: "verified", nextAction: "view_offer" })} canManage={false} isCheckoutReturn offer={offer} tribeSlug="tribu" />);
+
+    await user.click(screen.getByRole("button", { name: "Actualizar estado" }));
+
+    expect(
+      await screen.findByText(
+        "Todavía no recibimos la confirmación del pago. Volvé a comprobar en unos minutos; no hace falta que pagues de nuevo."
+      )
+    ).toHaveAttribute("role", "status");
+    expect(screen.getByText("Estamos confirmando tu suscripción. No hace falta que vuelvas a pagar.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Actualizar estado" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Contratar academia" })).not.toBeInTheDocument();
+  });
+
   it("keeps the checkout locked while the provider opens and releases it when the page is restored", async () => {
     const user = userEvent.setup();
     vi.mocked(navigateToUrl).mockClear();
