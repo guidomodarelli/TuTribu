@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-readable-dates",
+      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
       "files": {
         "app/(platform)/[slug]/academia/admissions/activity/page.tsx": "0ce9c474d7fcd444",
         "app/(platform)/[slug]/academia/admissions/activity/loading.tsx": "0637d05028ddbfcd",
@@ -41,7 +41,7 @@
         "src/modules/academy-admissions/application/ports/admission-activity-browser-client.ts": "f94248e631855853",
         "src/modules/academy-admissions/application/results/admission-activity-page-state.ts": "2a090308c48657f0",
         "components/academy-admissions/admission-activity/index.tsx": "4d200c74a9d3b08c",
-        "components/academy-admissions/admission-metrics/index.tsx": "5afe7f352ce185db",
+        "components/academy-admissions/admission-metrics/index.tsx": "67d1abcc5d5070ca",
         "src/modules/messaging/constants/messaging-usage.ts": "ba71bbac4e985a5a",
         "lib/academy-admissions/admission-activity-api-client.ts": "59624535d06e68da",
         "src/modules/academy-admissions/application/commands/admission-activity-filter-draft.ts": "12a35f5f587efd1e",
@@ -238,7 +238,7 @@
         "src/modules/messaging/application/results/messaging-usage-policy-result.ts": "85b3000334c4a35b",
         "src/modules/academy-admissions/constants/admission-activity-labels.ts": "d8642d5da69711df",
         "lib/academy-admissions/admission-activity-view-model.ts": "7507b7fbb08f9dde",
-        "lib/academy-admissions/admission-observation-format.ts": "cd457a25292ae1fd",
+        "lib/academy-admissions/admission-observation-format.ts": "e84c3ce82528a822",
         "components/academy-admissions/admission-activity/styles.module.scss": "818c76df4c42b831",
         "src/modules/messaging/constants/messaging-public-contract.ts": "d8e21158a5fb4c77",
         "components/academy-admissions/admission-metrics/styles.module.scss": "aecf9f0b9411cc1c",
@@ -296,6 +296,7 @@
         "src/modules/academy-admissions/application/results/admission-operation-recovery.ts": "08e3bb7982308b78",
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts": "f1942bcecd1a2254",
         "src/modules/academy-admissions/domain/repositories/admission-repositories.ts": "3516c9bf295273d9",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/modules/academy-admissions/domain/entities/admission-metric-dimensions.ts": "6957c9c14dd1d2c2",
         "src/constants/time.ts": "98b5459a77a709b0",
         "src/modules/academy-admissions/constants/admission-maintenance-health.ts": "bf2111a604013450",
@@ -334,6 +335,7 @@
         "src/modules/messaging/constants/messaging-credential-validation.ts": "0712b1ab28ca1ec2",
         "src/modules/academy-admissions/constants/admission-metrics.ts": "df79e51d5f4acc5a",
         "src/modules/academy-admissions/constants/admission-audit.ts": "4d5aca09685610b7",
+        "src/constants/date-time.ts": "120f12f7530df5ba",
         "src/modules/messaging/constants/messaging-limits.ts": "a882fb155e9d559f",
         "src/modules/academy-admissions/domain/entities/admission-operation.ts": "3cefd00867036cfe",
         "src/modules/academy-admissions/domain/repositories/admission-whatsapp-number-writer.ts": "25a448bd954a5e32",
@@ -387,7 +389,7 @@
         "src/modules/notifications/constants/admission-notification-groups.ts": "22f213c753d3ef05",
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f"
       },
-      "fingerprint": "sha256:8fdf9c842c00e347d7844f11f8e799c4ebb93dd2b70a8072b7589cbe545ddfc5",
+      "fingerprint": "sha256:35a8b970204aef77c6d008cf67d8f72ce2e179e1fa7865220bfc7a291ae42f1b",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
@@ -598,7 +600,7 @@
         "components/academy-admissions/admission-activity/index.tsx#<module>": "2da3ec2294295eb1",
         "components/academy-admissions/admission-activity/index.tsx#AdmissionActivity": "f0c0ae1b8b53a6c2",
         "components/academy-admissions/admission-metrics/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/academy-admissions/admission-metrics/index.tsx#AdmissionMetrics": "70eae6954c605253",
+        "components/academy-admissions/admission-metrics/index.tsx#AdmissionMetrics": "1a8af99bb787755a",
         "components/academy-admissions/admission-metrics/index.tsx#AdmissionMetricsProps": "90c40539576de9e5",
         "components/academy-admissions/admission-metrics/index.tsx#renderCounts": "5452a79198b4ba26",
         "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_UI_COPY~frame": "a12704c52e59c0b5",
@@ -1595,7 +1597,7 @@
         "lib/academy-admissions/admission-activity-view-model.ts#PolicySnapshot": "ef935abb68e37fc7",
         "lib/academy-admissions/admission-activity-view-model.ts#displayPrimitive": "bbe31dc740dc0112",
         "lib/academy-admissions/admission-observation-format.ts#<module>": "2da3ec2294295eb1",
-        "lib/academy-admissions/admission-observation-format.ts#formatAdmissionObservationTime": "ce9473de19069706",
+        "lib/academy-admissions/admission-observation-format.ts#formatAdmissionObservationTime": "16ff1fe24874b284",
         "components/academy-admissions/admission-activity/styles.module.scss#*": "818c76df4c42b831",
         "src/modules/academy-admissions/constants/admission-activity-labels.ts#ADMISSION_METRIC_PHASE_LABELS.admission": "8e67cdd7709e1967",
         "src/modules/academy-admissions/constants/admission-activity-labels.ts#ADMISSION_METRIC_PHASE_LABELS.review": "c6b05284765d627e",
@@ -2065,6 +2067,29 @@
         "src/modules/academy-admissions/constants/admission-activity-labels.ts#ADMISSION_POLICY_SNAPSHOT_LABELS~frame": "9bfbf5bcf4cd9627",
         "src/modules/academy-admissions/constants/admission-activity-labels.ts#ADMISSION_OBSERVATION_COPY.no": "035d66a085fde0a4",
         "src/modules/academy-admissions/constants/admission-activity-labels.ts#ADMISSION_OBSERVATION_COPY.yes": "7bdc1de6968fae70",
+        "lib/date-time/buenos-aires-format.ts#<module>": "2da3ec2294295eb1",
+        "lib/date-time/buenos-aires-format.ts#formatBuenosAiresDateTime": "a9fd2652df321432",
+        "lib/date-time/buenos-aires-format.ts#DATE_KEY_FORMATTER": "112e45ec62aab015",
+        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION~frame": "0594d2c74d77d78b",
+        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.numeric": "8979e5232f1c7e96",
+        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.twoDigit": "dae00c6c37e34107",
+        "lib/date-time/buenos-aires-format.ts#LOCALE~frame": "fec71633af80cddf",
+        "lib/date-time/buenos-aires-format.ts#LOCALE.machine": "b1a581db589805cb",
+        "lib/date-time/buenos-aires-format.ts#DATE_PART~frame": "90dfa8f8dff8cebb",
+        "lib/date-time/buenos-aires-format.ts#DATE_PART.year": "c074dd4a9fd21fcb",
+        "lib/date-time/buenos-aires-format.ts#DATE_TIME_SEPARATOR": "e9ca1aa774b425f5",
+        "lib/date-time/buenos-aires-format.ts#formatBuenosAiresShortDate": "15a36b97a9647ea4",
+        "lib/date-time/buenos-aires-format.ts#DATE_PART.day": "0b5c609f1da2c0ed",
+        "lib/date-time/buenos-aires-format.ts#DATE_PART.month": "7469b833c149a8cb",
+        "lib/date-time/buenos-aires-format.ts#SHORT_DATE_FORMATTER": "38d2b655dfb4a4ca",
+        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.short": "757da1c764846c2f",
+        "lib/date-time/buenos-aires-format.ts#LOCALE.spanish": "d13dd49da717b594",
+        "lib/date-time/buenos-aires-format.ts#readPart": "dc788ed8110c0c1c",
+        "lib/date-time/buenos-aires-format.ts#stripTrailingPeriod": "81e285d2701298ae",
+        "lib/date-time/buenos-aires-format.ts#TRAILING_PERIOD_PATTERN": "b5c571f629a756a2",
+        "lib/date-time/buenos-aires-format.ts#formatBuenosAiresTime": "7329a65919ab8754",
+        "lib/date-time/buenos-aires-format.ts#TIME_FORMATTER": "c4956c28b3daff8f",
+        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.hourCycle": "c762eaa8629cbd09",
         "src/modules/academy-admissions/domain/entities/admission-metric-dimensions.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/domain/entities/admission-metric-dimensions.ts#AdmissionMetricPhase": "6888ac1478e7067c",
         "src/modules/academy-admissions/domain/entities/admission-metric-dimensions.ts#AdmissionMetricRunOperation": "014c026687c420a8",
@@ -2302,6 +2327,8 @@
         "src/modules/academy-admissions/constants/admission-audit.ts#ADMISSION_AUDIT_RESOURCE_TYPE.membership": "4e97cd505c27153a",
         "src/modules/academy-admissions/constants/admission-audit.ts#ADMISSION_AUDIT_RESOURCE_TYPE.retention": "11e1c6fa2c493a5c",
         "src/modules/academy-admissions/constants/admission-audit.ts#ADMISSION_AUDIT_RESOURCE_TYPE~frame": "9b000c7f8ec7a8d1",
+        "src/constants/date-time.ts#<module>": "2da3ec2294295eb1",
+        "src/constants/date-time.ts#BUENOS_AIRES_TIME_ZONE": "32ddc5a9f4e45c83",
         "src/constants/time.ts#SECONDS_PER_MINUTE": "0ad154f12f8642c8",
         "src/modules/messaging/constants/messaging-limits.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/constants/messaging-limits.ts#MESSAGING_USAGE_POLICY_STATE~frame": "f2c10447c8e88246",
@@ -3455,49 +3482,193 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
-        "durationMs": 26593,
+        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
+        "durationMs": 81111,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "8a22fb485aaf11eef36e9e9665abbe10356691b7b5b338d62a5d058ac42fbf97",
-        "recordedAt": "2026-10-25T03:55:07.333Z",
+        "outputSha256": "fb9726bdce0e1d80eb25456041cf594de968a96ffe692ff3bb7926ff1c4ff4d7",
+        "recordedAt": "2026-10-25T08:57:17.617Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 2278,
+        "durationMs": 15124,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T03:55:10.042Z",
+        "recordedAt": "2026-10-25T08:57:33.429Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T03:55:10.484Z",
+        "recordedAt": "2026-10-25T08:57:34.222Z",
         "source": "attested",
-        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
+        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
+      },
+      {
+        "kind": "browser",
+        "outcome": "pass",
+        "recordedAt": "2026-10-25T08:57:34.985Z",
+        "source": "attested",
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: antes, «Vencimiento del enlace (fecha y hora UTC)», vigencia «2026-11-01T04:48:00.000Z (UTC)», «día UTC» y «2026-10-25 04:47:57.580 UTC»; después, «(hora de Argentina)», «01 nov 2026 · 01:54», «de 21:00 a 21:00 (hora de Argentina)», «Consumo del día» y «Período iniciado el 24 oct 2026 · 21:00» (4/4)."
       }
     ],
     "limitations": [
-      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T03:55:12.536Z",
+    "recordedAt": "2026-10-25T08:57:39.007Z",
     "result": "partial",
-    "runId": "20261025T035440Z-330311",
+    "runId": "20261025T085555Z-ca07d8",
     "scope": {
       "decision": "full",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "components/academy-admissions/admission-metrics/index.tsx#AdmissionMetrics",
+          "reason": "code rendered by the route changed"
+        },
+        {
+          "change": "modified",
+          "key": "lib/academy-admissions/admission-observation-format.ts#formatAdmissionObservationTime",
+          "reason": "code rendered by the route changed"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#<module>",
+          "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#DATE_KEY_FORMATTER",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#DATE_PART.day",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#DATE_PART.month",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#DATE_PART.year",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#DATE_PART~frame",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#DATE_TIME_SEPARATOR",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.hourCycle",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.numeric",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.short",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.twoDigit",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION~frame",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#formatBuenosAiresDateTime",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#formatBuenosAiresShortDate",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#formatBuenosAiresTime",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#LOCALE.machine",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#LOCALE.spanish",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#LOCALE~frame",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#readPart",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#SHORT_DATE_FORMATTER",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#stripTrailingPeriod",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#TIME_FORMATTER",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#TRAILING_PERIOD_PATTERN",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/date-time.ts#<module>",
+          "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/date-time.ts#BUENOS_AIRES_TIME_ZONE",
+          "reason": "new code rendered by the route"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.admissions.activity.view (/[slug]/academia/admissions/activity): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
       ]
@@ -3515,7 +3686,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T035440Z-330311.json"
+    "report": "runs/20261025T085555Z-ca07d8.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

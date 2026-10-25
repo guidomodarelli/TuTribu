@@ -16,11 +16,12 @@ const router = { back: vi.fn(), bfcacheId: "activity-presentation-test", forward
 function Providers({ children }: { children: ReactNode }) { return <AppRouterContext.Provider value={router}><AppUIProvider>{children}</AppUIProvider></AppRouterContext.Provider>; }
 
 describe("admission usage and historical presentation", () => {
-  it("should distinguish UTC consumption, delivery states and external attempts without personal aggregate labels", () => {
+  it("should distinguish daily consumption, delivery states and external attempts without personal aggregate labels", () => {
     const state = createAdmissionActivityPageFixture();
     state.metrics.attempts.accepted = 3;
     const view = render(<AdmissionMetrics metrics={state.metrics} currentUsage={state.currentUsage} usageHref="/synthetic-academy/academia/admissions/messaging" />, { wrapper: Providers });
-    expect(screen.getByText("2026-10-14 20:00:00.000 UTC", { selector: "time" })).toBeInTheDocument();
+    // 20:00 UTC is shown in Argentina time.
+    expect(screen.getByText("14 oct 2026 · 17:00", { selector: "time" })).toBeInTheDocument();
     expect(screen.getByText("Códigos consumidos").closest("div")).toHaveTextContent("8");
     expect(screen.getByText("Aceptadas").closest("div")).toHaveTextContent("1");
     expect(screen.getByText("Aceptados").closest("div")).toHaveTextContent("3");

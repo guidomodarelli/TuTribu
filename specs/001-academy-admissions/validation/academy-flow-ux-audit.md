@@ -64,7 +64,7 @@ Inventario de cada segmento, subflujo y acción de la academia, auditado con las
 | SOL-07 | estados | Aceptar una invitación muestra el éxito en línea y en un toast a la vez. | `components/academy-admissions/personal-invitation/hooks/use-personal-invitation.ts` | pendiente |
 | SOL-08 | boundaries | Falta `metadata` (`robots` noindex y `referrer` no-referrer) en `/admissions/[slug]` y en `/admissions/requests/[requestId]`; legacy e invitación la tienen. | `app/(admission)/admissions/[slug]/page.tsx`, `requests/[requestId]/page.tsx` | [#183](https://github.com/guidomodarelli/TuTribu/pull/183) |
 | SOL-09 | validación | Los errores del formulario y de cancelar terminan en una sola alerta al pie de la página, lejos del paso o de la casilla que los produjo. | `admission-container.tsx` pasa `errorMessage={null}` a `AdmissionForm` y `RequestStatus` | pendiente |
-| SOL-10 | copy | Los vencimientos se muestran en segundos crudos («Vence en 587 segundos»). | `components/academy-admissions/contact-verification/index.tsx` | pendiente |
+| SOL-10 | copy | Los vencimientos se muestran en segundos crudos («Vence en 587 segundos»). | `components/academy-admissions/contact-verification/index.tsx` | [#185](https://github.com/guidomodarelli/TuTribu/pull/185) |
 | SOL-11 | estados | Un token heredado con formato inválido ofrece «Reintentar», que no puede funcionar porque el error es determinista. | `app/(admission)/admissions/[slug]/legacy/[token]/legacy-admission-container.tsx` | pendiente |
 
 ## 2. Líder
@@ -113,12 +113,17 @@ Todas las escrituras son pending-first y confirmadas por el servidor, que es la 
 | LID-05 | estados | «Reintentar» recarga el documento (`window.location.reload()`) y pierde el estado del cliente. | review, policy, activity, notifications, allowlist, import, invitations | pendiente |
 | LID-06 | estados | Allowlist, importación e invitaciones muestran la pérdida de acceso solo con un texto, sin acción de salida. | `allowlist-management`, `allowlist-import`, `invitation-management` | pendiente |
 | LID-07 | estados | «Ver más» en allowlist, invitaciones y actividad reemplaza la página en lugar de sumarla. | `use-allowlist-workflow.ts`, `invitations-container.tsx`, `admission-activity-container.tsx` | pendiente |
-| LID-08 | copy | Fechas ISO/UTC crudas en invitaciones e importación, y «día UTC» en métricas. | `invitation-management`, `allowlist-import`, `admission-metrics` | pendiente |
+| LID-08 | copy | Fechas ISO/UTC crudas en invitaciones e importación, y «día UTC» en métricas. | `invitation-management`, `allowlist-import`, `admission-metrics` | [#185](https://github.com/guidomodarelli/TuTribu/pull/185) |
 | LID-09 | mutaciones | Bandeja, reglas, avisos, membresías comerciales y activación no tienen deadline: un request colgado deja la acción en curso sin salida. | `lib/academy-admissions/admission-api-client.ts` | [PR #180](https://github.com/guidomodarelli/TuTribu/pull/180) |
 | LID-10 | estados | La importación de hasta 10.000 filas no permite seleccionar todas las válidas. | `allowlist-import`, `use-allowlist-import-workflow.ts` | pendiente |
 | LID-11 | validación | La zona horaria de los avisos es un campo de texto libre. | `admission-notification-settings` | pendiente |
 | LID-12 | boundaries | `/[slug]/academia/gestionar` no tiene `error.tsx` y cualquier fallo de carga termina en `notFound()`. | `app/(platform)/[slug]/academia/gestionar/page.tsx` | [#183](https://github.com/guidomodarelli/TuTribu/pull/183) |
+<<<<<<< HEAD
 | LID-13 | boundaries | `AdmissionPageSkeleton` usa el mismo cuerpo (tres datos y tres filas) para formularios con pasos. | `admission-page-skeleton` | [#186](https://github.com/guidomodarelli/TuTribu/pull/186) |
+=======
+| LID-13 | boundaries | `AdmissionPageSkeleton` usa el mismo cuerpo (tres datos y tres filas) para formularios con pasos. | `admission-page-skeleton` | pendiente |
+| LID-14 | copy | Los filtros de la bandeja piden «Desde (UTC)» y «Hasta (UTC)»: el líder elige el rango de fechas en UTC y no en hora de Argentina. | `admission-review-filters` | pendiente |
+>>>>>>> origin/feature/academy-admissions-spec
 
 ## 3. Mensajería
 

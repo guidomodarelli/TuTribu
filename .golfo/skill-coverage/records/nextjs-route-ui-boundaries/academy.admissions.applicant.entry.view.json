@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-readable-dates",
+      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
       "files": {
         "app/(admission)/admissions/[slug]/page.tsx": "87d2419a7e1b84de",
         "app/(admission)/admissions/[slug]/loading.tsx": "12be8cbc448c8353",
@@ -151,7 +151,7 @@
         "components/academy-admissions/admission-whatsapp-number-field/index.tsx": "10cbeb4aeca70640",
         "components/academy-admissions/admission-form/styles.module.scss": "d5377cbb2dc7c81f",
         "src/modules/academy-admissions/constants/request-status-presentation.ts": "e692acb82a512346",
-        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/modules/academy-admissions/application/results/admission-own-request-message.ts": "376aa9f92849ede5",
         "components/academy-admissions/request-status/styles.module.scss": "5d84f9da7950f90a",
         "src/modules/academy-admissions/constants/admission-contact.ts": "cf90895cb275bdd9",
@@ -1280,97 +1280,50 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
-        "durationMs": 28166,
+        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
+        "durationMs": 62830,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "92132a77e1ff47da844ca148bebab7483886382e31b52f584f4f2f20a7597f23",
-        "recordedAt": "2026-10-25T04:06:07.254Z",
+        "outputSha256": "13d0558c46a6b95229cdf894fce9e0e8ed24af422ce68f5f4003524244b14f29",
+        "recordedAt": "2026-10-25T09:12:38.243Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 2593,
+        "durationMs": 3135,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T04:06:10.330Z",
+        "recordedAt": "2026-10-25T09:12:41.915Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T04:06:10.861Z",
+        "recordedAt": "2026-10-25T09:12:42.452Z",
         "source": "attested",
-        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
+        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
       }
     ],
     "limitations": [
-      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T04:06:12.545Z",
+    "recordedAt": "2026-10-25T09:12:44.197Z",
     "result": "partial",
-    "runId": "20261025T040538Z-658d74",
+    "runId": "20261025T091134Z-c65205",
     "scope": {
       "decision": "full",
       "reasons": [
-        "skill definition changed (1.2.0 → 1.3.0): SKILL.md",
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "added",
-          "key": "app/(admission)/admissions/[slug]/page.tsx#metadata.referrer",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(admission)/admissions/[slug]/page.tsx#metadata.robots",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(admission)/admissions/[slug]/page.tsx#metadata.title",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(admission)/admissions/[slug]/page.tsx#metadata~frame",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "modified",
-          "key": "app/error.tsx#ErrorPage",
-          "reason": "route file changed: segment layout, boundary or page"
-        },
-        {
-          "change": "modified",
-          "key": "app/error.tsx#ErrorPageProps",
-          "reason": "route file changed: segment layout, boundary or page"
-        },
-        {
-          "change": "modified",
-          "key": "app/global-error.tsx#GlobalErrorPage",
-          "reason": "route file changed: segment layout, boundary or page"
-        },
-        {
-          "change": "modified",
-          "key": "app/global-error.tsx#GlobalErrorPageProps",
-          "reason": "route file changed: segment layout, boundary or page"
-        },
-        {
-          "change": "modified",
-          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
-          "reason": "code rendered by the route changed"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.admissions.applicant.entry.view (/admissions/[slug], /admissions/[slug]/legacy/[token]): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
       ]
@@ -1388,7 +1341,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T040538Z-658d74.json"
+    "report": "runs/20261025T091134Z-c65205.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

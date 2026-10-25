@@ -58,7 +58,7 @@ function formatCount(count: number, singular: string, plural: string) { return `
 function describeNoticeQuota(limit: number | null): string | null {
   if (limit === null) return null;
   if (limit === 0) return "Con 0 no se envía ningún aviso por correo o SMS.";
-  if (limit < MESSAGING_USAGE_LOW_NOTIFICATION_DAILY_LIMIT) return `Es un cupo muy bajo: con ${formatCount(limit, "aviso", "avisos")} por día, los avisos siguientes no se envían hasta el día siguiente (UTC).`;
+  if (limit < MESSAGING_USAGE_LOW_NOTIFICATION_DAILY_LIMIT) return `Es un cupo muy bajo: con ${formatCount(limit, "aviso", "avisos")} por día, los avisos siguientes no se envían hasta que empieza el día siguiente, a las 21:00 (hora de Argentina).`;
   return null;
 }
 
@@ -197,7 +197,7 @@ export function MessagingUsage(props: MessagingUsageProps) {
         <p className={styles.MessagingUsage__help}>Configuración actual: versión {policy.version}. Máximos de la plataforma: {policy.platformMaximums.verificationDailyLimit} códigos y {policy.platformMaximums.notificationDailyLimit} avisos por día.</p>
       </> : <p className={styles.MessagingUsage__lead}>Todavía no hay países ni cupos guardados. Seguí los pasos para elegirlos; nada se guarda hasta el último paso.</p>}
       <p className={styles.MessagingUsage__help}>El proveedor factura los envíos a la cuenta del líder. Los cupos de TuTribu no son una garantía monetaria exacta.</p>
-      <p className={styles.MessagingUsage__help}>El consumo se agrupa por día UTC y no se reinicia al cambiar países, cupos o conexión.</p>
+      <p className={styles.MessagingUsage__help}>El consumo se cuenta por día, de 21:00 a 21:00 (hora de Argentina), y no se reinicia al cambiar países, cupos o conexión.</p>
       {!props.editing && <div className={styles.MessagingUsage__actions}><Button variant="primary" disabled={controlsDisabled} onClick={props.onStartEditing}>Cambiar países y cupos</Button></div>}
       {!props.editing && feedback}
     </section>
