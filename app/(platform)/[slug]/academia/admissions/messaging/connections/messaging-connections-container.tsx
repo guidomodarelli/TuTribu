@@ -1,7 +1,7 @@
 "use client";
 /** Owns ephemeral key entry, current viewer checks and original-result recovery; the presenter never owns HTTP/auth/storage. @module messaging-connections-container */
 import {useCallback,useEffect,useEffectEvent,useRef,useState} from "react";
-import {usePathname} from "next/navigation";
+import {usePathname,useSearchParams} from "next/navigation";
 import {resolveMessagingRouteRecovery} from "@/lib/messaging/messaging-route-recovery";
 import {ROUTES} from "@/src/constants/routes";
 import {NotificationRecoveryContainer} from "./notification-recovery-container";
@@ -72,7 +72,7 @@ type ContainerProps={initialState:MessagingConnectionsPageState;client?:Messagin
 /** @param props - Guarded own SSR state and browser ports. @returns First safe connection step with incremental results, preserved original reference and no route refresh. */
 export function MessagingConnectionsContainer({initialState,client=messagingConnectionsBrowserClient,store=messagingConnectionsIntentStore,resourcesClient=messagingResourcesBrowserClient,diagnosticClient=messagingDiagnosticBrowserClient,activationClient=messagingActivationBrowserClient,lifecycleClient=messagingLifecycleBrowserClient}:ContainerProps){
   const ready=initialState.kind==="ready"?initialState:null;
-  const pathname=usePathname()??ROUTES.home;
+  const returnTo={pathname:usePathname()??ROUTES.home,search:useSearchParams()?.toString()??""};
   /** The first tab follows the advisory next step of the server-rendered snapshot, so SSR and hydration agree. */
   /** Resuming opens the first pending step of the server-rendered snapshot (or Security when that is where it is resolved), so SSR and hydration agree. */
   const initialAction=ready?.configuration.audience===TRIBE_MEMBER_ROLE.leader?resolveMessagingConnectionsNextAction({...ready.configuration,observedAt:ready.renderedAt}):null;
@@ -329,7 +329,7 @@ export function MessagingConnectionsContainer({initialState,client=messagingConn
       if(current.status==="ready"){applyConfiguration(current.value);setNeedsCurrent(false);emit({kind:"status",text:CHECK_COPY.currentRead});}else{setNeedsCurrent(true);emit({kind:"alert",text:CHECK_COPY.currentUnavailable});}
     }finally{busy.current=false;if(mounted.current)setPhase((current)=>current===PHASE.unavailable?current:PHASE.idle);}}));
   };
-  if(!ready||phase===PHASE.unavailable)return<AdmissionRouteError embedded {...resolveMessagingRouteRecovery(initialState.kind==="unavailable"?initialState.code:null,pathname)} message={initialState.kind==="unavailable"?initialState.message:notice??COPY.viewerChanged} />;
+  if(!ready||phase===PHASE.unavailable)return<AdmissionRouteError embedded {...resolveMessagingRouteRecovery(initialState.kind==="unavailable"?initialState.code:null,returnTo)} message={initialState.kind==="unavailable"?initialState.message:notice??COPY.viewerChanged} />;
   if(!configuration)return null;
   const pendingAction=phase===PHASE.writing?writingAction:null;
   const isBusy=recoveryBusy||phase!==PHASE.idle,canSave=!pending&&!needsCurrent&&!isBusy&&Boolean(name.trim()&&apiKey.trim()&&confirmed),blockedActions=isBusy||Boolean(pending)||needsCurrent;
