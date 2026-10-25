@@ -348,4 +348,158 @@ describe("AcademyHome", () => {
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 100)); });
     expect(screen.getAllByText("No pudimos contactar a Mercado Pago.")).toHaveLength(1);
   });
+  it("clears a failed cancellation from the page and from the dialog when it opens again", async () => {
+    const user = userEvent.setup();
+    respondWithJson({ message: "No pudimos contactar a Mercado Pago." }, 503);
+
+    render(
+      <AcademyHome
+        access={access({ eligibility: "verified", hasPaidCoverage: true, level: "academy", renewalStatus: "active" })}
+        canManage={false}
+        isCheckoutReturn={false}
+        offer={offer}
+        tribeSlug="tribu"
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Cancelar renovación" }));
+    await user.click(screen.getByRole("button", { name: "Sí, cancelar renovación" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("No pudimos contactar a Mercado Pago.");
+
+    await user.click(screen.getByRole("button", { name: "Mantener renovación" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Cancelar renovación" }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("does not offer a second checkout while the payment of a checkout return is being confirmed", () => {
+    render(
+      <AcademyHome
+        access={access({ canStartCheckout: true, eligibility: "verified", nextAction: "view_offer" })}
+        canManage={false}
+        isCheckoutReturn
+        offer={offer}
+        tribeSlug="tribu"
+      />
+    );
+
+    expect(
+      screen.getByText("Estamos confirmando tu suscripción. No hace falta que vuelvas a pagar.")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Contratar academia" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Actualizar estado" })).toBeEnabled();
+  });
+
+  it("leaves the confirmation state when the server reports no payment in progress", async () => {
+    const user = userEvent.setup();
+    const basicAccess = access({ canStartCheckout: true, eligibility: "verified", nextAction: "view_offer" });
+    respondWithJson({ message: "No encontramos el recurso.", status: "not_found" }, 404);
+    respondWithJson(basicAccess, 200);
+
+    render(<AcademyHome access={basicAccess} canManage={false} isCheckoutReturn offer={offer} tribeSlug="tribu" />);
+
+    await user.click(screen.getByRole("button", { name: "Actualizar estado" }));
+
+    expect(
+      await screen.findByText(
+        "No encontramos un pago confirmado. Si no terminaste de pagar, podés contratar la academia de nuevo."
+      )
+    ).toHaveAttribute("role", "status");
+    expect(
+      screen.queryByText("Estamos confirmando tu suscripción. No hace falta que vuelvas a pagar.")
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Contratar academia" })).toBeEnabled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("keeps waiting with its refresh when the subscription is active but its first payment is not confirmed yet", async () => {
+    const user = userEvent.setup();
+    const authorizedAccess = access({ eligibility: "verified", nextAction: "view_offer", renewalStatus: "active" });
+    respondWithJson({ message: null, status: "reconciled" }, 200);
+    respondWithJson(authorizedAccess, 200);
+
+    render(<AcademyHome access={access({ canStartCheckout: true, eligibility: "verified", nextAction: "view_offer" })} canManage={false} isCheckoutReturn offer={offer} tribeSlug="tribu" />);
+
+    await user.click(screen.getByRole("button", { name: "Actualizar estado" }));
+
+    expect(
+      await screen.findByText(
+        "Todavía no recibimos la confirmación del pago. Volvé a comprobar en unos minutos; no hace falta que pagues de nuevo."
+      )
+    ).toHaveAttribute("role", "status");
+    expect(screen.getByText("Estamos confirmando tu suscripción. No hace falta que vuelvas a pagar.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Actualizar estado" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Contratar academia" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the checkout locked while the provider opens and releases it when the page is restored", async () => {
+    const user = userEvent.setup();
+    vi.mocked(navigateToUrl).mockClear();
+    respondWithJson({ checkoutUrl: "https://www.mercadopago.com.ar/checkout/synthetic" }, 200);
+
+    render(
+      <AcademyHome
+        access={access({ canStartCheckout: true, eligibility: "verified", nextAction: "view_offer" })}
+        canManage={false}
+        isCheckoutReturn={false}
+        offer={offer}
+        tribeSlug="tribu"
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Contratar academia" }));
+    await waitFor(() => expect(navigateToUrl).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("button", { name: "Abriendo el pago…" })).toBeDisabled();
+
+    act(() => {
+      window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }));
+    });
+
+    expect(screen.getByRole("button", { name: "Contratar academia" })).toBeEnabled();
+  });
+
+  it("explains a throttled refresh next to the action instead of ignoring it", async () => {
+    const user = userEvent.setup();
+    const pendingAccess = access({ eligibility: "verified", nextAction: "complete_checkout", renewalStatus: "pending" });
+    respondWithJson({ message: "Ya revisamos tu estado hace instantes. Probá de nuevo en un minuto.", status: "throttled" }, 200);
+    respondWithJson(pendingAccess, 200);
+
+    render(<AcademyHome access={pendingAccess} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
+
+    await user.click(screen.getByRole("button", { name: "Actualizar estado" }));
+
+    expect(
+      await screen.findByText("Ya revisamos tu estado hace instantes. Probá de nuevo en un minuto.")
+    ).toHaveAttribute("role", "status");
+    expect(screen.getByRole("button", { name: "Actualizar estado" })).toBeEnabled();
+  });
+
+  it("reports a failed status reread and lets the member try again", async () => {
+    const user = userEvent.setup();
+    const pendingAccess = access({ eligibility: "verified", nextAction: "complete_checkout", renewalStatus: "pending" });
+    respondWithJson({ message: null, status: "reconciled" }, 200);
+    respondWithJson({ message: "Servicio no disponible." }, 503);
+
+    render(<AcademyHome access={pendingAccess} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
+
+    await user.click(screen.getByRole("button", { name: "Actualizar estado" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "No pudimos leer tu estado actualizado. Intentá de nuevo en unos segundos."
+    );
+
+    respondWithJson({ message: null, status: "reconciled" }, 200);
+    respondWithJson(pendingAccess, 200);
+    await user.click(screen.getByRole("button", { name: "Actualizar estado" }));
+
+    expect(
+      await screen.findByText(
+        "Todavía no recibimos la confirmación del pago. Volvé a comprobar en unos minutos; no hace falta que pagues de nuevo."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });

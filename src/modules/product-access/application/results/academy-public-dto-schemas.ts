@@ -34,6 +34,17 @@ export const academyAccessStatusDtoSchema = z.strictObject({
 
 export type AcademyAccessStatusDto = z.infer<typeof academyAccessStatusDtoSchema>;
 
+/**
+ * Successful answer of the own coverage reconciliation: `throttled` means the
+ * provider was checked moments ago and was not asked again.
+ */
+export const academyReconcileDtoSchema = z.strictObject({
+  message: z.string().nullable(),
+  status: z.enum(["reconciled", "throttled"]),
+});
+
+export type AcademyReconcileDto = z.infer<typeof academyReconcileDtoSchema>;
+
 export const academyOfferDtoSchema = z.strictObject({
   admissionEnabled: z.boolean(),
   admissionRequiresRequest: z.boolean(),
