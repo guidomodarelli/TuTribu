@@ -52,6 +52,10 @@
     @include workspace-panel.error;
   }
 
+  &__more {
+    @include workspace-panel.actions;
+  }
+
   &__list {
     @include workspace-panel.rows;
   }

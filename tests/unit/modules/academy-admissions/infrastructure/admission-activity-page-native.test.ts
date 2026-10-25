@@ -89,11 +89,13 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native private act
                   await page.getByRole("button", { name: "Aplicar filtros" }).click();
                   await page.getByRole("button", { name: "Ver actividad anterior" }).click();
                   await page.getByText("Inicio de países y cupos", { exact: true }).waitFor();
-                  await history.locator("summary").click();
+                  // The older page is added below the one already shown instead of replacing it.
+                  expect(await history.locator("details").count()).toBe(2);
+                  await history.locator("summary").filter({ hasText: "Inicio de países y cupos" }).click();
                   expect(await history.innerText()).toMatch(/Versión histórica\s+1/u);
                   expect(await history.innerText()).toMatch(/Operación original\s+[\da-f-]+/u);
                   expect(await history.innerText()).toContain(fixture.userId);
-                  await history.locator("summary").click();
+                  await history.locator("summary").filter({ hasText: "Inicio de países y cupos" }).click();
                   stage = `${engine}_${width}_new_configuration_does_not_rewrite_history`;
                   const oldVersion = version;
                   const changed = await usage.update(version, ++limit);
@@ -102,9 +104,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native private act
                   expect(await page.getByRole("region", { name: "Consumo del día UTC" }).innerText()).toContain(`versión ${oldVersion}`);
                   await page.getByRole("button", { name: "Actualizar consumo e historial" }).click();
                   await page.getByText(`Versión de uso observada: ${version}. Configuración actual: versión ${version}.`, { exact: true }).waitFor();
-                  await history.locator("summary").click();
+                  await history.locator("summary").filter({ hasText: "Inicio de países y cupos" }).click();
                   expect(await history.innerText()).toMatch(/Versión histórica\s+1/u);
-                  await history.locator("summary").click();
+                  await history.locator("summary").filter({ hasText: "Inicio de países y cupos" }).click();
                   if (engine === "chromium" && width === 1280) {
                     await captureAdmissionReview(page, "admission-consumption-current", [fixture.userId, fixture.sessionId, fixture.sessionToken, secret], VALIDATION.captureFile, { selector: 'section[aria-label="Consumo del día UTC"]' });
                     await captureAdmissionReview(page, "admission-activity-history", [fixture.userId, fixture.sessionId, fixture.sessionToken, secret], VALIDATION.captureFile, { selector: 'section[class*="AdmissionActivity"]', omit: "details dl" });

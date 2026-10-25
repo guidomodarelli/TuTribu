@@ -15,6 +15,10 @@ import styles from "./styles.module.scss";
 export type AdmissionActivityProps = {
   page: AdmissionActivityPage; selection: AdmissionActivityPageSelection; draft: AdmissionActivityFilterDraft;
   busy: boolean; validationMessage: string | null;
+  /** The older page is loading below the facts already shown; only its button reports progress. */
+  readingOlder?: boolean;
+  /** Failure of the older page, shown next to its button while the shown facts stay. */
+  olderError?: string | null;
   onChange: (draft: AdmissionActivityFilterDraft) => void; onApply: () => void; onOlder: () => void;
 };
 
@@ -49,6 +53,9 @@ export function AdmissionActivity(props: AdmissionActivityProps) {
       ];
       return <li key={event.id} className={styles.AdmissionActivity__item}><details className={styles.AdmissionActivity__details}><summary className={styles.AdmissionActivity__summary}><span className={styles.AdmissionActivity__event}>{ADMISSION_ACTIVITY_EVENT_LABELS[event.eventType]}</span><time className={styles.AdmissionActivity__time} dateTime={event.createdAt}>{formatAdmissionObservationTime(event.createdAt)}</time></summary><dl className={styles.AdmissionActivity__facts}>{details.map((row, index) => <div className={styles.AdmissionActivity__fact} key={`${row.label}:${index}`}><dt className={styles.AdmissionActivity__term}>{row.label}</dt><dd className={styles.AdmissionActivity__value}>{row.value}</dd></div>)}</dl></details></li>;
     })}</ol> : <div role="status"><EmptyState label="Historial de actividad vacío" title="No hay eventos para los filtros aplicados." description="Probá con otro tipo de recurso o quitá la referencia." /></div>}
-    {props.page.nextCursor && <Button type="button" variant="secondary" disabled={props.busy} onClick={props.onOlder}>Ver actividad anterior</Button>}
+    {props.page.nextCursor && <div className={styles.AdmissionActivity__more}>
+      <Button type="button" variant="secondary" loading={props.readingOlder} disabled={props.busy && !props.readingOlder} onClick={props.onOlder}>Ver actividad anterior</Button>
+      {props.olderError && <p role="alert" className={styles.AdmissionActivity__error}>{props.olderError}</p>}
+    </div>}
   </section>;
 }
