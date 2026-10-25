@@ -13,6 +13,7 @@ import type { AdmissionNotificationSettingsBrowserClient } from "@/src/modules/n
 import type { AdmissionNotificationSettingsPageState } from "@/src/modules/notifications/application/results/admission-notification-settings-page-state";
 import { readAdmissionNotificationSettingsIntent, writeAdmissionNotificationSettingsIntent } from "@/lib/academy-admissions/admission-notification-settings-intent";
 import { changeGuidedStep } from "@/tests/support/guided-steps";
+import { ADMISSION_NOTIFICATION_SETTINGS_COPY } from "@/src/modules/notifications/constants/admission-notification-settings-browser";
 
 const tribeId = "83ecbfaf-0e7c-4afb-aefc-62b62800d367", viewerId = "synthetic-notification-leader", slug = "synthetic-academy";
 const originalId = "f5536335-668a-4b6e-a972-f76c95c7c822";
@@ -247,6 +248,26 @@ describe("admission notification settings guided workflow", () => {
     fireEvent.change(screen.getByLabelText("Zona horaria de la tribu"), { target: { value: "Asia/Kolkata" } });
     fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" }));
     expect(screen.getByLabelText("Zona horaria de la tribu")).toHaveValue("Asia/Kolkata"); expect(data.client.changeEmail).not.toHaveBeenCalled();
+  });
+
+  it("should catch a mistyped time zone next to its field before the leader can continue", async () => {
+    const data = fixture(); render(data.node(), { wrapper: Providers }); await ready();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" }));
+    const zone = screen.getByLabelText("Zona horaria de la tribu");
+    fireEvent.change(zone, { target: { value: "America/Buenos_Aires_Ciudad" } });
+    expect(zone).toHaveAttribute("aria-invalid", "true");
+    // Announced once, next to the field; the step only points back to it.
+    expect(screen.getAllByText(ADMISSION_NOTIFICATION_SETTINGS_COPY.zoneUnknown)).toHaveLength(1);
+    expect(screen.getByText(ADMISSION_NOTIFICATION_SETTINGS_COPY.zoneUnknown)).toHaveAttribute("role", "alert");
+    expect(screen.getByText(ADMISSION_NOTIFICATION_SETTINGS_COPY.zoneFix)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
+
+    fireEvent.change(zone, { target: { value: "America/Argentina/Buenos_Aires" } });
+    expect(zone).not.toHaveAttribute("aria-invalid");
+    // The error row leaves through its exit animation.
+    await waitFor(() => expect(screen.queryByText(ADMISSION_NOTIFICATION_SETTINGS_COPY.zoneUnknown)).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Continuar" })).toBeEnabled();
+    expect(data.client.changeEmail).not.toHaveBeenCalled();
   });
 
   it.each(["permission_denied", "resource_unavailable", "authentication_required"] as const)("should hide private settings after a personal write loses current authority with %s", async (code) => {

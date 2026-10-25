@@ -317,8 +317,8 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
       approveRequiresReason: batchSelection.some((selected) => visible.get(selected.requestId)?.restrictions.requiresExceptionReason === true) };
   }, [items, batchSelection]);
 
-  if (!ready) return <AdmissionRouteError message={initialState.kind === "unavailable" ? initialState.message : ADMISSION_REVIEW_UI_COPY.readFailed} retry={() => window.location.reload()} />;
-  if (phase === ADMISSION_REVIEW_PHASE.changedViewer) return <AdmissionRouteError message={ADMISSION_REVIEW_UI_COPY.changedViewer} retry={() => window.location.reload()} />;
+  if (!ready) return <AdmissionRouteError embedded message={initialState.kind === "unavailable" ? initialState.message : ADMISSION_REVIEW_UI_COPY.readFailed} retry={() => window.location.reload()} />;
+  if (phase === ADMISSION_REVIEW_PHASE.changedViewer) return <AdmissionRouteError embedded message={ADMISSION_REVIEW_UI_COPY.changedViewer} retry={() => window.location.reload()} />;
   if (!privateVisible && phase !== ADMISSION_REVIEW_PHASE.reading) return <AdmissionRouteError message={errorMessage ?? ADMISSION_REVIEW_UI_COPY.readFailed} retry={() => launchRead(currentSelected.current?.id)} />;
   const uncertain = phase === ADMISSION_REVIEW_PHASE.uncertain;
   const pendingAction = phase === ADMISSION_REVIEW_PHASE.writing ? writingAction : null;

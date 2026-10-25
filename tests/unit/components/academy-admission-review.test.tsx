@@ -17,6 +17,7 @@ import { ADMISSION_REVIEW_FILTER_COPY } from "@/src/modules/academy-admissions/c
 import { ADMISSION_DECISION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ADMISSION_WHATSAPP_COPY } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
+import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
 
 const requestId = "2b71737c-2f11-4dbb-853d-080bda9628e5", operationId = "a86a3f18-a48e-4600-a057-f90e1931f7b0";
 const viewerId = "synthetic-reviewer", slug = "synthetic-academy";
@@ -275,10 +276,10 @@ describe("native reviewer container", () => {
     render(data.node, { wrapper: Providers });
     await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.reset })).toBeEnabled());
     fireEvent.change(screen.getByLabelText("Búsqueda"), { target: { value: "Todavía sin aplicar" } });
-    fireEvent.change(screen.getByLabelText("Desde (UTC)"), { target: { value: "2026-10-01T10:00" } });
+    fireEvent.change(screen.getByLabelText("Desde (hora de Argentina)"), { target: { value: "2026-10-01T10:00" } });
     fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.reset }));
     expect(screen.getByLabelText("Búsqueda")).toHaveValue("");
-    expect(screen.getByLabelText("Desde (UTC)")).toHaveValue("");
+    expect(screen.getByLabelText("Desde (hora de Argentina)")).toHaveValue("");
     expect(router.push).toHaveBeenCalledExactlyOnceWith(`/${slug}/academia/admissions?limit=25&status=pending`);
     expect(data.client.decide).not.toHaveBeenCalled();
   });
@@ -368,18 +369,18 @@ describe("native reviewer container", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply })).toBeEnabled());
     const apply = screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply });
     fireEvent.change(screen.getByLabelText("Búsqueda"), { target: { value: "  Ana + García  " } });
-    fireEvent.change(screen.getByLabelText("Desde (UTC)"), { target: { value: "2026-10-08T12:30" } });
-    fireEvent.change(screen.getByLabelText("Hasta (UTC)"), { target: { value: "2026-10-01T12:30" } });
+    fireEvent.change(screen.getByLabelText("Desde (hora de Argentina)"), { target: { value: "2026-10-08T12:30" } });
+    fireEvent.change(screen.getByLabelText("Hasta (hora de Argentina)"), { target: { value: "2026-10-01T12:30" } });
     fireEvent.click(apply);
     expect(screen.getByRole("alert")).toHaveTextContent(ADMISSION_REVIEW_FILTER_COPY.invalid);
     expect(router.push).not.toHaveBeenCalled();
-    fireEvent.change(screen.getByLabelText("Hasta (UTC)"), { target: { value: "2026-10-09T12:30" } });
+    fireEvent.change(screen.getByLabelText("Hasta (hora de Argentina)"), { target: { value: "2026-10-09T12:30" } });
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     fireEvent.click(apply);
     expect(router.push).toHaveBeenCalledOnce();
     const route = new URL(router.push.mock.calls[0][0], "https://tutribu.example.invalid");
     expect(route.pathname).toBe(`/${slug}/academia/admissions`);
-    expect(Object.fromEntries(route.searchParams)).toEqual({ limit: "25", status: "all", source: "common", search: "Ana + García", needsVerification: "false", requiresExceptionReason: "true", submittedFrom: "2026-10-08T12:30:00Z", submittedUntil: "2026-10-09T12:30:00Z" });
+    expect(Object.fromEntries(route.searchParams)).toEqual({ limit: "25", status: "all", source: "common", search: "Ana + García", needsVerification: "false", requiresExceptionReason: "true", submittedFrom: "2026-10-08T15:30:00Z", submittedUntil: "2026-10-09T15:30:00Z" });
     expect(data.client.decide).not.toHaveBeenCalled();
     expect(router.refresh).not.toHaveBeenCalled();
   });
@@ -677,5 +678,16 @@ describe("native reviewer container", () => {
     await act(async () => resolveWrite({ status: "ready", value: { admissionRequestId: requestId, status: "approved", version: 2 } }));
     expect(data.client.decide).toHaveBeenCalledTimes(1);
     expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("should keep a failed inbox inside the page landmark, under the page's only top heading", async () => {
+    render(<main><AdmissionSettingsPage page="review"><AdmissionReviewRouteContainer initialState={{ kind: "unavailable", code: "dependency_unavailable", message: ADMISSION_REVIEW_UI_COPY.readFailed }} client={fixture().client} /></AdmissionSettingsPage></main>, { wrapper: Providers });
+    // Let the container's own account check settle before reading the page.
+    await act(async () => { await Promise.resolve(); });
+
+    expect(screen.getAllByRole("main")).toHaveLength(1);
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 2, name: "No podemos mostrar esta admisión" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
   });
 });

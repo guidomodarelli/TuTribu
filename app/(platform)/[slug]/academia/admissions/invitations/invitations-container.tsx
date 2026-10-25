@@ -11,6 +11,8 @@ import { PERSONAL_INVITATION_MANAGEMENT_COPY as COPY, PERSONAL_INVITATION_MANAGE
 export function InvitationsContainer({ initialState, client }: { initialState: PersonalInvitationManagementPageState; client?: PersonalInvitationManagementBrowserClient }) {
   const workflow = usePersonalInvitationManagement({ initialState, client });
   if (initialState.kind === "unavailable") return <AdmissionRouteError embedded message={initialState.message} retry={() => window.location.reload()} />;
+  // Losing the account or the tribe authority closes the private view; a fresh document is the way back.
+  if (workflow.phase === PHASE.closed) return <AdmissionRouteError embedded message={workflow.errorMessage ?? COPY.account} retry={() => window.location.reload()} />;
   if (!workflow.state || !workflow.draft) return null;
   const busy = workflow.phase === PHASE.checking || workflow.phase === PHASE.reading || workflow.phase === PHASE.writing;
   // A write's progress is its own toast; only reads keep a status line.

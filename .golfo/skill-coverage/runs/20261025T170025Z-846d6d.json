@@ -1,0 +1,169 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-leader-recovery-exits",
+    "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
+    "fingerprint": "sha256:3e84ca19cbf3c9cf8a4647f14adf1dd1a3b394b18d303f7ce853880840fc2f1e",
+    "uncommittedFiles": [],
+    "fileCount": 180,
+    "inputCount": 936
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
+      "durationMs": 139249,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "fe3b9e7a9e2b01886593ef11997f99d1f51fdcd487cb40c62c99a709ded69eb7",
+      "recordedAt": "2026-10-25T17:02:44.891Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T17:02:45.367Z",
+      "source": "attested",
+      "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [
+    "missing passing evidence of kind browser or accessibility"
+  ],
+  "recordedAt": "2026-10-25T17:02:46.990Z",
+  "result": "partial",
+  "runId": "20261025T170025Z-846d6d",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-route-error/styles.module.scss#*",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/auth/sign-in-redirect.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/auth/sign-in-redirect.ts#buildSignInRedirectUrl",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/auth/sign-in-redirect.ts#URL_QUERY_SEPARATOR",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-navigation.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-navigation.ts#reloadCurrentPage",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/messaging/messaging-route-recovery.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/messaging/messaging-route-recovery.ts#MessagingRouteRecovery",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/messaging/messaging-route-recovery.ts#resolveMessagingRouteRecovery",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "pkg:next",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/query-params.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/query-params.ts#QUERY_PARAMS.auth",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/query-params.ts#QUERY_PARAMS~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/routes.ts#ROUTES.auth",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.signIn",
+        "reason": "new visible or interactive code"
+      }
+    ],
+    "suggestedScope": [
+      "pending from the previous run: missing passing evidence of kind browser or accessibility",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx › MessagingConnectionsContainer (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
+      "components/academy-admissions/admission-route-error/index.tsx › AdmissionRouteError — behavior of this code in every state of the unit that uses it",
+      "components/academy-admissions/admission-route-error/styles.module.scss (whole file) — visual states that use the changed classes (contrast, focus, loading and error styles)",
+      "lib/auth/sign-in-redirect.ts (module directives and side effects) — client/server boundary and side effects of the module",
+      "lib/auth/sign-in-redirect.ts › buildSignInRedirectUrl — behavior of this code in every state of the unit that uses it",
+      "lib/auth/sign-in-redirect.ts › URL_QUERY_SEPARATOR — behavior of this code in every state of the unit that uses it",
+      "lib/browser-navigation.ts (module directives and side effects) — client/server boundary and side effects of the module",
+      "lib/browser-navigation.ts › reloadCurrentPage — behavior of this code in every state of the unit that uses it",
+      "lib/messaging/messaging-route-recovery.ts (module directives and side effects) — client/server boundary and side effects of the module",
+      "lib/messaging/messaging-route-recovery.ts › MessagingRouteRecovery — behavior of this code in every state of the unit that uses it",
+      "lib/messaging/messaging-route-recovery.ts › resolveMessagingRouteRecovery — behavior of this code in every state of the unit that uses it",
+      "package next — components and hooks used from this package: states, feedback and accessibility after the upgrade",
+      "src/constants/query-params.ts (module directives and side effects) — client/server boundary and side effects of the module",
+      "src/constants/query-params.ts › QUERY_PARAMS.auth — copy or configuration read from this member, in every state that shows it",
+      "src/constants/query-params.ts › QUERY_PARAMS (object structure) — behavior of this code in every state of the unit that uses it",
+      "src/constants/routes.ts › ROUTES.auth — copy or configuration read from this member, in every state that shows it",
+      "src/modules/academy-admissions/constants/admission-ui.ts › ADMISSION_UI_COPY.signIn — copy or configuration read from this member, in every state that shows it"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T17:00:25.140Z",
+  "unitId": "academy.admissions.messaging.connections.restore"
+}

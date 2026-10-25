@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+      "branch": "fix/academy-leader-recovery-exits",
+      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
       "files": {
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx": "c1c83ca4850ca392",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx": "cb68f14de8813c68",
         "hooks/use-admission-review-batch-selection.ts": "daf741308d49c7a7",
         "app/api/tribes/[slug]/admissions/requests/[requestId]/decision/route.ts": "a600ca2ed24e41ed",
         "app/api/tribes/[slug]/admissions/request-decisions/route.ts": "957e77ecc40a6143",
@@ -438,7 +438,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:66c184ec2edd18aa3f8107484fdd35ad66b13958f16fdb291bff141c3232f700",
+      "fingerprint": "sha256:42a3d89aae7b5578d777cc4ad6ce839438b9e4f709976d761b3600f816f68ab6",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/publishItems": "83e901f531794b36",
@@ -454,7 +454,7 @@
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/clearBatch": "76ced9d93aca96f3",
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/retryOriginal": "d1fa6c8121a60a86",
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/batchAvailability": "c65cf6e184e478ff",
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer~shell": "b9231b43efc90108",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer~shell": "d333602d2e78670f",
         "hooks/use-admission-review-batch-selection.ts#<module>": "d414f6d3ee71f10d",
         "hooks/use-admission-review-batch-selection.ts#useAdmissionReviewBatchSelection/resetConfirmation": "78aa010634834939",
         "pkg:react": "374a4508a198654b",
@@ -4093,14 +4093,14 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T12:06:00.105Z",
+    "recordedAt": "2026-10-25T18:00:32.166Z",
     "result": "not-applicable",
-    "runId": "20261025T120557Z-a8d2b4",
+    "runId": "20261025T180030Z-9b6472",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: El cambio de boundaries no agrega requests, consultas ni pasos al flujo."
+        "recorded not applicable: Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": []
@@ -4120,8 +4120,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T120557Z-a8d2b4.json"
+    "summary": "Las salidas de recuperación no agregan requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T180030Z-9b6472.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

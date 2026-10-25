@@ -5,6 +5,7 @@ import type { AllowlistImportBrowserClient } from "@/src/modules/academy-admissi
 import { useAllowlistImportWorkflow } from "@/hooks/use-allowlist-import-workflow";
 import { AllowlistImport } from "@/components/academy-admissions/allowlist-import";
 import { AdmissionRouteError } from "@/components/academy-admissions/admission-route-error";
+import { ALLOWLIST_IMPORT_BROWSER_COPY } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { ADMISSION_POLICY_SETTINGS_SEGMENT } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 
@@ -12,6 +13,8 @@ import { ADMISSION_POLICY_SETTINGS_SEGMENT } from "@/src/modules/academy-admissi
 export function AllowlistImportContainer({ initialState, client }: { initialState: AllowlistImportPageState; client?: AllowlistImportBrowserClient }) {
   const workflow = useAllowlistImportWorkflow({ initialState, client });
   if (initialState.kind === "unavailable") return <AdmissionRouteError embedded message={initialState.message} retry={() => window.location.reload()} />;
+  // Losing the account or the tribe authority closes the private import; a fresh document is the way back.
+  if (workflow.accessLost) return <AdmissionRouteError embedded message={workflow.errorMessage ?? ALLOWLIST_IMPORT_BROWSER_COPY.account} retry={() => window.location.reload()} />;
   const canResume = workflow.pending?.type === REAUTHENTICATION_OPERATION.confirmAllowlistImport && workflow.originalChecked;
   const previous = workflow.unresolved[0], outcomes = new Set(workflow.snapshot?.rows.filter((row) => row.outcome !== undefined).map((row) => row.rowNumber));
   const canReconcile = Boolean(previous && !workflow.pending && workflow.originalChecked && previous.selectedRows.every((number) => outcomes.has(number)));

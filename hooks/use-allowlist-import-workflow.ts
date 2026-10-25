@@ -28,6 +28,8 @@ export function useAllowlistImportWorkflow(options: { initialState: AllowlistImp
   const initial = options.initialState.kind === "ready" ? options.initialState : null, client = options.client ?? allowlistImportApiClient, drafts = options.drafts ?? allowlistImportDraftStore;
   const empty = (): StoredAllowlistImport => ({ viewerId: initial?.viewerId ?? "", slug: initial?.slug ?? "", draft: null, importId: null, selection: [], pending: null, unresolved: [] });
   const [stored, setStored] = useState<StoredAllowlistImport>(empty), current = useRef(stored);
+  /** Rendered twin of `authorityLost`: once the account or the authority is gone, the page offers its way back. */
+  const [accessLost, setAccessLost] = useState(false);
   const [snapshot, setSnapshot] = useState<AllowlistImportDto | null>(null), snapshotRef = useRef<AllowlistImportDto | null>(null);
   const [policy, setPolicy] = useState({ contactType: initial?.contactType ?? null, version: initial?.policyVersion ?? null });
   const [ready, setReady] = useState(false), [busy, setBusy] = useState(false), [confirmed, setConfirmed] = useState(false), [privateVisible, setPrivateVisible] = useState(true);
@@ -47,7 +49,7 @@ export function useAllowlistImportWorkflow(options: { initialState: AllowlistImp
   const reportFailure = useCallback((failure: Extract<AllowlistBrowserResult<unknown>, { status: "failed" }>) => {
     setErrorMessage(failure.message);
     const denied = failure.code === ADMISSION_ERROR_CODE.authenticationRequired || failure.code === ADMISSION_ERROR_CODE.permissionDenied;
-    if (denied) { authorityLost.current = true; setPrivateVisible(false); setReady(false); setConfirmed(false); }
+    if (denied) { authorityLost.current = true; setAccessLost(true); setPrivateVisible(false); setReady(false); setConfirmed(false); }
     return denied;
   }, []);
   /** @param message - Safe failure copy. @param blocking - Whether it keeps the flow blocked; that stays on screen, any other failure is the write's toast. */
@@ -61,7 +63,7 @@ export function useAllowlistImportWorkflow(options: { initialState: AllowlistImp
     const viewer = await client.viewer(signal);
     if (!live(signal, scope)) return false;
     if (viewer.status === "aborted") return false;
-    if (viewer.status !== "ready" || viewer.value?.id !== initial.viewerId) { authorityLost.current = true; setPrivateVisible(false); setReady(false); setConfirmed(false); setErrorMessage(COPY.account); return false; }
+    if (viewer.status !== "ready" || viewer.value?.id !== initial.viewerId) { authorityLost.current = true; setAccessLost(true); setPrivateVisible(false); setReady(false); setConfirmed(false); setErrorMessage(COPY.account); return false; }
     return true;
   }, [client, initial]);
   /** @param importId - Exact owned saved resource. @param signal - Action scope. @param scope - Render generation. @returns Current DTO only; failures preserve prior confirmed progress. */
@@ -243,5 +245,5 @@ export function useAllowlistImportWorkflow(options: { initialState: AllowlistImp
     await dispatch(intent, signal, scope);
   }, COPY.confirming, WRITE_ACTION.reconcile), [dispatch, originalChecked, run]);
   const retryInitialization = useCallback(() => { if (!occupied.current && !authorityLost.current) setInitializationRevision((revision) => revision + 1); }, []);
-  return { ready, busy, writeAction, confirmed, setConfirmed, step: snapshot ? step : ALLOWLIST_IMPORT_STEP.upload, setStep: (value: number) => { if (!occupied.current) setStep(value); }, initializationFailed, retryInitialization, hasSavedImport: stored.importId !== null, draft: stored.draft, snapshot, selection: stored.selection, pending: stored.pending, unresolved: stored.unresolved, privateVisible, errorMessage, fieldError, statusMessage, conflict, policyConflict, policy, originalChecked, changeDraft, upload, preview, confirm, selectRow, readOriginal, readCurrent, readPolicy, download, reconcilePrevious };
+  return { accessLost, ready, busy, writeAction, confirmed, setConfirmed, step: snapshot ? step : ALLOWLIST_IMPORT_STEP.upload, setStep: (value: number) => { if (!occupied.current) setStep(value); }, initializationFailed, retryInitialization, hasSavedImport: stored.importId !== null, draft: stored.draft, snapshot, selection: stored.selection, pending: stored.pending, unresolved: stored.unresolved, privateVisible, errorMessage, fieldError, statusMessage, conflict, policyConflict, policy, originalChecked, changeDraft, upload, preview, confirm, selectRow, readOriginal, readCurrent, readPolicy, download, reconcilePrevious };
 }
