@@ -111,8 +111,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Cada aspirante puede corregir su WhatsApp mientras la solicitud siga pendiente y vigente; el formulario conserva el cambio original si se pierde la respuesta y avisa cuando debe revisarse de nuevo.
 
 ### Changed
+
 - En Gestionar academia, revocar una bonificación se hace en un diálogo con el motivo, que muestra el progreso, no se envía dos veces y actualiza la lista al terminar.
 - Gestionar academia muestra «Consultando…» al buscar o paginar, saca de la lista de pendientes la solicitud que acabás de decidir y ya no borra los cambios sin guardar de la oferta al cambiar la disponibilidad o ante un conflicto.
+- Gestionar academia abre más rápido: la página pide de una sola vez los integrantes, las solicitudes, la oferta y los proveedores.
 - Los filtros de fecha de Solicitudes se eligen en hora de Argentina («Desde (hora de Argentina)» y «Hasta (hora de Argentina)») en lugar de UTC.
 - En Avisos de admisión, una zona horaria que no existe se marca junto al campo y no deja continuar, en lugar de fallar recién al guardar.
 - Si al abrir Países y cupos o Conexión la sesión venció, la página ofrece «Iniciar sesión» y vuelve al mismo lugar; si falta el permiso, ya no ofrece un «Reintentar» que no puede funcionar.
@@ -308,6 +310,9 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - «Ver avisos anteriores» suma los avisos más antiguos debajo de los que ya se ven, sin perder el aviso elegido.
 - Un aviso cuyo plazo venció se muestra como no recuperable, con el motivo, en lugar de ofrecer una recuperación que termina en un error que no corresponde.
 - Si «Consultar conexión actual» falla o tarda demasiado, se muestra como un error de la consulta con su reintento y ya no indica que la conexión cambió.
+- Cuando la solicitud de ingreso o su enlace no pueden mostrarse por un problema temporal, la página ofrece «Reintentar» además de «Ir al inicio»; si el motivo no cambia al reintentar (falta de permiso, enlace inválido o solicitud inexistente), solo ofrece la salida.
+- Al pedir ingreso, un rechazo del envío aparece en el paso «Enviar solicitud», junto a la confirmación; el de la cancelación, junto a «Cancelar solicitud»; y el de corregir el teléfono, en su formulario. Cada uno se muestra una sola vez y desaparece al cambiar la confirmación o el dato.
+- Un enlace de invitación anterior con un código mal copiado o incompleto explica que el enlace no es válido y sugiere pedirle uno nuevo a la academia, en lugar de ofrecer «Reintentar», que no podía funcionar.
 
 ### Security
 

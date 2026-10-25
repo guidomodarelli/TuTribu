@@ -5,8 +5,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { AdmissionRouteError } from "@/components/academy-admissions/admission-route-error";
 import type { AdmissionPageState } from "@/src/modules/academy-admissions/application/results/admission-page-state";
-import { LEGACY_ADMISSION_ARRIVAL } from "@/src/modules/academy-admissions/constants/legacy-admission-arrival";
-import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { LEGACY_ADMISSION_ARRIVAL, LEGACY_ADMISSION_COPY } from "@/src/modules/academy-admissions/constants/legacy-admission-arrival";
 import { createLegacyAdmissionBrowserScope } from "@/lib/academy-admissions/legacy-admission-scope";
 import { buildLegacyAdmissionEntryRoute } from "@/lib/academy-admissions/admission-routes";
 import { AdmissionContainer } from "../../admission-container";
@@ -24,6 +23,8 @@ export function LegacyAdmissionContainer({ initialState }: { initialState: Admis
     );
     return () => controller.abort();
   }, [token]);
-  if (!LEGACY_ADMISSION_ARRIVAL.canonicalTokenPattern.test(token) || failedToken === token) return <AdmissionRouteError message={ADMISSION_ERROR_MESSAGE[ADMISSION_ERROR_CODE.invalidInput]} retry={() => window.location.reload()} />;
+  // A malformed token, or a browser without native hashing, fails the same way on every reload: explain it and leave, never retry.
+  if (!LEGACY_ADMISSION_ARRIVAL.canonicalTokenPattern.test(token)) return <AdmissionRouteError message={LEGACY_ADMISSION_COPY.invalidLink} />;
+  if (failedToken === token) return <AdmissionRouteError message={LEGACY_ADMISSION_COPY.unsupportedBrowser} />;
   return <AdmissionContainer key={`${slug}:${token}`} initialState={initialState} legacyInvitationToken={token} arrivalScope={reference?.token === token ? reference.scope : undefined} arrivalReturnPath={buildLegacyAdmissionEntryRoute(slug, token)} />;
 }

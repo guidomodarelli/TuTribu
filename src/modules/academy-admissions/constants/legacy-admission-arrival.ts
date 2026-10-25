@@ -8,3 +8,9 @@ export const LEGACY_ADMISSION_ARRIVAL = {
   hexRadix: 16,
   hexByteWidth: 2,
 } as const;
+
+/** Explains why a historical link cannot open; both failures repeat on every reload, so neither offers a retry. */
+export const LEGACY_ADMISSION_COPY = {
+  invalidLink: "Este enlace de ingreso no es válido o está incompleto. Pedile a la academia un enlace nuevo.",
+  unsupportedBrowser: "Este navegador no puede abrir el enlace de ingreso. Abrilo en un navegador actualizado o pedile a la academia un enlace nuevo.",
+} as const;

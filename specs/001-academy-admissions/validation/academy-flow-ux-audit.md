@@ -226,8 +226,8 @@ La línea base y el después de cada optimización se registran acá y en su PR,
 
 | Id | Flujo | Métrica | Antes | Después | PR |
 |---|---|---|---|---|---|
-| PERF-01 | Páginas de integrantes (`resolveTribePageAccess`) | Viajes secuenciales por request | pendiente | pendiente | pendiente |
-| PERF-02 | Gestionar academia | Viajes secuenciales por request | pendiente | pendiente | pendiente |
+| PERF-01 | Páginas de integrantes (`resolveTribePageAccess`) | Sentencias SQL y respuesta del render de Academia (`next dev`, `pg_stat_statements` del rol de la app, mediana de 5 tras 2 de calentamiento, 2 corridas) | 47 sentencias; 3,40 s y 3,35 s | sin cambios: medido y descartado | cumple: la sesión, la reconciliación de la suscripción y el acceso van en serie a propósito, porque la reconciliación puede cambiar la membresía que lee el acceso; la página ya pide sus datos con `Promise.all`. Línea base registrada en [PR #192](https://github.com/guidomodarelli/TuTribu/pull/192) |
+| PERF-02 | Gestionar academia | Sentencias SQL y respuesta del render (mismo protocolo que PERF-01) | 50 y 48 sentencias; 6,46 s y 6,03 s | 45 y 45 sentencias; 3,13 s y 3,34 s | [PR #192](https://github.com/guidomodarelli/TuTribu/pull/192) |
 | PERF-03 | Conexión de mensajería (MEN-09) | Commits de React cada 10 s con la página en reposo (mediana de 3, Chromium 1280, `next dev`, hook de conteo de DevTools) | 10 | 0 | [#190](https://github.com/guidomodarelli/TuTribu/pull/190) |
 | PERF-04 | Invitaciones: copiar el enlace recién emitido (LID-01) | Espera desde que aparece el enlace hasta poder copiarlo | 17,4 s (Chromium 1280) y 17,2 s (WebKit 390) | 0,016 s y 0,013 s | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |
 | PERF-05 | Fogón: publicar con clave idempotente (INT-15) | Sentencias SQL y latencia por publicación (repositorio real, mediana de 3) | 1 sentencia; 637 ms | 1 sentencia; 638 ms (ruido) | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |

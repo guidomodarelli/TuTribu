@@ -1,4 +1,6 @@
 /** Owns the manual admission UI vocabulary and bounded browser recovery. @module admission-ui */
+import { ADMISSION_ERROR_CODE, type AdmissionErrorCode } from "./admission-errors";
+
 export const ADMISSION_UI_PHASE = { idle: "idle", writing: "writing", checking: "checking", uncertain: "uncertain" } as const;
 export const ADMISSION_DRAFT_STORAGE_PREFIX = "tutribu-admission-draft";
 export const ADMISSION_UI_CLOCK_INTERVAL_MS = 60_000;
@@ -24,4 +26,21 @@ export const ADMISSION_UI_COPY = {
   draftInvalid: "Revisá el teléfono, su país y la longitud del mensaje antes de continuar.",
   outcomePending: "La solicitud quedó pendiente de revisión.", outcomeMember: "Ya tenés acceso básico a la academia.", openAcademy: "Abrir academia",
   changeAccount: "Cambiar de cuenta", changingAccount: "Cerrando la sesión…",
+  retryUnavailable: "Reintentar",
 } as const;
+
+/**
+ * Page-read failures that can pass on their own (a dependency or the server was briefly unavailable), so reading the
+ * page again may show it. A missing session, a permission denial, an invalid link or a missing resource fail the same
+ * way on every read and never offer a retry.
+ */
+export const ADMISSION_TRANSIENT_PAGE_ERROR_CODES: readonly AdmissionErrorCode[] = [
+  ADMISSION_ERROR_CODE.unexpectedFailure, ADMISSION_ERROR_CODE.publicContractUnusable, ADMISSION_ERROR_CODE.dependencyUnavailable,
+  ADMISSION_ERROR_CODE.transportTimeout, ADMISSION_ERROR_CODE.upstreamPayloadUnusable, ADMISSION_ERROR_CODE.providerRateLimited,
+];
+
+/** Where the applicant page shows an error: next to the step, action or field that produced it, or on the page itself. */
+export type AdmissionFeedbackOrigin = "page" | "submit" | "cancel" | "whatsapp";
+
+/** Names each feedback origin of the applicant page. */
+export const ADMISSION_FEEDBACK_ORIGIN = { page: "page", submit: "submit", cancel: "cancel", whatsapp: "whatsapp" } as const satisfies Record<string, AdmissionFeedbackOrigin>;
