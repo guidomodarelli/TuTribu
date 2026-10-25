@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.admissions.applicant.account.change",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Solicitar ingreso",
+    "section": null,
+    "subflow": "Cambiar de cuenta"
+  },
+  "description": "Cerrar la sesión actual para ingresar con otra cuenta desde el enlace de admisión.",
+  "routes": [
+    "/admissions/[slug]"
+  ],
+  "entries": [
+    {
+      "path": "app/(admission)/admissions/[slug]/admission-container.tsx",
+      "symbol": "AdmissionContainer/changeAccount"
+    }
+  ],
+  "origin": "curated",
+  "dependsOn": [
+    {
+      "path": "src/modules/academy-admissions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAcademyAdmissionsModule"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "tribe.channels.manage",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Tribu",
+    "page": "Canales",
+    "section": null,
+    "subflow": "Crear, editar y borrar canales"
+  },
+  "description": "Crear, editar y borrar canales del fogón con confirmación al borrar.",
+  "routes": [
+    "/[slug]/canales"
+  ],
+  "entries": [
+    {
+      "path": "components/tribe-round/tribe-channel-management/index.tsx",
+      "symbol": "TribeChannelManagement/handleCreateChannel"
+    },
+    {
+      "path": "components/tribe-round/tribe-channel-management/index.tsx",
+      "symbol": "TribeChannelManagement/handleUpdateChannel"
+    },
+    {
+      "path": "components/tribe-round/tribe-channel-management/index.tsx",
+      "symbol": "TribeChannelManagement/handleDeleteChannel"
+    },
+    {
+      "path": "app/api/tribes/[slug]/channels/route.ts",
+      "symbol": "*"
+    },
+    {
+      "path": "app/api/tribes/[slug]/channels/[channelId]/route.ts",
+      "symbol": "*"
+    }
+  ],
+  "origin": "curated",
+  "dependsOn": [
+    {
+      "path": "src/modules/messages/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildMessagesModule"
+    }
+  ]
+}

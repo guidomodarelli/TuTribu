@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "tribe.campfire.view",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Tribu",
+    "page": "Fogón",
+    "section": null,
+    "subflow": "Leer el fogón"
+  },
+  "description": "Carga y navegación del fogón (páginas y canales) para integrantes gratuitos y suscritos, con su boundary dentro del shell.",
+  "routes": [
+    "/[slug]"
+  ],
+  "entries": [
+    {
+      "path": "app/(platform)/[slug]/page.tsx",
+      "symbol": "default",
+      "follow": false
+    },
+    {
+      "path": "app/(platform)/[slug]/loading.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "hooks/use-tribe-round-navigation.ts",
+      "symbol": "useTribeRoundNavigation"
+    },
+    {
+      "path": "app/api/tribes/[slug]/messages/route.ts",
+      "symbol": "GET"
+    }
+  ],
+  "origin": "curated",
+  "dependsOn": [
+    {
+      "path": "src/modules/messages/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildMessagesModule"
+    },
+    {
+      "path": "src/modules/tribes/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildTribesModule"
+    }
+  ]
+}

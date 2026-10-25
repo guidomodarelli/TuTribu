@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.admissions.applicant.invitation.accept",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Invitación personal",
+    "section": null,
+    "subflow": "Aceptar la invitación personal"
+  },
+  "description": "Abrir y aceptar una invitación personal, con comprobación de contacto cuando la academia la exige.",
+  "routes": [
+    "/admissions/invitations/[token]"
+  ],
+  "entries": [
+    {
+      "path": "app/(admission)/admissions/invitations/[token]/personal-invitation-container.tsx",
+      "symbol": "PersonalInvitationContainer"
+    },
+    {
+      "path": "hooks/use-personal-invitation.ts",
+      "symbol": "usePersonalInvitation"
+    },
+    {
+      "path": "app/api/admissions/invitations/[token]/overview/route.ts",
+      "symbol": "*"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/submissions/route.ts",
+      "symbol": "POST"
+    }
+  ],
+  "origin": "curated",
+  "dependsOn": [
+    {
+      "path": "src/modules/academy-admissions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAcademyAdmissionsModule"
+    }
+  ]
+}

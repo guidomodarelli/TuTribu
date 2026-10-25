@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.admissions.applicant.request.submit",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Solicitar ingreso",
+    "section": "Formulario",
+    "subflow": "Enviar la solicitud"
+  },
+  "description": "Enviar la solicitud de ingreso con operationId persistido antes del POST, recuperación de un resultado incierto y relectura del estado.",
+  "routes": [
+    "/admissions/[slug]"
+  ],
+  "entries": [
+    {
+      "path": "app/(admission)/admissions/[slug]/admission-container.tsx",
+      "symbol": "AdmissionContainer/write"
+    },
+    {
+      "path": "app/(admission)/admissions/[slug]/admission-container.tsx",
+      "symbol": "AdmissionContainer/completeWrite"
+    },
+    {
+      "path": "app/(admission)/admissions/[slug]/admission-container.tsx",
+      "symbol": "AdmissionContainer/recover"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/submissions/route.ts",
+      "symbol": "POST"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/operations/[operationId]/route.ts",
+      "symbol": "GET"
+    }
+  ],
+  "origin": "curated",
+  "dependsOn": [
+    {
+      "path": "src/modules/academy-admissions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAcademyAdmissionsModule"
+    }
+  ]
+}

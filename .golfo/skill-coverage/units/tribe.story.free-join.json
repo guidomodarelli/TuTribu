@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "tribe.story.free-join",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Tribu",
+    "page": "Historia",
+    "section": null,
+    "subflow": "Ingresar gratis desde la historia"
+  },
+  "description": "Ingreso gratuito desde la historia de la tribu con una server action.",
+  "routes": [
+    "/[slug]/historia"
+  ],
+  "entries": [
+    {
+      "path": "app/(platform)/[slug]/historia/page.tsx",
+      "symbol": "joinTribeFreeAction"
+    },
+    {
+      "path": "components/tribes/tribe-story-about/free-join-submit-button/index.tsx",
+      "symbol": "FreeJoinSubmitButton"
+    }
+  ],
+  "origin": "curated",
+  "dependsOn": [
+    {
+      "path": "src/modules/tribes/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildTribesModule"
+    }
+  ]
+}

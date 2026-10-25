@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.admissions.messaging.connection.lifecycle",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Admisiones",
+    "section": "Conexión de mensajería",
+    "subflow": "Suspender o desconectar la conexión"
+  },
+  "description": "Suspender o desconectar la conexión activa con confirmación de alcance y motivo.",
+  "routes": [
+    "/[slug]/academia/admissions/messaging/connections"
+  ],
+  "entries": [
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-lifecycle-controller.ts",
+      "symbol": "useMessagingLifecycleController"
+    },
+    {
+      "path": "app/api/tribes/[slug]/messaging/connections/[connectionId]/suspend/route.ts",
+      "symbol": "*"
+    },
+    {
+      "path": "app/api/tribes/[slug]/messaging/connections/[connectionId]/disconnect/route.ts",
+      "symbol": "*"
+    }
+  ],
+  "origin": "curated",
+  "dependsOn": [
+    {
+      "path": "src/modules/messaging/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildMessagingModule"
+    }
+  ]
+}

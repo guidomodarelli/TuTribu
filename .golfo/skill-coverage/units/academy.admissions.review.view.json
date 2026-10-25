@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.admissions.review.view",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Admisiones",
+    "section": "Solicitudes",
+    "subflow": "Revisar la bandeja y filtrar"
+  },
+  "description": "Bandeja de solicitudes del líder: carga, filtros, ver más, detalle y guía de configuración.",
+  "routes": [
+    "/[slug]/academia/admissions"
+  ],
+  "entries": [
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/page.tsx",
+      "symbol": "default",
+      "follow": false
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/loading.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/error.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx",
+      "symbol": "AdmissionReviewContainer"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/requests/route.ts",
+      "symbol": "GET"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/requests/[requestId]/route.ts",
+      "symbol": "*"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/overview/route.ts",
+      "symbol": "*"
+    }
+  ],
+  "origin": "curated",
+  "dependsOn": [
+    {
+      "path": "src/modules/academy-admissions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAcademyAdmissionsModule"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.admissions.messaging.usage.save",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Admisiones",
+    "section": "Uso de mensajería",
+    "subflow": "Guardar países y cupos"
+  },
+  "description": "Guardar los países habilitados y los cupos diarios de mensajería, con recuperación del original.",
+  "routes": [
+    "/[slug]/academia/admissions/messaging"
+  ],
+  "entries": [
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx",
+      "symbol": "MessagingUsageContainer"
+    },
+    {
+      "path": "app/api/tribes/[slug]/messaging/usage-policy/route.ts",
+      "symbol": "*"
+    },
+    {
+      "path": "app/api/tribes/[slug]/messaging/usage-policy/operations/[operationId]/route.ts",
+      "symbol": "*"
+    }
+  ],
+  "origin": "curated",
+  "dependsOn": [
+    {
+      "path": "src/modules/messaging/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildMessagingModule"
+    }
+  ]
+}

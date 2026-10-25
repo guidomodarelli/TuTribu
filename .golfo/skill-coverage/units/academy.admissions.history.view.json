@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.admissions.history.view",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Admisiones",
+    "section": "Historial",
+    "subflow": "Consultar el historial de una solicitud"
+  },
+  "description": "Historial de decisiones y eventos de una solicitud.",
+  "routes": [
+    "/[slug]/academia/admissions/history/[requestId]"
+  ],
+  "entries": [
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/history/[requestId]/page.tsx",
+      "symbol": "default",
+      "follow": false
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/history/[requestId]/loading.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/history/[requestId]/error.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/history/[requestId]/history-container.tsx",
+      "symbol": "AdmissionReviewHistoryContainer"
+    }
+  ],
+  "origin": "curated",
+  "dependsOn": [
+    {
+      "path": "src/modules/academy-admissions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAcademyAdmissionsModule"
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.admissions.activity.view",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Admisiones",
+    "section": "Actividad",
+    "subflow": "Consultar la actividad y las métricas"
+  },
+  "description": "Actividad de admisión y métricas, con filtros y paginación.",
+  "routes": [
+    "/[slug]/academia/admissions/activity"
+  ],
+  "entries": [
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/activity/page.tsx",
+      "symbol": "default",
+      "follow": false
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/activity/loading.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/activity/error.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx",
+      "symbol": "AdmissionActivityContainer"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/activity/route.ts",
+      "symbol": "*"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/activity/snapshot/route.ts",
+      "symbol": "*"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/metrics/route.ts",
+      "symbol": "*"
+    }
+  ],
+  "origin": "curated",
+  "dependsOn": [
+    {
+      "path": "src/modules/academy-admissions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAcademyAdmissionsModule"
+    }
+  ]
+}

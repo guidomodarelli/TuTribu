@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.admissions.review.decide",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Admisiones",
+    "section": "Solicitudes",
+    "subflow": "Aprobar o rechazar una solicitud o un lote"
+  },
+  "description": "Decidir una solicitud o un lote con confirmación, motivo para rechazar y recuperación del lote por operación.",
+  "routes": [
+    "/[slug]/academia/admissions"
+  ],
+  "entries": [
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx",
+      "symbol": "AdmissionReviewContainer",
+      "follow": false
+    },
+    {
+      "path": "hooks/use-admission-review-batch-selection.ts",
+      "symbol": "useAdmissionReviewBatchSelection"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/requests/[requestId]/decision/route.ts",
+      "symbol": "*"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/request-decisions/route.ts",
+      "symbol": "*"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/operations/[operationId]/route.ts",
+      "symbol": "GET"
+    }
+  ],
+  "origin": "curated",
+  "dependsOn": [
+    {
+      "path": "src/modules/academy-admissions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAcademyAdmissionsModule"
+    }
+  ]
+}

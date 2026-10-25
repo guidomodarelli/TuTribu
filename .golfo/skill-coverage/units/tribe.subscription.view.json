@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "tribe.subscription.view",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Tribu",
+    "page": "Suscripción",
+    "section": null,
+    "subflow": "Abrir la suscripción"
+  },
+  "description": "Carga de la página de suscripción del integrante con su estado de cobro.",
+  "routes": [
+    "/[slug]/suscripcion"
+  ],
+  "entries": [
+    {
+      "path": "app/(platform)/[slug]/suscripcion/page.tsx",
+      "symbol": "default",
+      "follow": false
+    },
+    {
+      "path": "app/(platform)/[slug]/suscripcion/loading.tsx",
+      "symbol": "default"
+    }
+  ],
+  "origin": "curated",
+  "dependsOn": [
+    {
+      "path": "src/modules/subscriptions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildSubscriptionsModule"
+    }
+  ]
+}

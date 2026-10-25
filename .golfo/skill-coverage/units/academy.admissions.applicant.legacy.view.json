@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.admissions.applicant.legacy.view",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Solicitar ingreso",
+    "section": null,
+    "subflow": "Abrir un enlace de admisión heredado"
+  },
+  "description": "Llegar con un enlace heredado: valida el token y continúa en el contenedor de admisión.",
+  "routes": [
+    "/admissions/[slug]/legacy/[token]"
+  ],
+  "entries": [
+    {
+      "path": "app/(admission)/admissions/[slug]/legacy/[token]/legacy-admission-container.tsx",
+      "symbol": "LegacyAdmissionContainer"
+    },
+    {
+      "path": "app/(admission)/admissions/[slug]/legacy/[token]/page.tsx",
+      "symbol": "default",
+      "follow": false
+    },
+    {
+      "path": "app/(admission)/admissions/[slug]/legacy/[token]/loading.tsx",
+      "symbol": "default"
+    }
+  ],
+  "origin": "curated",
+  "dependsOn": [
+    {
+      "path": "src/modules/academy-admissions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAcademyAdmissionsModule"
+    }
+  ]
+}

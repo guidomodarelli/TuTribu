@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "tribe.channels.view",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Tribu",
+    "page": "Canales",
+    "section": null,
+    "subflow": "Abrir la gestión de canales"
+  },
+  "description": "Carga de la gestión de canales para líderes y guardianes activos.",
+  "routes": [
+    "/[slug]/canales"
+  ],
+  "entries": [
+    {
+      "path": "app/(platform)/[slug]/canales/page.tsx",
+      "symbol": "default",
+      "follow": false
+    },
+    {
+      "path": "app/(platform)/[slug]/canales/loading.tsx",
+      "symbol": "default"
+    }
+  ],
+  "origin": "curated",
+  "dependsOn": [
+    {
+      "path": "src/modules/messages/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildMessagesModule"
+    },
+    {
+      "path": "src/modules/tribes/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildTribesModule"
+    }
+  ]
+}
