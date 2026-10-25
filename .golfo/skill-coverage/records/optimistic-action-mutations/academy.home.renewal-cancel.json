@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "fix/academy-admission-request-deadline",
-      "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
+      "commit": "2b2a89c3f6be74f42c5e082a2da4341efcb264f6",
       "files": {
         "components/academy/academy-home/index.tsx": "809988db00523019",
         "app/(platform)/[slug]/academia/page.tsx": "8be7106822155a86",
@@ -25,7 +25,7 @@
         "src/constants/routes.ts": "f7766aea8d0ef37e",
         "lib/academy-admissions/admission-routes.ts": "adac74b9727d9a17",
         "lib/academy/academy-format.ts": "c89823377b85f3a9",
-        "lib/academy/academy-api-client.ts": "8912660dc982893a",
+        "lib/academy/academy-api-client.ts": "298112080df602fd",
         "src/modules/product-access/constants/academy-route-copy.ts": "f1751ca472d6a6c1",
         "src/modules/subscriptions/constants/subscriptions.ts": "6ba50c0da5428de7",
         "src/modules/setup.ts": "b7906aa060d53395",
@@ -165,7 +165,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:928f7e46a41bb3f3c6c55cfe5e1d1ce757cc650dfa2272536adba6835fcc2461",
+      "fingerprint": "sha256:3226940b96f313ea545b0c97f3c82d82c39fd70c8eaaae4c8805c70d0df3272d",
       "inputs": {
         "components/academy/academy-home/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-home/index.tsx#AcademyHome~shell": "a4ea8deb2197b9c4",
@@ -633,7 +633,7 @@
         "lib/academy/academy-api-client.ts#HTTP_METHOD.get": "53ede39e501fa521",
         "lib/academy/academy-api-client.ts#requestAcademyApi": "086e4d60a51c8ea7",
         "lib/academy/academy-api-client.ts#AcademyApiResult": "f1afcd44a547173c",
-        "lib/academy/academy-api-client.ts#sendAcademyApiRequest": "271160e6c81f9377",
+        "lib/academy/academy-api-client.ts#sendAcademyApiRequest": "9819461f2aea37d1",
         "lib/academy/academy-api-client.ts#ACADEMY_API_FALLBACK_MESSAGE": "60c881b2513e141c",
         "lib/academy/academy-api-client.ts#HTTP_STATUS_CONFLICT": "4821e07a60f48131",
         "lib/academy/academy-api-client.ts#JSON_HEADERS.Content-Type": "ad88e5ea50ecbecc",
@@ -2324,21 +2324,21 @@
     "evidence": [
       {
         "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
-        "durationMs": 25458,
+        "durationMs": 23493,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "30ed05c4fe96bab645846cfae53ceb2d73cecce2f64010c34efd61c0309da147",
-        "recordedAt": "2026-10-25T02:00:28.994Z",
+        "outputSha256": "4cd7cc4bcbc66e66b06254b87b6ccb6d944a7bde39484b07024792e181c5b64f",
+        "recordedAt": "2026-10-25T03:03:34.387Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T02:00:29.649Z",
+        "recordedAt": "2026-10-25T03:03:35.083Z",
         "source": "attested",
-        "summary": "Deadline compartido de los requests del navegador (boundBrowserRequest, 120 s): una escritura vencida queda incierta (transport_timeout, uncertain) para recuperar la operación original; una lectura vencida es un fallo cierto; la cancelación propia sigue siendo abort."
+        "summary": "Deadline compartido de los requests del navegador (120 s) y lectura del cuerpo: un cuerpo cortado por el deadline o por la cancelación propia es un fallo, nunca un éxito; una escritura vencida queda incierta y una lectura vencida es un fallo cierto."
       }
     ],
     "limitations": [
@@ -2346,15 +2346,21 @@
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T02:00:31.854Z",
+    "recordedAt": "2026-10-25T03:03:37.370Z",
     "result": "partial",
-    "runId": "20261025T020002Z-f6827e",
+    "runId": "20261025T030310Z-79965d",
     "scope": {
       "decision": "full",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "lib/academy/academy-api-client.ts#sendAcademyApiRequest",
+          "reason": "code reached by the unit changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.home.renewal-cancel: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -2372,7 +2378,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T020002Z-f6827e.json"
+    "report": "runs/20261025T030310Z-79965d.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

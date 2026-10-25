@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "fix/academy-admission-request-deadline",
-      "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
+      "commit": "2b2a89c3f6be74f42c5e082a2da4341efcb264f6",
       "files": {
         "components/academy/academy-home/index.tsx": "809988db00523019",
         "app/(platform)/[slug]/academia/page.tsx": "8be7106822155a86",
@@ -39,7 +39,7 @@
         "src/constants/routes.ts": "f7766aea8d0ef37e",
         "lib/academy-admissions/admission-routes.ts": "adac74b9727d9a17",
         "lib/academy/academy-format.ts": "c89823377b85f3a9",
-        "lib/academy/academy-api-client.ts": "8912660dc982893a",
+        "lib/academy/academy-api-client.ts": "298112080df602fd",
         "src/modules/shared/infrastructure/database/server-database-client.ts": "895a53cd3c3f72ab",
         "src/modules/academy-admissions/infrastructure/api/academy-join-handler.ts": "8345366af80257bc",
         "src/modules/setup.ts": "b7906aa060d53395",
@@ -550,7 +550,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:2e087b5ef906655906efd8beac111000c4ad55b8f99c1a4cbee7fb63044bd8d5",
+      "fingerprint": "sha256:f361d183127e6567c8af117e892211069654ee3be24aa8da542133f281956c94",
       "inputs": {
         "components/academy/academy-home/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-home/index.tsx#AcademyHome~shell": "a4ea8deb2197b9c4",
@@ -975,7 +975,7 @@
         "lib/academy/academy-api-client.ts#HTTP_METHOD~frame": "eb8c805ac4896c41",
         "lib/academy/academy-api-client.ts#HTTP_METHOD.post": "d93a7a7272c5bf05",
         "lib/academy/academy-api-client.ts#requestAcademyApi": "086e4d60a51c8ea7",
-        "lib/academy/academy-api-client.ts#sendAcademyApiRequest": "271160e6c81f9377",
+        "lib/academy/academy-api-client.ts#sendAcademyApiRequest": "9819461f2aea37d1",
         "lib/academy/academy-api-client.ts#ACADEMY_API_FALLBACK_MESSAGE": "60c881b2513e141c",
         "lib/academy/academy-api-client.ts#HTTP_STATUS_CONFLICT": "4821e07a60f48131",
         "lib/academy/academy-api-client.ts#JSON_HEADERS.Content-Type": "ad88e5ea50ecbecc",
@@ -5486,18 +5486,16 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T01:59:31.750Z",
+    "recordedAt": "2026-10-25T03:02:33.734Z",
     "result": "not-applicable",
-    "runId": "20261025T015928Z-133712",
+    "runId": "20261025T030230Z-0840d4",
     "scope": {
-      "decision": "full",
+      "decision": "not-applicable",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "recorded not applicable: El deadline no agrega requests, consultas ni pasos al flujo: solo un timer por request ya existente."
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": [
-        "measure the complete flow /[slug]/academia before and after, same build, data and throttling; median of 3 for noisy metrics"
-      ]
+      "suggestedScope": []
     },
     "skill": {
       "definitionFiles": {
@@ -5515,7 +5513,7 @@
       "version": "1.5.0"
     },
     "summary": "El deadline no agrega requests, consultas ni pasos al flujo: solo un timer por request ya existente.",
-    "report": "runs/20261025T015928Z-133712.json"
+    "report": "runs/20261025T030230Z-0840d4.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

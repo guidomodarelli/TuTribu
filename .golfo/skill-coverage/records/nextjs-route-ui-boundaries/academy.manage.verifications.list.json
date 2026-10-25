@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "fix/academy-admission-request-deadline",
-      "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
+      "commit": "2b2a89c3f6be74f42c5e082a2da4341efcb264f6",
       "files": {
         "components/academy/academy-management/index.tsx": "2cdaec4513ec7dcd",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "0f0efff9bd2bbc3e",
@@ -28,7 +28,7 @@
         "app/not-found.tsx": "7c2bf7b75ccbcef3",
         "next.config.ts": "499b76937ce73f12",
         "components/academy/academy-management/styles.module.scss": "01f52ce7ee08aa77",
-        "lib/academy/academy-api-client.ts": "8912660dc982893a",
+        "lib/academy/academy-api-client.ts": "298112080df602fd",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts": "102e81af136adc5a",
         "src/modules/product-access/infrastructure/api/academy-request-schemas.ts": "153a8ff211e2f807",
         "app/api/tribes/[slug]/academy-route-scope.ts": "439f451d9503336b",
@@ -104,7 +104,7 @@
         "app/not-found.module.scss": "07d324074a6ecb7f",
         "config/deployment-environment.ts": "08bb1a3202ff76f7"
       },
-      "fingerprint": "sha256:e092b244cec0bf765c5047ddc4dcff191b43df55fa2c2ab3e894eb015c6193df",
+      "fingerprint": "sha256:cdb473f41526949ee84faf536affe7fbcad793af65cb5036cacfbd0d62b2f50d",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
@@ -305,7 +305,7 @@
         "lib/academy/academy-api-client.ts#HTTP_METHOD.patch": "4f53f03ad55746a6",
         "lib/academy/academy-api-client.ts#requestAcademyApi": "086e4d60a51c8ea7",
         "lib/academy/academy-api-client.ts#AcademyApiResult": "f1afcd44a547173c",
-        "lib/academy/academy-api-client.ts#sendAcademyApiRequest": "271160e6c81f9377",
+        "lib/academy/academy-api-client.ts#sendAcademyApiRequest": "9819461f2aea37d1",
         "lib/academy/academy-api-client.ts#ACADEMY_API_FALLBACK_MESSAGE": "60c881b2513e141c",
         "lib/academy/academy-api-client.ts#HTTP_STATUS_CONFLICT": "4821e07a60f48131",
         "lib/academy/academy-api-client.ts#JSON_HEADERS.Content-Type": "ad88e5ea50ecbecc",
@@ -1194,32 +1194,32 @@
     "evidence": [
       {
         "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
-        "durationMs": 24138,
+        "durationMs": 19849,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "437beb79cce90038f7528ab3b7b27e8911768ba71736d1bf80bb733e6d46d38f",
-        "recordedAt": "2026-10-25T02:14:22.698Z",
+        "outputSha256": "178c574db005e57734972e61fa9842298d43d55227e12c71ff3a3326f407a830",
+        "recordedAt": "2026-10-25T03:16:34.928Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 3059,
+        "durationMs": 2863,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T02:14:26.412Z",
+        "recordedAt": "2026-10-25T03:16:38.286Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T02:14:26.986Z",
+        "recordedAt": "2026-10-25T03:16:38.835Z",
         "source": "attested",
-        "summary": "Deadline compartido de los requests del navegador (boundBrowserRequest, 120 s): una escritura vencida queda incierta (transport_timeout, uncertain) para recuperar la operación original; una lectura vencida es un fallo cierto; la cancelación propia sigue siendo abort."
+        "summary": "Deadline compartido de los requests del navegador (120 s) y lectura del cuerpo: un cuerpo cortado por el deadline o por la cancelación propia es un fallo, nunca un éxito; una escritura vencida queda incierta y una lectura vencida es un fallo cierto."
       }
     ],
     "limitations": [
@@ -1227,15 +1227,21 @@
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T02:14:28.766Z",
+    "recordedAt": "2026-10-25T03:16:40.258Z",
     "result": "partial",
-    "runId": "20261025T021357Z-6e7daf",
+    "runId": "20261025T031614Z-d2cff1",
     "scope": {
       "decision": "full",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "lib/academy/academy-api-client.ts#sendAcademyApiRequest",
+          "reason": "code rendered by the route changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.manage.verifications.list (/[slug]/academia/gestionar): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
       ]
@@ -1253,7 +1259,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T021357Z-6e7daf.json"
+    "report": "runs/20261025T031614Z-d2cff1.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

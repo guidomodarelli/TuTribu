@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "fix/academy-admission-request-deadline",
-      "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
+      "commit": "2b2a89c3f6be74f42c5e082a2da4341efcb264f6",
       "files": {
         "components/academy/academy-management/index.tsx": "2cdaec4513ec7dcd",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "0f0efff9bd2bbc3e",
@@ -18,7 +18,7 @@
         "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "225eef5ce922c395",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
-        "lib/academy/academy-api-client.ts": "8912660dc982893a",
+        "lib/academy/academy-api-client.ts": "298112080df602fd",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts": "102e81af136adc5a",
         "src/modules/product-access/constants/academy-route-copy.ts": "f1751ca472d6a6c1",
         "src/modules/product-access/infrastructure/api/academy-request-schemas.ts": "153a8ff211e2f807",
@@ -50,7 +50,7 @@
         "src/modules/subscriptions/domain/services/monthly-billing-cycle.ts": "1e253b01e98f41b8",
         "src/constants/time.ts": "98b5459a77a709b0"
       },
-      "fingerprint": "sha256:755e33b0195442bd323bdac3f7d5fc3b8e2191705eb141e9ad0b05d94612b468",
+      "fingerprint": "sha256:f83a83093f56a287f03c078978a39bd10d494fc973c561b8eafdc91f961eac2d",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-management/index.tsx#SettingsSection~shell": "c222b1571ed4aaf1",
@@ -214,7 +214,7 @@
         "lib/academy/academy-api-client.ts#HTTP_METHOD.put": "17ca3e973edb85a9",
         "lib/academy/academy-api-client.ts#requestAcademyApi": "086e4d60a51c8ea7",
         "lib/academy/academy-api-client.ts#AcademyApiResult": "f1afcd44a547173c",
-        "lib/academy/academy-api-client.ts#sendAcademyApiRequest": "271160e6c81f9377",
+        "lib/academy/academy-api-client.ts#sendAcademyApiRequest": "9819461f2aea37d1",
         "lib/academy/academy-api-client.ts#ACADEMY_API_FALLBACK_MESSAGE": "60c881b2513e141c",
         "lib/academy/academy-api-client.ts#HTTP_STATUS_CONFLICT": "4821e07a60f48131",
         "lib/academy/academy-api-client.ts#JSON_HEADERS.Content-Type": "ad88e5ea50ecbecc",
@@ -678,21 +678,21 @@
     "evidence": [
       {
         "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
-        "durationMs": 23573,
+        "durationMs": 25783,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "c447b047264647455bf12d83975fb706d620589791e040debb50e92f424501e9",
-        "recordedAt": "2026-10-25T02:02:10.377Z",
+        "outputSha256": "ba7564aec371320443d0a9743773bfbaed6778d3e4cf49908595318b2d3aac17",
+        "recordedAt": "2026-10-25T03:05:15.297Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T02:02:10.996Z",
+        "recordedAt": "2026-10-25T03:05:15.964Z",
         "source": "attested",
-        "summary": "Deadline compartido de los requests del navegador (boundBrowserRequest, 120 s): una escritura vencida queda incierta (transport_timeout, uncertain) para recuperar la operación original; una lectura vencida es un fallo cierto; la cancelación propia sigue siendo abort."
+        "summary": "Deadline compartido de los requests del navegador (120 s) y lectura del cuerpo: un cuerpo cortado por el deadline o por la cancelación propia es un fallo, nunca un éxito; una escritura vencida queda incierta y una lectura vencida es un fallo cierto."
       }
     ],
     "limitations": [
@@ -700,15 +700,21 @@
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T02:02:12.688Z",
+    "recordedAt": "2026-10-25T03:05:17.662Z",
     "result": "partial",
-    "runId": "20261025T020146Z-1e9337",
+    "runId": "20261025T030448Z-6fe15a",
     "scope": {
       "decision": "full",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "lib/academy/academy-api-client.ts#sendAcademyApiRequest",
+          "reason": "code reached by the unit changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.manage.availability: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -726,7 +732,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T020146Z-1e9337.json"
+    "report": "runs/20261025T030448Z-6fe15a.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

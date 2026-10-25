@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "fix/academy-admission-request-deadline",
-      "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
+      "commit": "2b2a89c3f6be74f42c5e082a2da4341efcb264f6",
       "files": {
         "components/academy/academy-verification/index.tsx": "c8c2a308b27583b4",
         "app/(platform)/[slug]/academia/verificacion/page.tsx": "095d0477f5fe56ea",
@@ -12,7 +12,7 @@
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
         "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts": "65c276a71c59ef25",
         "src/modules/product-access/infrastructure/repositories/academy-access-sql.ts": "eba86e37e91970d9",
-        "lib/academy/academy-api-client.ts": "8912660dc982893a",
+        "lib/academy/academy-api-client.ts": "298112080df602fd",
         "src/modules/member-verifications/application/results/member-verification-public-dto-schemas.ts": "c658dcf96affa74b",
         "app/(platform)/[slug]/academia/loading.tsx": "f9871c638174780b",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts": "102e81af136adc5a",
@@ -32,7 +32,7 @@
         "src/modules/shared/infrastructure/observability/server-logger.ts": "91c2a693de13f86f",
         "src/modules/shared/infrastructure/observability/request-context.ts": "298449d5b583123d"
       },
-      "fingerprint": "sha256:c857ee915b24c96c595c4fd47d313f7bf05f10d9b154f644c549b2ab84cf8b63",
+      "fingerprint": "sha256:ceedbbf28260151408b1dc4a820d71f6ce85b16f6a55e7807c550c27c5fd545a",
       "inputs": {
         "components/academy/academy-verification/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-verification/index.tsx#ProviderRequest/handleSubmit": "b71de1b0b9772211",
@@ -97,7 +97,7 @@
         "lib/academy/academy-api-client.ts#HTTP_METHOD.post": "d93a7a7272c5bf05",
         "lib/academy/academy-api-client.ts#requestAcademyApi": "086e4d60a51c8ea7",
         "lib/academy/academy-api-client.ts#AcademyApiResult": "f1afcd44a547173c",
-        "lib/academy/academy-api-client.ts#sendAcademyApiRequest": "271160e6c81f9377",
+        "lib/academy/academy-api-client.ts#sendAcademyApiRequest": "9819461f2aea37d1",
         "lib/academy/academy-api-client.ts#ACADEMY_API_FALLBACK_MESSAGE": "60c881b2513e141c",
         "lib/academy/academy-api-client.ts#HTTP_STATUS_CONFLICT": "4821e07a60f48131",
         "lib/academy/academy-api-client.ts#JSON_HEADERS.Content-Type": "ad88e5ea50ecbecc",
@@ -333,21 +333,21 @@
     "evidence": [
       {
         "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
-        "durationMs": 21120,
+        "durationMs": 20253,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "370b8743c59d4533975bee9d2b58947b41676d37ae08b0feb1b595259ca47547",
-        "recordedAt": "2026-10-25T02:15:21.302Z",
+        "outputSha256": "8b1cf17383a7440c8641b53ff157f11f8087bb43c32f0df1e13a7980e70d5d31",
+        "recordedAt": "2026-10-25T03:17:32.156Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T02:15:21.892Z",
+        "recordedAt": "2026-10-25T03:17:32.664Z",
         "source": "attested",
-        "summary": "Deadline compartido de los requests del navegador (boundBrowserRequest, 120 s): una escritura vencida queda incierta (transport_timeout, uncertain) para recuperar la operación original; una lectura vencida es un fallo cierto; la cancelación propia sigue siendo abort."
+        "summary": "Deadline compartido de los requests del navegador (120 s) y lectura del cuerpo: un cuerpo cortado por el deadline o por la cancelación propia es un fallo, nunca un éxito; una escritura vencida queda incierta y una lectura vencida es un fallo cierto."
       }
     ],
     "limitations": [
@@ -355,15 +355,21 @@
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T02:15:23.259Z",
+    "recordedAt": "2026-10-25T03:17:33.962Z",
     "result": "partial",
-    "runId": "20261025T021459Z-096f77",
+    "runId": "20261025T031711Z-3dd7c0",
     "scope": {
       "decision": "full",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "lib/academy/academy-api-client.ts#sendAcademyApiRequest",
+          "reason": "code reached by the unit changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.verification.request: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -381,7 +387,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T021459Z-096f77.json"
+    "report": "runs/20261025T031711Z-3dd7c0.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

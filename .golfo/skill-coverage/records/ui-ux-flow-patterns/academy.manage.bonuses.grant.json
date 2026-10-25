@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "fix/academy-admission-request-deadline",
-      "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
+      "commit": "2b2a89c3f6be74f42c5e082a2da4341efcb264f6",
       "files": {
         "components/academy/academy-management/index.tsx": "2cdaec4513ec7dcd",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "0f0efff9bd2bbc3e",
@@ -16,7 +16,7 @@
         "src/modules/product-access/infrastructure/repositories/academy-access-sql.ts": "eba86e37e91970d9",
         "src/modules/subscriptions/infrastructure/repositories/postgres-academy-subscription-repository.ts": "f627f9da8ad78a3d",
         "lib/academy/academy-format.ts": "c89823377b85f3a9",
-        "lib/academy/academy-api-client.ts": "8912660dc982893a",
+        "lib/academy/academy-api-client.ts": "298112080df602fd",
         "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "225eef5ce922c395",
         "components/academy/academy-management/styles.module.scss": "01f52ce7ee08aa77",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts": "102e81af136adc5a",
@@ -46,7 +46,7 @@
         "src/constants/time.ts": "98b5459a77a709b0",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:a9d2c5cb5364224bb12fb239ef55e03e5e6cf2d78421b51dbe38c99b9697c276",
+      "fingerprint": "sha256:a0711f6932c5486e29c8dbf1585c6b11c73995e46e7ca252d5643d8bad760e41",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-management/index.tsx#BonusDialog/handleSubmit": "6db5a5aa3a3cb844",
@@ -183,7 +183,7 @@
         "lib/academy/academy-api-client.ts#HTTP_METHOD.post": "d93a7a7272c5bf05",
         "lib/academy/academy-api-client.ts#requestAcademyApi": "086e4d60a51c8ea7",
         "lib/academy/academy-api-client.ts#AcademyApiResult": "f1afcd44a547173c",
-        "lib/academy/academy-api-client.ts#sendAcademyApiRequest": "271160e6c81f9377",
+        "lib/academy/academy-api-client.ts#sendAcademyApiRequest": "9819461f2aea37d1",
         "lib/academy/academy-api-client.ts#ACADEMY_API_FALLBACK_MESSAGE": "60c881b2513e141c",
         "lib/academy/academy-api-client.ts#HTTP_STATUS_CONFLICT": "4821e07a60f48131",
         "lib/academy/academy-api-client.ts#JSON_HEADERS.Content-Type": "ad88e5ea50ecbecc",
@@ -491,21 +491,21 @@
     "evidence": [
       {
         "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
-        "durationMs": 24347,
+        "durationMs": 20735,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "f9c29975633902b76a521fcf812053421e59643319f6939c1d64585fc7553e52",
-        "recordedAt": "2026-10-25T02:03:20.442Z",
+        "outputSha256": "d602d59a23fa69f2d1c85c1e550f91f9c219d345b68155058536cd485c5913a2",
+        "recordedAt": "2026-10-25T03:06:15.625Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T02:03:21.173Z",
+        "recordedAt": "2026-10-25T03:06:16.251Z",
         "source": "attested",
-        "summary": "Deadline compartido de los requests del navegador (boundBrowserRequest, 120 s): una escritura vencida queda incierta (transport_timeout, uncertain) para recuperar la operación original; una lectura vencida es un fallo cierto; la cancelación propia sigue siendo abort."
+        "summary": "Deadline compartido de los requests del navegador (120 s) y lectura del cuerpo: un cuerpo cortado por el deadline o por la cancelación propia es un fallo, nunca un éxito; una escritura vencida queda incierta y una lectura vencida es un fallo cierto."
       }
     ],
     "limitations": [
@@ -513,15 +513,21 @@
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T02:03:22.822Z",
+    "recordedAt": "2026-10-25T03:06:17.763Z",
     "result": "partial",
-    "runId": "20261025T020255Z-c7b9a5",
+    "runId": "20261025T030554Z-88b2f4",
     "scope": {
       "decision": "full",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "lib/academy/academy-api-client.ts#sendAcademyApiRequest",
+          "reason": "visible or interactive code changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.manage.bonuses.grant: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
       ]
@@ -539,7 +545,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T020255Z-c7b9a5.json"
+    "report": "runs/20261025T030554Z-88b2f4.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",
