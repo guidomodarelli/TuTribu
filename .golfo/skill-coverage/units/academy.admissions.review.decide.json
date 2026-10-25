@@ -60,6 +60,24 @@
       "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
       "role": "server",
       "symbol": "readMessagingHostingSecurityConfig"
+    },
+    {
+      "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activation-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresAdmissionActivationRepository"
+    },
+    {
+      "path": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "readMessagingHostingSecurityFacts"
+    },
+    {
+      "path": "src/modules/shared/infrastructure/database/server-database-client.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "createServerDatabaseClient"
     }
   ]
 }

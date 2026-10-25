@@ -68,6 +68,48 @@
       "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
       "role": "server",
       "symbol": "readMessagingHostingSecurityConfig"
+    },
+    {
+      "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activation-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresAdmissionActivationRepository"
+    },
+    {
+      "path": "src/modules/messaging/infrastructure/composition/messaging-provider-adapters.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "createRegisteredMessagingAdapters"
+    },
+    {
+      "path": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "readMessagingHostingSecurityFacts"
+    },
+    {
+      "path": "src/modules/notifications/infrastructure/messaging/admission-notification-resource-authority.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "createAdmissionNotificationResourceAuthority"
+    },
+    {
+      "path": "src/modules/shared/infrastructure/database/server-database-client.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "createServerDatabaseClient"
+    },
+    {
+      "path": "src/modules/messaging/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildMessagingModule"
+    },
+    {
+      "path": "src/modules/notifications/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAdmissionNotificationSettingsModule"
     }
   ]
 }
