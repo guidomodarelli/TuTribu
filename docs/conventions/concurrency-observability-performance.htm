@@ -183,6 +183,14 @@ useEffect(() =&gt; {
 <p><strong>Design for partial failure</strong></p>
 <p>Assume provider calls, network requests, and downstream services can fail independently.</p>
 <p>Handle timeouts, retries, and fallback behavior intentionally instead of letting failures leak as generic runtime errors.</p>
+<p><strong>Bound every browser request to an own route</strong></p>
+<p>A response that never arrives must not leave an action in progress forever. The browser adapters of the academy flows (<code>admission-api-client</code>, <code>admission-management-browser-transport</code>, <code>admission-notification-settings-api-client</code>, <code>messaging-browser-api-client</code>, <code>messaging-usage-api-client</code> and <code>academy-api-client</code>) run each request through <code>boundBrowserRequest</code> or <code>startBrowserRequestDeadline</code> from <code>lib/browser-request-deadline.ts</code>, with <code>BROWSER_REQUEST_TIMEOUT_MS</code> from <code>src/constants/browser-request.ts</code>.</p>
+<ul>
+  <li>The deadline aborts the request through its own signal, which also follows the caller's signal. The caller's own cancellation (a navigation, an unmount) stays an abort; only an expired deadline becomes a timeout.</li>
+  <li>A timeout is not a failure of the operation: a write may have committed. Admission and messaging writes return their <code>transport_timeout</code> failure with <code>uncertain: true</code>, so the flow recovers the original operation instead of repeating it; reads return it with <code>uncertain: false</code> and offer a retry.</li>
+  <li>The wait matches the deadline that flows with their own timers already use (contact verification, allowlist and personal invitations, 120 seconds), so bounding their adapters never shortens it.</li>
+  <li>New browser adapters of own routes reuse the helper instead of adding a <code>fetch</code> without a deadline.</li>
+</ul>
 <p><strong>Database connection pool resilience</strong></p>
 <p>Server renders can be aborted mid-flight (dev render restarts on cache miss, or a client disconnect in production). An aborted render suspends the <code>finally</code> that returns a pooled client, so a request-scoped transaction can leak its connection and eventually exhaust the pool, surfacing as <code>timeout exceeded when trying to connect</code>.</p>
 <ul>

@@ -1,0 +1,160 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-admission-request-deadline",
+    "commit": "331fe02f374f740259efb79fd0395fedddb30c87",
+    "fingerprint": "sha256:8427088c597ec6acd504704fe1709ebd2698fd270ef3adf372efb70f46e4b472",
+    "uncommittedFiles": [],
+    "fileCount": 284,
+    "inputCount": 1609
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx tests/unit/modules/messaging/application tests/unit/modules/academy-admissions/infrastructure tests/unit/lib/academy [redacted]-notification-settings-browser.test.ts",
+      "durationMs": 288033,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "8b5a78516d896031eca25200846d9cdbf23753adb7d149a7ea3085d89b4c9e4c",
+      "recordedAt": "2026-10-25T00:53:56.013Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "command": "pnpm run -s typecheck",
+      "durationMs": 2216,
+      "exitCode": 0,
+      "kind": "command",
+      "outcome": "pass",
+      "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
+      "recordedAt": "2026-10-25T00:53:58.659Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T00:53:59.103Z",
+      "source": "attested",
+      "summary": "El deadline del adaptador no repite mutaciones: una escritura vencida queda incierta (uncertain) para recuperar la operación original; una lectura vencida es un fallo cierto; la cancelación del llamador sigue siendo abort y una señal ya abortada no llega al transporte."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T00:53:59.527Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app con la lectura de la conexión retenida: antes, a los 150 s no había mensaje y «Consultar conexión actual» seguía deshabilitado (3 de 3 muestras válidas; en WebKit 390 el interceptor no tomó el request); después, el aviso de tiempo excedido aparece a los ~126 s y el botón vuelve a quedar habilitado (4/4)."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T00:54:01.170Z",
+  "result": "verified",
+  "runId": "20261025T004907Z-b61145",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "13 relevant change(s) since the verified run"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "lib/browser-request-deadline.ts#<module>",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-request-deadline.ts#AbortedBrowserRequest",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-request-deadline.ts#boundBrowserRequest",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-request-deadline.ts#BrowserRequestDeadline",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-request-deadline.ts#startBrowserRequestDeadline/followCaller",
+        "reason": "new action handler"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-request-deadline.ts#startBrowserRequestDeadline~shell",
+        "reason": "component state or render changed"
+      },
+      {
+        "change": "removed",
+        "key": "lib/messaging/messaging-browser-api-client.ts#createMessagingBrowserRequest",
+        "reason": "code no longer reached by the unit: an operation may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "lib/messaging/messaging-browser-api-client.ts#createMessagingBrowserRequest/send",
+        "reason": "new action handler"
+      },
+      {
+        "change": "added",
+        "key": "lib/messaging/messaging-browser-api-client.ts#createMessagingBrowserRequest~shell",
+        "reason": "component state or render changed"
+      },
+      {
+        "change": "modified",
+        "key": "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/request",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/send",
+        "reason": "new action handler"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/browser-request.ts#<module>",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MS",
+        "reason": "new code reached by the unit"
+      }
+    ],
+    "suggestedScope": [
+      "lib/browser-request-deadline.ts (module directives and side effects) — module directives (\"use client\", \"use server\") and side effects that change where the operation runs",
+      "lib/browser-request-deadline.ts › AbortedBrowserRequest — operations that reach this code: intent, concurrency, rollback and reconciliation",
+      "lib/browser-request-deadline.ts › boundBrowserRequest — operations that reach this code: intent, concurrency, rollback and reconciliation",
+      "lib/browser-request-deadline.ts › BrowserRequestDeadline — operations that reach this code: intent, concurrency, rollback and reconciliation",
+      "lib/browser-request-deadline.ts › startBrowserRequestDeadline › followCaller — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+      "lib/browser-request-deadline.ts › startBrowserRequestDeadline (component body outside its handlers) — how the component state and render show pending, optimistic and confirmed values, and what is cleaned up on unmount or context change",
+      "lib/messaging/messaging-browser-api-client.ts › createMessagingBrowserRequest — an operation was removed or moved: check that no pending intent, timer, rollback or cache entry still points to it",
+      "lib/messaging/messaging-browser-api-client.ts › createMessagingBrowserRequest › send — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+      "lib/messaging/messaging-browser-api-client.ts › createMessagingBrowserRequest (component body outside its handlers) — how the component state and render show pending, optimistic and confirmed values, and what is cleaned up on unmount or context change",
+      "lib/messaging/messaging-usage-api-client.ts › createMessagingUsageBrowserClient › request — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+      "lib/messaging/messaging-usage-api-client.ts › createMessagingUsageBrowserClient › send — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+      "src/constants/browser-request.ts (module directives and side effects) — module directives (\"use client\", \"use server\") and side effects that change where the operation runs",
+      "src/constants/browser-request.ts › BROWSER_REQUEST_TIMEOUT_MS — operations that reach this code: intent, concurrency, rollback and reconciliation"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "edc05978e69da764",
+      "references/action-catalog.md": "3011dc2f28c2e91c",
+      "references/concurrency-reconciliation.md": "1bb4d0816b1a483d",
+      "references/framework-primitives.md": "16fc928cc9cc1f3c",
+      "references/interaction-state-machine.md": "c09f8f0c506bdd54",
+      "references/optimistic-decision.md": "62c41b62a67ed97a"
+    },
+    "definitionHash": "sha256:dd15a0530a5e006cb85c263e146db04b998dcd88a4841dada65d0e9377c4dfda",
+    "name": "optimistic-action-mutations",
+    "version": "1.1.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T00:49:07.528Z",
+  "unitId": "academy.admissions.messaging.connections.restore"
+}

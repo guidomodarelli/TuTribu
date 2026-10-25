@@ -10,6 +10,7 @@ import { MESSAGING_ERROR_CODE, MESSAGING_ERROR_MESSAGE } from "@/src/modules/mes
 import { MESSAGING_USAGE_BROWSER_PATH } from "@/src/modules/messaging/constants/messaging-usage";
 import { HTTP_STATUS } from "@/src/constants/http-status";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
+import { boundBrowserRequest } from "@/lib/browser-request-deadline";
 
 /** @param options - Explicit feature-owned transport/viewer ports; defaults retain the real Better Auth SDK. @returns Abortable own reads and immutable original writes, without full route refreshes. */
 export function createMessagingUsageBrowserClient(options: { fetch?: typeof fetch; viewer?: MessagingUsageBrowserClient["viewer"] } = {}): MessagingUsageBrowserClient {
@@ -17,9 +18,14 @@ export function createMessagingUsageBrowserClient(options: { fetch?: typeof fetc
   const failure = (code: typeof MESSAGING_ERROR_CODE[keyof typeof MESSAGING_ERROR_CODE], uncertain = false): MessagingUsageBrowserResult<never> => ({ status: "failed", code, message: MESSAGING_ERROR_MESSAGE[code], uncertain });
   const base = (slug: string) => `${MESSAGING_USAGE_BROWSER_PATH.tribePrefix}/${encodeURIComponent(slug)}/${MESSAGING_USAGE_BROWSER_PATH.usageSegment}`;
   /** Only own response DTOs are schema-guarded; transport failure of a write remains uncertain. */
-  async function request<Value>(path: string, schema: z.ZodType<Value>, signal: AbortSignal, input?: object, method: "POST" | "PUT" = "POST"): Promise<MessagingUsageBrowserResult<Value>> {
+  function request<Value>(path: string, schema: z.ZodType<Value>, callerSignal: AbortSignal, input?: object, method: "POST" | "PUT" = "POST"): Promise<MessagingUsageBrowserResult<Value>> {
     const writing = input !== undefined;
-    if (signal.aborted) return { status: "aborted" };
+    if (callerSignal.aborted) return Promise.resolve({ status: "aborted" });
+    // A hung response ends at the deadline as a timeout that keeps a write uncertain; the caller's own cancellation stays an abort.
+    return boundBrowserRequest<MessagingUsageBrowserResult<Value>>(callerSignal, (signal) => send(path, schema, signal, writing, input, method), () => failure(MESSAGING_ERROR_CODE.transportTimeout, writing));
+  }
+  /** Sends one own request under a signal that already follows the caller and the deadline. */
+  async function send<Value>(path: string, schema: z.ZodType<Value>, signal: AbortSignal, writing: boolean, input: object | undefined, method: "POST" | "PUT"): Promise<MessagingUsageBrowserResult<Value>> {
     try {
       const response = await transport(path, { method: writing ? method : "GET", credentials: "same-origin", cache: "no-store", signal, ...(writing ? { headers: { "content-type": "application/json" }, body: JSON.stringify(input) } : {}) });
       const value: unknown = await response.json();

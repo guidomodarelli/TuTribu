@@ -54,7 +54,7 @@ describe("explicit reviewer batch transport", () => {
     const client = createAdmissionApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
     const result = await client.decideBatch("synthetic-academy", { ...data.input, items: data.input.items.map((item) => ({ ...item, applicantName: "Nombre exclusivamente local" })) }, signal);
     expect(result).toEqual({ status: "ready", value: data.value });
-    expect(fetch).toHaveBeenCalledExactlyOnceWith("/api/tribes/synthetic-academy/admissions/request-decisions", expect.objectContaining({ method: "POST", credentials: "same-origin", cache: "no-store", signal }));
+    expect(fetch).toHaveBeenCalledExactlyOnceWith("/api/tribes/synthetic-academy/admissions/request-decisions", expect.objectContaining({ method: "POST", credentials: "same-origin", cache: "no-store", signal: expect.any(AbortSignal) }));
     expect(JSON.parse(String(fetch.mock.calls[0][1]?.body))).toEqual(data.input);
     expect(JSON.stringify(result)).not.toContain("providerToken");
   });
