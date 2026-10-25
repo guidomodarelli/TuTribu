@@ -256,7 +256,10 @@ describe("admission notification settings guided workflow", () => {
     const zone = screen.getByLabelText("Zona horaria de la tribu");
     fireEvent.change(zone, { target: { value: "America/Buenos_Aires_Ciudad" } });
     expect(zone).toHaveAttribute("aria-invalid", "true");
-    expect(screen.getAllByText(ADMISSION_NOTIFICATION_SETTINGS_COPY.zoneUnknown).length).toBeGreaterThan(0);
+    // Announced once, next to the field; the step only points back to it.
+    expect(screen.getAllByText(ADMISSION_NOTIFICATION_SETTINGS_COPY.zoneUnknown)).toHaveLength(1);
+    expect(screen.getByText(ADMISSION_NOTIFICATION_SETTINGS_COPY.zoneUnknown)).toHaveAttribute("role", "alert");
+    expect(screen.getByText(ADMISSION_NOTIFICATION_SETTINGS_COPY.zoneFix)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
 
     fireEvent.change(zone, { target: { value: "America/Argentina/Buenos_Aires" } });

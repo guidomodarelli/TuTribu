@@ -124,15 +124,23 @@ function describeZoneProblem(draft: AdmissionNotificationSettingsProps["draft"],
   return isKnownTimeZone(zone) ? null : COPY.zoneUnknown;
 }
 
+/** @param problem - What blocks the zone. @returns The short reason shown beside «Continuar»; the field already explains an unknown zone. */
+function zoneBlockedReason(problem: string | null): string | undefined {
+  if (!problem) return undefined;
+  return problem === COPY.zoneUnknown ? COPY.zoneFix : problem;
+}
+
 /** @param props - Edited email fields and recovery state. @returns The tribe email switch, its zone and the messaging requirement. */
 function TribeEmailFields({ draft, pending, messagingHref, onDraft }: Pick<AdmissionNotificationSettingsProps, "draft" | "pending" | "messagingHref" | "onDraft">) {
-  const zoneHelpId = useId(), zoneProblem = describeZoneProblem(draft, pending);
+  const zoneHelpId = useId(), zoneErrorId = useId(), zoneProblem = describeZoneProblem(draft, pending), zoneUnknown = zoneProblem === COPY.zoneUnknown;
   return <div className={styles.AdmissionNotificationSettings__fields}>
     <Checkbox label="Habilitar correo de admisión" description="Se aplica a las solicitudes nuevas y respeta la frecuencia que elija cada responsable." checked={draft.enabled} disabled={pending} onCheckedChange={(checked) => onDraft({ ...draft, enabled: checked === true })} />
     {/* Plain help instead of the field's animated description, which splits "09:00" into rolling digits and is read twice. */}
     {draft.enabled && <div className={styles.AdmissionNotificationSettings__zone}>
-      <Input label="Zona horaria de la tribu" description={undefined} error={zoneProblem === COPY.zoneUnknown ? zoneProblem : undefined} value={draft.timeZone} disabled={pending} maxLength={ADMISSION_NOTIFICATION_SETTINGS_TIME_ZONE_MAX_LENGTH} aria-describedby={zoneHelpId} aria-invalid={zoneProblem ? true : undefined} onChange={(event) => onDraft({ ...draft, timeZone: event.target.value })} />
+      <Input label="Zona horaria de la tribu" description={undefined} error={undefined} value={draft.timeZone} disabled={pending} maxLength={ADMISSION_NOTIFICATION_SETTINGS_TIME_ZONE_MAX_LENGTH} aria-describedby={zoneUnknown ? `${zoneHelpId} ${zoneErrorId}` : zoneHelpId} aria-invalid={zoneProblem ? true : undefined} onChange={(event) => onDraft({ ...draft, timeZone: event.target.value })} />
       <p id={zoneHelpId} className={styles.AdmissionNotificationSettings__help}>{ADMISSION_NOTIFICATION_TIME_ZONE_HELP}</p>
+      {/* A plain row, like the help: the field's animated error row would announce the message twice. */}
+      {zoneUnknown && <p id={zoneErrorId} role="alert" className={styles.AdmissionNotificationSettings__error}>{COPY.zoneUnknown}</p>}
     </div>}
     <p className={styles.AdmissionNotificationSettings__note}>Para enviar correos, la tribu necesita un correo preparado en mensajería. <Link href={messagingHref}>Revisar mensajería</Link></p>
     {pending && <p className={styles.AdmissionNotificationSettings__note}>Este cambio quedó pendiente. Lo vas a poder reintentar en el último paso, con la misma referencia.</p>}
@@ -194,7 +202,7 @@ function MemberForm(props: AdmissionNotificationSettingsProps) {
 function LeaderSteps(props: AdmissionNotificationSettingsProps) {
   const zoneProblem = describeZoneProblem(props.draft, props.pending);
   const steps: GuidedStep[] = [
-    { id: GUIDED_STEP.tribeEmail, title: "Correo de la tribu", description: "Habilitalo para que TuTribu envíe por correo los avisos de solicitudes de admisión a quienes las revisan.", content: <TribeEmailFields draft={props.draft} pending={props.pending} messagingHref={props.messagingHref} onDraft={props.onDraft} />, blockedReason: zoneProblem ?? undefined },
+    { id: GUIDED_STEP.tribeEmail, title: "Correo de la tribu", description: "Habilitalo para que TuTribu envíe por correo los avisos de solicitudes de admisión a quienes las revisan.", content: <TribeEmailFields draft={props.draft} pending={props.pending} messagingHref={props.messagingHref} onDraft={props.onDraft} />, blockedReason: zoneBlockedReason(zoneProblem) },
     { id: GUIDED_STEP.frequency, title: "Cómo querés recibir los avisos", description: "Elegí la frecuencia de tus correos. Esta elección es sólo tuya.", content: <>
       <FrequencyField mode={props.mode} busy={props.busy} onMode={props.onMode} />
       {!props.draft.enabled && props.mode !== MODE.omitted && <Alert tone="info" title="El correo de la tribu va a quedar deshabilitado">Mientras esté deshabilitado nadie recibe correos de revisión. Podés habilitarlo en el paso anterior.</Alert>}
