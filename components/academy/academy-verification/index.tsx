@@ -80,7 +80,7 @@ export function AcademyVerification({
   const [verifications, setVerifications] = useState(initialVerifications);
 
   return (
-    <main className={styles.AcademyVerification}>
+    <div className={styles.AcademyVerification}>
       <header className={styles.AcademyVerification__header}>
         <h1 className={styles.AcademyVerification__title}>{VERIFICATION_COPY.title}</h1>
         <p className={styles.AcademyVerification__description}>{VERIFICATION_COPY.description}</p>
@@ -109,7 +109,7 @@ export function AcademyVerification({
           ))}
         </ul>
       )}
-    </main>
+    </div>
   );
 }
 

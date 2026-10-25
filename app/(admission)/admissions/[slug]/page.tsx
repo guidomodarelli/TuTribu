@@ -1,9 +1,13 @@
 /** Keeps admission runtime data inside this leaf's own Suspense, outside membership layout. @module admission-entry-page */
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { createAdmissionRequestModules } from "@/src/modules/setup";
 import { loadAdmissionPageState } from "@/src/modules/academy-admissions/infrastructure/composition/admission-page";
 import { AdmissionContainer } from "./admission-container";
 import Loading from "./loading";
+
+/** An admission link can carry tracking or a shared request context: it is never indexed nor sent as a referrer. */
+export const metadata: Metadata = { title: "Solicitud de ingreso", referrer: "no-referrer", robots: { index: false, follow: false } };
 
 /** Loads one native safe initial snapshot; GET never submits, consumes or sends. */
 async function AdmissionContent({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {

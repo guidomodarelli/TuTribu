@@ -10,7 +10,7 @@ import { PERSONAL_INVITATION_MANAGEMENT_COPY as COPY, PERSONAL_INVITATION_MANAGE
 /** @param props - Safe current SSR snapshot and optional owned browser edges. @returns A viewer-scoped workflow without automatic writes or ordinary route refresh. */
 export function InvitationsContainer({ initialState, client }: { initialState: PersonalInvitationManagementPageState; client?: PersonalInvitationManagementBrowserClient }) {
   const workflow = usePersonalInvitationManagement({ initialState, client });
-  if (initialState.kind === "unavailable") return <AdmissionRouteError embedded message={initialState.message} reset={() => window.location.reload()} />;
+  if (initialState.kind === "unavailable") return <AdmissionRouteError embedded message={initialState.message} retry={() => window.location.reload()} />;
   if (!workflow.state || !workflow.draft) return null;
   const busy = workflow.phase === PHASE.checking || workflow.phase === PHASE.reading || workflow.phase === PHASE.writing;
   // A write's progress is its own toast; only reads keep a status line.

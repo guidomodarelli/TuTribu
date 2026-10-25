@@ -24,13 +24,13 @@ const GLOBAL_ERROR_DOCUMENT_CLASS = {
 } as const;
 type GlobalErrorPageProps = {
   error: Error & { digest?: string };
-  unstable_retry: () => void;
+  retry: () => void;
 };
 
 /** Restores independent UI providers when the root layout fails. */
 export default function GlobalErrorPage({
   error,
-  unstable_retry,
+  retry,
 }: GlobalErrorPageProps) {
   useEffect(() => {
     console.error(error);
@@ -50,7 +50,7 @@ export default function GlobalErrorPage({
               description={GLOBAL_ERROR_PAGE_COPY.description}
               eyebrow={GLOBAL_ERROR_PAGE_COPY.eyebrow}
               homeLabel={GLOBAL_ERROR_PAGE_COPY.homeLabel}
-              onRetry={unstable_retry}
+              onRetry={retry}
               retryLabel={GLOBAL_ERROR_PAGE_COPY.retryLabel}
               title={GLOBAL_ERROR_PAGE_COPY.title}
             />

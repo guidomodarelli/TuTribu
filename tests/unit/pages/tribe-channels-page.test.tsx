@@ -197,4 +197,26 @@ describe("TribeChannelsPage", () => {
     expect(notFound).toHaveBeenCalled();
     expect(listTribeChannels).not.toHaveBeenCalled();
   });
+
+  it("lets a channel load failure reach the segment error boundary instead of answering 404", async () => {
+    getMemberTribes.mockResolvedValue([
+      { logoUrl: null, membershipStatus: "active" as const, tribeId: "tribe-1", name: "Matematica Pro", role: "leader", slug: "matematica-pro" },
+    ]);
+    listTribeChannels.mockRejectedValue(new Error("Database exploded"));
+
+    // The error boundary inside the shell offers a retry; a 404 would tell the leader the page does not exist.
+    await expect(TribeChannelsPage(buildPageProps())).rejects.toThrow("Database exploded");
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(errorMock).toHaveBeenCalledWith(expect.objectContaining({ error: expect.any(Error), metadata: expect.objectContaining({ slug: "matematica-pro" }) }));
+  });
+
+  it("lets a failure to resolve tribe access reach the segment error boundary instead of answering 404", async () => {
+    getTribePageAccess.mockRejectedValue(new Error("Database exploded"));
+
+    await expect(TribeChannelsPage(buildPageProps())).rejects.toThrow("Database exploded");
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(listTribeChannels).not.toHaveBeenCalled();
+  });
 });

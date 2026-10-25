@@ -29,7 +29,7 @@ describe("GlobalErrorPage", () => {
       .mockImplementation(function () { return undefined; });
 
     // The page renders its own <html> document, so it mounts on the document itself.
-    render(<GlobalErrorPage error={error} unstable_retry={retry} />, {
+    render(<GlobalErrorPage error={error} retry={retry} />, {
       container: document as unknown as HTMLElement,
     });
 
@@ -61,7 +61,7 @@ describe("GlobalErrorPage", () => {
     render(
       <GlobalErrorPage
         error={new Error("unexpected_failure")}
-        unstable_retry={retry}
+        retry={retry}
       />
     );
 

@@ -11,7 +11,7 @@ import { ADMISSION_POLICY_SETTINGS_SEGMENT } from "@/src/modules/academy-admissi
 /** @param props - Guarded minimum current SSR props and own optional collaborators. @returns One controlled import view, without full route refresh after mutations. */
 export function AllowlistImportContainer({ initialState, client }: { initialState: AllowlistImportPageState; client?: AllowlistImportBrowserClient }) {
   const workflow = useAllowlistImportWorkflow({ initialState, client });
-  if (initialState.kind === "unavailable") return <AdmissionRouteError embedded message={initialState.message} reset={() => window.location.reload()} />;
+  if (initialState.kind === "unavailable") return <AdmissionRouteError embedded message={initialState.message} retry={() => window.location.reload()} />;
   const canResume = workflow.pending?.type === REAUTHENTICATION_OPERATION.confirmAllowlistImport && workflow.originalChecked;
   const previous = workflow.unresolved[0], outcomes = new Set(workflow.snapshot?.rows.filter((row) => row.outcome !== undefined).map((row) => row.rowNumber));
   const canReconcile = Boolean(previous && !workflow.pending && workflow.originalChecked && previous.selectedRows.every((number) => outcomes.has(number)));

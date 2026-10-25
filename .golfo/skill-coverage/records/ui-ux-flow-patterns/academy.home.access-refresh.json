@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-admission-request-deadline",
-      "commit": "2b2a89c3f6be74f42c5e082a2da4341efcb264f6",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
-        "components/academy/academy-home/index.tsx": "809988db00523019",
-        "app/(platform)/[slug]/academia/page.tsx": "8be7106822155a86",
+        "components/academy/academy-home/index.tsx": "559afae35579d77c",
+        "app/(platform)/[slug]/academia/page.tsx": "a4c7427e95123588",
         "app/api/tribes/[slug]/academy/reconcile/route.ts": "884a1b6365b413b5",
         "app/api/tribes/[slug]/academy/access/route.ts": "2ba664997c38668c",
         "src/modules/subscriptions/setup.ts": "beab8120b07daf1c",
@@ -75,10 +75,10 @@
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:591771f9d6e362e43b2cc80300f46426f61443554039538ede9b3875637a4c12",
+      "fingerprint": "sha256:c1ebb5841890f6d15e9c9fc5ccbbb9762a68d6a52ef603d25d33df994dbecf22",
       "inputs": {
         "components/academy/academy-home/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy/academy-home/index.tsx#AcademyHome~shell": "a4ea8deb2197b9c4",
+        "components/academy/academy-home/index.tsx#AcademyHome~shell": "e682a501a4562464",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY~frame": "d647271201261ec5",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.accessHeading": "7502394d9b8e691b",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.admissionClosed": "2f1103a338c1ae8e",
@@ -161,7 +161,7 @@
         "components/academy/academy-home/index.tsx#AcademyHome/runAction": "a6e5e63ed8953d09",
         "components/academy/academy-home/index.tsx#HTTP_STATUS_NOT_FOUND": "ed1ef3e7359cefbf",
         "app/(platform)/[slug]/academia/page.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/academia/page.tsx#TribeAcademyPage": "96197f3393444487",
+        "app/(platform)/[slug]/academia/page.tsx#TribeAcademyPage": "edb97c58c08a366a",
         "app/api/tribes/[slug]/academy/reconcile/route.ts#<module>": "2da3ec2294295eb1",
         "app/api/tribes/[slug]/academy/reconcile/route.ts#POST": "5352b667e254a167",
         "app/api/tribes/[slug]/academy/reconcile/route.ts#OPERATION": "27153c416a175480",
@@ -1060,41 +1060,47 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
-        "durationMs": 21570,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 35948,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "390e1c2e4792661dae9e356b6bb7500292e43ba7b80ed81cd7436acf0c7f395d",
-        "recordedAt": "2026-10-25T02:57:32.733Z",
+        "outputSha256": "7061dc4f472213cdd318a610630ef8ae7d0236562ad2295a8acc2bad8e9e7d31",
+        "recordedAt": "2026-10-25T04:57:41.690Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T02:57:33.282Z",
+        "recordedAt": "2026-10-25T04:57:42.177Z",
         "source": "attested",
-        "summary": "Deadline compartido de los requests del navegador (120 s) y lectura del cuerpo: un cuerpo cortado por el deadline o por la cancelación propia es un fallo, nunca un éxito; una escritura vencida queda incierta y una lectura vencida es un fallo cierto."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [
-      "Solo se revisó el deadline de los requests del navegador que agrega este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T02:57:34.802Z",
+    "recordedAt": "2026-10-25T04:57:43.500Z",
     "result": "partial",
-    "runId": "20261025T025710Z-59cb4c",
+    "runId": "20261025T045705Z-16656f",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [
         {
           "change": "modified",
-          "key": "lib/academy/academy-api-client.ts#sendAcademyApiRequest",
+          "key": "app/(platform)/[slug]/academia/page.tsx#TribeAcademyPage",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-home/index.tsx#AcademyHome~shell",
           "reason": "visible or interactive code changed"
         }
       ],
@@ -1115,7 +1121,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T025710Z-59cb4c.json"
+    "report": "runs/20261025T045705Z-16656f.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",
