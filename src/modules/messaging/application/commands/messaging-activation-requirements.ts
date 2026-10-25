@@ -18,3 +18,15 @@ export function assessMessagingActivationRequirements(candidate:MessagingConfigu
   if(candidate.capabilities.some((capability)=>capability.channel!==MESSAGING_PUBLIC_CHANNEL.email)&&!(usage.policy?.allowedCountries.length))messages.push(MESSAGING_ACTIVATION_UI_COPY.countriesRequired);
   return{eligible:messages.length===0,messages};
 }
+
+/**
+ * @param candidate - Own currently projected candidate metadata, or `null` when there is none.
+ * @param renderedAt - The time the current assessment used.
+ * @returns The next instant (ms) at which a channel test enters or leaves its freshness window, so a caller can wait for
+ * exactly that moment instead of re-assessing every second; `null` when no test can change state with time.
+ */
+export function nextMessagingActivationFreshnessChange(candidate:MessagingConfigurationConnection|null,renderedAt:string):number|null{
+  const nowMs=Date.parse(renderedAt);
+  const changes=(candidate?.capabilities??[]).flatMap((capability)=>{const testedMs=capability.testedAt?Date.parse(capability.testedAt):Number.NaN;if(!Number.isFinite(testedMs))return[];return[testedMs,testedMs+MESSAGING_CONNECTION_DIAGNOSTIC_MAXIMUM_AGE_MS+1].filter((change)=>change>nowMs);});
+  return changes.length?Math.min(...changes):null;
+}
