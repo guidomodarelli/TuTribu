@@ -27,3 +27,6 @@ export const SECONDS_PER_HOUR = 3_600;
  * Number of seconds in one day.
  */
 export const SECONDS_PER_DAY = 86_400;
+
+/** Longest delay `setTimeout` honors (a signed 32-bit millisecond count); a later change is waited for in more than one step. */
+export const TIMER_MAXIMUM_DELAY_MS = 2_147_483_647;

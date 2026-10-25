@@ -19,6 +19,7 @@ import { MESSAGING_PUBLIC_CHANNEL, MESSAGING_CAPABILITY_PUBLIC_STATE } from "@/s
 import { MESSAGE_DELIVERY_STATE } from "@/src/modules/messaging/constants/message-delivery";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { NOTIFICATION_RECOVERY_HISTORY_LIMIT } from "@/src/modules/messaging/constants/notification-recovery-intent";
+import { TIMER_MAXIMUM_DELAY_MS } from "@/src/constants/time";
 
 /** The route supplies one verified viewer boundary shared with the rest of the connection workflow. */
 export type NotificationRecoveryContainerProps = {
@@ -65,6 +66,13 @@ export function NotificationRecoveryContainer({ client = notificationRecoveryBro
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; if (observation.current) { observation.current.abort(); observation.current = null; onBusyChange(false); } }; }, [onBusyChange]);
 
   const selected = catalog?.items.find((item) => item.id === selectedDeliveryId);
+  /** When eligibility was last evaluated: the SSR time first (deterministic hydration), then each interaction and the selected deadline. */
+  const [clockMs, setClockMs] = useState(() => Date.parse(props.renderedAt));
+  const parsedDeadlineMs = selected ? Date.parse(selected.deadlineAt) : Number.NaN, selectedDeadlineMs = Number.isFinite(parsedDeadlineMs) ? parsedDeadlineMs : null;
+  // A deadline only matters once: one timeout at the selected notice's deadline (in steps past the timer limit) replaces a ticking clock.
+  useEffect(() => { if (selectedDeadlineMs === null || selectedDeadlineMs <= clockMs) return; const timer = window.setTimeout(() => setClockMs(Date.now()), Math.min(Math.max(0, selectedDeadlineMs - Date.now()), TIMER_MAXIMUM_DELAY_MS)); return () => window.clearTimeout(timer); }, [selectedDeadlineMs, clockMs]);
+  /** A new recovery is no longer available once the notice's deadline passed; a preserved original keeps its own recovery. */
+  const expired = Boolean(!reference && selectedDeadlineMs !== null && selectedDeadlineMs <= clockMs);
   const canRead = local?.state === "ready" && storageAvailable && viewerAvailable && props.viewerVerified && !props.blocked;
   const targetPrepared = props.target?.state === MESSAGING_CONNECTION_STATE.active && props.target.capabilities.some((capability) => capability.channel === MESSAGING_PUBLIC_CHANNEL.email && capability.state === MESSAGING_CAPABILITY_PUBLIC_STATE.prepared && capability.testedAt !== null);
   /** @param now - Actual interaction time, or deterministic initial SSR time. @returns Whether current view facts permit an explicit attempt; the server still owns final authorization/eligibility. */
@@ -102,7 +110,8 @@ export function NotificationRecoveryContainer({ client = notificationRecoveryBro
       setMessage({ kind: "status", text: COPY.reading });
       const outcome = await client.catalog({ slug: props.slug, cursor: more ? catalog?.nextCursor ?? null : null }, signal);
       if (!await current(signal)) return;
-      if (outcome.status === "ready") { setCatalog(outcome.value); setConfirmed(false); if (!reference) setSelectedDeliveryId(""); setMessage(null); }
+      // Earlier notices are added below the ones already shown, so the selection and the first page stay in place.
+      if (outcome.status === "ready") { setClockMs(Date.now()); setCatalog((previous) => more && previous ? { items: [...new Map([...previous.items, ...outcome.value.items].map((item) => [item.id, item])).values()], nextCursor: outcome.value.nextCursor } : outcome.value); setConfirmed(false); if (!reference && !more) setSelectedDeliveryId(""); setMessage(null); }
       else if (outcome.status === "failed") setMessage({ kind: "alert", text: outcome.message });
     });
   }
@@ -117,6 +126,9 @@ export function NotificationRecoveryContainer({ client = notificationRecoveryBro
   /** @param resume - Whether the user explicitly reuses a consulted preserved original. @returns Nothing after preserving UUID/CAS before a single write. */
   async function recover(resume = false): Promise<void> {
     if (!resume && historyFull) { setMessage({ kind: "alert", text: COPY.historyFull }); return; }
+    // A deadline that passed since the last evaluation shows the notice as no longer available instead of a selection error.
+    const attemptedAtMs = new Date().getTime();
+    if (!resume && selected && Date.parse(selected.deadlineAt) <= attemptedAtMs) { setClockMs(attemptedAtMs); setMessage(null); return; }
     if (!confirmed) { setMessage({ kind: "alert", text: COPY.consentRequired }); return; }
     if (resume ? !reference || !mayResume : Boolean(reference) || !eligible(new Date())) { setMessage({ kind: "alert", text: COPY.selectionRequired }); return; }
     await observe(async (signal) => {
@@ -163,6 +175,6 @@ export function NotificationRecoveryContainer({ client = notificationRecoveryBro
       originalReference.current = original; setHistory(next); setReference(original); setSelectedDeliveryId(original.deliveryId); setOriginalCompleted(false); setCanArchive(false); setMayResume(false); setConfirmed(false); setArchiveConsent(null); setMessage({ kind: "status", text: COPY.pending });
     });
   }
-  return <MessagingNotificationRecovery items={catalog?.items ?? []} selectedDeliveryId={selectedDeliveryId} targetName={props.target?.name ?? null} catalogAvailable={catalog !== null} hasMore={Boolean(catalog?.nextCursor)} busy={busy} writeAction={busy ? writeAction : null} canRead={canRead} canRecover={canRead && !reference && !historyFull && eligible(new Date(props.renderedAt))} confirmed={confirmed} hasReference={reference !== null} originalCompleted={originalCompleted} mayResume={canRead && mayResume} canArchive={canArchive} archiveConfirmed={archiveConfirmed} historyCount={history.length} historyFull={historyFull} message={message} onArchiveConfirm={(value) => { setArchiveConsent(reference ? { checked: value, operationId: reference.operationId } : null); setMessage(null); }} onArchive={() => { void archiveOriginal(); }} onRestoreHistory={(index) => { void restoreHistory(index); }}
-    onSelect={(deliveryId) => { if (!canRead || reference || busy) return; setConfirmed(false); setSelectedDeliveryId(deliveryId); setMessage(null); preserve(null, deliveryId); }} onConfirm={(value) => { setConfirmed(value); setMessage(null); }} onRefresh={() => { void readCatalog(); }} onMore={() => { void readCatalog(true); }} onRecover={() => { void recover(); }} onReadOriginal={() => { void readOriginal(); }} onResumeOriginal={() => { void recover(true); }} onClearCompleted={() => { if (!originalCompleted || busy || !canRead || !preserve(null)) return; originalReference.current = null; setReference(null); setOriginalCompleted(false); setMayResume(false); setConfirmed(false); setMessage(null); }} onStopObserving={stopObserving} />;
+  return <MessagingNotificationRecovery items={catalog?.items ?? []} selectedDeliveryId={selectedDeliveryId} targetName={props.target?.name ?? null} catalogAvailable={catalog !== null} hasMore={Boolean(catalog?.nextCursor)} busy={busy} writeAction={busy ? writeAction : null} canRead={canRead} canRecover={canRead && !reference && !historyFull && eligible(new Date(clockMs))} expired={expired} confirmed={confirmed} hasReference={reference !== null} originalCompleted={originalCompleted} mayResume={canRead && mayResume} canArchive={canArchive} archiveConfirmed={archiveConfirmed} historyCount={history.length} historyFull={historyFull} message={message} onArchiveConfirm={(value) => { setArchiveConsent(reference ? { checked: value, operationId: reference.operationId } : null); setMessage(null); }} onArchive={() => { void archiveOriginal(); }} onRestoreHistory={(index) => { void restoreHistory(index); }}
+    onSelect={(deliveryId) => { if (!canRead || reference || busy) return; setClockMs(Date.now()); setConfirmed(false); setSelectedDeliveryId(deliveryId); setMessage(null); preserve(null, deliveryId); }} onConfirm={(value) => { setConfirmed(value); setMessage(null); }} onRefresh={() => { void readCatalog(); }} onMore={() => { void readCatalog(true); }} onRecover={() => { void recover(); }} onReadOriginal={() => { void readOriginal(); }} onResumeOriginal={() => { void recover(true); }} onClearCompleted={() => { if (!originalCompleted || busy || !canRead || !preserve(null)) return; originalReference.current = null; setReference(null); setOriginalCompleted(false); setMayResume(false); setConfirmed(false); setMessage(null); }} onStopObserving={stopObserving} />;
 }

@@ -4,7 +4,7 @@ import { Button, Checkbox, Label, Select } from "@golfo/ui";
 import type { NotificationDeliveryCatalogItem } from "@/src/modules/messaging/application/results/notification-delivery-catalog-result";
 import { MESSAGING_DELIVERY_STATE_LABEL } from "@/src/modules/messaging/constants/messaging-diagnostic-browser";
 import { MESSAGE_DELIVERY_STATE } from "@/src/modules/messaging/constants/message-delivery";
-import { NOTIFICATION_RECOVERY_DATE_LABEL_CHARACTERS, NOTIFICATION_RECOVERY_WRITE_ACTION, type NotificationRecoveryWriteAction } from "@/src/modules/messaging/constants/notification-recovery-ui";
+import { NOTIFICATION_RECOVERY_DATE_LABEL_CHARACTERS, NOTIFICATION_RECOVERY_UI_COPY, NOTIFICATION_RECOVERY_WRITE_ACTION, type NotificationRecoveryWriteAction } from "@/src/modules/messaging/constants/notification-recovery-ui";
 import styles from "./styles.module.scss";
 
 /** The container supplies guarded current facts, renewed consent and bound original observation state. */
@@ -20,6 +20,8 @@ export type MessagingNotificationRecoveryProps = {
   writeAction?: NotificationRecoveryWriteAction | null;
   canRead: boolean;
   canRecover: boolean;
+  /** The selected notice's deadline passed: a new recovery is not available, so its consent and action are not offered. */
+  expired?: boolean;
   confirmed: boolean;
   hasReference: boolean;
   originalCompleted: boolean;
@@ -66,9 +68,10 @@ export function MessagingNotificationRecovery(props: MessagingNotificationRecove
         </div>}
     {selected && <p className={styles.MessagingNotificationRecovery__help}>Estado actual: {MESSAGING_DELIVERY_STATE_LABEL[selected.state]}. Plazo del aviso: <time dateTime={selected.deadlineAt}>{selected.deadlineAt.slice(0, NOTIFICATION_RECOVERY_DATE_LABEL_CHARACTERS)}</time>.</p>}
     {unresolved && <p className={styles.MessagingNotificationRecovery__feedback} role="alert">El envío anterior puede haber sido aceptado. No se habilita otro envío a ciegas; consultá su estado antes de continuar.</p>}
+    {props.expired && selected && !props.hasReference && <p className={styles.MessagingNotificationRecovery__help} role="status">{NOTIFICATION_RECOVERY_UI_COPY.expired}</p>}
     {selected?.recoveryDeliveryId && <p className={styles.MessagingNotificationRecovery__help}>Este aviso ya tiene una entrega de recuperación. Consultá el resultado original y su estado antes de otra acción.</p>}
     <p className={styles.MessagingNotificationRecovery__help}>{props.hasReference ? "El intento conservado mantiene el aviso, la conexión y las versiones elegidas originalmente. Consultá su resultado antes de volver a confirmar." : props.targetName ? `La entrega nueva usará la conexión seleccionada: ${props.targetName}. El servidor vuelve a comprobar sus requisitos actuales.` : "Prepará y seleccioná otra conexión para recuperar este aviso."}</p>
-    {(selected || props.hasReference) && <><div className={styles.MessagingNotificationRecovery__consent}>
+    {(selected && !props.expired || props.hasReference) && <><div className={styles.MessagingNotificationRecovery__consent}>
       <Checkbox id={consentControlId} checked={props.confirmed} disabled={props.busy || !props.canRead || props.originalCompleted} onCheckedChange={(checked) => props.onConfirm(checked === true)} />
       <Label htmlFor={consentControlId}>Revisé el aviso, la conexión y el impacto; quiero registrar esta recuperación.</Label>
     </div>
