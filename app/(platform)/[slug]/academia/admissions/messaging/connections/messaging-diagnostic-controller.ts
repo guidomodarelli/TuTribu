@@ -26,7 +26,10 @@ export function useMessagingDiagnosticController(options:DiagnosticControllerOpt
   const initial=()=>({scopeKey,draft:{channel:options.preferredChannel??MESSAGING_PUBLIC_CHANNEL.email,recipient:"",country:""} as MessagingDiagnosticDraft,touched:{} as Partial<Record<keyof MessagingDiagnosticFieldErrors,true>>,confirmed:false,verificationCode:"",diagnostic:null as Extract<ConnectionDiagnosticIssueResult,{outcome:"issued"}>|null,verifiedDiagnosticId:null as string|null,delivery:null as z.infer<typeof messageDeliverySchema>|null});
   const[state,setState]=useState(initial);if(state.scopeKey!==scopeKey)setState(initial());const current=state.scopeKey===scopeKey?state:initial();
   const[nowMs,setNowMs]=useState(()=>Date.parse(options.renderedAt));
-  useEffect(()=>{const timer=window.setInterval(()=>setNowMs(Date.now()),MILLISECONDS_PER_SECOND);return()=>window.clearInterval(timer);},[]);
+  // The countdowns only move while the current test has an expiry or a resend wait ahead; at rest the clock stops.
+  const countdownEndsMs=current.diagnostic?Math.max(Date.parse(current.diagnostic.expiresAt),Date.parse(current.diagnostic.resendAllowedAt)):null,countdownRunning=countdownEndsMs!==null&&nowMs<countdownEndsMs;
+  // The first tick reads the real clock at once: a code that already expired never shows a stale countdown.
+  useEffect(()=>{if(!countdownRunning)return;const tick=()=>setNowMs(Date.now()),first=window.setTimeout(tick,0),timer=window.setInterval(tick,MILLISECONDS_PER_SECOND);return()=>{window.clearTimeout(first);window.clearInterval(timer);};},[countdownRunning]);
   const update=(patch:Partial<typeof state>)=>setState((previous)=>previous.scopeKey===scopeKey?{...previous,...patch}:previous);
   const allowedCountries=options.usage.policy?.allowedCountries??[],validation=validateMessagingDiagnosticDraft(current.draft,allowedCountries),codeMessage=validateMessagingDiagnosticCode(current.verificationCode),credentialValid=options.candidate?.credentialState===MESSAGING_CREDENTIAL_PUBLIC_STATE.valid;
   /** Field feedback appears only after the operator edits that field or attempts to send; a fresh form shows no errors. */

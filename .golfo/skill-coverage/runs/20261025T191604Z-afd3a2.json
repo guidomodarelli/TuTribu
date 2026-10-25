@@ -1,0 +1,88 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "perf/academy-messaging-idle-timers",
+    "commit": "cb946c56edfad1cff4bebc3575dbc0d1fd1bb065",
+    "fingerprint": "sha256:6434041501831d31dd69cb9904b6cb9e73ff2e222d58a7831723ced5404a9166",
+    "uncommittedFiles": [],
+    "fileCount": 288,
+    "inputCount": 1625
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx [redacted]-activation-requirements.test.ts",
+      "durationMs": 232788,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "8e325114fa4e172e562153137e2f5504f674975f8009438bfe34df4e68e20406",
+      "recordedAt": "2026-10-25T19:19:57.913Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T19:19:59.091Z",
+      "source": "attested",
+      "summary": "Ciclo de vida: la activación espera con un único timeout el momento en que una prueba de canal cambia de vigencia, y el diagnóstico solo corre su intervalo mientras queda un vencimiento o un reenvío por delante, con un primer tick inmediato; las cuentas regresivas y la elegibilidad muestran lo mismo que antes."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T19:20:04.016Z",
+  "result": "verified",
+  "runId": "20261025T191604Z-afd3a2",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "4 relevant change(s) since the verified run"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#MAXIMUM_TIMEOUT_MS",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#useMessagingActivationController",
+        "reason": "code reached by the unit changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController~shell",
+        "reason": "component state or render changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/commands/messaging-activation-requirements.ts#nextMessagingActivationFreshnessChange",
+        "reason": "new code reached by the unit"
+      }
+    ],
+    "suggestedScope": [
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts › MAXIMUM_TIMEOUT_MS — operations that reach this code: intent, concurrency, rollback and reconciliation",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts › useMessagingActivationController — operations that reach this code: intent, concurrency, rollback and reconciliation",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts › useMessagingDiagnosticController (component body outside its handlers) — how the component state and render show pending, optimistic and confirmed values, and what is cleaned up on unmount or context change",
+      "src/modules/messaging/application/commands/messaging-activation-requirements.ts › nextMessagingActivationFreshnessChange — operations that reach this code: intent, concurrency, rollback and reconciliation"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "96d98d49220f2894",
+      "references/action-catalog.md": "3011dc2f28c2e91c",
+      "references/concurrency-reconciliation.md": "1bb4d0816b1a483d",
+      "references/framework-primitives.md": "16fc928cc9cc1f3c",
+      "references/interaction-state-machine.md": "c09f8f0c506bdd54",
+      "references/optimistic-decision.md": "62c41b62a67ed97a"
+    },
+    "definitionHash": "sha256:e7f9e58f5862e859cec90782e0920de1b6583e9e1904af2e8818f971aeb3448f",
+    "name": "optimistic-action-mutations",
+    "version": "1.2.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T19:16:04.153Z",
+  "unitId": "academy.admissions.messaging.connections.restore"
+}
