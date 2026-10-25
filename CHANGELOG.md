@@ -113,6 +113,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 ### Changed
 - Los filtros de fecha de Solicitudes se eligen en hora de Argentina («Desde (hora de Argentina)» y «Hasta (hora de Argentina)») en lugar de UTC.
 - En Avisos de admisión, una zona horaria que no existe se marca junto al campo y no deja continuar, en lugar de fallar recién al guardar.
+- Cada resultado se anuncia una sola vez, junto a la acción: aceptar una invitación personal, pedir una verificación, guardar la oferta, guardar países y cupos de mensajería y los errores de la academia ya no repiten el mismo mensaje en una notificación emergente, y un resultado incierto de la solicitud de ingreso ya no aparece dos veces.
+- «Suspender conexión» usa el tono de peligro cuando se suspende la conexión que usa la academia, porque detiene todos los avisos y códigos.
 - Los enlaces de ingreso a una academia y de una solicitud propia ya no se indexan en buscadores ni informan la página de origen al abrir otro sitio, igual que las invitaciones personales.
 
 - Mientras cargan, la academia, Gestionar academia, la verificación, la suscripción y Canales muestran un esqueleto con la forma de cada pantalla en lugar del de la ronda.

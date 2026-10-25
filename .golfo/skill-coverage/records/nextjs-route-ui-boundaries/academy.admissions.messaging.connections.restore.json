@@ -6,8 +6,8 @@
   "verified": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+      "branch": "fix/academy-single-announcements",
+      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "52358cd766afdaa0",
         "lib/messaging/messaging-connections-intent-store.ts": "7dbed3748a05812b",
@@ -49,7 +49,7 @@
         "src/modules/messaging/constants/messaging-public-contract.ts": "d8e21158a5fb4c77",
         "src/modules/messaging/constants/messaging-usage.ts": "ba71bbac4e985a5a",
         "src/modules/messaging/application/results/messaging-configuration-result.ts": "006db510fe714df8",
-        "components/academy-admissions/messaging-connection-lifecycle/index.tsx": "e5e3ba938bfea6c4",
+        "components/academy-admissions/messaging-connection-lifecycle/index.tsx": "86f803a5f94a422a",
         "components/academy-admissions/messaging-connections/index.tsx": "7ca72a5ebda6bf91",
         "components/academy-admissions/messaging-connections-workspace/index.tsx": "2a65a6a8e1fbfcce",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-feedback.ts": "7ad5879ac6d1fc43",
@@ -282,7 +282,7 @@
         "src/modules/auth/constants/message-delivery-reauthentication.ts": "f485fe7a77de3464",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f"
       },
-      "fingerprint": "sha256:918b3f802f716d3c18f26494b2e73b88e5f4ca218aa3e1a844954172db4e45d1",
+      "fingerprint": "sha256:9feeecb7140e0bcad5bd02a8080e08524719f8b801b6fd5a336f749862e18e1a",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
@@ -487,7 +487,7 @@
         "src/modules/messaging/application/results/messaging-configuration-result.ts#messagingConfigurationConnectionSchema": "f8fe93883bd7b1df",
         "src/modules/messaging/application/results/messaging-configuration-result.ts#configurationCapabilitySchema": "2c7a6f85a0fca8c5",
         "components/academy-admissions/messaging-connection-lifecycle/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/academy-admissions/messaging-connection-lifecycle/index.tsx#MessagingConnectionLifecycle": "697c0faadac45d69",
+        "components/academy-admissions/messaging-connection-lifecycle/index.tsx#MessagingConnectionLifecycle": "cc0e32a31a49e214",
         "components/academy-admissions/messaging-connections/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy-admissions/messaging-connections/index.tsx#MessagingConnections": "414f8eff41cae121",
         "components/academy-admissions/messaging-connections-workspace/index.tsx#<module>": "d414f6d3ee71f10d",
@@ -2491,314 +2491,56 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
-        "durationMs": 30390,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
+        "durationMs": 49105,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "a52eab4d0254e04c08276ae16b2a7827dadcc8793f137c67871d6742b5bacc80",
-        "recordedAt": "2026-10-25T11:49:34.952Z",
+        "outputSha256": "bf45cc34d6dbb3fd64454e0d7daecbf2006080896878c9904cfe0174286646fc",
+        "recordedAt": "2026-10-25T13:46:46.400Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 2876,
+        "durationMs": 2348,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T11:49:38.379Z",
+        "recordedAt": "2026-10-25T13:46:49.236Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T11:49:38.912Z",
+        "recordedAt": "2026-10-25T13:46:49.666Z",
         "source": "attested",
-        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
       }
     ],
     "limitations": [],
     "mode": "incremental",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T11:49:40.880Z",
+    "recordedAt": "2026-10-25T13:46:51.250Z",
     "result": "verified",
-    "runId": "20261025T114904Z-93abef",
+    "runId": "20261025T134556Z-f241f8",
     "scope": {
       "decision": "incremental",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "44 relevant change(s) since the verified run"
+        "1 relevant change(s) since the verified run"
       ],
       "relevantChangesAtBegin": [
         {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/loading.module.scss#*",
-          "reason": "styles of a skeleton or loading boundary changed"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.accessActionCount",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.benefitLineCount",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.offerActionCount",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.priceFactCount",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.stepKeys",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE~frame",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/loading.tsx#AcademyLoading",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.activity",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.allowlist",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.allowlistImport",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.connections",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.history",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.invitations",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.notifications",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.policy",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.review",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.usage",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS~frame",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "removed",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_SKELETON_SHAPE.factCount",
-          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
-        },
-        {
-          "change": "removed",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_SKELETON_SHAPE.rowCount",
-          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
-        },
-        {
-          "change": "removed",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_SKELETON_SHAPE~frame",
-          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
-        },
-        {
           "change": "modified",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionPageSkeleton",
+          "key": "components/academy-admissions/messaging-connection-lifecycle/index.tsx#MessagingConnectionLifecycle",
           "reason": "code rendered by the route changed"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionSkeletonPart",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionSkeletonPartPlaceholder",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "modified",
-          "key": "components/academy-admissions/admission-page-skeleton/styles.module.scss#*",
-          "reason": "styles of a skeleton or loading boundary changed"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.actionCount",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.factCount",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.fieldCount",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.rowCount",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.stepCount",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#RouteSkeleton",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonActions",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlock",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonFacts",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonField",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonLines",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonRows",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonStepsPanel",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/styles.module.scss#*",
-          "reason": "styles of a skeleton or loading boundary changed"
         }
       ],
       "suggestedScope": [
-        "app/(platform)/[slug]/academia/loading.module.scss (whole file) — skeleton that uses these styles: final shape, reserved heights and reduced motion",
-        "app/(platform)/[slug]/academia/loading.tsx › ACADEMY_LOADING_SHAPE.accessActionCount — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
-        "app/(platform)/[slug]/academia/loading.tsx › ACADEMY_LOADING_SHAPE.benefitLineCount — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
-        "app/(platform)/[slug]/academia/loading.tsx › ACADEMY_LOADING_SHAPE.offerActionCount — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
-        "app/(platform)/[slug]/academia/loading.tsx › ACADEMY_LOADING_SHAPE.priceFactCount — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
-        "app/(platform)/[slug]/academia/loading.tsx › ACADEMY_LOADING_SHAPE.stepKeys — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
-        "app/(platform)/[slug]/academia/loading.tsx › ACADEMY_LOADING_SHAPE (object structure) — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
-        "app/(platform)/[slug]/academia/loading.tsx › AcademyLoading — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS.activity — route configuration read from this member, in every segment that uses it",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS.allowlist — route configuration read from this member, in every segment that uses it",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS.allowlistImport — route configuration read from this member, in every segment that uses it",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS.connections — route configuration read from this member, in every segment that uses it",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS.history — route configuration read from this member, in every segment that uses it",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS.invitations — route configuration read from this member, in every segment that uses it",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS.notifications — route configuration read from this member, in every segment that uses it",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS.policy — route configuration read from this member, in every segment that uses it",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS.review — route configuration read from this member, in every segment that uses it",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS.usage — route configuration read from this member, in every segment that uses it",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS (object structure) — server/client split and awaited work of this code in every route of the unit",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_SKELETON_SHAPE.factCount — what the route lost: a layout, a boundary, a Suspense fallback or a client island; check that each state still has its boundary",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_SKELETON_SHAPE.rowCount — what the route lost: a layout, a boundary, a Suspense fallback or a client island; check that each state still has its boundary",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_SKELETON_SHAPE (object structure) — what the route lost: a layout, a boundary, a Suspense fallback or a client island; check that each state still has its boundary",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › AdmissionPageSkeleton — server/client split and awaited work of this code in every route of the unit",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › AdmissionSkeletonPart — server/client split and awaited work of this code in every route of the unit",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › AdmissionSkeletonPartPlaceholder — server/client split and awaited work of this code in every route of the unit",
-        "components/academy-admissions/admission-page-skeleton/styles.module.scss (whole file) — skeleton that uses these styles: final shape, reserved heights and reduced motion",
-        "components/loaders/route-skeleton/index.tsx › ROUTE_SKELETON_DEFAULT.actionCount — route configuration read from this member, in every segment that uses it",
-        "components/loaders/route-skeleton/index.tsx › ROUTE_SKELETON_DEFAULT.factCount — route configuration read from this member, in every segment that uses it",
-        "components/loaders/route-skeleton/index.tsx › ROUTE_SKELETON_DEFAULT.fieldCount — route configuration read from this member, in every segment that uses it",
-        "components/loaders/route-skeleton/index.tsx › ROUTE_SKELETON_DEFAULT.lineCount — route configuration read from this member, in every segment that uses it",
-        "components/loaders/route-skeleton/index.tsx › ROUTE_SKELETON_DEFAULT.rowCount — route configuration read from this member, in every segment that uses it",
-        "components/loaders/route-skeleton/index.tsx › ROUTE_SKELETON_DEFAULT.stepCount — route configuration read from this member, in every segment that uses it",
-        "components/loaders/route-skeleton/index.tsx › ROUTE_SKELETON_DEFAULT (object structure) — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/index.tsx › RouteSkeleton — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/index.tsx › SkeletonActions — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/index.tsx › SkeletonBlock — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/index.tsx › SkeletonBlockKind — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/index.tsx › SkeletonBlockWidth — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/index.tsx › SkeletonFacts — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/index.tsx › SkeletonField — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/index.tsx › SkeletonLines — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/index.tsx › SkeletonRows — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/index.tsx › SkeletonStepsPanel — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/styles.module.scss (whole file) — skeleton that uses these styles: final shape, reserved heights and reduced motion"
+        "components/academy-admissions/messaging-connection-lifecycle/index.tsx › MessagingConnectionLifecycle — server/client split and awaited work of this code in every route of the unit"
       ]
     },
     "skill": {
@@ -2814,6 +2556,6 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T114904Z-93abef.json"
+    "report": "runs/20261025T134556Z-f241f8.json"
   }
 }

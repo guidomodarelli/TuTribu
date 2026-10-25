@@ -9,6 +9,7 @@ import { PathParamsContext } from "next/dist/shared/lib/hooks-client-context.sha
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PersonalInvitationContainer } from "@/app/(admission)/admissions/invitations/[token]/personal-invitation-container";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
+import { ThemedToaster } from "@golfo/ui";
 import type { PersonalInvitationPageState } from "@/src/modules/academy-admissions/application/results/personal-invitation-page-state";
 import type { PersonalInvitationBrowserClient } from "@/src/modules/academy-admissions/application/ports/personal-invitation-browser-client";
 import type { AdmissionContactBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-contact-browser-client";
@@ -324,5 +325,17 @@ describe("personal invitation page workflow", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Cambiar de cuenta" })).toBeEnabled());
     expect(screen.queryByRole("button", { name: "Confirmar invitación" })).toBeNull();
     expect(data.client.submit).not.toHaveBeenCalled(); expect(data.contactClient.issue).not.toHaveBeenCalled();
+  });
+
+  it("should announce the accepted invitation once, on the page the member is reading", async () => {
+    const data = fixture();
+    render(<>{data.element()}<ThemedToaster /></>);
+    const confirmation = screen.getByRole("checkbox", { name: /Confirmo que quiero usar esta invitación/i });
+    await waitFor(() => expect(confirmation).toBeEnabled());
+    fireEvent.click(confirmation); fireEvent.click(screen.getByRole("button", { name: "Confirmar invitación" }));
+    await screen.findByRole("link", { name: "Ver mi solicitud" });
+    // A toast would repeat the same text in a second live region.
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 100)); });
+    expect(screen.getAllByText("La solicitud quedó pendiente de revisión.")).toHaveLength(1);
   });
 });

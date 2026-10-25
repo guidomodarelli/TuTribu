@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+      "branch": "fix/academy-single-announcements",
+      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-lifecycle-controller.ts": "8028dcf181ee8a1b",
         "app/api/tribes/[slug]/messaging/connections/[connectionId]/suspend/route.ts": "8143b8e61022e394",
@@ -15,7 +15,7 @@
         "src/modules/notifications/infrastructure/repositories/admission-email-lifecycle-reader.ts": "6966aa2edd27f223",
         "src/modules/shared/infrastructure/database/server-database-client.ts": "895a53cd3c3f72ab",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
-        "components/academy-admissions/messaging-connection-lifecycle/index.tsx": "e5e3ba938bfea6c4",
+        "components/academy-admissions/messaging-connection-lifecycle/index.tsx": "86f803a5f94a422a",
         "src/modules/tribes/constants/tribe-member-role.ts": "bcd5a756222224ce",
         "src/modules/messaging/constants/messaging-connection-security.ts": "0f5a571c358deeb9",
         "src/modules/messaging/constants/messaging-connection.ts": "abba3abf6b505594",
@@ -736,32 +736,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
-        "durationMs": 30474,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
+        "durationMs": 50625,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "7057807048108a0c91faac82301fdfedd242b28f22c260e3e6a4f26d73ee7f03",
-        "recordedAt": "2026-10-25T11:44:46.759Z",
+        "outputSha256": "3f8e863dc7aff07656c4dd5e59747e0f0f81ebd3a6de6dd4b06b6ef95f46a45f",
+        "recordedAt": "2026-10-25T13:39:59.213Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T11:44:47.330Z",
+        "recordedAt": "2026-10-25T13:39:59.622Z",
         "source": "attested",
-        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T11:44:49.250Z",
+    "recordedAt": "2026-10-25T13:40:01.131Z",
     "result": "partial",
-    "runId": "20261025T114415Z-bc2690",
+    "runId": "20261025T133908Z-01a90d",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -786,7 +786,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T114415Z-bc2690.json"
+    "report": "runs/20261025T133908Z-01a90d.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",
