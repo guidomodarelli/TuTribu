@@ -8,7 +8,19 @@ import { ADMISSION_PUBLIC_CODE_PATTERN } from "@/src/modules/academy-admissions/
 import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/messaging-public-contract";
 import { MESSAGING_CHANNEL_LABEL } from "@/src/modules/messaging/constants/messaging-connection-presentation";
 import { MESSAGING_DELIVERY_STATE_LABEL } from "@/src/modules/messaging/constants/messaging-diagnostic-browser";
+import { SECONDS_PER_MINUTE } from "@/src/constants/time";
 import styles from "./styles.module.scss";
+
+/**
+ * @param seconds - Whole seconds left in a countdown.
+ * @returns The wait as people read it ("9 min 47 s", "2 minutos", "45 segundos") instead of a raw count of seconds.
+ */
+function formatContactCountdown(seconds: number): string {
+  if (seconds < SECONDS_PER_MINUTE) return `${seconds} ${seconds === 1 ? "segundo" : "segundos"}`;
+  const minutes = Math.floor(seconds / SECONDS_PER_MINUTE), rest = seconds % SECONDS_PER_MINUTE;
+  if (rest === 0) return `${minutes} ${minutes === 1 ? "minuto" : "minutos"}`;
+  return `${minutes} min ${rest} s`;
+}
 
 /** Only safe controlled facts enter the presenter; permissions, validation and mutations remain in its container. */
 export type ContactVerificationProps = {
@@ -83,7 +95,7 @@ export function ContactVerification(props: ContactVerificationProps) {
     {/* The expiry is a state of the code, not an input error: a quiet status next to the resend that ends it. */}
     {expired && !props.requiresReplacement && <p role="status" className={styles.ContactVerification__notice}>{waiting ? "El código venció. Cuando termine la espera, reenviá uno nuevo para seguir." : "El código venció. Reenviá uno nuevo para seguir."}</p>}
     {props.proofExpired && <p role="status" className={styles.ContactVerification__error}>La prueba venció. Reenviá un código para el mismo contacto antes de continuar.</p>}
-    {props.expiresInSeconds !== null && !expired && <p className={styles.ContactVerification__description}>Vence en {props.expiresInSeconds} segundos.</p>}
+    {props.expiresInSeconds !== null && !expired && <p className={styles.ContactVerification__description}>Vence en {formatContactCountdown(props.expiresInSeconds)}.</p>}
   </>;
   const resendActions = <>
     <Button type="button" variant="secondary" disabled={resendBlocked} onClick={() => { if (!resendBlocked) props.onResend(); }}>Reenviar código</Button>
@@ -119,14 +131,14 @@ export function ContactVerification(props: ContactVerificationProps) {
       </dl>
       <p className={styles.ContactVerification__description}>El estado del envío y la comprobación del código son resultados separados.</p>
       {props.proofReady ? <p role="status" className={styles.ContactVerification__success}>Código comprobado para este ingreso.</p> : guided
-        ? <div className={styles.ContactVerification__form}>{codeFields}{props.resendInSeconds !== null && props.resendInSeconds > 0 && <p className={styles.ContactVerification__description}>Podés reenviar en {props.resendInSeconds} segundos.</p>}</div>
+        ? <div className={styles.ContactVerification__form}>{codeFields}{props.resendInSeconds !== null && props.resendInSeconds > 0 && <p className={styles.ContactVerification__description}>Podés reenviar en {formatContactCountdown(props.resendInSeconds)}.</p>}</div>
         : <form className={styles.ContactVerification__form} onSubmit={(event) => { event.preventDefault(); if (!verifyBlocked) props.onVerify(); }}>
           {codeFields}
           <div className={styles.ContactVerification__actions}>
             <Button type="submit" disabled={verifyBlocked}>{props.busy ? "Comprobando código…" : "Comprobar código"}</Button>
             {resendActions}
           </div>
-          {props.resendInSeconds !== null && props.resendInSeconds > 0 && <p className={styles.ContactVerification__description}>Podés reenviar en {props.resendInSeconds} segundos.</p>}
+          {props.resendInSeconds !== null && props.resendInSeconds > 0 && <p className={styles.ContactVerification__description}>Podés reenviar en {formatContactCountdown(props.resendInSeconds)}.</p>}
         </form>}
     </>}
     {props.feedback && <p role="status" className={styles.ContactVerification__description}>{props.feedback}</p>}

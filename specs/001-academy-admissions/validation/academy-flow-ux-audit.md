@@ -119,6 +119,7 @@ Todas las escrituras son pending-first y confirmadas por el servidor, que es la 
 | LID-11 | validación | La zona horaria de los avisos es un campo de texto libre. | `admission-notification-settings` | pendiente |
 | LID-12 | boundaries | `/[slug]/academia/gestionar` no tiene `error.tsx` y cualquier fallo de carga termina en `notFound()`. | `app/(platform)/[slug]/academia/gestionar/page.tsx` | pendiente |
 | LID-13 | boundaries | `AdmissionPageSkeleton` usa el mismo cuerpo (tres datos y tres filas) para formularios con pasos. | `admission-page-skeleton` | pendiente |
+| LID-14 | copy | Los filtros de la bandeja piden «Desde (UTC)» y «Hasta (UTC)»: el líder elige el rango de fechas en UTC y no en hora de Argentina. | `admission-review-filters` | pendiente |
 
 ## 3. Mensajería
 

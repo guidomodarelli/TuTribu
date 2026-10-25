@@ -26,8 +26,8 @@ export function AdmissionMetrics({ metrics, currentUsage, usageHref }: Admission
   const maintenanceStaleness = resolveAdmissionMaintenanceStaleness(metrics);
   return <div className={styles.AdmissionMetrics}>
     <p className={styles.AdmissionMetrics__help}>Datos observados el <time dateTime={metrics.asOf}>{formatAdmissionObservationTime(metrics.asOf)}</time>. Cada consulta conserva su fecha y sus versiones.</p>
-    <section className={styles.AdmissionMetrics__section} aria-label="Consumo del día UTC">
-      <h2 className={styles.AdmissionMetrics__title}>Consumo del día UTC</h2>
+    <section className={styles.AdmissionMetrics__section} aria-label="Consumo del día">
+      <h2 className={styles.AdmissionMetrics__title}>Consumo del día</h2>
       <p>Período iniciado el <time dateTime={metrics.usage.dayStartUtc}>{formatAdmissionObservationTime(metrics.usage.dayStartUtc)}</time>.</p>
       {renderCounts([{ label: "Códigos consumidos", value: metrics.usage.verificationToday }, { label: "Avisos consumidos", value: metrics.usage.notificationToday }])}
       <p className={styles.AdmissionMetrics__help}>El proveedor factura los envíos a la cuenta del líder. Los cupos de TuTribu no representan un saldo ni una garantía monetaria exacta.</p>
