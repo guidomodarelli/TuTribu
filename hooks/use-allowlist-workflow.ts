@@ -22,6 +22,8 @@ import { allowlistMutationResultSchema } from "@/src/modules/academy-admissions/
 import { allowlistMutationDenialSchema } from "@/src/modules/academy-admissions/application/results/allowlist-mutation-schemas";
 import { ADMISSION_QUERY_LIMIT } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import type { AllowlistBrowserResult } from "@/src/modules/academy-admissions/application/ports/allowlist-browser-client";
+import { appendAdmissionListPage } from "@/lib/academy-admissions/admission-list-pages";
+import { isAdmissionAccessLoss } from "@/lib/academy-admissions/admission-access-loss";
 
 /** @returns A blank proposal; neither consent nor authority is ever restored. */
 function emptyDraft(): AllowlistDraft { return { identity: "", country: "", displayName: "", status: ALLOWLIST_ENTRY_STATUS.enabled, entryId: null, expectedVersion: null }; }
@@ -37,13 +39,15 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
   const [draft, setDraft] = useState<AllowlistDraft>(emptyDraft), [confirmed, setConfirmed] = useState(false), [ready, setReady] = useState(false), [privateVisible, setPrivateVisible] = useState(true);
   const [phase, setPhase] = useState<typeof PHASE[keyof typeof PHASE]>(PHASE.checking), [pending, setPending] = useState<AllowlistBrowserIntent | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null), [fieldError, setFieldError] = useState<string | null>(null), [conflict, setConflict] = useState(false), [step, setStep] = useState<number>(ALLOWLIST_ENTRY_STEP.contact);
+  /** «Ver más» keeps the entries already shown, so its progress and its failure belong next to its button. */
+  const [loadingMore, setLoadingMore] = useState(false), [moreError, setMoreError] = useState<string | null>(null);
   const currentDraft = useRef(draft), currentPending = useRef<AllowlistBrowserIntent | null>(null), controller = useRef<AbortController | null>(null), active = useRef(false), generation = useRef(0), busy = useRef(false), writeToast = useRef<WriteToast | null>(null);
   const live = (signal: AbortSignal, scope: number) => active.current && generation.current === scope && !signal.aborted;
 
   /** Every private read clears visible prior data when its current server authority is lost. */
   const reportFailure = useCallback((failure: Extract<AllowlistBrowserResult<unknown>, { status: "failed" }>): boolean => {
     setErrorMessage(failure.message);
-    const lostAuthority = failure.code === ADMISSION_ERROR_CODE.permissionDenied || failure.code === ADMISSION_ERROR_CODE.authenticationRequired;
+    const lostAuthority = isAdmissionAccessLoss(failure.code);
     if (lostAuthority) { setPrivateVisible(false); setReady(false); setConfirmed(false); setPhase(PHASE.changedViewer); }
     return lostAuthority;
   }, []);
@@ -109,8 +113,11 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
     if (writeToast.current) writeToast.current.announce({ kind: "success", message: confirmation }); else toast.success(confirmation);
   }, [authorize, client, initial, mergeEntry, page.items, persist, query, reportFailure]);
 
-  /** Each interactive read owns one cancellable slot and cannot replace an unfinished mutation. */
-  const run = useCallback(async (action: (signal: AbortSignal, scope: number) => Promise<void>, writing = false) => {
+  /**
+   * Each interactive read owns one cancellable slot and cannot replace an unfinished mutation.
+   * @param reportReadFailure - Where a read's transport failure is shown; the page alert by default.
+   */
+  const run = useCallback(async (action: (signal: AbortSignal, scope: number) => Promise<void>, writing = false, reportReadFailure?: (message: string) => void) => {
     if (!initial || busy.current) return;
     controller.current?.abort(); const next = new AbortController(), scope = generation.current; controller.current = next; busy.current = true;
     const timeout = window.setTimeout(() => next.abort(), ALLOWLIST_BROWSER_TIMEOUT_MS);
@@ -118,7 +125,7 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
     // A write's outcome goes to its own toast; an unconfirmed original stays on screen instead.
     const notice = writing ? startWriteToast(COPY.saving) : null; writeToast.current = notice;
     /** A failure the person can retry: the write's toast for a new write, the page for a read. */
-    const fail = (message: string) => { if (notice) notice.announce({ kind: "error", message }); else setErrorMessage(message); };
+    const fail = (message: string) => { if (notice) notice.announce({ kind: "error", message }); else (reportReadFailure ?? setErrorMessage)(message); };
     try { if (await authorize(next.signal, scope)) await action(next.signal, scope); }
     catch { if (live(next.signal, scope)) { if (currentPending.current) setErrorMessage(COPY.uncertain); else fail(ADMISSION_ERROR_MESSAGE.dependency_unavailable); setPhase(currentPending.current ? PHASE.uncertain : PHASE.idle); } }
     finally {
@@ -157,9 +164,25 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
     if (currentPending.current) return;
     const result = await client.list(initial!.slug, nextQuery, signal);
     if (!live(signal, scope) || !await authorize(signal, scope)) return;
-    if (result.status === "ready") { setPage(result.value); setQuery(nextQuery); setPrivateVisible(true); }
+    if (result.status === "ready") { setPage(result.value); setQuery(nextQuery); setPrivateVisible(true); setMoreError(null); }
     else if (result.status === "failed") reportFailure(result);
   }), [authorize, client, initial, reportFailure, run]);
+
+  /** Adds the next page below the shown entries without repeating any of them; only a lost authority hides the list. */
+  const loadMore = useCallback(async () => {
+    const cursor = page.nextCursor;
+    if (!initial || !cursor || busy.current || currentPending.current) return;
+    const nextQuery = { ...query, cursor };
+    setMoreError(null); setLoadingMore(true);
+    try {
+      await run(async (signal, scope) => {
+        const result = await client.list(initial.slug, nextQuery, signal);
+        if (!live(signal, scope) || !await authorize(signal, scope)) return;
+        if (result.status === "ready") { setPage((shown) => ({ items: appendAdmissionListPage(shown.items, result.value.items), nextCursor: result.value.nextCursor })); setQuery(nextQuery); }
+        else if (result.status === "failed") { if (isAdmissionAccessLoss(result.code)) reportFailure(result); else setMoreError(result.message); }
+      }, false, setMoreError);
+    } finally { setLoadingMore(false); }
+  }, [authorize, client, initial, page.nextCursor, query, reportFailure, run]);
 
   const save = useCallback(async () => {
     if (!initial?.contactType || !ready || !confirmed || conflict || currentPending.current || busy.current) { if (!confirmed) setFieldError(COPY.confirm); return; }
@@ -199,5 +222,5 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
   const select = (entry: AllowlistEntryResult) => { if (busy.current || currentPending.current || !ready) return; setConflict(false); changeDraft({ identity: entry.identity, country: "", displayName: entry.displayName ?? "", status: entry.status, entryId: entry.id, expectedVersion: entry.version }); setStep(ALLOWLIST_ENTRY_STEP.details); };
   /** Starting a proposal is explicit and never replaces an unresolved original. */
   const newEntry = () => { if (busy.current || currentPending.current || !ready) return; setConflict(false); changeDraft(emptyDraft()); setStep(ALLOWLIST_ENTRY_STEP.contact); };
-  return { page, draft, search, status, confirmed, ready, privateVisible, phase, pending, conflict, errorMessage, fieldError, step, setStep: (value: number) => { if (!busy.current) setStep(value); }, changeDraft, setConfirmed: (value: boolean) => { if (!ready || busy.current || currentPending.current) return; setConfirmed(value); setFieldError(null); }, setSearch: (value: string) => { setSearch(value); setErrorMessage(null); }, setStatus: (value: "enabled" | "disabled" | null) => { setStatus(value); setErrorMessage(null); }, searchEntries: () => readList({ limit: query.limit, ...(search.trim() ? { search: search.trim() } : {}), ...(status ? { status } : {}) }), next: () => page.nextCursor ? readList({ ...query, cursor: page.nextCursor }) : Promise.resolve(), select, newEntry, save, readOriginal, readCurrentEntry };
+  return { page, draft, search, status, confirmed, ready, privateVisible, phase, pending, conflict, errorMessage, fieldError, step, loadingMore, moreError, setStep: (value: number) => { if (!busy.current) setStep(value); }, changeDraft, setConfirmed: (value: boolean) => { if (!ready || busy.current || currentPending.current) return; setConfirmed(value); setFieldError(null); }, setSearch: (value: string) => { setSearch(value); setErrorMessage(null); }, setStatus: (value: "enabled" | "disabled" | null) => { setStatus(value); setErrorMessage(null); }, searchEntries: () => readList({ limit: query.limit, ...(search.trim() ? { search: search.trim() } : {}), ...(status ? { status } : {}) }), next: loadMore, select, newEntry, save, readOriginal, readCurrentEntry };
 }

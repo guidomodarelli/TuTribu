@@ -409,3 +409,46 @@ describe("personal invitation save feedback", () => {
     expect(data.client.write).toHaveBeenCalledOnce();
   });
 });
+
+describe("invitation history «Ver más»", () => {
+  it("should add the next page below the shown invitations without repeating one, keep them after a background reread and show a failure next to its button", async () => {
+    const data = fixture(), user = userEvent.setup();
+    const older = { ...data.metadata, id: randomUUID(), internalName: "Grupo anterior", recipient: { type: "email" as const, value: "older@example.test" } };
+    const failure = "No pudimos consultar más invitaciones. Volvé a intentarlo.";
+    const renamed = () => screen.getAllByRole("button", { name: /^Renombrar / }).map((button) => button.getAttribute("aria-label"));
+    data.initial.page = { items: [data.metadata], nextCursor: "synthetic-cursor-1" };
+    let finish!: (result: Awaited<ReturnType<PersonalInvitationManagementBrowserClient["page"]>>) => void;
+    vi.mocked(data.client.page)
+      .mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }))
+      .mockResolvedValueOnce({ status: "ready", value: { ...data.initial, page: { items: [data.metadata], nextCursor: "synthetic-cursor-1" } } })
+      .mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: failure, uncertain: false });
+    await mount(data);
+    await user.click(screen.getByText("Consultar y ver más"));
+
+    await user.click(screen.getByRole("button", { name: "Ver más invitaciones" }));
+    await waitFor(() => expect(data.client.page).toHaveBeenCalledOnce());
+    expect(data.client.page).toHaveBeenLastCalledWith(data.initial.slug, { limit: 25, cursor: "synthetic-cursor-1" }, expect.any(AbortSignal));
+    // While the next page loads, the shown invitation stays and only its button reports progress.
+    expect(renamed()).toEqual([`Renombrar ${data.metadata.internalName}`]);
+    expect(screen.getByRole("button", { name: "Ver más invitaciones" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByText(PERSONAL_INVITATION_MANAGEMENT_COPY.reading)).not.toBeInTheDocument();
+
+    // The next page repeats the shown invitation: it keeps its place and the older one follows.
+    await act(async () => { finish({ status: "ready", value: { ...data.initial, page: { items: [older, data.metadata], nextCursor: "synthetic-cursor-2" }, query: { limit: 25, cursor: "synthetic-cursor-1" } } }); });
+    await waitFor(() => expect(renamed()).toEqual([`Renombrar ${data.metadata.internalName}`, `Renombrar ${older.internalName}`]));
+
+    // Returning to the window rereads the first page and keeps the older invitation and its cursor below it.
+    await act(async () => { window.dispatchEvent(new Event("focus")); });
+    await waitFor(() => expect(data.client.page).toHaveBeenCalledTimes(2));
+    expect(data.client.page).toHaveBeenLastCalledWith(data.initial.slug, { limit: 25 }, expect.any(AbortSignal));
+    await waitFor(() => expect(renamed()).toEqual([`Renombrar ${data.metadata.internalName}`, `Renombrar ${older.internalName}`]));
+
+    await user.click(screen.getByRole("button", { name: "Ver más invitaciones" }));
+    await waitFor(() => expect(data.client.page).toHaveBeenCalledTimes(3));
+    expect(data.client.page).toHaveBeenLastCalledWith(data.initial.slug, { limit: 25, cursor: "synthetic-cursor-2" }, expect.any(AbortSignal));
+    const alert = await screen.findByText(failure);
+    expect(alert).toHaveAttribute("role", "alert");
+    expect(alert.parentElement).toContainElement(screen.getByRole("button", { name: "Ver más invitaciones" }));
+    expect(renamed()).toHaveLength(2);
+  });
+});
