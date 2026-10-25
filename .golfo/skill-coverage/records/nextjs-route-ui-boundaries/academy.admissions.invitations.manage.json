@@ -6,8 +6,8 @@
   "verified": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-invitation-link-focus",
-      "commit": "0569c8d0c20e2ec8a70d0e8da7fe6957be3c8052",
+      "branch": "fix/academy-admission-request-deadline",
+      "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
       "files": {
         "app/(platform)/[slug]/academia/admissions/invitations/page.tsx": "5731b66b99705bd9",
         "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx": "0ae1742a06c8464b",
@@ -184,9 +184,9 @@
         "src/modules/academy-admissions/domain/repositories/personal-invitation-management.ts": "945c4c78b1bf4f58",
         "src/modules/academy-admissions/application/results/admission-resource-result.ts": "133e7be7f53e5965",
         "src/modules/academy-admissions/constants/personal-invitation-browser.ts": "1d7fa3bd96773d04",
-        "lib/academy-admissions/admission-api-client.ts": "307fe85c7935822d",
+        "lib/academy-admissions/admission-api-client.ts": "685e72943289a164",
         "src/modules/academy-admissions/application/results/admission-public-result-schemas.ts": "00775c03c35f69d8",
-        "lib/academy-admissions/admission-management-browser-transport.ts": "b092b57b65f61137",
+        "lib/academy-admissions/admission-management-browser-transport.ts": "6d18b2208b7fc42e",
         "src/modules/academy-admissions/constants/personal-invitation-http-schemas.ts": "797966938024b646",
         "src/modules/academy-admissions/constants/personal-invitation-management.ts": "cc268ed2da86c83d",
         "src/modules/academy-admissions/constants/admission-contact.ts": "cf90895cb275bdd9",
@@ -231,6 +231,8 @@
         "config/deployment-environment.ts": "08bb1a3202ff76f7",
         "src/modules/academy-admissions/constants/admission-operation-recovery-schemas.ts": "04485d588425272a",
         "src/modules/academy-admissions/application/ports/admission-browser-client.ts": "e4d882fd3cf5bf02",
+        "src/constants/browser-request.ts": "38ed6a1428c6e81f",
+        "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
         "src/modules/academy-admissions/constants/admission-policy-browser.ts": "90cfa795912c0e8c",
         "src/modules/academy-admissions/constants/admission-request.ts": "f65628a88eca20f3",
         "src/modules/academy-admissions/constants/admission-review-browser.ts": "514a476443a8ab07",
@@ -298,7 +300,7 @@
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f",
         "src/modules/academy-admissions/domain/entities/admission-policy.ts": "a602f5d4e4fee0b2"
       },
-      "fingerprint": "sha256:6448cf3ed61d6fe19e2f643b6395e1301cb1b9242f579ad66ed18e86b68c1312",
+      "fingerprint": "sha256:fff7ac61d7879a779ea6c79e6ef8d857861ffdde4f20a70383da6a97a6864786",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
@@ -1282,24 +1284,28 @@
         "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/base": "f1d6b53237ff9163",
         "lib/academy-admissions/admission-api-client.ts#ADMISSION_API_PREFIX": "d057b8d84c8c54ef",
         "lib/academy-admissions/admission-api-client.ts#ADMISSION_API_SEGMENT": "c059677a15a3df42",
-        "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/request": "f2ec585ae70ca718",
-        "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient~shell": "7e6baa41555f8a80",
+        "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/bounded": "c4cb5077f4011902",
+        "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/request": "aacc435f03836335",
+        "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient~shell": "9ae0941d40dbad6e",
         "lib/academy-admissions/admission-api-client.ts#ACADEMY_ENTRY_SEGMENT": "4789d69392023c08",
         "lib/academy-admissions/admission-api-client.ts#AcademyAdmissionBrowserEntry": "374de08441fe942e",
         "lib/academy-admissions/admission-api-client.ts#cancellationSchema": "b3be1e7206f05678",
         "lib/academy-admissions/admission-api-client.ts#startedSchema": "24a5738d0e1d4fb4",
         "pkg:better-auth": "e6d94d4511d23fb5",
         "lib/academy-admissions/admission-api-client.ts#submissionSchema": "f3f8edf0c20ff553",
+        "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/send": "4735b19275dda18d",
         "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/policyCommand": "b0c11a19b7214466",
         "src/modules/academy-admissions/application/results/admission-public-result-schemas.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/results/admission-public-result-schemas.ts#admissionPublicErrorSchema": "52a275cca5b69a75",
         "src/modules/academy-admissions/application/results/admission-public-result-schemas.ts#instantSchema": "f714c07944a3b459",
         "src/modules/academy-admissions/application/results/admission-public-result-schemas.ts#resourceIdSchema": "4da893d8b8c85931",
         "lib/academy-admissions/admission-management-browser-transport.ts#<module>": "d414f6d3ee71f10d",
+        "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/timedOut": "0e137a5d60203419",
         "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/rejected": "1f7676c1ab292c86",
         "lib/academy-admissions/admission-management-browser-transport.ts#admissionManagementBrowserFailure": "c208ad1efd8cf36c",
-        "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/json": "da5f29c52b8a2433",
-        "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport~shell": "a5f54d8ecd28f98b",
+        "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/json": "8735dd4dfe2eece2",
+        "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport~shell": "b9add02d3a5af41e",
+        "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/send": "e5a9509a9abd6b31",
         "src/modules/academy-admissions/constants/personal-invitation-http-schemas.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/personal-invitation-http-schemas.ts#createPersonalInvitationHttpCreationSchema": "f427d7096e6175c2",
         "src/modules/academy-admissions/constants/personal-invitation-management-schemas.ts#personalInvitationMutationOperationSchema": "8c647a148c4036d3",
@@ -1635,6 +1641,14 @@
         "src/modules/academy-admissions/constants/admission-operation-recovery-schemas.ts#admissionOperationRecoverySchema": "10246497bce38db0",
         "src/modules/academy-admissions/application/ports/admission-browser-client.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/ports/admission-browser-client.ts#AdmissionBrowserResult": "76e16406dac40a92",
+        "src/constants/browser-request.ts#<module>": "2da3ec2294295eb1",
+        "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MESSAGE": "15130a290077f25a",
+        "lib/browser-request-deadline.ts#<module>": "2da3ec2294295eb1",
+        "lib/browser-request-deadline.ts#boundBrowserRequest": "76d4e40871494519",
+        "lib/browser-request-deadline.ts#AbortedBrowserRequest": "7247fe3d15039b90",
+        "lib/browser-request-deadline.ts#startBrowserRequestDeadline/followCaller": "5fc4bc96b4267cc9",
+        "lib/browser-request-deadline.ts#startBrowserRequestDeadline~shell": "51f782e3225cd5f9",
+        "lib/browser-request-deadline.ts#BrowserRequestDeadline": "712811cf78078a22",
         "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_DECISION~frame": "6d2ef6b3d303bc85",
         "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_DECISION.approve": "92feb68640b5b8bc",
         "src/modules/academy-admissions/constants/admission-policy-browser.ts#<module>": "2da3ec2294295eb1",
@@ -1796,6 +1810,7 @@
         "src/modules/academy-admissions/application/results/admission-command-snapshot.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/results/admission-command-snapshot.ts#createAdmissionCommandSnapshotSchema": "ddbc568d4dcd49e7",
         "src/modules/academy-admissions/constants/personal-invitation-management-schemas.ts#personalInvitationMutationSnapshotSchema": "b9713263a1dc1ee8",
+        "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MS": "a92cd6c5a2273d38",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_OUTCOME~frame": "b44149d3dc3a0bba",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_OUTCOME.admitted": "e0ad4742dbbaf20d",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_OUTCOME.alreadyMember": "46c9c0dc5ed123ef",
@@ -2579,12 +2594,12 @@
           "awaits": 2,
           "dynamicImports": 1
         },
-        "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/request": {
-          "awaits": 2
-        },
         "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient~shell": {
           "projectCalls": 4,
           "awaits": 10
+        },
+        "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/send": {
+          "awaits": 2
         },
         "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/policyCommand": {
           "awaits": 1,
@@ -2593,7 +2608,7 @@
         "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/rejected": {
           "awaits": 1
         },
-        "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/json": {
+        "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/send": {
           "awaits": 3
         },
         "components/academy-admissions/admission-section-navigation/index.tsx#AdmissionSectionNavigation": {
@@ -2648,6 +2663,13 @@
         "src/modules/academy-admissions/constants/admission-operation-recovery-schemas.ts#admissionOperationRecoverySchema": {
           "projectCalls": 28
         },
+        "lib/browser-request-deadline.ts#boundBrowserRequest": {
+          "awaits": 1
+        },
+        "lib/browser-request-deadline.ts#startBrowserRequestDeadline~shell": {
+          "listeners": 1,
+          "timers": 1
+        },
         "src/modules/academy-admissions/application/results/admission-batch-browser-result.ts#matchesAdmissionBatchDecisionResult": {
           "database": 1
         },
@@ -2659,75 +2681,169 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx",
-        "durationMs": 39312,
+        "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
+        "durationMs": 21146,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "0f5f46e8f90bc3310c0b2a5387378a35d06157671c1385e38a5f3f8493b6bb56",
-        "recordedAt": "2026-10-24T21:26:01.091Z",
+        "outputSha256": "320e9b68f3161b8d1ff3d152163fbf1ea10f3e6935179d97bf0f7a8ff66d774e",
+        "recordedAt": "2026-10-25T01:51:26.430Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 2201,
+        "durationMs": 2989,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-24T21:45:32.798Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
-      },
-      {
-        "command": "pnpm run -s lint",
-        "durationMs": 1393,
-        "exitCode": 0,
-        "kind": "command",
-        "outcome": "pass",
-        "outputSha256": "4a525c82baaf9f559fc837135b029e561750083f57186a57247cb677a67b540b",
-        "recordedAt": "2026-10-24T21:45:34.622Z",
+        "recordedAt": "2026-10-25T01:51:29.972Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-24T22:27:04.340Z",
+        "recordedAt": "2026-10-25T01:51:30.520Z",
         "source": "attested",
-        "summary": "Sin cambios de boundaries: el contenedor cliente sigue montado bajo el Suspense de la hoja; ninguna lectura nueva en el render del servidor"
+        "summary": "Deadline compartido de los requests del navegador (boundBrowserRequest, 120 s): una escritura vencida queda incierta (transport_timeout, uncertain) para recuperar la operación original; una lectura vencida es un fallo cierto; la cancelación propia sigue siendo abort."
       }
     ],
     "limitations": [],
-    "mode": "full",
+    "mode": "incremental",
     "pendingChecks": [],
-    "recordedAt": "2026-10-24T22:27:16.635Z",
+    "recordedAt": "2026-10-25T01:51:32.795Z",
     "result": "verified",
-    "runId": "20261024T212247Z-746ba9",
+    "runId": "20261025T015104Z-083eca",
     "scope": {
-      "decision": "full",
+      "decision": "incremental",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "skill definition changed (1.2.0 → 1.3.0): SKILL.md",
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "17 relevant change(s) since the verified run"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "added",
+          "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/bounded",
+          "reason": "new interactive handler in the route"
+        },
+        {
+          "change": "modified",
+          "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/request",
+          "reason": "interactive handler changed: navigation or server action calls may differ"
+        },
+        {
+          "change": "added",
+          "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/send",
+          "reason": "new interactive handler in the route"
+        },
+        {
+          "change": "modified",
+          "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient~shell",
+          "reason": "component render changed: hooks, Suspense or client imports may differ"
+        },
+        {
+          "change": "modified",
+          "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/json",
+          "reason": "interactive handler changed: navigation or server action calls may differ"
+        },
+        {
+          "change": "added",
+          "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/send",
+          "reason": "new interactive handler in the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/timedOut",
+          "reason": "new interactive handler in the route"
+        },
+        {
+          "change": "modified",
+          "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport~shell",
+          "reason": "component render changed: hooks, Suspense or client imports may differ"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-request-deadline.ts#<module>",
+          "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-request-deadline.ts#AbortedBrowserRequest",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-request-deadline.ts#boundBrowserRequest",
+          "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-request-deadline.ts#BrowserRequestDeadline",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-request-deadline.ts#startBrowserRequestDeadline/followCaller",
+          "reason": "new interactive handler in the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-request-deadline.ts#startBrowserRequestDeadline~shell",
+          "reason": "component render changed: hooks, Suspense or client imports may differ"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/browser-request.ts#<module>",
+          "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MESSAGE",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MS",
+          "reason": "new code rendered by the route"
+        }
+      ],
       "suggestedScope": [
-        "whole unit academy.admissions.invitations.manage (/[slug]/academia/admissions/invitations): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
+        "re-check the unit against the rules changed in nextjs-route-ui-boundaries/SKILL.md",
+        "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient › bounded — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+        "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient › request — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+        "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient › send — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+        "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient (component body outside its handlers) — what this component renders: hooks that force a client island, awaited data, Suspense and the client components it imports",
+        "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport › json — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+        "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport › send — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+        "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport › timedOut — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+        "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport (component body outside its handlers) — what this component renders: hooks that force a client island, awaited data, Suspense and the client components it imports",
+        "lib/browser-request-deadline.ts (module directives and side effects) — where the server/client boundary falls (\"use client\", \"use server\") and what the client bundle imports through it",
+        "lib/browser-request-deadline.ts › AbortedBrowserRequest — server/client split and awaited work of this code in every route of the unit",
+        "lib/browser-request-deadline.ts › boundBrowserRequest — server/client split and awaited work of this code in every route of the unit",
+        "lib/browser-request-deadline.ts › BrowserRequestDeadline — server/client split and awaited work of this code in every route of the unit",
+        "lib/browser-request-deadline.ts › startBrowserRequestDeadline › followCaller — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+        "lib/browser-request-deadline.ts › startBrowserRequestDeadline (component body outside its handlers) — what this component renders: hooks that force a client island, awaited data, Suspense and the client components it imports",
+        "src/constants/browser-request.ts (module directives and side effects) — where the server/client boundary falls (\"use client\", \"use server\") and what the client bundle imports through it",
+        "src/constants/browser-request.ts › BROWSER_REQUEST_TIMEOUT_MESSAGE — server/client split and awaited work of this code in every route of the unit",
+        "src/constants/browser-request.ts › BROWSER_REQUEST_TIMEOUT_MS — server/client split and awaited work of this code in every route of the unit"
       ]
     },
     "skill": {
       "definitionFiles": {
-        "SKILL.md": "7e0fca17b2a189bf",
+        "SKILL.md": "e456ce5fb1266d0e",
         "references/decision-rules.md": "5340413b30d4e7a7",
         "references/nextjs-apis.md": "7d812e101f16defe",
         "references/server-client-split.md": "7f52ba9f6a13308d",
         "references/skeleton-patterns.md": "65d4c31f0f8beb93",
         "references/version-notes.md": "b6f6488947de60f0"
       },
-      "definitionHash": "sha256:5a183ade06a29d78b3b2aa3587c403ce09b7391dc6eca1eb1575a1b280e57e16",
+      "definitionHash": "sha256:a3b7fb0dda3a877474c7910f4914469c8cb9a94700aa9d750e81067d96406ed1",
       "name": "nextjs-route-ui-boundaries",
-      "version": "1.2.0"
+      "version": "1.3.0"
     },
-    "report": "runs/20261024T212247Z-746ba9.json"
+    "report": "runs/20261025T015104Z-083eca.json"
   }
 }

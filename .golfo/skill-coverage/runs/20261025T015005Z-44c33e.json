@@ -1,0 +1,170 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-admission-request-deadline",
+    "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
+    "fingerprint": "sha256:0d8b3e616ee1f6b72ec075668f4b269cedb715acc3b5ff7c139e21eb548393ae",
+    "uncommittedFiles": [],
+    "fileCount": 206,
+    "inputCount": 1048
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
+      "durationMs": 20491,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "dc6d9c8bc48a5d36dd5ed70afc9a44a862fd8d1b92cb73a089abdc4592f0f563",
+      "recordedAt": "2026-10-25T01:50:26.434Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T01:50:26.982Z",
+      "source": "attested",
+      "summary": "Deadline compartido de los requests del navegador (boundBrowserRequest, 120 s): una escritura vencida queda incierta (transport_timeout, uncertain) para recuperar la operación original; una lectura vencida es un fallo cierto; la cancelación propia sigue siendo abort."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [
+    "missing passing evidence of kind browser or accessibility"
+  ],
+  "recordedAt": "2026-10-25T01:50:29.428Z",
+  "result": "partial",
+  "runId": "20261025T015005Z-44c33e",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "skill definition changed (1.4.1 → 1.5.0): SKILL.md",
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "17 relevant change(s) since the verified run"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/bounded",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/request",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/send",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/json",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/send",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/timedOut",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-request-deadline.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-request-deadline.ts#AbortedBrowserRequest",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-request-deadline.ts#boundBrowserRequest",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-request-deadline.ts#BrowserRequestDeadline",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-request-deadline.ts#startBrowserRequestDeadline/followCaller",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-request-deadline.ts#startBrowserRequestDeadline~shell",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/browser-request.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MESSAGE",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MS",
+        "reason": "new visible or interactive code"
+      }
+    ],
+    "suggestedScope": [
+      "re-check the unit against the rules changed in ui-ux-flow-patterns/SKILL.md",
+      "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient › bounded — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
+      "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient › request — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
+      "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient › send — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
+      "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
+      "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport › json — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
+      "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport › send — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
+      "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport › timedOut — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
+      "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
+      "lib/browser-request-deadline.ts (module directives and side effects) — client/server boundary and side effects of the module",
+      "lib/browser-request-deadline.ts › AbortedBrowserRequest — behavior of this code in every state of the unit that uses it",
+      "lib/browser-request-deadline.ts › boundBrowserRequest — behavior of this code in every state of the unit that uses it",
+      "lib/browser-request-deadline.ts › BrowserRequestDeadline — behavior of this code in every state of the unit that uses it",
+      "lib/browser-request-deadline.ts › startBrowserRequestDeadline › followCaller — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
+      "lib/browser-request-deadline.ts › startBrowserRequestDeadline (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
+      "src/constants/browser-request.ts (module directives and side effects) — client/server boundary and side effects of the module",
+      "src/constants/browser-request.ts › BROWSER_REQUEST_TIMEOUT_MESSAGE — behavior of this code in every state of the unit that uses it",
+      "src/constants/browser-request.ts › BROWSER_REQUEST_TIMEOUT_MS — behavior of this code in every state of the unit that uses it"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T01:50:05.230Z",
+  "unitId": "academy.admissions.invitations.manage"
+}

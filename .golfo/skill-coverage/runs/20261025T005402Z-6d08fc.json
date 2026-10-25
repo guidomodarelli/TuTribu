@@ -1,0 +1,153 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-admission-request-deadline",
+    "commit": "331fe02f374f740259efb79fd0395fedddb30c87",
+    "fingerprint": "sha256:d35ca6a4cc3a30735fcf9f6e8581639ed4f284a6815b1b196348c1775170b030",
+    "uncommittedFiles": [],
+    "fileCount": 268,
+    "inputCount": 1693
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx tests/unit/modules/messaging/application tests/unit/modules/academy-admissions/infrastructure tests/unit/lib/academy [redacted]-notification-settings-browser.test.ts",
+      "durationMs": 293042,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "7202e6c971661e43b6007aced65a01ab116f99286bf2020f6840c2f10b2cb5db",
+      "recordedAt": "2026-10-25T00:58:56.144Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "command": "pnpm run -s typecheck",
+      "durationMs": 3963,
+      "exitCode": 0,
+      "kind": "command",
+      "outcome": "pass",
+      "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
+      "recordedAt": "2026-10-25T00:59:02.132Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T00:59:02.614Z",
+      "source": "attested",
+      "summary": "El cambio vive en adaptadores del navegador; no cambia boundaries, loading, error ni el reparto server/client de la página de conexión."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T00:59:04.487Z",
+  "result": "verified",
+  "runId": "20261025T005402Z-6d08fc",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "13 relevant change(s) since the verified run"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "lib/browser-request-deadline.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-request-deadline.ts#AbortedBrowserRequest",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-request-deadline.ts#boundBrowserRequest",
+        "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-request-deadline.ts#BrowserRequestDeadline",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-request-deadline.ts#startBrowserRequestDeadline/followCaller",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-request-deadline.ts#startBrowserRequestDeadline~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "removed",
+        "key": "lib/messaging/messaging-browser-api-client.ts#createMessagingBrowserRequest",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "lib/messaging/messaging-browser-api-client.ts#createMessagingBrowserRequest/send",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/messaging/messaging-browser-api-client.ts#createMessagingBrowserRequest~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "modified",
+        "key": "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/request",
+        "reason": "interactive handler changed: navigation or server action calls may differ"
+      },
+      {
+        "change": "added",
+        "key": "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/send",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/browser-request.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MS",
+        "reason": "new code rendered by the route"
+      }
+    ],
+    "suggestedScope": [
+      "lib/browser-request-deadline.ts (module directives and side effects) — where the server/client boundary falls (\"use client\", \"use server\") and what the client bundle imports through it",
+      "lib/browser-request-deadline.ts › AbortedBrowserRequest — server/client split and awaited work of this code in every route of the unit",
+      "lib/browser-request-deadline.ts › boundBrowserRequest — server/client split and awaited work of this code in every route of the unit",
+      "lib/browser-request-deadline.ts › BrowserRequestDeadline — server/client split and awaited work of this code in every route of the unit",
+      "lib/browser-request-deadline.ts › startBrowserRequestDeadline › followCaller — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+      "lib/browser-request-deadline.ts › startBrowserRequestDeadline (component body outside its handlers) — what this component renders: hooks that force a client island, awaited data, Suspense and the client components it imports",
+      "lib/messaging/messaging-browser-api-client.ts › createMessagingBrowserRequest — what the route lost: a layout, a boundary, a Suspense fallback or a client island; check that each state still has its boundary",
+      "lib/messaging/messaging-browser-api-client.ts › createMessagingBrowserRequest › send — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+      "lib/messaging/messaging-browser-api-client.ts › createMessagingBrowserRequest (component body outside its handlers) — what this component renders: hooks that force a client island, awaited data, Suspense and the client components it imports",
+      "lib/messaging/messaging-usage-api-client.ts › createMessagingUsageBrowserClient › request — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+      "lib/messaging/messaging-usage-api-client.ts › createMessagingUsageBrowserClient › send — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+      "src/constants/browser-request.ts (module directives and side effects) — where the server/client boundary falls (\"use client\", \"use server\") and what the client bundle imports through it",
+      "src/constants/browser-request.ts › BROWSER_REQUEST_TIMEOUT_MS — server/client split and awaited work of this code in every route of the unit"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "7e0fca17b2a189bf",
+      "references/decision-rules.md": "5340413b30d4e7a7",
+      "references/nextjs-apis.md": "7d812e101f16defe",
+      "references/server-client-split.md": "7f52ba9f6a13308d",
+      "references/skeleton-patterns.md": "65d4c31f0f8beb93",
+      "references/version-notes.md": "b6f6488947de60f0"
+    },
+    "definitionHash": "sha256:5a183ade06a29d78b3b2aa3587c403ce09b7391dc6eca1eb1575a1b280e57e16",
+    "name": "nextjs-route-ui-boundaries",
+    "version": "1.2.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T00:54:02.633Z",
+  "unitId": "academy.admissions.messaging.connections.restore"
+}

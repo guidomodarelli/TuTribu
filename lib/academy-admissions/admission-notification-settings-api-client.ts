@@ -14,14 +14,19 @@ import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthe
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { admissionApiClient } from "./admission-api-client";
 import { createAdmissionManagementBrowserTransport, admissionManagementBrowserFailure as failure } from "./admission-management-browser-transport";
+import { boundBrowserRequest } from "@/lib/browser-request-deadline";
 
 /** @param options - Own HTTP and viewer ports. @returns Explicit commands and reads with cancellation, no automatic OAuth, retry or dispatch. */
 export function createAdmissionNotificationSettingsApiClient(options: { fetch?: typeof fetch; viewer?: AdmissionNotificationSettingsBrowserClient["viewer"] } = {}): AdmissionNotificationSettingsBrowserClient {
-  const transport = options.fetch ?? fetch, { rejected } = createAdmissionManagementBrowserTransport(transport);
+  const transport = options.fetch ?? fetch, { rejected, timedOut } = createAdmissionManagementBrowserTransport(transport);
   const base = (slug: string) => `${API.prefix}/${encodeURIComponent(slug)}/${API.segment}`;
   /** @param path - Relative own resource. @param schema - Own public DTO guard. @param signal - Current scope cancellation. @param command - Explicit validated body and optional original identity. @returns A native viewer-bound own DTO or controlled failure; upstream payloads are never consumed here. */
-  async function request<Value>(path: string, schema: z.ZodType<Value>, signal: AbortSignal, command?: { body: object; method: string; operationId?: string }): Promise<AdmissionNotificationSettingsBrowserResult<AdmissionNotificationSettingsBoundResult<Value>>> {
-    if (signal.aborted) return { status: STATUS.aborted };
+  function request<Value>(path: string, schema: z.ZodType<Value>, callerSignal: AbortSignal, command?: { body: object; method: string; operationId?: string }): Promise<AdmissionNotificationSettingsBrowserResult<AdmissionNotificationSettingsBoundResult<Value>>> {
+    if (callerSignal.aborted) return Promise.resolve({ status: STATUS.aborted });
+    return boundBrowserRequest<AdmissionNotificationSettingsBrowserResult<AdmissionNotificationSettingsBoundResult<Value>>>(callerSignal, (signal) => send(path, schema, signal, command), () => timedOut(Boolean(command)));
+  }
+  /** Sends one own request under a signal that already follows the caller and the deadline. */
+  async function send<Value>(path: string, schema: z.ZodType<Value>, signal: AbortSignal, command?: { body: object; method: string; operationId?: string }): Promise<AdmissionNotificationSettingsBrowserResult<AdmissionNotificationSettingsBoundResult<Value>>> {
     try {
       const response = await transport(path, { credentials: "same-origin", cache: "no-store", signal, ...(command ? { method: command.method, headers: { "content-type": "application/json" }, body: JSON.stringify(command.body) } : {}) });
       if (signal.aborted) return { status: STATUS.aborted };

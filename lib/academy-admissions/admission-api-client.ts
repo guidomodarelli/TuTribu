@@ -32,6 +32,8 @@ import { ADMISSION_WHATSAPP_ROUTE_SEGMENT } from "@/src/modules/academy-admissio
 import type { CommercialMembershipReviewBrowserClient } from "@/src/modules/academy-admissions/application/ports/commercial-membership-review-browser-client";
 import { commercialMembershipResolutionResultSchema, commercialMembershipReviewListSchema } from "@/src/modules/academy-admissions/application/results/commercial-membership-review-schemas";
 import { COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH } from "@/src/modules/academy-admissions/constants/commercial-membership-review";
+import { boundBrowserRequest } from "@/lib/browser-request-deadline";
+import { BROWSER_REQUEST_TIMEOUT_MESSAGE } from "@/src/constants/browser-request";
 
 /** Own public progress cannot carry an unconfirmed result. */
 const startedSchema = z.object({ state: z.literal("started"), operationId: z.uuid() });
@@ -53,6 +55,18 @@ export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fe
   const base = (slug: string) => `${ADMISSION_API_PREFIX}/${encodeURIComponent(slug)}/${ADMISSION_API_SEGMENT}`;
 
   /**
+   * Ends a hung call: the caller's cancellation stays an abort, while an expired deadline is a failure that keeps a
+   * write uncertain (it may have committed), so its original intent is recovered instead of repeated.
+   * @param callerSignal - The caller's own cancellation.
+   * @param writing - Whether the call may have changed server state.
+   * @param call - The call, run with a signal that also follows the deadline.
+   * @returns The call's result, or a deadline failure when the response never arrived.
+   */
+  function bounded<Value>(callerSignal: AbortSignal, writing: boolean, call: (signal: AbortSignal) => Promise<AdmissionBrowserResult<Value>>): Promise<AdmissionBrowserResult<Value>> {
+    return boundBrowserRequest<AdmissionBrowserResult<Value>>(callerSignal, call, () => ({ status: "failed", code: ADMISSION_ERROR_CODE.transportTimeout, message: BROWSER_REQUEST_TIMEOUT_MESSAGE, uncertain: writing }));
+  }
+
+  /**
    * Consumes own result/error DTOs without turning accepted unresolved work into success or rollback.
    * @param url - Same-origin own route.
    * @param schema - Public result contract selected by the caller.
@@ -61,9 +75,13 @@ export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fe
    * @param method - Explicit write method when it differs from POST.
    * @returns Guarded data, cancellation or safe failure retaining uncertainty and original identity.
    */
-  async function request<Value>(url: string, schema: z.ZodType<Value>, signal: AbortSignal, body?: object, method?: "POST" | "PUT"): Promise<AdmissionBrowserResult<Value>> {
+  async function request<Value>(url: string, schema: z.ZodType<Value>, callerSignal: AbortSignal, body?: object, method?: "POST" | "PUT"): Promise<AdmissionBrowserResult<Value>> {
     const writing = body !== undefined;
-    if (signal.aborted) return { status: "aborted" };
+    return bounded(callerSignal, writing, (signal) => send(url, schema, signal, writing, body, method));
+  }
+
+  /** Sends one own request under a signal that already follows the caller and the deadline. */
+  async function send<Value>(url: string, schema: z.ZodType<Value>, signal: AbortSignal, writing: boolean, body?: object, method?: "POST" | "PUT"): Promise<AdmissionBrowserResult<Value>> {
     try {
       const response = await transport(url, { method: writing ? method ?? "POST" : "GET", credentials: "same-origin", cache: "no-store", signal, ...(writing ? { headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {}) });
       const value: unknown = await response.json();
@@ -94,14 +112,13 @@ export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fe
   }
 
   return {
-    async changeAccount(signal) {
-      if (signal.aborted) return { status: "aborted" };
+    changeAccount: (callerSignal) => bounded(callerSignal, false, async (signal) => {
       try {
         const result = await signOutClient.signOut({ fetchOptions: { signal } });
         if (signal.aborted) return { status: "aborted" };
         return result.error ? failed(ADMISSION_ERROR_CODE.dependencyUnavailable) : { status: "ready", value: null };
       } catch { return signal.aborted ? { status: "aborted" } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable); }
-    },
+    }),
     readPolicy: (slug, signal) => request(`${base(slug)}/${ADMISSION_POLICY_BROWSER_PATH.policy}`, admissionPolicyStateResultSchema, signal),
     readPreflight: (slug, signal) => request(`${base(slug)}/${ADMISSION_POLICY_BROWSER_PATH.preflight}`, admissionPreflightResultSchema, signal),
     initializePolicy: (slug, input, signal) => policyCommand(slug, ADMISSION_POLICY_BROWSER_PATH.policy, input, signal),
@@ -109,14 +126,14 @@ export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fe
     activatePolicy: (slug, input, signal) => policyCommand(slug, ADMISSION_POLICY_BROWSER_PATH.activate, input, signal),
     pausePolicy: (slug, input, signal) => policyCommand(slug, ADMISSION_POLICY_BROWSER_PATH.pause, input, signal),
     /** Reads the native account id only; SDK session/token/provider fields stay within this adapter. */
-    viewer: options.viewer ?? (async (signal) => {
+    viewer: options.viewer ?? ((callerSignal) => bounded(callerSignal, false, async (signal) => {
       try {
         const result = await auth!.getSession({ query: { disableCookieCache: true }, fetchOptions: { signal } });
         if (signal.aborted) return { status: "aborted" };
         if (result.error) return result.error.status === HTTP_STATUS.unauthorized ? { status: "ready", value: null } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable);
         return { status: "ready", value: result.data ? { id: result.data.user.id } : null };
       } catch { return signal.aborted ? { status: "aborted" } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable); }
-    }),
+    })),
     overview: (slug, signal) => request(`${base(slug)}/overview`, admissionOverviewSchema, signal),
     own: (slug, requestId, signal) => request(`${base(slug)}/own-request${requestId ? `?${new URLSearchParams({ admissionRequestId: requestId })}` : ""}`, admissionOwnRequestSchema.nullable(), signal),
     updateWhatsappNumber: async (slug, requestId, input, signal) => {

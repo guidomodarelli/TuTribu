@@ -1,0 +1,70 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-admission-request-deadline",
+    "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
+    "fingerprint": "sha256:b07170a3b434ca0b09825673c181109d559c6d6e7911d95f6016db7bebce1c75",
+    "uncommittedFiles": [],
+    "fileCount": 176,
+    "inputCount": 922
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
+      "durationMs": 21372,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "2b187f417bcafc05741e554c8821f29d5814b49e58059426a702b8c43cf60476",
+      "recordedAt": "2026-10-25T01:52:06.085Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T01:52:06.661Z",
+      "source": "attested",
+      "summary": "Deadline compartido de los requests del navegador (boundBrowserRequest, 120 s): una escritura vencida queda incierta (transport_timeout, uncertain) para recuperar la operación original; una lectura vencida es un fallo cierto; la cancelación propia sigue siendo abort."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T01:52:07.251Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app con la lectura de la conexión retenida: antes, sin aviso ni salida a los 150 s (3 de 3 muestras válidas); después, aviso de tiempo excedido a los ~126 s y botón habilitado (4/4)."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T01:52:09.069Z",
+  "result": "verified",
+  "runId": "20261025T015144Z-0e5747",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "skill definition changed (1.4.1 → 1.5.0): SKILL.md"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "re-check the unit against the rules changed in ui-ux-flow-patterns/SKILL.md"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T01:51:44.079Z",
+  "unitId": "academy.admissions.messaging.connections.restore"
+}
