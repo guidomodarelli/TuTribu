@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-leader-recovery-exits",
-      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
+      "branch": "fix/academy-leader-form-inputs",
+      "commit": "03e3a78a65d09197552b6bf28a0c145091755709",
       "files": {
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/page.tsx": "637ce2d70ca99dc5",
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/loading.tsx": "dc81dcab5563118a",
@@ -126,7 +126,7 @@
         "components/loaders/skeleton-morph/index.tsx": "364f29380a39b0eb",
         "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
-        "lib/academy-admissions/admission-review-filters.ts": "a3965124a3d6cc22",
+        "lib/academy-admissions/admission-review-filters.ts": "10466fd2945f55fe",
         "src/modules/academy-admissions/constants/admission-review-selection.ts": "fd83901eeac62994",
         "lib/academy-admissions/admission-review-selection.ts": "4af44cf86aa1135f",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
@@ -4194,14 +4194,14 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T16:20:44.850Z",
+    "recordedAt": "2026-10-25T18:38:07.180Z",
     "result": "not-applicable",
-    "runId": "20261025T162042Z-a5fcf9",
+    "runId": "20261025T183805Z-b123d1",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo."
+        "recorded not applicable: Las salidas de recuperación no agregan requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": []
@@ -4221,8 +4221,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Las salidas de recuperación no agregan requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T162042Z-a5fcf9.json"
+    "summary": "La validación en el navegador no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T183805Z-b123d1.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

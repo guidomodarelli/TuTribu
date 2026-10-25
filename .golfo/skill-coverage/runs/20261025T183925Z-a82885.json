@@ -1,0 +1,115 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-leader-form-inputs",
+    "commit": "03e3a78a65d09197552b6bf28a0c145091755709",
+    "fingerprint": "sha256:654e6a4b971a717fc42ca6e90c667cdb45dbce1c40a447c83c24fbde13f3b3c1",
+    "uncommittedFiles": [],
+    "fileCount": 310,
+    "inputCount": 1996
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admission-review.test.tsx tests/unit/modules/academy-admissions/infrastructure/admission-review-filters.test.ts tests/unit/components/academy-admission-notification-settings.test.tsx tests/unit/lib/time-zone.test.ts",
+      "durationMs": 29119,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "3eebf34b06288f98a9325f163adeb13e9bdc27bf871933a1b8862357523e2e70",
+      "recordedAt": "2026-10-25T18:39:54.804Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "command": "pnpm run -s typecheck",
+      "durationMs": 2072,
+      "exitCode": 0,
+      "kind": "command",
+      "outcome": "pass",
+      "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
+      "recordedAt": "2026-10-25T18:39:57.284Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T18:39:57.717Z",
+      "source": "attested",
+      "summary": "Validación: los filtros de fecha se leen en hora de Argentina con la zona fija del producto y rechazan fechas o segundos imposibles en lugar de corregirlas; una zona horaria desconocida se marca junto al campo y bloquea el paso, con un solo anuncio. El contrato HTTP sigue con instantes UTC."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T18:39:58.123Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: antes, «Desde (UTC)», 10:00 enviado como 10:00 UTC y una zona mal escrita no bloqueaba; después, «Desde (hora de Argentina)», 10:00 enviado como 13:00 UTC, «Continuar» bloqueado y un único aviso junto al campo (4/4)."
+    }
+  ],
+  "limitations": [
+    "Solo se revisaron los campos de fecha y zona horaria que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T18:39:59.721Z",
+  "result": "partial",
+  "runId": "20261025T183925Z-a82885",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-notification-settings/index.tsx#describeZoneProblem",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-notification-settings/index.tsx#LeaderSteps",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-notification-settings/index.tsx#TribeEmailFields",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-notification-settings/index.tsx#zoneBlockedReason",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/time-zone.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/time-zone.ts#isKnownTimeZone",
+        "reason": "new code rendered by the route"
+      }
+    ],
+    "suggestedScope": [
+      "whole unit academy.admissions.notifications.save (/[slug]/academia/admissions/notifications): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "e456ce5fb1266d0e",
+      "references/decision-rules.md": "5340413b30d4e7a7",
+      "references/nextjs-apis.md": "7d812e101f16defe",
+      "references/server-client-split.md": "7f52ba9f6a13308d",
+      "references/skeleton-patterns.md": "65d4c31f0f8beb93",
+      "references/version-notes.md": "b6f6488947de60f0"
+    },
+    "definitionHash": "sha256:a3b7fb0dda3a877474c7910f4914469c8cb9a94700aa9d750e81067d96406ed1",
+    "name": "nextjs-route-ui-boundaries",
+    "version": "1.3.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T18:39:25.249Z",
+  "unitId": "academy.admissions.notifications.save"
+}

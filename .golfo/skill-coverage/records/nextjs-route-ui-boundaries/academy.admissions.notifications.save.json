@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-leader-recovery-exits",
-      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
+      "branch": "fix/academy-leader-form-inputs",
+      "commit": "03e3a78a65d09197552b6bf28a0c145091755709",
       "files": {
         "app/(platform)/[slug]/academia/admissions/notifications/page.tsx": "9ac8ba336bea378a",
         "app/(platform)/[slug]/academia/admissions/notifications/loading.tsx": "0644ae0b8b373f85",
@@ -41,8 +41,8 @@
         "src/modules/notifications/domain/repositories/admission-notification-email-settings-repository.ts": "f867cde5a3294e37",
         "src/modules/notifications/application/commands/admission-notification-email-settings-draft.ts": "0a35033146014ed1",
         "src/modules/notifications/domain/entities/admission-notification-preference.ts": "77ce3fe98e427669",
-        "components/academy-admissions/admission-notification-settings/index.tsx": "29298f1357cbd156",
-        "src/modules/notifications/constants/admission-notification-settings-browser.ts": "5aa4ad88e8918c6a",
+        "components/academy-admissions/admission-notification-settings/index.tsx": "a34b7f9cedf0e63f",
+        "src/modules/notifications/constants/admission-notification-settings-browser.ts": "c8ca6776dfc4b8a8",
         "src/modules/notifications/application/ports/admission-notification-settings-browser-client.ts": "8581c3d780834869",
         "src/modules/notifications/application/results/admission-notification-settings-page-state.ts": "f64895593940b63f",
         "src/modules/messaging/constants/messaging-connections-browser.ts": "6324cc25a232f60b",
@@ -193,6 +193,7 @@
         "components/academy-admissions/admission-notification-settings/styles.module.scss": "ad8f0ba50a34f1b0",
         "components/forms/guided-steps/index.tsx": "3408dd218a444fb6",
         "src/modules/notifications/constants/admission-notification-settings-http.ts": "37af4ac78d810579",
+        "lib/date-time/time-zone.ts": "1065c02a5fe6e7bd",
         "src/modules/academy-admissions/application/ports/admission-browser-client.ts": "e4d882fd3cf5bf02",
         "src/modules/auth/constants/reauthentication-resources.ts": "73b5e0d97c9862f7",
         "lib/academy-admissions/admission-api-client.ts": "685e72943289a164",
@@ -315,7 +316,7 @@
         "src/modules/academy-admissions/domain/value-objects/admission-contact.ts": "b67579afa51cdbd8",
         "src/modules/academy-admissions/domain/entities/admission-policy.ts": "a602f5d4e4fee0b2"
       },
-      "fingerprint": "sha256:53f3c52f35a1facf83c1ff300ecdc1caf8ef495c234b6b161a84128ace6fd8b4",
+      "fingerprint": "sha256:654e6a4b971a717fc42ca6e90c667cdb45dbce1c40a447c83c24fbde13f3b3c1",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
@@ -588,7 +589,7 @@
         "src/modules/notifications/domain/entities/admission-notification-preference.ts#AdmissionNotificationPreferenceMode": "1777e0b5a109d81d",
         "components/academy-admissions/admission-notification-settings/index.tsx#<module>": "2da3ec2294295eb1",
         "components/academy-admissions/admission-notification-settings/index.tsx#AdmissionNotificationSettings": "e640d21d34fcaac0",
-        "components/academy-admissions/admission-notification-settings/index.tsx#LeaderSteps": "c29f368f354261e8",
+        "components/academy-admissions/admission-notification-settings/index.tsx#LeaderSteps": "3027a9d7d00d9a94",
         "components/academy-admissions/admission-notification-settings/index.tsx#Feedback": "63313c98956bc7de",
         "components/academy-admissions/admission-notification-settings/index.tsx#AdmissionNotificationSettingsProps": "d1e6902fd499fdd6",
         "components/academy-admissions/admission-notification-settings/index.tsx#AdmissionNotificationSettingsPlan": "ce6bc4f7af774634",
@@ -601,9 +602,11 @@
         "components/academy-admissions/admission-notification-settings/index.tsx#EMAIL_PLAN_TONE.blocked": "b99edbf89afa1188",
         "components/academy-admissions/admission-notification-settings/index.tsx#EMAIL_PLAN_TONE~frame": "52452ca2eab693ac",
         "components/academy-admissions/admission-notification-settings/index.tsx#modeLabel": "16295b1a6a528007",
-        "components/academy-admissions/admission-notification-settings/index.tsx#TribeEmailFields": "d35ec58a91d7c573",
+        "components/academy-admissions/admission-notification-settings/index.tsx#TribeEmailFields": "aef859c4236d473a",
+        "components/academy-admissions/admission-notification-settings/index.tsx#describeZoneProblem": "abb85d2d56d9e624",
         "components/academy-admissions/admission-notification-settings/index.tsx#saveBlockedReason": "9f732fa3bfe6de08",
         "components/academy-admissions/admission-notification-settings/index.tsx#hasPlannedWrite": "7d0f92b5efac5fe1",
+        "components/academy-admissions/admission-notification-settings/index.tsx#zoneBlockedReason": "c19df2543a9a4913",
         "components/academy-admissions/admission-notification-settings/index.tsx#MemberForm": "b5a88f3f90f8320f",
         "components/academy-admissions/admission-notification-settings/index.tsx#MemberTribeNotice": "9166dc6a0e71dba0",
         "components/academy-admissions/admission-notification-settings/index.tsx#SettingsSummary": "ab03959299cb0e75",
@@ -1434,7 +1437,6 @@
         "src/modules/notifications/constants/admission-notification-preference.ts#ADMISSION_NOTIFICATION_PREFERENCE_GROUPED": "5f97b247d697adb3",
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts#<module>": "2da3ec2294295eb1",
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts#AdmissionNotificationEmailSettingsChange": "49916b18cc65cbc3",
-        "src/modules/notifications/constants/admission-notification-settings-browser.ts#ADMISSION_NOTIFICATION_SETTINGS_COPY.zoneRequired": "c347de74fb16e2de",
         "src/modules/notifications/application/results/admission-notification-settings-result.ts#<module>": "2da3ec2294295eb1",
         "src/modules/notifications/application/results/admission-notification-settings-result.ts#AdmissionNotificationEmailSettingsView": "db92f48fb0cf600a",
         "src/modules/notifications/application/results/admission-notification-settings-result.ts#AdmissionNotificationPreferenceView": "cd10671518d083d6",
@@ -1473,11 +1475,16 @@
         "src/modules/notifications/constants/admission-notification-settings-http.ts#<module>": "2da3ec2294295eb1",
         "src/modules/notifications/constants/admission-notification-settings-http.ts#ADMISSION_NOTIFICATION_SETTINGS_TIME_ZONE_MAX_LENGTH": "6575cc0b8e8ecd91",
         "src/modules/notifications/constants/admission-notification-settings-options.ts#ADMISSION_NOTIFICATION_TIME_ZONE_HELP": "3b673be3352ce36a",
+        "src/modules/notifications/constants/admission-notification-settings-browser.ts#ADMISSION_NOTIFICATION_SETTINGS_COPY.zoneUnknown": "b4f37d4838b6f127",
+        "src/modules/notifications/constants/admission-notification-settings-browser.ts#ADMISSION_NOTIFICATION_SETTINGS_COPY.zoneRequired": "c347de74fb16e2de",
+        "lib/date-time/time-zone.ts#<module>": "2da3ec2294295eb1",
+        "lib/date-time/time-zone.ts#isKnownTimeZone": "ca9f354787f65ab4",
         "src/modules/notifications/constants/admission-notification-settings-browser.ts#ADMISSION_NOTIFICATION_SETTINGS_COPY.confirmRequired": "dd80ed137427fa4c",
         "src/modules/notifications/constants/admission-notification-settings-browser.ts#ADMISSION_NOTIFICATION_SETTINGS_COPY.emailOriginalBlocked": "47e607e321ebb841",
         "src/modules/notifications/constants/admission-notification-settings-browser.ts#ADMISSION_NOTIFICATION_SETTINGS_COPY.noChanges": "276c36890b26bd4b",
         "src/modules/notifications/constants/admission-notification-settings-browser.ts#ADMISSION_NOTIFICATION_SETTINGS_COPY.staleRead": "aff168be210a955a",
         "src/modules/notifications/constants/admission-notification-settings-browser.ts#ADMISSION_NOTIFICATION_SETTINGS_EMAIL_PLAN.blocked": "05baabd7d22a03d5",
+        "src/modules/notifications/constants/admission-notification-settings-browser.ts#ADMISSION_NOTIFICATION_SETTINGS_COPY.zoneFix": "47ab75662dac2be3",
         "src/modules/academy-admissions/application/ports/admission-browser-client.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/ports/admission-browser-client.ts#AdmissionBrowserClient": "d39dd312bd635f8c",
         "src/modules/academy-admissions/application/ports/admission-browser-client.ts#AdmissionBrowserResult": "76e16406dac40a92",
@@ -2927,43 +2934,50 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
-        "durationMs": 106240,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admission-review.test.tsx tests/unit/modules/academy-admissions/infrastructure/admission-review-filters.test.ts tests/unit/components/academy-admission-notification-settings.test.tsx tests/unit/lib/time-zone.test.ts",
+        "durationMs": 29119,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "8e3fe7624838b1e19843f10979e81e1ade66218d97880766f6ef809256c21020",
-        "recordedAt": "2026-10-25T17:49:22.355Z",
+        "outputSha256": "3eebf34b06288f98a9325f163adeb13e9bdc27bf871933a1b8862357523e2e70",
+        "recordedAt": "2026-10-25T18:39:54.804Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 2093,
+        "durationMs": 2072,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T17:49:24.875Z",
+        "recordedAt": "2026-10-25T18:39:57.284Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T17:49:25.297Z",
+        "recordedAt": "2026-10-25T18:39:57.717Z",
         "source": "attested",
-        "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
+        "summary": "Validación: los filtros de fecha se leen en hora de Argentina con la zona fija del producto y rechazan fechas o segundos imposibles en lugar de corregirlas; una zona horaria desconocida se marca junto al campo y bloquea el paso, con un solo anuncio. El contrato HTTP sigue con instantes UTC."
+      },
+      {
+        "kind": "browser",
+        "outcome": "pass",
+        "recordedAt": "2026-10-25T18:39:58.123Z",
+        "source": "attested",
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: antes, «Desde (UTC)», 10:00 enviado como 10:00 UTC y una zona mal escrita no bloqueaba; después, «Desde (hora de Argentina)», 10:00 enviado como 13:00 UTC, «Continuar» bloqueado y un único aviso junto al campo (4/4)."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de recuperación que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los campos de fecha y zona horaria que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T17:49:27.230Z",
+    "recordedAt": "2026-10-25T18:39:59.721Z",
     "result": "partial",
-    "runId": "20261025T174735Z-e6d40e",
+    "runId": "20261025T183925Z-a82885",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -2972,9 +2986,34 @@
       ],
       "relevantChangesAtBegin": [
         {
+          "change": "added",
+          "key": "components/academy-admissions/admission-notification-settings/index.tsx#describeZoneProblem",
+          "reason": "new code rendered by the route"
+        },
+        {
           "change": "modified",
-          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
+          "key": "components/academy-admissions/admission-notification-settings/index.tsx#LeaderSteps",
           "reason": "code rendered by the route changed"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy-admissions/admission-notification-settings/index.tsx#TribeEmailFields",
+          "reason": "code rendered by the route changed"
+        },
+        {
+          "change": "added",
+          "key": "components/academy-admissions/admission-notification-settings/index.tsx#zoneBlockedReason",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/time-zone.ts#<module>",
+          "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/time-zone.ts#isKnownTimeZone",
+          "reason": "new code rendered by the route"
         }
       ],
       "suggestedScope": [
@@ -2994,7 +3033,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T174735Z-e6d40e.json"
+    "report": "runs/20261025T183925Z-a82885.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",
