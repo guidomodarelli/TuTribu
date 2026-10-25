@@ -207,4 +207,16 @@ describe("applicant contact verification presentation", () => {
     expect(props.onResend).toHaveBeenCalledTimes(1);
     expect(props.onIssue).not.toHaveBeenCalled();
   });
+
+  it("should read the code expiry and the resend wait in minutes once they pass a minute", () => {
+    const props = verificationProps();
+    const challenge = { challengeId: randomUUID(), purpose: "admission" as const, channel: "email" as const, maskedDestination: "a•••@example.test", expiresAt: "2026-10-08T23:10:00Z", resendAllowedAt: "2026-10-08T23:01:30Z", deliveryState: "delivered" as const };
+    const { rerender } = render(<ContactVerification {...props} channel="email" allowedCountries={[]} challenge={challenge} confirmed expiresInSeconds={600} resendInSeconds={90} />);
+    expect(screen.getByText("Vence en 10 minutos.")).toBeVisible();
+    expect(screen.getByText("Podés reenviar en 1 min 30 s.")).toBeVisible();
+
+    rerender(<ContactVerification {...props} channel="email" allowedCountries={[]} challenge={challenge} confirmed expiresInSeconds={60} resendInSeconds={1} />);
+    expect(screen.getByText("Vence en 1 minuto.")).toBeVisible();
+    expect(screen.getByText("Podés reenviar en 1 segundo.")).toBeVisible();
+  });
 });

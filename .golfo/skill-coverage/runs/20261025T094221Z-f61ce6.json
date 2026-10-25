@@ -1,0 +1,312 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-readable-dates",
+    "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
+    "fingerprint": "sha256:5806c6708cbc109f33055fa971d8ba4a49d674c3ae25fdaf92be36cfd5b6f4bc",
+    "uncommittedFiles": [],
+    "fileCount": 209,
+    "inputCount": 1077
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
+      "durationMs": 64445,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "3e633e2f46db4e6a3b6f393f65ff1fbc9dd1c79d0f575dee947a1fd315888ba5",
+      "recordedAt": "2026-10-25T09:43:26.685Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T09:43:27.201Z",
+      "source": "attested",
+      "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T09:43:27.719Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: antes, «Vencimiento del enlace (fecha y hora UTC)», vigencia «2026-11-01T04:48:00.000Z (UTC)», «día UTC» y «2026-10-25 04:47:57.580 UTC»; después, «(hora de Argentina)», «01 nov 2026 · 01:54», «de 21:00 a 21:00 (hora de Argentina)», «Consumo del día» y «Período iniciado el 24 oct 2026 · 21:00» (4/4)."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T09:43:29.537Z",
+  "result": "verified",
+  "runId": "20261025T094221Z-f61ce6",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "components/academy-admissions/invitation-management/index.tsx#formatInvitationExpiry",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/invitation-management/index.tsx#InvitationManagement~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#DATE_KEY_FORMATTER",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#DATE_PART.day",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#DATE_PART.month",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#DATE_PART.year",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#DATE_PART~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#DATE_TIME_SEPARATOR",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.hourCycle",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.numeric",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.short",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.twoDigit",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#formatBuenosAiresDateTime",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#formatBuenosAiresShortDate",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#formatBuenosAiresTime",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#LOCALE.machine",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#LOCALE.spanish",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#LOCALE~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#readPart",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#SHORT_DATE_FORMATTER",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#stripTrailingPeriod",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#TIME_FORMATTER",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#TRAILING_PERIOD_PATTERN",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/date-time.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/date-time.ts#BUENOS_AIRES_TIME_ZONE",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/date-time.ts#BUENOS_AIRES_UTC_OFFSET",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts#emptyPersonalInvitationManagementDraft",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts#preparePersonalInvitationManagementIntent~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_DATE.minuteCharacters",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_DATE.minutePattern",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_DATE.utcSuffix",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_DATE~frame",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#BUENOS_AIRES_MINUTE_KEY_PATTERN",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#fromBuenosAiresMinuteKey",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#MINUTE_KEY_FORMATTER",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#SECONDS_SUFFIX",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#toBuenosAiresMinuteKey",
+        "reason": "new visible or interactive code"
+      }
+    ],
+    "suggestedScope": [
+      "pending from the previous run: missing passing evidence of kind browser or accessibility",
+      "components/academy-admissions/invitation-management/index.tsx › formatInvitationExpiry — behavior of this code in every state of the unit that uses it",
+      "components/academy-admissions/invitation-management/index.tsx › InvitationManagement (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
+      "lib/date-time/buenos-aires-format.ts (module directives and side effects) — client/server boundary and side effects of the module",
+      "lib/date-time/buenos-aires-format.ts › DATE_KEY_FORMATTER — behavior of this code in every state of the unit that uses it",
+      "lib/date-time/buenos-aires-format.ts › DATE_PART.day — copy or configuration read from this member, in every state that shows it",
+      "lib/date-time/buenos-aires-format.ts › DATE_PART.month — copy or configuration read from this member, in every state that shows it",
+      "lib/date-time/buenos-aires-format.ts › DATE_PART.year — copy or configuration read from this member, in every state that shows it",
+      "lib/date-time/buenos-aires-format.ts › DATE_PART (object structure) — behavior of this code in every state of the unit that uses it",
+      "lib/date-time/buenos-aires-format.ts › DATE_TIME_SEPARATOR — behavior of this code in every state of the unit that uses it",
+      "lib/date-time/buenos-aires-format.ts › FORMAT_OPTION.hourCycle — copy or configuration read from this member, in every state that shows it",
+      "lib/date-time/buenos-aires-format.ts › FORMAT_OPTION.numeric — copy or configuration read from this member, in every state that shows it",
+      "lib/date-time/buenos-aires-format.ts › FORMAT_OPTION.short — copy or configuration read from this member, in every state that shows it",
+      "lib/date-time/buenos-aires-format.ts › FORMAT_OPTION.twoDigit — copy or configuration read from this member, in every state that shows it",
+      "lib/date-time/buenos-aires-format.ts › FORMAT_OPTION (object structure) — behavior of this code in every state of the unit that uses it",
+      "lib/date-time/buenos-aires-format.ts › formatBuenosAiresDateTime — behavior of this code in every state of the unit that uses it",
+      "lib/date-time/buenos-aires-format.ts › formatBuenosAiresShortDate — behavior of this code in every state of the unit that uses it",
+      "lib/date-time/buenos-aires-format.ts › formatBuenosAiresTime — behavior of this code in every state of the unit that uses it",
+      "lib/date-time/buenos-aires-format.ts › LOCALE.machine — copy or configuration read from this member, in every state that shows it",
+      "lib/date-time/buenos-aires-format.ts › LOCALE.spanish — copy or configuration read from this member, in every state that shows it",
+      "lib/date-time/buenos-aires-format.ts › LOCALE (object structure) — behavior of this code in every state of the unit that uses it",
+      "lib/date-time/buenos-aires-format.ts › readPart — behavior of this code in every state of the unit that uses it",
+      "lib/date-time/buenos-aires-format.ts › SHORT_DATE_FORMATTER — behavior of this code in every state of the unit that uses it",
+      "lib/date-time/buenos-aires-format.ts › stripTrailingPeriod — behavior of this code in every state of the unit that uses it",
+      "lib/date-time/buenos-aires-format.ts › TIME_FORMATTER — behavior of this code in every state of the unit that uses it",
+      "lib/date-time/buenos-aires-format.ts › TRAILING_PERIOD_PATTERN — behavior of this code in every state of the unit that uses it",
+      "src/constants/date-time.ts (module directives and side effects) — client/server boundary and side effects of the module",
+      "src/constants/date-time.ts › BUENOS_AIRES_TIME_ZONE — behavior of this code in every state of the unit that uses it",
+      "src/constants/date-time.ts › BUENOS_AIRES_UTC_OFFSET — behavior of this code in every state of the unit that uses it",
+      "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts › emptyPersonalInvitationManagementDraft — behavior of this code in every state of the unit that uses it",
+      "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts › preparePersonalInvitationManagementIntent (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
+      "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts › PERSONAL_INVITATION_MANAGEMENT_DATE.minuteCharacters — copy or configuration read from this member, in every state that shows it",
+      "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts › PERSONAL_INVITATION_MANAGEMENT_DATE.minutePattern — copy or configuration read from this member, in every state that shows it",
+      "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts › PERSONAL_INVITATION_MANAGEMENT_DATE.utcSuffix — copy or configuration read from this member, in every state that shows it",
+      "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts › PERSONAL_INVITATION_MANAGEMENT_DATE (object structure) — behavior of this code in every state of the unit that uses it",
+      "src/modules/shared/application/date-time/buenos-aires-minute.ts (module directives and side effects) — client/server boundary and side effects of the module",
+      "src/modules/shared/application/date-time/buenos-aires-minute.ts › BUENOS_AIRES_MINUTE_KEY_PATTERN — behavior of this code in every state of the unit that uses it",
+      "src/modules/shared/application/date-time/buenos-aires-minute.ts › fromBuenosAiresMinuteKey — behavior of this code in every state of the unit that uses it",
+      "src/modules/shared/application/date-time/buenos-aires-minute.ts › MINUTE_KEY_FORMATTER — behavior of this code in every state of the unit that uses it",
+      "src/modules/shared/application/date-time/buenos-aires-minute.ts › SECONDS_SUFFIX — behavior of this code in every state of the unit that uses it",
+      "src/modules/shared/application/date-time/buenos-aires-minute.ts › toBuenosAiresMinuteKey — behavior of this code in every state of the unit that uses it"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T09:42:21.638Z",
+  "unitId": "academy.admissions.invitations.manage"
+}

@@ -6,6 +6,7 @@ import { Button, Checkbox, EmptyState, Input, Label } from "@golfo/ui";
 import { ButtonLink } from "@/components/navigation/link";
 import { GuidedSteps, type GuidedStep } from "@/components/forms/guided-steps";
 import { ALLOWLIST_IMPORT_FILE_ACCEPT, ALLOWLIST_IMPORT_VISIBLE_ROW_COUNT, ALLOWLIST_IMPORT_BROWSER_COPY as COPY, ALLOWLIST_IMPORT_WRITE_ACTION, type AllowlistImportWriteAction } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
+import { formatBuenosAiresDateTime } from "@/lib/date-time/buenos-aires-format";
 import { ALLOWLIST_IMPORT_REPORT_ERROR_LABEL, ALLOWLIST_IMPORT_REPORT_OUTCOME_LABEL } from "@/src/modules/academy-admissions/constants/allowlist-import";
 import { ADMISSION_IMPORT_PUBLIC_STATE } from "@/src/modules/academy-admissions/constants/admission-management-contract";
 import styles from "./styles.module.scss";
@@ -54,7 +55,7 @@ export function AllowlistImport(props: AllowlistImportProps) {
           <div className={styles.AllowlistImport__identity}><strong>{row.identity || "Contacto vacío"}</strong>{row.displayName && <span>{row.displayName}</span>}<span className={styles.AllowlistImport__help}>{row.outcome ? ALLOWLIST_IMPORT_REPORT_OUTCOME_LABEL[row.outcome] : row.errors.length ? "Revisar datos" : "Válida pendiente"}{row.version !== undefined && ` · Versión de entrada ${row.version}`}</span>{row.errors.length > 0 && <span className={styles.AllowlistImport__error}>{row.errors.map((error) => ALLOWLIST_IMPORT_REPORT_ERROR_LABEL[error]).join(" · ")}</span>}</div>
         </li>)}</ul>
         {rows.length > ALLOWLIST_IMPORT_VISIBLE_ROW_COUNT && <nav className={styles.AllowlistImport__actions} aria-label="Páginas de filas importadas"><Button type="button" variant="secondary" disabled={props.busy || boundedOffset === 0} onClick={() => setOffset(Math.max(0, boundedOffset - ALLOWLIST_IMPORT_VISIBLE_ROW_COUNT))}>Filas anteriores</Button><span>Filas {boundedOffset + 1}–{Math.min(boundedOffset + ALLOWLIST_IMPORT_VISIBLE_ROW_COUNT, rows.length)} de {rows.length}</span><Button type="button" variant="secondary" disabled={props.busy || boundedOffset + ALLOWLIST_IMPORT_VISIBLE_ROW_COUNT >= rows.length} onClick={() => setOffset(boundedOffset + ALLOWLIST_IMPORT_VISIBLE_ROW_COUNT)}>Filas siguientes</Button></nav>}
-        <p className={styles.AllowlistImport__help}>Versión {props.snapshot.sourceVersion}. Reporte disponible hasta <time dateTime={props.snapshot.expiresAt}>{props.snapshot.expiresAt.replace("T", " ").replace("Z", " UTC")}</time>; después de ese plazo no puede consultarse. Los resultados ya confirmados se conservan y no se repiten.</p>
+        <p className={styles.AllowlistImport__help}>Versión {props.snapshot.sourceVersion}. Reporte disponible hasta <time dateTime={props.snapshot.expiresAt}>{formatBuenosAiresDateTime(props.snapshot.expiresAt)}</time>; después de ese plazo no puede consultarse. Los resultados ya confirmados se conservan y no se repiten.</p>
       </>,
       secondary: progress, secondaryLabel: "Progreso y reporte",
     },

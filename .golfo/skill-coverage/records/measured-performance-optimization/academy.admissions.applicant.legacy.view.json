@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-readable-dates",
+      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
       "files": {
         "app/(admission)/admissions/[slug]/legacy/[token]/legacy-admission-container.tsx": "2c7cabded6cd1d2e",
         "app/(admission)/admissions/[slug]/legacy/[token]/page.tsx": "1f9a8bc3a26f005c",
@@ -336,7 +336,7 @@
         "src/modules/academy-admissions/constants/admission-whatsapp-number-schemas.ts": "c0bfb66112fff4e7",
         "src/modules/messaging/application/results/messaging-flow-result-schemas.ts": "a994709cbdac8618",
         "components/academy-admissions/admission-form/index.tsx": "c9e419348d7e884a",
-        "components/academy-admissions/contact-verification/index.tsx": "68a77bb79786a129",
+        "components/academy-admissions/contact-verification/index.tsx": "2b3c413518b191a3",
         "components/forms/guided-steps/index.tsx": "3408dd218a444fb6",
         "components/academy-admissions/request-status/index.tsx": "ae2f32edf0ad70b8",
         "components/academy-admissions/admission-whatsapp-number-field/index.tsx": "10cbeb4aeca70640",
@@ -404,7 +404,7 @@
         "src/modules/shared/infrastructure/observability/request-context.ts": "298449d5b583123d",
         "src/modules/messaging/constants/messaging-connection-presentation.ts": "76f07b7016bbdfe0",
         "src/modules/messaging/constants/messaging-diagnostic-browser.ts": "ed8ca8f52e2b7e72",
-        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/modules/academy-admissions/constants/admission-contact-intent-schemas.ts": "02803c1782d33e5a",
         "src/modules/notifications/constants/admission-notification-audit.ts": "b18df51d33f3dd0a",
         "src/modules/messaging/constants/messaging-credential-validation.ts": "0712b1ab28ca1ec2",
@@ -470,7 +470,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:03fe9ae5b18d1319974a7f3d2106e2ef46e93c75b6d22cb2d7f350192bda209f",
+      "fingerprint": "sha256:d2aea4a21629826135b5ff11b11221bfaa22a5eb5ebfdfce26d55c5c7c231d4c",
       "inputs": {
         "app/(admission)/admissions/[slug]/legacy/[token]/legacy-admission-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(admission)/admissions/[slug]/legacy/[token]/legacy-admission-container.tsx#LegacyAdmissionContainer": "5c48984608633f4d",
@@ -2301,9 +2301,10 @@
         "src/modules/academy-admissions/constants/admission-request-flow.ts#ADMISSION_REQUEST_FLOW_COPY.verifyTitle": "e234b4dd84abe132",
         "src/modules/academy-admissions/constants/admission-request-flow.ts#ADMISSION_REQUEST_FLOW_COPY.whatsappFact": "3c4531e3c40ea83d",
         "components/academy-admissions/contact-verification/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/contact-verification/index.tsx#ContactVerification": "13fae8de53e22a3c",
+        "components/academy-admissions/contact-verification/index.tsx#ContactVerification": "c547420d648f268c",
         "components/academy-admissions/contact-verification/index.tsx#contactVerificationAvailability": "ad623dfb8a7ea2ac",
         "components/academy-admissions/contact-verification/index.tsx#ContactVerificationAvailability": "4abc819b5c3b86e7",
+        "components/academy-admissions/contact-verification/index.tsx#formatContactCountdown": "60d8d3d8a7306152",
         "components/academy-admissions/contact-verification/index.tsx#ContactVerificationResendActions": "0ccf3457a0296c14",
         "components/forms/guided-steps/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/forms/guided-steps/index.tsx#GuidedSteps/go": "98cb89a80f7ac0e2",
@@ -4589,18 +4590,17 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T04:12:26.054Z",
+    "recordedAt": "2026-10-25T09:23:55.598Z",
     "result": "not-applicable",
-    "runId": "20261025T041223Z-ae7fc8",
+    "runId": "20261025T092352Z-72cd6f",
     "scope": {
-      "decision": "full",
+      "decision": "not-applicable",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "recorded not applicable: El cambio de boundaries no agrega requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": [
-        "measure the complete flow /admissions/[slug]/legacy/[token] before and after, same build, data and throttling; median of 3 for noisy metrics"
-      ]
+      "suggestedScope": []
     },
     "skill": {
       "definitionFiles": {
@@ -4617,8 +4617,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "El cambio de boundaries no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T041223Z-ae7fc8.json"
+    "summary": "El cambio de copy de fechas no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T092352Z-72cd6f.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

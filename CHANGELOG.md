@@ -113,6 +113,9 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 ### Changed
 - Los enlaces de ingreso a una academia y de una solicitud propia ya no se indexan en buscadores ni informan la página de origen al abrir otro sitio, igual que las invitaciones personales.
 
+- Los códigos de verificación muestran cuánto falta en minutos («Vence en 9 min 20 s», «Podés reenviar en 1 minuto») en lugar de una cuenta en segundos.
+- Invitaciones, importación de habilitados y consumo e historial muestran fechas legibles en hora de Argentina («25 oct 2026 · 14:30») en lugar de fechas técnicas en UTC; el vencimiento de una invitación personal se elige en hora de Argentina.
+- Países y cupos y el consumo del día explican que el día se cuenta de 21:00 a 21:00, hora de Argentina.
 - Conexión de mensajería permite reemplazar una clave de Zavu rechazada o sin comprobar con «Reemplazar la clave»: el paso Clave nombra la candidata, aclara que la conexión seleccionada no cambia y, tras confirmar, retira sólo esa candidata y vuelve al formulario con el mismo nombre.
 - Seguridad y retiro muestra el rol y el estado de cada conexión, explica que suspender conserva su lugar y sólo retirarla lo libera, preselecciona la candidata al llegar desde su aviso y, antes de suspender la conexión activa, avisa que se detienen los avisos y los códigos de verificación de la academia.
 - En las academias, los integrantes sin suscripción ya pueden leer el fogón y los canales, con sus respuestas, me gusta, encuestas y archivos adjuntos. Para publicar, responder, reaccionar o votar necesitan la suscripción mensual a la academia, y el fogón les ofrece suscribirse. Eventos, La tribu y Méritos siguen siendo solo para quienes tienen la academia; el líder y los guardianes siempre leen y escriben.
