@@ -658,6 +658,18 @@ describe("connection wizard states beside their origin",()=>{
     await waitFor(()=>expect(screen.queryByText(MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedTitle)).not.toBeInTheDocument());
     expect(screen.queryByText(MESSAGING_CREDENTIAL_CHECK_UI_COPY.stale)).not.toBeInTheDocument();
   });
+  it("should keep a failed reread after a rejected credential check apart from a changed connection",async()=>{
+    const fixture=selectedCandidateFixture(),user=userEvent.setup();
+    fixture.client.validate=vi.fn<MessagingConnectionsBrowserClient["validate"]>(async()=>({status:"failed",code:MESSAGING_ERROR_CODE.invalidCredentials,message:MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.invalidCredentials],uncertain:false}));
+    fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"failed",code:MESSAGING_ERROR_CODE.transportTimeout,message:MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.transportTimeout],uncertain:false}));
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} />);
+    await openTab("Conexión");
+    await waitFor(()=>expect(screen.getByRole("checkbox",{name:/Confirmo que quiero comprobar/i})).toBeEnabled());
+    await user.click(screen.getByRole("checkbox",{name:/Confirmo que quiero comprobar/i}));
+    await user.click(screen.getByRole("button",{name:"Comprobar credencial"}));
+    expect(await screen.findByText(MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedTitle)).toBeVisible();
+    expect(screen.queryByText(MESSAGING_CREDENTIAL_CHECK_UI_COPY.stale)).not.toBeInTheDocument();
+  });
   it("should still ask to read the current connection when the read reports a real conflict",async()=>{
     const fixture=selectedCandidateFixture(),user=userEvent.setup();
     fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"failed",code:MESSAGING_ERROR_CODE.connectionConflict,message:MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.connectionConflict],uncertain:false}));
