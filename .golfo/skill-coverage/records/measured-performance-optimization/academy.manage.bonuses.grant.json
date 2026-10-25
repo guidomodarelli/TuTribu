@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "fcbe88fcb243c8ddf8db9e49f2defe0c34c5c9c9",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
       "files": {
-        "components/academy/academy-management/index.tsx": "b31e2d2038935251",
+        "components/academy/academy-management/index.tsx": "34f2bdb8739e7845",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/academy/bonuses/route.ts": "2b4c0dee98bd2d99",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
@@ -52,7 +52,7 @@
         "src/constants/time.ts": "98b5459a77a709b0",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:f1be284e55af03f79ae1189ca76c6180c870459cc5172e7a5e2fad9accbb1f0c",
+      "fingerprint": "sha256:8553b4b4beb23e3b369cedd36dca87242001243bb4cbf1d218c05810c8db3cf0",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-management/index.tsx#BonusDialog/handleSubmit": "6db5a5aa3a3cb844",
@@ -71,7 +71,7 @@
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.saving": "17b92aa11f16cc23",
         "components/academy/academy-management/index.tsx#MIN_REASON_LENGTH": "1c0a5e01e735a4c4",
         "pkg:react": "374a4508a198654b",
-        "components/academy/academy-management/index.tsx#MembersSection/handleRevoke": "14b51a79d22fe867",
+        "components/academy/academy-management/index.tsx#MembersSection/handleRevoke": "8e2b751751e0c955",
         "components/academy/academy-management/index.tsx#MembersSection~shell": "5e5f716a7ddad39e",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": "6371b497b9fa3370",
@@ -732,9 +732,9 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T12:22:46.598Z",
+    "recordedAt": "2026-10-25T12:21:53.958Z",
     "result": "not-applicable",
-    "runId": "20261025T122245Z-243089",
+    "runId": "20261025T122152Z-f72134",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
@@ -759,8 +759,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T122245Z-243089.json"
+    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T122152Z-f72134.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

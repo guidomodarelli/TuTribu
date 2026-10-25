@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "fcbe88fcb243c8ddf8db9e49f2defe0c34c5c9c9",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "52358cd766afdaa0",
         "lib/messaging/messaging-connections-intent-store.ts": "7dbed3748a05812b",
@@ -23,7 +23,7 @@
         "src/modules/messaging/constants/messaging-public-contract.ts": "d8e21158a5fb4c77",
         "src/modules/messaging/constants/messaging-usage.ts": "ba71bbac4e985a5a",
         "src/modules/messaging/application/results/messaging-configuration-result.ts": "006db510fe714df8",
-        "components/academy-admissions/messaging-connection-lifecycle/index.tsx": "86f803a5f94a422a",
+        "components/academy-admissions/messaging-connection-lifecycle/index.tsx": "e5e3ba938bfea6c4",
         "components/academy-admissions/messaging-connections/index.tsx": "7ca72a5ebda6bf91",
         "components/academy-admissions/messaging-connections-workspace/index.tsx": "2a65a6a8e1fbfcce",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-feedback.ts": "7ad5879ac6d1fc43",
@@ -182,7 +182,7 @@
         "src/modules/auth/constants/message-delivery-reauthentication.ts": "f485fe7a77de3464",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f"
       },
-      "fingerprint": "sha256:4ad23e1ef28e7a9b7bae3b8d62abb17b428b9338be8a9f7e47fc554009d38e30",
+      "fingerprint": "sha256:6f6841a5f5bcea004b21765740952e3e3e7cc60bc215774d02131a004988f2c7",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell": "a17794a55cdde176",
@@ -261,7 +261,7 @@
         "src/modules/messaging/application/results/messaging-configuration-result.ts#messagingConfigurationConnectionSchema": "f8fe93883bd7b1df",
         "src/modules/messaging/application/results/messaging-configuration-result.ts#configurationCapabilitySchema": "2c7a6f85a0fca8c5",
         "components/academy-admissions/messaging-connection-lifecycle/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/academy-admissions/messaging-connection-lifecycle/index.tsx#MessagingConnectionLifecycle": "cc0e32a31a49e214",
+        "components/academy-admissions/messaging-connection-lifecycle/index.tsx#MessagingConnectionLifecycle": "697c0faadac45d69",
         "components/academy-admissions/messaging-connections/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy-admissions/messaging-connections/index.tsx#MessagingConnections": "414f8eff41cae121",
         "components/academy-admissions/messaging-connections-workspace/index.tsx#<module>": "d414f6d3ee71f10d",
@@ -1111,22 +1111,22 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 64700,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
+        "durationMs": 29543,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "abb1e24d5a4cd76490ab2ac52595a1c3da63388494f49d81148d154022b6e83f",
-        "recordedAt": "2026-10-25T11:53:49.662Z",
+        "outputSha256": "0a3e9d1dac5c053ea6b4464f162cf691a8ce29fd491638575c5edc3a89f35db4",
+        "recordedAt": "2026-10-25T11:48:56.576Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T11:53:50.161Z",
+        "recordedAt": "2026-10-25T11:48:57.059Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
       }
     ],
     "limitations": [],
@@ -1134,12 +1134,13 @@
     "pendingChecks": [
       "missing passing evidence of kind browser or accessibility"
     ],
-    "recordedAt": "2026-10-25T11:53:51.822Z",
+    "recordedAt": "2026-10-25T11:48:58.683Z",
     "result": "partial",
-    "runId": "20261025T115244Z-8875aa",
+    "runId": "20261025T114826Z-cd1c4b",
     "scope": {
       "decision": "incremental",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial"
       ],
       "relevantChangesAtBegin": [],
@@ -1160,7 +1161,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T115244Z-8875aa.json"
+    "report": "runs/20261025T114826Z-cd1c4b.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

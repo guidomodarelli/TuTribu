@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "fcbe88fcb243c8ddf8db9e49f2defe0c34c5c9c9",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "52358cd766afdaa0",
         "app/api/tribes/[slug]/messaging/connections/route.ts": "78b3317283264385",
@@ -32,7 +32,7 @@
         "src/modules/messaging/constants/messaging-public-contract.ts": "d8e21158a5fb4c77",
         "src/modules/messaging/constants/messaging-usage.ts": "ba71bbac4e985a5a",
         "src/modules/messaging/application/results/messaging-configuration-result.ts": "006db510fe714df8",
-        "components/academy-admissions/messaging-connection-lifecycle/index.tsx": "86f803a5f94a422a",
+        "components/academy-admissions/messaging-connection-lifecycle/index.tsx": "e5e3ba938bfea6c4",
         "components/academy-admissions/messaging-connections/index.tsx": "7ca72a5ebda6bf91",
         "components/academy-admissions/messaging-connections-workspace/index.tsx": "2a65a6a8e1fbfcce",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-feedback.ts": "7ad5879ac6d1fc43",
@@ -305,7 +305,7 @@
         "src/modules/auth/constants/message-delivery-reauthentication.ts": "f485fe7a77de3464",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f"
       },
-      "fingerprint": "sha256:40a9cf53fdaeae3a684ce8612dad3698466fb1a187833fdd2f53a98a0c036f3a",
+      "fingerprint": "sha256:885bcbb5759bb50c87173b106c46da6a1d3ed6c540a8d6fcad880551f37b964d",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/emit": "de5c828cbc366dc2",
@@ -467,7 +467,7 @@
         "src/modules/messaging/application/results/messaging-configuration-result.ts#messagingConfigurationConnectionSchema": "f8fe93883bd7b1df",
         "src/modules/messaging/application/results/messaging-configuration-result.ts#configurationCapabilitySchema": "2c7a6f85a0fca8c5",
         "components/academy-admissions/messaging-connection-lifecycle/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/academy-admissions/messaging-connection-lifecycle/index.tsx#MessagingConnectionLifecycle": "cc0e32a31a49e214",
+        "components/academy-admissions/messaging-connection-lifecycle/index.tsx#MessagingConnectionLifecycle": "697c0faadac45d69",
         "components/academy-admissions/messaging-connections/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy-admissions/messaging-connections/index.tsx#MessagingConnections": "414f8eff41cae121",
         "components/academy-admissions/messaging-connections-workspace/index.tsx#<module>": "d414f6d3ee71f10d",
@@ -1743,35 +1743,36 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 62141,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
+        "durationMs": 30304,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "11f3f30bf8fc0e2bc2ef4c19fc5be03566e66ffb830cfd055c3fe8972d8eb766",
-        "recordedAt": "2026-10-25T11:49:59.341Z",
+        "outputSha256": "41643b8c21dda0f51d8e71adafe52ad29267cc64ae1cf38811960e4d2764476c",
+        "recordedAt": "2026-10-25T11:46:50.427Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T11:49:59.868Z",
+        "recordedAt": "2026-10-25T11:46:50.954Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T11:50:02.294Z",
+    "recordedAt": "2026-10-25T11:46:53.194Z",
     "result": "partial",
-    "runId": "20261025T114856Z-f5b9b6",
+    "runId": "20261025T114619Z-879c42",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [],
@@ -1792,7 +1793,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T114856Z-f5b9b6.json"
+    "report": "runs/20261025T114619Z-879c42.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

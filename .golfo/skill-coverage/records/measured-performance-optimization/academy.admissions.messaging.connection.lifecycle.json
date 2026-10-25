@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "fcbe88fcb243c8ddf8db9e49f2defe0c34c5c9c9",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-lifecycle-controller.ts": "8028dcf181ee8a1b",
         "app/api/tribes/[slug]/messaging/connections/[connectionId]/suspend/route.ts": "8143b8e61022e394",
@@ -15,7 +15,7 @@
         "src/modules/notifications/infrastructure/repositories/admission-email-lifecycle-reader.ts": "6966aa2edd27f223",
         "src/modules/shared/infrastructure/database/server-database-client.ts": "895a53cd3c3f72ab",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
-        "components/academy-admissions/messaging-connection-lifecycle/index.tsx": "86f803a5f94a422a",
+        "components/academy-admissions/messaging-connection-lifecycle/index.tsx": "e5e3ba938bfea6c4",
         "src/modules/tribes/constants/tribe-member-role.ts": "bcd5a756222224ce",
         "src/modules/messaging/constants/messaging-connection-security.ts": "0f5a571c358deeb9",
         "src/modules/messaging/constants/messaging-connection.ts": "abba3abf6b505594",
@@ -4925,13 +4925,14 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T11:48:52.883Z",
+    "recordedAt": "2026-10-25T11:46:15.608Z",
     "result": "not-applicable",
-    "runId": "20261025T114849Z-d16000",
+    "runId": "20261025T114612Z-7c31e1",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
-        "recorded not applicable: Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo."
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "recorded not applicable: El cambio de boundaries no agrega requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": []
@@ -4951,8 +4952,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T114849Z-d16000.json"
+    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T114612Z-7c31e1.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "fcbe88fcb243c8ddf8db9e49f2defe0c34c5c9c9",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
       "files": {
         "app/(admission)/admissions/invitations/[token]/page.tsx": "4520a9f6a91ff6dc",
-        "app/(admission)/admissions/invitations/[token]/loading.tsx": "d865834be352a5c9",
+        "app/(admission)/admissions/invitations/[token]/loading.tsx": "f76048a520235b3f",
         "app/(admission)/admissions/invitations/[token]/error.tsx": "2514cbdb1c9a0c19",
         "src/modules/academy-admissions/infrastructure/composition/personal-invitation-page.ts": "c96ae634c5787d69",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
@@ -17,7 +17,7 @@
         "app/layout.tsx": "650f4386e125862f",
         "app/not-found.tsx": "7c2bf7b75ccbcef3",
         "next.config.ts": "499b76937ce73f12",
-        "components/academy-admissions/admission-screen/index.tsx": "960ef7fa9cf9683c",
+        "components/academy-admissions/personal-invitation-loading/index.tsx": "4a75294f9a42142a",
         "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
         "src/modules/academy-admissions/constants/admission-errors.ts": "4a393e9826800086",
         "src/modules/academy-admissions/constants/personal-invitation-page.ts": "97b409b131e1d23b",
@@ -120,17 +120,12 @@
         "config/cloudflare-output-tracing.ts": "43fa9999704d5e4b",
         "config/legacy-redirects.ts": "6e723edb2bbdd69f",
         "config/cloudflare-dev-runtime.ts": "5c9b3670ad614400",
-        "src/modules/academy-admissions/constants/admission-public-contract.ts": "f9491ce66f74206d",
-        "src/modules/academy-admissions/constants/admission-request.ts": "f65628a88eca20f3",
+        "src/modules/academy-admissions/constants/personal-invitation-ui.ts": "75d4a491bbcde1fd",
+        "components/loaders/route-skeleton/index.tsx": "24ca012df2b27747",
+        "components/academy-admissions/personal-invitation-loading/styles.module.scss": "f1d697da8ffe7228",
         "src/modules/academy-admissions/constants/admission-ui.ts": "a57d7d4286770b34",
-        "components/academy-admissions/admission-form/index.tsx": "c9e419348d7e884a",
-        "lib/academy-admissions/admission-draft.ts": "9baf5fefaa499a20",
-        "src/modules/academy-admissions/application/results/admission-page-state.ts": "257070d64a948071",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
-        "components/academy-admissions/request-status/index.tsx": "ae2f32edf0ad70b8",
-        "lib/academy-admissions/admission-routes.ts": "adac74b9727d9a17",
-        "components/academy-admissions/admission-screen/styles.module.scss": "5cd3e3368c7deb11",
         "components/academy-admissions/admission-route-error/styles.module.scss": "e8e041d2af1c8b74",
         "src/modules/academy-admissions/constants/personal-invitation-overview-schemas.ts": "31c465c17c4f71e5",
         "src/modules/academy-admissions/constants/personal-invitation-preview-input.ts": "1cb11e1f7adbcf6f",
@@ -143,29 +138,23 @@
         "src/modules/siteping/constants/siteping.ts": "6bc26eaa005167b9",
         "app/not-found.module.scss": "07d324074a6ecb7f",
         "config/deployment-environment.ts": "08bb1a3202ff76f7",
-        "src/modules/academy-admissions/constants/admission-limits.ts": "2d7d087ec36ae67b",
-        "components/academy-admissions/admission-whatsapp-number-field/index.tsx": "10cbeb4aeca70640",
-        "components/academy-admissions/admission-form/styles.module.scss": "d5377cbb2dc7c81f",
-        "src/modules/academy-admissions/application/results/admission-contract-fields.ts": "a4913419cef9bbde",
-        "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts": "f1942bcecd1a2254",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts": "e692acb82a512346",
-        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
-        "src/modules/academy-admissions/application/results/admission-own-request-message.ts": "376aa9f92849ede5",
-        "components/academy-admissions/request-status/styles.module.scss": "5d84f9da7950f90a",
-        "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
+        "components/loaders/route-skeleton/styles.module.scss": "aba42533e97ac72c",
         "src/modules/academy-admissions/constants/personal-invitation-overview.ts": "5216fcae6a91834b",
+        "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts": "f1942bcecd1a2254",
         "src/modules/academy-admissions/constants/personal-invitation-token.ts": "e6bec12eaf4702b9",
-        "src/modules/academy-admissions/constants/admission-whatsapp-number.ts": "521a60307c6b8fca",
-        "components/academy-admissions/admission-whatsapp-number-field/styles.module.scss": "90351ceb6f74003f",
         "src/modules/academy-admissions/constants/admission-contact.ts": "cf90895cb275bdd9",
+        "src/modules/academy-admissions/constants/admission-public-contract.ts": "f9491ce66f74206d",
         "src/modules/messaging/constants/messaging-public-contract.ts": "d8e21158a5fb4c77",
         "src/modules/tribes/domain/value-objects/tribe-slug.ts": "07196b88770dfa73",
         "src/modules/academy-admissions/application/results/admission-contact-options-schema.ts": "2bbc6323d92197ff",
+        "src/modules/academy-admissions/constants/admission-limits.ts": "2d7d087ec36ae67b",
+        "src/modules/academy-admissions/constants/admission-request.ts": "f65628a88eca20f3",
+        "src/modules/academy-admissions/application/results/admission-contract-fields.ts": "a4913419cef9bbde",
         "src/modules/academy-admissions/constants/admission-whatsapp-number-schemas.ts": "c0bfb66112fff4e7",
         "src/modules/academy-admissions/constants/admission-policy.ts": "a3566bcbcac9ff34",
-        "src/constants/date-time.ts": "120f12f7530df5ba"
+        "src/modules/academy-admissions/constants/admission-whatsapp-number.ts": "521a60307c6b8fca"
       },
-      "fingerprint": "sha256:61f5090b5cadd56c83d5d9e0552ed380c9c496e9c8d64f7a5fa295863dde9f6f",
+      "fingerprint": "sha256:f2f63f3c96d5a3acc120ae88bc5ff48a92238eeced53af51cfeea6036eb5dc17",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
@@ -237,13 +226,14 @@
         "next.config.ts#nextConfig.redirects": "4edba01fc7faab03",
         "next.config.ts#nextConfig.images": "ea50c4dc787b7368",
         "next.config.ts#nextConfig~frame": "94bd7f163d17efa5",
-        "components/academy-admissions/admission-screen/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/academy-admissions/admission-screen/index.tsx#AdmissionLoading": "ce34971915465dcf",
-        "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen": "a624bd679dc8abbf",
-        "components/academy-admissions/admission-screen/index.tsx#AdmissionScreenProps": "dcd95f712b8ad5aa",
-        "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
+        "components/academy-admissions/personal-invitation-loading/index.tsx#<module>": "2da3ec2294295eb1",
+        "components/academy-admissions/personal-invitation-loading/index.tsx#PersonalInvitationLoading": "8e9033f7f94fb719",
+        "components/academy-admissions/personal-invitation-loading/index.tsx#PERSONAL_INVITATION_LOADING_SHAPE~frame": "ddca529d69dd9ffb",
+        "components/academy-admissions/personal-invitation-loading/index.tsx#PERSONAL_INVITATION_LOADING_SHAPE.actionCount": "48fd60a33434908b",
+        "components/academy-admissions/personal-invitation-loading/index.tsx#PERSONAL_INVITATION_LOADING_SHAPE.messageLineCount": "e65f7c1610c29802",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
+        "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "src/modules/academy-admissions/constants/admission-errors.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_MESSAGE": "3cd989ed624f1a0a",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE~frame": "2f799f41481116eb",
@@ -622,85 +612,33 @@
         "config/cloudflare-dev-runtime.ts#initializeOpenNextCloudflareForDev": "9ce9e66aae093bf9",
         "config/cloudflare-dev-runtime.ts#shouldInitializeOpenNextCloudflareForDev": "4dae9f8c79521961",
         "pkg:@opennextjs/cloudflare": "39a78c5f009a36e6",
-        "src/modules/academy-admissions/constants/admission-public-contract.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_NEXT_ACTION~frame": "bdfab77720756cf2",
-        "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_NEXT_ACTION.changeAccount": "f802d594f11e400e",
-        "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_NEXT_ACTION.requestAdmission": "1a7316ffbcde6cc6",
-        "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_NEXT_ACTION.verifyContact": "074fc9ad24de427a",
-        "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_OVERVIEW_STATE~frame": "664d4e287d5271fa",
-        "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_OVERVIEW_STATE.alreadyMember": "46c9c0dc5ed123ef",
-        "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_OVERVIEW_STATE.available": "c421712afb8ebefa",
-        "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_OVERVIEW_STATE.pending": "5703d57ca452e71a",
-        "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_OVERVIEW_STATE.verificationRequired": "54ad132b11330c7e",
-        "src/modules/academy-admissions/constants/admission-request.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/constants/admission-request.ts#ADMISSION_REQUEST_STATUS~frame": "a32de5b787688cd0",
-        "src/modules/academy-admissions/constants/admission-request.ts#ADMISSION_REQUEST_STATUS.pending": "5703d57ca452e71a",
+        "src/modules/academy-admissions/constants/personal-invitation-ui.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY~frame": "948c43018acb6826",
+        "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.description": "7fc5ccf4675be951",
+        "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.eyebrow": "7e9e5f250972b8cf",
+        "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.loading": "3fbea4e575bb99c8",
+        "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.title": "c54b30eb8051c304",
+        "components/loaders/route-skeleton/index.tsx#<module>": "2da3ec2294295eb1",
+        "components/loaders/route-skeleton/index.tsx#RouteSkeleton": "223b4db7f24fd665",
+        "components/loaders/route-skeleton/index.tsx#SkeletonActions": "df9e3baef88be6f1",
+        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame": "42404c67903a5744",
+        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.actionCount": "f92415e0af3e9610",
+        "components/loaders/route-skeleton/index.tsx#SkeletonBlock": "c340a37ce4ab55ed",
+        "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind": "a357496f078189ee",
+        "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth": "175b5e3780859001",
+        "components/loaders/route-skeleton/index.tsx#placeholderKeys": "a1ec4c5ff5f87bbe",
+        "components/loaders/route-skeleton/index.tsx#SkeletonLines": "60d9052267ae7426",
+        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount": "b251bfcb1dd93f46",
+        "components/academy-admissions/personal-invitation-loading/styles.module.scss#*": "f1d697da8ffe7228",
         "src/modules/academy-admissions/constants/admission-ui.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY~frame": "b43b1bd347ba2c95",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.changeAccount": "9c4121683f9f8048",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.changingAccount": "df6f4eb5b637539c",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.contactRecovery": "6f6224f59c0dde54",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.description": "d50e82519a3dd039",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.home": "85367e5a8619d58b",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.openAcademy": "f8102d30725f8db0",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.read": "132dd62884e8c231",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.reading": "97be1c6a4df67cfb",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.reloadAccount": "0f1a0dcc8cc0292d",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.retryOriginal": "ed8d9ff4c6e35df9",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.signIn": "64d70cb245bd5f5f",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.statusTitle": "053054fa7f78ab17",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.title": "61c7d760288ff309",
+        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.readFailed": "e40e9012cde9fe54",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.unavailableTitle": "e0283f6892b6a014",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.uncertain": "31ca63b9d2131b38",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.verifying": "0ea7c3b1c26e42ab",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_PHASE~frame": "8c55d6d39b131717",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_PHASE.checking": "050a73dca1b0dc7a",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_PHASE.idle": "aab1c8556895efe7",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_PHASE.uncertain": "19bcf2634409fd2e",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_PHASE.writing": "936d61185b3c8b17",
-        "components/academy-admissions/admission-form/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/academy-admissions/admission-form/index.tsx#AdmissionForm": "db200b7fc3b6d898",
-        "components/academy-admissions/admission-form/index.tsx#AdmissionFormProps": "f103f5abc28f3460",
-        "lib/academy-admissions/admission-draft.ts#<module>": "d414f6d3ee71f10d",
-        "lib/academy-admissions/admission-draft.ts#AdmissionDraft": "9217e70742acf26e",
-        "lib/academy-admissions/admission-draft.ts#admissionDraftSchema": "b42a4f2293d20fff",
-        "src/modules/academy-admissions/application/results/admission-page-state.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/results/admission-page-state.ts#AdmissionPageState": "794e6be7eaa995a6",
-        "src/modules/academy-admissions/application/results/admission-page-state.ts#admissionPageStateSchema": "fb1d81e639a88629",
         "components/navigation/link/index.tsx#<module>": "2da3ec2294295eb1",
         "src/constants/routes.ts#<module>": "2da3ec2294295eb1",
         "src/constants/routes.ts#ROUTES~frame": "0506fddc4c13fa99",
-        "src/constants/routes.ts#ROUTES.auth": "2f4afe04c75871a4",
         "src/constants/routes.ts#ROUTES.home": "417f8dff1ce6dd72",
-        "src/constants/routes.ts#ROUTES.tribes": "096ad71391f5d942",
-        "src/constants/routes.ts#PLATFORM_ROUTE_PREFIX": "6712ac7ac2d6c5db",
-        "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS~frame": "ba734ff62520b3cb",
-        "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.academy": "e94eea6ac9db2708",
-        "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.academyManage": "1184a4d1ca6df6ba",
-        "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.academyVerification": "548d60aecbae85bd",
-        "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.channels": "7520adcbbda663c7",
-        "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.courses": "ff399efeeda1f6f1",
-        "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.coursesManage": "2d74b4d9725fe11f",
-        "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.events": "eb2d3d54f5661137",
-        "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.history": "54737ac8c6605da6",
-        "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.invitation": "4177be066a2c32f7",
-        "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.invitationMetrics": "d43ea3b7ebb464df",
-        "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.invitations": "9fa2a461fb02faf0",
-        "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.merits": "be56e1b965560871",
-        "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.prices": "caded901d31cf1d4",
-        "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.settings": "dc01fb4911293f1c",
-        "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.subscription": "31f2ba055c02ae98",
-        "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.tribe": "969bdee7d16f8e78",
-        "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.welcome": "d303eab2a15aa376",
-        "src/constants/routes.ts#buildTribeSectionRoute": "832cd9691055927d",
-        "components/academy-admissions/request-status/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/academy-admissions/request-status/index.tsx#RequestStatus": "46b45fe9fe29ea2a",
-        "components/academy-admissions/request-status/index.tsx#RequestStatusProps": "ffd6a1922c8b9a82",
-        "components/academy-admissions/request-status/index.tsx#describeInstant": "9828f04c79883541",
-        "lib/academy-admissions/admission-routes.ts#<module>": "2da3ec2294295eb1",
-        "lib/academy-admissions/admission-routes.ts#buildOwnAdmissionRequestRoute": "312fa0a4192ff303",
-        "components/academy-admissions/admission-screen/styles.module.scss#*": "5cd3e3368c7deb11",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.readFailed": "e40e9012cde9fe54",
         "components/academy-admissions/admission-route-error/styles.module.scss#*": "e8e041d2af1c8b74",
         "src/modules/academy-admissions/constants/personal-invitation-overview-schemas.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/personal-invitation-overview-schemas.ts#personalInvitationOverviewSchema": "810d1e6678880f27",
@@ -725,78 +663,14 @@
         "src/modules/siteping/constants/siteping.ts#<module>": "2da3ec2294295eb1",
         "src/modules/siteping/constants/siteping.ts#SITEPING_PROJECT~frame": "61642cf8a210eff9",
         "src/modules/siteping/constants/siteping.ts#SITEPING_PROJECT.defaultName": "8b340acd642523e7",
+        "src/constants/routes.ts#ROUTES.auth": "2f4afe04c75871a4",
         "src/modules/auth/setup.ts#createRequestAuthModule": "ddab631f39d9a0e2",
         "app/not-found.module.scss#*": "07d324074a6ecb7f",
         "config/deployment-environment.ts#<module>": "2da3ec2294295eb1",
         "config/deployment-environment.ts#isVercelEnvironment": "1decaad53b271d64",
         "config/deployment-environment.ts#ENABLED_ENVIRONMENT_VALUE": "ee422ceec621ddc8",
         "config/deployment-environment.ts#VERCEL_ENVIRONMENT_VARIABLE": "e3f1ac888c63ad7b",
-        "src/modules/academy-admissions/constants/admission-limits.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/constants/admission-limits.ts#ADMISSION_LIMIT~frame": "4fb1c4f3def84f86",
-        "src/modules/academy-admissions/constants/admission-limits.ts#ADMISSION_LIMIT.internalMessageCharacters": "5e04dce30ee2062d",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.confirm": "f9357bb01f9280fa",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.country": "f83d978eb0abac10",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.countryHelp": "392f816fb34325c3",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.email": "7db9923847f2dc11",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.message": "4a9dbfc094529abc",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.phone": "55c5ae54c602fc2f",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.submit": "8a0557b180b0e12d",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.submitting": "820c9f565b761e11",
-        "components/academy-admissions/admission-whatsapp-number-field/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/academy-admissions/admission-whatsapp-number-field/index.tsx#AdmissionWhatsappNumberField": "c91aba1d20b91365",
-        "components/academy-admissions/admission-form/styles.module.scss#*": "d5377cbb2dc7c81f",
-        "src/modules/academy-admissions/application/results/admission-contract-fields.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/results/admission-contract-fields.ts#admissionLocalHrefSchema": "8b04e96b73dd84e0",
-        "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#admissionOverviewSchema": "e44dc1b92a6577de",
-        "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#admissionOwnRequestSchema": "7065d1154bcb72eb",
-        "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#admissionRequestSchema": "cea90c06282f6d97",
-        "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#overviewPolicySchema": "d2243a40ce2dd57d",
-        "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_EVIDENCE_KIND~frame": "8050bc6b45c710b1",
-        "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_EVIDENCE_KIND.declared": "3c9b89d795cbb728",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_STATUS_COPY.pending": "c72c6715ebfe1126",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_STATUS_COPY.approved": "d1908c58b710ddbb",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_STATUS_COPY.rejected": "2b022afb94aba0a2",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_STATUS_COPY.cancelled": "3ca3191f44f5145c",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_STATUS_COPY.expired": "862df0ba8d11b5db",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_STATUS_COPY~frame": "3446b3a58eef4f7f",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.cancel": "91ac375af3ca3b32",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.cancelling": "617704e254d641d0",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.confirmCancel": "e7dd361d59514df5",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.declared": "051f7658522a5451",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.expired": "dcda14a8ab8570a5",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.expires": "e92208f844dc9020",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.retry": "6fce048bdbf6a0e7",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.retryAt": "2bf9564f55e495ff",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.submitted": "d27018f96773df70",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.verified": "8753286fb801a216",
-        "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#AdmissionRequestDto": "a268c93e58959bea",
-        "lib/date-time/buenos-aires-format.ts#<module>": "2da3ec2294295eb1",
-        "lib/date-time/buenos-aires-format.ts#formatBuenosAiresShortDate": "15a36b97a9647ea4",
-        "lib/date-time/buenos-aires-format.ts#DATE_PART~frame": "90dfa8f8dff8cebb",
-        "lib/date-time/buenos-aires-format.ts#DATE_PART.day": "0b5c609f1da2c0ed",
-        "lib/date-time/buenos-aires-format.ts#DATE_PART.month": "7469b833c149a8cb",
-        "lib/date-time/buenos-aires-format.ts#SHORT_DATE_FORMATTER": "38d2b655dfb4a4ca",
-        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION~frame": "0594d2c74d77d78b",
-        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.short": "757da1c764846c2f",
-        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.twoDigit": "dae00c6c37e34107",
-        "lib/date-time/buenos-aires-format.ts#LOCALE~frame": "fec71633af80cddf",
-        "lib/date-time/buenos-aires-format.ts#LOCALE.spanish": "d13dd49da717b594",
-        "lib/date-time/buenos-aires-format.ts#readPart": "dc788ed8110c0c1c",
-        "lib/date-time/buenos-aires-format.ts#stripTrailingPeriod": "81e285d2701298ae",
-        "lib/date-time/buenos-aires-format.ts#TRAILING_PERIOD_PATTERN": "b5c571f629a756a2",
-        "lib/date-time/buenos-aires-format.ts#formatBuenosAiresTime": "7329a65919ab8754",
-        "lib/date-time/buenos-aires-format.ts#TIME_FORMATTER": "c4956c28b3daff8f",
-        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.hourCycle": "c762eaa8629cbd09",
-        "src/modules/academy-admissions/application/results/admission-own-request-message.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/results/admission-own-request-message.ts#getOwnAdmissionRequestMessage": "8603571768596424",
-        "components/academy-admissions/request-status/styles.module.scss#*": "5d84f9da7950f90a",
-        "src/modules/academy-admissions/constants/admission-navigation.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/constants/admission-navigation.ts#ADMISSION_NAVIGATION~frame": "6cca21d2dd1d0366",
-        "src/modules/academy-admissions/constants/admission-navigation.ts#ADMISSION_NAVIGATION.publicPrefix": "0553ff6ead7d7374",
-        "src/modules/academy-admissions/constants/admission-navigation.ts#ADMISSION_NAVIGATION.requestSegment": "a9206320ae7501a0",
-        "src/modules/academy-admissions/constants/admission-navigation.ts#ADMISSION_NAVIGATION.tribeQuery": "245fe836e694ee59",
+        "components/loaders/route-skeleton/styles.module.scss#*": "aba42533e97ac72c",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_OUTCOME~frame": "b44149d3dc3a0bba",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_OUTCOME.admitted": "e0ad4742dbbaf20d",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_OUTCOME.pending": "5703d57ca452e71a",
@@ -808,29 +682,36 @@
         "src/modules/academy-admissions/constants/personal-invitation-overview.ts#PERSONAL_INVITATION_OVERVIEW_STATE.available": "c421712afb8ebefa",
         "src/modules/academy-admissions/constants/personal-invitation-overview.ts#PERSONAL_INVITATION_OVERVIEW_STATE.signInRequired": "ebfdd7fa907ed8ea",
         "src/modules/academy-admissions/constants/personal-invitation-overview.ts#PERSONAL_INVITATION_OVERVIEW_STATE.unavailable": "2a544b584801321a",
+        "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#admissionOverviewSchema": "e44dc1b92a6577de",
+        "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#admissionOwnRequestSchema": "7065d1154bcb72eb",
+        "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#admissionRequestSchema": "cea90c06282f6d97",
+        "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#overviewPolicySchema": "d2243a40ce2dd57d",
         "src/modules/academy-admissions/constants/personal-invitation-token.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/personal-invitation-token.ts#PERSONAL_INVITATION_TOKEN~frame": "361d0d5412ffb29d",
         "src/modules/academy-admissions/constants/personal-invitation-token.ts#PERSONAL_INVITATION_TOKEN.canonicalPattern": "67f31a7c95315843",
-        "src/modules/academy-admissions/constants/admission-whatsapp-number.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/constants/admission-whatsapp-number.ts#ADMISSION_WHATSAPP_COPY~frame": "9cda125a3849a5c9",
-        "src/modules/academy-admissions/constants/admission-whatsapp-number.ts#ADMISSION_WHATSAPP_COPY.formatHelp": "2833d6fec868612d",
-        "src/modules/academy-admissions/constants/admission-whatsapp-number.ts#ADMISSION_WHATSAPP_COPY.help": "bd95e3e49352b0f4",
-        "src/modules/academy-admissions/constants/admission-whatsapp-number.ts#ADMISSION_WHATSAPP_COPY.label": "7fb7dd45886ff025",
-        "src/modules/academy-admissions/constants/admission-whatsapp-number.ts#ADMISSION_WHATSAPP_COPY.optionalLabel": "e7a0314bde0ed217",
-        "components/academy-admissions/admission-whatsapp-number-field/styles.module.scss#*": "90351ceb6f74003f",
-        "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_LOCAL_HREF_PATTERN": "52e87d4a36eb9b4e",
         "src/modules/academy-admissions/constants/admission-contact.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-contact.ts#ADMISSION_CONTACT_TYPE~frame": "8cf43d05ba3ee68d",
         "src/modules/academy-admissions/constants/admission-contact.ts#ADMISSION_CONTACT_TYPE.email": "c708141b4f1f6c5b",
+        "src/modules/academy-admissions/constants/admission-public-contract.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_NEXT_ACTION.signIn": "b220a71de2bffddd",
+        "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_NEXT_ACTION.requestAdmission": "1a7316ffbcde6cc6",
+        "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_NEXT_ACTION.verifyContact": "074fc9ad24de427a",
         "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_NEXT_ACTION.viewRequest": "4e0bbf49b375607b",
         "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_NEXT_ACTION.openAcademy": "94962923161e65ff",
+        "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_NEXT_ACTION.changeAccount": "f802d594f11e400e",
         "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_NEXT_ACTION.wait": "e39be66e641cc6a7",
         "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_NEXT_ACTION.contactLeader": "81e8eb42daf78ec0",
         "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_NEXT_ACTION.none": "65176f562d2efdf9",
+        "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_NEXT_ACTION~frame": "bdfab77720756cf2",
+        "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_OVERVIEW_STATE.available": "c421712afb8ebefa",
+        "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_OVERVIEW_STATE.pending": "5703d57ca452e71a",
+        "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_OVERVIEW_STATE.alreadyMember": "46c9c0dc5ed123ef",
+        "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_OVERVIEW_STATE.verificationRequired": "54ad132b11330c7e",
         "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_OVERVIEW_STATE.signInRequired": "ebfdd7fa907ed8ea",
         "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_OVERVIEW_STATE.closed": "01642b3b9487477c",
         "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_OVERVIEW_STATE.unavailable": "2a544b584801321a",
+        "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_OVERVIEW_STATE~frame": "664d4e287d5271fa",
         "src/modules/messaging/constants/messaging-public-contract.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/constants/messaging-public-contract.ts#MESSAGING_PUBLIC_CHANNEL~frame": "46f33c9d94bfccd5",
         "src/modules/messaging/constants/messaging-public-contract.ts#MESSAGING_PUBLIC_CHANNEL.email": "c708141b4f1f6c5b",
@@ -858,15 +739,21 @@
         "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_DENIAL_REASON.evidenceRevoked": "bd19a7e345feb026",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_DENIAL_REASON.exceptionReasonRequired": "73730a7b8f27ef38",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_DENIAL_REASON~frame": "bf6dc29021b8b216",
+        "src/modules/academy-admissions/constants/admission-limits.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/constants/admission-limits.ts#ADMISSION_LIMIT~frame": "4fb1c4f3def84f86",
         "src/modules/academy-admissions/constants/admission-limits.ts#ADMISSION_LIMIT.externalMessageCharacters": "8ac6476af800ace9",
         "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_PUBLIC_SOURCE.common": "012429b42219eea3",
         "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_PUBLIC_SOURCE.personal": "c134ad1a1e08117d",
         "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_PUBLIC_SOURCE.legacy": "325d3bf2f86b010b",
         "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_PUBLIC_SOURCE~frame": "f40ada9e57e9e1fe",
+        "src/modules/academy-admissions/constants/admission-request.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/constants/admission-request.ts#ADMISSION_REQUEST_STATUS.pending": "5703d57ca452e71a",
         "src/modules/academy-admissions/constants/admission-request.ts#ADMISSION_REQUEST_STATUS.approved": "bc45ed06e0967f1a",
         "src/modules/academy-admissions/constants/admission-request.ts#ADMISSION_REQUEST_STATUS.rejected": "b9bc0c6aea40019a",
         "src/modules/academy-admissions/constants/admission-request.ts#ADMISSION_REQUEST_STATUS.cancelled": "aeffbbc8203493af",
         "src/modules/academy-admissions/constants/admission-request.ts#ADMISSION_REQUEST_STATUS.expired": "50c283bcaafed2d9",
+        "src/modules/academy-admissions/constants/admission-request.ts#ADMISSION_REQUEST_STATUS~frame": "a32de5b787688cd0",
+        "src/modules/academy-admissions/application/results/admission-contract-fields.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/results/admission-contract-fields.ts#admissionMaskedContactSchema": "5275e3afbe71437c",
         "src/modules/academy-admissions/application/results/admission-contract-fields.ts#admissionPublicIdSchema": "2310c587caa15f7f",
         "src/modules/academy-admissions/application/results/admission-contract-fields.ts#admissionPublicInstantSchema": "a58c280f33428c00",
@@ -881,34 +768,15 @@
         "src/modules/academy-admissions/constants/admission-policy.ts#ADMISSION_POLICY_MODE.allowlist": "80e4658e78bc7c57",
         "src/modules/academy-admissions/constants/admission-policy.ts#ADMISSION_POLICY_MODE.manualReview": "f1656b9563a27f72",
         "src/modules/academy-admissions/constants/admission-policy.ts#ADMISSION_POLICY_MODE~frame": "d802fb18a2813646",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.pending": "a71fbcee4ca45859",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.approved": "1c6c212c110f9565",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.rejected": "71a745674a535151",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.cancelled": "3ecea7a2545bc56a",
-        "src/constants/date-time.ts#<module>": "2da3ec2294295eb1",
-        "src/constants/date-time.ts#BUENOS_AIRES_TIME_ZONE": "32ddc5a9f4e45c83",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.whatsapp_number_required": "0864ec536c267348",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.admission_closed": "4b37943615ac8b93",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.admission_scope_mismatch": "f91c294a07828aef",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.contact_account_mismatch": "52bb7cb57c661ed3",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.contact_type_mismatch": "8574fd50b9f6ca11",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.contact_conflict": "cf21881370fb2262",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.allowlist_requirement_unmet": "2b313db39dc6a35e",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.invitation_unusable": "c1017d7a00a595eb",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.invitation_recipient_unproven": "798b6ae4c64fdc4e",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.phone_invitation_unavailable": "cfb92264440ada32",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.membership_restricted": "335602b5a4a4a873",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.membership_recovery_unknown": "9d4f6c20be1e6acb",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY~frame": "a4b11f12bbe9b02e",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_REVERIFICATION_COPY~frame": "a565b6b4837d8fed",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_REVERIFICATION_COPY.required": "4ea9084875188f14",
-        "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_REVERIFICATION_COPY.revoked": "3f8e6945c03f9812",
         "src/modules/messaging/constants/messaging-public-contract.ts#MESSAGING_PUBLIC_CHANNEL.sms": "fd7865a763c49c40",
         "src/modules/messaging/constants/messaging-public-contract.ts#MESSAGING_PUBLIC_CHANNEL.whatsapp": "bd96706aa3fba43d",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_EVIDENCE_KIND.none": "65176f562d2efdf9",
+        "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_EVIDENCE_KIND.declared": "3c9b89d795cbb728",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_EVIDENCE_KIND.base": "efee8d55ad5a65a6",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_EVIDENCE_KIND.local": "60be8a7224941880",
+        "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_EVIDENCE_KIND~frame": "8050bc6b45c710b1",
         "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_MASK_MARKER_PATTERN": "a10086d0f7443322",
+        "src/modules/academy-admissions/constants/admission-whatsapp-number.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-whatsapp-number.ts#ADMISSION_WHATSAPP_CANONICAL_PATTERN": "b404cff127baa99f"
       },
       "signals": {
@@ -1278,9 +1146,6 @@
           "awaits": 2,
           "dynamicImports": 1
         },
-        "components/academy-admissions/request-status/index.tsx#RequestStatus": {
-          "projectCalls": 1
-        },
         "src/modules/auth/setup.ts#createRequestAuthModule": {
           "projectCalls": 1
         }
@@ -1289,43 +1154,50 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 76627,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
+        "durationMs": 39647,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "4b1a8137ecc3f2aef2a7bdcdc4ca8689c5041c120327cf7f75992d60cb9b5c59",
-        "recordedAt": "2026-10-25T11:26:09.498Z",
+        "outputSha256": "76d312bede658a9a7ae1bdb1e08bc6638cf1cfe0882f397a017e80c2ebefffd8",
+        "recordedAt": "2026-10-25T11:23:49.935Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 3768,
+        "durationMs": 3945,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T11:26:14.033Z",
+        "recordedAt": "2026-10-25T11:23:54.497Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T11:26:14.621Z",
+        "recordedAt": "2026-10-25T11:23:55.162Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+      },
+      {
+        "kind": "browser",
+        "outcome": "pass",
+        "recordedAt": "2026-10-25T11:23:55.878Z",
+        "source": "attested",
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app, capturando el fallback durante una navegación: antes, academia, gestionar, verificación, suscripción y canales mostraban el esqueleto de la ronda («Cargando sección de tribu») y la invitación «Solicitar ingreso»; después, cada ruta anuncia su propia carga con su forma (panel de pasos en Reglas e Invitaciones, filas en Solicitudes, «Tu solicitud de ingreso» e «Invitación personal» en el solicitante) (4/4)."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T11:26:16.493Z",
+    "recordedAt": "2026-10-25T11:23:57.964Z",
     "result": "partial",
-    "runId": "20261025T112452Z-4e9e62",
+    "runId": "20261025T112309Z-df1d3b",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -1334,9 +1206,834 @@
       ],
       "relevantChangesAtBegin": [
         {
-          "change": "modified",
+          "change": "removed",
+          "key": "components/academy-admissions/admission-form/index.tsx#<module>",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "components/academy-admissions/admission-form/index.tsx#AdmissionForm",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "components/academy-admissions/admission-form/index.tsx#AdmissionFormProps",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "components/academy-admissions/admission-form/styles.module.scss#*",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "components/academy-admissions/admission-screen/index.tsx#<module>",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "components/academy-admissions/admission-screen/index.tsx#AdmissionLoading",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
           "key": "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen",
-          "reason": "code rendered by the route changed"
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "components/academy-admissions/admission-screen/index.tsx#AdmissionScreenProps",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "components/academy-admissions/admission-screen/styles.module.scss#*",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "components/academy-admissions/admission-whatsapp-number-field/index.tsx#<module>",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "components/academy-admissions/admission-whatsapp-number-field/index.tsx#AdmissionWhatsappNumberField",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "components/academy-admissions/admission-whatsapp-number-field/styles.module.scss#*",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "added",
+          "key": "components/academy-admissions/personal-invitation-loading/index.tsx#<module>",
+          "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+        },
+        {
+          "change": "added",
+          "key": "components/academy-admissions/personal-invitation-loading/index.tsx#PERSONAL_INVITATION_LOADING_SHAPE.actionCount",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "components/academy-admissions/personal-invitation-loading/index.tsx#PERSONAL_INVITATION_LOADING_SHAPE.messageLineCount",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "components/academy-admissions/personal-invitation-loading/index.tsx#PERSONAL_INVITATION_LOADING_SHAPE~frame",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/academy-admissions/personal-invitation-loading/index.tsx#PersonalInvitationLoading",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/academy-admissions/personal-invitation-loading/styles.module.scss#*",
+          "reason": "styles of a skeleton or loading boundary changed"
+        },
+        {
+          "change": "removed",
+          "key": "components/academy-admissions/request-status/index.tsx#<module>",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "components/academy-admissions/request-status/index.tsx#describeInstant",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "components/academy-admissions/request-status/index.tsx#RequestStatus",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "components/academy-admissions/request-status/index.tsx#RequestStatusProps",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "components/academy-admissions/request-status/styles.module.scss#*",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#<module>",
+          "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#placeholderKeys",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.actionCount",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#RouteSkeleton",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#SkeletonActions",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlock",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#SkeletonLines",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/styles.module.scss#*",
+          "reason": "styles of a skeleton or loading boundary changed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/academy-admissions/admission-draft.ts#<module>",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/academy-admissions/admission-draft.ts#AdmissionDraft",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/academy-admissions/admission-draft.ts#admissionDraftSchema",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/academy-admissions/admission-routes.ts#<module>",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/academy-admissions/admission-routes.ts#buildOwnAdmissionRequestRoute",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/date-time/buenos-aires-format.ts#<module>",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/date-time/buenos-aires-format.ts#DATE_PART.day",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/date-time/buenos-aires-format.ts#DATE_PART.month",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/date-time/buenos-aires-format.ts#DATE_PART~frame",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.hourCycle",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.short",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.twoDigit",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION~frame",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/date-time/buenos-aires-format.ts#formatBuenosAiresShortDate",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/date-time/buenos-aires-format.ts#formatBuenosAiresTime",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/date-time/buenos-aires-format.ts#LOCALE.spanish",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/date-time/buenos-aires-format.ts#LOCALE~frame",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/date-time/buenos-aires-format.ts#readPart",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/date-time/buenos-aires-format.ts#SHORT_DATE_FORMATTER",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/date-time/buenos-aires-format.ts#stripTrailingPeriod",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/date-time/buenos-aires-format.ts#TIME_FORMATTER",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/date-time/buenos-aires-format.ts#TRAILING_PERIOD_PATTERN",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/date-time.ts#<module>",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/date-time.ts#BUENOS_AIRES_TIME_ZONE",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#buildTribeSectionRoute",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#PLATFORM_ROUTE_PREFIX",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#ROUTES.tribes",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.academy",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.academyManage",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.academyVerification",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.channels",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.courses",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.coursesManage",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.events",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.history",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.invitation",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.invitationMetrics",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.invitations",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.merits",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.prices",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.settings",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.subscription",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.tribe",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.welcome",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS~frame",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/application/results/admission-contract-fields.ts#admissionLocalHrefSchema",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#AdmissionRequestDto",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/application/results/admission-own-request-message.ts#<module>",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/application/results/admission-own-request-message.ts#getOwnAdmissionRequestMessage",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/application/results/admission-page-state.ts#<module>",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/application/results/admission-page-state.ts#AdmissionPageState",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/application/results/admission-page-state.ts#admissionPageStateSchema",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-limits.ts#ADMISSION_LIMIT.internalMessageCharacters",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-navigation.ts#<module>",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-navigation.ts#ADMISSION_NAVIGATION.publicPrefix",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-navigation.ts#ADMISSION_NAVIGATION.requestSegment",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-navigation.ts#ADMISSION_NAVIGATION.tribeQuery",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-navigation.ts#ADMISSION_NAVIGATION~frame",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_LOCAL_HREF_PATTERN",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.approved",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.cancel",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.cancelled",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.cancelling",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.changeAccount",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.changingAccount",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.confirm",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.confirmCancel",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.contactRecovery",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.country",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.countryHelp",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.declared",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.description",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.email",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.expired",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.expires",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.message",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.openAcademy",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.pending",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.phone",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.read",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.reading",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.rejected",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.reloadAccount",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.retry",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.retryAt",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.retryOriginal",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.signIn",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.statusTitle",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.submit",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.submitted",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.submitting",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.title",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.uncertain",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.verified",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.verifying",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_PHASE.checking",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_PHASE.idle",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_PHASE.uncertain",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_PHASE.writing",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_PHASE~frame",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-whatsapp-number.ts#ADMISSION_WHATSAPP_COPY.formatHelp",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-whatsapp-number.ts#ADMISSION_WHATSAPP_COPY.help",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-whatsapp-number.ts#ADMISSION_WHATSAPP_COPY.label",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-whatsapp-number.ts#ADMISSION_WHATSAPP_COPY.optionalLabel",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-whatsapp-number.ts#ADMISSION_WHATSAPP_COPY~frame",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/personal-invitation-ui.ts#<module>",
+          "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.loading",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY~frame",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#<module>",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.admission_closed",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.admission_scope_mismatch",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.allowlist_requirement_unmet",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.contact_account_mismatch",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.contact_conflict",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.contact_type_mismatch",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.invitation_recipient_unproven",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.invitation_unusable",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.membership_recovery_unknown",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.membership_restricted",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.phone_invitation_unavailable",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.whatsapp_number_required",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY~frame",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_REVERIFICATION_COPY.required",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_REVERIFICATION_COPY.revoked",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_REVERIFICATION_COPY~frame",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_STATUS_COPY.approved",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_STATUS_COPY.cancelled",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_STATUS_COPY.expired",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_STATUS_COPY.pending",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_STATUS_COPY.rejected",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_STATUS_COPY~frame",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
         }
       ],
       "suggestedScope": [
@@ -1356,7 +2053,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T112452Z-4e9e62.json"
+    "report": "runs/20261025T112309Z-df1d3b.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

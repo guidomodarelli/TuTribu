@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "fcbe88fcb243c8ddf8db9e49f2defe0c34c5c9c9",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
       "files": {
         "app/(admission)/admissions/invitations/[token]/personal-invitation-container.tsx": "a456bf4f01d5e9ae",
-        "hooks/use-personal-invitation.ts": "85c13c71c9b0b188",
+        "hooks/use-personal-invitation.ts": "3597e722fb7e889a",
         "app/api/admissions/invitations/[token]/overview/route.ts": "385e5e4b9a0f9aaa",
         "app/api/tribes/[slug]/admissions/submissions/route.ts": "1c17ea1189f30c3c",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
@@ -24,11 +24,11 @@
         "src/modules/messaging/constants/messaging-public-contract.ts": "d8e21158a5fb4c77",
         "src/modules/academy-admissions/constants/personal-invitation-browser.ts": "1d7fa3bd96773d04",
         "src/modules/academy-admissions/constants/personal-invitation-overview.ts": "5216fcae6a91834b",
-        "src/modules/academy-admissions/constants/personal-invitation-ui.ts": "df555b34352e8fb4",
+        "src/modules/academy-admissions/constants/personal-invitation-ui.ts": "75d4a491bbcde1fd",
         "src/modules/academy-admissions/application/ports/admission-contact-browser-client.ts": "4343dce501c9c6e4",
         "src/modules/academy-admissions/application/ports/personal-invitation-browser-client.ts": "83483ed85877621a",
         "src/modules/academy-admissions/application/results/personal-invitation-page-state.ts": "2e2796ab8e364e43",
-        "components/academy-admissions/personal-invitation/index.tsx": "c99fc4f14eab4897",
+        "components/academy-admissions/personal-invitation/index.tsx": "d31a731aef012397",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
         "lib/academy-admissions/admission-routes.ts": "adac74b9727d9a17",
         "lib/auth/sign-in-redirect.ts": "896cfa9806af6656",
@@ -479,7 +479,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:84b1daa5cad9feb71ad99e50707aa98f855ac6016769e60147ebd8991d44e440",
+      "fingerprint": "sha256:ade1119cbdd7b91145f307bb0a37b44b911b8f93ecc6a72537bd915fc6d03a0c",
       "inputs": {
         "app/(admission)/admissions/invitations/[token]/personal-invitation-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(admission)/admissions/invitations/[token]/personal-invitation-container.tsx#PersonalInvitationContainer": "889caeb28894f738",
@@ -501,7 +501,7 @@
         "hooks/use-personal-invitation.ts#usePersonalInvitation/clear": "cf1f3ed1ce7dd20a",
         "hooks/use-personal-invitation.ts#usePersonalInvitation/recover": "fbfaef78f61798c9",
         "hooks/use-personal-invitation.ts#usePersonalInvitation/observe": "7efbcb95505d7fb4",
-        "hooks/use-personal-invitation.ts#usePersonalInvitation/submit": "f9dbd7f587156759",
+        "hooks/use-personal-invitation.ts#usePersonalInvitation/submit": "0bc037cc9048cf04",
         "hooks/use-personal-invitation.ts#usePersonalInvitation/changeAccount": "08a086a2cf32dc4f",
         "hooks/use-personal-invitation.ts#usePersonalInvitation/changeConfirmation": "da64c1d4f120922f",
         "app/api/admissions/invitations/[token]/overview/route.ts#<module>": "33b3fabe1e31dbc7",
@@ -608,7 +608,7 @@
         "src/modules/academy-admissions/application/results/personal-invitation-page-state.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/results/personal-invitation-page-state.ts#PersonalInvitationPageState": "3d610fcea2cdf9fd",
         "components/academy-admissions/personal-invitation/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/personal-invitation/index.tsx#PersonalInvitation": "ad8d809d34e66909",
+        "components/academy-admissions/personal-invitation/index.tsx#PersonalInvitation": "52dd729dd0b190f6",
         "src/constants/routes.ts#<module>": "2da3ec2294295eb1",
         "src/constants/routes.ts#ROUTES~frame": "0506fddc4c13fa99",
         "src/constants/routes.ts#ROUTES.tribes": "096ad71391f5d942",
@@ -1156,6 +1156,7 @@
         "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.confirm": "933c4f79125f0a0d",
         "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.description": "7fc5ccf4675be951",
         "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.exemption": "d0faa74bde897808",
+        "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.eyebrow": "7e9e5f250972b8cf",
         "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.openAcademy": "f8102d30725f8db0",
         "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.original": "ccad6c83ab0dad86",
         "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.ownRequest": "eabf019108539517",
@@ -4572,9 +4573,9 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T11:21:52.386Z",
+    "recordedAt": "2026-10-25T11:21:34.098Z",
     "result": "not-applicable",
-    "runId": "20261025T112149Z-62f23b",
+    "runId": "20261025T112130Z-87ad01",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
@@ -4599,8 +4600,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T112149Z-62f23b.json"
+    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T112130Z-87ad01.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",
