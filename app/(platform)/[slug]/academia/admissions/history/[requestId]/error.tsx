@@ -4,6 +4,6 @@ import { AdmissionRouteError } from "@/components/academy-admissions/admission-r
 import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
 
 /** @param props - Framework-owned retry callback; the private runtime exception is never displayed. @returns Recovery inside the existing platform main with one page heading. */
-export default function AdmissionReviewHistoryError({ reset }: { reset: () => void }) {
-  return <AdmissionSettingsPage page="history"><AdmissionRouteError embedded reset={reset} /></AdmissionSettingsPage>;
+export default function AdmissionReviewHistoryError({ retry }: { retry: () => void }) {
+  return <AdmissionSettingsPage page="history"><AdmissionRouteError embedded retry={retry} /></AdmissionSettingsPage>;
 }

@@ -394,7 +394,7 @@ export function AcademyHome({
   );
 
   return (
-    <main className={styles.AcademyHome}>
+    <div className={styles.AcademyHome}>
       <header className={styles.AcademyHome__header}>
         <div className={styles.AcademyHome__heading}>
           <p className={styles.AcademyHome__eyebrow}>{ACADEMY_HOME_COPY.eyebrow}</p>
@@ -657,6 +657,6 @@ export function AcademyHome({
           ) : null}
         </DialogContent>
       </Dialog>
-    </main>
+    </div>
   );
 }

@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-admission-request-deadline",
-      "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
         "app/(platform)/[slug]/academia/admissions/invitations/page.tsx": "5731b66b99705bd9",
-        "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx": "0ae1742a06c8464b",
+        "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx": "afc5715fe57edbc5",
         "hooks/use-personal-invitation-management.ts": "2d57762623290e7d",
         "components/academy-admissions/invitation-management/index.tsx": "2c0490589ada4ec9",
         "app/api/tribes/[slug]/admissions/invitations/route.ts": "1ab19645aca4c8d0",
@@ -16,7 +16,7 @@
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
         "src/modules/auth/setup.ts": "37e200547ae950e4",
         "src/modules/auth/infrastructure/repositories/better-auth-session-repository.ts": "9c52b296a068064a",
-        "components/academy-admissions/admission-route-error/index.tsx": "a069fa4c83845f3f",
+        "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts": "0b8a4ad902ce4210",
         "src/modules/academy-admissions/application/ports/personal-invitation-management-browser-client.ts": "31afaf330e73d6ff",
         "src/modules/academy-admissions/application/results/personal-invitation-management-page-state.ts": "84e8a54f1c9df3cf",
@@ -212,12 +212,12 @@
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f",
         "src/modules/academy-admissions/domain/entities/admission-policy.ts": "a602f5d4e4fee0b2"
       },
-      "fingerprint": "sha256:0d8b3e616ee1f6b72ec075668f4b269cedb715acc3b5ff7c139e21eb548393ae",
+      "fingerprint": "sha256:dff862efab8a71cc738dcebd5043bb5bd098cdff58cce295689f7dd149a695cd",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/invitations/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/invitations/page.tsx#InvitationsPage": "4e110598df2d3c91",
         "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx#InvitationsContainer": "78620de595f361d6",
+        "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx#InvitationsContainer": "c037bf8da264b9d2",
         "hooks/use-personal-invitation-management.ts#<module>": "d414f6d3ee71f10d",
         "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/client": "cb2f027a3e9fd9d6",
         "pkg:react": "374a4508a198654b",
@@ -271,7 +271,7 @@
         "src/modules/auth/infrastructure/repositories/better-auth-session-repository.ts#AUTHENTICATED_MEMBER_DEFAULT.avatarFallback": "87243544c3e1d142",
         "src/modules/auth/infrastructure/repositories/better-auth-session-repository.ts#MAX_AVATAR_INITIALS": "d27afba892fd988b",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "566cf7e5647a035b",
+        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_COPY~frame": "6def629c6ac81e5b",
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_COPY.reading": "f8cc3945a2e1047d",
@@ -1267,22 +1267,22 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
-        "durationMs": 20491,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 32508,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "dc6d9c8bc48a5d36dd5ed70afc9a44a862fd8d1b92cb73a089abdc4592f0f563",
-        "recordedAt": "2026-10-25T01:50:26.434Z",
+        "outputSha256": "e350fbb814f592edb79d70da62ca7fec99a94df7ca4421ef4d66e575bcbc5ee1",
+        "recordedAt": "2026-10-25T04:26:19.277Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T01:50:26.982Z",
+        "recordedAt": "2026-10-25T04:26:19.845Z",
         "source": "attested",
-        "summary": "Deadline compartido de los requests del navegador (boundBrowserRequest, 120 s): una escritura vencida queda incierta (transport_timeout, uncertain) para recuperar la operación original; una lectura vencida es un fallo cierto; la cancelación propia sigue siendo abort."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [],
@@ -1290,122 +1290,31 @@
     "pendingChecks": [
       "missing passing evidence of kind browser or accessibility"
     ],
-    "recordedAt": "2026-10-25T01:50:29.428Z",
+    "recordedAt": "2026-10-25T04:26:21.960Z",
     "result": "partial",
-    "runId": "20261025T015005Z-44c33e",
+    "runId": "20261025T042546Z-83c476",
     "scope": {
       "decision": "incremental",
       "reasons": [
-        "skill definition changed (1.4.1 → 1.5.0): SKILL.md",
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "17 relevant change(s) since the verified run"
+        "previous run was partial"
       ],
       "relevantChangesAtBegin": [
         {
-          "change": "added",
-          "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/bounded",
-          "reason": "new visible or interactive code"
-        },
-        {
           "change": "modified",
-          "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/request",
-          "reason": "visible or interactive code changed"
-        },
-        {
-          "change": "added",
-          "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/send",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "modified",
-          "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient~shell",
+          "key": "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx#InvitationsContainer",
           "reason": "visible or interactive code changed"
         },
         {
           "change": "modified",
-          "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/json",
+          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
           "reason": "visible or interactive code changed"
-        },
-        {
-          "change": "added",
-          "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/send",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/timedOut",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "modified",
-          "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport~shell",
-          "reason": "visible or interactive code changed"
-        },
-        {
-          "change": "added",
-          "key": "lib/browser-request-deadline.ts#<module>",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "lib/browser-request-deadline.ts#AbortedBrowserRequest",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "lib/browser-request-deadline.ts#boundBrowserRequest",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "lib/browser-request-deadline.ts#BrowserRequestDeadline",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "lib/browser-request-deadline.ts#startBrowserRequestDeadline/followCaller",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "lib/browser-request-deadline.ts#startBrowserRequestDeadline~shell",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "src/constants/browser-request.ts#<module>",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MESSAGE",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MS",
-          "reason": "new visible or interactive code"
         }
       ],
       "suggestedScope": [
-        "re-check the unit against the rules changed in ui-ux-flow-patterns/SKILL.md",
-        "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient › bounded — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
-        "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient › request — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
-        "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient › send — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
-        "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
-        "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport › json — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
-        "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport › send — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
-        "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport › timedOut — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
-        "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
-        "lib/browser-request-deadline.ts (module directives and side effects) — client/server boundary and side effects of the module",
-        "lib/browser-request-deadline.ts › AbortedBrowserRequest — behavior of this code in every state of the unit that uses it",
-        "lib/browser-request-deadline.ts › boundBrowserRequest — behavior of this code in every state of the unit that uses it",
-        "lib/browser-request-deadline.ts › BrowserRequestDeadline — behavior of this code in every state of the unit that uses it",
-        "lib/browser-request-deadline.ts › startBrowserRequestDeadline › followCaller — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
-        "lib/browser-request-deadline.ts › startBrowserRequestDeadline (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
-        "src/constants/browser-request.ts (module directives and side effects) — client/server boundary and side effects of the module",
-        "src/constants/browser-request.ts › BROWSER_REQUEST_TIMEOUT_MESSAGE — behavior of this code in every state of the unit that uses it",
-        "src/constants/browser-request.ts › BROWSER_REQUEST_TIMEOUT_MS — behavior of this code in every state of the unit that uses it"
+        "pending from the previous run: missing passing evidence of kind browser or accessibility",
+        "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx › InvitationsContainer — behavior of this code in every state of the unit that uses it",
+        "components/academy-admissions/admission-route-error/index.tsx › AdmissionRouteError — behavior of this code in every state of the unit that uses it"
       ]
     },
     "skill": {
@@ -1421,7 +1330,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T015005Z-44c33e.json"
+    "report": "runs/20261025T042546Z-83c476.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

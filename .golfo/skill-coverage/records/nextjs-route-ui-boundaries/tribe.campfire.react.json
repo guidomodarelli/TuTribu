@@ -6,8 +6,8 @@
   "verified": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-invitation-link-focus",
-      "commit": "0a4edbf24ec78923ec9e2397f84a630d11c29cac",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
         "components/tribe-round/tribe-round/index.tsx": "b1c88af3c07fca82",
         "app/api/tribes/[slug]/messages/[messageId]/like/route.ts": "c32e5e60300e2f47",
@@ -15,7 +15,7 @@
         "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts": "192e149c84c4c6ad",
         "src/modules/auth/setup.ts": "37e200547ae950e4",
         "src/modules/auth/infrastructure/repositories/better-auth-session-repository.ts": "9c52b296a068064a",
-        "app/(platform)/[slug]/page.tsx": "eb3e56aa582428f1",
+        "app/(platform)/[slug]/page.tsx": "21d44f35274141e2",
         "lib/auth/sign-in-redirect.ts": "896cfa9806af6656",
         "lib/subscriptions/subscription-return-path.ts": "481887f33b7152b4",
         "src/modules/auth/infrastructure/better-auth/server-auth-context.ts": "1c98179f3341e101",
@@ -26,14 +26,15 @@
         "src/modules/shared/infrastructure/http/external-browser-link.ts": "400a92da8bf9e12e",
         "src/modules/shared/infrastructure/http/in-app-browser-detection.ts": "f7376758fa2ac8eb",
         "app/(platform)/[slug]/subscription-return-outcome.ts": "0ab43fc909c7444d",
-        "app/(platform)/[slug]/tribe-page-access.ts": "50eec7f94f420c0b",
+        "app/(platform)/[slug]/tribe-page-access.ts": "31f10502f507d6d7",
         "app/(platform)/[slug]/page.module.scss": "b67a01660e1a270e",
         "app/(platform)/[slug]/layout.tsx": "091b3dec28a3139f",
         "app/(platform)/[slug]/loading.tsx": "7bca37b96a4432ce",
+        "app/(platform)/error.tsx": "c29ecc8ea3fb911f",
         "app/(platform)/layout.tsx": "eccf66589598096e",
         "app/(platform)/loading.tsx": "1408221519a7a78e",
-        "app/error.tsx": "ea0b13f7fd3eb6c7",
-        "app/global-error.tsx": "b09bade0cbddca32",
+        "app/error.tsx": "be500bfad1d372c9",
+        "app/global-error.tsx": "4fe5158bea164617",
         "app/layout.tsx": "650f4386e125862f",
         "app/not-found.tsx": "7c2bf7b75ccbcef3",
         "next.config.ts": "499b76937ce73f12",
@@ -107,6 +108,7 @@
         "src/modules/subscriptions/constants/subscriptions.ts": "6ba50c0da5428de7",
         "components/tribes/tribe-presence-heartbeat/index.tsx": "ff8adcd6cb4701ee",
         "app/(platform)/[slug]/loading.module.scss": "3f6fcdd2e5f79775",
+        "components/feedback/error-state/index.tsx": "5090f14a31ac15fc",
         "src/modules/notifications/application/results/notification-public-dto-schemas.ts": "9f04bffec9a201d4",
         "src/modules/shared/infrastructure/validation/validation-issue-summary.ts": "738c0b278fc24011",
         "components/app-rail/app-rail-shell/index.tsx": "182d0fd1e6aa457c",
@@ -118,7 +120,6 @@
         "components/tribes/tribe-support-button/index.tsx": "f0dc1288c895f1f7",
         "components/platform/tribe-switcher/index.tsx": "46e9bf6a143d762e",
         "app/(platform)/loading.module.scss": "55505dfb148e6c98",
-        "components/feedback/error-state/index.tsx": "5090f14a31ac15fc",
         "app/globals.css": "067cf27eba244702",
         "lib/site-config.ts": "fea512b7bfdd756c",
         "components/providers/app-providers/app-ui-provider.tsx": "9f227a001b904603",
@@ -155,6 +156,7 @@
         "src/modules/shared/infrastructure/database/postgres-ssl-mode.ts": "93820fa03d2f03bb",
         "src/modules/messages/constants/tribe-round-cache.ts": "3d57d5f07bc02122",
         "src/modules/tribes/constants/tribe-page-access.ts": "18091d5392ed8b45",
+        "components/feedback/error-state/styles.module.scss": "c3291993525c2d1c",
         "src/modules/notifications/application/results/notification-result.ts": "b51b03f97ab4da09",
         "src/modules/notifications/constants/admission-notifications.ts": "87d82e2897913d7e",
         "src/modules/notifications/constants/notifications.ts": "0ec0a20aa7470553",
@@ -175,7 +177,6 @@
         "components/tribes/tribe-support-button/styles.module.scss": "d1057b70ca8dab70",
         "components/tribes/tribe-support-config-dialog/index.tsx": "c24f53a76db23a08",
         "components/platform/tribe-switcher/styles.module.scss": "df5b3f4712236b21",
-        "components/feedback/error-state/styles.module.scss": "c3291993525c2d1c",
         "src/constants/toast.ts": "284fbae4c04bfc82",
         "components/providers/private-aware-siteping/index.tsx": "d2d99d370ff8463b",
         "components/providers/app-providers/styles.module.scss": "04f2ceba20d9ba12",
@@ -184,7 +185,7 @@
         "config/deployment-environment.ts": "08bb1a3202ff76f7",
         "src/modules/messages/application/results/tribe-round-public-dto-schemas.ts": "2bc686a7fed475c5"
       },
-      "fingerprint": "sha256:646b503bec4e545985f86a8a19fde20780de2542fd87d0dc5650a01a0562c5e3",
+      "fingerprint": "sha256:ccd0c3285d21012f6cc9ef6a1d98a697feeda204f07e25325fc55db79a0ec937",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
@@ -555,17 +556,17 @@
         "app/(platform)/[slug]/page.tsx#TribePageProps": "f041b0c2c6790945",
         "app/(platform)/[slug]/page.tsx#readFirstSearchParamValue": "2727d78036beb8e7",
         "app/(platform)/[slug]/page.tsx#readPositiveIntegerSearchParam": "0ec96476177eceef",
-        "app/(platform)/[slug]/page.tsx#renderSubscriptionReturnStatus": "f10a0e951278bff4",
+        "app/(platform)/[slug]/page.tsx#renderSubscriptionReturnStatus": "33617d76b8882047",
         "app/(platform)/[slug]/page.tsx#buildSubscriptionReturnSignInRedirect": "518240ba7437aae8",
         "app/(platform)/[slug]/page.tsx#resolveExternalBrowserPlatform": "4fc5500f30c98554",
-        "app/(platform)/[slug]/page.tsx#renderOpenInExternalBrowserHandoff": "a0df202fe74ff3aa",
+        "app/(platform)/[slug]/page.tsx#renderOpenInExternalBrowserHandoff": "18746f162b6cc379",
         "app/(platform)/[slug]/page.tsx#buildJoinSignInRedirect": "ca11a362de3f9238",
         "app/(platform)/[slug]/page.tsx#buildOpenJoinIdempotencyKey": "f71b52af20350ded",
         "app/(platform)/[slug]/page.tsx#buildOpenJoinStatusPath": "3855a1fcf78b7b9c",
         "app/(platform)/[slug]/page.tsx#mapOpenJoinStatus": "ca75f8503a349ae0",
         "app/(platform)/[slug]/page.tsx#startOpenJoinSubscriptionAction": "c6450101e018fd33",
-        "app/(platform)/[slug]/page.tsx#renderOpenJoinStatusScreen": "f0db72e9f83685c7",
-        "app/(platform)/[slug]/page.tsx#TribePageContent": "43c8243ee52dab98",
+        "app/(platform)/[slug]/page.tsx#renderOpenJoinStatusScreen": "b9d3aa6bf1d6cb12",
+        "app/(platform)/[slug]/page.tsx#TribePageContent": "bbea567c26197779",
         "app/(platform)/[slug]/page.tsx#TribePage": "89dbcd2c8871d996",
         "lib/auth/sign-in-redirect.ts#<module>": "2da3ec2294295eb1",
         "lib/auth/sign-in-redirect.ts#buildSignInRedirectUrl": "4b67671152b6df6a",
@@ -667,6 +668,15 @@
         "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusLabel": "91b448f9dc994012",
         "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON~frame": "aff7438bb5a53b5f",
         "app/(platform)/[slug]/loading.tsx#TribeLoadingPage": "9d20796fb5186f24",
+        "app/(platform)/error.tsx#<module>": "d414f6d3ee71f10d",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.description": "3304d1f7d167d725",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.eyebrow": "d3680e774699c553",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.homeLabel": "058311abe590f3bf",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.retryLabel": "55dce502d524a7a7",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.title": "36b27df2cd481d52",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY~frame": "2aef35660089a73b",
+        "app/(platform)/error.tsx#PlatformErrorProps": "27f9cab13dc73fef",
+        "app/(platform)/error.tsx#PlatformError": "10a1b0632b21a85e",
         "app/(platform)/layout.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/layout.tsx#PLATFORM_LAYOUT_NOTIFICATIONS_LOG.dtoRejectedMessage": "dda49da278a84362",
         "app/(platform)/layout.tsx#PLATFORM_LAYOUT_NOTIFICATIONS_LOG.dtoRejectedReason": "4a725b7ea3d56cee",
@@ -695,8 +705,8 @@
         "app/error.tsx#ERROR_PAGE_COPY.retryLabel": "55dce502d524a7a7",
         "app/error.tsx#ERROR_PAGE_COPY.title": "36b27df2cd481d52",
         "app/error.tsx#ERROR_PAGE_COPY~frame": "4d35ea48d90cb834",
-        "app/error.tsx#ErrorPageProps": "839f15ee58d54b24",
-        "app/error.tsx#ErrorPage": "950ce5ef8f4ce5d7",
+        "app/error.tsx#ErrorPageProps": "1af725ade0a652c4",
+        "app/error.tsx#ErrorPage": "7e726dbf6cb2260c",
         "app/global-error.tsx#<module>": "1bdeb150c1952562",
         "app/global-error.tsx#GLOBAL_ERROR_PAGE_COPY.description": "b1420d85f5502fc6",
         "app/global-error.tsx#GLOBAL_ERROR_PAGE_COPY.eyebrow": "d3680e774699c553",
@@ -707,8 +717,8 @@
         "app/global-error.tsx#GLOBAL_ERROR_PAGE_COPY~frame": "21648876753445c1",
         "app/global-error.tsx#GLOBAL_ERROR_DOCUMENT_CLASS.body": "5ba2fc953a4e9ff8",
         "app/global-error.tsx#GLOBAL_ERROR_DOCUMENT_CLASS~frame": "ecba0437d9fb8c73",
-        "app/global-error.tsx#GlobalErrorPageProps": "e41636e2d3654792",
-        "app/global-error.tsx#GlobalErrorPage": "1f5705fcf0b2ce51",
+        "app/global-error.tsx#GlobalErrorPageProps": "aa842a191c045b69",
+        "app/global-error.tsx#GlobalErrorPage": "13a8b096d4b2beac",
         "app/layout.tsx#<module>": "3eec7190146f9ff3",
         "app/layout.tsx#ROOT_LAYOUT_DOCUMENT.language": "873de5b6448ed855",
         "app/layout.tsx#ROOT_LAYOUT_DOCUMENT.scrollBehavior": "09fbbcbd13163c52",
@@ -1261,6 +1271,14 @@
         "components/tribes/tribe-presence-heartbeat/index.tsx#PRESENCE_HEARTBEAT.apiPrefix": "8f617152d1038910",
         "components/tribes/tribe-presence-heartbeat/index.tsx#PRESENCE_HEARTBEAT.presenceSegment": "93405a427f23be6d",
         "app/(platform)/[slug]/loading.module.scss#*": "3f6fcdd2e5f79775",
+        "components/feedback/error-state/index.tsx#<module>": "d414f6d3ee71f10d",
+        "components/feedback/error-state/index.tsx#ErrorState": "20991c4e77bbb771",
+        "components/feedback/error-state/index.tsx#ERROR_STATE_UI~frame": "26adb8ff56b60901",
+        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.backdropAriaHidden": "820012bc59803918",
+        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.homeLinkSize": "2e9ffb8d13f313b0",
+        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.homeLinkVariant": "b82a9044da7be018",
+        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.retryButtonSize": "eb534ab249e443a4",
+        "components/feedback/error-state/index.tsx#ErrorStateProps": "ca7336ae33bf58bf",
         "src/modules/notifications/application/results/notification-public-dto-schemas.ts#<module>": "2da3ec2294295eb1",
         "src/modules/notifications/application/results/notification-public-dto-schemas.ts#NotificationInboxResponse": "14da05eaa7cd19c1",
         "src/modules/notifications/application/results/notification-public-dto-schemas.ts#notificationInboxSchema": "07fa71080859c862",
@@ -1487,14 +1505,6 @@
         "components/platform/tribe-switcher/index.tsx#TRIBE_SWITCHER_UI.triggerAriaLabel": "010331a6fd943530",
         "components/platform/tribe-switcher/index.tsx#TribeSwitcherProps": "3b5a60b4267009e1",
         "app/(platform)/loading.module.scss#*": "55505dfb148e6c98",
-        "components/feedback/error-state/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/feedback/error-state/index.tsx#ErrorState": "20991c4e77bbb771",
-        "components/feedback/error-state/index.tsx#ERROR_STATE_UI~frame": "26adb8ff56b60901",
-        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.backdropAriaHidden": "820012bc59803918",
-        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.homeLinkSize": "2e9ffb8d13f313b0",
-        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.homeLinkVariant": "b82a9044da7be018",
-        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.retryButtonSize": "eb534ab249e443a4",
-        "components/feedback/error-state/index.tsx#ErrorStateProps": "ca7336ae33bf58bf",
         "app/globals.css#*": "067cf27eba244702",
         "lib/site-config.ts#<module>": "2da3ec2294295eb1",
         "lib/site-config.ts#siteConfig~frame": "4a917d832b627399",
@@ -1876,6 +1886,7 @@
         "src/modules/tribes/constants/tribe-page-access.ts#TRIBE_PAGE_ACCESS_REASON.blockedHidden": "7ec0796dd03a382d",
         "src/modules/tribes/constants/tribe-page-access.ts#TRIBE_PAGE_ACCESS_STATUS~frame": "333b3a2d6d3f95b9",
         "src/modules/tribes/constants/tribe-page-access.ts#TRIBE_PAGE_ACCESS_STATUS.hidden": "80d5696558cd91c5",
+        "components/feedback/error-state/styles.module.scss#*": "c3291993525c2d1c",
         "src/modules/notifications/application/results/notification-result.ts#<module>": "2da3ec2294295eb1",
         "src/modules/notifications/application/results/notification-result.ts#NotificationInboxResult": "f879267135680aef",
         "src/modules/notifications/constants/admission-notifications.ts#<module>": "2da3ec2294295eb1",
@@ -2071,7 +2082,6 @@
         "components/tribes/tribe-support-config-dialog/index.tsx#TribeSupportConfigDialogProps": "91aa691139922c7d",
         "components/tribes/tribe-support-config-dialog/index.tsx#getInitialChannel": "91af063baadeb69f",
         "components/platform/tribe-switcher/styles.module.scss#*": "df5b3f4712236b21",
-        "components/feedback/error-state/styles.module.scss#*": "c3291993525c2d1c",
         "src/constants/theme-mode.ts#THEME_MODE_STORAGE_KEY": "2fe12ff9af449189",
         "src/constants/toast.ts#<module>": "2da3ec2294295eb1",
         "src/constants/toast.ts#APP_TOAST_DURATION_MS": "7b662a022aabd0e8",
@@ -2201,6 +2211,9 @@
         "app/(platform)/[slug]/tribe-page-access.ts#resolveTribePageAccess": {
           "awaits": 6,
           "projectCalls": 3
+        },
+        "app/(platform)/error.tsx#PlatformError": {
+          "effects": 1
         },
         "app/(platform)/layout.tsx#loadInitialNotificationInbox": {
           "projectCalls": 1,
@@ -2610,112 +2623,169 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/tribe-round/tribe-round-navigation.test.tsx tests/unit/components/tribe-round.test.tsx tests/unit/modules/messages tests/unit/pages/tribe-message-routes.test.ts",
-        "durationMs": 146450,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 37671,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "a6255539adc19e196ad3933ac8acf8eb3cd2a172798aa92541e8c5957a93d6a9",
-        "recordedAt": "2026-10-25T00:26:08.709Z",
+        "outputSha256": "819299206b8a542b2c33b169c45aaac2fa186778a9c2eb6d48da4426beb6cc7b",
+        "recordedAt": "2026-10-25T05:36:12.988Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 2460,
+        "durationMs": 4670,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T00:26:11.608Z",
+        "recordedAt": "2026-10-25T05:36:18.473Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T00:26:12.046Z",
+        "recordedAt": "2026-10-25T05:36:19.188Z",
         "source": "attested",
-        "summary": "La recarga tras la reproducción usa la navegación en el lugar del hook (sin router.refresh ni remount por key); no cambia boundaries, loading ni el reparto server/client."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [],
     "mode": "incremental",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T00:26:13.623Z",
+    "recordedAt": "2026-10-25T05:36:22.282Z",
     "result": "verified",
-    "runId": "20261025T002341Z-363e00",
+    "runId": "20261025T053534Z-747efb",
     "scope": {
       "decision": "incremental",
       "reasons": [
-        "8 relevant change(s) since the verified run"
+        "skill definition changed (1.2.0 → 1.3.0): SKILL.md",
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "17 relevant change(s) since the verified run"
       ],
       "relevantChangesAtBegin": [
         {
           "change": "modified",
-          "key": "hooks/use-tribe-round-navigation.ts#RoundNavigationRequest",
-          "reason": "code rendered by the route changed"
+          "key": "app/(platform)/[slug]/page.tsx#renderOpenInExternalBrowserHandoff",
+          "reason": "route file changed: segment layout, boundary or page"
         },
         {
           "change": "modified",
-          "key": "hooks/use-tribe-round-navigation.ts#TribeRoundNavigation",
-          "reason": "code rendered by the route changed"
+          "key": "app/(platform)/[slug]/page.tsx#renderOpenJoinStatusScreen",
+          "reason": "route file changed: segment layout, boundary or page"
         },
         {
           "change": "modified",
-          "key": "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation/loadRoundPage",
-          "reason": "interactive handler changed: navigation or server action calls may differ"
+          "key": "app/(platform)/[slug]/page.tsx#renderSubscriptionReturnStatus",
+          "reason": "route file changed: segment layout, boundary or page"
+        },
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/page.tsx#TribePageContent",
+          "reason": "route file changed: segment layout, boundary or page"
         },
         {
           "change": "added",
-          "key": "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation/reloadCurrentPage",
-          "reason": "new interactive handler in the route"
+          "key": "app/(platform)/error.tsx#<module>",
+          "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.description",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.eyebrow",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.homeLabel",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.retryLabel",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.title",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY~frame",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PlatformError",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PlatformErrorProps",
+          "reason": "new route file: segment, layout or boundary added"
         },
         {
           "change": "modified",
-          "key": "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation~shell",
-          "reason": "component render changed: hooks, Suspense or client imports may differ"
+          "key": "app/error.tsx#ErrorPage",
+          "reason": "route file changed: segment layout, boundary or page"
         },
         {
           "change": "modified",
-          "key": "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#createTribeMessage",
-          "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+          "key": "app/error.tsx#ErrorPageProps",
+          "reason": "route file changed: segment layout, boundary or page"
         },
         {
           "change": "modified",
-          "key": "src/modules/messages/domain/repositories/message-creation-repository.ts#MessageCreationRepository",
-          "reason": "code rendered by the route changed"
+          "key": "app/global-error.tsx#GlobalErrorPage",
+          "reason": "route file changed: segment layout, boundary or page"
         },
         {
           "change": "modified",
-          "key": "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#PostgresMessageMutationRepository",
-          "reason": "adds awaited work to the render path (+1 awaited steps, +2 database queries): navigation may wait without a loading boundary"
+          "key": "app/global-error.tsx#GlobalErrorPageProps",
+          "reason": "route file changed: segment layout, boundary or page"
         }
       ],
       "suggestedScope": [
-        "hooks/use-tribe-round-navigation.ts › RoundNavigationRequest — server/client split and awaited work of this code in every route of the unit",
-        "hooks/use-tribe-round-navigation.ts › TribeRoundNavigation — server/client split and awaited work of this code in every route of the unit",
-        "hooks/use-tribe-round-navigation.ts › useTribeRoundNavigation › loadRoundPage — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
-        "hooks/use-tribe-round-navigation.ts › useTribeRoundNavigation › reloadCurrentPage — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
-        "hooks/use-tribe-round-navigation.ts › useTribeRoundNavigation (component body outside its handlers) — what this component renders: hooks that force a client island, awaited data, Suspense and the client components it imports",
-        "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts › createTribeMessage — server/client split and awaited work of this code in every route of the unit",
-        "src/modules/messages/domain/repositories/message-creation-repository.ts › MessageCreationRepository — server/client split and awaited work of this code in every route of the unit",
-        "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts › PostgresMessageMutationRepository — server/client split and awaited work of this code in every route of the unit"
+        "re-check the unit against the rules changed in nextjs-route-ui-boundaries/SKILL.md",
+        "app/(platform)/[slug]/page.tsx › renderOpenInExternalBrowserHandoff — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/(platform)/[slug]/page.tsx › renderOpenJoinStatusScreen — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/(platform)/[slug]/page.tsx › renderSubscriptionReturnStatus — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/(platform)/[slug]/page.tsx › TribePageContent — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/(platform)/error.tsx (module directives and side effects) — where the server/client boundary falls (\"use client\", \"use server\") and what the client bundle imports through it",
+        "app/(platform)/error.tsx › PLATFORM_ERROR_COPY.description — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/(platform)/error.tsx › PLATFORM_ERROR_COPY.eyebrow — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/(platform)/error.tsx › PLATFORM_ERROR_COPY.homeLabel — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/(platform)/error.tsx › PLATFORM_ERROR_COPY.retryLabel — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/(platform)/error.tsx › PLATFORM_ERROR_COPY.title — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/(platform)/error.tsx › PLATFORM_ERROR_COPY (object structure) — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/(platform)/error.tsx › PlatformError — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/(platform)/error.tsx › PlatformErrorProps — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/error.tsx › ErrorPage — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/error.tsx › ErrorPageProps — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/global-error.tsx › GlobalErrorPage — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/global-error.tsx › GlobalErrorPageProps — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits"
       ]
     },
     "skill": {
       "definitionFiles": {
-        "SKILL.md": "7e0fca17b2a189bf",
+        "SKILL.md": "e456ce5fb1266d0e",
         "references/decision-rules.md": "5340413b30d4e7a7",
         "references/nextjs-apis.md": "7d812e101f16defe",
         "references/server-client-split.md": "7f52ba9f6a13308d",
         "references/skeleton-patterns.md": "65d4c31f0f8beb93",
         "references/version-notes.md": "b6f6488947de60f0"
       },
-      "definitionHash": "sha256:5a183ade06a29d78b3b2aa3587c403ce09b7391dc6eca1eb1575a1b280e57e16",
+      "definitionHash": "sha256:a3b7fb0dda3a877474c7910f4914469c8cb9a94700aa9d750e81067d96406ed1",
       "name": "nextjs-route-ui-boundaries",
-      "version": "1.2.0"
+      "version": "1.3.0"
     },
-    "report": "runs/20261025T002341Z-363e00.json"
+    "report": "runs/20261025T053534Z-747efb.json"
   }
 }

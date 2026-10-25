@@ -187,7 +187,7 @@ export function AcademyManagement({
   const isLeader = viewerRole === "leader";
 
   return (
-    <main className={styles.AcademyManagement}>
+    <div className={styles.AcademyManagement}>
       <header className={styles.AcademyManagement__header}>
         <Link className={styles.AcademyManagement__backLink} href={ROUTES.tribes.academy(tribeSlug)}>
           <ArrowLeftIcon aria-hidden className={styles.AcademyManagement__icon} />
@@ -202,7 +202,7 @@ export function AcademyManagement({
       {isLeader ? <AdmissionsShortcutsSection tribeSlug={tribeSlug} /> : null}
       <ReviewQueueSection initialQueue={initialQueue} tribeSlug={tribeSlug} />
       <MembersSection initialMembers={initialMembers} isLeader={isLeader} tribeSlug={tribeSlug} />
-    </main>
+    </div>
   );
 }
 

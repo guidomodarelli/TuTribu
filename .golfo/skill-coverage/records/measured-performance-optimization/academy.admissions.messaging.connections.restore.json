@@ -2,13 +2,13 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-admission-request-deadline",
-      "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "d64cc0865a1e8f83",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "52358cd766afdaa0",
         "lib/messaging/messaging-connections-intent-store.ts": "7dbed3748a05812b",
         "src/modules/messaging/setup.ts": "36ebb75d1e9b9914",
-        "components/academy-admissions/admission-route-error/index.tsx": "a069fa4c83845f3f",
+        "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
         "src/modules/messaging/constants/messaging-connections-browser.ts": "6324cc25a232f60b",
         "src/modules/messaging/application/ports/messaging-activation-browser-client.ts": "1c4aefbdb29c8cc8",
         "src/modules/messaging/application/ports/messaging-connections-browser-client.ts": "0ed8eda234a11a70",
@@ -290,10 +290,10 @@
         "src/modules/notifications/constants/admission-notification-email-settings.ts": "df73e3f71fbdba97",
         "src/modules/notifications/constants/admission-notification-audit.ts": "b18df51d33f3dd0a"
       },
-      "fingerprint": "sha256:8427088c597ec6acd504704fe1709ebd2698fd270ef3adf372efb70f46e4b472",
+      "fingerprint": "sha256:46d47bc3e66c482f9d39aa28225bef0f05767b6a6fcfe0565a278fd84dd244b1",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell": "706898203eef29c1",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell": "a17794a55cdde176",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#ContainerProps": "54c55af7fe2f98e9",
         "pkg:react": "374a4508a198654b",
@@ -316,7 +316,7 @@
         "src/modules/messaging/setup.ts#buildMessagingModule~shell": "2cbfc6de3298472d",
         "src/modules/messaging/setup.ts#buildMessagingModule/createSensitiveContext": "c238263b2047ba8a",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "566cf7e5647a035b",
+        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
         "src/modules/messaging/constants/messaging-connections-browser.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/constants/messaging-connections-browser.ts#MESSAGING_CREDENTIAL_CHECK_UI_COPY~frame": "bcf5b6730ac04c98",
         "src/modules/messaging/constants/messaging-connections-browser.ts#MESSAGING_CREDENTIAL_CHECK_UI_COPY.stale": "4ae88fd54af7d22d",
@@ -2386,18 +2386,17 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T01:53:21.043Z",
+    "recordedAt": "2026-10-25T04:39:18.672Z",
     "result": "not-applicable",
-    "runId": "20261025T015318Z-aba348",
+    "runId": "20261025T043916Z-49001b",
     "scope": {
-      "decision": "full",
+      "decision": "not-applicable",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "recorded not applicable: El deadline no agrega requests, consultas ni pasos al flujo: solo un timer por request ya existente."
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": [
-        "measure the complete flow /[slug]/academia/admissions/messaging/connections before and after, same build, data and throttling; median of 3 for noisy metrics"
-      ]
+      "suggestedScope": []
     },
     "skill": {
       "definitionFiles": {
@@ -2414,8 +2413,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "El deadline no agrega requests, consultas ni pasos al flujo: solo un timer por request ya existente.",
-    "report": "runs/20261025T015318Z-aba348.json"
+    "summary": "El cambio de boundaries no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T043916Z-49001b.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

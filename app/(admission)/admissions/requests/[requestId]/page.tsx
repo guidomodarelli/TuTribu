@@ -1,9 +1,13 @@
 /** Resolves an exact own request outside community membership, below this leaf's Suspense. @module own-admission-page */
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { createAdmissionRequestModules } from "@/src/modules/setup";
 import { loadAdmissionPageState } from "@/src/modules/academy-admissions/infrastructure/composition/admission-page";
 import { RequestContainer } from "./request-container";
 import Loading from "./loading";
+
+/** A private request link is never indexed nor sent as a navigation referrer. */
+export const metadata: Metadata = { title: "Tu solicitud de ingreso", referrer: "no-referrer", robots: { index: false, follow: false } };
 
 /** Runtime query/account work belongs to the page segment being rendered. */
 async function RequestContent({ params, searchParams }: { params: Promise<{ requestId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {

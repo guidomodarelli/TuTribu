@@ -205,10 +205,10 @@ export function MessagingUsageContainer({ initialState, client = messagingUsageB
     setFresh(true); setStatusMessage(COPY.initialized);
   });
 
-  if (!ready || !state || !draft) return <AdmissionRouteError embedded message={initialState.kind === "unavailable" ? initialState.message : COPY.storageFailed} reset={() => window.location.reload()} />;
-  if (phase === PHASE.changedViewer) return <AdmissionRouteError embedded message={COPY.changedViewer} reset={() => window.location.reload()} />;
+  if (!ready || !state || !draft) return <AdmissionRouteError embedded message={initialState.kind === "unavailable" ? initialState.message : COPY.storageFailed} retry={() => window.location.reload()} />;
+  if (phase === PHASE.changedViewer) return <AdmissionRouteError embedded message={COPY.changedViewer} retry={() => window.location.reload()} />;
   if (!privateVisible && (phase === PHASE.checking || phase === PHASE.reading)) return <p role="status">Consultando la cuenta y el uso actual…</p>;
-  if (!privateVisible) return <AdmissionRouteError embedded message={errorMessage ?? COPY.storageFailed} reset={launchRead} />;
+  if (!privateVisible) return <AdmissionRouteError embedded message={errorMessage ?? COPY.storageFailed} retry={launchRead} />;
   const parsedDraft = parseMessagingUsageDraft(draft, state), validationMessage = parsedDraft.ok ? null : parsedDraft.message;
   const isBusy = phase === PHASE.checking || phase === PHASE.reading || phase === PHASE.writing, uncertain = phase === PHASE.uncertain;
   const canSave = fresh && !isBusy && !uncertain && confirmed && parsedDraft.ok;

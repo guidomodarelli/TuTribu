@@ -313,10 +313,10 @@ export function AdmissionPolicyContainer({ initialState, client = admissionApiCl
       preflightReasons: [], requirements: [...new Set([...proposedRequirements, ...savedRequirements])], unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 });
   };
 
-  if (!ready || !state || !draft) return <AdmissionRouteError embedded message={initialState.kind === "unavailable" ? initialState.message : COPY.storageFailed} reset={() => window.location.reload()} />;
-  if (phase === PHASE.changedViewer) return <AdmissionRouteError embedded message={COPY.changedViewer} reset={() => window.location.reload()} />;
+  if (!ready || !state || !draft) return <AdmissionRouteError embedded message={initialState.kind === "unavailable" ? initialState.message : COPY.storageFailed} retry={() => window.location.reload()} />;
+  if (phase === PHASE.changedViewer) return <AdmissionRouteError embedded message={COPY.changedViewer} retry={() => window.location.reload()} />;
   if (!privateVisible && (phase === PHASE.checking || phase === PHASE.reading)) return <p role="status">{COPY.reading}</p>;
-  if (!privateVisible) return <AdmissionRouteError embedded message={errorMessage ?? COPY.storageFailed} reset={launchRead} />;
+  if (!privateVisible) return <AdmissionRouteError embedded message={errorMessage ?? COPY.storageFailed} retry={launchRead} />;
   const reason = validateAdmissionPolicyBrowserDraft(draft, state);
   const validationMessage = reason === ADMISSION_POLICY_CONFIGURATION_ERROR.contactTypeLocked ? COPY.contactLocked : reason === ADMISSION_POLICY_CONFIGURATION_ERROR.phoneAllowlistVerificationRequired ? COPY.phoneAllowlist : reason === ADMISSION_POLICY_CONFIGURATION_ERROR.smsAlternativeInvalid ? COPY.smsAlternative : reason ? COPY.invalid : null;
   const uncertain = phase === PHASE.uncertain;

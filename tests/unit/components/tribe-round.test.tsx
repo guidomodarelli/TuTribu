@@ -6704,9 +6704,15 @@ describe("TribeRound", () => {
       ).not.toBeInTheDocument();
     });
 
-    await user.click(
-      screen.getByRole("button", { name: "Me gusta 2" }).parentElement as HTMLElement
-    );
+    const likesHoverCardTrigger = screen.getByRole("button", { name: "Me gusta 2" })
+      .parentElement as HTMLElement;
+
+    await user.click(likesHoverCardTrigger);
+
+    // In a browser the modal overlay covers the pointer and the trigger gets
+    // pointerleave; jsdom never re-hit-tests, so the likes card's 500ms open
+    // timer would fire behind the dialog and take the next Escape.
+    fireEvent.pointerLeave(likesHoverCardTrigger);
 
     expect(
       screen.getByRole("dialog", { name: "Mensaje" })

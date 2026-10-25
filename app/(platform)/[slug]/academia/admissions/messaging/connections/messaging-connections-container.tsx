@@ -325,7 +325,7 @@ export function MessagingConnectionsContainer({initialState,client=messagingConn
       if(current.status==="ready"){applyConfiguration(current.value);setNeedsCurrent(false);emit({kind:"status",text:CHECK_COPY.currentRead});}else{setNeedsCurrent(true);emit({kind:"alert",text:CHECK_COPY.currentUnavailable});}
     }finally{busy.current=false;if(mounted.current)setPhase((current)=>current===PHASE.unavailable?current:PHASE.idle);}}));
   };
-  if(!ready||phase===PHASE.unavailable)return<AdmissionRouteError embedded reset={()=>{window.location.reload();}} message={initialState.kind==="unavailable"?initialState.message:notice??COPY.viewerChanged} />;
+  if(!ready||phase===PHASE.unavailable)return<AdmissionRouteError embedded retry={()=>{window.location.reload();}} message={initialState.kind==="unavailable"?initialState.message:notice??COPY.viewerChanged} />;
   if(!configuration)return null;
   const pendingAction=phase===PHASE.writing?writingAction:null;
   const isBusy=recoveryBusy||phase!==PHASE.idle,canSave=!pending&&!needsCurrent&&!isBusy&&Boolean(name.trim()&&apiKey.trim()&&confirmed),blockedActions=isBusy||Boolean(pending)||needsCurrent;
