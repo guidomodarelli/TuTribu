@@ -5,6 +5,7 @@ import {
   decideMemberVerification,
   fetchOwnAcademyAccess,
   grantAcademyBonus,
+  reconcileAcademyCoverage,
   startAcademyCheckout,
 } from "@/lib/academy/academy-api-client";
 
@@ -66,6 +67,27 @@ describe("academy api client", () => {
       message: ACADEMY_API_FALLBACK_MESSAGE,
       status: 200,
     });
+  });
+
+  it("reads a throttled coverage reconciliation as its own outcome", async () => {
+    respondWithJson({ message: "Ya revisamos tu estado hace instantes. Probá de nuevo en un minuto.", status: "throttled" }, 200);
+
+    const result = await reconcileAcademyCoverage("mi-tribu");
+
+    expect(result).toEqual({
+      data: { message: "Ya revisamos tu estado hace instantes. Probá de nuevo en un minuto.", status: "throttled" },
+      isSuccess: true,
+      status: 200,
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/tribes/mi-tribu/academy/reconcile");
+  });
+
+  it("rejects a reconciliation answer outside its contract instead of reading it as success", async () => {
+    respondWithJson({ status: "unknown" }, 200);
+
+    const result = await reconcileAcademyCoverage("mi-tribu");
+
+    expect(result).toEqual({ isSuccess: false, message: ACADEMY_API_FALLBACK_MESSAGE, status: 200 });
   });
 
   it("surfaces the safe route message of a failed checkout", async () => {
