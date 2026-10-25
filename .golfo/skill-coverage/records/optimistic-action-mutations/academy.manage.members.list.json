@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
+      "branch": "fix/academy-readable-dates",
+      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
       "files": {
-        "components/academy/academy-management/index.tsx": "b31e2d2038935251",
+        "components/academy/academy-management/index.tsx": "34f2bdb8739e7845",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/academy/members/route.ts": "3cbb25f32868f5ae",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
@@ -38,7 +38,7 @@
         "src/modules/shared/infrastructure/backend/public-app-base-url.ts": "d9895a88e9a67e6d",
         "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-status-mapper.ts": "b62802e2786f6277",
         "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-access-token.ts": "84e7661b4a92ef99",
-        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
         "src/modules/shared/infrastructure/validation/validation-issue-summary.ts": "738c0b278fc24011",
@@ -744,32 +744,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 64195,
+        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
+        "durationMs": 63048,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "976c86082f070a9c5c59a91872241b91493bae6ae302233ce3a35e33680c217e",
-        "recordedAt": "2026-10-25T10:19:43.598Z",
+        "outputSha256": "1a811c279d534d4a70bfbf3d2603893fcd868f4d2c1c6df70cad2a1a35255dd5",
+        "recordedAt": "2026-10-25T10:24:48.039Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T10:19:44.096Z",
+        "recordedAt": "2026-10-25T10:24:48.586Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T10:19:45.524Z",
+    "recordedAt": "2026-10-25T10:24:50.119Z",
     "result": "partial",
-    "runId": "20261025T101838Z-d7cc6a",
+    "runId": "20261025T102344Z-804787",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -794,7 +794,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T101838Z-d7cc6a.json"
+    "report": "runs/20261025T102344Z-804787.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

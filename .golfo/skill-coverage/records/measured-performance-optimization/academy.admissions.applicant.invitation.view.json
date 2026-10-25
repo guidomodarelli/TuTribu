@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
+      "branch": "fix/academy-readable-dates",
+      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
       "files": {
         "app/(admission)/admissions/invitations/[token]/page.tsx": "4520a9f6a91ff6dc",
         "app/(admission)/admissions/invitations/[token]/loading.tsx": "d865834be352a5c9",
@@ -11,7 +11,7 @@
         "src/modules/academy-admissions/infrastructure/composition/personal-invitation-page.ts": "c96ae634c5787d69",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
         "src/modules/auth/setup.ts": "37e200547ae950e4",
-        "components/academy-admissions/admission-screen/index.tsx": "960ef7fa9cf9683c",
+        "components/academy-admissions/admission-screen/index.tsx": "77d088e07ff83d2c",
         "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
         "src/modules/academy-admissions/constants/admission-errors.ts": "4a393e9826800086",
         "src/modules/academy-admissions/constants/personal-invitation-page.ts": "97b409b131e1d23b",
@@ -304,7 +304,7 @@
         "components/academy-admissions/admission-whatsapp-number-field/index.tsx": "10cbeb4aeca70640",
         "src/modules/academy-admissions/application/results/admission-contract-fields.ts": "a4913419cef9bbde",
         "src/modules/academy-admissions/constants/request-status-presentation.ts": "e692acb82a512346",
-        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
         "src/modules/academy-admissions/constants/personal-invitation-token.ts": "e6bec12eaf4702b9",
         "src/modules/messaging/domain/errors/messaging-error-code.ts": "347a9bbe72af0c8b",
@@ -366,7 +366,7 @@
         "src/modules/academy-admissions/constants/admission-review-dates.ts": "ed6ccaa0d7bbce25",
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f"
       },
-      "fingerprint": "sha256:c9d556ed1318930d1452e7e3e5926e73bc60e8550fc0e151388c763c4ec2538c",
+      "fingerprint": "sha256:5181c9377314743b10df3f20212d9dfd7ea9606b0644ec6ebac73c57e1275149",
       "inputs": {
         "app/(admission)/admissions/invitations/[token]/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(admission)/admissions/invitations/[token]/page.tsx#PersonalInvitationPage": "45a5651afd8691be",
@@ -385,7 +385,7 @@
         "src/modules/auth/setup.ts#AuthModuleDependencies": "c2c64c7a3276646d",
         "components/academy-admissions/admission-screen/index.tsx#<module>": "2da3ec2294295eb1",
         "components/academy-admissions/admission-screen/index.tsx#AdmissionLoading": "ce34971915465dcf",
-        "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen": "a624bd679dc8abbf",
+        "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen": "4eb04b5414bc549d",
         "components/academy-admissions/admission-screen/index.tsx#AdmissionScreenProps": "dcd95f712b8ad5aa",
         "pkg:react": "374a4508a198654b",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
@@ -3017,9 +3017,9 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T09:14:43.505Z",
+    "recordedAt": "2026-10-25T09:20:14.820Z",
     "result": "not-applicable",
-    "runId": "20261025T091441Z-e42c0f",
+    "runId": "20261025T092012Z-616c80",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
@@ -3044,8 +3044,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T091441Z-e42c0f.json"
+    "summary": "El cambio de copy de fechas no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T092012Z-616c80.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

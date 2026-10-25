@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
+      "branch": "fix/academy-readable-dates",
+      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
       "files": {
-        "components/academy/academy-home/index.tsx": "445fcae1bddbac72",
+        "components/academy/academy-home/index.tsx": "559afae35579d77c",
         "app/(platform)/[slug]/academia/page.tsx": "a4c7427e95123588",
         "app/api/tribes/[slug]/academy/checkout/route.ts": "2cac28f1f18d006b",
         "src/modules/subscriptions/setup.ts": "beab8120b07daf1c",
@@ -58,12 +58,12 @@
         "src/modules/subscriptions/constants/mercado-pago.ts": "34d95fa297d774c0",
         "src/modules/shared/infrastructure/http/fetch-with-resilience.ts": "71e8c20b9a71eecd",
         "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
-        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:7470abc85dfd59886c15c09bcab9d4f706eb9896f627d164ff08460824d479ce",
+      "fingerprint": "sha256:ca8aff9c4a7bd287158b95d31c34b10deceb6bd6f82d004ecc6908bbb072f80b",
       "inputs": {
         "components/academy/academy-home/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-home/index.tsx#AcademyHome~shell": "e682a501a4562464",
@@ -144,7 +144,7 @@
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.paidUntil": "44bd9d501a645c4f",
         "pkg:react": "374a4508a198654b",
         "pkg:next": "ef28293b49c7bae1",
-        "components/academy/academy-home/index.tsx#AcademyHome/handleCheckout": "57d25869a6d25099",
+        "components/academy/academy-home/index.tsx#AcademyHome/handleCheckout": "9134d945048b7422",
         "components/academy/academy-home/index.tsx#AcademyHome/runAction": "a6e5e63ed8953d09",
         "app/(platform)/[slug]/academia/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/page.tsx#TribeAcademyPage": "edb97c58c08a366a",
@@ -922,45 +922,39 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 63878,
+        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
+        "durationMs": 62637,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "67d19216c257104eec33ea29b4d070cd47e1b892308390f4fd84a1cd3642322a",
-        "recordedAt": "2026-10-25T09:56:50.410Z",
+        "outputSha256": "da418900a06a595938d0776bd60c1fee3d448ea7b474e0ed9f0cd1952076da59",
+        "recordedAt": "2026-10-25T10:05:39.989Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T09:56:50.968Z",
+        "recordedAt": "2026-10-25T10:05:40.523Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T09:56:52.540Z",
+    "recordedAt": "2026-10-25T10:05:42.082Z",
     "result": "partial",
-    "runId": "20261025T095545Z-593331",
+    "runId": "20261025T100436Z-5b4be1",
     "scope": {
       "decision": "full",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "components/academy/academy-home/index.tsx#AcademyHome/handleCheckout",
-          "reason": "visible or interactive code changed"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.home.checkout: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
       ]
@@ -978,7 +972,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T095545Z-593331.json"
+    "report": "runs/20261025T100436Z-5b4be1.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

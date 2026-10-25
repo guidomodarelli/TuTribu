@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
+      "branch": "fix/academy-readable-dates",
+      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
       "files": {
-        "components/academy/academy-home/index.tsx": "445fcae1bddbac72",
+        "components/academy/academy-home/index.tsx": "559afae35579d77c",
         "app/(platform)/[slug]/academia/page.tsx": "a4c7427e95123588",
         "app/api/tribes/[slug]/academy/checkout/route.ts": "2cac28f1f18d006b",
         "src/modules/subscriptions/setup.ts": "beab8120b07daf1c",
@@ -101,7 +101,7 @@
         "config/legacy-redirects.ts": "6e723edb2bbdd69f",
         "config/cloudflare-dev-runtime.ts": "5c9b3670ad614400",
         "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
-        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
         "components/feedback/error-state/styles.module.scss": "c3291993525c2d1c",
@@ -134,7 +134,7 @@
         "config/deployment-environment.ts": "08bb1a3202ff76f7",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:da030441a4ce410136d414449f142c0a833423de8e04b8721bc5d6547cb30657",
+      "fingerprint": "sha256:3f510f3f62b919c96452183ab6d5d849eccce857c3e021059b646444e4c24435",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
@@ -216,7 +216,7 @@
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.expired": "f27f3dea3671a602",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.paidAndBonusUntil": "3ad17dbfd4536999",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.paidUntil": "44bd9d501a645c4f",
-        "components/academy/academy-home/index.tsx#AcademyHome/handleCheckout": "57d25869a6d25099",
+        "components/academy/academy-home/index.tsx#AcademyHome/handleCheckout": "9134d945048b7422",
         "components/academy/academy-home/index.tsx#AcademyHome/runAction": "a6e5e63ed8953d09",
         "app/(platform)/[slug]/academia/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/page.tsx#TribeAcademyPage": "edb97c58c08a366a",
@@ -2008,56 +2008,50 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 64065,
+        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
+        "durationMs": 63172,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "634fc4db56093ff6ae76ad37f7a6f05e30f98c1709d43464be4b0889041a5c95",
-        "recordedAt": "2026-10-25T09:59:09.075Z",
+        "outputSha256": "f053739bfba1272551cc6ed1ec2e5f0d110655e10846fe83dadc261e614a3b8e",
+        "recordedAt": "2026-10-25T10:07:56.696Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 2817,
+        "durationMs": 2889,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T09:59:12.376Z",
+        "recordedAt": "2026-10-25T10:08:00.102Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T09:59:12.888Z",
+        "recordedAt": "2026-10-25T10:08:00.632Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T09:59:14.566Z",
+    "recordedAt": "2026-10-25T10:08:02.245Z",
     "result": "partial",
-    "runId": "20261025T095804Z-6f2dce",
+    "runId": "20261025T100652Z-cd1672",
     "scope": {
       "decision": "full",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "components/academy/academy-home/index.tsx#AcademyHome/handleCheckout",
-          "reason": "interactive handler changed: navigation or server action calls may differ"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.home.checkout (/[slug]/academia): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
       ]
@@ -2075,7 +2069,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T095804Z-6f2dce.json"
+    "report": "runs/20261025T100652Z-cd1672.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

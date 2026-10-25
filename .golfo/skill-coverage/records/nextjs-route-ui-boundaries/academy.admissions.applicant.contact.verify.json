@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
+      "branch": "fix/academy-readable-dates",
+      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
       "files": {
         "hooks/use-admission-contact-verification.ts": "1aaaf3a20c295e66",
         "app/api/tribes/[slug]/admissions/challenges/route.ts": "3df8743122144cf5",
@@ -179,7 +179,7 @@
         "lib/academy-admissions/admission-routes.ts": "adac74b9727d9a17",
         "src/modules/shared/infrastructure/observability/request-context.ts": "298449d5b583123d",
         "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
-        "components/academy-admissions/admission-screen/index.tsx": "960ef7fa9cf9683c",
+        "components/academy-admissions/admission-screen/index.tsx": "77d088e07ff83d2c",
         "components/feedback/error-state/index.tsx": "5090f14a31ac15fc",
         "app/globals.css": "067cf27eba244702",
         "lib/site-config.ts": "fea512b7bfdd756c",
@@ -244,7 +244,7 @@
         "components/academy-admissions/admission-whatsapp-number-field/index.tsx": "10cbeb4aeca70640",
         "components/academy-admissions/admission-form/styles.module.scss": "d5377cbb2dc7c81f",
         "src/modules/academy-admissions/constants/request-status-presentation.ts": "e692acb82a512346",
-        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/modules/academy-admissions/application/results/admission-own-request-message.ts": "376aa9f92849ede5",
         "components/academy-admissions/request-status/styles.module.scss": "5d84f9da7950f90a",
         "src/modules/academy-admissions/constants/admission-command-denial.ts": "1ac5ff664135bf38",
@@ -267,7 +267,7 @@
         "src/modules/notifications/constants/admission-notification-groups.ts": "22f213c753d3ef05",
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f"
       },
-      "fingerprint": "sha256:7d6c472585b0bb5094ef669bf94f2d791a542e609ff68eb0723f856a53331e6e",
+      "fingerprint": "sha256:d0739329dad544785e3d4fd7863b970730b35c8c121789ef5c78971b13f8ebca",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
@@ -1034,7 +1034,7 @@
         "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
         "components/academy-admissions/admission-screen/index.tsx#<module>": "2da3ec2294295eb1",
         "components/academy-admissions/admission-screen/index.tsx#AdmissionLoading": "ce34971915465dcf",
-        "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen": "a624bd679dc8abbf",
+        "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen": "4eb04b5414bc549d",
         "components/academy-admissions/admission-screen/index.tsx#AdmissionScreenProps": "dcd95f712b8ad5aa",
         "components/feedback/error-state/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/feedback/error-state/index.tsx#ErrorState": "20991c4e77bbb771",
@@ -2181,56 +2181,50 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 66115,
+        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
+        "durationMs": 63953,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "a593bd502802b18d1e3aca80a65c71180774751c4e54ce4b2033dff84615ddfd",
-        "recordedAt": "2026-10-25T09:03:25.128Z",
+        "outputSha256": "433f5f380e67f47e9a3b98bfa8e0e374aa1827900f4aa0b6beeab1ee12710538",
+        "recordedAt": "2026-10-25T09:09:00.140Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 2980,
+        "durationMs": 3029,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T09:03:28.689Z",
+        "recordedAt": "2026-10-25T09:09:03.719Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T09:03:29.211Z",
+        "recordedAt": "2026-10-25T09:09:04.250Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T09:03:31.262Z",
+    "recordedAt": "2026-10-25T09:09:06.404Z",
     "result": "partial",
-    "runId": "20261025T090218Z-49cb58",
+    "runId": "20261025T090755Z-6f3c59",
     "scope": {
       "decision": "full",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen",
-          "reason": "code rendered by the route changed"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.admissions.applicant.contact.verify (/admissions/[slug]): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
       ]
@@ -2248,7 +2242,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T090218Z-49cb58.json"
+    "report": "runs/20261025T090755Z-6f3c59.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

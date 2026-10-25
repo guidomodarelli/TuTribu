@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
+      "branch": "fix/academy-readable-dates",
+      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
       "files": {
-        "components/academy/academy-home/index.tsx": "445fcae1bddbac72",
+        "components/academy/academy-home/index.tsx": "559afae35579d77c",
         "app/(platform)/[slug]/academia/page.tsx": "a4c7427e95123588",
         "app/api/tribes/[slug]/academy/reconcile/route.ts": "884a1b6365b413b5",
         "app/api/tribes/[slug]/academy/access/route.ts": "2ba664997c38668c",
@@ -112,7 +112,7 @@
         "config/legacy-redirects.ts": "6e723edb2bbdd69f",
         "config/cloudflare-dev-runtime.ts": "5c9b3670ad614400",
         "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
-        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
         "components/feedback/error-state/styles.module.scss": "c3291993525c2d1c",
@@ -2187,43 +2187,43 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 63815,
+        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
+        "durationMs": 63672,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "3cb675874ca70235e59ea07c85803b18cfe94d0a440fa5e6d2a0fa8e7eecea77",
-        "recordedAt": "2026-10-25T09:51:49.596Z",
+        "outputSha256": "ed0258578171a513bd1b46245aebeaf712ae5c9e5460a704e9396c2b0677e73d",
+        "recordedAt": "2026-10-25T10:00:41.625Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 3127,
+        "durationMs": 2735,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T09:51:53.238Z",
+        "recordedAt": "2026-10-25T10:00:44.867Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T09:51:53.815Z",
+        "recordedAt": "2026-10-25T10:00:45.372Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T09:51:55.598Z",
+    "recordedAt": "2026-10-25T10:00:47.223Z",
     "result": "partial",
-    "runId": "20261025T095044Z-f0305a",
+    "runId": "20261025T095937Z-22d30b",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -2248,7 +2248,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T095044Z-f0305a.json"
+    "report": "runs/20261025T095937Z-22d30b.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

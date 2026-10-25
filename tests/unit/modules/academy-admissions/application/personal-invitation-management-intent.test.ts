@@ -19,12 +19,13 @@ describe("personal invitation management pre-action intent", () => {
     expect(() => preparePersonalInvitationManagementIntent(data.state, { ...draft, identity: "another@example.test" }, data.operationId, data.now)).toThrowError(expect.objectContaining({ code: "invalid_input" }));
     for (const status of ["redeemed", "revoked", "expired"] as const) expect(() => preparePersonalInvitationManagementIntent(data.state, { ...draft, selected: { ...selected, status } }, data.operationId, data.now)).toThrowError(expect.objectContaining({ code: "invalid_input" }));
   });
-  it("should default to seven UTC days and a usable list without restoring exemption or final consent", () => {
+  it("should default to seven days in Argentina time and a usable list without restoring exemption or final consent", () => {
     const data = fixture();
-    expect(data.draft).toMatchObject({ expiry: "2026-10-16T12:00", requiresAllowlist: true, exemptionAcknowledged: false, replacementAcknowledged: false });
+    // 12:00 UTC is 09:00 in Argentina: the form shows the leader local time and still sends the same instant.
+    expect(data.draft).toMatchObject({ expiry: "2026-10-16T09:00", requiresAllowlist: true, exemptionAcknowledged: false, replacementAcknowledged: false });
     expect(preparePersonalInvitationManagementIntent(data.state, data.draft, data.operationId, data.now)).toEqual({ type: "create_personal_invitation", input: { operationId: data.operationId, confirmed: true, internalName: "Grupo", recipient: { type: "email", value: "recipient.name+tag@example.test" }, requiresAllowlist: true, expiresAt: "2026-10-16T12:00:00.000Z" } });
   });
-  it.each(["2026-10-09T11:59", "2026-02-30T12:00", "2026-13-01T12:00", "invalid", ""])("should reject a past or impossible UTC date %s before any writer", (expiry) => {
+  it.each(["2026-10-09T08:59", "2026-02-30T12:00", "2026-13-01T12:00", "invalid", ""])("should reject a past or impossible Argentina date %s before any writer", (expiry) => {
     const data = fixture(); expect(() => preparePersonalInvitationManagementIntent(data.state, { ...data.draft, expiry }, data.operationId, data.now)).toThrowError(expect.objectContaining({ code: "invalid_input" }));
   });
   it("should require independent acknowledgements for missing list and indefinite expiry", () => {

@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
+      "branch": "fix/academy-readable-dates",
+      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
       "files": {
         "hooks/use-admission-contact-verification.ts": "1aaaf3a20c295e66",
         "app/api/tribes/[slug]/admissions/challenges/route.ts": "3df8743122144cf5",
@@ -1211,32 +1211,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 66932,
+        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
+        "durationMs": 62848,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "15ef0534e0edc6d6d3079f8bb067f9d8b0892008a0c79ce90c6b648db37e06b5",
-        "recordedAt": "2026-10-25T09:00:56.772Z",
+        "outputSha256": "644974f30594a897d6a70711a31d376246856e15c85f1342eddcd23004a679af",
+        "recordedAt": "2026-10-25T09:06:37.599Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T09:00:57.307Z",
+        "recordedAt": "2026-10-25T09:06:38.167Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T09:00:59.278Z",
+    "recordedAt": "2026-10-25T09:06:40.121Z",
     "result": "partial",
-    "runId": "20261025T085949Z-33dd58",
+    "runId": "20261025T090534Z-253db3",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -1261,7 +1261,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T085949Z-33dd58.json"
+    "report": "runs/20261025T090534Z-253db3.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

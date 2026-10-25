@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
+      "branch": "fix/academy-readable-dates",
+      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
       "files": {
-        "components/academy/academy-home/index.tsx": "445fcae1bddbac72",
+        "components/academy/academy-home/index.tsx": "559afae35579d77c",
         "app/(platform)/[slug]/academia/page.tsx": "a4c7427e95123588",
         "app/api/tribes/[slug]/academy/join/route.ts": "40c3bc6d219003d2",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
@@ -202,7 +202,7 @@
         "src/modules/auth/application/use-cases/get-authenticated-member-use-case.ts": "6ae2f4d7a505f8f5",
         "src/modules/auth/domain/entities/authenticated-member.ts": "1a2dac539d8da9d9",
         "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
-        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/modules/academy-admissions/application/ports/admission-browser-client.ts": "e4d882fd3cf5bf02",
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts": "f1942bcecd1a2254",
         "src/modules/academy-admissions/application/results/academy-entry-result.ts": "c0911f00b5d914c3",
@@ -550,7 +550,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:22358833f1618eb4f8758c75b5f17bf13200c4bb0247715068572ed20d16dbab",
+      "fingerprint": "sha256:e28a8c818d3520e89f5e727cb514b843f433333aecc462dffad86860d5ea6c88",
       "inputs": {
         "components/academy/academy-home/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-home/index.tsx#AcademyHome~shell": "e682a501a4562464",
@@ -631,7 +631,7 @@
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.paidUntil": "44bd9d501a645c4f",
         "pkg:react": "374a4508a198654b",
         "pkg:next": "ef28293b49c7bae1",
-        "components/academy/academy-home/index.tsx#AcademyHome/handleJoin": "cd481ffe16df85fa",
+        "components/academy/academy-home/index.tsx#AcademyHome/handleJoin": "ee8417fb6b4c92f6",
         "components/academy/academy-home/index.tsx#AcademyHome/runAction": "a6e5e63ed8953d09",
         "app/(platform)/[slug]/academia/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/page.tsx#TribeAcademyPage": "edb97c58c08a366a",
@@ -5486,9 +5486,9 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T10:03:05.343Z",
+    "recordedAt": "2026-10-25T10:11:50.305Z",
     "result": "not-applicable",
-    "runId": "20261025T100302Z-3ede69",
+    "runId": "20261025T101147Z-83f8ab",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
@@ -5513,8 +5513,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T100302Z-3ede69.json"
+    "summary": "El cambio de copy de fechas no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T101147Z-83f8ab.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

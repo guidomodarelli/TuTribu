@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-readable-dates",
+      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
       "files": {
         "app/(platform)/[slug]/academia/admissions/activity/page.tsx": "0ce9c474d7fcd444",
         "app/(platform)/[slug]/academia/admissions/activity/loading.tsx": "0637d05028ddbfcd",
@@ -25,7 +25,7 @@
         "src/modules/academy-admissions/application/ports/admission-activity-browser-client.ts": "f94248e631855853",
         "src/modules/academy-admissions/application/results/admission-activity-page-state.ts": "2a090308c48657f0",
         "components/academy-admissions/admission-activity/index.tsx": "4d200c74a9d3b08c",
-        "components/academy-admissions/admission-metrics/index.tsx": "5afe7f352ce185db",
+        "components/academy-admissions/admission-metrics/index.tsx": "67d1abcc5d5070ca",
         "src/modules/messaging/constants/messaging-usage.ts": "ba71bbac4e985a5a",
         "lib/academy-admissions/admission-activity-api-client.ts": "59624535d06e68da",
         "src/modules/academy-admissions/application/commands/admission-activity-filter-draft.ts": "12a35f5f587efd1e",
@@ -187,7 +187,7 @@
         "src/modules/messaging/application/results/messaging-usage-policy-result.ts": "85b3000334c4a35b",
         "src/modules/academy-admissions/constants/admission-activity-labels.ts": "d8642d5da69711df",
         "lib/academy-admissions/admission-activity-view-model.ts": "7507b7fbb08f9dde",
-        "lib/academy-admissions/admission-observation-format.ts": "cd457a25292ae1fd",
+        "lib/academy-admissions/admission-observation-format.ts": "e84c3ce82528a822",
         "src/modules/messaging/constants/messaging-public-contract.ts": "d8e21158a5fb4c77",
         "lib/academy-admissions/admission-maintenance-staleness.ts": "e7d1e1cd450fd388",
         "src/modules/academy-admissions/constants/admission-activity-page-schemas.ts": "7522ac9ef5450726",
@@ -477,6 +477,7 @@
         "src/modules/academy-admissions/constants/allowlist-import-browser.ts": "e825df46f40108a0",
         "src/modules/messaging/constants/messaging-connections-browser.ts": "6324cc25a232f60b",
         "src/modules/notifications/constants/admission-notification-settings-page.ts": "806d23ea29b33640",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/modules/academy-admissions/domain/entities/admission-metric-dimensions.ts": "6957c9c14dd1d2c2",
         "src/constants/time.ts": "98b5459a77a709b0",
         "src/modules/academy-admissions/constants/admission-maintenance-health.ts": "bf2111a604013450",
@@ -535,6 +536,7 @@
         "src/modules/shared/infrastructure/observability/request-context.ts": "298449d5b583123d",
         "src/modules/messaging/constants/messaging-connections-page-state.ts": "231187ec823ce706",
         "src/modules/messaging/domain/policies/messaging-candidate-preparation.ts": "4a9f2fa5bc8e3438",
+        "src/constants/date-time.ts": "120f12f7530df5ba",
         "src/modules/academy-admissions/constants/admission-retention.ts": "383211aeaeac7415",
         "src/modules/messaging/constants/message-dispatch-observation.ts": "66fbe9eb50f864be",
         "src/modules/shared/infrastructure/observability/error-cause-summary.ts": "05b7b58e66a26dde",
@@ -595,7 +597,7 @@
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f",
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d"
       },
-      "fingerprint": "sha256:85aa10fa7395db2e507b29a413711abb0c9495047d3239120097afb89f25443c",
+      "fingerprint": "sha256:aa4411c8386e40543cbb64daf810c413c06904886da80f2b9550b26edd513993",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/activity/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/activity/page.tsx#AdmissionActivityPage": "2ecc85ca46c87584",
@@ -703,7 +705,7 @@
         "components/academy-admissions/admission-activity/index.tsx#<module>": "2da3ec2294295eb1",
         "components/academy-admissions/admission-activity/index.tsx#AdmissionActivity": "f0c0ae1b8b53a6c2",
         "components/academy-admissions/admission-metrics/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/academy-admissions/admission-metrics/index.tsx#AdmissionMetrics": "70eae6954c605253",
+        "components/academy-admissions/admission-metrics/index.tsx#AdmissionMetrics": "1a8af99bb787755a",
         "components/academy-admissions/admission-metrics/index.tsx#AdmissionMetricsProps": "90c40539576de9e5",
         "components/academy-admissions/admission-metrics/index.tsx#renderCounts": "5452a79198b4ba26",
         "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_UI_COPY~frame": "a12704c52e59c0b5",
@@ -1340,7 +1342,7 @@
         "lib/academy-admissions/admission-activity-view-model.ts#PolicySnapshot": "ef935abb68e37fc7",
         "lib/academy-admissions/admission-activity-view-model.ts#displayPrimitive": "bbe31dc740dc0112",
         "lib/academy-admissions/admission-observation-format.ts#<module>": "2da3ec2294295eb1",
-        "lib/academy-admissions/admission-observation-format.ts#formatAdmissionObservationTime": "ce9473de19069706",
+        "lib/academy-admissions/admission-observation-format.ts#formatAdmissionObservationTime": "16ff1fe24874b284",
         "src/modules/academy-admissions/constants/admission-activity-labels.ts#ADMISSION_METRIC_PHASE_LABELS.admission": "8e67cdd7709e1967",
         "src/modules/academy-admissions/constants/admission-activity-labels.ts#ADMISSION_METRIC_PHASE_LABELS.review": "c6b05284765d627e",
         "src/modules/academy-admissions/constants/admission-activity-labels.ts#ADMISSION_METRIC_PHASE_LABELS.verification": "3fed6609272a0d66",
@@ -3056,6 +3058,29 @@
         "src/modules/academy-admissions/constants/admission-activity-labels.ts#ADMISSION_POLICY_SNAPSHOT_LABELS~frame": "9bfbf5bcf4cd9627",
         "src/modules/academy-admissions/constants/admission-activity-labels.ts#ADMISSION_OBSERVATION_COPY.no": "035d66a085fde0a4",
         "src/modules/academy-admissions/constants/admission-activity-labels.ts#ADMISSION_OBSERVATION_COPY.yes": "7bdc1de6968fae70",
+        "lib/date-time/buenos-aires-format.ts#<module>": "2da3ec2294295eb1",
+        "lib/date-time/buenos-aires-format.ts#formatBuenosAiresDateTime": "a9fd2652df321432",
+        "lib/date-time/buenos-aires-format.ts#DATE_KEY_FORMATTER": "112e45ec62aab015",
+        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION~frame": "0594d2c74d77d78b",
+        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.numeric": "8979e5232f1c7e96",
+        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.twoDigit": "dae00c6c37e34107",
+        "lib/date-time/buenos-aires-format.ts#LOCALE~frame": "fec71633af80cddf",
+        "lib/date-time/buenos-aires-format.ts#LOCALE.machine": "b1a581db589805cb",
+        "lib/date-time/buenos-aires-format.ts#DATE_PART~frame": "90dfa8f8dff8cebb",
+        "lib/date-time/buenos-aires-format.ts#DATE_PART.year": "c074dd4a9fd21fcb",
+        "lib/date-time/buenos-aires-format.ts#DATE_TIME_SEPARATOR": "e9ca1aa774b425f5",
+        "lib/date-time/buenos-aires-format.ts#formatBuenosAiresShortDate": "15a36b97a9647ea4",
+        "lib/date-time/buenos-aires-format.ts#DATE_PART.day": "0b5c609f1da2c0ed",
+        "lib/date-time/buenos-aires-format.ts#DATE_PART.month": "7469b833c149a8cb",
+        "lib/date-time/buenos-aires-format.ts#SHORT_DATE_FORMATTER": "38d2b655dfb4a4ca",
+        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.short": "757da1c764846c2f",
+        "lib/date-time/buenos-aires-format.ts#LOCALE.spanish": "d13dd49da717b594",
+        "lib/date-time/buenos-aires-format.ts#readPart": "dc788ed8110c0c1c",
+        "lib/date-time/buenos-aires-format.ts#stripTrailingPeriod": "81e285d2701298ae",
+        "lib/date-time/buenos-aires-format.ts#TRAILING_PERIOD_PATTERN": "b5c571f629a756a2",
+        "lib/date-time/buenos-aires-format.ts#formatBuenosAiresTime": "7329a65919ab8754",
+        "lib/date-time/buenos-aires-format.ts#TIME_FORMATTER": "c4956c28b3daff8f",
+        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.hourCycle": "c762eaa8629cbd09",
         "src/modules/academy-admissions/domain/entities/admission-metric-dimensions.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/domain/entities/admission-metric-dimensions.ts#AdmissionMetricPhase": "6888ac1478e7067c",
         "src/modules/academy-admissions/domain/entities/admission-metric-dimensions.ts#AdmissionMetricRunOperation": "014c026687c420a8",
@@ -3667,6 +3692,8 @@
         "src/modules/messaging/constants/messaging-limits.ts#MESSAGING_USAGE_LIMIT.notificationDailyMaximum": "a2eb10beda8d3089",
         "src/modules/messaging/constants/messaging-limits.ts#MESSAGING_USAGE_LIMIT.verificationDailyMaximum": "bacd4e56f92c17d7",
         "src/modules/academy-admissions/constants/admission-operation-recovery-schemas.ts#AdmissionOperationRecoveryDto": "956e58e5d8865ad0",
+        "src/constants/date-time.ts#<module>": "2da3ec2294295eb1",
+        "src/constants/date-time.ts#BUENOS_AIRES_TIME_ZONE": "32ddc5a9f4e45c83",
         "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MS": "a92cd6c5a2273d38",
         "src/modules/academy-admissions/application/results/admission-policy-result-schemas.ts#AdmissionPolicyStateDto": "087cbbc991d8f867",
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#AdmissionBatchResultDto": "5e4755498e81e48c",
@@ -5351,18 +5378,17 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T03:55:19.216Z",
+    "recordedAt": "2026-10-25T08:57:49.954Z",
     "result": "not-applicable",
-    "runId": "20261025T035516Z-86e8cc",
+    "runId": "20261025T085746Z-c5143f",
     "scope": {
-      "decision": "full",
+      "decision": "not-applicable",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "recorded not applicable: El cambio de boundaries no agrega requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": [
-        "measure the complete flow /[slug]/academia/admissions/activity before and after, same build, data and throttling; median of 3 for noisy metrics"
-      ]
+      "suggestedScope": []
     },
     "skill": {
       "definitionFiles": {
@@ -5379,8 +5405,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "El cambio de boundaries no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T035516Z-86e8cc.json"
+    "summary": "El cambio de copy de fechas no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T085746Z-c5143f.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",
