@@ -8,6 +8,7 @@ import type {MessagingConnectionsNextAction} from "@/src/modules/messaging/appli
 import type {MessagingConfigurationConnection} from "@/src/modules/messaging/application/results/messaging-configuration-result";
 import {MESSAGING_CAPABILITY_LABEL,MESSAGING_CHANNEL_LABEL,MESSAGING_CONNECTION_LABEL,MESSAGING_CREDENTIAL_LABEL,MESSAGING_CREDENTIAL_MODE_LABEL} from "@/src/modules/messaging/constants/messaging-connection-presentation";
 import {MESSAGING_CONNECTIONS_FLOW_COPY,MESSAGING_CONNECTIONS_NEXT_ACTION_COPY,MESSAGING_CONNECTIONS_NEXT_STEP} from "@/src/modules/messaging/constants/messaging-connections-workspace";
+import {MESSAGING_CREDENTIAL_CHECK_UI_COPY} from "@/src/modules/messaging/constants/messaging-connections-browser";
 import styles from "./styles.module.scss";
 
 /** Lifecycle, credential, account and capability facts keep distinct tones so a ready candidate never reads as active. */
@@ -73,6 +74,10 @@ export type MessagingConnectionsWorkspaceProps={
   /** Security and retirement: outside the flow, always mounted so its drafts and observations survive. */
   security:ReactNode;securityOpen:boolean;onSecurityToggle:()=>void;
   onNextAction:()=>void;onReadCurrent:()=>void;
+  /** Consultar conexión actual is the read in flight. */
+  readingCurrent?:boolean;
+  /** The last current read failed (timeout or unavailable): shown beside its button with a retry, distinct from a connection that changed. */
+  currentReadFailed?:boolean;
 };
 
 /** @param props - The resolved next action and where it is resolved. @returns The highlighted button, or nothing when the open step already shows it or nothing is left. */
@@ -92,8 +97,9 @@ export function MessagingConnectionsWorkspace(props:MessagingConnectionsWorkspac
     <section className={styles.MessagingConnectionsWorkspace__overview} aria-labelledby={overviewId}>
       <div className={styles.MessagingConnectionsWorkspace__overviewHeader}>
         <h2 id={overviewId} className={styles.MessagingConnectionsWorkspace__overviewTitle}>Estado actual</h2>
-        <Button variant="ghost" size="sm" disabled={props.busy} onClick={props.onReadCurrent}>Consultar conexión actual</Button>
+        <Button variant="ghost" size="sm" loading={props.readingCurrent} disabled={!props.readingCurrent&&props.busy} onClick={props.onReadCurrent}>Consultar conexión actual</Button>
       </div>
+      {props.currentReadFailed&&<Alert tone="danger" title={MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedTitle} action={<Button variant="secondary" size="sm" disabled={props.busy} onClick={props.onReadCurrent}>{MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadRetry}</Button>}>{MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedDetail}</Alert>}
       {rows.length>0?<ul className={styles.MessagingConnectionsWorkspace__connections}>{rows.map((row)=><ConnectionRow key={`${row.role}:${row.connection.id}`} {...row} />)}</ul>:<p className={styles.MessagingConnectionsWorkspace__empty}>Todavía no hay conexiones guardadas.</p>}
     </section>
     {/* What is missing and why; its button jumps to the step that resolves it when the flow shows another one. */}

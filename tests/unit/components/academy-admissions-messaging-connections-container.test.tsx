@@ -591,3 +591,91 @@ describe("connection wizard first container step",()=>{
     await screen.findByRole("group",{name:"Probar SMS"});expect(screen.getByRole("group",{name:"Próxima acción"})).toHaveTextContent("Falta probar SMS");expect(diagnosticClient.issue).toHaveBeenCalledTimes(1);
   });
 });
+
+/** @param fixture - Container fixture to extend. @returns Its SSR state with a valid production candidate, so the Canales step can read resources. */
+function channelsInitialState(fixture:ReturnType<typeof containerFixture>):MessagingConnectionsPageState{
+  const candidate={id:fixture.connectionId,name:"Candidata con canales",version:3,configurationVersion:2,state:"ready" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,capabilities:[]};
+  return{...fixture.initialState,kind:"ready",renderedAt:new Date().toISOString(),configuration:{...fixture.configuration,candidate}} as MessagingConnectionsPageState;
+}
+
+describe("connection wizard states beside their origin",()=>{
+  afterEach(()=>{toast.dismiss();});
+  it("should keep Guardar conexión available and show what is missing beside each field, focusing the first one, without saving",async()=>{
+    const fixture=containerFixture(),user=userEvent.setup();renderWithToasts(<MessagingConnectionsContainer {...fixture} />);
+    await openTab("Conexión");await waitFor(()=>expect(screen.getByLabelText(/Nombre de la conexión/i)).toBeEnabled());
+    const save=screen.getByRole("button",{name:"Guardar conexión"});expect(save).toBeEnabled();
+    await user.click(save);
+    expect(screen.getByLabelText(/Nombre de la conexión/i)).toHaveAccessibleDescription(expect.stringContaining(MESSAGING_CONNECTIONS_UI_COPY.nameRequired));
+    expect(screen.getByLabelText(/Clave de Zavu/i)).toHaveAccessibleDescription(expect.stringContaining(MESSAGING_CONNECTIONS_UI_COPY.keyRequired));
+    expect(screen.getByText(MESSAGING_CONNECTIONS_UI_COPY.confirmationRequired)).toBeVisible();
+    await waitFor(()=>expect(screen.getByLabelText(/Nombre de la conexión/i)).toHaveFocus());
+    await user.type(screen.getByLabelText(/Nombre de la conexión/i),"Zavu de prueba");await user.click(screen.getByRole("button",{name:"Guardar conexión"}));
+    expect(screen.queryByText(MESSAGING_CONNECTIONS_UI_COPY.nameRequired)).not.toBeInTheDocument();await waitFor(()=>expect(screen.getByLabelText(/Clave de Zavu/i)).toHaveFocus());
+    expect(fixture.create).not.toHaveBeenCalled();expect(fixture.store.write).not.toHaveBeenCalled();
+  });
+  it("should show a sender read as pending on its own button, ignore a second press and explain an empty result under the select once",async()=>{
+    const fixture=containerFixture(),user=userEvent.setup(),initialState=channelsInitialState(fixture);
+    let resolveRead!:(value:Awaited<ReturnType<MessagingResourcesBrowserClient["read"]>>)=>void;
+    const resourcesClient:MessagingResourcesBrowserClient={read:vi.fn<MessagingResourcesBrowserClient["read"]>(async()=>new Promise((resolve)=>{resolveRead=resolve;})),configure:vi.fn()};
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} resourcesClient={resourcesClient} />);
+    await openTab("Canales");const readSenders=screen.getByRole("button",{name:"Consultar remitentes"});await waitFor(()=>expect(readSenders).toBeEnabled());
+    expect(screen.getByRole("combobox",{name:"Remitente del canal"})).toHaveTextContent("Consultá los remitentes primero");
+    await user.click(readSenders);
+    await waitFor(()=>expect(readSenders).toHaveAttribute("aria-busy","true"));expect(readSenders).toHaveFocus();
+    await user.click(readSenders);await waitFor(()=>expect(resourcesClient.read).toHaveBeenCalledTimes(1));
+    await act(async()=>resolveRead({status:"ready",value:{connectionId:fixture.connectionId,configurationVersion:2,items:[{id:randomUUID(),label:"Sólo WhatsApp",channels:["whatsapp" as const],readiness:"ready" as const}]}}));
+    await waitFor(()=>expect(readSenders).not.toHaveAttribute("aria-busy"));
+    const sender=screen.getByRole("combobox",{name:"Remitente del canal"});
+    expect(sender).toHaveAccessibleDescription(MESSAGING_RESOURCE_UI_COPY.sendersEmpty);expect(sender).toHaveTextContent(MESSAGING_RESOURCE_UI_COPY.sendersEmptyPlaceholder);
+    expect(screen.getByText(MESSAGING_RESOURCE_UI_COPY.sendersEmpty)).toHaveAttribute("role","status");
+    // The empty result is announced once, beside the select, not again as a toast.
+    expect(screen.getAllByText(MESSAGING_RESOURCE_UI_COPY.sendersEmpty)).toHaveLength(1);
+    expect(resourcesClient.read).toHaveBeenCalledTimes(1);expect(resourcesClient.configure).not.toHaveBeenCalled();
+  });
+  it("should keep a failed sender read beside its select with the safe message and no changed-connection banner",async()=>{
+    const fixture=containerFixture(),user=userEvent.setup(),initialState=channelsInitialState(fixture);
+    const resourcesClient:MessagingResourcesBrowserClient={read:vi.fn<MessagingResourcesBrowserClient["read"]>(async()=>({status:"failed",code:MESSAGING_ERROR_CODE.transportTimeout,message:MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.transportTimeout],uncertain:false})),configure:vi.fn()};
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} resourcesClient={resourcesClient} />);
+    await openTab("Canales");await waitFor(()=>expect(screen.getByRole("button",{name:"Consultar remitentes"})).toBeEnabled());
+    await user.click(screen.getByRole("button",{name:"Consultar remitentes"}));
+    await waitFor(()=>expect(screen.getByRole("combobox",{name:"Remitente del canal"})).toHaveAccessibleDescription(MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.transportTimeout]));
+    expect(screen.getAllByText(MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.transportTimeout])).toHaveLength(1);
+    expect(screen.queryByText(MESSAGING_CREDENTIAL_CHECK_UI_COPY.stale)).not.toBeInTheDocument();
+    await waitFor(()=>expect(screen.getByRole("button",{name:"Consultar remitentes"})).toBeEnabled());
+  });
+  it("should report a failed current read as a transient error with its retry, without claiming the connection changed",async()=>{
+    const fixture=selectedCandidateFixture(),user=userEvent.setup(),configuration=fixture.configuration;
+    fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>().mockResolvedValueOnce({status:"failed",code:MESSAGING_ERROR_CODE.transportTimeout,message:MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.transportTimeout],uncertain:false}).mockResolvedValueOnce({status:"ready",value:configuration});
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} />);
+    const readCurrent=screen.getByRole("button",{name:"Consultar conexión actual"});await waitFor(()=>expect(readCurrent).toBeEnabled());
+    await user.click(readCurrent);
+    await screen.findByText(MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedTitle);
+    const failure=screen.getAllByRole("alert").find((alert)=>alert.textContent?.includes(MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedTitle));if(!failure)throw new Error("The failed read is not announced as an alert");
+    expect(failure).toHaveTextContent(/no indica que la conexión haya cambiado/);
+    expect(screen.queryByText(MESSAGING_CREDENTIAL_CHECK_UI_COPY.stale)).not.toBeInTheDocument();expect(screen.queryByRole("region",{name:"Acciones pendientes"})).not.toBeInTheDocument();
+    await user.click(within(failure).getByRole("button",{name:MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadRetry}));
+    await waitFor(()=>expect(fixture.client.read).toHaveBeenCalledTimes(2));
+    await waitFor(()=>expect(screen.queryByText(MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedTitle)).not.toBeInTheDocument());
+    expect(screen.queryByText(MESSAGING_CREDENTIAL_CHECK_UI_COPY.stale)).not.toBeInTheDocument();
+  });
+  it("should keep a failed reread after a rejected credential check apart from a changed connection",async()=>{
+    const fixture=selectedCandidateFixture(),user=userEvent.setup();
+    fixture.client.validate=vi.fn<MessagingConnectionsBrowserClient["validate"]>(async()=>({status:"failed",code:MESSAGING_ERROR_CODE.invalidCredentials,message:MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.invalidCredentials],uncertain:false}));
+    fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"failed",code:MESSAGING_ERROR_CODE.transportTimeout,message:MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.transportTimeout],uncertain:false}));
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} />);
+    await openTab("Conexión");
+    await waitFor(()=>expect(screen.getByRole("checkbox",{name:/Confirmo que quiero comprobar/i})).toBeEnabled());
+    await user.click(screen.getByRole("checkbox",{name:/Confirmo que quiero comprobar/i}));
+    await user.click(screen.getByRole("button",{name:"Comprobar credencial"}));
+    expect(await screen.findByText(MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedTitle)).toBeVisible();
+    expect(screen.queryByText(MESSAGING_CREDENTIAL_CHECK_UI_COPY.stale)).not.toBeInTheDocument();
+  });
+  it("should still ask to read the current connection when the read reports a real conflict",async()=>{
+    const fixture=selectedCandidateFixture(),user=userEvent.setup();
+    fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"failed",code:MESSAGING_ERROR_CODE.connectionConflict,message:MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.connectionConflict],uncertain:false}));
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} />);
+    const readCurrent=screen.getByRole("button",{name:"Consultar conexión actual"});await waitFor(()=>expect(readCurrent).toBeEnabled());
+    await user.click(readCurrent);
+    expect(await screen.findByText(MESSAGING_CREDENTIAL_CHECK_UI_COPY.stale)).toBeVisible();expect(screen.queryByText(MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedTitle)).not.toBeInTheDocument();
+  });
+});
