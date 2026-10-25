@@ -1,0 +1,83 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-pages-ignore-unknown-query",
+    "commit": "59c3cedd91685b065f9e2dcc12e75e5f4d574872",
+    "fingerprint": "sha256:16f376d287f200dd978c8affd84e2490c6670e7229bd125b151db244004b9bea",
+    "uncommittedFiles": [],
+    "fileCount": 89,
+    "inputCount": 320
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/modules/academy-admissions/application/admission-page.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-page.test.ts [redacted]-connections-page.test.ts [redacted]-usage-page.test.ts",
+      "durationMs": 6659,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "4a6645f7b62f67f663b072a4a3a88e5684e70a6866122f6fbbd99e8ac05411f1",
+      "recordedAt": "2026-10-25T01:12:02.658Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "command": "pnpm run -s typecheck",
+      "durationMs": 2666,
+      "exitCode": 0,
+      "kind": "command",
+      "outcome": "pass",
+      "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
+      "recordedAt": "2026-10-25T01:12:05.841Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T01:12:06.401Z",
+      "source": "attested",
+      "summary": "La página ignora las claves de query desconocidas (z.object en lugar de z.strictObject) y sigue validando las que lee; las APIs siguen estrictas, según la decisión del usuario."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T01:12:07.084Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app con ?utm_source, ?utm_campaign y ?fbclid: antes las páginas de admisión, conexión y uso mostraban el estado no disponible (4/4); después cargan normalmente (4/4)."
+    }
+  ],
+  "limitations": [
+    "Solo se revisó el manejo de la query de la página; el resto de los estados de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T01:12:08.568Z",
+  "result": "partial",
+  "runId": "20261025T011155Z-0dcede",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "no previous coverage: the whole unit is analyzed"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit academy.admissions.messaging.usage.view: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a27ab40c70e78c90",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:262d130d4e0582dad8bd65e40b350a22b52d1393120ae35689e1bc817203bf14",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.4.1"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T01:11:55.507Z",
+  "unitId": "academy.admissions.messaging.usage.view"
+}

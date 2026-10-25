@@ -37,8 +37,10 @@ describe("early usage SSR page", () => {
   });
   it("should reject invalid runtime input before composition and hide unexpected infrastructure diagnostics", async () => {
     const data = fixture(), open = vi.fn(async () => data.page);
-    expect(await loadMessagingUsagePageState({ ...data.input, query: { prepared: "true" } }, open)).toMatchObject({ kind: "unavailable", code: "invalid_input" });
+    expect(await loadMessagingUsagePageState({ ...data.input, params: { slug: "Not A Slug!" } }, open)).toMatchObject({ kind: "unavailable", code: "invalid_input" });
     expect(open).not.toHaveBeenCalled();
+    // A query never asserts readiness: an unknown key is dropped and the page loads its own facts.
+    expect(await loadMessagingUsagePageState({ ...data.input, query: { prepared: "true", utm_source: "mail" } }, async () => data.page)).not.toMatchObject({ code: "invalid_input" });
     const failed = await loadMessagingUsagePageState(data.input, async () => { throw new Error("Synthetic private storage detail"); });
     expect(failed).toMatchObject({ kind: "unavailable", code: "unexpected_failure" });
     expect(JSON.stringify(failed)).not.toContain("Synthetic private");

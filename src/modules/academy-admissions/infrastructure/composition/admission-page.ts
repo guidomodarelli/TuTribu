@@ -12,11 +12,15 @@ import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/aca
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
-/** Only a public slug selects the tribe; an exact request id never selects another account. */
+/**
+ * Only a public slug selects the tribe; an exact request id never selects another account.
+ * A shared link often carries tracking parameters (`utm_*`, `fbclid`): the page query drops unknown keys and keeps validating
+ * the ones it reads, while the admission APIs stay strict.
+ */
 const admissionPageInputSchema = z.union([
-  z.strictObject({ params: admissionTribeParamsSchema, query: z.strictObject({}), mode: z.literal("entry") }),
-  z.strictObject({ params: admissionTribeParamsSchema.extend({ token: z.string().regex(LEGACY_ADMISSION_ARRIVAL.canonicalTokenPattern) }), query: z.strictObject({}), mode: z.literal("legacy") }),
-  z.strictObject({ params: z.strictObject({ requestId: z.uuid() }), query: z.strictObject({ tribe: admissionTribeParamsSchema.shape.slug }), mode: z.literal("request") }),
+  z.strictObject({ params: admissionTribeParamsSchema, query: z.object({}), mode: z.literal("entry") }),
+  z.strictObject({ params: admissionTribeParamsSchema.extend({ token: z.string().regex(LEGACY_ADMISSION_ARRIVAL.canonicalTokenPattern) }), query: z.object({}), mode: z.literal("legacy") }),
+  z.strictObject({ params: z.strictObject({ requestId: z.uuid() }), query: z.object({ tribe: admissionTribeParamsSchema.shape.slug }), mode: z.literal("request") }),
 ]);
 type PageModule = { page: Pick<GetAdmissionPageUseCase, "execute"> };
 /** @param input - Untrusted resolved route params/query and fixed server page kind. @param open - Native read-only framework composition. @returns Safe SSR state, with no internal diagnostics or membership prerequisite. */
