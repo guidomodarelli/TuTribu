@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.admissions.invitations.manage",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Admisiones",
+    "section": "Invitaciones personales",
+    "subflow": "Emitir, reemitir, renombrar y revocar invitaciones"
+  },
+  "description": "Gestión de invitaciones personales del líder: carga inicial, emisión con enlace de un solo uso, copia, revalidación al volver a la ventana y recuperación de respuestas inciertas. Comparten hook, formulario y cliente.",
+  "routes": [
+    "/[slug]/academia/admissions/invitations"
+  ],
+  "entries": [
+    {
+      "follow": false,
+      "path": "app/(platform)/[slug]/academia/admissions/invitations/page.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx",
+      "symbol": "InvitationsContainer"
+    },
+    {
+      "path": "hooks/use-personal-invitation-management.ts",
+      "symbol": "usePersonalInvitationManagement"
+    },
+    {
+      "path": "components/academy-admissions/invitation-management/index.tsx",
+      "symbol": "InvitationManagement"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/invitations/route.ts",
+      "symbol": "GET"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/invitations/route.ts",
+      "symbol": "POST"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/invitations/[invitationId]/route.ts",
+      "symbol": "GET"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/invitations/[invitationId]/route.ts",
+      "symbol": "PATCH"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/invitations/[invitationId]/revoke/route.ts",
+      "symbol": "POST"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/invitations/context/route.ts",
+      "symbol": "GET"
+    }
+  ],
+  "dependsOn": [
+    {
+      "path": "src/modules/academy-admissions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAcademyAdmissionsModule"
+    },
+    {
+      "path": "src/modules/auth/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAuthModule"
+    },
+    {
+      "path": "src/modules/auth/infrastructure/repositories/better-auth-session-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "BetterAuthSessionRepository"
+    }
+  ],
+  "origin": "curated"
+}

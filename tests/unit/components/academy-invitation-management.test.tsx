@@ -180,6 +180,89 @@ describe("personal invitation management controls", () => {
     expect(screen.queryByLabelText("Enlace personal")).not.toBeInTheDocument();
   });
 
+  it("should keep the one-time link and its feedback when the leader returns to the window with the same account", async () => {
+    const data = fixture(), user = userEvent.setup(); await mount(data); await emailProposal(user);
+    await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
+    expect(await screen.findByLabelText("Enlace personal")).toHaveValue(data.invitationUrl);
+    await waitFor(() => expect(data.client.page).toHaveBeenCalledTimes(1));
+    const viewerChecks = vi.mocked(data.client.viewer).mock.calls.length;
+    await act(async () => { window.dispatchEvent(new FocusEvent("focus")); });
+    await waitFor(() => expect(data.client.viewer).toHaveBeenCalledTimes(viewerChecks + 1));
+    // Regaining focus rechecks the tribe authority through one page read, without hiding the link or writing again.
+    await waitFor(() => expect(data.client.page).toHaveBeenCalledTimes(2));
+    expect(screen.getByLabelText("Enlace personal")).toHaveValue(data.invitationUrl);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(data.client.write).toHaveBeenCalledTimes(1);
+  });
+
+  it("should hide the one-time link when the leader lost the tribe authority while the window was in the background", async () => {
+    const data = fixture(), user = userEvent.setup(); await mount(data); await emailProposal(user);
+    await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
+    expect(await screen.findByLabelText("Enlace personal")).toHaveValue(data.invitationUrl);
+    await waitFor(() => expect(data.client.page).toHaveBeenCalledTimes(1));
+    vi.mocked(data.client.page).mockResolvedValueOnce({ status: "failed", code: "permission_denied", message: "Sin permiso.", uncertain: false });
+    await act(async () => { window.dispatchEvent(new FocusEvent("focus")); });
+    expect(await screen.findByRole("alert")).toHaveTextContent(PERSONAL_INVITATION_MANAGEMENT_COPY.account);
+    expect(screen.queryByLabelText("Enlace personal")).not.toBeInTheDocument();
+  });
+
+  it("should discard a slow focus recheck once an explicit read has published a newer page", async () => {
+    const data = fixture(), user = userEvent.setup(); data.initial.page.items = [data.metadata];
+    let resolveFocusRead!: (value: Awaited<ReturnType<PersonalInvitationManagementBrowserClient["page"]>>) => void;
+    vi.mocked(data.client.page)
+      .mockImplementationOnce(async () => new Promise((resolve) => { resolveFocusRead = resolve; }))
+      .mockResolvedValueOnce({ status: "ready", value: { ...data.initial, page: { items: [{ ...data.metadata, internalName: "Grupo actualizado", version: 2 }], nextCursor: null } } });
+    await mount(data);
+    await act(async () => { window.dispatchEvent(new FocusEvent("focus")); });
+    await waitFor(() => expect(data.client.page).toHaveBeenCalledTimes(1));
+    await user.click(screen.getByText("Consultar y ver más")); await user.click(screen.getByRole("button", { name: "Consultar estado actual" }));
+    expect(await screen.findByRole("button", { name: "Renombrar Grupo actualizado" })).toBeInTheDocument();
+    // The superseded focus answer arrives last with the older page.
+    await act(async () => resolveFocusRead({ status: "ready", value: { ...data.initial, page: { items: [data.metadata], nextCursor: null } } }));
+    expect(screen.getByRole("button", { name: "Renombrar Grupo actualizado" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Renombrar Grupo inicial" })).not.toBeInTheDocument();
+  });
+
+  it("should keep the one-time link silently when the focus recheck cannot reach the server", async () => {
+    const data = fixture(), user = userEvent.setup(); await mount(data); await emailProposal(user);
+    await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
+    expect(await screen.findByLabelText("Enlace personal")).toHaveValue(data.invitationUrl);
+    await waitFor(() => expect(data.client.page).toHaveBeenCalledTimes(1));
+    vi.mocked(data.client.page).mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No disponible.", uncertain: false });
+    await act(async () => { window.dispatchEvent(new FocusEvent("focus")); });
+    await waitFor(() => expect(data.client.page).toHaveBeenCalledTimes(2));
+    expect(screen.getByLabelText("Enlace personal")).toHaveValue(data.invitationUrl);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("should hide the one-time link when the window regains focus under another account", async () => {
+    const data = fixture(), user = userEvent.setup(); await mount(data); await emailProposal(user);
+    await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
+    expect(await screen.findByLabelText("Enlace personal")).toHaveValue(data.invitationUrl);
+    vi.mocked(data.client.viewer).mockResolvedValue({ status: "ready", value: { id: randomUUID() } });
+    await act(async () => { window.dispatchEvent(new FocusEvent("focus")); });
+    expect(await screen.findByRole("alert")).toHaveTextContent(PERSONAL_INVITATION_MANAGEMENT_COPY.account);
+    expect(screen.queryByLabelText("Enlace personal")).not.toBeInTheDocument();
+  });
+
+  it("should copy the one-time link within the click, without another request, while the read that follows the write is pending", async () => {
+    const data = fixture(), user = userEvent.setup();
+    let resolvePage!: (value: Awaited<ReturnType<PersonalInvitationManagementBrowserClient["page"]>>) => void;
+    vi.mocked(data.client.page).mockImplementationOnce(async () => new Promise((resolve) => { resolvePage = resolve; }));
+    await mount(data); await emailProposal(user);
+    await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
+    expect(await screen.findByLabelText("Enlace personal")).toHaveValue(data.invitationUrl);
+    await waitFor(() => expect(data.client.page).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("button", { name: "Copiar enlace" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Copiar enlace" }));
+    await waitFor(async () => expect(await navigator.clipboard.readText()).toBe(data.invitationUrl));
+    // Copying never sends its own request: only the read that follows the write is in flight.
+    expect(data.client.page).toHaveBeenCalledTimes(1);
+    await act(async () => resolvePage({ status: "ready", value: { ...data.initial, page: { items: [data.metadata], nextCursor: null } } }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Renombrar Grupo inicial" })).toBeEnabled());
+    expect(data.client.write).toHaveBeenCalledTimes(1);
+  });
+
   it("should recover a lost creation response by original GET without repeating the POST or recovering its URL", async () => {
     const data = fixture(), user = userEvent.setup();
     vi.mocked(data.client.write).mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "La respuesta no llegó.", uncertain: true });

@@ -1,0 +1,122 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-invitation-link-focus",
+    "commit": "0a4edbf24ec78923ec9e2397f84a630d11c29cac",
+    "fingerprint": "sha256:646b503bec4e545985f86a8a19fde20780de2542fd87d0dc5650a01a0562c5e3",
+    "uncommittedFiles": [],
+    "fileCount": 174,
+    "inputCount": 1918
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/tribe-round/tribe-round-navigation.test.tsx tests/unit/components/tribe-round.test.tsx tests/unit/modules/messages tests/unit/pages/tribe-message-routes.test.ts",
+      "durationMs": 146450,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "a6255539adc19e196ad3933ac8acf8eb3cd2a172798aa92541e8c5957a93d6a9",
+      "recordedAt": "2026-10-25T00:26:08.709Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "command": "pnpm run -s typecheck",
+      "durationMs": 2460,
+      "exitCode": 0,
+      "kind": "command",
+      "outcome": "pass",
+      "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
+      "recordedAt": "2026-10-25T00:26:11.608Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T00:26:12.046Z",
+      "source": "attested",
+      "summary": "La recarga tras la reproducción usa la navegación en el lugar del hook (sin router.refresh ni remount por key); no cambia boundaries, loading ni el reparto server/client."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T00:26:13.623Z",
+  "result": "verified",
+  "runId": "20261025T002341Z-363e00",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "8 relevant change(s) since the verified run"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "modified",
+        "key": "hooks/use-tribe-round-navigation.ts#RoundNavigationRequest",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "hooks/use-tribe-round-navigation.ts#TribeRoundNavigation",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation/loadRoundPage",
+        "reason": "interactive handler changed: navigation or server action calls may differ"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation/reloadCurrentPage",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "modified",
+        "key": "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#createTribeMessage",
+        "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messages/domain/repositories/message-creation-repository.ts#MessageCreationRepository",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#PostgresMessageMutationRepository",
+        "reason": "adds awaited work to the render path (+1 awaited steps, +2 database queries): navigation may wait without a loading boundary"
+      }
+    ],
+    "suggestedScope": [
+      "hooks/use-tribe-round-navigation.ts › RoundNavigationRequest — server/client split and awaited work of this code in every route of the unit",
+      "hooks/use-tribe-round-navigation.ts › TribeRoundNavigation — server/client split and awaited work of this code in every route of the unit",
+      "hooks/use-tribe-round-navigation.ts › useTribeRoundNavigation › loadRoundPage — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+      "hooks/use-tribe-round-navigation.ts › useTribeRoundNavigation › reloadCurrentPage — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+      "hooks/use-tribe-round-navigation.ts › useTribeRoundNavigation (component body outside its handlers) — what this component renders: hooks that force a client island, awaited data, Suspense and the client components it imports",
+      "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts › createTribeMessage — server/client split and awaited work of this code in every route of the unit",
+      "src/modules/messages/domain/repositories/message-creation-repository.ts › MessageCreationRepository — server/client split and awaited work of this code in every route of the unit",
+      "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts › PostgresMessageMutationRepository — server/client split and awaited work of this code in every route of the unit"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "7e0fca17b2a189bf",
+      "references/decision-rules.md": "5340413b30d4e7a7",
+      "references/nextjs-apis.md": "7d812e101f16defe",
+      "references/server-client-split.md": "7f52ba9f6a13308d",
+      "references/skeleton-patterns.md": "65d4c31f0f8beb93",
+      "references/version-notes.md": "b6f6488947de60f0"
+    },
+    "definitionHash": "sha256:5a183ade06a29d78b3b2aa3587c403ce09b7391dc6eca1eb1575a1b280e57e16",
+    "name": "nextjs-route-ui-boundaries",
+    "version": "1.2.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T00:23:41.794Z",
+  "unitId": "tribe.campfire.react"
+}
