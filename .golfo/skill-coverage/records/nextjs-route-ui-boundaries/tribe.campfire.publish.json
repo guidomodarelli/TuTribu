@@ -7,12 +7,12 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "fix/academy-invitation-link-focus",
-      "commit": "0569c8d0c20e2ec8a70d0e8da7fe6957be3c8052",
+      "commit": "0a4edbf24ec78923ec9e2397f84a630d11c29cac",
       "files": {
-        "components/tribe-round/tribe-round/index.tsx": "efc2b8cbc11d4712",
-        "app/api/tribes/[slug]/messages/route.ts": "ed377f0dd93c8f08",
+        "components/tribe-round/tribe-round/index.tsx": "b1c88af3c07fca82",
+        "app/api/tribes/[slug]/messages/route.ts": "932448e76027dccc",
         "src/modules/messages/setup.ts": "ab8435387e22dc52",
-        "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts": "61bf153279eaa3d2",
+        "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts": "192e149c84c4c6ad",
         "src/modules/auth/setup.ts": "37e200547ae950e4",
         "src/modules/auth/infrastructure/repositories/better-auth-session-repository.ts": "9c52b296a068064a",
         "app/(platform)/[slug]/page.tsx": "eb3e56aa582428f1",
@@ -51,7 +51,7 @@
         "components/tribe-round/tribe-round/styles.module.scss": "afb0d63c5145bb9b",
         "src/constants/date-time.ts": "120f12f7530df5ba",
         "hooks/use-pixel-snapped-centering.ts": "330f023f0462fca7",
-        "hooks/use-tribe-round-navigation.ts": "c59551ec1de633e9",
+        "hooks/use-tribe-round-navigation.ts": "e0cd5a109bf5c13e",
         "src/modules/messages/application/commands/tribe-message-command.ts": "5557d2a6fb6e6c2a",
         "src/modules/shared/domain/value-objects/external-video-url.ts": "60b29ce02f6bf252",
         "src/modules/shared/infrastructure/observability/server-logger.ts": "91c2a693de13f86f",
@@ -63,7 +63,7 @@
         "src/modules/messages/application/results/tribe-channel-result.ts": "aa5fc64c2bdd68cf",
         "src/modules/messages/domain/repositories/message-content-update-repository.ts": "1cb25c3e6f62f1ab",
         "src/modules/messages/domain/repositories/message-created-at-update-repository.ts": "b268b581bf79585e",
-        "src/modules/messages/domain/repositories/message-creation-repository.ts": "8deaeb2bd58d4eae",
+        "src/modules/messages/domain/repositories/message-creation-repository.ts": "d39f6d660f3a87ae",
         "src/modules/messages/domain/repositories/message-deletion-repository.ts": "cfde4c731df611c6",
         "src/modules/messages/domain/repositories/message-pin-repository.ts": "1340532f842ee5ba",
         "src/modules/messages/domain/repositories/message-poll-repository.ts": "c3c0d9d3c550bd97",
@@ -77,7 +77,7 @@
         "src/modules/messages/application/use-cases/message-images-use-cases.ts": "568438bee81d4103",
         "src/modules/messages/application/use-cases/create-message-reply-use-case.ts": "61d2759cc9594cd3",
         "src/modules/messages/application/use-cases/manage-tribe-channels-use-cases.ts": "2155e2a0a6b04286",
-        "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts": "9c847df3e5be020f",
+        "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts": "9f4efa8d50b47707",
         "src/modules/messages/application/use-cases/delete-tribe-message-use-case.ts": "7e3a8b5dcee156b2",
         "src/modules/messages/application/use-cases/list-tribe-round-use-case.ts": "f7f3848918855ce4",
         "src/modules/messages/application/use-cases/manage-message-polls-use-cases.ts": "b9fb2abcaed2cfe6",
@@ -185,7 +185,7 @@
         "config/deployment-environment.ts": "08bb1a3202ff76f7",
         "src/modules/messages/application/results/tribe-round-public-dto-schemas.ts": "2bc686a7fed475c5"
       },
-      "fingerprint": "sha256:d88f8812aa849323175c5c597138265f81fa473b87d8cd225fca040cce1712ed",
+      "fingerprint": "sha256:6f3fff182d6ba079893071694f1ec2af0b1ef3609332e378a8f49c858c7ef9c6",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
@@ -417,7 +417,7 @@
         "components/tribe-round/tribe-round/index.tsx#TRIBE_ROUND_SYMBOLS.blobUrlPrefix": "d1200a71f0fb207d",
         "components/tribe-round/tribe-round/index.tsx#useRelativeTimeElementDefinition": "a9ce25e0ab0ff9d3",
         "pkg:@github/relative-time-element": "2154bcb1d7324916",
-        "components/tribe-round/tribe-round/index.tsx#TribeRoundContent/handleCreateMessage": "d27c5bf135c410b2",
+        "components/tribe-round/tribe-round/index.tsx#TribeRoundContent/handleCreateMessage": "5a87e3d1beee0266",
         "components/tribe-round/tribe-round/index.tsx#TribeRoundContent/buildMessageFilesPayload": "eeacca06683e509c",
         "components/tribe-round/tribe-round/index.tsx#TribeRoundContent/buildMessageMediaPayload": "d2f2b8e3575b2690",
         "components/tribe-round/tribe-round/index.tsx#TribeRoundContent/buildOptimisticMessage": "3a7e8624fb617902",
@@ -498,7 +498,7 @@
         "components/tribe-round/tribe-round/index.tsx#getPaginationAfterVisibleMessageCreation": "3d8adcb59098a1af",
         "components/tribe-round/tribe-round/index.tsx#shouldKeepOptimisticImagePreviewUrls": "a54d5139e38e91df",
         "app/api/tribes/[slug]/messages/route.ts#<module>": "2da3ec2294295eb1",
-        "app/api/tribes/[slug]/messages/route.ts#POST": "a8bff5e665a5ec76",
+        "app/api/tribes/[slug]/messages/route.ts#POST": "ab18d9e1e548926e",
         "app/api/tribes/[slug]/messages/route.ts#CREATE_MESSAGE_ROUTE_FILES_READ_STATUS~frame": "b956957fb48cb46d",
         "app/api/tribes/[slug]/messages/route.ts#CREATE_MESSAGE_ROUTE_FILES_READ_STATUS.invalidFile": "a82c3d7062a1454c",
         "app/api/tribes/[slug]/messages/route.ts#CREATE_MESSAGE_ROUTE_FILES_READ_STATUS.valid": "237b8386dc04842f",
@@ -573,7 +573,7 @@
         "src/modules/messages/setup.ts#MessagesModule": "79c2a047b1d4d254",
         "src/modules/messages/setup.ts#MessagesModuleDependencies": "14406de6a4f248db",
         "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#PostgresMessageMutationRepository": "46c072ac540a9ed4",
+        "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#PostgresMessageMutationRepository": "2405feb8d03157c7",
         "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#CreatedMessageRow": "d3ffe12479027638",
         "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#CreatedPollOptionRow": "9c50b6b4bba753f0",
         "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#MutationStatusRow": "7613b69302e46ead",
@@ -1007,20 +1007,21 @@
         "hooks/use-pixel-snapped-centering.ts#getPixelSnappedCenterOffset": "a244768101399e5b",
         "hooks/use-pixel-snapped-centering.ts#CENTERING_SIDES": "d3b1fa6d18763809",
         "hooks/use-tribe-round-navigation.ts#<module>": "d414f6d3ee71f10d",
-        "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation/loadRoundPage": "24fb601bbd2cf2ba",
+        "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation/loadRoundPage": "6742d3cac628b69a",
         "hooks/use-tribe-round-navigation.ts#HISTORY_MODE~frame": "5e427a5919eb9b23",
         "hooks/use-tribe-round-navigation.ts#HISTORY_MODE.push": "5e4ba780e10f84e6",
         "hooks/use-tribe-round-navigation.ts#HISTORY_UNUSED_TITLE": "231754ef9d2d3d85",
-        "hooks/use-tribe-round-navigation.ts#RoundNavigationRequest": "067bf261c8fad8ef",
+        "hooks/use-tribe-round-navigation.ts#RoundNavigationRequest": "edb77df54d5541e9",
         "hooks/use-tribe-round-navigation.ts#HistoryMode": "1634c1076ba327b5",
         "hooks/use-tribe-round-navigation.ts#HISTORY_MODE.none": "65176f562d2efdf9",
         "hooks/use-tribe-round-navigation.ts#TRIBE_ROUND_NAVIGATION_COPY~frame": "992914746bff165c",
         "hooks/use-tribe-round-navigation.ts#TRIBE_ROUND_NAVIGATION_COPY.loadFailure": "83d5c94e222ab8e2",
         "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation/navigateToLocation": "92142bbdcedfe19d",
-        "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation~shell": "ccc1462998a0caa9",
+        "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation~shell": "bbd1ee1d869bc37a",
         "hooks/use-tribe-round-navigation.ts#POPSTATE_EVENT": "e1db5a529c67c6c4",
-        "hooks/use-tribe-round-navigation.ts#TribeRoundNavigation": "033cfb08d3fb37ab",
+        "hooks/use-tribe-round-navigation.ts#TribeRoundNavigation": "37c98483da7195e6",
         "hooks/use-tribe-round-navigation.ts#UseTribeRoundNavigationInput": "956fbc15d82acf5f",
+        "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation/reloadCurrentPage": "8f76cfe9c6b0d459",
         "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation/retry": "343b43a12450afe2",
         "src/modules/messages/application/commands/tribe-message-command.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messages/application/commands/tribe-message-command.ts#MessageMediaDraftCommand": "284d0095efc35464",
@@ -1133,7 +1134,7 @@
         "src/modules/messages/domain/repositories/message-created-at-update-repository.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messages/domain/repositories/message-created-at-update-repository.ts#MessageCreatedAtUpdateRepository": "79f762ff56c7918f",
         "src/modules/messages/domain/repositories/message-creation-repository.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messages/domain/repositories/message-creation-repository.ts#MessageCreationRepository": "7d2a883d70cfb6d0",
+        "src/modules/messages/domain/repositories/message-creation-repository.ts#MessageCreationRepository": "c488be63ba508c47",
         "src/modules/messages/domain/repositories/message-deletion-repository.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messages/domain/repositories/message-deletion-repository.ts#MessageDeletionRepository": "ecbc3727ce98b065",
         "src/modules/messages/domain/repositories/message-file-repository.ts#MessageFileRepository": "2193badfabef37cd",
@@ -1181,7 +1182,7 @@
         "src/modules/messages/application/use-cases/manage-tribe-channels-use-cases.ts#isInvalidText": "4a0ec68516fd0185",
         "src/modules/messages/application/use-cases/manage-tribe-channels-use-cases.ts#normalizeText": "0b06f74aebea8947",
         "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#createTribeMessage": "9e145c62674c954d",
+        "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#createTribeMessage": "3247b19bf76f218f",
         "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#CreateTribeMessageDependencies": "c73df4103a9ca327",
         "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#cleanupPreparedMessageFiles": "4a0e117df2442727",
         "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#cleanupPreparedMessageImages": "531e94b4095261b7",
@@ -2283,7 +2284,7 @@
           "dynamicImports": 1
         },
         "components/tribe-round/tribe-round/index.tsx#TribeRoundContent/handleCreateMessage": {
-          "awaits": 2
+          "awaits": 3
         },
         "components/tribe-round/tribe-round/index.tsx#TribeRoundContent/cleanupPersistingMessageFiles": {
           "database": 1
@@ -2320,8 +2321,8 @@
           "projectCalls": 20
         },
         "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#PostgresMessageMutationRepository": {
-          "awaits": 49,
-          "database": 74,
+          "awaits": 50,
+          "database": 76,
           "projectCalls": 1,
           "awaitInLoop": 1
         },
@@ -2439,7 +2440,7 @@
           "projectCalls": 1
         },
         "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#createTribeMessage": {
-          "awaits": 8
+          "awaits": 9
         },
         "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#cleanupPreparedMessageFiles": {
           "awaits": 1
@@ -2789,60 +2790,109 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/tribe-round.test.tsx tests/unit/modules/messages tests/unit/pages/tribe-message-routes.test.ts",
-        "durationMs": 146332,
+        "command": "pnpm exec vitest run tests/unit/components/tribe-round/tribe-round-navigation.test.tsx tests/unit/components/tribe-round.test.tsx tests/unit/modules/messages tests/unit/pages/tribe-message-routes.test.ts",
+        "durationMs": 186003,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "39c4a0ad8ac0515a264138df87154524ff32db583583d7590dcc73446ee0ab41",
-        "recordedAt": "2026-10-24T21:36:41.991Z",
+        "outputSha256": "c0faf96e2597021588a996a4d40b1775bc1dbe60340387cd49801eb71b07bda5",
+        "recordedAt": "2026-10-25T00:14:55.436Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 2228,
+        "durationMs": 2323,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-24T21:45:37.305Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
-      },
-      {
-        "command": "pnpm run -s lint",
-        "durationMs": 1421,
-        "exitCode": 0,
-        "kind": "command",
-        "outcome": "pass",
-        "outputSha256": "4a525c82baaf9f559fc837135b029e561750083f57186a57247cb677a67b540b",
-        "recordedAt": "2026-10-24T21:45:39.139Z",
+        "recordedAt": "2026-10-25T00:14:58.185Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-24T22:27:06.784Z",
+        "recordedAt": "2026-10-25T00:14:58.596Z",
         "source": "attested",
-        "summary": "Sin cambios de boundaries: router.refresh tras replay, mismo patrón ya usado por el componente; rutas API con body validado por Zod"
+        "summary": "La recarga tras la reproducción usa la navegación en el lugar del hook (sin router.refresh ni remount por key); no cambia boundaries, loading ni el reparto server/client."
       }
     ],
     "limitations": [],
-    "mode": "full",
+    "mode": "incremental",
     "pendingChecks": [],
-    "recordedAt": "2026-10-24T22:27:23.483Z",
+    "recordedAt": "2026-10-25T00:15:00.053Z",
     "result": "verified",
-    "runId": "20261024T212253Z-065e31",
+    "runId": "20261025T001148Z-b1aadc",
     "scope": {
-      "decision": "full",
+      "decision": "incremental",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "10 relevant change(s) since the verified run"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "app/api/tribes/[slug]/messages/route.ts#POST",
+          "reason": "route file changed: segment layout, boundary or page"
+        },
+        {
+          "change": "modified",
+          "key": "components/tribe-round/tribe-round/index.tsx#TribeRoundContent/handleCreateMessage",
+          "reason": "interactive handler changed: navigation or server action calls may differ"
+        },
+        {
+          "change": "modified",
+          "key": "hooks/use-tribe-round-navigation.ts#RoundNavigationRequest",
+          "reason": "code rendered by the route changed"
+        },
+        {
+          "change": "modified",
+          "key": "hooks/use-tribe-round-navigation.ts#TribeRoundNavigation",
+          "reason": "code rendered by the route changed"
+        },
+        {
+          "change": "modified",
+          "key": "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation/loadRoundPage",
+          "reason": "interactive handler changed: navigation or server action calls may differ"
+        },
+        {
+          "change": "added",
+          "key": "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation/reloadCurrentPage",
+          "reason": "new interactive handler in the route"
+        },
+        {
+          "change": "modified",
+          "key": "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation~shell",
+          "reason": "component render changed: hooks, Suspense or client imports may differ"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#createTribeMessage",
+          "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messages/domain/repositories/message-creation-repository.ts#MessageCreationRepository",
+          "reason": "code rendered by the route changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#PostgresMessageMutationRepository",
+          "reason": "adds awaited work to the render path (+1 awaited steps, +2 database queries): navigation may wait without a loading boundary"
+        }
+      ],
       "suggestedScope": [
-        "whole unit tribe.campfire.publish (/[slug]): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
+        "app/api/tribes/[slug]/messages/route.ts › POST — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "components/tribe-round/tribe-round/index.tsx › TribeRoundContent › handleCreateMessage — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+        "hooks/use-tribe-round-navigation.ts › RoundNavigationRequest — server/client split and awaited work of this code in every route of the unit",
+        "hooks/use-tribe-round-navigation.ts › TribeRoundNavigation — server/client split and awaited work of this code in every route of the unit",
+        "hooks/use-tribe-round-navigation.ts › useTribeRoundNavigation › loadRoundPage — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+        "hooks/use-tribe-round-navigation.ts › useTribeRoundNavigation › reloadCurrentPage — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+        "hooks/use-tribe-round-navigation.ts › useTribeRoundNavigation (component body outside its handlers) — what this component renders: hooks that force a client island, awaited data, Suspense and the client components it imports",
+        "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts › createTribeMessage — server/client split and awaited work of this code in every route of the unit",
+        "src/modules/messages/domain/repositories/message-creation-repository.ts › MessageCreationRepository — server/client split and awaited work of this code in every route of the unit",
+        "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts › PostgresMessageMutationRepository — server/client split and awaited work of this code in every route of the unit"
       ]
     },
     "skill": {
@@ -2858,6 +2908,6 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.2.0"
     },
-    "report": "runs/20261024T212253Z-065e31.json"
+    "report": "runs/20261025T001148Z-b1aadc.json"
   }
 }

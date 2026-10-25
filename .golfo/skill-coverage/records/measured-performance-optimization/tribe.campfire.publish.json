@@ -7,12 +7,12 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "fix/academy-invitation-link-focus",
-      "commit": "0569c8d0c20e2ec8a70d0e8da7fe6957be3c8052",
+      "commit": "0a4edbf24ec78923ec9e2397f84a630d11c29cac",
       "files": {
-        "components/tribe-round/tribe-round/index.tsx": "efc2b8cbc11d4712",
-        "app/api/tribes/[slug]/messages/route.ts": "ed377f0dd93c8f08",
+        "components/tribe-round/tribe-round/index.tsx": "b1c88af3c07fca82",
+        "app/api/tribes/[slug]/messages/route.ts": "932448e76027dccc",
         "src/modules/messages/setup.ts": "ab8435387e22dc52",
-        "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts": "61bf153279eaa3d2",
+        "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts": "192e149c84c4c6ad",
         "src/modules/auth/setup.ts": "37e200547ae950e4",
         "src/modules/auth/infrastructure/repositories/better-auth-session-repository.ts": "9c52b296a068064a",
         "src/constants/attachment-files.ts": "8283f352fc797796",
@@ -28,7 +28,7 @@
         "lib/messages/tribe-round-location.ts": "3f40ae352eef480d",
         "src/constants/date-time.ts": "120f12f7530df5ba",
         "hooks/use-pixel-snapped-centering.ts": "330f023f0462fca7",
-        "hooks/use-tribe-round-navigation.ts": "c59551ec1de633e9",
+        "hooks/use-tribe-round-navigation.ts": "e0cd5a109bf5c13e",
         "src/modules/messages/application/commands/tribe-message-command.ts": "5557d2a6fb6e6c2a",
         "src/modules/shared/domain/value-objects/external-video-url.ts": "60b29ce02f6bf252",
         "src/modules/setup.ts": "b7906aa060d53395",
@@ -41,7 +41,7 @@
         "src/modules/messages/application/results/tribe-channel-result.ts": "aa5fc64c2bdd68cf",
         "src/modules/messages/domain/repositories/message-content-update-repository.ts": "1cb25c3e6f62f1ab",
         "src/modules/messages/domain/repositories/message-created-at-update-repository.ts": "b268b581bf79585e",
-        "src/modules/messages/domain/repositories/message-creation-repository.ts": "8deaeb2bd58d4eae",
+        "src/modules/messages/domain/repositories/message-creation-repository.ts": "d39f6d660f3a87ae",
         "src/modules/messages/domain/repositories/message-deletion-repository.ts": "cfde4c731df611c6",
         "src/modules/messages/domain/repositories/message-pin-repository.ts": "1340532f842ee5ba",
         "src/modules/messages/domain/repositories/message-poll-repository.ts": "c3c0d9d3c550bd97",
@@ -55,7 +55,7 @@
         "src/modules/messages/application/use-cases/message-images-use-cases.ts": "568438bee81d4103",
         "src/modules/messages/application/use-cases/create-message-reply-use-case.ts": "61d2759cc9594cd3",
         "src/modules/messages/application/use-cases/manage-tribe-channels-use-cases.ts": "2155e2a0a6b04286",
-        "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts": "9c847df3e5be020f",
+        "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts": "9f4efa8d50b47707",
         "src/modules/messages/application/use-cases/delete-tribe-message-use-case.ts": "7e3a8b5dcee156b2",
         "src/modules/messages/application/use-cases/list-tribe-round-use-case.ts": "f7f3848918855ce4",
         "src/modules/messages/application/use-cases/manage-message-polls-use-cases.ts": "b9fb2abcaed2cfe6",
@@ -168,7 +168,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:1a4c75adf475950ae74660222cc56b9a7e26816daed6969051c49e528c2794a9",
+      "fingerprint": "sha256:bd6e9600071d32433e0af04c3bbab9f3609a84adcd9a55aaa72a57307d242172",
       "inputs": {
         "components/tribe-round/tribe-round/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/tribe-round/tribe-round/index.tsx#TribeRoundContent~shell": "e04c4d268d71a9db",
@@ -399,7 +399,7 @@
         "components/tribe-round/tribe-round/index.tsx#useRelativeTimeElementDefinition": "a9ce25e0ab0ff9d3",
         "pkg:@github/relative-time-element": "2154bcb1d7324916",
         "pkg:next": "ef28293b49c7bae1",
-        "components/tribe-round/tribe-round/index.tsx#TribeRoundContent/handleCreateMessage": "d27c5bf135c410b2",
+        "components/tribe-round/tribe-round/index.tsx#TribeRoundContent/handleCreateMessage": "5a87e3d1beee0266",
         "components/tribe-round/tribe-round/index.tsx#TribeRoundContent/buildMessageFilesPayload": "eeacca06683e509c",
         "components/tribe-round/tribe-round/index.tsx#TribeRoundContent/buildMessageMediaPayload": "d2f2b8e3575b2690",
         "components/tribe-round/tribe-round/index.tsx#TribeRoundContent/buildOptimisticMessage": "3a7e8624fb617902",
@@ -480,7 +480,7 @@
         "components/tribe-round/tribe-round/index.tsx#getPaginationAfterVisibleMessageCreation": "3d8adcb59098a1af",
         "components/tribe-round/tribe-round/index.tsx#shouldKeepOptimisticImagePreviewUrls": "a54d5139e38e91df",
         "app/api/tribes/[slug]/messages/route.ts#<module>": "2da3ec2294295eb1",
-        "app/api/tribes/[slug]/messages/route.ts#POST": "a8bff5e665a5ec76",
+        "app/api/tribes/[slug]/messages/route.ts#POST": "ab18d9e1e548926e",
         "app/api/tribes/[slug]/messages/route.ts#CREATE_MESSAGE_ROUTE_FILES_READ_STATUS~frame": "b956957fb48cb46d",
         "app/api/tribes/[slug]/messages/route.ts#CREATE_MESSAGE_ROUTE_FILES_READ_STATUS.invalidFile": "a82c3d7062a1454c",
         "app/api/tribes/[slug]/messages/route.ts#CREATE_MESSAGE_ROUTE_FILES_READ_STATUS.valid": "237b8386dc04842f",
@@ -555,7 +555,7 @@
         "src/modules/messages/setup.ts#MessagesModule": "79c2a047b1d4d254",
         "src/modules/messages/setup.ts#MessagesModuleDependencies": "14406de6a4f248db",
         "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#PostgresMessageMutationRepository": "46c072ac540a9ed4",
+        "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#PostgresMessageMutationRepository": "2405feb8d03157c7",
         "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#CreatedMessageRow": "d3ffe12479027638",
         "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#CreatedPollOptionRow": "9c50b6b4bba753f0",
         "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#MutationStatusRow": "7613b69302e46ead",
@@ -764,20 +764,21 @@
         "hooks/use-pixel-snapped-centering.ts#getPixelSnappedCenterOffset": "a244768101399e5b",
         "hooks/use-pixel-snapped-centering.ts#CENTERING_SIDES": "d3b1fa6d18763809",
         "hooks/use-tribe-round-navigation.ts#<module>": "d414f6d3ee71f10d",
-        "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation/loadRoundPage": "24fb601bbd2cf2ba",
+        "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation/loadRoundPage": "6742d3cac628b69a",
         "hooks/use-tribe-round-navigation.ts#HISTORY_MODE~frame": "5e427a5919eb9b23",
         "hooks/use-tribe-round-navigation.ts#HISTORY_MODE.push": "5e4ba780e10f84e6",
         "hooks/use-tribe-round-navigation.ts#HISTORY_UNUSED_TITLE": "231754ef9d2d3d85",
-        "hooks/use-tribe-round-navigation.ts#RoundNavigationRequest": "067bf261c8fad8ef",
+        "hooks/use-tribe-round-navigation.ts#RoundNavigationRequest": "edb77df54d5541e9",
         "hooks/use-tribe-round-navigation.ts#HistoryMode": "1634c1076ba327b5",
         "hooks/use-tribe-round-navigation.ts#HISTORY_MODE.none": "65176f562d2efdf9",
         "hooks/use-tribe-round-navigation.ts#TRIBE_ROUND_NAVIGATION_COPY~frame": "992914746bff165c",
         "hooks/use-tribe-round-navigation.ts#TRIBE_ROUND_NAVIGATION_COPY.loadFailure": "83d5c94e222ab8e2",
         "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation/navigateToLocation": "92142bbdcedfe19d",
-        "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation~shell": "ccc1462998a0caa9",
+        "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation~shell": "bbd1ee1d869bc37a",
         "hooks/use-tribe-round-navigation.ts#POPSTATE_EVENT": "e1db5a529c67c6c4",
-        "hooks/use-tribe-round-navigation.ts#TribeRoundNavigation": "033cfb08d3fb37ab",
+        "hooks/use-tribe-round-navigation.ts#TribeRoundNavigation": "37c98483da7195e6",
         "hooks/use-tribe-round-navigation.ts#UseTribeRoundNavigationInput": "956fbc15d82acf5f",
+        "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation/reloadCurrentPage": "8f76cfe9c6b0d459",
         "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation/retry": "343b43a12450afe2",
         "src/modules/messages/application/commands/tribe-message-command.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messages/application/commands/tribe-message-command.ts#MessageMediaDraftCommand": "284d0095efc35464",
@@ -893,7 +894,7 @@
         "src/modules/messages/domain/repositories/message-created-at-update-repository.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messages/domain/repositories/message-created-at-update-repository.ts#MessageCreatedAtUpdateRepository": "79f762ff56c7918f",
         "src/modules/messages/domain/repositories/message-creation-repository.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messages/domain/repositories/message-creation-repository.ts#MessageCreationRepository": "7d2a883d70cfb6d0",
+        "src/modules/messages/domain/repositories/message-creation-repository.ts#MessageCreationRepository": "c488be63ba508c47",
         "src/modules/messages/domain/repositories/message-deletion-repository.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messages/domain/repositories/message-deletion-repository.ts#MessageDeletionRepository": "ecbc3727ce98b065",
         "src/modules/messages/domain/repositories/message-file-repository.ts#MessageFileRepository": "2193badfabef37cd",
@@ -941,7 +942,7 @@
         "src/modules/messages/application/use-cases/manage-tribe-channels-use-cases.ts#isInvalidText": "4a0ec68516fd0185",
         "src/modules/messages/application/use-cases/manage-tribe-channels-use-cases.ts#normalizeText": "0b06f74aebea8947",
         "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#createTribeMessage": "9e145c62674c954d",
+        "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#createTribeMessage": "3247b19bf76f218f",
         "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#CreateTribeMessageDependencies": "c73df4103a9ca327",
         "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#cleanupPreparedMessageFiles": "4a0e117df2442727",
         "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#cleanupPreparedMessageImages": "531e94b4095261b7",
@@ -1951,7 +1952,7 @@
           "dynamicImports": 1
         },
         "components/tribe-round/tribe-round/index.tsx#TribeRoundContent/handleCreateMessage": {
-          "awaits": 2
+          "awaits": 3
         },
         "components/tribe-round/tribe-round/index.tsx#TribeRoundContent/cleanupPersistingMessageFiles": {
           "database": 1
@@ -1988,8 +1989,8 @@
           "projectCalls": 20
         },
         "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#PostgresMessageMutationRepository": {
-          "awaits": 49,
-          "database": 74,
+          "awaits": 50,
+          "database": 76,
           "projectCalls": 1,
           "awaitInLoop": 1
         },
@@ -2046,7 +2047,7 @@
           "projectCalls": 1
         },
         "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#createTribeMessage": {
-          "awaits": 8
+          "awaits": 9
         },
         "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#cleanupPreparedMessageFiles": {
           "awaits": 1
@@ -2347,56 +2348,99 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/modules/messages tests/unit/pages/tribe-message-routes.test.ts",
-        "durationMs": 23998,
+        "command": "pnpm exec vitest run tests/unit/components/tribe-round/tribe-round-navigation.test.tsx tests/unit/components/tribe-round.test.tsx tests/unit/modules/messages tests/unit/pages/tribe-message-routes.test.ts",
+        "durationMs": 158323,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "482992831ec14d6a28c66d2954f0b60ed2ddd508f19a77b5b059b93ae755223b",
-        "recordedAt": "2026-10-24T22:29:16.274Z",
+        "outputSha256": "74a87d7e005be0bf6da0815c0d6328d89e1f9633271811407b880816c9443647",
+        "recordedAt": "2026-10-25T00:17:40.143Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
-        "kind": "measurement",
-        "outcome": "measured",
-        "recordedAt": "2026-10-24T22:29:16.694Z",
+        "command": "pnpm run -s typecheck",
+        "durationMs": 2562,
+        "exitCode": 0,
+        "kind": "command",
+        "outcome": "pass",
+        "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
+        "recordedAt": "2026-10-25T00:17:43.261Z",
+        "source": "witnessed",
+        "summary": "exit code 0"
+      },
+      {
+        "kind": "review",
+        "outcome": "pass",
+        "recordedAt": "2026-10-25T00:17:43.720Z",
         "source": "attested",
-        "summary": "La clave idempotente vive en la misma sentencia: no agrega viajes",
-        "tool": "contador de execute sobre el repositorio real",
-        "metric": "sentencias SQL por publicación",
-        "before": "1",
-        "after": "1",
-        "conditions": "rama Neon efímera, repositorio real, mediana de 3 muestras"
+        "summary": "Medido en la rama efímera: publicación de texto y Me gusta sin cambio de carga; la búsqueda previa agrega 1 consulta solo a publicaciones con adjuntos y clave (0,06 ms en Postgres); tras una reproducción la página hace 1 GET a la ronda en lugar de 1 refresh RSC."
+      },
+      {
+        "kind": "browser",
+        "outcome": "pass",
+        "recordedAt": "2026-10-25T00:17:44.135Z",
+        "source": "attested",
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app con la respuesta de la publicación y del Me gusta perdidas: 1 publicación guardada, aviso «El mensaje ya estaba publicado.», la página se recarga en el lugar (1 GET a la ronda, 0 refresh RSC), el feed nunca queda vacío, el compositor vuelve a aceptar un borrador y el Me gusta se conserva (4/4)."
       },
       {
         "kind": "measurement",
         "outcome": "measured",
-        "recordedAt": "2026-10-24T22:29:17.108Z",
+        "recordedAt": "2026-10-25T00:17:44.548Z",
         "source": "attested",
-        "summary": "Diferencia dentro del ruido",
-        "tool": "contador de execute sobre el repositorio real",
-        "metric": "latencia de la publicación en el repositorio (ms)",
-        "before": "637",
-        "after": "638",
-        "conditions": "rama Neon efímera, repositorio real, mediana de 3 muestras"
+        "summary": "La búsqueda previa agrega 1 consulta (0,06 ms de ejecución en Postgres) solo a publicaciones con adjuntos y clave.",
+        "tool": "pg sobre la rama efímera (int15-lookup-perf)",
+        "metric": "consultas de la búsqueda previa por publicación con adjuntos",
+        "before": "0",
+        "after": "1",
+        "conditions": "rama efímera claude-academy-ux-audit-dev, 9 muestras, mediana"
+      },
+      {
+        "kind": "measurement",
+        "outcome": "measured",
+        "recordedAt": "2026-10-25T00:17:44.988Z",
+        "source": "attested",
+        "summary": "La recarga en el lugar reemplaza el refresh RSC por una lectura de la ronda, sin remount.",
+        "tool": "Playwright int15.verify",
+        "metric": "requests de recarga tras una reproducción",
+        "before": "1 refresh RSC",
+        "after": "1 GET a la ronda",
+        "conditions": "Chromium y WebKit a 390 y 1280, respuesta de publicación perdida"
       }
     ],
     "limitations": [],
-    "mode": "full",
+    "mode": "incremental",
     "pendingChecks": [],
-    "recordedAt": "2026-10-24T22:29:18.609Z",
+    "recordedAt": "2026-10-25T00:17:46.851Z",
     "result": "verified",
-    "runId": "20261024T222851Z-dc5c4c",
+    "runId": "20261025T001501Z-367d13",
     "scope": {
-      "decision": "full",
+      "decision": "incremental",
       "reasons": [
-        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+        "3 relevant change(s) since the verified run"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "components/tribe-round/tribe-round/index.tsx#TribeRoundContent/handleCreateMessage",
+          "reason": "adds load: +1 awaited steps"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#createTribeMessage",
+          "reason": "adds load: +1 awaited steps"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#PostgresMessageMutationRepository",
+          "reason": "adds load: +1 awaited steps, +2 database queries"
+        }
+      ],
       "suggestedScope": [
-        "pending from the previous run: missing passing evidence of kind measurement",
-        "measure the complete flow /[slug] before and after, same build, data and throttling; median of 3 for noisy metrics"
+        "measure the complete flow /[slug]: before = revision 0569c8d0c20e (last measured), after = working tree",
+        "components/tribe-round/tribe-round/index.tsx › TribeRoundContent › handleCreateMessage — adds load: +1 awaited steps",
+        "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts › createTribeMessage — adds load: +1 awaited steps",
+        "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts › PostgresMessageMutationRepository — adds load: +1 awaited steps, +2 database queries"
       ]
     },
     "skill": {
@@ -2414,6 +2458,6 @@
       "name": "measured-performance-optimization",
       "version": "1.4.0"
     },
-    "report": "runs/20261024T222851Z-dc5c4c.json"
+    "report": "runs/20261025T001501Z-367d13.json"
   }
 }
