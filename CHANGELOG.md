@@ -111,6 +111,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Cada aspirante puede corregir su WhatsApp mientras la solicitud siga pendiente y vigente; el formulario conserva el cambio original si se pierde la respuesta y avisa cuando debe revisarse de nuevo.
 
 ### Changed
+- Cada resultado se anuncia una sola vez, junto a la acción: aceptar una invitación personal, pedir una verificación, guardar la oferta, guardar países y cupos de mensajería y los errores de la academia ya no repiten el mismo mensaje en una notificación emergente, y un resultado incierto de la solicitud de ingreso ya no aparece dos veces.
+- «Suspender conexión» usa el tono de peligro cuando se suspende la conexión que usa la academia, porque detiene todos los avisos y códigos.
 - Los enlaces de ingreso a una academia y de una solicitud propia ya no se indexan en buscadores ni informan la página de origen al abrir otro sitio, igual que las invitaciones personales.
 
 - Mientras cargan, la academia, Gestionar academia, la verificación, la suscripción y Canales muestran un esqueleto con la forma de cada pantalla en lugar del de la ronda.

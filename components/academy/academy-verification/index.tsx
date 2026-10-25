@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState, type FormEvent } from "react";
-import { Button, Input, toast } from "@golfo/ui";
+import { Button, Input } from "@golfo/ui";
 
 import { Link } from "@/components/navigation/link";
 import { requestMemberVerification } from "@/lib/academy/academy-api-client";
@@ -154,14 +154,12 @@ function ProviderRequest({
 
       if (!result.isSuccess) {
         setFeedback({ isError: true, message: result.message });
-        toast.error(result.message);
 
         return;
       }
 
       onVerificationChange(result.data);
       setFeedback({ isError: false, message: VERIFICATION_COPY.requestSuccess });
-      toast.success(VERIFICATION_COPY.requestSuccess);
     } finally {
       isSubmittingRef.current = false;
       setIsSubmitting(false);

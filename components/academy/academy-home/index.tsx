@@ -16,7 +16,6 @@ import {
   cn,
   Dialog,
   DialogContent,
-  toast,
 } from "@golfo/ui";
 
 import { Link } from "@/components/navigation/link";
@@ -326,7 +325,6 @@ export function AcademyHome({
 
       if (!result.isSuccess) {
         setErrorMessage(result.message);
-        toast.error(result.message);
 
         return;
       }
@@ -346,7 +344,6 @@ export function AcademyHome({
 
       if (!result.isSuccess) {
         setErrorMessage(result.message);
-        toast.error(result.message);
 
         return;
       }
@@ -372,7 +369,6 @@ export function AcademyHome({
 
       if (!result.isSuccess) {
         setErrorMessage(result.message);
-        toast.error(result.message);
 
         return;
       }
@@ -385,7 +381,6 @@ export function AcademyHome({
         : ACADEMY_HOME_COPY.renewalCanceled;
 
       setNotice(message);
-      toast.success(message);
     });
 
   const title = offer?.title || ACADEMY_HOME_COPY.defaultTitle;
