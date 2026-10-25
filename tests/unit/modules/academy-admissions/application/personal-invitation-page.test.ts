@@ -80,10 +80,17 @@ describe("personal invitation SSR page", () => {
 
   it("should reject malformed or authority-bearing page input before opening native composition", async () => {
     const data = fixture(), open = vi.fn();
-    for (const input of [{ params: { token: "invalid" }, query: {} }, { params: { token: data.token }, query: { proofId: randomUUID() } }, { params: { token: data.token, userId: data.account.userId }, query: {} }]) {
+    for (const input of [{ params: { token: "invalid" }, query: {} }, { params: { token: data.token, userId: data.account.userId }, query: {} }]) {
       expect(await loadPersonalInvitationPageState(input, open)).toMatchObject({ kind: "unavailable", code: "invalid_input" });
     }
     expect(open).not.toHaveBeenCalled();
+  });
+
+  it("should drop a proof or tracking key in the query without reading it", async () => {
+    const data = fixture(), proofId = randomUUID(), execute = vi.spyOn(data.page, "execute");
+    const state = await loadPersonalInvitationPageState({ params: { token: data.token }, query: { proofId, utm_source: "whatsapp" } }, async () => ({ page: data.page }));
+    expect(state).toMatchObject({ kind: "ready" });
+    expect(JSON.stringify(execute.mock.calls)).not.toContain(proofId);
   });
 
   it("should map native application failure safely without serializing the token or its private cause", async () => {
