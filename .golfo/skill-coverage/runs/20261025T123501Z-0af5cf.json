@@ -1,0 +1,55 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-route-skeletons",
+    "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+    "fingerprint": "sha256:bbf46a0d193aea4112dca3ef3440d2e1c6cc13539d04a6a510e5da326b5d55d3",
+    "uncommittedFiles": [],
+    "fileCount": 35,
+    "inputCount": 438
+  },
+  "evidence": [],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T12:35:02.574Z",
+  "result": "not-applicable",
+  "runId": "20261025T123501Z-0af5cf",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "relevant changes since the skill was recorded not applicable: re-evaluate applicability"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "pkg:react",
+        "reason": "new package in the flow (bundle or server cost)"
+      }
+    ],
+    "suggestedScope": [
+      "measure the complete flow /[slug]/academia/gestionar: before = revision 04d180795c89 (last measured), after = working tree",
+      "package react — new package in the flow (bundle or server cost)"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a8d6cde62f2853fa",
+      "references/bundle-lazy-loading.md": "91990bd1796b9884",
+      "references/database-queries-n-plus-one.md": "3064b23acc3e9f7e",
+      "references/images-fonts-scripts.md": "1ab02d4b1a421c87",
+      "references/incremental-sweep-jobs.md": "c5c8e71bdba2e4a9",
+      "references/measurement-tools.md": "e3e96c85be264c0c",
+      "references/requests-caching.md": "981544e05dee2e5c",
+      "references/unnecessary-renders.md": "2d440f22533a2149"
+    },
+    "definitionHash": "sha256:dcb79531d3a56e7765d65880022365639578ed18c69466dbb65f4ce0b59b09d3",
+    "name": "measured-performance-optimization",
+    "version": "1.5.0"
+  },
+  "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T12:35:01.204Z",
+  "unitId": "academy.manage.view"
+}

@@ -1,0 +1,924 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-route-skeletons",
+    "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+    "fingerprint": "sha256:381cbd2dfe535d730a9861e035ea0131b885829f5ac578eef977a92bd5ea5036",
+    "uncommittedFiles": [],
+    "fileCount": 120,
+    "inputCount": 465
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
+      "durationMs": 34496,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "483f26ab56722dec60bc93f5ed2bc01c7a61a5dac7ab156db4f5bf642f45ed47",
+      "recordedAt": "2026-10-25T11:22:12.737Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T11:22:13.355Z",
+      "source": "attested",
+      "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T11:22:13.877Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app, capturando el fallback durante una navegación: antes, academia, gestionar, verificación, suscripción y canales mostraban el esqueleto de la ronda («Cargando sección de tribu») y la invitación «Solicitar ingreso»; después, cada ruta anuncia su propia carga con su forma (panel de pasos en Reglas e Invitaciones, filas en Solicitudes, «Tu solicitud de ingreso» e «Invitación personal» en el solicitante) (4/4)."
+    }
+  ],
+  "limitations": [
+    "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T11:22:15.690Z",
+  "result": "partial",
+  "runId": "20261025T112137Z-f3ef3a",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/admission-form/index.tsx#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/admission-form/index.tsx#AdmissionForm",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/admission-form/index.tsx#AdmissionFormProps",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/admission-form/styles.module.scss#*",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/admission-screen/index.tsx#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/admission-screen/index.tsx#AdmissionLoading",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/admission-screen/index.tsx#AdmissionScreenProps",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/admission-screen/styles.module.scss#*",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/admission-whatsapp-number-field/index.tsx#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/admission-whatsapp-number-field/index.tsx#AdmissionWhatsappNumberField",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/admission-whatsapp-number-field/styles.module.scss#*",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/personal-invitation-loading/index.tsx#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/personal-invitation-loading/index.tsx#PERSONAL_INVITATION_LOADING_SHAPE.actionCount",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/personal-invitation-loading/index.tsx#PERSONAL_INVITATION_LOADING_SHAPE.messageLineCount",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/personal-invitation-loading/index.tsx#PERSONAL_INVITATION_LOADING_SHAPE~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/personal-invitation-loading/index.tsx#PersonalInvitationLoading",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/personal-invitation-loading/styles.module.scss#*",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/request-status/index.tsx#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/request-status/index.tsx#describeInstant",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/request-status/index.tsx#RequestStatus",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/request-status/index.tsx#RequestStatusProps",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/request-status/styles.module.scss#*",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#placeholderKeys",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.actionCount",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#RouteSkeleton",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonActions",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlock",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonLines",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/styles.module.scss#*",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "lib/academy-admissions/admission-draft.ts#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/academy-admissions/admission-draft.ts#AdmissionDraft",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/academy-admissions/admission-draft.ts#admissionDraftSchema",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/academy-admissions/admission-routes.ts#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/academy-admissions/admission-routes.ts#buildOwnAdmissionRequestRoute",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/date-time/buenos-aires-format.ts#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/date-time/buenos-aires-format.ts#DATE_PART.day",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/date-time/buenos-aires-format.ts#DATE_PART.month",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/date-time/buenos-aires-format.ts#DATE_PART~frame",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.hourCycle",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.short",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.twoDigit",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION~frame",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/date-time/buenos-aires-format.ts#formatBuenosAiresShortDate",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/date-time/buenos-aires-format.ts#formatBuenosAiresTime",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/date-time/buenos-aires-format.ts#LOCALE.spanish",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/date-time/buenos-aires-format.ts#LOCALE~frame",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/date-time/buenos-aires-format.ts#readPart",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/date-time/buenos-aires-format.ts#SHORT_DATE_FORMATTER",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/date-time/buenos-aires-format.ts#stripTrailingPeriod",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/date-time/buenos-aires-format.ts#TIME_FORMATTER",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/date-time/buenos-aires-format.ts#TRAILING_PERIOD_PATTERN",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/date-time.ts#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/date-time.ts#BUENOS_AIRES_TIME_ZONE",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#buildTribeSectionRoute",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#PLATFORM_ROUTE_PREFIX",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#ROUTES.auth",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#ROUTES.tribes",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.academy",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.academyManage",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.academyVerification",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.channels",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.courses",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.coursesManage",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.events",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.history",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.invitation",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.invitationMetrics",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.invitations",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.merits",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.prices",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.settings",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.subscription",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.tribe",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.welcome",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS~frame",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/application/results/admission-contract-fields.ts#admissionLocalHrefSchema",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#AdmissionRequestDto",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/application/results/admission-own-request-message.ts#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/application/results/admission-own-request-message.ts#getOwnAdmissionRequestMessage",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/application/results/admission-page-state.ts#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/application/results/admission-page-state.ts#AdmissionPageState",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/application/results/admission-page-state.ts#admissionPageStateSchema",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-limits.ts#ADMISSION_LIMIT.internalMessageCharacters",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-navigation.ts#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-navigation.ts#ADMISSION_NAVIGATION.publicPrefix",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-navigation.ts#ADMISSION_NAVIGATION.requestSegment",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-navigation.ts#ADMISSION_NAVIGATION.tribeQuery",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-navigation.ts#ADMISSION_NAVIGATION~frame",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_LOCAL_HREF_PATTERN",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.approved",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.cancel",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.cancelled",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.cancelling",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.changeAccount",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.changingAccount",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.confirm",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.confirmCancel",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.contactRecovery",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.country",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.countryHelp",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.declared",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.description",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.email",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.expired",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.expires",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.message",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.openAcademy",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.pending",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.phone",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.read",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.reading",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.rejected",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.reloadAccount",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.retry",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.retryAt",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.retryOriginal",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.signIn",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.statusTitle",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.submit",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.submitted",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.submitting",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.title",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.uncertain",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.verified",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.verifying",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_PHASE.checking",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_PHASE.idle",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_PHASE.uncertain",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_PHASE.writing",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_PHASE~frame",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-whatsapp-number.ts#ADMISSION_WHATSAPP_COPY.formatHelp",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-whatsapp-number.ts#ADMISSION_WHATSAPP_COPY.help",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-whatsapp-number.ts#ADMISSION_WHATSAPP_COPY.label",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-whatsapp-number.ts#ADMISSION_WHATSAPP_COPY.optionalLabel",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-whatsapp-number.ts#ADMISSION_WHATSAPP_COPY~frame",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/personal-invitation-ui.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.description",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.eyebrow",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.loading",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY.title",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/personal-invitation-ui.ts#PERSONAL_INVITATION_UI_COPY~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.admission_closed",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.admission_scope_mismatch",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.allowlist_requirement_unmet",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.contact_account_mismatch",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.contact_conflict",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.contact_type_mismatch",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.invitation_recipient_unproven",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.invitation_unusable",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.membership_recovery_unknown",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.membership_restricted",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.phone_invitation_unavailable",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY.whatsapp_number_required",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_ELIGIBILITY_COPY~frame",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_REVERIFICATION_COPY.required",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_REVERIFICATION_COPY.revoked",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_REVERIFICATION_COPY~frame",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_STATUS_COPY.approved",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_STATUS_COPY.cancelled",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_STATUS_COPY.expired",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_STATUS_COPY.pending",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_STATUS_COPY.rejected",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/request-status-presentation.ts#ADMISSION_REQUEST_STATUS_COPY~frame",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      }
+    ],
+    "suggestedScope": [
+      "whole unit academy.admissions.applicant.invitation.view: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T11:21:37.759Z",
+  "unitId": "academy.admissions.applicant.invitation.view"
+}

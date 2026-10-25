@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
       "files": {
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx": "c1c83ca4850ca392",
         "hooks/use-admission-review-batch-selection.ts": "daf741308d49c7a7",
@@ -4091,36 +4091,37 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
-        "durationMs": 28085,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
+        "durationMs": 29655,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "941b5e27ce390d96a3f1c865f898388e8aa3db31eae4608338f619b22d4dca1a",
-        "recordedAt": "2026-10-25T04:54:20.726Z",
+        "outputSha256": "4b5b13411c02a8721e79cc7cbe7ffdbe973b94191d48c51785bc80907e786d0e",
+        "recordedAt": "2026-10-25T12:05:09.166Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T04:54:21.210Z",
+        "recordedAt": "2026-10-25T12:05:09.756Z",
         "source": "attested",
-        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
+        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
       }
     ],
     "limitations": [
-      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T04:54:23.489Z",
+    "recordedAt": "2026-10-25T12:05:12.319Z",
     "result": "partial",
-    "runId": "20261025T045352Z-c85635",
+    "runId": "20261025T120438Z-de30ab",
     "scope": {
       "decision": "full",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": [
@@ -4140,7 +4141,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T045352Z-c85635.json"
+    "report": "runs/20261025T120438Z-de30ab.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-readable-dates",
-      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx": "b100620d825a2ff5",
         "app/api/tribes/[slug]/messaging/usage-policy/route.ts": "bd74481f6c2f3172",
@@ -5159,50 +5159,39 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
-        "durationMs": 63126,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
+        "durationMs": 31152,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "3f56342f5aacf54a15f8ab14b88006f928ceb480013889ebfb64412bf1218c6d",
-        "recordedAt": "2026-10-25T09:48:21.653Z",
+        "outputSha256": "8a22dba58b0440dd01c035f8fc0b80eb80e695d6dce87f4dc33ad69c9ba84b42",
+        "recordedAt": "2026-10-25T11:57:05.798Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T09:48:22.149Z",
+        "recordedAt": "2026-10-25T11:57:06.388Z",
         "source": "attested",
-        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
+        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
       }
     ],
     "limitations": [
-      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T09:48:24.812Z",
+    "recordedAt": "2026-10-25T11:57:09.135Z",
     "result": "partial",
-    "runId": "20261025T094717Z-f16a18",
+    "runId": "20261025T115634Z-657307",
     "scope": {
       "decision": "full",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "components/academy-admissions/messaging-usage/index.tsx#describeNoticeQuota",
-          "reason": "code reached by the unit changed"
-        },
-        {
-          "change": "modified",
-          "key": "components/academy-admissions/messaging-usage/index.tsx#MessagingUsage~shell",
-          "reason": "component state or render changed"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.admissions.messaging.usage.save: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -5220,7 +5209,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T094717Z-f16a18.json"
+    "report": "runs/20261025T115634Z-657307.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

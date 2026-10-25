@@ -1,0 +1,66 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-route-skeletons",
+    "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+    "fingerprint": "sha256:6f6841a5f5bcea004b21765740952e3e3e7cc60bc215774d02131a004988f2c7",
+    "uncommittedFiles": [],
+    "fileCount": 176,
+    "inputCount": 922
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
+      "durationMs": 29543,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "0a3e9d1dac5c053ea6b4464f162cf691a8ce29fd491638575c5edc3a89f35db4",
+      "recordedAt": "2026-10-25T11:48:56.576Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T11:48:57.059Z",
+      "source": "attested",
+      "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [
+    "missing passing evidence of kind browser or accessibility"
+  ],
+  "recordedAt": "2026-10-25T11:48:58.683Z",
+  "result": "partial",
+  "runId": "20261025T114826Z-cd1c4b",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "pending from the previous run: missing passing evidence of kind browser or accessibility"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T11:48:26.466Z",
+  "unitId": "academy.admissions.messaging.connections.restore"
+}
