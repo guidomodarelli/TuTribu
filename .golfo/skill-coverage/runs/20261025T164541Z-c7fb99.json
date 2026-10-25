@@ -1,0 +1,66 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-leader-recovery-exits",
+    "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
+    "fingerprint": "sha256:5edde30500d4dd79837538276cc509a4e5898925825caa9fda996465fdf28ea4",
+    "uncommittedFiles": [],
+    "fileCount": 168,
+    "inputCount": 555
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
+      "durationMs": 126368,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "1a7c8f35bea4de0b93c29e7d1e9002d2aab10079979c8f89f22cd2ec8e82920c",
+      "recordedAt": "2026-10-25T16:47:48.004Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T16:47:48.463Z",
+      "source": "attested",
+      "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
+    }
+  ],
+  "limitations": [
+    "Solo se revisaron los estados de recuperación que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T16:47:50.230Z",
+  "result": "partial",
+  "runId": "20261025T164541Z-c7fb99",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit academy.admissions.messaging.connection.lifecycle: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T16:45:41.051Z",
+  "unitId": "academy.admissions.messaging.connection.lifecycle"
+}

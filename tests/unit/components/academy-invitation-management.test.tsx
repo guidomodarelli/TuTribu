@@ -205,6 +205,8 @@ describe("personal invitation management controls", () => {
     await act(async () => { window.dispatchEvent(new FocusEvent("focus")); });
     expect(await screen.findByRole("alert")).toHaveTextContent(PERSONAL_INVITATION_MANAGEMENT_COPY.account);
     expect(screen.queryByLabelText("Enlace personal")).not.toBeInTheDocument();
+    // The closed view keeps a way back instead of leaving only a sentence.
+    expect(screen.getByRole("button", { name: "Reintentar" })).toBeEnabled();
   });
 
   it("should discard a slow focus recheck once an explicit read has published a newer page", async () => {

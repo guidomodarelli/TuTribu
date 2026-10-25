@@ -1,0 +1,95 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-leader-recovery-exits",
+    "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
+    "fingerprint": "sha256:fe4f3b273a97b3090076ebfeb18ac170b546dd762e103b56e1cc0010589aa4b8",
+    "uncommittedFiles": [],
+    "fileCount": 209,
+    "inputCount": 1078
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
+      "durationMs": 170233,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "23423808c5117bd70c967d0356c756802b0b2230f5f1897a76eb8affd3ac123a",
+      "recordedAt": "2026-10-25T16:23:38.962Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T16:23:39.418Z",
+      "source": "attested",
+      "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T16:23:39.841Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app, cambiando la cookie de sesión por otra cuenta con la página abierta: antes, Habilitados e Invitaciones dejaban solo el aviso, sin salida (0/8); después, «Reintentar» en las 8 combinaciones, con el aviso embebido y alineado con la página."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T16:23:41.490Z",
+  "result": "verified",
+  "runId": "20261025T162048Z-0ca6aa",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "4 relevant change(s) since the verified run"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx#InvitationsContainer",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-route-error/styles.module.scss#*",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.signIn",
+        "reason": "new visible or interactive code"
+      }
+    ],
+    "suggestedScope": [
+      "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx › InvitationsContainer — behavior of this code in every state of the unit that uses it",
+      "components/academy-admissions/admission-route-error/index.tsx › AdmissionRouteError — behavior of this code in every state of the unit that uses it",
+      "components/academy-admissions/admission-route-error/styles.module.scss (whole file) — visual states that use the changed classes (contrast, focus, loading and error styles)",
+      "src/modules/academy-admissions/constants/admission-ui.ts › ADMISSION_UI_COPY.signIn — copy or configuration read from this member, in every state that shows it"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T16:20:48.167Z",
+  "unitId": "academy.admissions.invitations.manage"
+}

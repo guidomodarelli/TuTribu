@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+      "branch": "fix/academy-leader-recovery-exits",
+      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts": "c6ecb49e3254189a",
         "app/api/tribes/[slug]/messaging/connections/[connectionId]/activate/route.ts": "cd6ab6d726572968",
@@ -765,32 +765,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
-        "durationMs": 29997,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
+        "durationMs": 146393,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "1258a405aaba80fa3465f4c177d0fe8e354b57f7387fcb084afd76e3d9ee0964",
-        "recordedAt": "2026-10-25T11:42:43.398Z",
+        "outputSha256": "56dfe4d51b07f19cb9935dfbd9765782794e76ecc644d31cc34e02bd37342c38",
+        "recordedAt": "2026-10-25T16:40:30.069Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T11:42:43.894Z",
+        "recordedAt": "2026-10-25T16:40:30.502Z",
         "source": "attested",
-        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+        "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados de recuperación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T11:42:45.549Z",
+    "recordedAt": "2026-10-25T16:40:31.957Z",
     "result": "partial",
-    "runId": "20261025T114212Z-af9eaf",
+    "runId": "20261025T163802Z-d0107d",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -815,7 +815,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T114212Z-af9eaf.json"
+    "report": "runs/20261025T163802Z-d0107d.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

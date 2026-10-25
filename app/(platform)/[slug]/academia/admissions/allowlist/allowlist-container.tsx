@@ -12,6 +12,8 @@ import { ADMISSION_POLICY_SETTINGS_SEGMENT } from "@/src/modules/academy-admissi
 export function AllowlistContainer({ initialState, client }: { initialState: AllowlistPageState; client?: AllowlistBrowserClient }) {
   const workflow = useAllowlistWorkflow({ initialState, client });
   if (initialState.kind === "unavailable") return <AdmissionRouteError embedded message={initialState.message} retry={() => window.location.reload()} />;
+  // Losing the account or the tribe authority closes the private list; a fresh document is the way back.
+  if (workflow.phase === ALLOWLIST_BROWSER_PHASE.changedViewer) return <AdmissionRouteError embedded message={workflow.errorMessage ?? ALLOWLIST_BROWSER_COPY.account} retry={() => window.location.reload()} />;
   const writing = workflow.phase === ALLOWLIST_BROWSER_PHASE.writing;
   const busy = workflow.phase === ALLOWLIST_BROWSER_PHASE.checking || workflow.phase === ALLOWLIST_BROWSER_PHASE.reading || writing;
   return <>
