@@ -32,7 +32,7 @@ export function MessagingConnectionLifecycle(props:MessagingConnectionLifecycleP
       {retiringCandidate&&target&&<p className={styles.MessagingConnectionLifecycle__impact}>{IMPACT_COPY.candidateRetirement(target.name,selectedName)}</p>}
       <p className={styles.MessagingConnectionLifecycle__note}>Los mensajes ya aceptados o inciertos pueden continuar y conservan su consumo. Revocar la clave en Zavu es una acción separada.</p>
       <div className={styles.MessagingConnectionLifecycle__consent}><Checkbox id={confirmationId} checked={props.confirmed} disabled={props.busy} onCheckedChange={(checked)=>props.onConfirm(checked===true)} /><Label htmlFor={confirmationId}>{!target?null:suspendingActive?IMPACT_COPY.activeSuspensionConsent(target.name):IMPACT_COPY.consent(target.name)}</Label></div>
-      <div className={styles.MessagingConnectionLifecycle__actions}><Button type="button" variant={props.retiring?"danger":"primary"} loading={props.acting} disabled={!props.acting&&(props.busy||!props.canAct||!props.confirmed)} onClick={props.onAct}>{props.retiring?"Desconectar conexión":"Suspender conexión"}</Button></div>
+      <div className={styles.MessagingConnectionLifecycle__actions}><Button type="button" variant={props.retiring||suspendingActive?"danger":"primary"} loading={props.acting} disabled={!props.acting&&(props.busy||!props.canAct||!props.confirmed)} onClick={props.onAct}>{props.retiring?"Desconectar conexión":"Suspender conexión"}</Button></div>
     </>}
     {props.message&&<p className={styles.MessagingConnectionLifecycle__feedback} role={props.message.kind} aria-live={props.message.kind==="alert"?"assertive":"polite"}>{props.message.text}</p>}
   </section>;

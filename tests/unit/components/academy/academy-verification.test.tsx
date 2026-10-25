@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
+import { ThemedToaster } from "@golfo/ui";
+import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import userEvent from "@testing-library/user-event";
 
 import { AcademyVerification } from "@/components/academy/academy-verification";
@@ -86,5 +88,17 @@ describe("AcademyVerification", () => {
 
     expect(screen.getByText("Rechazada: No encontramos la cuenta")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Volver a solicitar" })).toBeInTheDocument();
+  });
+
+  it("announces the requested verification once, next to the provider", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ declaredEmail: null, decisionReason: null, id: "5d3f4b1a-8a6e-4c1d-9f2e-3b4a5c6d7e8f", providerDisplayName: "Broker A", providerId: provider.id, status: "pending", updatedAt: "2026-06-02T12:00:00.000Z", version: 1 }), { headers: { "Content-Type": "application/json" }, status: 201 }));
+
+    render(<AppUIProvider><AcademyVerification providers={[provider]} tribeSlug="tribu" verifications={[]} /><ThemedToaster /></AppUIProvider>);
+    await user.click(screen.getByRole("button", { name: "Solicitar verificación" }));
+
+    expect(await screen.findByText("En revisión")).toBeInTheDocument();
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 100)); });
+    expect(screen.getAllByText("Tu solicitud está en revisión.")).toHaveLength(1);
   });
 });

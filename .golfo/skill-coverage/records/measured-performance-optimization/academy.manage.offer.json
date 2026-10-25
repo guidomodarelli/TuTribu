@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+      "branch": "fix/academy-single-announcements",
+      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
       "files": {
-        "components/academy/academy-management/index.tsx": "34f2bdb8739e7845",
+        "components/academy/academy-management/index.tsx": "b31e2d2038935251",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/academy/settings/route.ts": "9bd70ac5e58480b1",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
@@ -50,7 +50,7 @@
         "src/modules/subscriptions/domain/services/monthly-billing-cycle.ts": "1e253b01e98f41b8",
         "src/constants/time.ts": "98b5459a77a709b0"
       },
-      "fingerprint": "sha256:e0f76ced8a4740b0cdc773007c7c9328f6363c2d609705f9f0de5957e5b595ce",
+      "fingerprint": "sha256:87ed7e23322f5cd21a81962aff2378b993f504ad449ef5bccf6da440cb308f45",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-management/index.tsx#SettingsSection~shell": "c222b1571ed4aaf1",
@@ -78,7 +78,7 @@
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.saving": "17b92aa11f16cc23",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.settingsTitle": "18421e7f35d60d3f",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.titleLabel": "53e9946cc1ad26f2",
-        "components/academy/academy-management/index.tsx#SettingsSection/handleOfferSubmit": "29268b660faee506",
+        "components/academy/academy-management/index.tsx#SettingsSection/handleOfferSubmit": "29c378df5814c604",
         "components/academy/academy-management/index.tsx#SettingsSection/applySettings": "ee830ca307cef425",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.offerSaved": "b9686be9d8bbe7d1",
         "components/academy/academy-management/index.tsx#MAX_BENEFITS": "01438cf0a4615478",
@@ -679,14 +679,14 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T12:27:34.604Z",
+    "recordedAt": "2026-10-25T14:17:56.207Z",
     "result": "not-applicable",
-    "runId": "20261025T122733Z-60e2bc",
+    "runId": "20261025T141755Z-62175a",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: El cambio de boundaries no agrega requests, consultas ni pasos al flujo."
+        "recorded not applicable: Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": []
@@ -706,8 +706,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T122733Z-60e2bc.json"
+    "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T141755Z-62175a.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

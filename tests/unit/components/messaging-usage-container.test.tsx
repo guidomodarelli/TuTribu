@@ -1,6 +1,6 @@
 /** Exercises the actual guided usage container and shared controls through owned browser ports. @module messaging-usage-container-tests */
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { SidebarInset, SidebarProvider } from "@golfo/ui";
+import { SidebarInset, SidebarProvider, ThemedToaster } from "@golfo/ui";
 import { Activity, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
@@ -398,5 +398,14 @@ describe("guided usage route workflow", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Consultando la cuenta y el uso actual");
     await act(async () => { complete({ status: "ready", value: { id: viewerId } }); });
+  });
+
+  it("should announce a saved configuration once, inline, with the real toaster mounted", async () => {
+    const data = fixture(false); data.client.initialize.mockImplementationOnce(async (_slug, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { ...data.policy, version: 1, allowedCountries: [] } } }));
+    render(<>{data.node}<ThemedToaster /></>, { wrapper: Providers });
+    await reviewWith(); await confirm(); save();
+    await waitFor(() => expect(screen.getByText(savedText)).toHaveAttribute("role", "status"));
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 100)); });
+    expect(screen.getAllByText(savedText)).toHaveLength(1);
   });
 });

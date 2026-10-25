@@ -45,4 +45,12 @@ describe("local connection lifecycle presenter",()=>{
   it("should render a safe empty state without inventing a resource or a mutation",()=>{
     const props=lifecycleProps();render(<MessagingConnectionLifecycle {...props} connections={[]} targetId="" />);expect(screen.getByText("No hay conexiones vigentes para gestionar.")).toBeVisible();expect(screen.queryByRole("button",{name:"Suspender conexión"})).not.toBeInTheDocument();expect(props.onAct).not.toHaveBeenCalled();
   });
+
+  it("should give the danger tone to suspending the connection the academy uses, and not to suspending another one",()=>{
+    const props=lifecycleProps(),candidateId=randomUUID(),connections=[...props.connections,{id:candidateId,name:"Candidata",version:1,state:"active" as const,selected:false,candidate:true}];
+    const view=render(<MessagingConnectionLifecycle {...props} connections={connections} confirmed />);
+    expect(screen.getByRole("button",{name:"Suspender conexión"})).toHaveAttribute("data-variant","danger");
+    view.rerender(<MessagingConnectionLifecycle {...props} connections={connections} targetId={candidateId} confirmed />);
+    expect(screen.getByRole("button",{name:"Suspender conexión"})).toHaveAttribute("data-variant","primary");
+  });
 });

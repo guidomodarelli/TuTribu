@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+      "branch": "fix/academy-single-announcements",
+      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
       "files": {
-        "components/academy/academy-management/index.tsx": "34f2bdb8739e7845",
+        "components/academy/academy-management/index.tsx": "b31e2d2038935251",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/academy/settings/route.ts": "9bd70ac5e58480b1",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
@@ -50,7 +50,7 @@
         "src/modules/subscriptions/domain/services/monthly-billing-cycle.ts": "1e253b01e98f41b8",
         "src/constants/time.ts": "98b5459a77a709b0"
       },
-      "fingerprint": "sha256:e0f76ced8a4740b0cdc773007c7c9328f6363c2d609705f9f0de5957e5b595ce",
+      "fingerprint": "sha256:87ed7e23322f5cd21a81962aff2378b993f504ad449ef5bccf6da440cb308f45",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-management/index.tsx#SettingsSection~shell": "c222b1571ed4aaf1",
@@ -78,7 +78,7 @@
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.saving": "17b92aa11f16cc23",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.settingsTitle": "18421e7f35d60d3f",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.titleLabel": "53e9946cc1ad26f2",
-        "components/academy/academy-management/index.tsx#SettingsSection/handleOfferSubmit": "29268b660faee506",
+        "components/academy/academy-management/index.tsx#SettingsSection/handleOfferSubmit": "29c378df5814c604",
         "components/academy/academy-management/index.tsx#SettingsSection/applySettings": "ee830ca307cef425",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.offerSaved": "b9686be9d8bbe7d1",
         "components/academy/academy-management/index.tsx#MAX_BENEFITS": "01438cf0a4615478",
@@ -677,39 +677,45 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
-        "durationMs": 29723,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
+        "durationMs": 48973,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "3dd0b65c9d74a6df8a45642bf5a3b29ddd3c75ed9bb4e5740040f23ec0e0e86f",
-        "recordedAt": "2026-10-25T12:26:48.504Z",
+        "outputSha256": "149222c95e198294df0c7a337c8dae55aba0ce0d1d9e48c272eb4ee8a1789ba9",
+        "recordedAt": "2026-10-25T14:16:55.513Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T12:26:49.033Z",
+        "recordedAt": "2026-10-25T14:16:55.999Z",
         "source": "attested",
-        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T12:26:50.493Z",
+    "recordedAt": "2026-10-25T14:16:57.320Z",
     "result": "partial",
-    "runId": "20261025T122618Z-e28d2a",
+    "runId": "20261025T141606Z-c5a049",
     "scope": {
       "decision": "full",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "components/academy/academy-management/index.tsx#SettingsSection/handleOfferSubmit",
+          "reason": "action handler changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.manage.offer: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -727,7 +733,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T122618Z-e28d2a.json"
+    "report": "runs/20261025T141606Z-c5a049.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

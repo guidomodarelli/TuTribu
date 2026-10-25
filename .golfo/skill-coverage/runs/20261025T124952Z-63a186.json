@@ -1,0 +1,45 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-single-announcements",
+    "commit": "fcbe88fcb243c8ddf8db9e49f2defe0c34c5c9c9",
+    "fingerprint": "sha256:3a8161a588496e21c80088b417f62102be5b5c39b7fa3afc20c6f8cbea9cfa17",
+    "uncommittedFiles": [],
+    "fileCount": 26,
+    "inputCount": 228
+  },
+  "evidence": [],
+  "limitations": [],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T12:49:53.152Z",
+  "result": "not-applicable",
+  "runId": "20261025T124952Z-63a186",
+  "scope": {
+    "decision": "not-applicable",
+    "reasons": [
+      "recorded not applicable: Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo."
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": []
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a8d6cde62f2853fa",
+      "references/bundle-lazy-loading.md": "91990bd1796b9884",
+      "references/database-queries-n-plus-one.md": "3064b23acc3e9f7e",
+      "references/images-fonts-scripts.md": "1ab02d4b1a421c87",
+      "references/incremental-sweep-jobs.md": "c5c8e71bdba2e4a9",
+      "references/measurement-tools.md": "e3e96c85be264c0c",
+      "references/requests-caching.md": "981544e05dee2e5c",
+      "references/unnecessary-renders.md": "2d440f22533a2149"
+    },
+    "definitionHash": "sha256:dcb79531d3a56e7765d65880022365639578ed18c69466dbb65f4ce0b59b09d3",
+    "name": "measured-performance-optimization",
+    "version": "1.5.0"
+  },
+  "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T12:49:52.176Z",
+  "unitId": "academy.verification.request"
+}

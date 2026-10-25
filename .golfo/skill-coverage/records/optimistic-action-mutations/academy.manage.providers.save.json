@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+      "branch": "fix/academy-single-announcements",
+      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
       "files": {
-        "components/academy/academy-management/index.tsx": "34f2bdb8739e7845",
+        "components/academy/academy-management/index.tsx": "b31e2d2038935251",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/verification-providers/route.ts": "20c6fdde30cc0509",
         "app/api/tribes/[slug]/verification-providers/[providerId]/route.ts": "7d432268fbc39135",
@@ -341,32 +341,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
-        "durationMs": 29910,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
+        "durationMs": 48816,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "4d1d75576507a080613534054c848be038f16bc1ef67f1d5a943af59907bccb6",
-        "recordedAt": "2026-10-25T12:28:41.899Z",
+        "outputSha256": "e429ca77b2c5c4ad9920c2ff7ec635ee33e1a26db7e7ced9fd629d7ad8fbf149",
+        "recordedAt": "2026-10-25T14:19:40.102Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T12:28:42.386Z",
+        "recordedAt": "2026-10-25T14:19:40.569Z",
         "source": "attested",
-        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T12:28:43.591Z",
+    "recordedAt": "2026-10-25T14:19:41.651Z",
     "result": "partial",
-    "runId": "20261025T122811Z-62ab3b",
+    "runId": "20261025T141850Z-4adc12",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -391,7 +391,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T122811Z-62ab3b.json"
+    "report": "runs/20261025T141850Z-4adc12.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

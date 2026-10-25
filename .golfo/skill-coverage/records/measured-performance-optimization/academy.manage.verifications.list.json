@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+      "branch": "fix/academy-single-announcements",
+      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
       "files": {
-        "components/academy/academy-management/index.tsx": "34f2bdb8739e7845",
+        "components/academy/academy-management/index.tsx": "b31e2d2038935251",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/verifications/route.ts": "7143222c4b934955",
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
@@ -332,14 +332,14 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T12:33:10.625Z",
+    "recordedAt": "2026-10-25T14:26:08.404Z",
     "result": "not-applicable",
-    "runId": "20261025T123309Z-053ca4",
+    "runId": "20261025T142607Z-f61777",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: El cambio de boundaries no agrega requests, consultas ni pasos al flujo."
+        "recorded not applicable: Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": []
@@ -359,8 +359,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T123309Z-053ca4.json"
+    "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T142607Z-f61777.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

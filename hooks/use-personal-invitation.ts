@@ -1,7 +1,6 @@
 "use client";
 /** Owns account-bound personal confirmation and original reference recovery without automatic writes. @module use-personal-invitation */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "@golfo/ui";
 import type { PersonalInvitationPageState } from "@/src/modules/academy-admissions/application/results/personal-invitation-page-state";
 import type { PersonalInvitationBrowserClient } from "@/src/modules/academy-admissions/application/ports/personal-invitation-browser-client";
 import type { AdmissionBrowserSubmission } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
@@ -165,7 +164,7 @@ export function usePersonalInvitation(options: { initialState: PersonalInvitatio
       if (result.status === "ready" && !("state" in result.value)) {
         if (!clear()) return;
         applyOutcome(result.value.outcome, result.value.outcome === ADMISSION_OUTCOME.pending ? result.value.request : undefined);
-        setConfirmed(false); setFeedback(result.value.safeMessage); toast.success(result.value.safeMessage);
+        setConfirmed(false); setFeedback(result.value.safeMessage);
         await refresh(request.signal); if (live(request.signal)) setPhase(PERSONAL_INVITATION_UI_PHASE.idle);
       } else if (result.status === "failed" && !result.uncertain) { if (!clear()) return; setErrorMessage(result.message); setPhase(PERSONAL_INVITATION_UI_PHASE.idle); }
       else { setPhase(PERSONAL_INVITATION_UI_PHASE.uncertain); setErrorMessage(PERSONAL_INVITATION_UI_COPY.uncertain); }

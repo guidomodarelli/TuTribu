@@ -1,7 +1,6 @@
 "use client";
 /** Owns native viewer checks, the guided save of countries and quotas, and original usage recovery; all form controls remain callback-only. @module messaging-usage-container */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "@golfo/ui";
 import type { MessagingUsagePageState } from "@/src/modules/messaging/application/results/messaging-usage-page-state";
 import type { MessagingUsageBrowserClient } from "@/src/modules/messaging/application/ports/messaging-usage-browser-client";
 import type { MessagingUsageDraft } from "@/src/modules/messaging/application/commands/messaging-usage-draft";
@@ -133,7 +132,7 @@ export function MessagingUsageContainer({ initialState, client = messagingUsageB
     if (signal.aborted || result.status === "aborted") return STOPPED;
     if (!await checkViewer(signal) || signal.aborted) return STOPPED;
     if (result.status === "failed") {
-      setErrorMessage(result.message); toast.error(result.message);
+      setErrorMessage(result.message);
       if (MESSAGING_USAGE_PRIVATE_AUTHORITY_FAILURES.includes(result.code)) { setPrivateVisible(false); setCanRetry(false); return STOPPED; }
       /** A legacy session-change answer keeps the original intent so reloading can still recover it. */
       if (!result.uncertain && result.code !== MESSAGING_ERROR_CODE.reauthenticationRequired) { writeMessagingUsageIntent(ready.viewerId, ready.slug, null); pending.current = null; }
@@ -169,7 +168,7 @@ export function MessagingUsageContainer({ initialState, client = messagingUsageB
   const finishSaved = (policy: MessagingUsagePolicyDto) => {
     setFresh(true); setConfirmed(false); setPartialSave(false); setEditing(false); setStep(FIRST_STEP_INDEX);
     setDraft(createMessagingUsageDraft({ state: MESSAGING_USAGE_POLICY_STATE.configured, policy }));
-    setStatusMessage(COPY.saved); toast.success(COPY.saved);
+    setStatusMessage(COPY.saved);
   };
 
   /**
