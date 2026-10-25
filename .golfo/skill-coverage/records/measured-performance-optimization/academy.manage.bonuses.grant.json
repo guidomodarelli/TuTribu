@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "fix/academy-management-mutations",
+      "commit": "64b87f83eb45941aa8b2b758ae938221dad4baad",
       "files": {
-        "components/academy/academy-management/index.tsx": "b31e2d2038935251",
+        "components/academy/academy-management/index.tsx": "c9c63144daeb34d0",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/academy/bonuses/route.ts": "2b4c0dee98bd2d99",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
@@ -52,7 +52,7 @@
         "src/constants/time.ts": "98b5459a77a709b0",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:f1be284e55af03f79ae1189ca76c6180c870459cc5172e7a5e2fad9accbb1f0c",
+      "fingerprint": "sha256:fed588134ae96a33e6aa269424050fc8b624c0dcba97c29f00d173409022bec6",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-management/index.tsx#BonusDialog/handleSubmit": "6db5a5aa3a3cb844",
@@ -71,8 +71,7 @@
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.saving": "17b92aa11f16cc23",
         "components/academy/academy-management/index.tsx#MIN_REASON_LENGTH": "1c0a5e01e735a4c4",
         "pkg:react": "374a4508a198654b",
-        "components/academy/academy-management/index.tsx#MembersSection/handleRevoke": "14b51a79d22fe867",
-        "components/academy/academy-management/index.tsx#MembersSection~shell": "5e5f716a7ddad39e",
+        "components/academy/academy-management/index.tsx#MembersSection": "e42851580d3ece4e",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": "6371b497b9fa3370",
         "app/api/tribes/[slug]/academy/bonuses/route.ts#<module>": "2da3ec2294295eb1",
@@ -624,11 +623,7 @@
         "components/academy/academy-management/index.tsx#BonusDialog~shell": {
           "projectCalls": 1
         },
-        "components/academy/academy-management/index.tsx#MembersSection/handleRevoke": {
-          "awaits": 1,
-          "projectCalls": 1
-        },
-        "components/academy/academy-management/index.tsx#MembersSection~shell": {
+        "components/academy/academy-management/index.tsx#MembersSection": {
           "effects": 1,
           "projectCalls": 1
         },
@@ -728,21 +723,44 @@
       },
       "uncommittedFiles": []
     },
-    "evidence": [],
-    "limitations": [],
-    "mode": "full",
+    "evidence": [
+      {
+        "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
+        "durationMs": 25690,
+        "exitCode": 0,
+        "kind": "test",
+        "outcome": "pass",
+        "outputSha256": "e81bb468886c2ae09a867087e025baefdbda7a5dc4c4b7d09b3203dde69c7afc",
+        "recordedAt": "2026-10-25T20:21:06.409Z",
+        "source": "witnessed",
+        "summary": "exit code 0"
+      }
+    ],
+    "limitations": [
+      "La recarga tras decidir o revocar suma una request GET por acción del líder sobre el mismo endpoint que ya usa la paginación; no se midió por separado."
+    ],
+    "mode": "incremental",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T14:09:39.021Z",
-    "result": "not-applicable",
-    "runId": "20261025T140937Z-8993e3",
+    "recordedAt": "2026-10-25T20:21:07.835Z",
+    "result": "partial",
+    "runId": "20261025T202040Z-4c4fe8",
     "scope": {
-      "decision": "not-applicable",
+      "decision": "incremental",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo."
+        "relevant changes since the skill was recorded not applicable: re-evaluate applicability"
       ],
-      "relevantChangesAtBegin": [],
-      "suggestedScope": []
+      "relevantChangesAtBegin": [
+        {
+          "change": "added",
+          "key": "components/academy/academy-management/index.tsx#MembersSection",
+          "reason": "adds load: +1 effects, +1 calls to I/O helpers"
+        }
+      ],
+      "suggestedScope": [
+        "measure the complete flow /[slug]/academia/gestionar: before = revision 6bf39166cc42 (last measured), after = working tree",
+        "components/academy/academy-management/index.tsx › MembersSection — adds load: +1 effects, +1 calls to I/O helpers"
+      ]
     },
     "skill": {
       "definitionFiles": {
@@ -759,8 +777,7 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T140937Z-8993e3.json"
+    "report": "runs/20261025T202040Z-4c4fe8.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

@@ -1,0 +1,68 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-management-mutations",
+    "commit": "64b87f83eb45941aa8b2b758ae938221dad4baad",
+    "fingerprint": "sha256:fed588134ae96a33e6aa269424050fc8b624c0dcba97c29f00d173409022bec6",
+    "uncommittedFiles": [],
+    "fileCount": 46,
+    "inputCount": 560
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
+      "durationMs": 25690,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "e81bb468886c2ae09a867087e025baefdbda7a5dc4c4b7d09b3203dde69c7afc",
+      "recordedAt": "2026-10-25T20:21:06.409Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    }
+  ],
+  "limitations": [
+    "La recarga tras decidir o revocar suma una request GET por acción del líder sobre el mismo endpoint que ya usa la paginación; no se midió por separado."
+  ],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T20:21:07.835Z",
+  "result": "partial",
+  "runId": "20261025T202040Z-4c4fe8",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "relevant changes since the skill was recorded not applicable: re-evaluate applicability"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "components/academy/academy-management/index.tsx#MembersSection",
+        "reason": "adds load: +1 effects, +1 calls to I/O helpers"
+      }
+    ],
+    "suggestedScope": [
+      "measure the complete flow /[slug]/academia/gestionar: before = revision 6bf39166cc42 (last measured), after = working tree",
+      "components/academy/academy-management/index.tsx › MembersSection — adds load: +1 effects, +1 calls to I/O helpers"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a8d6cde62f2853fa",
+      "references/bundle-lazy-loading.md": "91990bd1796b9884",
+      "references/database-queries-n-plus-one.md": "3064b23acc3e9f7e",
+      "references/images-fonts-scripts.md": "1ab02d4b1a421c87",
+      "references/incremental-sweep-jobs.md": "c5c8e71bdba2e4a9",
+      "references/measurement-tools.md": "e3e96c85be264c0c",
+      "references/requests-caching.md": "981544e05dee2e5c",
+      "references/unnecessary-renders.md": "2d440f22533a2149"
+    },
+    "definitionHash": "sha256:dcb79531d3a56e7765d65880022365639578ed18c69466dbb65f4ce0b59b09d3",
+    "name": "measured-performance-optimization",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T20:20:40.096Z",
+  "unitId": "academy.manage.bonuses.grant"
+}

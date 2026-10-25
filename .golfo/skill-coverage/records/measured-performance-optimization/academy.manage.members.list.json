@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "fix/academy-management-mutations",
+      "commit": "eb9bbb3133777d61596556f311001d065649fa75",
       "files": {
-        "components/academy/academy-management/index.tsx": "b31e2d2038935251",
+        "components/academy/academy-management/index.tsx": "c9c63144daeb34d0",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/academy/members/route.ts": "3cbb25f32868f5ae",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
@@ -51,10 +51,11 @@
         "src/constants/time.ts": "98b5459a77a709b0",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:451da13e9557f7b4200cf53a85cce0b3419e7c684afb6bf4b54b29d9c9f8a8ca",
+      "fingerprint": "sha256:6355a992cb0a879ca365a090335b8b9497d6de2002e8d321e707923aa4fc011b",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy/academy-management/index.tsx#MembersSection~shell": "5e5f716a7ddad39e",
+        "components/academy/academy-management/index.tsx#MembersSection": "e42851580d3ece4e",
+        "components/academy/academy-management/index.tsx#AcademyGrantDto": "aff7dd6422248e38",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "components/academy/academy-management/index.tsx#BonusDialog/handleSubmit": "6db5a5aa3a3cb844",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY~frame": "273d3be735a785d5",
@@ -75,6 +76,7 @@
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.accessYes": "37da1339ccdcba30",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.bonusButton": "2119d10c913749b8",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.emptyMembers": "6d2a9b678aece630",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.loadingList": "462293ff284a15a0",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.membersDescription": "d087a7f6c79cdf6b",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.membersTitle": "e308e9ffd3b1845f",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.renewalActive": "724a0207af6c81ef",
@@ -87,11 +89,20 @@
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.next": "f942b3fa7cbd256c",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.previous": "6a761da6df287291",
         "components/academy/academy-management/index.tsx#PAGE_SIZE": "6858738053995650",
-        "pkg:lucide-react": "6166c881f2c2dd27",
+        "components/academy/academy-management/index.tsx#RevokeBonusDialog/handleSubmit": "b87e9ea8d5cd5607",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.bonusRevoked": "d7e8c2405c050147",
+        "components/academy/academy-management/index.tsx#RevokeBonusDialog~shell": "a04e045b23a25dd1",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusDescription": "736e4abceec956f1",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusPrompt": "a011f4022643b39e",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusSubject": "c1318d22272d5143",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusSubmit": "592e213aced4fb4c",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusTitle": "fcc403a69ea28b7e",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokingBonus": "4eec890f60b2a1d8",
         "components/academy/academy-management/index.tsx#describeGrantRange": "1cfc37b867da5dd6",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantRevoked": "947b9dbec763b2f5",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantUnbounded": "8062493a3bf01a56",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantUntil": "48c9d06d80a71ca7",
+        "pkg:lucide-react": "6166c881f2c2dd27",
         "components/academy/academy-management/index.tsx#describeGrantSource": "127a620250f0659e",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantBonus": "25c856b850289d52",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantLegacy": "ff6ccee3450ef8d0",
@@ -222,6 +233,9 @@
         "lib/academy/academy-api-client.ts#tribePath": "d0ae1447f68fd514",
         "lib/academy/academy-api-client.ts#API_PATH.tribes": "b1fe75d893630cf5",
         "lib/academy/academy-format.ts#getTodayDateKey": "425e419960214368",
+        "lib/academy/academy-api-client.ts#revokeAcademyBonus": "b85895af6e7ef66e",
+        "lib/academy/academy-api-client.ts#API_PATH.revoke": "b897089b13d17c27",
+        "lib/academy/academy-api-client.ts#MessageBody": "eaa87707d87f004e",
         "lib/academy/academy-format.ts#formatAcademyDate": "cd3616da31f4d74a",
         "lib/academy/academy-format.ts#YEAR_LENGTH": "7c00b71fcbd0e330",
         "lib/academy/academy-api-client.ts#fetchAcademyMembers": "5b901c077886a058",
@@ -635,7 +649,7 @@
         "src/modules/subscriptions/constants/subscriptions.ts#ACADEMY_BILLING_CYCLE.millisecondsPerDay": "816105e9d45547b3"
       },
       "signals": {
-        "components/academy/academy-management/index.tsx#MembersSection~shell": {
+        "components/academy/academy-management/index.tsx#MembersSection": {
           "effects": 1,
           "projectCalls": 1
         },
@@ -644,6 +658,10 @@
           "projectCalls": 1
         },
         "components/academy/academy-management/index.tsx#BonusDialog~shell": {
+          "projectCalls": 1
+        },
+        "components/academy/academy-management/index.tsx#RevokeBonusDialog/handleSubmit": {
+          "awaits": 1,
           "projectCalls": 1
         },
         "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": {
@@ -742,21 +760,36 @@
       },
       "uncommittedFiles": []
     },
-    "evidence": [],
-    "limitations": [],
+    "evidence": [
+      {
+        "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
+        "durationMs": 33550,
+        "exitCode": 0,
+        "kind": "test",
+        "outcome": "pass",
+        "outputSha256": "733a565941184ce8f73ed5c19c0a5068fd366e2fb4a1d365fd08adc554b5c4d3",
+        "recordedAt": "2026-10-25T20:48:45.850Z",
+        "source": "witnessed",
+        "summary": "exit code 0"
+      }
+    ],
+    "limitations": [
+      "La recarga tras decidir o revocar suma una request GET por acción del líder sobre el mismo endpoint que ya usa la paginación; no se midió por separado."
+    ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T14:15:11.285Z",
-    "result": "not-applicable",
-    "runId": "20261025T141510Z-019518",
+    "recordedAt": "2026-10-25T20:48:47.317Z",
+    "result": "partial",
+    "runId": "20261025T204811Z-45bc9a",
     "scope": {
-      "decision": "not-applicable",
+      "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo."
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": []
+      "suggestedScope": [
+        "measure the complete flow /[slug]/academia/gestionar before and after, same build, data and throttling; median of 3 for noisy metrics"
+      ]
     },
     "skill": {
       "definitionFiles": {
@@ -773,8 +806,7 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T141510Z-019518.json"
+    "report": "runs/20261025T204811Z-45bc9a.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",
