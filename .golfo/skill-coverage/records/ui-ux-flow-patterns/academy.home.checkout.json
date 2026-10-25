@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "fix/academy-admission-request-deadline",
-      "commit": "331fe02f374f740259efb79fd0395fedddb30c87",
+      "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
       "files": {
         "components/academy/academy-home/index.tsx": "809988db00523019",
         "app/(platform)/[slug]/academia/page.tsx": "8be7106822155a86",
@@ -922,36 +922,37 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx tests/unit/lib/browser-request-deadline.test.ts",
-        "durationMs": 18509,
+        "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
+        "durationMs": 20976,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "9b903d929655b423a8fab72d4fc78bc1d064afa43f6dccb842834291cf8ca04d",
-        "recordedAt": "2026-10-25T00:59:24.687Z",
+        "outputSha256": "7ff765e345d359d06211e44fea440ff4565f9b4933c6072e726c13b808ea96c5",
+        "recordedAt": "2026-10-25T01:56:54.666Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T00:59:25.152Z",
+        "recordedAt": "2026-10-25T01:56:55.218Z",
         "source": "attested",
-        "summary": "Solo el deadline de «Contratar academia»: un checkout sin respuesta termina a los 120 s con «La respuesta tardó demasiado», el botón vuelve a habilitarse y no se navega al pago."
+        "summary": "Deadline compartido de los requests del navegador (boundBrowserRequest, 120 s): una escritura vencida queda incierta (transport_timeout, uncertain) para recuperar la operación original; una lectura vencida es un fallo cierto; la cancelación propia sigue siendo abort."
       }
     ],
     "limitations": [
-      "Solo se revisó el deadline del checkout; el resto de la unidad (estados de acceso, retorno del pago) queda para su propia auditoría y no se verificó en navegador."
+      "Solo se revisó el deadline de los requests del navegador que agrega este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T00:59:26.445Z",
+    "recordedAt": "2026-10-25T01:56:56.797Z",
     "result": "partial",
-    "runId": "20261025T005905Z-1fac0c",
+    "runId": "20261025T015633Z-33ae5b",
     "scope": {
       "decision": "full",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "skill definition changed (1.4.1 → 1.5.0): SKILL.md",
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": [
@@ -960,18 +961,18 @@
     },
     "skill": {
       "definitionFiles": {
-        "SKILL.md": "a27ab40c70e78c90",
+        "SKILL.md": "9fc5ee4bb0e2e4e9",
         "references/feedback-channels.md": "aa0394882f505308",
         "references/flow-catalog.md": "77527b8062d13243",
         "references/sources.md": "018203bece1d2e8a",
         "references/state-matrix.md": "026b6005f6fa0cae",
         "references/validation-feedback.md": "3e4fb5d227cacfbd"
       },
-      "definitionHash": "sha256:262d130d4e0582dad8bd65e40b350a22b52d1393120ae35689e1bc817203bf14",
+      "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
       "name": "ui-ux-flow-patterns",
-      "version": "1.4.1"
+      "version": "1.5.0"
     },
-    "report": "runs/20261025T005905Z-1fac0c.json"
+    "report": "runs/20261025T015633Z-33ae5b.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

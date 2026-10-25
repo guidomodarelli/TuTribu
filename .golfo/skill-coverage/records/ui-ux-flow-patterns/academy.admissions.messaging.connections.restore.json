@@ -7,7 +7,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "fix/academy-admission-request-deadline",
-      "commit": "331fe02f374f740259efb79fd0395fedddb30c87",
+      "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "d64cc0865a1e8f83",
         "lib/messaging/messaging-connections-intent-store.ts": "7dbed3748a05812b",
@@ -1115,150 +1115,60 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx tests/unit/modules/messaging/application tests/unit/modules/academy-admissions/infrastructure tests/unit/lib/academy [redacted]-notification-settings-browser.test.ts",
-        "durationMs": 282450,
+        "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
+        "durationMs": 21372,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "700a7a6d3c2129c15cfa99ac999b9ccfcb3cb4bad9b61498da7f39cfecaff485",
-        "recordedAt": "2026-10-25T00:48:48.701Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
-      },
-      {
-        "command": "pnpm run -s typecheck",
-        "durationMs": 14626,
-        "exitCode": 0,
-        "kind": "command",
-        "outcome": "pass",
-        "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T00:49:03.789Z",
+        "outputSha256": "2b187f417bcafc05741e554c8821f29d5814b49e58059426a702b8c43cf60476",
+        "recordedAt": "2026-10-25T01:52:06.085Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T00:49:04.256Z",
+        "recordedAt": "2026-10-25T01:52:06.661Z",
         "source": "attested",
-        "summary": "Una lectura sin respuesta termina a los 120 s con el aviso de tiempo excedido de mensajería y la acción vuelve a quedar disponible para reintentar; la cancelación propia no muestra error."
+        "summary": "Deadline compartido de los requests del navegador (boundBrowserRequest, 120 s): una escritura vencida queda incierta (transport_timeout, uncertain) para recuperar la operación original; una lectura vencida es un fallo cierto; la cancelación propia sigue siendo abort."
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T00:49:04.691Z",
+        "recordedAt": "2026-10-25T01:52:07.251Z",
         "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app con la lectura de la conexión retenida: antes, a los 150 s no había mensaje y «Consultar conexión actual» seguía deshabilitado (3 de 3 muestras válidas; en WebKit 390 el interceptor no tomó el request); después, el aviso de tiempo excedido aparece a los ~126 s y el botón vuelve a quedar habilitado (4/4)."
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app con la lectura de la conexión retenida: antes, sin aviso ni salida a los 150 s (3 de 3 muestras válidas); después, aviso de tiempo excedido a los ~126 s y botón habilitado (4/4)."
       }
     ],
     "limitations": [],
     "mode": "incremental",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T00:49:06.109Z",
+    "recordedAt": "2026-10-25T01:52:09.069Z",
     "result": "verified",
-    "runId": "20261025T004405Z-2e5389",
+    "runId": "20261025T015144Z-0e5747",
     "scope": {
       "decision": "incremental",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "13 relevant change(s) since the verified run"
+        "skill definition changed (1.4.1 → 1.5.0): SKILL.md"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "added",
-          "key": "lib/browser-request-deadline.ts#<module>",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "lib/browser-request-deadline.ts#AbortedBrowserRequest",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "lib/browser-request-deadline.ts#boundBrowserRequest",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "lib/browser-request-deadline.ts#BrowserRequestDeadline",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "lib/browser-request-deadline.ts#startBrowserRequestDeadline/followCaller",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "lib/browser-request-deadline.ts#startBrowserRequestDeadline~shell",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "removed",
-          "key": "lib/messaging/messaging-browser-api-client.ts#createMessagingBrowserRequest",
-          "reason": "code no longer reached by the unit: check that no state lost its feedback"
-        },
-        {
-          "change": "added",
-          "key": "lib/messaging/messaging-browser-api-client.ts#createMessagingBrowserRequest/send",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "lib/messaging/messaging-browser-api-client.ts#createMessagingBrowserRequest~shell",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "modified",
-          "key": "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/request",
-          "reason": "visible or interactive code changed"
-        },
-        {
-          "change": "added",
-          "key": "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/send",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "src/constants/browser-request.ts#<module>",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MS",
-          "reason": "new visible or interactive code"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
-        "lib/browser-request-deadline.ts (module directives and side effects) — client/server boundary and side effects of the module",
-        "lib/browser-request-deadline.ts › AbortedBrowserRequest — behavior of this code in every state of the unit that uses it",
-        "lib/browser-request-deadline.ts › boundBrowserRequest — behavior of this code in every state of the unit that uses it",
-        "lib/browser-request-deadline.ts › BrowserRequestDeadline — behavior of this code in every state of the unit that uses it",
-        "lib/browser-request-deadline.ts › startBrowserRequestDeadline › followCaller — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
-        "lib/browser-request-deadline.ts › startBrowserRequestDeadline (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
-        "lib/messaging/messaging-browser-api-client.ts › createMessagingBrowserRequest — behavior of this code in every state of the unit that uses it",
-        "lib/messaging/messaging-browser-api-client.ts › createMessagingBrowserRequest › send — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
-        "lib/messaging/messaging-browser-api-client.ts › createMessagingBrowserRequest (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
-        "lib/messaging/messaging-usage-api-client.ts › createMessagingUsageBrowserClient › request — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
-        "lib/messaging/messaging-usage-api-client.ts › createMessagingUsageBrowserClient › send — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
-        "src/constants/browser-request.ts (module directives and side effects) — client/server boundary and side effects of the module",
-        "src/constants/browser-request.ts › BROWSER_REQUEST_TIMEOUT_MS — behavior of this code in every state of the unit that uses it"
+        "re-check the unit against the rules changed in ui-ux-flow-patterns/SKILL.md"
       ]
     },
     "skill": {
       "definitionFiles": {
-        "SKILL.md": "a27ab40c70e78c90",
+        "SKILL.md": "9fc5ee4bb0e2e4e9",
         "references/feedback-channels.md": "aa0394882f505308",
         "references/flow-catalog.md": "77527b8062d13243",
         "references/sources.md": "018203bece1d2e8a",
         "references/state-matrix.md": "026b6005f6fa0cae",
         "references/validation-feedback.md": "3e4fb5d227cacfbd"
       },
-      "definitionHash": "sha256:262d130d4e0582dad8bd65e40b350a22b52d1393120ae35689e1bc817203bf14",
+      "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
       "name": "ui-ux-flow-patterns",
-      "version": "1.4.1"
+      "version": "1.5.0"
     },
-    "report": "runs/20261025T004405Z-2e5389.json"
+    "report": "runs/20261025T015144Z-0e5747.json"
   }
 }

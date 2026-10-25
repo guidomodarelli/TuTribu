@@ -1,0 +1,82 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-admission-request-deadline",
+    "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
+    "fingerprint": "sha256:b00bb7f9548da2e2ff408ffb2d9fc2e34a71aa328eb2475319c4b04aa2c55b84",
+    "uncommittedFiles": [],
+    "fileCount": 268,
+    "inputCount": 1693
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
+      "durationMs": 21918,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "b7903292ccff0692e2b5b7a238f38b5be9675e686c808f6ddf264f367539f183",
+      "recordedAt": "2026-10-25T01:53:05.011Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "command": "pnpm run -s typecheck",
+      "durationMs": 3552,
+      "exitCode": 0,
+      "kind": "command",
+      "outcome": "pass",
+      "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
+      "recordedAt": "2026-10-25T01:53:09.228Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T01:53:09.868Z",
+      "source": "attested",
+      "summary": "Deadline compartido de los requests del navegador (boundBrowserRequest, 120 s): una escritura vencida queda incierta (transport_timeout, uncertain) para recuperar la operación original; una lectura vencida es un fallo cierto; la cancelación propia sigue siendo abort."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T01:53:12.817Z",
+  "result": "verified",
+  "runId": "20261025T015242Z-55264f",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "skill definition changed (1.2.0 → 1.3.0): SKILL.md",
+      "1 relevant change(s) since the verified run"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#pageInputSchema",
+        "reason": "code rendered by the route changed"
+      }
+    ],
+    "suggestedScope": [
+      "re-check the unit against the rules changed in nextjs-route-ui-boundaries/SKILL.md",
+      "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts › pageInputSchema — server/client split and awaited work of this code in every route of the unit"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "e456ce5fb1266d0e",
+      "references/decision-rules.md": "5340413b30d4e7a7",
+      "references/nextjs-apis.md": "7d812e101f16defe",
+      "references/server-client-split.md": "7f52ba9f6a13308d",
+      "references/skeleton-patterns.md": "65d4c31f0f8beb93",
+      "references/version-notes.md": "b6f6488947de60f0"
+    },
+    "definitionHash": "sha256:a3b7fb0dda3a877474c7910f4914469c8cb9a94700aa9d750e81067d96406ed1",
+    "name": "nextjs-route-ui-boundaries",
+    "version": "1.3.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T01:52:42.518Z",
+  "unitId": "academy.admissions.messaging.connections.restore"
+}

@@ -6,8 +6,8 @@
   "verified": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-invitation-link-focus",
-      "commit": "0569c8d0c20e2ec8a70d0e8da7fe6957be3c8052",
+      "branch": "fix/academy-admission-request-deadline",
+      "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
       "files": {
         "app/(platform)/[slug]/academia/admissions/invitations/page.tsx": "5731b66b99705bd9",
         "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx": "0ae1742a06c8464b",
@@ -131,9 +131,9 @@
         "src/modules/academy-admissions/domain/repositories/personal-invitation-management.ts": "945c4c78b1bf4f58",
         "src/modules/academy-admissions/application/results/admission-resource-result.ts": "133e7be7f53e5965",
         "src/modules/academy-admissions/constants/personal-invitation-browser.ts": "1d7fa3bd96773d04",
-        "lib/academy-admissions/admission-api-client.ts": "307fe85c7935822d",
+        "lib/academy-admissions/admission-api-client.ts": "685e72943289a164",
         "src/modules/academy-admissions/application/results/admission-public-result-schemas.ts": "00775c03c35f69d8",
-        "lib/academy-admissions/admission-management-browser-transport.ts": "b092b57b65f61137",
+        "lib/academy-admissions/admission-management-browser-transport.ts": "6d18b2208b7fc42e",
         "src/modules/academy-admissions/constants/personal-invitation-http-schemas.ts": "797966938024b646",
         "src/modules/academy-admissions/constants/personal-invitation-management-page.ts": "d871095503f55239",
         "src/modules/academy-admissions/constants/personal-invitation-management.ts": "cc268ed2da86c83d",
@@ -189,7 +189,7 @@
         "src/modules/academy-admissions/constants/personal-invitation-overview.ts": "5216fcae6a91834b",
         "src/modules/academy-admissions/constants/personal-invitation-overview-schemas.ts": "31c465c17c4f71e5",
         "src/modules/academy-admissions/application/results/personal-invitation-overview.ts": "2fdb3f8f0bf40f53",
-        "src/modules/academy-admissions/constants/personal-invitation-page.ts": "f17447d2ae21af9d",
+        "src/modules/academy-admissions/constants/personal-invitation-page.ts": "97b409b131e1d23b",
         "src/modules/academy-admissions/application/results/personal-invitation-page-state.ts": "2e2796ab8e364e43",
         "src/modules/academy-admissions/application/results/allowlist-import-result.ts": "26fad4ad9c762ec7",
         "src/modules/academy-admissions/application/results/allowlist-query-schemas.ts": "65b6fdf4fd47f798",
@@ -335,6 +335,8 @@
         "src/modules/auth/infrastructure/better-auth/better-auth-logger.ts": "050b2723a52c8565",
         "src/modules/academy-admissions/constants/admission-operation-recovery-schemas.ts": "04485d588425272a",
         "src/modules/academy-admissions/application/ports/admission-browser-client.ts": "e4d882fd3cf5bf02",
+        "src/constants/browser-request.ts": "38ed6a1428c6e81f",
+        "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
         "src/modules/academy-admissions/constants/admission-policy-browser.ts": "90cfa795912c0e8c",
         "src/modules/academy-admissions/constants/admission-review-browser.ts": "514a476443a8ab07",
         "src/modules/academy-admissions/application/ports/admission-policy-browser-client.ts": "1999940a70fc8def",
@@ -465,7 +467,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:82632b8cba2165c336de4fcf7f7bb088a077362f2eda939766af25664cf073d6",
+      "fingerprint": "sha256:3721530c175c0d8edca7f3c067be7d66c52387d6f062db67a5d511bdf937144c",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/invitations/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/invitations/page.tsx#InvitationsPage": "4e110598df2d3c91",
@@ -981,24 +983,28 @@
         "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/base": "f1d6b53237ff9163",
         "lib/academy-admissions/admission-api-client.ts#ADMISSION_API_PREFIX": "d057b8d84c8c54ef",
         "lib/academy-admissions/admission-api-client.ts#ADMISSION_API_SEGMENT": "c059677a15a3df42",
-        "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/request": "f2ec585ae70ca718",
-        "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient~shell": "7e6baa41555f8a80",
+        "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/bounded": "c4cb5077f4011902",
+        "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/request": "aacc435f03836335",
+        "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient~shell": "9ae0941d40dbad6e",
         "lib/academy-admissions/admission-api-client.ts#ACADEMY_ENTRY_SEGMENT": "4789d69392023c08",
         "lib/academy-admissions/admission-api-client.ts#AcademyAdmissionBrowserEntry": "374de08441fe942e",
         "lib/academy-admissions/admission-api-client.ts#cancellationSchema": "b3be1e7206f05678",
         "lib/academy-admissions/admission-api-client.ts#startedSchema": "24a5738d0e1d4fb4",
         "pkg:better-auth": "e6d94d4511d23fb5",
         "lib/academy-admissions/admission-api-client.ts#submissionSchema": "f3f8edf0c20ff553",
+        "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/send": "4735b19275dda18d",
         "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/policyCommand": "b0c11a19b7214466",
         "src/modules/academy-admissions/application/results/admission-public-result-schemas.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/results/admission-public-result-schemas.ts#admissionPublicErrorSchema": "52a275cca5b69a75",
         "src/modules/academy-admissions/application/results/admission-public-result-schemas.ts#instantSchema": "f714c07944a3b459",
         "src/modules/academy-admissions/application/results/admission-public-result-schemas.ts#resourceIdSchema": "4da893d8b8c85931",
         "lib/academy-admissions/admission-management-browser-transport.ts#<module>": "d414f6d3ee71f10d",
+        "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/timedOut": "0e137a5d60203419",
         "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/rejected": "1f7676c1ab292c86",
         "lib/academy-admissions/admission-management-browser-transport.ts#admissionManagementBrowserFailure": "c208ad1efd8cf36c",
-        "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/json": "da5f29c52b8a2433",
-        "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport~shell": "a5f54d8ecd28f98b",
+        "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/json": "8735dd4dfe2eece2",
+        "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport~shell": "b9add02d3a5af41e",
+        "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/send": "e5a9509a9abd6b31",
         "src/modules/academy-admissions/constants/personal-invitation-http-schemas.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/personal-invitation-http-schemas.ts#createPersonalInvitationHttpCreationSchema": "f427d7096e6175c2",
         "src/modules/academy-admissions/constants/personal-invitation-management-page.ts#<module>": "2da3ec2294295eb1",
@@ -2165,6 +2171,14 @@
         "src/modules/academy-admissions/constants/admission-operation-recovery-schemas.ts#admissionOperationRecoverySchema": "10246497bce38db0",
         "src/modules/academy-admissions/application/ports/admission-browser-client.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/ports/admission-browser-client.ts#AdmissionBrowserResult": "76e16406dac40a92",
+        "src/constants/browser-request.ts#<module>": "2da3ec2294295eb1",
+        "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MESSAGE": "15130a290077f25a",
+        "lib/browser-request-deadline.ts#<module>": "2da3ec2294295eb1",
+        "lib/browser-request-deadline.ts#boundBrowserRequest": "76d4e40871494519",
+        "lib/browser-request-deadline.ts#AbortedBrowserRequest": "7247fe3d15039b90",
+        "lib/browser-request-deadline.ts#startBrowserRequestDeadline/followCaller": "5fc4bc96b4267cc9",
+        "lib/browser-request-deadline.ts#startBrowserRequestDeadline~shell": "51f782e3225cd5f9",
+        "lib/browser-request-deadline.ts#BrowserRequestDeadline": "712811cf78078a22",
         "src/modules/academy-admissions/constants/admission-policy-browser.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-policy-browser.ts#ADMISSION_POLICY_BROWSER_PATH~frame": "a2e6cc51be4d4f73",
         "src/modules/academy-admissions/constants/admission-policy-browser.ts#ADMISSION_POLICY_BROWSER_PATH.activate": "febce9420aa1ba7b",
@@ -2795,6 +2809,7 @@
         "src/modules/notifications/constants/admission-notification-settings-schemas.ts#admissionNotificationEmailSettingsChangeResultSchema": "7eac1e616d629417",
         "src/modules/notifications/constants/admission-notification-settings-schemas.ts#admissionNotificationEmailSettingsViewSchema": "97780f32e6f15ce7",
         "src/modules/notifications/constants/admission-notification-settings-schemas.ts#timeZone": "25389c72f6bc0423",
+        "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MS": "a92cd6c5a2273d38",
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#AdmissionOverviewDto": "c0420db94ad2d753",
         "src/modules/academy-admissions/application/results/admission-policy-result-schemas.ts#AdmissionPolicyStateDto": "087cbbc991d8f867",
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#AdmissionBatchResultDto": "5e4755498e81e48c",
@@ -3806,12 +3821,12 @@
         "src/modules/auth/infrastructure/better-auth/server-auth-context.ts#getRequestAuthContext": {
           "awaits": 1
         },
-        "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/request": {
-          "awaits": 2
-        },
         "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient~shell": {
           "projectCalls": 4,
           "awaits": 10
+        },
+        "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/send": {
+          "awaits": 2
         },
         "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/policyCommand": {
           "awaits": 1,
@@ -3820,7 +3835,7 @@
         "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/rejected": {
           "awaits": 1
         },
-        "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/json": {
+        "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/send": {
           "awaits": 3
         },
         "src/modules/academy-admissions/infrastructure/api/admission-route-http.ts#createAdmissionRouteBoundary": {
@@ -4034,6 +4049,13 @@
         },
         "src/modules/academy-admissions/constants/admission-operation-recovery-schemas.ts#admissionOperationRecoverySchema": {
           "projectCalls": 28
+        },
+        "lib/browser-request-deadline.ts#boundBrowserRequest": {
+          "awaits": 1
+        },
+        "lib/browser-request-deadline.ts#startBrowserRequestDeadline~shell": {
+          "listeners": 1,
+          "timers": 1
         },
         "src/modules/academy-admissions/application/results/admission-batch-browser-result.ts#matchesAdmissionBatchDecisionResult": {
           "database": 1
@@ -4315,53 +4337,158 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx",
-        "durationMs": 39523,
+        "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
+        "durationMs": 21358,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "1b8715f0a10ebc69fae3b1c6f7213823a550f70e412cd7e31a64920b03001784",
-        "recordedAt": "2026-10-24T21:24:41.201Z",
+        "outputSha256": "73294fb3e52a4949b8241a989cdcad9ad8e0f99d572647e42605c60b40c81709",
+        "recordedAt": "2026-10-25T01:50:56.878Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-24T22:27:03.868Z",
+        "recordedAt": "2026-10-25T01:50:57.451Z",
         "source": "attested",
-        "summary": "Emitir y revocar siguen confirmadas por el servidor con operationId; la relectura de foco se descarta si una operación posterior empezó (revisión) y no anticipa nada; copiar no compite con la relectura"
+        "summary": "Deadline compartido de los requests del navegador (boundBrowserRequest, 120 s): una escritura vencida queda incierta (transport_timeout, uncertain) para recuperar la operación original; una lectura vencida es un fallo cierto; la cancelación propia sigue siendo abort."
       }
     ],
     "limitations": [],
-    "mode": "full",
+    "mode": "incremental",
     "pendingChecks": [],
-    "recordedAt": "2026-10-24T22:27:14.783Z",
+    "recordedAt": "2026-10-25T01:51:00.259Z",
     "result": "verified",
-    "runId": "20261024T212246Z-2d521b",
+    "runId": "20261025T015034Z-2f7b33",
     "scope": {
-      "decision": "full",
+      "decision": "incremental",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "skill definition changed (1.1.0 → 1.2.0): SKILL.md",
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "17 relevant change(s) since the verified run"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "added",
+          "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/bounded",
+          "reason": "new action handler"
+        },
+        {
+          "change": "modified",
+          "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/request",
+          "reason": "action handler changed"
+        },
+        {
+          "change": "added",
+          "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/send",
+          "reason": "new action handler"
+        },
+        {
+          "change": "modified",
+          "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient~shell",
+          "reason": "component state or render changed"
+        },
+        {
+          "change": "modified",
+          "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/json",
+          "reason": "action handler changed"
+        },
+        {
+          "change": "added",
+          "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/send",
+          "reason": "new action handler"
+        },
+        {
+          "change": "added",
+          "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/timedOut",
+          "reason": "new action handler"
+        },
+        {
+          "change": "modified",
+          "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport~shell",
+          "reason": "component state or render changed"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-request-deadline.ts#<module>",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-request-deadline.ts#AbortedBrowserRequest",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-request-deadline.ts#boundBrowserRequest",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-request-deadline.ts#BrowserRequestDeadline",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-request-deadline.ts#startBrowserRequestDeadline/followCaller",
+          "reason": "new action handler"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-request-deadline.ts#startBrowserRequestDeadline~shell",
+          "reason": "component state or render changed"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/browser-request.ts#<module>",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MESSAGE",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MS",
+          "reason": "new code reached by the unit"
+        }
+      ],
       "suggestedScope": [
-        "whole unit academy.admissions.invitations.manage: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
+        "re-check the unit against the rules changed in optimistic-action-mutations/SKILL.md",
+        "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient › bounded — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+        "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient › request — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+        "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient › send — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+        "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient (component body outside its handlers) — how the component state and render show pending, optimistic and confirmed values, and what is cleaned up on unmount or context change",
+        "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport › json — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+        "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport › send — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+        "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport › timedOut — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+        "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport (component body outside its handlers) — how the component state and render show pending, optimistic and confirmed values, and what is cleaned up on unmount or context change",
+        "lib/browser-request-deadline.ts (module directives and side effects) — module directives (\"use client\", \"use server\") and side effects that change where the operation runs",
+        "lib/browser-request-deadline.ts › AbortedBrowserRequest — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "lib/browser-request-deadline.ts › boundBrowserRequest — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "lib/browser-request-deadline.ts › BrowserRequestDeadline — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "lib/browser-request-deadline.ts › startBrowserRequestDeadline › followCaller — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+        "lib/browser-request-deadline.ts › startBrowserRequestDeadline (component body outside its handlers) — how the component state and render show pending, optimistic and confirmed values, and what is cleaned up on unmount or context change",
+        "src/constants/browser-request.ts (module directives and side effects) — module directives (\"use client\", \"use server\") and side effects that change where the operation runs",
+        "src/constants/browser-request.ts › BROWSER_REQUEST_TIMEOUT_MESSAGE — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "src/constants/browser-request.ts › BROWSER_REQUEST_TIMEOUT_MS — operations that reach this code: intent, concurrency, rollback and reconciliation"
       ]
     },
     "skill": {
       "definitionFiles": {
-        "SKILL.md": "edc05978e69da764",
+        "SKILL.md": "96d98d49220f2894",
         "references/action-catalog.md": "3011dc2f28c2e91c",
         "references/concurrency-reconciliation.md": "1bb4d0816b1a483d",
         "references/framework-primitives.md": "16fc928cc9cc1f3c",
         "references/interaction-state-machine.md": "c09f8f0c506bdd54",
         "references/optimistic-decision.md": "62c41b62a67ed97a"
       },
-      "definitionHash": "sha256:dd15a0530a5e006cb85c263e146db04b998dcd88a4841dada65d0e9377c4dfda",
+      "definitionHash": "sha256:e7f9e58f5862e859cec90782e0920de1b6583e9e1904af2e8818f971aeb3448f",
       "name": "optimistic-action-mutations",
-      "version": "1.1.0"
+      "version": "1.2.0"
     },
-    "report": "runs/20261024T212246Z-2d521b.json"
+    "report": "runs/20261025T015034Z-2f7b33.json"
   }
 }
