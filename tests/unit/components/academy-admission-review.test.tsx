@@ -17,6 +17,7 @@ import { ADMISSION_REVIEW_FILTER_COPY } from "@/src/modules/academy-admissions/c
 import { ADMISSION_DECISION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ADMISSION_WHATSAPP_COPY } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
+import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
 
 const requestId = "2b71737c-2f11-4dbb-853d-080bda9628e5", operationId = "a86a3f18-a48e-4600-a057-f90e1931f7b0";
 const viewerId = "synthetic-reviewer", slug = "synthetic-academy";
@@ -677,5 +678,16 @@ describe("native reviewer container", () => {
     await act(async () => resolveWrite({ status: "ready", value: { admissionRequestId: requestId, status: "approved", version: 2 } }));
     expect(data.client.decide).toHaveBeenCalledTimes(1);
     expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("should keep a failed inbox inside the page landmark, under the page's only top heading", async () => {
+    render(<main><AdmissionSettingsPage page="review"><AdmissionReviewRouteContainer initialState={{ kind: "unavailable", code: "dependency_unavailable", message: ADMISSION_REVIEW_UI_COPY.readFailed }} client={fixture().client} /></AdmissionSettingsPage></main>, { wrapper: Providers });
+    // Let the container's own account check settle before reading the page.
+    await act(async () => { await Promise.resolve(); });
+
+    expect(screen.getAllByRole("main")).toHaveLength(1);
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 2, name: "No podemos mostrar esta admisión" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
   });
 });
