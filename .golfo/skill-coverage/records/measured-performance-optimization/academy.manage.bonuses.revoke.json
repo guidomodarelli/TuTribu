@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+      "branch": "fix/academy-single-announcements",
+      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
       "files": {
-        "components/academy/academy-management/index.tsx": "34f2bdb8739e7845",
+        "components/academy/academy-management/index.tsx": "b31e2d2038935251",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/academy/bonuses/[grantId]/revoke/route.ts": "855f33b51e6eed34",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
@@ -51,7 +51,7 @@
         "src/constants/time.ts": "98b5459a77a709b0",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:00f59d40e50b8022b67f7a65ee8ee5265b5947a815599916329f317f211aafb7",
+      "fingerprint": "sha256:9429ec6e59ca521521d0bee92a209bcf7a039c1f5bddb910e0ef4e3bed84d52a",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-management/index.tsx#MembersSection~shell": "5e5f716a7ddad39e",
@@ -96,7 +96,7 @@
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantBonus": "25c856b850289d52",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantLegacy": "ff6ccee3450ef8d0",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantPaid": "707296e2f5a106ab",
-        "components/academy/academy-management/index.tsx#MembersSection/handleRevoke": "8e2b751751e0c955",
+        "components/academy/academy-management/index.tsx#MembersSection/handleRevoke": "14b51a79d22fe867",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusPrompt": "a011f4022643b39e",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": "6371b497b9fa3370",
@@ -762,14 +762,14 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T12:23:47.367Z",
+    "recordedAt": "2026-10-25T14:12:24.254Z",
     "result": "not-applicable",
-    "runId": "20261025T122345Z-9ee404",
+    "runId": "20261025T141223Z-b5e402",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: El cambio de copy de fechas no agrega requests, consultas ni pasos al flujo."
+        "recorded not applicable: Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": []
@@ -789,8 +789,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T122345Z-9ee404.json"
+    "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T141223Z-b5e402.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",
