@@ -301,6 +301,11 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Las solicitudes de admisión pueden guardarse mientras se actualiza el indicador de personas en línea, sin quedar inciertas por un bloqueo mutuo entre esas operaciones.
 - Los avisos de «no hay nada para mostrar», como los del calendario de eventos, vuelven a cambiar de alto con una transición suave cuando cambia su texto, también en dispositivos lentos.
 - Si el pedido del código de ingreso nunca llegó a registrarse, la pantalla del solicitante ya no queda trabada consultando para siempre: pasados diez minutos y con la ausencia confirmada, ofrece «Descartar la referencia y pedir otro código» sin riesgo de un envío doble.
+- «Guardar conexión» ya no queda deshabilitado sin explicación: al presionarlo, el líder ve debajo de cada campo qué falta completar y el cursor va al primero.
+- Consultar remitentes o plantillas muestra que está trabajando, no se repite con un segundo click y, si Zavu no devuelve opciones o la consulta falla, lo explica junto al campo en lugar de pedir otra vez que se consulten.
+- «Ver avisos anteriores» suma los avisos más antiguos debajo de los que ya se ven, sin perder el aviso elegido.
+- Un aviso cuyo plazo venció se muestra como no recuperable, con el motivo, en lugar de ofrecer una recuperación que termina en un error que no corresponde.
+- Si «Consultar conexión actual» falla o tarda demasiado, se muestra como un error de la consulta con su reintento y ya no indica que la conexión cambió.
 
 ### Security
 
