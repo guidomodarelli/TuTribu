@@ -5,8 +5,11 @@ import { AdmissionWhatsappNumberField } from "@/components/academy-admissions/ad
 import { ADMISSION_WHATSAPP_COPY } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
 import styles from "./styles.module.scss";
 
-/** The route container binds explicit confirmation to the displayed resource version. */
-export type AdmissionWhatsappNumberFormProps = { value: string; currentNumber: string | null; required: boolean; confirmed: boolean; disabled: boolean; busy: boolean; errorMessage: string | null; onChange: (value: string) => void; onConfirm: (confirmed: boolean) => void; onSubmit: () => void };
+/**
+ * The route container binds explicit confirmation to the displayed resource version. `errorMessage` explains the number
+ * itself; `actionErrorMessage` explains why saving it failed, next to the save action.
+ */
+export type AdmissionWhatsappNumberFormProps = { value: string; currentNumber: string | null; required: boolean; confirmed: boolean; disabled: boolean; busy: boolean; errorMessage: string | null; actionErrorMessage?: string | null; onChange: (value: string) => void; onConfirm: (confirmed: boolean) => void; onSubmit: () => void };
 
 /** @param props - Owned current value, draft and version-bound action callbacks. @returns A separate labelled form preserving the original admission contact and evidence. */
 export function AdmissionWhatsappNumberForm(props: AdmissionWhatsappNumberFormProps) {
@@ -20,5 +23,6 @@ export function AdmissionWhatsappNumberForm(props: AdmissionWhatsappNumberFormPr
       <label htmlFor={confirmationId}>{ADMISSION_WHATSAPP_COPY.confirmEdit}</label>
     </div>
     <div className={styles.AdmissionWhatsappNumberForm__actions}><Button type="submit" disabled={props.disabled || !props.confirmed}>{props.busy ? ADMISSION_WHATSAPP_COPY.saving : ADMISSION_WHATSAPP_COPY.save}</Button></div>
+    {props.actionErrorMessage && <p role="alert" className={styles.AdmissionWhatsappNumberForm__error}>{props.actionErrorMessage}</p>}
   </form>;
 }
