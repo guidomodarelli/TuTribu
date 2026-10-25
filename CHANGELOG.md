@@ -111,6 +111,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Cada aspirante puede corregir su WhatsApp mientras la solicitud siga pendiente y vigente; el formulario conserva el cambio original si se pierde la respuesta y avisa cuando debe revisarse de nuevo.
 
 ### Changed
+- En Gestionar academia, revocar una bonificación se hace en un diálogo con el motivo, que muestra el progreso, no se envía dos veces y actualiza la lista al terminar.
+- Gestionar academia muestra «Consultando…» al buscar o paginar, saca de la lista de pendientes la solicitud que acabás de decidir y ya no borra los cambios sin guardar de la oferta al cambiar la disponibilidad o ante un conflicto.
 - Cada resultado se anuncia una sola vez, junto a la acción: aceptar una invitación personal, pedir una verificación, guardar la oferta, guardar países y cupos de mensajería y los errores de la academia ya no repiten el mismo mensaje en una notificación emergente, y un resultado incierto de la solicitud de ingreso ya no aparece dos veces.
 - «Suspender conexión» usa el tono de peligro cuando se suspende la conexión que usa la academia, porque detiene todos los avisos y códigos.
 - Los enlaces de ingreso a una academia y de una solicitud propia ya no se indexan en buscadores ni informan la página de origen al abrir otro sitio, igual que las invitaciones personales.
