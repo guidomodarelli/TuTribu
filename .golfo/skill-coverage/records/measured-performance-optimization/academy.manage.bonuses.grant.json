@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-readable-dates",
+      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
       "files": {
         "components/academy/academy-management/index.tsx": "34f2bdb8739e7845",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
@@ -39,7 +39,7 @@
         "src/modules/shared/infrastructure/backend/public-app-base-url.ts": "d9895a88e9a67e6d",
         "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-status-mapper.ts": "b62802e2786f6277",
         "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-access-token.ts": "84e7661b4a92ef99",
-        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
         "src/modules/shared/infrastructure/validation/validation-issue-summary.ts": "738c0b278fc24011",
@@ -732,14 +732,14 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T05:13:36.777Z",
+    "recordedAt": "2026-10-25T10:19:01.469Z",
     "result": "not-applicable",
-    "runId": "20261025T051335Z-1d9d40",
+    "runId": "20261025T101859Z-4d6425",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: El deadline no agrega requests, consultas ni pasos al flujo: solo un timer por request ya existente."
+        "recorded not applicable: El cambio de boundaries no agrega requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": []
@@ -759,8 +759,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "El cambio de boundaries no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T051335Z-1d9d40.json"
+    "summary": "El cambio de copy de fechas no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T101859Z-4d6425.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

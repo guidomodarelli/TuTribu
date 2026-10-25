@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-readable-dates",
+      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx": "b100620d825a2ff5",
         "app/api/tribes/[slug]/messaging/usage-policy/route.ts": "bd74481f6c2f3172",
@@ -16,7 +16,7 @@
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
         "src/modules/messaging/constants/messaging-usage.ts": "ba71bbac4e985a5a",
         "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
-        "components/academy-admissions/messaging-usage/index.tsx": "2daea40139c750c6",
+        "components/academy-admissions/messaging-usage/index.tsx": "f9b0ed2b7dfe4fa3",
         "src/modules/messaging/application/commands/messaging-usage-browser-intent.ts": "0157bef1b1925c89",
         "src/modules/messaging/application/commands/messaging-usage-draft.ts": "411daea9963a284f",
         "src/modules/messaging/application/ports/messaging-usage-browser-client.ts": "d59ee061e0823ab5",
@@ -572,7 +572,7 @@
         "src/modules/academy-admissions/constants/admission-review-dates.ts": "ed6ccaa0d7bbce25",
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f"
       },
-      "fingerprint": "sha256:02e72d6be91e9fa196a68a7b9a77ecaa3d2352abfb45e1cdc41716e8250a4143",
+      "fingerprint": "sha256:f13dba59995fe0e24055895b013cf2a9c3d1ec33814c210624cba8a52699865e",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/checkViewer": "46671a3dc374d709",
@@ -668,8 +668,8 @@
         "components/academy-admissions/messaging-usage/index.tsx#<module>": "2da3ec2294295eb1",
         "components/academy-admissions/messaging-usage/index.tsx#MessagingUsage/countryName": "2d1f702993bf1d44",
         "components/academy-admissions/messaging-usage/index.tsx#MessagingUsage/describeCountries": "ced70f850338b680",
-        "components/academy-admissions/messaging-usage/index.tsx#MessagingUsage~shell": "f2c98479838e4f3c",
-        "components/academy-admissions/messaging-usage/index.tsx#describeNoticeQuota": "cd68c61c1a2eb3fd",
+        "components/academy-admissions/messaging-usage/index.tsx#MessagingUsage~shell": "2243b880a5645a35",
+        "components/academy-admissions/messaging-usage/index.tsx#describeNoticeQuota": "1aa86c3ebdcac48d",
         "components/academy-admissions/messaging-usage/index.tsx#formatCount": "e5d225b082750648",
         "components/academy-admissions/messaging-usage/index.tsx#describeQuotaChange": "161311e1ba957818",
         "components/academy-admissions/messaging-usage/index.tsx#quotaHelp": "42a1894ec0ab5853",
@@ -5161,18 +5161,17 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T04:47:24.577Z",
+    "recordedAt": "2026-10-25T09:49:46.167Z",
     "result": "not-applicable",
-    "runId": "20261025T044722Z-dfc804",
+    "runId": "20261025T094943Z-9b7312",
     "scope": {
-      "decision": "full",
+      "decision": "not-applicable",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "recorded not applicable: El cambio de boundaries no agrega requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": [
-        "measure the complete flow /[slug]/academia/admissions/messaging before and after, same build, data and throttling; median of 3 for noisy metrics"
-      ]
+      "suggestedScope": []
     },
     "skill": {
       "definitionFiles": {
@@ -5189,8 +5188,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "El cambio de boundaries no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T044722Z-dfc804.json"
+    "summary": "El cambio de copy de fechas no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T094943Z-9b7312.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

@@ -5,15 +5,16 @@ import { normalizeAdmissionContact } from "../../domain/value-objects/admission-
 import { normalizePersonalInvitationName } from "../../domain/value-objects/personal-invitation-name";
 import { ADMISSION_CONTACT_NORMALIZATION_STATUS, ADMISSION_CONTACT_TYPE } from "../../constants/admission-contact";
 import { ADMISSION_LIMIT } from "../../constants/admission-limits";
-import { PERSONAL_INVITATION_MANAGEMENT_DATE, PERSONAL_INVITATION_MANAGEMENT_MODE } from "../../constants/personal-invitation-management-browser";
+import { PERSONAL_INVITATION_MANAGEMENT_MODE } from "../../constants/personal-invitation-management-browser";
+import { fromBuenosAiresMinuteKey, toBuenosAiresMinuteKey } from "@/src/modules/shared/application/date-time/buenos-aires-minute";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { ADMISSION_INVITATION_STATUS } from "../../constants/admission-eligibility";
 
-/** @param state - Safe current settings. @returns A deterministic fresh proposal in UTC, without restored consent. */
+/** @param state - Safe current settings. @returns A deterministic fresh proposal in Argentina time, without restored consent. */
 export function emptyPersonalInvitationManagementDraft(state: Extract<PersonalInvitationManagementPageState, { kind: "ready" }>): PersonalInvitationManagementDraft {
-  return { mode: PERSONAL_INVITATION_MANAGEMENT_MODE.create, selected: null, internalName: "", identity: "", country: state.allowedCountries[0] ?? "", requiresAllowlist: state.hasUsableAllowlist, exemptionAcknowledged: false, expiry: new Date(new Date(state.renderedAt).getTime() + ADMISSION_LIMIT.invitationDefaultValidityMs).toISOString().slice(0, PERSONAL_INVITATION_MANAGEMENT_DATE.minuteCharacters), noExpiry: false, noExpiryAcknowledged: false, replaceSelected: false, replacementAcknowledged: false, internalReason: "", withdrawalAcknowledged: false };
+  return { mode: PERSONAL_INVITATION_MANAGEMENT_MODE.create, selected: null, internalName: "", identity: "", country: state.allowedCountries[0] ?? "", requiresAllowlist: state.hasUsableAllowlist, exemptionAcknowledged: false, expiry: toBuenosAiresMinuteKey(new Date(new Date(state.renderedAt).getTime() + ADMISSION_LIMIT.invitationDefaultValidityMs)), noExpiry: false, noExpiryAcknowledged: false, replaceSelected: false, replacementAcknowledged: false, internalReason: "", withdrawalAcknowledged: false };
 }
 /** @param state - Current safe settings. @param draft - Current proposal without durable authority. @param operationId - New secure original UUID. @param now - Client clock used only for pre-action feedback; SQL remains authoritative. @returns Canonical intent or a controlled validation failure before dispatch. */
 export function preparePersonalInvitationManagementIntent(state: Extract<PersonalInvitationManagementPageState, { kind: "ready" }>, draft: PersonalInvitationManagementDraft, operationId: string, now: Date): PersonalInvitationManagementIntent {
@@ -28,7 +29,8 @@ export function preparePersonalInvitationManagementIntent(state: Extract<Persona
   const contact = normalizeAdmissionContact({ type: state.contactType, value: draft.identity, country: draft.country || undefined });
   if (contact.status !== ADMISSION_CONTACT_NORMALIZATION_STATUS.valid || contact.contact.type === ADMISSION_CONTACT_TYPE.phone && !state.allowedCountries.includes(contact.contact.country)) throw invalid();
   if (draft.replaceSelected && draft.selected && (draft.selected.status !== ADMISSION_INVITATION_STATUS.active || contact.contact.type !== draft.selected.recipient.type || contact.contact.value !== draft.selected.recipient.value || contact.contact.type === ADMISSION_CONTACT_TYPE.phone && contact.contact.country !== draft.selected.recipient.country)) throw invalid();
-  const expiresAt = draft.noExpiry ? null : PERSONAL_INVITATION_MANAGEMENT_DATE.minutePattern.test(draft.expiry) ? new Date(draft.expiry + PERSONAL_INVITATION_MANAGEMENT_DATE.utcSuffix) : null;
-  if (!draft.noExpiry && (!expiresAt || !Number.isFinite(expiresAt.getTime()) || expiresAt <= now || expiresAt.toISOString().slice(0, PERSONAL_INVITATION_MANAGEMENT_DATE.minuteCharacters) !== draft.expiry)) throw invalid();
+  // The leader picks the expiry in Argentina time; a value that does not name one real minute is rejected.
+  const expiresAt = draft.noExpiry ? null : fromBuenosAiresMinuteKey(draft.expiry);
+  if (!draft.noExpiry && (!expiresAt || expiresAt <= now)) throw invalid();
   return { type: REAUTHENTICATION_OPERATION.createPersonalInvitation, input: { operationId, confirmed: true, internalName: normalizePersonalInvitationName(draft.internalName), recipient: { type: contact.contact.type, value: contact.contact.value, ...(contact.contact.type === ADMISSION_CONTACT_TYPE.phone ? { country: contact.contact.country } : {}) }, requiresAllowlist: draft.requiresAllowlist, ...(!draft.requiresAllowlist ? { acknowledgeNoAllowlist: true } : {}), expiresAt: expiresAt?.toISOString() ?? null, ...(draft.replaceSelected && draft.selected ? { replacement: { invitationId: draft.selected.id, expectedVersion: draft.selected.version } } : {}) } };
 }

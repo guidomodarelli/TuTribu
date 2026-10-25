@@ -8,7 +8,8 @@ import { InvitationsContainer } from "@/app/(platform)/[slug]/academia/admission
 import type { PersonalInvitationManagementPageState } from "@/src/modules/academy-admissions/application/results/personal-invitation-management-page-state";
 import type { PersonalInvitationManagementBrowserClient } from "@/src/modules/academy-admissions/application/ports/personal-invitation-management-browser-client";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
-import { PERSONAL_INVITATION_MANAGEMENT_COPY, PERSONAL_INVITATION_MANAGEMENT_DATE } from "@/src/modules/academy-admissions/constants/personal-invitation-management-browser";
+import { PERSONAL_INVITATION_MANAGEMENT_COPY } from "@/src/modules/academy-admissions/constants/personal-invitation-management-browser";
+import { fromBuenosAiresMinuteKey, toBuenosAiresMinuteKey } from "@/src/modules/shared/application/date-time/buenos-aires-minute";
 
 const CONFIRMATION = "Confirmo esta acción sobre la invitación personal.";
 
@@ -110,10 +111,10 @@ describe("personal invitation management controls", () => {
     expect(screen.getByRole("checkbox", { name: "Exigir coincidencia en la lista de habilitados" })).toBeChecked();
     expect(screen.queryByRole("checkbox", { name: /Reconozco la dispensa/ })).not.toBeInTheDocument();
     await next(user);
-    const expiry = screen.getByLabelText("Vencimiento del enlace (fecha y hora UTC)");
-    const expectedDefault = new Date(new Date(data.initial.renderedAt).getTime() + ADMISSION_LIMIT.invitationDefaultValidityMs).toISOString().slice(0, PERSONAL_INVITATION_MANAGEMENT_DATE.minuteCharacters);
+    const expiry = screen.getByLabelText("Vencimiento del enlace (hora de Argentina)");
+    const expectedDefault = toBuenosAiresMinuteKey(new Date(new Date(data.initial.renderedAt).getTime() + ADMISSION_LIMIT.invitationDefaultValidityMs));
     expect(expiry).toHaveValue(expectedDefault);
-    const selectedExpiry = new Date(new Date(data.initial.renderedAt).getTime() + ADMISSION_LIMIT.invitationDefaultValidityMs + ADMISSION_LIMIT.invitationDefaultValidityMs).toISOString().slice(0, PERSONAL_INVITATION_MANAGEMENT_DATE.minuteCharacters);
+    const selectedExpiry = toBuenosAiresMinuteKey(new Date(new Date(data.initial.renderedAt).getTime() + ADMISSION_LIMIT.invitationDefaultValidityMs + ADMISSION_LIMIT.invitationDefaultValidityMs));
     fireEvent.change(expiry, { target: { value: selectedExpiry } });
     await next(user);
     await user.click(screen.getByRole("checkbox", { name: CONFIRMATION }));
@@ -121,7 +122,7 @@ describe("personal invitation management controls", () => {
     await waitFor(() => expect(data.client.write).toHaveBeenCalledTimes(1));
     const intent = vi.mocked(data.client.write).mock.calls[0][1];
     expect(intent.type).toBe("create_personal_invitation");
-    expect(intent.input).toMatchObject({ requiresAllowlist: true, expiresAt: new Date(selectedExpiry + PERSONAL_INVITATION_MANAGEMENT_DATE.utcSuffix).toISOString() });
+    expect(intent.input).toMatchObject({ requiresAllowlist: true, expiresAt: fromBuenosAiresMinuteKey(selectedExpiry)?.toISOString() });
     expect(intent.input).not.toHaveProperty("acknowledgeNoAllowlist");
   });
 
@@ -130,7 +131,7 @@ describe("personal invitation management controls", () => {
     await user.type(screen.getByLabelText("Nombre interno"), "Grupo inicial");
     await user.type(screen.getByLabelText("Correo destinatario"), "recipient@example.test");
     await next(user); await user.click(screen.getByRole("checkbox", { name: /Reconozco la dispensa/ })); await next(user);
-    fireEvent.change(screen.getByLabelText("Vencimiento del enlace (fecha y hora UTC)"), { target: { value: data.initial.renderedAt.slice(0, PERSONAL_INVITATION_MANAGEMENT_DATE.minuteCharacters) } });
+    fireEvent.change(screen.getByLabelText("Vencimiento del enlace (hora de Argentina)"), { target: { value: toBuenosAiresMinuteKey(new Date(data.initial.renderedAt)) } });
     await next(user);
     await user.click(screen.getByRole("checkbox", { name: CONFIRMATION }));
     await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
@@ -138,8 +139,8 @@ describe("personal invitation management controls", () => {
     await waitFor(() => expect(feedback).toHaveFocus());
     expect(data.client.write).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Atrás" }));
-    const futureExpiry = new Date(new Date(data.initial.renderedAt).getTime() + ADMISSION_LIMIT.invitationDefaultValidityMs).toISOString().slice(0, PERSONAL_INVITATION_MANAGEMENT_DATE.minuteCharacters);
-    fireEvent.change(screen.getByLabelText("Vencimiento del enlace (fecha y hora UTC)"), { target: { value: futureExpiry } });
+    const futureExpiry = toBuenosAiresMinuteKey(new Date(new Date(data.initial.renderedAt).getTime() + ADMISSION_LIMIT.invitationDefaultValidityMs));
+    fireEvent.change(screen.getByLabelText("Vencimiento del enlace (hora de Argentina)"), { target: { value: futureExpiry } });
     await next(user);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: CONFIRMATION })).not.toBeChecked();
@@ -155,7 +156,7 @@ describe("personal invitation management controls", () => {
     await user.type(screen.getByLabelText("Correo destinatario"), "recipient@example.test");
     await next(user); await user.click(screen.getByRole("checkbox", { name: /Reconozco la dispensa/ })); await next(user);
     await user.click(screen.getByRole("checkbox", { name: "Sin vencimiento" }));
-    expect(screen.getByLabelText("Vencimiento del enlace (fecha y hora UTC)")).toBeDisabled();
+    expect(screen.getByLabelText("Vencimiento del enlace (hora de Argentina)")).toBeDisabled();
     expect(screen.getByText(PERSONAL_INVITATION_MANAGEMENT_COPY.noExpiryRequired)).toBeVisible();
     expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
     await user.click(screen.getByRole("checkbox", { name: /Reconozco que el enlace seguirá utilizable/ }));

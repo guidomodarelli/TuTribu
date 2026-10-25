@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-readable-dates",
+      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
       "files": {
         "app/(platform)/[slug]/academia/admissions/page.tsx": "33ca5cc942c75b6a",
         "app/(platform)/[slug]/academia/admissions/loading.tsx": "30d2c5951cad7c98",
@@ -228,7 +228,7 @@
         "components/academy-admissions/admission-decision-form/index.tsx": "0a980854ea644a15",
         "src/modules/academy-admissions/constants/admission-review-history-page.ts": "dc04c8d09051bfbb",
         "src/modules/academy-admissions/constants/admission-whatsapp-number.ts": "521a60307c6b8fca",
-        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/modules/academy-admissions/constants/admission-whatsapp-number-schemas.ts": "c0bfb66112fff4e7",
         "src/modules/academy-admissions/domain/repositories/admission-review-reader.ts": "9cf6e16f7e88802d",
         "src/modules/academy-admissions/application/ports/admission-browser-client.ts": "e4d882fd3cf5bf02",
@@ -5880,18 +5880,17 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T04:57:02.647Z",
+    "recordedAt": "2026-10-25T09:57:17.126Z",
     "result": "not-applicable",
-    "runId": "20261025T045659Z-8040fc",
+    "runId": "20261025T095713Z-82104d",
     "scope": {
-      "decision": "full",
+      "decision": "not-applicable",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "recorded not applicable: El cambio de boundaries no agrega requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": [
-        "measure the complete flow /[slug]/academia/admissions before and after, same build, data and throttling; median of 3 for noisy metrics"
-      ]
+      "suggestedScope": []
     },
     "skill": {
       "definitionFiles": {
@@ -5908,8 +5907,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "El cambio de boundaries no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T045659Z-8040fc.json"
+    "summary": "El cambio de copy de fechas no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T095713Z-82104d.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

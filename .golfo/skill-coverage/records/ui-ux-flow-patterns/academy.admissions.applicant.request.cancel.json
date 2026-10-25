@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-readable-dates",
+      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
       "files": {
         "app/(admission)/admissions/[slug]/admission-container.tsx": "c241519f0d3f3cf0",
         "app/api/tribes/[slug]/admissions/requests/[requestId]/cancel/route.ts": "354575e4972e026b",
@@ -153,7 +153,7 @@
         "src/modules/academy-admissions/application/results/admission-contract-fields.ts": "a4913419cef9bbde",
         "src/modules/academy-admissions/constants/admission-whatsapp-number-schemas.ts": "c0bfb66112fff4e7",
         "components/academy-admissions/admission-form/index.tsx": "c9e419348d7e884a",
-        "components/academy-admissions/contact-verification/index.tsx": "68a77bb79786a129",
+        "components/academy-admissions/contact-verification/index.tsx": "2b3c413518b191a3",
         "components/forms/guided-steps/index.tsx": "3408dd218a444fb6",
         "components/academy-admissions/admission-request-steps/styles.module.scss": "121ba918b5f922ee",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
@@ -211,7 +211,7 @@
         "src/modules/messaging/constants/messaging-diagnostic-browser.ts": "ed8ca8f52e2b7e72",
         "components/academy-admissions/contact-verification/styles.module.scss": "50159c36bc3d92b9",
         "components/forms/guided-steps/styles.module.scss": "485b69a1722cd88b",
-        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "components/academy-admissions/request-status/styles.module.scss": "5d84f9da7950f90a",
         "components/academy-admissions/admission-whatsapp-number-field/styles.module.scss": "90351ceb6f74003f",
         "src/modules/academy-admissions/domain/repositories/admission-review-reader.ts": "9cf6e16f7e88802d",
@@ -249,7 +249,7 @@
         "src/modules/notifications/constants/admission-notification-groups.ts": "22f213c753d3ef05",
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f"
       },
-      "fingerprint": "sha256:7d1fe9a66ccbbb223103f790fc1b03e8564e6433aee3e42db94a58fe1334ed60",
+      "fingerprint": "sha256:df2cdc280d8be5eadc3ba1b0fc9d147f32dde171c2f6f5a734770f93db7ea390",
       "inputs": {
         "app/(admission)/admissions/[slug]/admission-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(admission)/admissions/[slug]/admission-container.tsx#AdmissionContainer~shell": "b216182b238364d1",
@@ -951,9 +951,10 @@
         "src/modules/academy-admissions/constants/admission-request-flow.ts#ADMISSION_REQUEST_FLOW_COPY.verifyTitle": "e234b4dd84abe132",
         "src/modules/academy-admissions/constants/admission-request-flow.ts#ADMISSION_REQUEST_FLOW_COPY.whatsappFact": "3c4531e3c40ea83d",
         "components/academy-admissions/contact-verification/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/contact-verification/index.tsx#ContactVerification": "13fae8de53e22a3c",
+        "components/academy-admissions/contact-verification/index.tsx#ContactVerification": "c547420d648f268c",
         "components/academy-admissions/contact-verification/index.tsx#contactVerificationAvailability": "ad623dfb8a7ea2ac",
         "components/academy-admissions/contact-verification/index.tsx#ContactVerificationAvailability": "4abc819b5c3b86e7",
+        "components/academy-admissions/contact-verification/index.tsx#formatContactCountdown": "60d8d3d8a7306152",
         "components/academy-admissions/contact-verification/index.tsx#ContactVerificationResendActions": "0ccf3457a0296c14",
         "components/forms/guided-steps/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/forms/guided-steps/index.tsx#GuidedSteps/go": "98cb89a80f7ac0e2",
@@ -1365,6 +1366,7 @@
         "src/modules/messaging/constants/messaging-diagnostic-browser.ts#MESSAGING_DELIVERY_STATE_LABEL.suppressed": "9763622501e94d70",
         "src/modules/messaging/constants/messaging-diagnostic-browser.ts#MESSAGING_DELIVERY_STATE_LABEL.cancelled": "3c95c31ad696f0a4",
         "src/modules/messaging/constants/messaging-diagnostic-browser.ts#MESSAGING_DELIVERY_STATE_LABEL~frame": "daba69347a1eb15e",
+        "src/constants/time.ts#SECONDS_PER_MINUTE": "0ad154f12f8642c8",
         "components/academy-admissions/contact-verification/styles.module.scss#*": "50159c36bc3d92b9",
         "components/forms/guided-steps/styles.module.scss#*": "485b69a1722cd88b",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_EVIDENCE_KIND.declared": "3c9b89d795cbb728",
@@ -1699,38 +1701,55 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
-        "durationMs": 35842,
+        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
+        "durationMs": 62702,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "0fd9fcb1a4e6af6c68f9e04cb98d1cb54c1f371296b69e8135a92e76d0937350",
-        "recordedAt": "2026-10-25T04:13:06.114Z",
+        "outputSha256": "772ef78fb97671c27bfe75609062dce986fed65a8ef02657d5bd8d9c7fde8a7f",
+        "recordedAt": "2026-10-25T09:25:02.484Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T04:13:07.416Z",
+        "recordedAt": "2026-10-25T09:25:03.061Z",
         "source": "attested",
-        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
+        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
       }
     ],
     "limitations": [
-      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T04:13:10.113Z",
+    "recordedAt": "2026-10-25T09:25:05.178Z",
     "result": "partial",
-    "runId": "20261025T041229Z-6248ee",
+    "runId": "20261025T092359Z-c5ea1a",
     "scope": {
       "decision": "full",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "components/academy-admissions/contact-verification/index.tsx#ContactVerification",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "components/academy-admissions/contact-verification/index.tsx#formatContactCountdown",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/time.ts#SECONDS_PER_MINUTE",
+          "reason": "new visible or interactive code"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.admissions.applicant.request.cancel: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
       ]
@@ -1748,7 +1767,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T041229Z-6248ee.json"
+    "report": "runs/20261025T092359Z-c5ea1a.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

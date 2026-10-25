@@ -1,0 +1,72 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-readable-dates",
+    "commit": "fa7cb142183cf6b7cfab79a8ad7ab7095384e455",
+    "fingerprint": "sha256:73b91d4358f259e6b13ff748de1c80fe194fca3e6f5bde811a53c596b001bcf1",
+    "uncommittedFiles": [],
+    "fileCount": 305,
+    "inputCount": 1583
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
+      "durationMs": 75751,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "78b5c8a3c15a6717908ea2790adae9df4c4078f70cc76915e4d555e53eba9252",
+      "recordedAt": "2026-10-25T05:00:30.311Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T05:00:30.812Z",
+      "source": "attested",
+      "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T05:00:31.304Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: antes, «Vencimiento del enlace (fecha y hora UTC)», vigencia «2026-11-01T04:48:00.000Z (UTC)», «día UTC» y «2026-10-25 04:47:57.580 UTC»; después, «(hora de Argentina)», «01 nov 2026 · 01:54», «de 21:00 a 21:00 (hora de Argentina)», «Consumo del día» y «Período iniciado el 24 oct 2026 · 21:00» (4/4)."
+    }
+  ],
+  "limitations": [
+    "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T05:00:33.388Z",
+  "result": "partial",
+  "runId": "20261025T045913Z-b612b7",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "no previous coverage: the whole unit is analyzed"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit academy.admissions.activity.view: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T04:59:13.950Z",
+  "unitId": "academy.admissions.activity.view"
+}

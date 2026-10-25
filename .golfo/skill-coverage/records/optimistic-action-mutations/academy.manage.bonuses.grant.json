@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-readable-dates",
+      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
       "files": {
         "components/academy/academy-management/index.tsx": "34f2bdb8739e7845",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
@@ -39,7 +39,7 @@
         "src/modules/shared/infrastructure/backend/public-app-base-url.ts": "d9895a88e9a67e6d",
         "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-status-mapper.ts": "b62802e2786f6277",
         "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-access-token.ts": "84e7661b4a92ef99",
-        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
         "src/modules/shared/infrastructure/validation/validation-issue-summary.ts": "738c0b278fc24011",
@@ -730,45 +730,39 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
-        "durationMs": 43727,
+        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
+        "durationMs": 63413,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "e56ab90996bab08e2dfda52211aa182168f18ca208b30ff9d8d5189c5a761824",
-        "recordedAt": "2026-10-25T05:12:40.074Z",
+        "outputSha256": "1f7d6cdcdbaf4004720167e87f7c3db27125426aa19fcf6d2b99c5ef93039cf3",
+        "recordedAt": "2026-10-25T10:17:41.819Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T05:12:40.788Z",
+        "recordedAt": "2026-10-25T10:17:42.373Z",
         "source": "attested",
-        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
+        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
       }
     ],
     "limitations": [
-      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T05:12:42.408Z",
+    "recordedAt": "2026-10-25T10:17:43.805Z",
     "result": "partial",
-    "runId": "20261025T051155Z-d728ba",
+    "runId": "20261025T101637Z-87f218",
     "scope": {
       "decision": "full",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage",
-          "reason": "code reached by the unit changed"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.manage.bonuses.grant: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -786,7 +780,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T051155Z-d728ba.json"
+    "report": "runs/20261025T101637Z-87f218.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

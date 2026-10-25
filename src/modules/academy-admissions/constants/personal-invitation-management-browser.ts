@@ -6,7 +6,6 @@ import type { PersonalInvitationManagementReference } from "../application/comma
 export const PERSONAL_INVITATION_MANAGEMENT_PATH = { prefix: "/api/tribes", segment: "admissions/invitations", context: "context", operations: "admissions/operations", revoke: "revoke" } as const;
 export const PERSONAL_INVITATION_MANAGEMENT_STORAGE_PREFIX = "tutribu-personal-invitation-management";
 export const PERSONAL_INVITATION_MANAGEMENT_TIMEOUT_MS = 120_000;
-export const PERSONAL_INVITATION_MANAGEMENT_DATE = { minuteCharacters: 16, utcSuffix: ":00Z", minutePattern: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/u, timeZone: "UTC" } as const;
 export const PERSONAL_INVITATION_MANAGEMENT_MODE = { create: "create", rename: "rename", revoke: "revoke" } as const;
 export const PERSONAL_INVITATION_MANAGEMENT_PHASE = { checking: "checking", idle: "idle", reading: "reading", writing: "writing", uncertain: "uncertain", closed: "closed" } as const;
 export const PERSONAL_INVITATION_MANAGEMENT_FILTER_ALL = "all";

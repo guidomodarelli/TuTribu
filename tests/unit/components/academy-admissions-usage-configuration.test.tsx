@@ -31,9 +31,9 @@ function configure(props: MessagingUsageProps, policy: MessagingUsagePolicyDto, 
 
 beforeEach(() => vi.clearAllMocks());
 describe("guided messaging usage presenter", () => {
-  it("should explain the UTC budget and provider billing without implying a fixed monetary balance", () => {
+  it("should explain the daily budget in Argentina time and provider billing without implying a fixed monetary balance", () => {
     render(<MessagingUsage {...fixture()} />, { wrapper: Providers });
-    expect(screen.getByText(/día.*UTC/i)).toBeInTheDocument();
+    expect(screen.getByText(/por día, de 21:00 a 21:00 \(hora de Argentina\)/)).toBeInTheDocument();
     expect(screen.getByText(/proveedor.*factura.*cuenta.*líder/i)).toBeInTheDocument();
     expect(screen.getByText(/cupos.*no.*garantía.*monetaria/i)).toBeInTheDocument();
   });

@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-readable-dates",
+      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
       "files": {
         "app/(platform)/[slug]/academia/page.tsx": "a4c7427e95123588",
         "app/(platform)/[slug]/academia/loading.tsx": "f9871c638174780b",
@@ -241,7 +241,7 @@
         "config/legacy-redirects.ts": "6e723edb2bbdd69f",
         "config/cloudflare-dev-runtime.ts": "5c9b3670ad614400",
         "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
-        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/modules/messaging/domain/value-objects/messaging-key-purpose.ts": "3cb73fd082b826f2",
         "components/feedback/error-state/styles.module.scss": "c3291993525c2d1c",
         "src/modules/notifications/application/results/notification-result.ts": "b51b03f97ab4da09",
@@ -2870,47 +2870,48 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
-        "durationMs": 33821,
+        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
+        "durationMs": 63660,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "ffd90325ab8f56e648d520cbef766d0aee97eb2a7b7847396a9c45bdae7ffdef",
-        "recordedAt": "2026-10-25T05:01:17.018Z",
+        "outputSha256": "0a41b8a2fce0f5388cc4def35cad0edaa87564d547395d4e76496548eac2ff1d",
+        "recordedAt": "2026-10-25T10:04:20.205Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 3173,
+        "durationMs": 2924,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T05:01:20.801Z",
+        "recordedAt": "2026-10-25T10:04:23.652Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T05:01:21.368Z",
+        "recordedAt": "2026-10-25T10:04:24.179Z",
         "source": "attested",
-        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
+        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
       }
     ],
     "limitations": [
-      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T05:01:23.744Z",
+    "recordedAt": "2026-10-25T10:04:26.247Z",
     "result": "partial",
-    "runId": "20261025T050042Z-d63821",
+    "runId": "20261025T100316Z-e08207",
     "scope": {
       "decision": "full",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": [
@@ -2930,7 +2931,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T050042Z-d63821.json"
+    "report": "runs/20261025T100316Z-e08207.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",
