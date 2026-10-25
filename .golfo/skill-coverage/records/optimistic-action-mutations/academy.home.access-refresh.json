@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-admission-request-deadline",
-      "commit": "2b2a89c3f6be74f42c5e082a2da4341efcb264f6",
+      "branch": "fix/academy-readable-dates",
+      "commit": "fa7cb142183cf6b7cfab79a8ad7ab7095384e455",
       "files": {
         "components/academy/academy-home/index.tsx": "809988db00523019",
         "app/(platform)/[slug]/academia/page.tsx": "8be7106822155a86",
@@ -69,7 +69,7 @@
         "src/modules/member-verifications/constants/member-verifications.ts": "6640da7d026fefbb",
         "src/modules/member-verifications/domain/services/member-verification-transitions.ts": "c6028b12077ddcd5",
         "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
-        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
         "src/modules/setup.ts": "b7906aa060d53395",
@@ -1485,44 +1485,39 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
-        "durationMs": 25346,
+        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
+        "durationMs": 63855,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "4adc7b2d5e46df6dfb122baf0d22376fb12fa69ca3f8f35d0635b2c0888c0673",
-        "recordedAt": "2026-10-25T02:58:04.075Z",
+        "outputSha256": "e04968a231e4df80070c04ec82b8e21d69fec91b8f036c42cf05e2b52cbd5d39",
+        "recordedAt": "2026-10-25T06:12:38.094Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T02:58:04.571Z",
+        "recordedAt": "2026-10-25T06:12:38.625Z",
         "source": "attested",
-        "summary": "Deadline compartido de los requests del navegador (120 s) y lectura del cuerpo: un cuerpo cortado por el deadline o por la cancelación propia es un fallo, nunca un éxito; una escritura vencida queda incierta y una lectura vencida es un fallo cierto."
+        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
       }
     ],
     "limitations": [
-      "Solo se revisó el deadline de los requests del navegador que agrega este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T02:58:06.136Z",
+    "recordedAt": "2026-10-25T06:12:40.340Z",
     "result": "partial",
-    "runId": "20261025T025738Z-e53664",
+    "runId": "20261025T061133Z-d930fb",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "lib/academy/academy-api-client.ts#sendAcademyApiRequest",
-          "reason": "code reached by the unit changed"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.home.access-refresh: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -1540,7 +1535,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T025738Z-e53664.json"
+    "report": "runs/20261025T061133Z-d930fb.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

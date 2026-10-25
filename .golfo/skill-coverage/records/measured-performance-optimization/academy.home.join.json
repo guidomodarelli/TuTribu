@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-admission-request-deadline",
-      "commit": "2b2a89c3f6be74f42c5e082a2da4341efcb264f6",
+      "branch": "fix/academy-readable-dates",
+      "commit": "fa7cb142183cf6b7cfab79a8ad7ab7095384e455",
       "files": {
         "components/academy/academy-home/index.tsx": "809988db00523019",
         "app/(platform)/[slug]/academia/page.tsx": "8be7106822155a86",
@@ -202,7 +202,7 @@
         "src/modules/auth/application/use-cases/get-authenticated-member-use-case.ts": "6ae2f4d7a505f8f5",
         "src/modules/auth/domain/entities/authenticated-member.ts": "1a2dac539d8da9d9",
         "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
-        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/modules/academy-admissions/application/ports/admission-browser-client.ts": "e4d882fd3cf5bf02",
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts": "f1942bcecd1a2254",
         "src/modules/academy-admissions/application/results/academy-entry-result.ts": "c0911f00b5d914c3",
@@ -5486,12 +5486,13 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T03:02:33.734Z",
+    "recordedAt": "2026-10-25T06:24:52.395Z",
     "result": "not-applicable",
-    "runId": "20261025T030230Z-0840d4",
+    "runId": "20261025T062449Z-b841ae",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "recorded not applicable: El deadline no agrega requests, consultas ni pasos al flujo: solo un timer por request ya existente."
       ],
       "relevantChangesAtBegin": [],
@@ -5512,8 +5513,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "El deadline no agrega requests, consultas ni pasos al flujo: solo un timer por request ya existente.",
-    "report": "runs/20261025T030230Z-0840d4.json"
+    "summary": "El cambio de copy de fechas no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T062449Z-b841ae.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

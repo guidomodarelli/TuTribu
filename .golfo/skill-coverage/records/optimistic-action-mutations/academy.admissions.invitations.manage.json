@@ -6,13 +6,13 @@
   "verified": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-admission-request-deadline",
-      "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
+      "branch": "fix/academy-readable-dates",
+      "commit": "fa7cb142183cf6b7cfab79a8ad7ab7095384e455",
       "files": {
         "app/(platform)/[slug]/academia/admissions/invitations/page.tsx": "5731b66b99705bd9",
         "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx": "0ae1742a06c8464b",
         "hooks/use-personal-invitation-management.ts": "2d57762623290e7d",
-        "components/academy-admissions/invitation-management/index.tsx": "2c0490589ada4ec9",
+        "components/academy-admissions/invitation-management/index.tsx": "79d3a32c12af37ed",
         "app/api/tribes/[slug]/admissions/invitations/route.ts": "1ab19645aca4c8d0",
         "app/api/tribes/[slug]/admissions/invitations/[invitationId]/route.ts": "626d54f78fe12588",
         "app/api/tribes/[slug]/admissions/invitations/[invitationId]/revoke/route.ts": "744bec237ebb9cb2",
@@ -21,14 +21,14 @@
         "src/modules/auth/setup.ts": "37e200547ae950e4",
         "src/modules/auth/infrastructure/repositories/better-auth-session-repository.ts": "9c52b296a068064a",
         "components/academy-admissions/admission-route-error/index.tsx": "a069fa4c83845f3f",
-        "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts": "0b8a4ad902ce4210",
+        "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts": "26acdd7976b9a0a8",
         "src/modules/academy-admissions/application/ports/personal-invitation-management-browser-client.ts": "31afaf330e73d6ff",
         "src/modules/academy-admissions/application/results/personal-invitation-management-page-state.ts": "84e8a54f1c9df3cf",
         "lib/academy-admissions/personal-invitation-management-api-client.ts": "fe1581c89177cc7a",
         "src/modules/academy-admissions/constants/admission-errors.ts": "4a393e9826800086",
         "src/modules/academy-admissions/application/commands/personal-invitation-management-intent.ts": "b9259cde3e332804",
         "lib/toasts/write-toast.ts": "2bdc7e827e8fc523",
-        "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts": "8d118dee16d2bbfd",
+        "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts": "f1c7d9accf25dffa",
         "lib/academy-admissions/personal-invitation-management-intent.ts": "1589f75f6b7371ce",
         "src/constants/operation-state.ts": "8658825f51feae9a",
         "src/modules/auth/constants/reauthentication-resources.ts": "73b5e0d97c9862f7",
@@ -37,6 +37,8 @@
         "src/modules/academy-admissions/constants/admission-eligibility.ts": "eb86fa4c334de686",
         "src/modules/academy-admissions/constants/admission-limits.ts": "2d7d087ec36ae67b",
         "components/forms/guided-steps/index.tsx": "3408dd218a444fb6",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
+        "src/modules/shared/application/date-time/buenos-aires-minute.ts": "4968676132a37835",
         "src/modules/academy-admissions/infrastructure/api/personal-invitation-management-handlers.ts": "f0cf08984b91f24e",
         "src/modules/setup.ts": "b7906aa060d53395",
         "src/modules/academy-admissions/infrastructure/api/personal-invitation-management-context-handler.ts": "01af97ac61700ffc",
@@ -140,6 +142,7 @@
         "src/modules/academy-admissions/constants/admission-contact.ts": "cf90895cb275bdd9",
         "src/modules/academy-admissions/domain/value-objects/admission-contact.ts": "b67579afa51cdbd8",
         "src/modules/academy-admissions/domain/value-objects/personal-invitation-name.ts": "ba3bcb4501f97274",
+        "src/constants/date-time.ts": "120f12f7530df5ba",
         "src/modules/academy-admissions/constants/personal-invitation-http.ts": "b16a20c313bac0c6",
         "src/modules/academy-admissions/constants/admission-management-contract.ts": "3bb5dfe8f88b8bb4",
         "src/constants/http-status.ts": "8d7e9b02c87ad83b",
@@ -467,7 +470,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:3721530c175c0d8edca7f3c067be7d66c52387d6f062db67a5d511bdf937144c",
+      "fingerprint": "sha256:bfea95e89f117b78cbd9ea0b7055d72e48b7b4ef2260513e603829711a847f30",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/invitations/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/invitations/page.tsx#InvitationsPage": "4e110598df2d3c91",
@@ -496,7 +499,8 @@
         "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/discardSelection": "38032b437dfc259d",
         "components/academy-admissions/invitation-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy-admissions/invitation-management/index.tsx#InvitationManagement/change": "1b5a538f84919e40",
-        "components/academy-admissions/invitation-management/index.tsx#InvitationManagement~shell": "32907a27483198e9",
+        "components/academy-admissions/invitation-management/index.tsx#InvitationManagement~shell": "7535017498e6bd60",
+        "components/academy-admissions/invitation-management/index.tsx#formatInvitationExpiry": "59cfd1e84fdb590d",
         "app/api/tribes/[slug]/admissions/invitations/route.ts#<module>": "2da3ec2294295eb1",
         "app/api/tribes/[slug]/admissions/invitations/route.ts#GET": "81267c483e9f161d",
         "app/api/tribes/[slug]/admissions/invitations/route.ts#POST": "9f86025fdbf53c15",
@@ -601,7 +605,7 @@
         "lib/toasts/write-toast.ts#<module>": "d414f6d3ee71f10d",
         "lib/toasts/write-toast.ts#WriteToast": "814b5d754cefadee",
         "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts#emptyPersonalInvitationManagementDraft": "1c17b5d980febd65",
+        "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts#emptyPersonalInvitationManagementDraft": "7cb7df5547112731",
         "lib/academy-admissions/personal-invitation-management-intent.ts#<module>": "d414f6d3ee71f10d",
         "lib/academy-admissions/personal-invitation-management-intent.ts#writePersonalInvitationManagementReference": "ca9fcdf371ca9165",
         "lib/academy-admissions/personal-invitation-management-intent.ts#key": "6a6aace45ad34668",
@@ -650,7 +654,7 @@
         "lib/academy-admissions/admission-draft.ts#UUID_PROTOCOL.versionFour": "ed6a34c54476b521",
         "lib/academy-admissions/admission-draft.ts#UUID_PROTOCOL.versionIndex": "ca7a8bb455d00e1e",
         "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts#preparePersonalInvitationManagementIntent/invalid": "82e3ed3c3ec2d022",
-        "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts#preparePersonalInvitationManagementIntent~shell": "974d3667cb6a4bc9",
+        "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts#preparePersonalInvitationManagementIntent~shell": "4db79f5d927d2d62",
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_COPY.absent": "4aa19dc4465776a6",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_INVITATION_STATUS~frame": "1992d8b39ae1544c",
@@ -707,6 +711,35 @@
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_STATUS_LABEL.expired": "2264fa364a38e71a",
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_STATUS_LABEL.redeemed": "4e589a23c3b0d4f0",
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_STATUS_LABEL~frame": "caffee3e6e2bdbcc",
+        "lib/date-time/buenos-aires-format.ts#<module>": "2da3ec2294295eb1",
+        "lib/date-time/buenos-aires-format.ts#formatBuenosAiresDateTime": "a9fd2652df321432",
+        "lib/date-time/buenos-aires-format.ts#DATE_KEY_FORMATTER": "112e45ec62aab015",
+        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION~frame": "0594d2c74d77d78b",
+        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.numeric": "8979e5232f1c7e96",
+        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.twoDigit": "dae00c6c37e34107",
+        "lib/date-time/buenos-aires-format.ts#LOCALE~frame": "fec71633af80cddf",
+        "lib/date-time/buenos-aires-format.ts#LOCALE.machine": "b1a581db589805cb",
+        "lib/date-time/buenos-aires-format.ts#DATE_PART~frame": "90dfa8f8dff8cebb",
+        "lib/date-time/buenos-aires-format.ts#DATE_PART.year": "c074dd4a9fd21fcb",
+        "lib/date-time/buenos-aires-format.ts#DATE_TIME_SEPARATOR": "e9ca1aa774b425f5",
+        "lib/date-time/buenos-aires-format.ts#formatBuenosAiresShortDate": "15a36b97a9647ea4",
+        "lib/date-time/buenos-aires-format.ts#DATE_PART.day": "0b5c609f1da2c0ed",
+        "lib/date-time/buenos-aires-format.ts#DATE_PART.month": "7469b833c149a8cb",
+        "lib/date-time/buenos-aires-format.ts#SHORT_DATE_FORMATTER": "38d2b655dfb4a4ca",
+        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.short": "757da1c764846c2f",
+        "lib/date-time/buenos-aires-format.ts#LOCALE.spanish": "d13dd49da717b594",
+        "lib/date-time/buenos-aires-format.ts#readPart": "dc788ed8110c0c1c",
+        "lib/date-time/buenos-aires-format.ts#stripTrailingPeriod": "81e285d2701298ae",
+        "lib/date-time/buenos-aires-format.ts#TRAILING_PERIOD_PATTERN": "b5c571f629a756a2",
+        "lib/date-time/buenos-aires-format.ts#formatBuenosAiresTime": "7329a65919ab8754",
+        "lib/date-time/buenos-aires-format.ts#TIME_FORMATTER": "c4956c28b3daff8f",
+        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.hourCycle": "c762eaa8629cbd09",
+        "src/modules/shared/application/date-time/buenos-aires-minute.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/shared/application/date-time/buenos-aires-minute.ts#fromBuenosAiresMinuteKey": "2e7a2c6672bc6ff5",
+        "src/modules/shared/application/date-time/buenos-aires-minute.ts#BUENOS_AIRES_MINUTE_KEY_PATTERN": "bd1a9b69cadcd61c",
+        "src/modules/shared/application/date-time/buenos-aires-minute.ts#SECONDS_SUFFIX": "f3e75c6bb403f622",
+        "src/modules/shared/application/date-time/buenos-aires-minute.ts#toBuenosAiresMinuteKey": "02b4f9cab325f13d",
+        "src/modules/shared/application/date-time/buenos-aires-minute.ts#MINUTE_KEY_FORMATTER": "265322c01c0ef395",
         "src/modules/academy-admissions/infrastructure/api/personal-invitation-management-handlers.ts#<module>": "f7e3cf85771fe55e",
         "src/modules/academy-admissions/infrastructure/api/personal-invitation-management-handlers.ts#createPersonalInvitationManagementHandlers/bindViewer": "a20bc6d633cede70",
         "src/modules/academy-admissions/infrastructure/api/personal-invitation-management-handlers.ts#createPersonalInvitationManagementHandlers/execute": "29783d587504253e",
@@ -1015,8 +1048,6 @@
         "src/modules/academy-admissions/constants/admission-limits.ts#ADMISSION_LIMIT.invitationDefaultValidityMs": "8cb3662a97cab7a4",
         "src/modules/academy-admissions/constants/admission-limits.ts#DAY_MS": "d00905f946189f05",
         "src/modules/academy-admissions/constants/admission-limits.ts#INVITATION_DEFAULT_VALIDITY_DAYS": "1f6bcfca51a7efc2",
-        "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_DATE~frame": "1ad00cbb666d7a14",
-        "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_DATE.minuteCharacters": "203cf90613b2eff1",
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_STORAGE_PREFIX": "7782ac247953a29e",
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#personalInvitationManagementStoredSchema": "3aeeb4df8cc82e95",
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#personalInvitationManagementReferenceSchema": "16897d1b3d74307d",
@@ -1028,8 +1059,6 @@
         "src/modules/academy-admissions/constants/admission-contact.ts#ADMISSION_CONTACT_NORMALIZATION_STATUS.valid": "237b8386dc04842f",
         "src/modules/academy-admissions/constants/admission-contact.ts#ADMISSION_CONTACT_TYPE~frame": "8cf43d05ba3ee68d",
         "src/modules/academy-admissions/constants/admission-contact.ts#ADMISSION_CONTACT_TYPE.phone": "caed0b9041592d85",
-        "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_DATE.minutePattern": "8b338f6d5397e439",
-        "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_DATE.utcSuffix": "b62b42139c3ef4ef",
         "src/modules/academy-admissions/application/commands/personal-invitation-management-intent.ts#PersonalInvitationManagementIntent": "ee0ef77d11546aa1",
         "src/modules/academy-admissions/domain/value-objects/admission-contact.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/domain/value-objects/admission-contact.ts#normalizeAdmissionContact": "1fa3a7ae51493713",
@@ -1037,6 +1066,9 @@
         "src/modules/academy-admissions/domain/value-objects/admission-contact.ts#AdmissionContact": "093f7f4bae6486ee",
         "src/modules/academy-admissions/domain/value-objects/personal-invitation-name.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/domain/value-objects/personal-invitation-name.ts#normalizePersonalInvitationName": "5957b82fbd6e88b7",
+        "src/constants/date-time.ts#<module>": "2da3ec2294295eb1",
+        "src/constants/date-time.ts#BUENOS_AIRES_TIME_ZONE": "32ddc5a9f4e45c83",
+        "src/constants/date-time.ts#BUENOS_AIRES_UTC_OFFSET": "9e89ac6972bf4d4e",
         "src/modules/academy-admissions/constants/personal-invitation-http.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/personal-invitation-http.ts#PERSONAL_INVITATION_HTTP_ACTION~frame": "d76091968d3710f4",
         "src/modules/academy-admissions/constants/personal-invitation-http.ts#PERSONAL_INVITATION_HTTP_ACTION.create": "9b5cb553a2f567ee",
@@ -4337,143 +4369,279 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
-        "durationMs": 21358,
+        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
+        "durationMs": 72826,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "73294fb3e52a4949b8241a989cdcad9ad8e0f99d572647e42605c60b40c81709",
-        "recordedAt": "2026-10-25T01:50:56.878Z",
+        "outputSha256": "dfa6932851780e1bd29c2accc48822dd5bcd5920c9e226e401cce49cf6b10c0c",
+        "recordedAt": "2026-10-25T05:57:40.257Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T01:50:57.451Z",
+        "recordedAt": "2026-10-25T05:57:40.858Z",
         "source": "attested",
-        "summary": "Deadline compartido de los requests del navegador (boundBrowserRequest, 120 s): una escritura vencida queda incierta (transport_timeout, uncertain) para recuperar la operación original; una lectura vencida es un fallo cierto; la cancelación propia sigue siendo abort."
+        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
       }
     ],
     "limitations": [],
     "mode": "incremental",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T01:51:00.259Z",
+    "recordedAt": "2026-10-25T05:57:43.460Z",
     "result": "verified",
-    "runId": "20261025T015034Z-2f7b33",
+    "runId": "20261025T055626Z-12489e",
     "scope": {
       "decision": "incremental",
       "reasons": [
-        "skill definition changed (1.1.0 → 1.2.0): SKILL.md",
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "17 relevant change(s) since the verified run"
+        "40 relevant change(s) since the verified run"
       ],
       "relevantChangesAtBegin": [
         {
           "change": "added",
-          "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/bounded",
-          "reason": "new action handler"
+          "key": "components/academy-admissions/invitation-management/index.tsx#formatInvitationExpiry",
+          "reason": "new code reached by the unit"
         },
         {
           "change": "modified",
-          "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/request",
-          "reason": "action handler changed"
-        },
-        {
-          "change": "added",
-          "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/send",
-          "reason": "new action handler"
-        },
-        {
-          "change": "modified",
-          "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient~shell",
-          "reason": "component state or render changed"
-        },
-        {
-          "change": "modified",
-          "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/json",
-          "reason": "action handler changed"
-        },
-        {
-          "change": "added",
-          "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/send",
-          "reason": "new action handler"
-        },
-        {
-          "change": "added",
-          "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/timedOut",
-          "reason": "new action handler"
-        },
-        {
-          "change": "modified",
-          "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport~shell",
+          "key": "components/academy-admissions/invitation-management/index.tsx#InvitationManagement~shell",
           "reason": "component state or render changed"
         },
         {
           "change": "added",
-          "key": "lib/browser-request-deadline.ts#<module>",
+          "key": "lib/date-time/buenos-aires-format.ts#<module>",
           "reason": "new code reached by the unit"
         },
         {
           "change": "added",
-          "key": "lib/browser-request-deadline.ts#AbortedBrowserRequest",
+          "key": "lib/date-time/buenos-aires-format.ts#DATE_KEY_FORMATTER",
           "reason": "new code reached by the unit"
         },
         {
           "change": "added",
-          "key": "lib/browser-request-deadline.ts#boundBrowserRequest",
+          "key": "lib/date-time/buenos-aires-format.ts#DATE_PART.day",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#DATE_PART.month",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#DATE_PART.year",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#DATE_PART~frame",
           "reason": "new code reached by the unit"
         },
         {
           "change": "added",
-          "key": "lib/browser-request-deadline.ts#BrowserRequestDeadline",
+          "key": "lib/date-time/buenos-aires-format.ts#DATE_TIME_SEPARATOR",
           "reason": "new code reached by the unit"
         },
         {
           "change": "added",
-          "key": "lib/browser-request-deadline.ts#startBrowserRequestDeadline/followCaller",
-          "reason": "new action handler"
+          "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.hourCycle",
+          "reason": "unclassified object member: lifecycle impact unknown"
         },
         {
           "change": "added",
-          "key": "lib/browser-request-deadline.ts#startBrowserRequestDeadline~shell",
+          "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.numeric",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.short",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.twoDigit",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION~frame",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#formatBuenosAiresDateTime",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#formatBuenosAiresShortDate",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#formatBuenosAiresTime",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#LOCALE.machine",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#LOCALE.spanish",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#LOCALE~frame",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#readPart",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#SHORT_DATE_FORMATTER",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#stripTrailingPeriod",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#TIME_FORMATTER",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/date-time/buenos-aires-format.ts#TRAILING_PERIOD_PATTERN",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/date-time.ts#<module>",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/date-time.ts#BUENOS_AIRES_TIME_ZONE",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/date-time.ts#BUENOS_AIRES_UTC_OFFSET",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts#emptyPersonalInvitationManagementDraft",
+          "reason": "code reached by the unit changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts#preparePersonalInvitationManagementIntent~shell",
           "reason": "component state or render changed"
         },
         {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_DATE.minuteCharacters",
+          "reason": "code no longer reached by the unit: an operation may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_DATE.minutePattern",
+          "reason": "code no longer reached by the unit: an operation may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_DATE.utcSuffix",
+          "reason": "code no longer reached by the unit: an operation may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_DATE~frame",
+          "reason": "code no longer reached by the unit: an operation may have been removed"
+        },
+        {
           "change": "added",
-          "key": "src/constants/browser-request.ts#<module>",
+          "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#<module>",
           "reason": "new code reached by the unit"
         },
         {
           "change": "added",
-          "key": "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MESSAGE",
+          "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#BUENOS_AIRES_MINUTE_KEY_PATTERN",
           "reason": "new code reached by the unit"
         },
         {
           "change": "added",
-          "key": "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MS",
+          "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#fromBuenosAiresMinuteKey",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#MINUTE_KEY_FORMATTER",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#SECONDS_SUFFIX",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#toBuenosAiresMinuteKey",
           "reason": "new code reached by the unit"
         }
       ],
       "suggestedScope": [
-        "re-check the unit against the rules changed in optimistic-action-mutations/SKILL.md",
-        "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient › bounded — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
-        "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient › request — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
-        "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient › send — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
-        "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient (component body outside its handlers) — how the component state and render show pending, optimistic and confirmed values, and what is cleaned up on unmount or context change",
-        "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport › json — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
-        "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport › send — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
-        "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport › timedOut — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
-        "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport (component body outside its handlers) — how the component state and render show pending, optimistic and confirmed values, and what is cleaned up on unmount or context change",
-        "lib/browser-request-deadline.ts (module directives and side effects) — module directives (\"use client\", \"use server\") and side effects that change where the operation runs",
-        "lib/browser-request-deadline.ts › AbortedBrowserRequest — operations that reach this code: intent, concurrency, rollback and reconciliation",
-        "lib/browser-request-deadline.ts › boundBrowserRequest — operations that reach this code: intent, concurrency, rollback and reconciliation",
-        "lib/browser-request-deadline.ts › BrowserRequestDeadline — operations that reach this code: intent, concurrency, rollback and reconciliation",
-        "lib/browser-request-deadline.ts › startBrowserRequestDeadline › followCaller — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
-        "lib/browser-request-deadline.ts › startBrowserRequestDeadline (component body outside its handlers) — how the component state and render show pending, optimistic and confirmed values, and what is cleaned up on unmount or context change",
-        "src/constants/browser-request.ts (module directives and side effects) — module directives (\"use client\", \"use server\") and side effects that change where the operation runs",
-        "src/constants/browser-request.ts › BROWSER_REQUEST_TIMEOUT_MESSAGE — operations that reach this code: intent, concurrency, rollback and reconciliation",
-        "src/constants/browser-request.ts › BROWSER_REQUEST_TIMEOUT_MS — operations that reach this code: intent, concurrency, rollback and reconciliation"
+        "components/academy-admissions/invitation-management/index.tsx › formatInvitationExpiry — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "components/academy-admissions/invitation-management/index.tsx › InvitationManagement (component body outside its handlers) — how the component state and render show pending, optimistic and confirmed values, and what is cleaned up on unmount or context change",
+        "lib/date-time/buenos-aires-format.ts (module directives and side effects) — module directives (\"use client\", \"use server\") and side effects that change where the operation runs",
+        "lib/date-time/buenos-aires-format.ts › DATE_KEY_FORMATTER — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "lib/date-time/buenos-aires-format.ts › DATE_PART.day — lifecycle configuration read from this member (timing, limits, endpoints, cache keys) in every operation that uses it",
+        "lib/date-time/buenos-aires-format.ts › DATE_PART.month — lifecycle configuration read from this member (timing, limits, endpoints, cache keys) in every operation that uses it",
+        "lib/date-time/buenos-aires-format.ts › DATE_PART.year — lifecycle configuration read from this member (timing, limits, endpoints, cache keys) in every operation that uses it",
+        "lib/date-time/buenos-aires-format.ts › DATE_PART (object structure) — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "lib/date-time/buenos-aires-format.ts › DATE_TIME_SEPARATOR — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "lib/date-time/buenos-aires-format.ts › FORMAT_OPTION.hourCycle — lifecycle configuration read from this member (timing, limits, endpoints, cache keys) in every operation that uses it",
+        "lib/date-time/buenos-aires-format.ts › FORMAT_OPTION.numeric — lifecycle configuration read from this member (timing, limits, endpoints, cache keys) in every operation that uses it",
+        "lib/date-time/buenos-aires-format.ts › FORMAT_OPTION.short — lifecycle configuration read from this member (timing, limits, endpoints, cache keys) in every operation that uses it",
+        "lib/date-time/buenos-aires-format.ts › FORMAT_OPTION.twoDigit — lifecycle configuration read from this member (timing, limits, endpoints, cache keys) in every operation that uses it",
+        "lib/date-time/buenos-aires-format.ts › FORMAT_OPTION (object structure) — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "lib/date-time/buenos-aires-format.ts › formatBuenosAiresDateTime — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "lib/date-time/buenos-aires-format.ts › formatBuenosAiresShortDate — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "lib/date-time/buenos-aires-format.ts › formatBuenosAiresTime — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "lib/date-time/buenos-aires-format.ts › LOCALE.machine — lifecycle configuration read from this member (timing, limits, endpoints, cache keys) in every operation that uses it",
+        "lib/date-time/buenos-aires-format.ts › LOCALE.spanish — lifecycle configuration read from this member (timing, limits, endpoints, cache keys) in every operation that uses it",
+        "lib/date-time/buenos-aires-format.ts › LOCALE (object structure) — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "lib/date-time/buenos-aires-format.ts › readPart — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "lib/date-time/buenos-aires-format.ts › SHORT_DATE_FORMATTER — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "lib/date-time/buenos-aires-format.ts › stripTrailingPeriod — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "lib/date-time/buenos-aires-format.ts › TIME_FORMATTER — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "lib/date-time/buenos-aires-format.ts › TRAILING_PERIOD_PATTERN — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "src/constants/date-time.ts (module directives and side effects) — module directives (\"use client\", \"use server\") and side effects that change where the operation runs",
+        "src/constants/date-time.ts › BUENOS_AIRES_TIME_ZONE — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "src/constants/date-time.ts › BUENOS_AIRES_UTC_OFFSET — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts › emptyPersonalInvitationManagementDraft — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts › preparePersonalInvitationManagementIntent (component body outside its handlers) — how the component state and render show pending, optimistic and confirmed values, and what is cleaned up on unmount or context change",
+        "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts › PERSONAL_INVITATION_MANAGEMENT_DATE.minuteCharacters — an operation was removed or moved: check that no pending intent, timer, rollback or cache entry still points to it",
+        "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts › PERSONAL_INVITATION_MANAGEMENT_DATE.minutePattern — an operation was removed or moved: check that no pending intent, timer, rollback or cache entry still points to it",
+        "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts › PERSONAL_INVITATION_MANAGEMENT_DATE.utcSuffix — an operation was removed or moved: check that no pending intent, timer, rollback or cache entry still points to it",
+        "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts › PERSONAL_INVITATION_MANAGEMENT_DATE (object structure) — an operation was removed or moved: check that no pending intent, timer, rollback or cache entry still points to it",
+        "src/modules/shared/application/date-time/buenos-aires-minute.ts (module directives and side effects) — module directives (\"use client\", \"use server\") and side effects that change where the operation runs",
+        "src/modules/shared/application/date-time/buenos-aires-minute.ts › BUENOS_AIRES_MINUTE_KEY_PATTERN — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "src/modules/shared/application/date-time/buenos-aires-minute.ts › fromBuenosAiresMinuteKey — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "src/modules/shared/application/date-time/buenos-aires-minute.ts › MINUTE_KEY_FORMATTER — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "src/modules/shared/application/date-time/buenos-aires-minute.ts › SECONDS_SUFFIX — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "src/modules/shared/application/date-time/buenos-aires-minute.ts › toBuenosAiresMinuteKey — operations that reach this code: intent, concurrency, rollback and reconciliation"
       ]
     },
     "skill": {
@@ -4489,6 +4657,6 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T015034Z-2f7b33.json"
+    "report": "runs/20261025T055626Z-12489e.json"
   }
 }

@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-pages-ignore-unknown-query",
-      "commit": "59c3cedd91685b065f9e2dcc12e75e5f4d574872",
+      "branch": "fix/academy-readable-dates",
+      "commit": "fa7cb142183cf6b7cfab79a8ad7ab7095384e455",
       "files": {
         "app/(admission)/admissions/[slug]/page.tsx": "67170dc0d4d7cd40",
         "app/(admission)/admissions/[slug]/loading.tsx": "12be8cbc448c8353",
@@ -122,7 +122,7 @@
         "components/academy-admissions/admission-whatsapp-number-field/index.tsx": "10cbeb4aeca70640",
         "components/academy-admissions/admission-form/styles.module.scss": "d5377cbb2dc7c81f",
         "src/modules/academy-admissions/constants/request-status-presentation.ts": "e692acb82a512346",
-        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/modules/academy-admissions/application/results/admission-own-request-message.ts": "376aa9f92849ede5",
         "components/academy-admissions/request-status/styles.module.scss": "5d84f9da7950f90a",
         "src/modules/academy-admissions/constants/admission-contact.ts": "cf90895cb275bdd9",
@@ -711,54 +711,38 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/modules/academy-admissions/application/admission-page.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-page.test.ts [redacted]-connections-page.test.ts [redacted]-usage-page.test.ts",
-        "durationMs": 6731,
+        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
+        "durationMs": 70845,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "18c302f16638179d9bc479b109fb2ea585bd9ad6f49eb431fe3b9513ed0f4e6a",
-        "recordedAt": "2026-10-25T01:10:48.725Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
-      },
-      {
-        "command": "pnpm run -s typecheck",
-        "durationMs": 18102,
-        "exitCode": 0,
-        "kind": "command",
-        "outcome": "pass",
-        "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T01:11:07.258Z",
+        "outputSha256": "3d0dd6db4ed3dac9c7472ac382f4722b8856f02889b0d8da52c5911bc553863f",
+        "recordedAt": "2026-10-25T05:18:49.099Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T01:11:07.721Z",
+        "recordedAt": "2026-10-25T05:18:49.665Z",
         "source": "attested",
-        "summary": "La página ignora las claves de query desconocidas (z.object en lugar de z.strictObject) y sigue validando las que lee; las APIs siguen estrictas, según la decisión del usuario."
-      },
-      {
-        "kind": "browser",
-        "outcome": "pass",
-        "recordedAt": "2026-10-25T01:11:08.193Z",
-        "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app con ?utm_source, ?utm_campaign y ?fbclid: antes las páginas de admisión, conexión y uso mostraban el estado no disponible (4/4); después cargan normalmente (4/4)."
+        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
       }
     ],
     "limitations": [
-      "Solo se revisó el manejo de la query de la página; el resto de los estados de la unidad queda para su propia auditoría."
+      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T01:11:09.584Z",
+    "recordedAt": "2026-10-25T05:18:51.659Z",
     "result": "partial",
-    "runId": "20261025T011041Z-e343e2",
+    "runId": "20261025T051737Z-5df4fc",
     "scope": {
       "decision": "full",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "skill definition changed (1.4.1 → 1.5.0): SKILL.md",
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": [
@@ -767,18 +751,18 @@
     },
     "skill": {
       "definitionFiles": {
-        "SKILL.md": "a27ab40c70e78c90",
+        "SKILL.md": "9fc5ee4bb0e2e4e9",
         "references/feedback-channels.md": "aa0394882f505308",
         "references/flow-catalog.md": "77527b8062d13243",
         "references/sources.md": "018203bece1d2e8a",
         "references/state-matrix.md": "026b6005f6fa0cae",
         "references/validation-feedback.md": "3e4fb5d227cacfbd"
       },
-      "definitionHash": "sha256:262d130d4e0582dad8bd65e40b350a22b52d1393120ae35689e1bc817203bf14",
+      "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
       "name": "ui-ux-flow-patterns",
-      "version": "1.4.1"
+      "version": "1.5.0"
     },
-    "report": "runs/20261025T011041Z-e343e2.json"
+    "report": "runs/20261025T051737Z-5df4fc.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

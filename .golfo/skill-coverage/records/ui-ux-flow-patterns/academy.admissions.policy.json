@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-admission-request-deadline",
-      "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
+      "branch": "fix/academy-readable-dates",
+      "commit": "fa7cb142183cf6b7cfab79a8ad7ab7095384e455",
       "files": {
         "app/(platform)/[slug]/academia/admissions/settings/policy-container.tsx": "6138a1727480ac5f",
         "app/(platform)/[slug]/academia/admissions/settings/page.tsx": "75fa14e540d1439d",
@@ -151,7 +151,7 @@
         "src/modules/academy-admissions/constants/admission-ui.ts": "a57d7d4286770b34",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "components/academy-admissions/admission-route-error/styles.module.scss": "e8e041d2af1c8b74",
-        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "components/academy-admissions/commercial-membership-review/styles.module.scss": "15766c5bc527c8c9",
         "src/modules/academy-admissions/application/ports/admission-browser-client.ts": "e4d882fd3cf5bf02",
         "src/modules/academy-admissions/domain/entities/admission-operation.ts": "3cefd00867036cfe",
@@ -1689,36 +1689,37 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
-        "durationMs": 23510,
+        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
+        "durationMs": 62493,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "e1fafaf8dd3afede776f3416f1299163d121f57ab9dea4a0f1f4746c16bd5f7f",
-        "recordedAt": "2026-10-25T01:53:49.715Z",
+        "outputSha256": "1c77a9ae039fa090c3a448714f82a9fc769de2514dd10fdb3ff4f60aace73ef1",
+        "recordedAt": "2026-10-25T06:04:02.491Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T01:53:50.279Z",
+        "recordedAt": "2026-10-25T06:04:02.990Z",
         "source": "attested",
-        "summary": "Deadline compartido de los requests del navegador (boundBrowserRequest, 120 s): una escritura vencida queda incierta (transport_timeout, uncertain) para recuperar la operación original; una lectura vencida es un fallo cierto; la cancelación propia sigue siendo abort."
+        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
       }
     ],
     "limitations": [
-      "Solo se revisó el deadline de los requests del navegador que agrega este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T01:53:52.507Z",
+    "recordedAt": "2026-10-25T06:04:05.023Z",
     "result": "partial",
-    "runId": "20261025T015325Z-6ea4b3",
+    "runId": "20261025T060259Z-92e824",
     "scope": {
       "decision": "full",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": [
@@ -1738,7 +1739,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T015325Z-6ea4b3.json"
+    "report": "runs/20261025T060259Z-92e824.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",
