@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "perf/academy-page-round-trips",
+      "commit": "ccb559dffef3630f85b470bbd6ca6f3be559b4fe",
       "files": {
         "components/academy/academy-management/index.tsx": "b31e2d2038935251",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
         "app/api/tribes/[slug]/verifications/[verificationId]/route.ts": "1169beb137a7ceac",
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
         "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts": "65c276a71c59ef25",
@@ -322,18 +322,32 @@
       },
       "uncommittedFiles": []
     },
-    "evidence": [],
-    "limitations": [],
+    "evidence": [
+      {
+        "command": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx",
+        "durationMs": 37736,
+        "exitCode": 0,
+        "kind": "test",
+        "outcome": "pass",
+        "outputSha256": "a81192728d9aaa5813662dc91163d57c5bdbe2c4c47ff8e0af75c0046d27b6c9",
+        "recordedAt": "2026-10-25T20:59:19.593Z",
+        "source": "witnessed",
+        "summary": "exit code 0"
+      }
+    ],
+    "limitations": [
+      "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+    ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T14:23:24.197Z",
-    "result": "not-applicable",
-    "runId": "20261025T142323Z-7dfa91",
+    "recordedAt": "2026-10-25T20:59:24.075Z",
+    "result": "partial",
+    "runId": "20261025T205839Z-5441cc",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo."
+        "recorded not applicable: Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": []
@@ -353,8 +367,7 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T142323Z-7dfa91.json"
+    "report": "runs/20261025T205839Z-5441cc.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

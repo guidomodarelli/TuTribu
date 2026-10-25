@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "perf/academy-page-round-trips",
+      "commit": "ccb559dffef3630f85b470bbd6ca6f3be559b4fe",
       "files": {
         "components/academy/academy-management/index.tsx": "b31e2d2038935251",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
         "app/api/tribes/[slug]/verification-providers/route.ts": "20c6fdde30cc0509",
         "app/api/tribes/[slug]/verification-providers/[providerId]/route.ts": "7d432268fbc39135",
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
@@ -339,18 +339,32 @@
       },
       "uncommittedFiles": []
     },
-    "evidence": [],
-    "limitations": [],
+    "evidence": [
+      {
+        "command": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx",
+        "durationMs": 30119,
+        "exitCode": 0,
+        "kind": "test",
+        "outcome": "pass",
+        "outputSha256": "8e58243d32cb2e4d6aaa2a64f321c7a2a4bc29e3ec303e5792b7203d6b8ee2f9",
+        "recordedAt": "2026-10-25T20:56:28.775Z",
+        "source": "witnessed",
+        "summary": "exit code 0"
+      }
+    ],
+    "limitations": [
+      "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+    ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T14:20:40.924Z",
-    "result": "not-applicable",
-    "runId": "20261025T142039Z-2ad4f1",
+    "recordedAt": "2026-10-25T20:56:31.708Z",
+    "result": "partial",
+    "runId": "20261025T205557Z-641162",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo."
+        "recorded not applicable: Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": []
@@ -370,8 +384,7 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T142039Z-2ad4f1.json"
+    "report": "runs/20261025T205557Z-641162.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

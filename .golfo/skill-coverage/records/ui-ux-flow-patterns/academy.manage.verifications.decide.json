@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "perf/academy-page-round-trips",
+      "commit": "ccb559dffef3630f85b470bbd6ca6f3be559b4fe",
       "files": {
         "components/academy/academy-management/index.tsx": "b31e2d2038935251",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
         "app/api/tribes/[slug]/verifications/[verificationId]/route.ts": "1169beb137a7ceac",
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
         "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts": "65c276a71c59ef25",
@@ -200,32 +200,39 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 48896,
+        "command": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx",
+        "durationMs": 31385,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "67c855a1fc673051c6c959f63ed4891454ae6e6cb183a5f50ed2dd93a5378f4b",
-        "recordedAt": "2026-10-25T14:21:31.744Z",
+        "outputSha256": "d9b050e426586830f5d17ab0fdbd20edd5af7c720a4bdb788e17590699c08641",
+        "recordedAt": "2026-10-25T20:57:05.908Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T14:21:32.249Z",
+        "recordedAt": "2026-10-25T20:57:06.876Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Lecturas del render: integrantes, cola, configuración y proveedores salen en una sola tanda; la configuración responde null y los proveedores solo los activos a un guardián, y la página usa esas respuestas solo para el líder; un fallo sigue llegando al boundary del segmento."
+      },
+      {
+        "kind": "browser",
+        "outcome": "pass",
+        "recordedAt": "2026-10-25T20:57:07.866Z",
+        "source": "attested",
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Gestionar academia carga para el líder con Configuración, Proveedores de verificación, Solicitudes de verificación y Accesos de integrantes (4/4)."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T14:21:33.393Z",
+    "recordedAt": "2026-10-25T20:57:09.973Z",
     "result": "partial",
-    "runId": "20261025T142042Z-1c2102",
+    "runId": "20261025T205633Z-87f8fd",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -250,7 +257,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T142042Z-1c2102.json"
+    "report": "runs/20261025T205633Z-87f8fd.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

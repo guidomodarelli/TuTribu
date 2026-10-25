@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "perf/academy-page-round-trips",
+      "commit": "ccb559dffef3630f85b470bbd6ca6f3be559b4fe",
       "files": {
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
         "components/academy/academy-management/index.tsx": "b31e2d2038935251",
         "app/(platform)/[slug]/academia/gestionar/loading.tsx": "efdd51c1e0f631dd",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
@@ -41,10 +41,10 @@
         "src/modules/subscriptions/domain/services/monthly-billing-cycle.ts": "1e253b01e98f41b8",
         "src/constants/time.ts": "98b5459a77a709b0"
       },
-      "fingerprint": "sha256:bbf46a0d193aea4112dca3ef3440d2e1c6cc13539d04a6a510e5da326b5d55d3",
+      "fingerprint": "sha256:29705da58ece06e99009af248b1264b17aabeb538a61d0a38809266795b26463",
       "inputs": {
         "app/(platform)/[slug]/academia/gestionar/page.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": "3ebed5c9c877c3bf",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": "2a00c59b13d7afd2",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#MANAGEMENT_PAGE~frame": "df600e477132a2b8",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#MANAGEMENT_PAGE.firstPage": "5ef54f08154e6bad",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#MANAGEMENT_PAGE.pendingStatus": "f879946581980090",
@@ -484,7 +484,7 @@
       },
       "signals": {
         "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": {
-          "awaits": 2
+          "awaits": 1
         },
         "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": {
           "awaits": 3
@@ -553,39 +553,45 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 49373,
+        "command": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx",
+        "durationMs": 52537,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "f2bca34f4425061c0c62ba593893d1f33a1b785b57c68ac7cda3b21067e6aeb0",
-        "recordedAt": "2026-10-25T14:27:53.000Z",
+        "outputSha256": "e4061948f92fbbb2614d47fff2fbe1901e4f29c5317689818ae6e5819b54380b",
+        "recordedAt": "2026-10-25T21:03:29.383Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T14:27:53.517Z",
+        "recordedAt": "2026-10-25T21:03:30.678Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Lecturas del render: integrantes, cola, configuración y proveedores salen en una sola tanda; la configuración responde null y los proveedores solo los activos a un guardián, y la página usa esas respuestas solo para el líder; un fallo sigue llegando al boundary del segmento."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T14:27:54.756Z",
+    "recordedAt": "2026-10-25T21:03:34.424Z",
     "result": "partial",
-    "runId": "20261025T142703Z-64baac",
+    "runId": "20261025T210236Z-f16d4d",
     "scope": {
       "decision": "full",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps",
+          "reason": "code reached by the unit changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.manage.view: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -603,7 +609,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T142703Z-64baac.json"
+    "report": "runs/20261025T210236Z-f16d4d.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

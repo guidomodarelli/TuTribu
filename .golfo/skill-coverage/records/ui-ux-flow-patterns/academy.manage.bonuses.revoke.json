@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "perf/academy-page-round-trips",
+      "commit": "ccb559dffef3630f85b470bbd6ca6f3be559b4fe",
       "files": {
         "components/academy/academy-management/index.tsx": "b31e2d2038935251",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
         "app/api/tribes/[slug]/academy/bonuses/[grantId]/revoke/route.ts": "855f33b51e6eed34",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
         "src/modules/product-access/infrastructure/repositories/postgres-product-access-repository.ts": "b6d068802851a5fa",
@@ -517,45 +517,46 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 48821,
+        "command": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx",
+        "durationMs": 29924,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "ac43ee518d6686dc214b9216f416ab8c391e736692f0caf15067899c4cef0d0f",
-        "recordedAt": "2026-10-25T14:10:29.953Z",
+        "outputSha256": "d30bb433b059c05c2fc0dc8805bb74890cf467f1091f387de8b647299cae1146",
+        "recordedAt": "2026-10-25T20:47:05.326Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T14:10:30.450Z",
+        "recordedAt": "2026-10-25T20:47:06.793Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Lecturas del render: integrantes, cola, configuración y proveedores salen en una sola tanda; la configuración responde null y los proveedores solo los activos a un guardián, y la página usa esas respuestas solo para el líder; un fallo sigue llegando al boundary del segmento."
+      },
+      {
+        "kind": "browser",
+        "outcome": "pass",
+        "recordedAt": "2026-10-25T20:47:07.636Z",
+        "source": "attested",
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Gestionar academia carga para el líder con Configuración, Proveedores de verificación, Solicitudes de verificación y Accesos de integrantes (4/4)."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T14:10:31.647Z",
+    "recordedAt": "2026-10-25T20:47:10.312Z",
     "result": "partial",
-    "runId": "20261025T140940Z-3fcab4",
+    "runId": "20261025T204634Z-a3bf6e",
     "scope": {
       "decision": "full",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "components/academy/academy-management/index.tsx#MembersSection/handleRevoke",
-          "reason": "visible or interactive code changed"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.manage.bonuses.revoke: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
       ]
@@ -573,7 +574,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T140940Z-3fcab4.json"
+    "report": "runs/20261025T204634Z-a3bf6e.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

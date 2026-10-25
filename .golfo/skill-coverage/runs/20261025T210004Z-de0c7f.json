@@ -1,0 +1,66 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "perf/academy-page-round-trips",
+    "commit": "ccb559dffef3630f85b470bbd6ca6f3be559b4fe",
+    "fingerprint": "sha256:5c0dda71f42e4326968d37d281377a89075f2dc8be6d172587c1c76ead9c166e",
+    "uncommittedFiles": [],
+    "fileCount": 22,
+    "inputCount": 229
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx",
+      "durationMs": 37025,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "9153103023a968d94a6f376ce48ca1ed07158a9026c2117835a860dec7853ff0",
+      "recordedAt": "2026-10-25T21:00:42.557Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T21:00:43.308Z",
+      "source": "attested",
+      "summary": "Lecturas del render: integrantes, cola, configuración y proveedores salen en una sola tanda; la configuración responde null y los proveedores solo los activos a un guardián, y la página usa esas respuestas solo para el líder; un fallo sigue llegando al boundary del segmento."
+    }
+  ],
+  "limitations": [
+    "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T21:00:44.949Z",
+  "result": "partial",
+  "runId": "20261025T210004Z-de0c7f",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit academy.manage.verifications.list: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "96d98d49220f2894",
+      "references/action-catalog.md": "3011dc2f28c2e91c",
+      "references/concurrency-reconciliation.md": "1bb4d0816b1a483d",
+      "references/framework-primitives.md": "16fc928cc9cc1f3c",
+      "references/interaction-state-machine.md": "c09f8f0c506bdd54",
+      "references/optimistic-decision.md": "62c41b62a67ed97a"
+    },
+    "definitionHash": "sha256:e7f9e58f5862e859cec90782e0920de1b6583e9e1904af2e8818f971aeb3448f",
+    "name": "optimistic-action-mutations",
+    "version": "1.2.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T21:00:04.825Z",
+  "unitId": "academy.manage.verifications.list"
+}

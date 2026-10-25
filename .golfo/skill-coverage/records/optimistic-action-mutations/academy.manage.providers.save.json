@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "perf/academy-page-round-trips",
+      "commit": "ccb559dffef3630f85b470bbd6ca6f3be559b4fe",
       "files": {
         "components/academy/academy-management/index.tsx": "b31e2d2038935251",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
         "app/api/tribes/[slug]/verification-providers/route.ts": "20c6fdde30cc0509",
         "app/api/tribes/[slug]/verification-providers/[providerId]/route.ts": "7d432268fbc39135",
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
@@ -341,32 +341,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 48816,
+        "command": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx",
+        "durationMs": 31753,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "e429ca77b2c5c4ad9920c2ff7ec635ee33e1a26db7e7ced9fd629d7ad8fbf149",
-        "recordedAt": "2026-10-25T14:19:40.102Z",
+        "outputSha256": "0b4edd80c98f6afd2b4fad9d98923224333e80e26e86c73525a0900d051d3742",
+        "recordedAt": "2026-10-25T20:54:31.557Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T14:19:40.569Z",
+        "recordedAt": "2026-10-25T20:54:32.350Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Lecturas del render: integrantes, cola, configuración y proveedores salen en una sola tanda; la configuración responde null y los proveedores solo los activos a un guardián, y la página usa esas respuestas solo para el líder; un fallo sigue llegando al boundary del segmento."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T14:19:41.651Z",
+    "recordedAt": "2026-10-25T20:54:33.871Z",
     "result": "partial",
-    "runId": "20261025T141850Z-4adc12",
+    "runId": "20261025T205359Z-efd459",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -391,7 +391,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T141850Z-4adc12.json"
+    "report": "runs/20261025T205359Z-efd459.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

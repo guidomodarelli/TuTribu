@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "perf/academy-page-round-trips",
+      "commit": "ccb559dffef3630f85b470bbd6ca6f3be559b4fe",
       "files": {
         "components/academy/academy-management/index.tsx": "b31e2d2038935251",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
         "app/api/tribes/[slug]/academy/bonuses/route.ts": "2b4c0dee98bd2d99",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
         "src/modules/product-access/infrastructure/repositories/postgres-product-access-repository.ts": "b6d068802851a5fa",
@@ -730,45 +730,39 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 49247,
+        "command": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx",
+        "durationMs": 51549,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "fb429dc587f2f2df269d09625ab67688d7c4bf47740aa317e40e6873139bbeba",
-        "recordedAt": "2026-10-25T14:08:38.240Z",
+        "outputSha256": "829c29dd201f8bf9ae807233646ff546c4ff9dbcb5337028c5dc2dfb71d78450",
+        "recordedAt": "2026-10-25T20:44:53.672Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T14:08:38.729Z",
+        "recordedAt": "2026-10-25T20:44:55.437Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Lecturas del render: integrantes, cola, configuración y proveedores salen en una sola tanda; la configuración responde null y los proveedores solo los activos a un guardián, y la página usa esas respuestas solo para el líder; un fallo sigue llegando al boundary del segmento."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T14:08:40.044Z",
+    "recordedAt": "2026-10-25T20:44:58.546Z",
     "result": "partial",
-    "runId": "20261025T140748Z-b767b5",
+    "runId": "20261025T204401Z-69f70b",
     "scope": {
       "decision": "full",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "components/academy/academy-management/index.tsx#MembersSection/handleRevoke",
-          "reason": "action handler changed"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.manage.bonuses.grant: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -786,7 +780,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T140748Z-b767b5.json"
+    "report": "runs/20261025T204401Z-69f70b.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",
