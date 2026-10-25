@@ -1,0 +1,83 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-leader-recovery-exits",
+    "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
+    "fingerprint": "sha256:7d0fef2a0f3d5878fc8ef8e946fd82f3ad29ba2d1d90aab5185b3a4324607eea",
+    "uncommittedFiles": [],
+    "fileCount": 285,
+    "inputCount": 1658
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
+      "durationMs": 105673,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "266bb1f86d7401fd27ea9415b9d67da86c3d308307b5330f94ee787131838629",
+      "recordedAt": "2026-10-25T16:07:06.327Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "command": "pnpm run -s typecheck",
+      "durationMs": 2196,
+      "exitCode": 0,
+      "kind": "command",
+      "outcome": "pass",
+      "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
+      "recordedAt": "2026-10-25T16:07:08.930Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T16:07:09.397Z",
+      "source": "attested",
+      "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
+    }
+  ],
+  "limitations": [
+    "Solo se revisaron los estados de recuperación que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T16:07:11.071Z",
+  "result": "partial",
+  "runId": "20261025T160520Z-2af131",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
+        "reason": "code rendered by the route changed"
+      }
+    ],
+    "suggestedScope": [
+      "whole unit academy.admissions.applicant.whatsapp.update (/admissions/requests/[requestId]): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "e456ce5fb1266d0e",
+      "references/decision-rules.md": "5340413b30d4e7a7",
+      "references/nextjs-apis.md": "7d812e101f16defe",
+      "references/server-client-split.md": "7f52ba9f6a13308d",
+      "references/skeleton-patterns.md": "65d4c31f0f8beb93",
+      "references/version-notes.md": "b6f6488947de60f0"
+    },
+    "definitionHash": "sha256:a3b7fb0dda3a877474c7910f4914469c8cb9a94700aa9d750e81067d96406ed1",
+    "name": "nextjs-route-ui-boundaries",
+    "version": "1.3.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T16:05:20.235Z",
+  "unitId": "academy.admissions.applicant.whatsapp.update"
+}

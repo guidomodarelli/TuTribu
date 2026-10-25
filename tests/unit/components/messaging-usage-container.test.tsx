@@ -12,6 +12,9 @@ import { readMessagingUsageIntent, writeMessagingUsageIntent } from "@/lib/messa
 import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
 import { AdmissionWorkspaceRoute } from "@/tests/support/admission-workspace-route";
 import { changeGuidedStep } from "@/tests/support/guided-steps";
+import { MESSAGING_ERROR_CODE, MESSAGING_ERROR_MESSAGE } from "@/src/modules/messaging/constants/messaging-errors";
+import { buildSignInRedirectUrl } from "@/lib/auth/sign-in-redirect";
+import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
 
 const slug = "synthetic-academy", viewerId = "synthetic-leader", tribeId = "83ecbfaf-0e7c-4afb-aefc-62b62800d367", operationId = "297d47c2-5419-4c3d-a339-e8b7970275ca";
 const savedText = "Los países y cupos quedaron guardados.", partialText = "La configuración se creó con los valores iniciales, pero todavía falta guardar lo que elegiste.";
@@ -398,6 +401,25 @@ describe("guided usage route workflow", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Consultando la cuenta y el uso actual");
     await act(async () => { complete({ status: "ready", value: { id: viewerId } }); });
+  });
+
+  it("should offer signing in, and come back to this page with its way back to the rules, when the usage page was read without a session", () => {
+    const pathname = "/tribu/academia/admissions/messaging", search = "return=policy-review", code = MESSAGING_ERROR_CODE.authenticationRequired;
+    render(<SearchParamsContext.Provider value={new URLSearchParams(search)}><AdmissionWorkspaceRoute pathname={pathname} slug="tribu"><AdmissionSettingsPage page="usage"><MessagingUsageContainer initialState={{ kind: "unavailable", code, message: MESSAGING_ERROR_MESSAGE[code] }} client={fixture().client} /></AdmissionSettingsPage></AdmissionWorkspaceRoute></SearchParamsContext.Provider>, { wrapper: Providers });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(MESSAGING_ERROR_MESSAGE[code]);
+    expect(screen.getByRole("link", { name: "Iniciar sesión" })).toHaveAttribute("href", buildSignInRedirectUrl(`${pathname}?${search}`));
+    expect(screen.queryByRole("button", { name: "Reintentar" })).not.toBeInTheDocument();
+  });
+
+  it("should not offer a retry that cannot grant a denied permission", () => {
+    const code = MESSAGING_ERROR_CODE.permissionDenied;
+    render(<AdmissionWorkspaceRoute pathname="/tribu/academia/admissions/messaging" slug="tribu"><AdmissionSettingsPage page="usage"><MessagingUsageContainer initialState={{ kind: "unavailable", code, message: MESSAGING_ERROR_MESSAGE[code] }} client={fixture().client} /></AdmissionSettingsPage></AdmissionWorkspaceRoute>, { wrapper: Providers });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(MESSAGING_ERROR_MESSAGE[code]);
+    expect(screen.queryByRole("button", { name: "Reintentar" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Iniciar sesión" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ir al inicio" })).toBeInTheDocument();
   });
 
   it("should announce a saved configuration once, inline, with the real toaster mounted", async () => {

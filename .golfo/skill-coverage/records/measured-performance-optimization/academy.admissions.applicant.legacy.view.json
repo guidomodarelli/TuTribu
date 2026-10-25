@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "fix/academy-leader-recovery-exits",
+      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
       "files": {
         "app/(admission)/admissions/[slug]/legacy/[token]/legacy-admission-container.tsx": "2c7cabded6cd1d2e",
         "app/(admission)/admissions/[slug]/legacy/[token]/page.tsx": "1f9a8bc3a26f005c",
@@ -16,7 +16,7 @@
         "src/modules/academy-admissions/constants/admission-errors.ts": "4a393e9826800086",
         "app/(admission)/admissions/[slug]/admission-container.tsx": "c241519f0d3f3cf0",
         "src/modules/academy-admissions/application/results/admission-page-state.ts": "257070d64a948071",
-        "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
+        "components/academy-admissions/admission-route-error/index.tsx": "f1d403b2508a4b3e",
         "src/modules/academy-admissions/constants/legacy-admission-arrival.ts": "3b70a5d41f0d9afe",
         "lib/academy-admissions/admission-routes.ts": "adac74b9727d9a17",
         "lib/academy-admissions/legacy-admission-scope.ts": "1c2acb52c9a82e81",
@@ -471,7 +471,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:5730d890417e1fdd74d07349dbe6531cb439eedacae3d32632bb6ba208911dee",
+      "fingerprint": "sha256:af9aff1b21f095c7018ec9a901ca7148a727a9aefbc20b323ba71ad0b9efbb65",
       "inputs": {
         "app/(admission)/admissions/[slug]/legacy/[token]/legacy-admission-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(admission)/admissions/[slug]/legacy/[token]/legacy-admission-container.tsx#LegacyAdmissionContainer": "5c48984608633f4d",
@@ -602,7 +602,7 @@
         "src/modules/academy-admissions/application/results/admission-page-state.ts#AdmissionPageState": "794e6be7eaa995a6",
         "src/modules/academy-admissions/application/results/admission-page-state.ts#admissionPageStateSchema": "fb1d81e639a88629",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
+        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "5a2f7ced3b9852bf",
         "src/modules/academy-admissions/constants/legacy-admission-arrival.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/legacy-admission-arrival.ts#LEGACY_ADMISSION_ARRIVAL~frame": "94d8dfc7d3fca7f6",
         "src/modules/academy-admissions/constants/legacy-admission-arrival.ts#LEGACY_ADMISSION_ARRIVAL.canonicalTokenPattern": "18fec888c70328e3",
@@ -1157,6 +1157,7 @@
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#admissionOwnRequestSchema": "7065d1154bcb72eb",
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#overviewPolicySchema": "d2243a40ce2dd57d",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.home": "85367e5a8619d58b",
+        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.signIn": "64d70cb245bd5f5f",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.unavailableTitle": "e0283f6892b6a014",
         "components/navigation/link/index.tsx#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/legacy-admission-arrival.ts#LEGACY_ADMISSION_ARRIVAL.segment": "d1f05fdf88ca0b4b",
@@ -2338,7 +2339,6 @@
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.reading": "97be1c6a4df67cfb",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.reloadAccount": "0f1a0dcc8cc0292d",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.retryOriginal": "ed8d9ff4c6e35df9",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.signIn": "64d70cb245bd5f5f",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.statusTitle": "053054fa7f78ab17",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.title": "61c7d760288ff309",
         "src/constants/routes.ts#ROUTES.tribes": "096ad71391f5d942",
@@ -4610,14 +4610,14 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T13:25:54.274Z",
+    "recordedAt": "2026-10-25T15:42:43.331Z",
     "result": "not-applicable",
-    "runId": "20261025T132551Z-aa3078",
+    "runId": "20261025T154241Z-54f71b",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo."
+        "recorded not applicable: Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": []
@@ -4637,8 +4637,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T132551Z-aa3078.json"
+    "summary": "Las salidas de recuperación no agregan requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T154241Z-54f71b.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

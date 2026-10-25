@@ -127,6 +127,8 @@ describe("allowlist route controls", () => {
     fireEvent.click(search);
     await screen.findByText("No tenés permiso para realizar esta operación.");
     expect(screen.queryByLabelText("Correo de la entrada")).not.toBeInTheDocument();
+    // The closed view keeps a way back instead of leaving only a sentence.
+    expect(screen.getByRole("button", { name: "Reintentar" })).toBeEnabled();
     expect(router.refresh).not.toHaveBeenCalled();
   });
 });

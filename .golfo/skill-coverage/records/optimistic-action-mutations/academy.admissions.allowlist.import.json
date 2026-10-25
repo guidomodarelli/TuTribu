@@ -2,14 +2,14 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+      "branch": "fix/academy-leader-recovery-exits",
+      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
       "files": {
         "app/(platform)/[slug]/academia/admissions/allowlist/imports/page.tsx": "1e7419aa621cc38d",
         "app/(platform)/[slug]/academia/admissions/allowlist/imports/loading.tsx": "fa0bd7116c5562f7",
         "app/(platform)/[slug]/academia/admissions/allowlist/imports/error.tsx": "dd87ce1af52e63fa",
-        "app/(platform)/[slug]/academia/admissions/allowlist/allowlist-import-container.tsx": "9cfd7543304c38c9",
-        "hooks/use-allowlist-import-workflow.ts": "bf4bc801ae45b6c0",
+        "app/(platform)/[slug]/academia/admissions/allowlist/allowlist-import-container.tsx": "b0ca192697a56c31",
+        "hooks/use-allowlist-import-workflow.ts": "28ddaaa67b930bc3",
         "app/api/tribes/[slug]/admissions/allowlist/imports/route.ts": "29038bf8146e0ea7",
         "app/api/tribes/[slug]/admissions/allowlist/imports/[importId]/route.ts": "2abec20e73ef51f4",
         "app/api/tribes/[slug]/admissions/allowlist/imports/[importId]/confirm/route.ts": "27f08fc82416c53b",
@@ -20,15 +20,15 @@
         "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts": "4d37f8e0bc8531b6",
         "src/modules/shared/infrastructure/database/server-database-client.ts": "895a53cd3c3f72ab",
         "components/academy-admissions/admission-page-skeleton/index.tsx": "0d887d9221b645c1",
-        "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
+        "components/academy-admissions/admission-route-error/index.tsx": "f1d403b2508a4b3e",
         "components/academy-admissions/admission-settings-page/index.tsx": "8312db77ac7c70e9",
         "src/modules/academy-admissions/constants/admission-policy-browser.ts": "90cfa795912c0e8c",
+        "src/modules/academy-admissions/constants/allowlist-import-browser.ts": "e825df46f40108a0",
         "components/academy-admissions/allowlist-import/index.tsx": "4b33d6e7eb389d40",
         "src/modules/academy-admissions/application/ports/allowlist-import-browser-client.ts": "f1da9601bcd55500",
         "src/modules/academy-admissions/application/results/allowlist-import-page-state.ts": "218b4fd35c10c410",
         "src/modules/auth/constants/reauthentication-resources.ts": "73b5e0d97c9862f7",
         "lib/academy-admissions/allowlist-import-intent.ts": "8473f6633f0ac05c",
-        "src/modules/academy-admissions/constants/allowlist-import-browser.ts": "e825df46f40108a0",
         "src/modules/academy-admissions/constants/admission-errors.ts": "4a393e9826800086",
         "src/modules/academy-admissions/constants/allowlist-browser.ts": "b515269f65c7afcf",
         "src/modules/academy-admissions/application/results/admission-management-result-schemas.ts": "13a4c99ef9ba8b53",
@@ -480,7 +480,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:fb8aa5542e2086b745bff65480f92fa3fb4bbab456dd0fdf38f6012b08aeaa9d",
+      "fingerprint": "sha256:835525d9d0508eb63e02aff5f3919bee0c69ce4e2db89aa50b7a339fb45cc5f9",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/allowlist/imports/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/allowlist/imports/page.tsx#AllowlistImportPage": "dfde9d85a2ef7592",
@@ -489,16 +489,16 @@
         "app/(platform)/[slug]/academia/admissions/allowlist/imports/error.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/allowlist/imports/error.tsx#AllowlistImportError": "911c128b2bdbbce2",
         "app/(platform)/[slug]/academia/admissions/allowlist/allowlist-import-container.tsx#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/allowlist/allowlist-import-container.tsx#AllowlistImportContainer": "349392b303c918ad",
+        "app/(platform)/[slug]/academia/admissions/allowlist/allowlist-import-container.tsx#AllowlistImportContainer": "f4a3a7c3b9b446f5",
         "hooks/use-allowlist-import-workflow.ts#<module>": "d414f6d3ee71f10d",
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/empty": "b2d7050f552eac46",
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/live": "43596eff23eabea2",
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/persist": "a9886a0165be6392",
         "pkg:react": "374a4508a198654b",
-        "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/reportFailure": "425f47ec9126ad20",
+        "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/reportFailure": "dc3071e97dfac0fb",
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/announceFailure": "a9d7257ea7d654db",
-        "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/authorize": "973ee4570149b249",
-        "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow~shell": "66a8e37d5f8cf674",
+        "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/authorize": "733c50936d42947c",
+        "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow~shell": "fb54edc33dca3674",
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/fetchCurrent": "2844f6524ccbdbeb",
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/run": "ff012f609fd03ac2",
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/consume": "18a0f73d3972fb95",
@@ -588,13 +588,16 @@
         "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionSkeletonPart": "e5a5e3e356afe0c1",
         "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionSkeletonPartPlaceholder": "d5b53572863b7903",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
+        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "5a2f7ced3b9852bf",
         "components/academy-admissions/admission-settings-page/index.tsx#<module>": "2da3ec2294295eb1",
         "components/academy-admissions/admission-settings-page/index.tsx#AdmissionSettingsPage": "70ebe75549ed2595",
         "components/academy-admissions/admission-settings-page/index.tsx#AdmissionPageHeader": "6110c696671918ae",
         "components/academy-admissions/admission-settings-page/index.tsx#AdmissionSettingsPageProps": "f5045537881eebf2",
         "src/modules/academy-admissions/constants/admission-policy-browser.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-policy-browser.ts#ADMISSION_POLICY_SETTINGS_SEGMENT": "0d931b93f32c7019",
+        "src/modules/academy-admissions/constants/allowlist-import-browser.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/constants/allowlist-import-browser.ts#ALLOWLIST_IMPORT_BROWSER_COPY~frame": "51554ee42102083a",
+        "src/modules/academy-admissions/constants/allowlist-import-browser.ts#ALLOWLIST_IMPORT_BROWSER_COPY.account": "e613a2fb7ab12996",
         "components/academy-admissions/allowlist-import/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy-admissions/allowlist-import/index.tsx#AllowlistImport/selected": "84c43bad30a28893",
         "components/academy-admissions/allowlist-import/index.tsx#AllowlistImport~shell": "797c897f3214da8e",
@@ -610,8 +613,6 @@
         "lib/academy-admissions/allowlist-import-intent.ts#<module>": "d414f6d3ee71f10d",
         "lib/academy-admissions/allowlist-import-intent.ts#StoredAllowlistImport": "d2aa4bbb44da3c45",
         "lib/academy-admissions/allowlist-import-intent.ts#storedAllowlistImportSchema": "a7c5a1b033a8095c",
-        "src/modules/academy-admissions/constants/allowlist-import-browser.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/constants/allowlist-import-browser.ts#ALLOWLIST_IMPORT_BROWSER_COPY~frame": "51554ee42102083a",
         "src/modules/academy-admissions/constants/allowlist-import-browser.ts#ALLOWLIST_IMPORT_BROWSER_COPY.storage": "d23132e9a9324abb",
         "lib/academy-admissions/allowlist-import-intent.ts#writeAllowlistImport": "c40339e436a11731",
         "lib/academy-admissions/allowlist-import-intent.ts#key": "a38c629b4b3b9233",
@@ -689,7 +690,6 @@
         "lib/academy-admissions/allowlist-import-draft-store.ts#allowlistImportDraftStore~frame": "4d49caca2e14f27a",
         "lib/academy-admissions/allowlist-import-draft-store.ts#allowlistImportDraftStore.remove": "bf1c32329913190f",
         "lib/academy-admissions/allowlist-import-intent.ts#readAllowlistImport": "bcb07549f75c9230",
-        "src/modules/academy-admissions/constants/allowlist-import-browser.ts#ALLOWLIST_IMPORT_BROWSER_COPY.account": "e613a2fb7ab12996",
         "src/modules/academy-admissions/constants/allowlist-import-browser.ts#ALLOWLIST_IMPORT_BROWSER_COPY.reading": "b3d7230522bc44e7",
         "lib/toasts/write-toast.ts#startWriteToast/settle": "9e49be25a15ee216",
         "lib/toasts/write-toast.ts#startWriteToast~shell": "f4c40182c8d27789",
@@ -1089,6 +1089,7 @@
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY~frame": "b43b1bd347ba2c95",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.home": "85367e5a8619d58b",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.readFailed": "e40e9012cde9fe54",
+        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.signIn": "64d70cb245bd5f5f",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.unavailableTitle": "e0283f6892b6a014",
         "components/navigation/link/index.tsx#<module>": "2da3ec2294295eb1",
         "src/constants/routes.ts#<module>": "2da3ec2294295eb1",
@@ -4572,32 +4573,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
-        "durationMs": 39808,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
+        "durationMs": 110290,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "f15a6f02a5b93b862eb914dacd2ef20c63ca1ad0fcfbd45944aab66311ef1f92",
-        "recordedAt": "2026-10-25T11:08:51.275Z",
+        "outputSha256": "0e40c1a65a767f2583fa2380852f142d46fdd4c2b4c79a47fe45707f417cde64",
+        "recordedAt": "2026-10-25T14:59:02.292Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T11:08:51.844Z",
+        "recordedAt": "2026-10-25T14:59:02.724Z",
         "source": "attested",
-        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+        "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados de recuperación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T11:08:54.803Z",
+    "recordedAt": "2026-10-25T14:59:04.645Z",
     "result": "partial",
-    "runId": "20261025T110810Z-81bc46",
+    "runId": "20261025T145711Z-8a8e2e",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -4606,164 +4607,29 @@
       ],
       "relevantChangesAtBegin": [
         {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.activity",
-          "reason": "unclassified object member: lifecycle impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.allowlist",
-          "reason": "unclassified object member: lifecycle impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.allowlistImport",
-          "reason": "unclassified object member: lifecycle impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.connections",
-          "reason": "unclassified object member: lifecycle impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.history",
-          "reason": "unclassified object member: lifecycle impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.invitations",
-          "reason": "unclassified object member: lifecycle impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.notifications",
-          "reason": "unclassified object member: lifecycle impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.policy",
-          "reason": "unclassified object member: lifecycle impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.review",
-          "reason": "unclassified object member: lifecycle impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.usage",
-          "reason": "unclassified object member: lifecycle impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS~frame",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "removed",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_SKELETON_SHAPE.factCount",
-          "reason": "code no longer reached by the unit: an operation may have been removed"
-        },
-        {
-          "change": "removed",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_SKELETON_SHAPE.rowCount",
-          "reason": "code no longer reached by the unit: an operation may have been removed"
-        },
-        {
-          "change": "removed",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_SKELETON_SHAPE~frame",
-          "reason": "code no longer reached by the unit: an operation may have been removed"
-        },
-        {
           "change": "modified",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionPageSkeleton",
+          "key": "app/(platform)/[slug]/academia/admissions/allowlist/allowlist-import-container.tsx#AllowlistImportContainer",
           "reason": "code reached by the unit changed"
         },
         {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionSkeletonPart",
-          "reason": "new code reached by the unit"
+          "change": "modified",
+          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
+          "reason": "code reached by the unit changed"
         },
         {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionSkeletonPartPlaceholder",
-          "reason": "new code reached by the unit"
+          "change": "modified",
+          "key": "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/authorize",
+          "reason": "action handler changed"
         },
         {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.actionCount",
-          "reason": "unclassified object member: lifecycle impact unknown"
+          "change": "modified",
+          "key": "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/reportFailure",
+          "reason": "action handler changed"
         },
         {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.factCount",
-          "reason": "unclassified object member: lifecycle impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.fieldCount",
-          "reason": "unclassified object member: lifecycle impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.rowCount",
-          "reason": "unclassified object member: lifecycle impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.stepCount",
-          "reason": "unclassified object member: lifecycle impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#RouteSkeleton",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonActions",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlock",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonFacts",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonField",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonRows",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonStepsPanel",
-          "reason": "new code reached by the unit"
+          "change": "modified",
+          "key": "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow~shell",
+          "reason": "component state or render changed"
         }
       ],
       "suggestedScope": [
@@ -4783,7 +4649,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T110810Z-81bc46.json"
+    "report": "runs/20261025T145711Z-8a8e2e.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

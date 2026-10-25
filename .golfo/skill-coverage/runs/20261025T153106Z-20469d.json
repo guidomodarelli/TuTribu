@@ -1,0 +1,46 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-leader-recovery-exits",
+    "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
+    "fingerprint": "sha256:08359b0ae7c082359cbbe2114becb49f50c17579373aa86fa40c1c70d146fc71",
+    "uncommittedFiles": [],
+    "fileCount": 473,
+    "inputCount": 3123
+  },
+  "evidence": [],
+  "limitations": [],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T15:31:08.339Z",
+  "result": "not-applicable",
+  "runId": "20261025T153106Z-20469d",
+  "scope": {
+    "decision": "not-applicable",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "recorded not applicable: Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo."
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": []
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a8d6cde62f2853fa",
+      "references/bundle-lazy-loading.md": "91990bd1796b9884",
+      "references/database-queries-n-plus-one.md": "3064b23acc3e9f7e",
+      "references/images-fonts-scripts.md": "1ab02d4b1a421c87",
+      "references/incremental-sweep-jobs.md": "c5c8e71bdba2e4a9",
+      "references/measurement-tools.md": "e3e96c85be264c0c",
+      "references/requests-caching.md": "981544e05dee2e5c",
+      "references/unnecessary-renders.md": "2d440f22533a2149"
+    },
+    "definitionHash": "sha256:dcb79531d3a56e7765d65880022365639578ed18c69466dbb65f4ce0b59b09d3",
+    "name": "measured-performance-optimization",
+    "version": "1.5.0"
+  },
+  "summary": "Las salidas de recuperación no agregan requests, consultas ni pasos al flujo.",
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T15:31:06.414Z",
+  "unitId": "academy.admissions.applicant.invitation.accept"
+}

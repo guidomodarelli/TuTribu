@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "fix/academy-leader-recovery-exits",
+      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
       "files": {
         "app/(admission)/admissions/[slug]/page.tsx": "87d2419a7e1b84de",
         "app/(admission)/admissions/[slug]/loading.tsx": "12be8cbc448c8353",
@@ -13,7 +13,7 @@
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
         "src/modules/auth/setup.ts": "37e200547ae950e4",
         "components/academy-admissions/admission-screen/index.tsx": "9b894358e6cead91",
-        "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
+        "components/academy-admissions/admission-route-error/index.tsx": "f1d403b2508a4b3e",
         "src/modules/academy-admissions/constants/admission-errors.ts": "4a393e9826800086",
         "src/modules/academy-admissions/application/results/admission-page-state.ts": "257070d64a948071",
         "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
@@ -115,7 +115,7 @@
         "components/academy-admissions/request-status/index.tsx": "ae2f32edf0ad70b8",
         "components/loaders/route-skeleton/index.tsx": "24ca012df2b27747",
         "components/academy-admissions/admission-screen/styles.module.scss": "88c5804c520c1c6b",
-        "components/academy-admissions/admission-route-error/styles.module.scss": "e8e041d2af1c8b74",
+        "components/academy-admissions/admission-route-error/styles.module.scss": "06d52f5195bb701e",
         "src/modules/academy-admissions/application/results/admission-contract-fields.ts": "a4913419cef9bbde",
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts": "f1942bcecd1a2254",
         "src/modules/academy-admissions/constants/admission-route-input.ts": "8322931e28733bcb",
@@ -137,7 +137,7 @@
         "components/academy-admissions/admission-whatsapp-number-field/styles.module.scss": "90351ceb6f74003f",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:a87c14a6c4ed2130a611af9e614bb98a245db7b066f6353e718f3f32497f191c",
+      "fingerprint": "sha256:92d741b4e0ec63216455a04846bddb65b4f6456cdb94400a90c602c57af38cc0",
       "inputs": {
         "app/(admission)/admissions/[slug]/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(admission)/admissions/[slug]/page.tsx#AdmissionPage": "52d4812a1f51af2a",
@@ -168,7 +168,7 @@
         "pkg:react": "374a4508a198654b",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
+        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "5a2f7ced3b9852bf",
         "src/modules/academy-admissions/constants/admission-errors.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_MESSAGE": "3cd989ed624f1a0a",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE~frame": "2f799f41481116eb",
@@ -562,7 +562,7 @@
         "components/loaders/route-skeleton/index.tsx#SkeletonField": "d1ce3464b143b551",
         "components/academy-admissions/admission-screen/styles.module.scss#*": "88c5804c520c1c6b",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.readFailed": "e40e9012cde9fe54",
-        "components/academy-admissions/admission-route-error/styles.module.scss#*": "e8e041d2af1c8b74",
+        "components/academy-admissions/admission-route-error/styles.module.scss#*": "06d52f5195bb701e",
         "src/modules/academy-admissions/application/results/admission-contract-fields.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/results/admission-contract-fields.ts#admissionLocalHrefSchema": "8b04e96b73dd84e0",
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#<module>": "2da3ec2294295eb1",
@@ -733,32 +733,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 65555,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
+        "durationMs": 117444,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "8297208eb4fe896a87b368ee7ec005376a013a72c0fa47ecc2812bf44a89e8f8",
-        "recordedAt": "2026-10-25T13:16:06.322Z",
+        "outputSha256": "c6a679a50883aed4d9bc72e4df0706031793413761f0c94732b509349350ff10",
+        "recordedAt": "2026-10-25T15:20:48.095Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T13:16:06.835Z",
+        "recordedAt": "2026-10-25T15:20:48.556Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados de recuperación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T13:16:08.648Z",
+    "recordedAt": "2026-10-25T15:20:49.932Z",
     "result": "partial",
-    "runId": "20261025T131459Z-b79beb",
+    "runId": "20261025T151850Z-908f9e",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -768,7 +768,12 @@
       "relevantChangesAtBegin": [
         {
           "change": "modified",
-          "key": "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen",
+          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy-admissions/admission-route-error/styles.module.scss#*",
           "reason": "visible or interactive code changed"
         }
       ],
@@ -789,7 +794,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T131459Z-b79beb.json"
+    "report": "runs/20261025T151850Z-908f9e.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

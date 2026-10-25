@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+      "branch": "fix/academy-leader-recovery-exits",
+      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
       "files": {
         "app/(platform)/[slug]/academia/admissions/activity/page.tsx": "0ce9c474d7fcd444",
         "app/(platform)/[slug]/academia/admissions/activity/loading.tsx": "0637d05028ddbfcd",
@@ -19,7 +19,7 @@
         "src/modules/shared/infrastructure/database/server-database-client.ts": "895a53cd3c3f72ab",
         "src/modules/messaging/setup.ts": "36ebb75d1e9b9914",
         "components/academy-admissions/admission-page-skeleton/index.tsx": "0d887d9221b645c1",
-        "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
+        "components/academy-admissions/admission-route-error/index.tsx": "f1d403b2508a4b3e",
         "components/academy-admissions/admission-settings-page/index.tsx": "8312db77ac7c70e9",
         "src/modules/academy-admissions/constants/admission-activity-browser.ts": "d0af64144b8cacf3",
         "src/modules/academy-admissions/application/ports/admission-activity-browser-client.ts": "f94248e631855853",
@@ -598,7 +598,7 @@
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f",
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d"
       },
-      "fingerprint": "sha256:5145d5af69e85eafdac3da25283119ae9b4cd2ea6414d12419c4e36cdf95b7e8",
+      "fingerprint": "sha256:2c157fd9ab9d81c7375e91ba7e057049db8514f9ded8233b14de7ab9c04b50cc",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/activity/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/activity/page.tsx#AdmissionActivityPage": "2ecc85ca46c87584",
@@ -693,7 +693,7 @@
         "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionSkeletonPart": "e5a5e3e356afe0c1",
         "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionSkeletonPartPlaceholder": "d5b53572863b7903",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
+        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "5a2f7ced3b9852bf",
         "components/academy-admissions/admission-settings-page/index.tsx#<module>": "2da3ec2294295eb1",
         "components/academy-admissions/admission-settings-page/index.tsx#AdmissionSettingsPage": "70ebe75549ed2595",
         "components/academy-admissions/admission-settings-page/index.tsx#AdmissionPageHeader": "6110c696671918ae",
@@ -1277,6 +1277,7 @@
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY~frame": "b43b1bd347ba2c95",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.home": "85367e5a8619d58b",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.readFailed": "e40e9012cde9fe54",
+        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.signIn": "64d70cb245bd5f5f",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.unavailableTitle": "e0283f6892b6a014",
         "components/navigation/link/index.tsx#<module>": "2da3ec2294295eb1",
         "src/constants/routes.ts#<module>": "2da3ec2294295eb1",
@@ -5405,14 +5406,14 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T11:07:17.497Z",
+    "recordedAt": "2026-10-25T14:55:10.760Z",
     "result": "not-applicable",
-    "runId": "20261025T110713Z-f5048e",
+    "runId": "20261025T145508Z-eb327c",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: El cambio de copy de fechas no agrega requests, consultas ni pasos al flujo."
+        "recorded not applicable: Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": []
@@ -5432,8 +5433,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T110713Z-f5048e.json"
+    "summary": "Las salidas de recuperación no agregan requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T145508Z-eb327c.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

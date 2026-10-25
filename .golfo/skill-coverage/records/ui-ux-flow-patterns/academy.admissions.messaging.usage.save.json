@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "fix/academy-leader-recovery-exits",
+      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
       "files": {
-        "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx": "e219dcdf4b270fb0",
+        "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx": "597ffc5fc2f44343",
         "app/api/tribes/[slug]/messaging/usage-policy/route.ts": "bd74481f6c2f3172",
         "app/api/tribes/[slug]/messaging/usage-policy/operations/[operationId]/route.ts": "07b6bc5782cf6dbe",
         "src/modules/messaging/setup.ts": "36ebb75d1e9b9914",
@@ -15,14 +15,16 @@
         "src/modules/shared/infrastructure/database/server-database-client.ts": "895a53cd3c3f72ab",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
         "src/modules/messaging/constants/messaging-usage.ts": "ba71bbac4e985a5a",
-        "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
+        "components/academy-admissions/admission-route-error/index.tsx": "f1d403b2508a4b3e",
         "components/academy-admissions/messaging-usage/index.tsx": "f9b0ed2b7dfe4fa3",
         "src/modules/messaging/application/commands/messaging-usage-browser-intent.ts": "0157bef1b1925c89",
         "src/modules/messaging/application/commands/messaging-usage-draft.ts": "411daea9963a284f",
+        "src/constants/routes.ts": "f7766aea8d0ef37e",
         "src/modules/messaging/application/ports/messaging-usage-browser-client.ts": "d59ee061e0823ab5",
         "src/modules/messaging/application/results/messaging-usage-page-state.ts": "3e821eeee7561be0",
         "src/modules/messaging/application/results/messaging-usage-change-impact.ts": "e1c5a1e2d14352cb",
         "lib/messaging/messaging-usage-api-client.ts": "43fcd57fd894f7ee",
+        "lib/messaging/messaging-route-recovery.ts": "798ea6aaf2345c96",
         "src/modules/messaging/constants/messaging-errors.ts": "82843c943e77b48b",
         "lib/messaging/messaging-usage-intent.ts": "c26c7c2536d4cb88",
         "src/modules/messaging/constants/messaging-limits.ts": "a882fb155e9d559f",
@@ -171,8 +173,7 @@
         "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts": "c7f308ccbaa1356b",
         "src/modules/academy-admissions/constants/admission-ui.ts": "a57d7d4286770b34",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
-        "src/constants/routes.ts": "f7766aea8d0ef37e",
-        "components/academy-admissions/admission-route-error/styles.module.scss": "e8e041d2af1c8b74",
+        "components/academy-admissions/admission-route-error/styles.module.scss": "06d52f5195bb701e",
         "components/forms/guided-steps/index.tsx": "3408dd218a444fb6",
         "components/academy-admissions/messaging-usage/styles.module.scss": "b2e5372e4495ec29",
         "src/modules/academy-admissions/domain/entities/admission-operation.ts": "3cefd00867036cfe",
@@ -181,24 +182,28 @@
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
         "src/constants/operation-state.ts": "8658825f51feae9a",
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts": "f1942bcecd1a2254",
+        "lib/auth/sign-in-redirect.ts": "896cfa9806af6656",
+        "lib/browser-navigation.ts": "f01888198bf9f346",
         "src/modules/messaging/domain/errors/messaging-error-code.ts": "347a9bbe72af0c8b",
         "src/modules/auth/constants/reauthentication-resources.ts": "73b5e0d97c9862f7",
         "src/modules/messaging/application/results/messaging-usage-policy-result.ts": "85b3000334c4a35b",
         "src/modules/messaging/domain/value-objects/messaging-key-purpose.ts": "3cb73fd082b826f2",
         "components/forms/guided-steps/styles.module.scss": "485b69a1722cd88b",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
-        "src/modules/academy-admissions/application/results/admission-contract-fields.ts": "a4913419cef9bbde"
+        "src/modules/academy-admissions/application/results/admission-contract-fields.ts": "a4913419cef9bbde",
+        "src/constants/query-params.ts": "adb538cd11f8e88a"
       },
-      "fingerprint": "sha256:78fedfd833eedf5bff274e681855c49d031d555a77d54f758b65ac9770b3d4ac",
+      "fingerprint": "sha256:60ca4c24b30233dffd450eda85e23f318c9395d69ffdc25764fc30cb0730ed5b",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/checkViewer": "46671a3dc374d709",
         "pkg:react": "374a4508a198654b",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/readCurrent": "e0f443c2a99de3f1",
-        "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer~shell": "c297f096cfa4fcf6",
+        "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer~shell": "d3446653247f21a9",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#FIRST_STEP_INDEX": "290ca498d6a86edb",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#UsageContainerProps": "8f784398ba007279",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#WRITE_STEP_COPY": "73d180162fe430b7",
+        "pkg:next": "ef28293b49c7bae1",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#REVIEW_STEP_INDEX": "0138ae7857db882b",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/launchRead": "40d0b408d3af3425",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/write": "74ef9f10447a28f8",
@@ -276,7 +281,7 @@
         "src/modules/messaging/constants/messaging-usage.ts#MessagingUsageBrowserPhase": "29367aa74787ed3f",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_BROWSER_PHASE.changedViewer": "94ce2004013a5194",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
+        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "5a2f7ced3b9852bf",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_UI_COPY~frame": "989186c512451aa2",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_UI_COPY.changedViewer": "7e5d0a0b7f76bfdb",
@@ -307,6 +312,9 @@
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_BROWSER_PHASE.reading": "298fb5cf5ab9ec0f",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_BROWSER_PHASE.uncertain": "19bcf2634409fd2e",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_BROWSER_PHASE.writing": "936d61185b3c8b17",
+        "src/constants/routes.ts#<module>": "2da3ec2294295eb1",
+        "src/constants/routes.ts#ROUTES~frame": "0506fddc4c13fa99",
+        "src/constants/routes.ts#ROUTES.home": "417f8dff1ce6dd72",
         "src/modules/messaging/application/ports/messaging-usage-browser-client.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/application/ports/messaging-usage-browser-client.ts#MessagingUsageBrowserClient": "8a84cde8c14fb48c",
         "src/modules/messaging/application/ports/messaging-usage-browser-client.ts#MessagingUsageBrowserResult": "d6643d94d098c184",
@@ -333,6 +341,9 @@
         "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/send": "6565d46ae9ab8c7f",
         "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/write": "c1500dd22435d9be",
         "src/modules/messaging/application/commands/messaging-usage-browser-intent.ts#parseMessagingUsageDraft": "30cace2179b8e27e",
+        "lib/messaging/messaging-route-recovery.ts#<module>": "2da3ec2294295eb1",
+        "lib/messaging/messaging-route-recovery.ts#resolveMessagingRouteRecovery": "0eedf9fb86bb3b1f",
+        "lib/messaging/messaging-route-recovery.ts#MessagingRouteRecovery": "ae20ab1a49edbe57",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_UI_COPY.recovered": "fd9edd6b49cd45c2",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_UI_COPY.retry": "cab5e1a8d9fdc703",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_UI_COPY.uncertain": "7ce93080e72de08d",
@@ -546,7 +557,6 @@
         "src/modules/auth/infrastructure/better-auth/server-auth-context.ts#readServerBetterAuthSession": "532ef184800e2933",
         "src/modules/auth/infrastructure/better-auth/server-auth-context.ts#getBetterAuthSessionFailureMetadata": "1aa0b3a709dc047d",
         "src/modules/auth/infrastructure/better-auth/server-auth-context.ts#BetterAuthSessionFailure": "9ae8aeb0c36b54d8",
-        "pkg:next": "ef28293b49c7bae1",
         "src/modules/auth/infrastructure/better-auth/server-auth-context.ts#isConnectionAcquisitionTimeout": "44f403da21a2a4c0",
         "src/modules/auth/infrastructure/better-auth/server-auth-context.ts#isRetryableBetterAuthSessionFailure": "e7483d4bc461c959",
         "src/modules/messaging/constants/messaging-hosting.ts#<module>": "2da3ec2294295eb1",
@@ -827,12 +837,10 @@
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY~frame": "b43b1bd347ba2c95",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.home": "85367e5a8619d58b",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.readFailed": "e40e9012cde9fe54",
+        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.signIn": "64d70cb245bd5f5f",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.unavailableTitle": "e0283f6892b6a014",
         "components/navigation/link/index.tsx#<module>": "2da3ec2294295eb1",
-        "src/constants/routes.ts#<module>": "2da3ec2294295eb1",
-        "src/constants/routes.ts#ROUTES~frame": "0506fddc4c13fa99",
-        "src/constants/routes.ts#ROUTES.home": "417f8dff1ce6dd72",
-        "components/academy-admissions/admission-route-error/styles.module.scss#*": "e8e041d2af1c8b74",
+        "components/academy-admissions/admission-route-error/styles.module.scss#*": "06d52f5195bb701e",
         "components/forms/guided-steps/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/forms/guided-steps/index.tsx#GuidedSteps/go": "98cb89a80f7ac0e2",
         "components/forms/guided-steps/index.tsx#GuidedSteps/submit": "999ce114beb72c5a",
@@ -913,6 +921,11 @@
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#createAdmissionOperationStateSchema": "4928a98a9e4fe5e4",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_UI_COPY.quotaInvalid": "47fefe096d6af51c",
+        "lib/auth/sign-in-redirect.ts#<module>": "2da3ec2294295eb1",
+        "lib/auth/sign-in-redirect.ts#buildSignInRedirectUrl": "4b67671152b6df6a",
+        "lib/auth/sign-in-redirect.ts#URL_QUERY_SEPARATOR": "8153fb82eaf61238",
+        "lib/browser-navigation.ts#<module>": "2da3ec2294295eb1",
+        "lib/browser-navigation.ts#reloadCurrentPage": "fa294b932fa1a9ad",
         "src/modules/messaging/domain/errors/messaging-error-code.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/domain/errors/messaging-error-code.ts#MessagingErrorCode": "86386dfd6a97f4e1",
         "src/modules/auth/constants/reauthentication-resources.ts#<module>": "2da3ec2294295eb1",
@@ -933,45 +946,42 @@
         "src/constants/browser-request.ts#<module>": "2da3ec2294295eb1",
         "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MS": "a92cd6c5a2273d38",
         "src/modules/academy-admissions/application/results/admission-contract-fields.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/results/admission-contract-fields.ts#admissionPublicIdSchema": "2310c587caa15f7f"
+        "src/modules/academy-admissions/application/results/admission-contract-fields.ts#admissionPublicIdSchema": "2310c587caa15f7f",
+        "src/constants/query-params.ts#<module>": "2da3ec2294295eb1",
+        "src/constants/query-params.ts#QUERY_PARAMS~frame": "de6c4831e66d2d65",
+        "src/constants/query-params.ts#QUERY_PARAMS.auth": "1256fb5f409a695c",
+        "src/constants/routes.ts#ROUTES.auth": "2f4afe04c75871a4"
       },
       "uncommittedFiles": []
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 49176,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
+        "durationMs": 132345,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "bc4b1df08c0907d2cfc5ebe0bd766cbef615bb291d5057a00b38c79cfa3b9e30",
-        "recordedAt": "2026-10-25T13:47:47.680Z",
+        "outputSha256": "fc94e4c204926916a206327d8c6e792192e1974f20addab7dd570cd54d0d53dc",
+        "recordedAt": "2026-10-25T17:32:28.460Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T13:47:48.159Z",
+        "recordedAt": "2026-10-25T17:32:28.985Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
-      },
-      {
-        "kind": "browser",
-        "outcome": "pass",
-        "recordedAt": "2026-10-25T13:47:48.628Z",
-        "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app al guardar países y cupos: antes, «Los países y cupos quedaron guardados.» aparecía 2 veces y con 1 toast; después, 1 vez y sin toast (4/4)."
+        "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados de recuperación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T13:47:50.209Z",
+    "recordedAt": "2026-10-25T17:32:30.775Z",
     "result": "partial",
-    "runId": "20261025T134658Z-71bcbe",
+    "runId": "20261025T173015Z-cca523",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -981,13 +991,83 @@
       "relevantChangesAtBegin": [
         {
           "change": "modified",
-          "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/finishSaved",
+          "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer~shell",
           "reason": "visible or interactive code changed"
         },
         {
           "change": "modified",
-          "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/write",
+          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
           "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy-admissions/admission-route-error/styles.module.scss#*",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "lib/auth/sign-in-redirect.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "lib/auth/sign-in-redirect.ts#buildSignInRedirectUrl",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "lib/auth/sign-in-redirect.ts#URL_QUERY_SEPARATOR",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-navigation.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-navigation.ts#reloadCurrentPage",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "lib/messaging/messaging-route-recovery.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "lib/messaging/messaging-route-recovery.ts#MessagingRouteRecovery",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "lib/messaging/messaging-route-recovery.ts#resolveMessagingRouteRecovery",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/query-params.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/query-params.ts#QUERY_PARAMS.auth",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/query-params.ts#QUERY_PARAMS~frame",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/routes.ts#ROUTES.auth",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.signIn",
+          "reason": "new visible or interactive code"
         }
       ],
       "suggestedScope": [
@@ -1007,7 +1087,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T134658Z-71bcbe.json"
+    "report": "runs/20261025T173015Z-cca523.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

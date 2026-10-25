@@ -2,13 +2,13 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+      "branch": "fix/academy-leader-recovery-exits",
+      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
       "files": {
         "app/(platform)/[slug]/academia/admissions/page.tsx": "33ca5cc942c75b6a",
         "app/(platform)/[slug]/academia/admissions/loading.tsx": "30d2c5951cad7c98",
         "app/(platform)/[slug]/academia/admissions/error.tsx": "7eec2a65075e982d",
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx": "c1c83ca4850ca392",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx": "cb68f14de8813c68",
         "app/api/tribes/[slug]/admissions/requests/route.ts": "186a00d18c87bc97",
         "app/api/tribes/[slug]/admissions/requests/[requestId]/route.ts": "778fa6c5ac0f99ee",
         "app/api/tribes/[slug]/admissions/overview/route.ts": "7d885e5583dd2546",
@@ -23,7 +23,7 @@
         "src/modules/notifications/setup.ts": "59eb13d23337cea4",
         "components/academy-admissions/admission-page-skeleton/index.tsx": "0d887d9221b645c1",
         "src/modules/academy-admissions/constants/admission-review-ui.ts": "42d3d87b513edbbb",
-        "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
+        "components/academy-admissions/admission-route-error/index.tsx": "f1d403b2508a4b3e",
         "components/academy-admissions/admission-settings-page/index.tsx": "8312db77ac7c70e9",
         "src/modules/academy-admissions/constants/admission-batch-review-ui.ts": "c11058b5d2a3a7ef",
         "src/modules/academy-admissions/constants/admission-batch-decision.ts": "1b4c50b0eaa3670d",
@@ -659,7 +659,7 @@
         "src/modules/auth/application/results/profile-image-refresh-result.ts": "d7e5651ad09b8d3d",
         "src/modules/messaging/application/ports/messaging-provider-catalog-reader.ts": "8bd9a95aacb70962"
       },
-      "fingerprint": "sha256:3153d3f9a58bdc557fa12b1f15716ab280efb5871e343062febe592aad6ca9c6",
+      "fingerprint": "sha256:df8456d199725b753c9f6402a58d7cbdae05e48ebd70b955d2b69a0ccd69ee65",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/page.tsx#AdmissionReviewPage": "bbab395488b303a4",
@@ -672,7 +672,7 @@
         "pkg:react": "374a4508a198654b",
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/hidePrivate": "69f15d8ca4254629",
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/checkViewer": "527733f771f7d736",
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer~shell": "b9231b43efc90108",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer~shell": "d333602d2e78670f",
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#ReviewContainerProps": "c945bfaeb788d8fc",
         "pkg:next": "ef28293b49c7bae1",
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/handleResourceFailure": "ec9f0ac1cdf6591e",
@@ -776,7 +776,7 @@
         "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_UI_COPY~frame": "865dc409fdd21ace",
         "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_UI_COPY.readFailed": "64ba6702591715dd",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
+        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "5a2f7ced3b9852bf",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "components/academy-admissions/admission-settings-page/index.tsx#<module>": "2da3ec2294295eb1",
         "components/academy-admissions/admission-settings-page/index.tsx#AdmissionSettingsPage": "70ebe75549ed2595",
@@ -1548,6 +1548,7 @@
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY~frame": "b43b1bd347ba2c95",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.home": "85367e5a8619d58b",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.readFailed": "e40e9012cde9fe54",
+        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.signIn": "64d70cb245bd5f5f",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.unavailableTitle": "e0283f6892b6a014",
         "components/navigation/link/index.tsx#<module>": "2da3ec2294295eb1",
         "src/constants/routes.ts#<module>": "2da3ec2294295eb1",
@@ -5907,14 +5908,14 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T12:08:08.303Z",
+    "recordedAt": "2026-10-25T18:06:05.678Z",
     "result": "not-applicable",
-    "runId": "20261025T120805Z-b1c412",
+    "runId": "20261025T180603Z-7f5221",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: El cambio de copy de fechas no agrega requests, consultas ni pasos al flujo."
+        "recorded not applicable: Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": []
@@ -5934,8 +5935,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T120805Z-b1c412.json"
+    "summary": "Las salidas de recuperación no agregan requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T180603Z-7f5221.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

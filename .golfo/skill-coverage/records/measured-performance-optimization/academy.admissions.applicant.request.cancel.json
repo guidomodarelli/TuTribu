@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "fix/academy-leader-recovery-exits",
+      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
       "files": {
         "app/(admission)/admissions/[slug]/admission-container.tsx": "c241519f0d3f3cf0",
         "app/api/tribes/[slug]/admissions/requests/[requestId]/cancel/route.ts": "354575e4972e026b",
@@ -4693,14 +4693,14 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T13:29:44.154Z",
+    "recordedAt": "2026-10-25T15:49:20.890Z",
     "result": "not-applicable",
-    "runId": "20261025T132941Z-ff930a",
+    "runId": "20261025T154918Z-a8a402",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo."
+        "recorded not applicable: Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": []
@@ -4720,8 +4720,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T132941Z-ff930a.json"
+    "summary": "Las salidas de recuperación no agregan requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T154918Z-a8a402.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",
