@@ -4,7 +4,7 @@ export const PERSONAL_INVITATION_UI_PHASE = { idle: "idle", reading: "reading", 
 export const PERSONAL_INVITATION_UI_TIMEOUT_MS = 120_000;
 /** Product copy is independent of private denial reasons and provider messages. */
 export const PERSONAL_INVITATION_UI_COPY = {
-  title: "Invitación personal", description: "Revisá el ingreso y confirmá cuando quieras continuar. Abrir este enlace no envía una solicitud.",
+  eyebrow: "Ingreso a una academia", loading: "Consultando la invitación…", title: "Invitación personal", description: "Revisá el ingreso y confirmá cuando quieras continuar. Abrir este enlace no envía una solicitud.",
   confirm: "Confirmo que quiero usar esta invitación para ingresar a la academia.", confirmationRequired: "Confirmá el uso de la invitación antes de continuar.",
   submit: "Confirmar invitación", submitting: "Confirmando invitación…", reading: "Comprobando la cuenta y la operación original…", read: "Consultar estado", original: "Consultar operación original",
   changeAccount: "Cambiar de cuenta", changingAccount: "Cerrando la sesión…", accountChanged: "La cuenta cambió. Volvé a cargar este enlace para continuar con la cuenta actual.", reloadAccount: "Continuar con la cuenta actual",

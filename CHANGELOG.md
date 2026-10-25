@@ -112,6 +112,9 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
+- Mientras cargan, la academia, Gestionar academia, la verificación, la suscripción y Canales muestran un esqueleto con la forma de cada pantalla en lugar del de la ronda.
+- Las páginas de admisión con pasos (Reglas, Países y cupos, Avisos, Habilitados, Invitaciones y Conexión) muestran mientras cargan un esqueleto con forma de formulario por pasos, y la bandeja, el historial y la actividad uno con forma de lista.
+- Quien pide ingresar ve mientras carga un esqueleto con la forma del formulario, de su solicitud o de la invitación, con el título que va a tener la pantalla («Solicitar ingreso», «Tu solicitud de ingreso» o «Invitación personal»).
 - Conexión de mensajería permite reemplazar una clave de Zavu rechazada o sin comprobar con «Reemplazar la clave»: el paso Clave nombra la candidata, aclara que la conexión seleccionada no cambia y, tras confirmar, retira sólo esa candidata y vuelve al formulario con el mismo nombre.
 - Seguridad y retiro muestra el rol y el estado de cada conexión, explica que suspender conserva su lugar y sólo retirarla lo libera, preselecciona la candidata al llegar desde su aviso y, antes de suspender la conexión activa, avisa que se detienen los avisos y los códigos de verificación de la academia.
 - En las academias, los integrantes sin suscripción ya pueden leer el fogón y los canales, con sus respuestas, me gusta, encuestas y archivos adjuntos. Para publicar, responder, reaccionar o votar necesitan la suscripción mensual a la academia, y el fogón les ofrece suscribirse. Eventos, La tribu y Méritos siguen siendo solo para quienes tienen la academia; el líder y los guardianes siempre leen y escriben.
