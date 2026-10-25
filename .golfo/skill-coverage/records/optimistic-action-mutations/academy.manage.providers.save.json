@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-admission-request-deadline",
-      "commit": "2b2a89c3f6be74f42c5e082a2da4341efcb264f6",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "622fc297a81165d651538448906da0c5f3c44887",
       "files": {
         "components/academy/academy-management/index.tsx": "2cdaec4513ec7dcd",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "0f0efff9bd2bbc3e",
@@ -341,44 +341,39 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
-        "durationMs": 24394,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
+        "durationMs": 23987,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "057b537a305f77b51c0f14e8b1a69400ecb5baa05195cf28751d7743db1c4248",
-        "recordedAt": "2026-10-25T03:12:58.619Z",
+        "outputSha256": "c06d8db73f3f89d6501d0048fc143cd326a5cac65ed358f2edf3d343571be80e",
+        "recordedAt": "2026-10-25T08:35:39.737Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T03:12:59.341Z",
+        "recordedAt": "2026-10-25T08:35:40.148Z",
         "source": "attested",
-        "summary": "Deadline compartido de los requests del navegador (120 s) y lectura del cuerpo: un cuerpo cortado por el deadline o por la cancelación propia es un fallo, nunca un éxito; una escritura vencida queda incierta y una lectura vencida es un fallo cierto."
+        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
       }
     ],
     "limitations": [
-      "Solo se revisó el deadline de los requests del navegador que agrega este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T03:13:01.114Z",
+    "recordedAt": "2026-10-25T08:35:41.167Z",
     "result": "partial",
-    "runId": "20261025T031233Z-e38e15",
+    "runId": "20261025T083515Z-933718",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "lib/academy/academy-api-client.ts#sendAcademyApiRequest",
-          "reason": "code reached by the unit changed"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.manage.providers.save: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -396,7 +391,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T031233Z-e38e15.json"
+    "report": "runs/20261025T083515Z-933718.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

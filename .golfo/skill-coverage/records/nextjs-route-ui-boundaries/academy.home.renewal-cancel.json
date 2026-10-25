@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-admission-request-deadline",
-      "commit": "2b2a89c3f6be74f42c5e082a2da4341efcb264f6",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "622fc297a81165d651538448906da0c5f3c44887",
       "files": {
         "components/academy/academy-home/index.tsx": "809988db00523019",
         "app/(platform)/[slug]/academia/page.tsx": "8be7106822155a86",
@@ -24,7 +24,7 @@
         "src/modules/product-access/application/results/academy-dto-mappers.ts": "a40a6cfaf7d3d9c4",
         "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "225eef5ce922c395",
         "app/(platform)/[slug]/tribe-page-access.ts": "50eec7f94f420c0b",
-        "app/(platform)/[slug]/academia/loading.tsx": "f9871c638174780b",
+        "app/(platform)/[slug]/academia/loading.tsx": "b861ca7d027d3bc0",
         "app/(platform)/[slug]/layout.tsx": "091b3dec28a3139f",
         "app/(platform)/[slug]/loading.tsx": "7bca37b96a4432ce",
         "app/(platform)/layout.tsx": "eccf66589598096e",
@@ -80,6 +80,8 @@
         "src/modules/auth/infrastructure/composition/pooled-account-provider.ts": "805c8bac821d637e",
         "src/modules/shared/infrastructure/database/server-database-client.ts": "895a53cd3c3f72ab",
         "src/constants/query-params.ts": "adb538cd11f8e88a",
+        "components/loaders/route-skeleton/index.tsx": "24ca012df2b27747",
+        "app/(platform)/[slug]/academia/loading.module.scss": "c9c38284a6116209",
         "components/tribes/tribe-presence-heartbeat/index.tsx": "ff8adcd6cb4701ee",
         "app/(platform)/[slug]/loading.module.scss": "3f6fcdd2e5f79775",
         "src/modules/notifications/application/results/notification-public-dto-schemas.ts": "9f04bffec9a201d4",
@@ -110,6 +112,7 @@
         "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
+        "components/loaders/route-skeleton/styles.module.scss": "aba42533e97ac72c",
         "src/modules/notifications/application/results/notification-result.ts": "b51b03f97ab4da09",
         "src/modules/notifications/constants/admission-notifications.ts": "87d82e2897913d7e",
         "src/modules/notifications/constants/notifications.ts": "0ec0a20aa7470553",
@@ -140,7 +143,7 @@
         "config/deployment-environment.ts": "08bb1a3202ff76f7",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:df7d5a995532aa5f28d5741a9a1c826bb9a04ee315e111fbc1c5409b40b98b1f",
+      "fingerprint": "sha256:48cf81083f3c49811bee23d8f073374f9a858fe565dba61ab1434d0682fa9371",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
@@ -582,6 +585,13 @@
         "app/(platform)/[slug]/tribe-page-access.ts#TRIBE_PAGE_ACCESS_LOG_REASON~frame": "35ae876fab3a6b62",
         "app/(platform)/[slug]/tribe-page-access.ts#TRIBE_PAGE_ACCESS_LOG_REASON.unexpectedRepositoryError": "c70645a482b98671",
         "app/(platform)/[slug]/academia/loading.tsx#<module>": "2da3ec2294295eb1",
+        "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.stepKeys": "41921ce057f8f3e0",
+        "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.benefitLineCount": "4183d3caf1a88c40",
+        "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.priceFactCount": "3724463e19f31e43",
+        "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.accessActionCount": "cd1fbc5f1f3d7099",
+        "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.offerActionCount": "a8a8c58cabadd18f",
+        "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE~frame": "265b2efba609ab49",
+        "app/(platform)/[slug]/academia/loading.tsx#AcademyLoading": "d39e4a43e853373e",
         "app/(platform)/[slug]/layout.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/layout.tsx#TribeSegmentLayout": "d2ebfbc75a3ec0fd",
         "app/(platform)/[slug]/loading.tsx#<module>": "2da3ec2294295eb1",
@@ -1131,6 +1141,20 @@
         "src/constants/query-params.ts#QUERY_PARAMS~frame": "de6c4831e66d2d65",
         "src/constants/query-params.ts#QUERY_PARAMS.auth": "1256fb5f409a695c",
         "src/constants/routes.ts#ROUTES.auth": "2f4afe04c75871a4",
+        "components/loaders/route-skeleton/index.tsx#<module>": "2da3ec2294295eb1",
+        "components/loaders/route-skeleton/index.tsx#RouteSkeleton": "223b4db7f24fd665",
+        "components/loaders/route-skeleton/index.tsx#SkeletonActions": "df9e3baef88be6f1",
+        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame": "42404c67903a5744",
+        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.actionCount": "f92415e0af3e9610",
+        "components/loaders/route-skeleton/index.tsx#SkeletonBlock": "c340a37ce4ab55ed",
+        "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind": "a357496f078189ee",
+        "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth": "175b5e3780859001",
+        "components/loaders/route-skeleton/index.tsx#placeholderKeys": "a1ec4c5ff5f87bbe",
+        "components/loaders/route-skeleton/index.tsx#SkeletonFacts": "e96a6dccf846eedb",
+        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.factCount": "28a692b9a0feab70",
+        "components/loaders/route-skeleton/index.tsx#SkeletonLines": "60d9052267ae7426",
+        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount": "b251bfcb1dd93f46",
+        "app/(platform)/[slug]/academia/loading.module.scss#*": "c9c38284a6116209",
         "components/tribes/tribe-presence-heartbeat/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/tribes/tribe-presence-heartbeat/index.tsx#TribePresenceHeartbeat": "8590a091864a731e",
         "components/tribes/tribe-presence-heartbeat/index.tsx#PRESENCE_HEARTBEAT~frame": "e3c7aa8cc8b620e3",
@@ -1479,6 +1503,7 @@
         "lib/browser-request-deadline.ts#startBrowserRequestDeadline/followCaller": "5fc4bc96b4267cc9",
         "lib/browser-request-deadline.ts#startBrowserRequestDeadline~shell": "51f782e3225cd5f9",
         "lib/browser-request-deadline.ts#BrowserRequestDeadline": "712811cf78078a22",
+        "components/loaders/route-skeleton/styles.module.scss#*": "aba42533e97ac72c",
         "src/modules/notifications/application/results/notification-result.ts#<module>": "2da3ec2294295eb1",
         "src/modules/notifications/application/results/notification-result.ts#NotificationInboxResult": "f879267135680aef",
         "src/modules/notifications/constants/admission-notifications.ts#<module>": "2da3ec2294295eb1",
@@ -2081,53 +2106,166 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
-        "durationMs": 24910,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
+        "durationMs": 24267,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "fd529b6e7903b0b10820157b248901e6c9e4111aa4d4fe0420efc9bc460a444a",
-        "recordedAt": "2026-10-25T03:04:06.727Z",
+        "outputSha256": "ea49576be11eb097aa06944adbbdb2d31fb438f4d8fb1c5ebeb48f406fe36734",
+        "recordedAt": "2026-10-25T08:26:53.746Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 4111,
+        "durationMs": 2160,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T03:04:11.449Z",
+        "recordedAt": "2026-10-25T08:26:56.349Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T03:04:12.350Z",
+        "recordedAt": "2026-10-25T08:26:56.824Z",
         "source": "attested",
-        "summary": "Deadline compartido de los requests del navegador (120 s) y lectura del cuerpo: un cuerpo cortado por el deadline o por la cancelación propia es un fallo, nunca un éxito; una escritura vencida queda incierta y una lectura vencida es un fallo cierto."
+        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+      },
+      {
+        "kind": "browser",
+        "outcome": "pass",
+        "recordedAt": "2026-10-25T08:26:57.242Z",
+        "source": "attested",
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app, capturando el fallback durante una navegación: antes, academia, gestionar, verificación, suscripción y canales mostraban el esqueleto de la ronda («Cargando sección de tribu») y la invitación «Solicitar ingreso»; después, cada ruta anuncia su propia carga con su forma (panel de pasos en Reglas e Invitaciones, filas en Solicitudes, «Tu solicitud de ingreso» e «Invitación personal» en el solicitante) (4/4)."
       }
     ],
     "limitations": [
-      "Solo se revisó el deadline de los requests del navegador que agrega este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T03:04:14.438Z",
+    "recordedAt": "2026-10-25T08:26:58.613Z",
     "result": "partial",
-    "runId": "20261025T030341Z-88902d",
+    "runId": "20261025T082629Z-308da7",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [
         {
-          "change": "modified",
-          "key": "lib/academy/academy-api-client.ts#sendAcademyApiRequest",
-          "reason": "code rendered by the route changed"
+          "change": "added",
+          "key": "app/(platform)/[slug]/academia/loading.module.scss#*",
+          "reason": "styles of a skeleton or loading boundary changed"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.accessActionCount",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.benefitLineCount",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.offerActionCount",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.priceFactCount",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.stepKeys",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE~frame",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/academia/loading.tsx#AcademyLoading",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#<module>",
+          "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#placeholderKeys",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.actionCount",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.factCount",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#RouteSkeleton",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#SkeletonActions",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlock",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#SkeletonFacts",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#SkeletonLines",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/styles.module.scss#*",
+          "reason": "styles of a skeleton or loading boundary changed"
         }
       ],
       "suggestedScope": [
@@ -2147,7 +2285,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T030341Z-88902d.json"
+    "report": "runs/20261025T082629Z-308da7.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

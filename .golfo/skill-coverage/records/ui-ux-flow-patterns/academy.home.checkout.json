@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-admission-request-deadline",
-      "commit": "2b2a89c3f6be74f42c5e082a2da4341efcb264f6",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "622fc297a81165d651538448906da0c5f3c44887",
       "files": {
         "components/academy/academy-home/index.tsx": "809988db00523019",
         "app/(platform)/[slug]/academia/page.tsx": "8be7106822155a86",
@@ -922,44 +922,46 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
-        "durationMs": 24204,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
+        "durationMs": 24111,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "02ed7cc6c0625c6734eefc3d1133102d59597530083abe989746df4c8c76b399",
-        "recordedAt": "2026-10-25T02:59:15.226Z",
+        "outputSha256": "8be0df015638e299023b90e45686b4551f9d2975a91dcde1ae39cb07d25963a7",
+        "recordedAt": "2026-10-25T08:22:45.080Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T02:59:15.884Z",
+        "recordedAt": "2026-10-25T08:22:45.505Z",
         "source": "attested",
-        "summary": "Deadline compartido de los requests del navegador (120 s) y lectura del cuerpo: un cuerpo cortado por el deadline o por la cancelación propia es un fallo, nunca un éxito; una escritura vencida queda incierta y una lectura vencida es un fallo cierto."
+        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+      },
+      {
+        "kind": "browser",
+        "outcome": "pass",
+        "recordedAt": "2026-10-25T08:22:45.935Z",
+        "source": "attested",
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app, capturando el fallback durante una navegación: antes, academia, gestionar, verificación, suscripción y canales mostraban el esqueleto de la ronda («Cargando sección de tribu») y la invitación «Solicitar ingreso»; después, cada ruta anuncia su propia carga con su forma (panel de pasos en Reglas e Invitaciones, filas en Solicitudes, «Tu solicitud de ingreso» e «Invitación personal» en el solicitante) (4/4)."
       }
     ],
     "limitations": [
-      "Solo se revisó el deadline de los requests del navegador que agrega este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T02:59:17.522Z",
+    "recordedAt": "2026-10-25T08:22:47.106Z",
     "result": "partial",
-    "runId": "20261025T025850Z-1588af",
+    "runId": "20261025T082220Z-90a66d",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "lib/academy/academy-api-client.ts#sendAcademyApiRequest",
-          "reason": "visible or interactive code changed"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.home.checkout: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
       ]
@@ -977,7 +979,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T025850Z-1588af.json"
+    "report": "runs/20261025T082220Z-90a66d.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

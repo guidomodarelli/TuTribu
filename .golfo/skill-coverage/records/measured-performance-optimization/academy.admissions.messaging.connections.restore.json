@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-admission-request-deadline",
-      "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "622fc297a81165d651538448906da0c5f3c44887",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "d64cc0865a1e8f83",
         "lib/messaging/messaging-connections-intent-store.ts": "7dbed3748a05812b",
@@ -2386,18 +2386,17 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T01:53:21.043Z",
+    "recordedAt": "2026-10-25T08:04:39.632Z",
     "result": "not-applicable",
-    "runId": "20261025T015318Z-aba348",
+    "runId": "20261025T080438Z-79c772",
     "scope": {
-      "decision": "full",
+      "decision": "not-applicable",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "recorded not applicable: El deadline no agrega requests, consultas ni pasos al flujo: solo un timer por request ya existente."
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": [
-        "measure the complete flow /[slug]/academia/admissions/messaging/connections before and after, same build, data and throttling; median of 3 for noisy metrics"
-      ]
+      "suggestedScope": []
     },
     "skill": {
       "definitionFiles": {
@@ -2414,8 +2413,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "El deadline no agrega requests, consultas ni pasos al flujo: solo un timer por request ya existente.",
-    "report": "runs/20261025T015318Z-aba348.json"
+    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T080438Z-79c772.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

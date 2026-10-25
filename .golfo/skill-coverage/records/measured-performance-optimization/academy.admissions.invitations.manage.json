@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-admission-request-deadline",
-      "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "622fc297a81165d651538448906da0c5f3c44887",
       "files": {
         "app/(platform)/[slug]/academia/admissions/invitations/page.tsx": "5731b66b99705bd9",
         "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx": "0ae1742a06c8464b",
@@ -4333,48 +4333,19 @@
     },
     "evidence": [],
     "limitations": [],
-    "mode": "incremental",
+    "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T01:51:40.330Z",
+    "recordedAt": "2026-10-25T07:57:30.582Z",
     "result": "not-applicable",
-    "runId": "20261025T015137Z-b4570e",
+    "runId": "20261025T075728Z-976df7",
     "scope": {
-      "decision": "incremental",
+      "decision": "not-applicable",
       "reasons": [
-        "skill definition changed (1.4.0 → 1.5.0): SKILL.md",
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "4 relevant change(s) since the verified run"
+        "recorded not applicable: El deadline no agrega requests, consultas ni pasos al flujo: solo un timer por request ya existente."
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "added",
-          "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/send",
-          "reason": "adds load: +2 awaited steps"
-        },
-        {
-          "change": "added",
-          "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/send",
-          "reason": "adds load: +3 awaited steps"
-        },
-        {
-          "change": "added",
-          "key": "lib/browser-request-deadline.ts#boundBrowserRequest",
-          "reason": "adds load: +1 awaited steps"
-        },
-        {
-          "change": "added",
-          "key": "lib/browser-request-deadline.ts#startBrowserRequestDeadline~shell",
-          "reason": "adds load: +1 listeners or subscriptions, +1 timers or polling"
-        }
-      ],
-      "suggestedScope": [
-        "re-check the unit against the rules changed in measured-performance-optimization/SKILL.md",
-        "measure the complete flow /[slug]/academia/admissions/invitations: before = revision 0569c8d0c20e (last measured), after = working tree",
-        "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient › send — adds load: +2 awaited steps",
-        "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport › send — adds load: +3 awaited steps",
-        "lib/browser-request-deadline.ts › boundBrowserRequest — adds load: +1 awaited steps",
-        "lib/browser-request-deadline.ts › startBrowserRequestDeadline (component body outside its handlers) — adds load: +1 listeners or subscriptions, +1 timers or polling"
-      ]
+      "relevantChangesAtBegin": [],
+      "suggestedScope": []
     },
     "skill": {
       "definitionFiles": {
@@ -4391,8 +4362,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "El deadline no agrega requests, consultas ni pasos al flujo: solo un timer por request ya existente.",
-    "report": "runs/20261025T015137Z-b4570e.json"
+    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T075728Z-976df7.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",
