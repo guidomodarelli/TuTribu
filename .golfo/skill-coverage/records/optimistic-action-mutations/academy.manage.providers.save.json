@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "perf/academy-page-round-trips",
-      "commit": "ccb559dffef3630f85b470bbd6ca6f3be559b4fe",
+      "branch": "fix/academy-management-mutations",
+      "commit": "64b87f83eb45941aa8b2b758ae938221dad4baad",
       "files": {
-        "components/academy/academy-management/index.tsx": "b31e2d2038935251",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
+        "components/academy/academy-management/index.tsx": "c9c63144daeb34d0",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/verification-providers/route.ts": "20c6fdde30cc0509",
         "app/api/tribes/[slug]/verification-providers/[providerId]/route.ts": "7d432268fbc39135",
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
@@ -341,32 +341,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx",
-        "durationMs": 31753,
+        "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
+        "durationMs": 23557,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "0b4edd80c98f6afd2b4fad9d98923224333e80e26e86c73525a0900d051d3742",
-        "recordedAt": "2026-10-25T20:54:31.557Z",
+        "outputSha256": "29e209f7a30c6e76c11a68637e3f8bccfc5f3fc7864290aea5fc3bd608a5ed8a",
+        "recordedAt": "2026-10-25T20:28:21.516Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T20:54:32.350Z",
+        "recordedAt": "2026-10-25T20:28:22.020Z",
         "source": "attested",
-        "summary": "Lecturas del render: integrantes, cola, configuración y proveedores salen en una sola tanda; la configuración responde null y los proveedores solo los activos a un guardián, y la página usa esas respuestas solo para el líder; un fallo sigue llegando al boundary del segmento."
+        "summary": "Ciclo de vida: revocar es server-confirmed con protección de doble envío y error dentro del diálogo; otorgar y revocar recargan la lista por reloadToken; disponibilidad y conflictos conservan el borrador de la oferta; decidir una solicitud la saca del filtro y vuelve a pedir la página, un conflicto la deja visible con su estado; búsquedas y paginación muestran Consultando…"
       }
     ],
     "limitations": [
-      "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron las secciones de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T20:54:33.871Z",
+    "recordedAt": "2026-10-25T20:28:23.284Z",
     "result": "partial",
-    "runId": "20261025T205359Z-efd459",
+    "runId": "20261025T202757Z-82fe77",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -391,7 +391,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T205359Z-efd459.json"
+    "report": "runs/20261025T202757Z-82fe77.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

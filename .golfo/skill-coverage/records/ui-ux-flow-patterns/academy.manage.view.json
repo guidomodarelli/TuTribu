@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "perf/academy-page-round-trips",
-      "commit": "ccb559dffef3630f85b470bbd6ca6f3be559b4fe",
+      "branch": "fix/academy-management-mutations",
+      "commit": "64b87f83eb45941aa8b2b758ae938221dad4baad",
       "files": {
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
-        "components/academy/academy-management/index.tsx": "b31e2d2038935251",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
+        "components/academy/academy-management/index.tsx": "c9c63144daeb34d0",
         "app/(platform)/[slug]/academia/gestionar/loading.tsx": "efdd51c1e0f631dd",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
@@ -39,10 +39,10 @@
         "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-access-token.ts": "84e7661b4a92ef99",
         "components/loaders/route-skeleton/styles.module.scss": "aba42533e97ac72c"
       },
-      "fingerprint": "sha256:027f304ea20e57bd5ab4b6af896c8025b977ca2739b2ff5a258bdd3c80b41a81",
+      "fingerprint": "sha256:cc1e903598a221912a742a0a1cc09b2c45e12f4b2f3326a7f8aa5d4f47432bde",
       "inputs": {
         "app/(platform)/[slug]/academia/gestionar/page.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": "2a00c59b13d7afd2",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": "3ebed5c9c877c3bf",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#MANAGEMENT_PAGE~frame": "df600e477132a2b8",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#MANAGEMENT_PAGE.firstPage": "5ef54f08154e6bad",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#MANAGEMENT_PAGE.pendingStatus": "f879946581980090",
@@ -392,52 +392,46 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx",
-        "durationMs": 30850,
+        "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
+        "durationMs": 30205,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "4d7b4d5ce6990b45148049674469ae9170af0951754df15df2ac780ac4e2766e",
-        "recordedAt": "2026-10-25T21:02:31.205Z",
+        "outputSha256": "74afbce5f4bfadb2f827f4c4756797233046920dca6972861e06fa9655e9dc0a",
+        "recordedAt": "2026-10-25T20:34:56.434Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T21:02:31.873Z",
+        "recordedAt": "2026-10-25T20:34:56.883Z",
         "source": "attested",
-        "summary": "Lecturas del render: integrantes, cola, configuración y proveedores salen en una sola tanda; la configuración responde null y los proveedores solo los activos a un guardián, y la página usa esas respuestas solo para el líder; un fallo sigue llegando al boundary del segmento."
+        "summary": "Ciclo de vida: revocar es server-confirmed con protección de doble envío y error dentro del diálogo; otorgar y revocar recargan la lista por reloadToken; disponibilidad y conflictos conservan el borrador de la oferta; decidir una solicitud la saca del filtro y vuelve a pedir la página, un conflicto la deja visible con su estado; búsquedas y paginación muestran Consultando…"
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T21:02:32.457Z",
+        "recordedAt": "2026-10-25T20:34:57.399Z",
         "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Gestionar academia carga para el líder con Configuración, Proveedores de verificación, Solicitudes de verificación y Accesos de integrantes (4/4)."
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: la bonificación otorgada aparece sin recargar, revocar usa el diálogo sin window.prompt y el título sin guardar se conserva al cambiar la disponibilidad (4/4)."
       }
     ],
     "limitations": [
-      "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron las secciones de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T21:02:33.868Z",
+    "recordedAt": "2026-10-25T20:34:59.254Z",
     "result": "partial",
-    "runId": "20261025T210159Z-e14dff",
+    "runId": "20261025T203425Z-4da2d3",
     "scope": {
       "decision": "full",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps",
-          "reason": "visible or interactive code changed"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.manage.view: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
       ]
@@ -455,7 +449,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T210159Z-e14dff.json"
+    "report": "runs/20261025T203425Z-4da2d3.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

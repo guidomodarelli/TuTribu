@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "perf/academy-page-round-trips",
-      "commit": "ccb559dffef3630f85b470bbd6ca6f3be559b4fe",
+      "branch": "fix/academy-management-mutations",
+      "commit": "64b87f83eb45941aa8b2b758ae938221dad4baad",
       "files": {
-        "components/academy/academy-management/index.tsx": "b31e2d2038935251",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
+        "components/academy/academy-management/index.tsx": "c9c63144daeb34d0",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/verifications/route.ts": "7143222c4b934955",
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
         "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts": "65c276a71c59ef25",
@@ -109,27 +109,29 @@
         "app/not-found.module.scss": "07d324074a6ecb7f",
         "config/deployment-environment.ts": "08bb1a3202ff76f7"
       },
-      "fingerprint": "sha256:9fdcc53a6d12fbde1fe4df261f16f1be71f942b306a0388ef5855adae8dc4b4e",
+      "fingerprint": "sha256:eb31af85413e596fc35f583a131eb0b2182c23f633b3016664c3ea5df1167a18",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
         "pkg:react-dom": "d2111d79718dba5f",
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-management/index.tsx#ReviewQueueSection/replaceItem": "3b65c64521811794",
-        "components/academy/academy-management/index.tsx#ReviewQueueSection~shell": "e2441c089224f76d",
+        "components/academy/academy-management/index.tsx#ReviewQueueSection/settleDecidedItem": "1434035519e9b007",
+        "components/academy/academy-management/index.tsx#ReviewQueueSection~shell": "47f0f4a38ef8fe98",
         "components/academy/academy-management/index.tsx#ALL_STATUSES_VALUE": "f9edfddb0d8ca296",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY~frame": "273d3be735a785d5",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.emptyQueue": "c485a790604f74bc",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.loadingList": "462293ff284a15a0",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.queueDescription": "ce0676c11ec08add",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.queueTitle": "1d4fc453ec2a8aa6",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.searchLabel": "d1358d952c1c2bbc",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.searchSubmit": "f21f5237f6e62ca8",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.statusFilterLabel": "1b469d48006037fb",
+        "components/academy/academy-management/index.tsx#PAGE_SIZE": "6858738053995650",
         "components/academy/academy-management/index.tsx#Pagination": "4860cd2e77cdf851",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.next": "f942b3fa7cbd256c",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.previous": "6a761da6df287291",
-        "components/academy/academy-management/index.tsx#PAGE_SIZE": "6858738053995650",
         "components/academy/academy-management/index.tsx#QUEUE_STATUS_OPTIONS": "e6bcf9644b89d9c9",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.allStatuses": "adc6478730dc1934",
         "components/academy/academy-management/index.tsx#QUEUE_STATUS_LABEL.pending": "292ed17fd217f098",
@@ -138,12 +140,12 @@
         "components/academy/academy-management/index.tsx#QUEUE_STATUS_LABEL.verified": "e229377279309f06",
         "components/academy/academy-management/index.tsx#QUEUE_STATUS_LABEL~frame": "d4bdd57bd94c9789",
         "components/academy/academy-management/index.tsx#QueuePage": "d319eab9fb53e03a",
-        "components/academy/academy-management/index.tsx#ReviewQueueRow/decide": "ac96058e54d5acca",
+        "components/academy/academy-management/index.tsx#ReviewQueueRow/decide": "3683f5730f805045",
         "components/academy/academy-management/index.tsx#HTTP_STATUS_CONFLICT": "4821e07a60f48131",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.conflict": "bc59070c0b883870",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.decisionReasonRequired": "932789cf4c459071",
         "components/academy/academy-management/index.tsx#MIN_REASON_LENGTH": "1c0a5e01e735a4c4",
-        "components/academy/academy-management/index.tsx#ReviewQueueRow~shell": "bd490fac7e5238d0",
+        "components/academy/academy-management/index.tsx#ReviewQueueRow~shell": "ab559fb051d73941",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.decisionReasonLabel": "0f07aa0e7dcc4e40",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.reasonPlaceholder": "57c20650e88d0149",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.reject": "9c7e5c8a43559556",
@@ -187,7 +189,7 @@
         "app/(platform)/[slug]/academia/gestionar/page.tsx#MANAGEMENT_PAGE.pendingStatus": "f879946581980090",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#MANAGEMENT_PAGE~frame": "df600e477132a2b8",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#RequestModules": "69bdc535c7130659",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": "2a00c59b13d7afd2",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": "3ebed5c9c877c3bf",
         "src/modules/member-verifications/application/results/member-verification-dto-mappers.ts#<module>": "2da3ec2294295eb1",
         "src/modules/member-verifications/application/results/member-verification-dto-mappers.ts#toReviewQueueItemDto": "c1339f9555eee868",
         "src/modules/member-verifications/application/results/member-verification-dto-mappers.ts#toMemberVerificationDto": "04e0b70f671e4537",
@@ -1084,7 +1086,7 @@
           "database": 2
         },
         "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": {
-          "awaits": 1
+          "awaits": 2
         },
         "app/(platform)/[slug]/tribe-page-access.ts#resolveVisibleTribePageAccess": {
           "awaits": 1
@@ -1239,50 +1241,50 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx",
-        "durationMs": 24638,
+        "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
+        "durationMs": 36869,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "6caacdd9105a19d6da3ce155d0fb25ec935ce3f4d0b1cad18cd086585b8df04a",
-        "recordedAt": "2026-10-25T21:01:12.771Z",
+        "outputSha256": "cf2e11061dee8eb954a94de1846e232c82e0ef4f7f7bc56aab97780ed9acb6b4",
+        "recordedAt": "2026-10-25T20:33:35.436Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 4515,
+        "durationMs": 3478,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T21:01:17.884Z",
+        "recordedAt": "2026-10-25T20:33:39.499Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T21:01:18.757Z",
+        "recordedAt": "2026-10-25T20:33:40.102Z",
         "source": "attested",
-        "summary": "Lecturas del render: integrantes, cola, configuración y proveedores salen en una sola tanda; la configuración responde null y los proveedores solo los activos a un guardián, y la página usa esas respuestas solo para el líder; un fallo sigue llegando al boundary del segmento."
+        "summary": "Ciclo de vida: revocar es server-confirmed con protección de doble envío y error dentro del diálogo; otorgar y revocar recargan la lista por reloadToken; disponibilidad y conflictos conservan el borrador de la oferta; decidir una solicitud la saca del filtro y vuelve a pedir la página, un conflicto la deja visible con su estado; búsquedas y paginación muestran Consultando…"
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T21:01:19.438Z",
+        "recordedAt": "2026-10-25T20:33:40.689Z",
         "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Gestionar academia carga para el líder con Configuración, Proveedores de verificación, Solicitudes de verificación y Accesos de integrantes (4/4)."
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: la bonificación otorgada aparece sin recargar, revocar usa el diálogo sin window.prompt y el título sin guardar se conserva al cambiar la disponibilidad (4/4)."
       }
     ],
     "limitations": [
-      "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron las secciones de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T21:01:21.349Z",
+    "recordedAt": "2026-10-25T20:33:42.487Z",
     "result": "partial",
-    "runId": "20261025T210047Z-c68a07",
+    "runId": "20261025T203257Z-098c50",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -1291,9 +1293,29 @@
       ],
       "relevantChangesAtBegin": [
         {
+          "change": "added",
+          "key": "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.loadingList",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
           "change": "modified",
-          "key": "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps",
-          "reason": "route file changed: segment layout, boundary or page"
+          "key": "components/academy/academy-management/index.tsx#ReviewQueueRow/decide",
+          "reason": "interactive handler changed: navigation or server action calls may differ"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-management/index.tsx#ReviewQueueRow~shell",
+          "reason": "component render changed: hooks, Suspense or client imports may differ"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-management/index.tsx#ReviewQueueSection/settleDecidedItem",
+          "reason": "new interactive handler in the route"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-management/index.tsx#ReviewQueueSection~shell",
+          "reason": "component render changed: hooks, Suspense or client imports may differ"
         }
       ],
       "suggestedScope": [
@@ -1313,7 +1335,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T210047Z-c68a07.json"
+    "report": "runs/20261025T203257Z-098c50.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

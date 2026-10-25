@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "perf/academy-page-round-trips",
-      "commit": "ccb559dffef3630f85b470bbd6ca6f3be559b4fe",
+      "branch": "fix/academy-management-mutations",
+      "commit": "64b87f83eb45941aa8b2b758ae938221dad4baad",
       "files": {
-        "components/academy/academy-management/index.tsx": "b31e2d2038935251",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
+        "components/academy/academy-management/index.tsx": "c9c63144daeb34d0",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/verifications/[verificationId]/route.ts": "1169beb137a7ceac",
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
         "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts": "65c276a71c59ef25",
@@ -29,10 +29,10 @@
         "src/modules/shared/infrastructure/observability/server-logger.ts": "91c2a693de13f86f",
         "src/modules/shared/infrastructure/observability/request-context.ts": "298449d5b583123d"
       },
-      "fingerprint": "sha256:cd8585aefc759cfc325a1f0bd87fc8ec1204d6da7ae6e0f63e72847ea8ca52df",
+      "fingerprint": "sha256:e81e51cbed8690af0690b13028510a2a4a50cbd43bfe5fbd0ab3c42e301abaa4",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy/academy-management/index.tsx#ReviewQueueRow/decide": "ac96058e54d5acca",
+        "components/academy/academy-management/index.tsx#ReviewQueueRow/decide": "3683f5730f805045",
         "components/academy/academy-management/index.tsx#HTTP_STATUS_CONFLICT": "4821e07a60f48131",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY~frame": "273d3be735a785d5",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.conflict": "bc59070c0b883870",
@@ -44,7 +44,7 @@
         "components/academy/academy-management/index.tsx#QUEUE_STATUS_LABEL.verified": "e229377279309f06",
         "components/academy/academy-management/index.tsx#QUEUE_STATUS_LABEL~frame": "d4bdd57bd94c9789",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
-        "components/academy/academy-management/index.tsx#ReviewQueueRow~shell": "bd490fac7e5238d0",
+        "components/academy/academy-management/index.tsx#ReviewQueueRow~shell": "ab559fb051d73941",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.decisionReasonLabel": "0f07aa0e7dcc4e40",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.reasonPlaceholder": "57c20650e88d0149",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.reject": "9c7e5c8a43559556",
@@ -52,7 +52,8 @@
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.verify": "8f809e6426a65ae2",
         "pkg:react": "374a4508a198654b",
         "components/academy/academy-management/index.tsx#ReviewQueueSection/replaceItem": "3b65c64521811794",
-        "components/academy/academy-management/index.tsx#ReviewQueueSection~shell": "e2441c089224f76d",
+        "components/academy/academy-management/index.tsx#ReviewQueueSection/settleDecidedItem": "1434035519e9b007",
+        "components/academy/academy-management/index.tsx#ReviewQueueSection~shell": "47f0f4a38ef8fe98",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": "6371b497b9fa3370",
         "app/api/tribes/[slug]/verifications/[verificationId]/route.ts#<module>": "2da3ec2294295eb1",
@@ -324,25 +325,25 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx",
-        "durationMs": 37736,
+        "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
+        "durationMs": 30491,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "a81192728d9aaa5813662dc91163d57c5bdbe2c4c47ff8e0af75c0046d27b6c9",
-        "recordedAt": "2026-10-25T20:59:19.593Z",
+        "outputSha256": "8b0805a323565d53e2f734a508e17d96a127089a30b6edf07c1f4a3ea3594ced",
+        "recordedAt": "2026-10-25T20:31:38.135Z",
         "source": "witnessed",
         "summary": "exit code 0"
       }
     ],
     "limitations": [
-      "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "La recarga tras decidir o revocar suma una request GET por acción del líder sobre el mismo endpoint que ya usa la paginación; no se midió por separado."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T20:59:24.075Z",
+    "recordedAt": "2026-10-25T20:31:40.174Z",
     "result": "partial",
-    "runId": "20261025T205839Z-5441cc",
+    "runId": "20261025T203107Z-6b124f",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
@@ -367,7 +368,7 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T205839Z-5441cc.json"
+    "report": "runs/20261025T203107Z-6b124f.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "perf/academy-page-round-trips",
-      "commit": "ccb559dffef3630f85b470bbd6ca6f3be559b4fe",
+      "branch": "fix/academy-management-mutations",
+      "commit": "64b87f83eb45941aa8b2b758ae938221dad4baad",
       "files": {
-        "components/academy/academy-management/index.tsx": "b31e2d2038935251",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
+        "components/academy/academy-management/index.tsx": "c9c63144daeb34d0",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/academy/bonuses/route.ts": "2b4c0dee98bd2d99",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
         "src/modules/product-access/infrastructure/repositories/postgres-product-access-repository.ts": "b6d068802851a5fa",
@@ -52,7 +52,7 @@
         "src/constants/time.ts": "98b5459a77a709b0",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:f1be284e55af03f79ae1189ca76c6180c870459cc5172e7a5e2fad9accbb1f0c",
+      "fingerprint": "sha256:fed588134ae96a33e6aa269424050fc8b624c0dcba97c29f00d173409022bec6",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-management/index.tsx#BonusDialog/handleSubmit": "6db5a5aa3a3cb844",
@@ -71,8 +71,7 @@
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.saving": "17b92aa11f16cc23",
         "components/academy/academy-management/index.tsx#MIN_REASON_LENGTH": "1c0a5e01e735a4c4",
         "pkg:react": "374a4508a198654b",
-        "components/academy/academy-management/index.tsx#MembersSection/handleRevoke": "14b51a79d22fe867",
-        "components/academy/academy-management/index.tsx#MembersSection~shell": "5e5f716a7ddad39e",
+        "components/academy/academy-management/index.tsx#MembersSection": "e42851580d3ece4e",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": "6371b497b9fa3370",
         "app/api/tribes/[slug]/academy/bonuses/route.ts#<module>": "2da3ec2294295eb1",
@@ -624,11 +623,7 @@
         "components/academy/academy-management/index.tsx#BonusDialog~shell": {
           "projectCalls": 1
         },
-        "components/academy/academy-management/index.tsx#MembersSection/handleRevoke": {
-          "awaits": 1,
-          "projectCalls": 1
-        },
-        "components/academy/academy-management/index.tsx#MembersSection~shell": {
+        "components/academy/academy-management/index.tsx#MembersSection": {
           "effects": 1,
           "projectCalls": 1
         },
@@ -730,39 +725,55 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx",
-        "durationMs": 51549,
+        "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
+        "durationMs": 22828,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "829c29dd201f8bf9ae807233646ff546c4ff9dbcb5337028c5dc2dfb71d78450",
-        "recordedAt": "2026-10-25T20:44:53.672Z",
+        "outputSha256": "0961a2a989c86fae36ea38318f4c237286a87bed457b65e8c1dede89858f6a00",
+        "recordedAt": "2026-10-25T20:20:01.274Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T20:44:55.437Z",
+        "recordedAt": "2026-10-25T20:20:02.112Z",
         "source": "attested",
-        "summary": "Lecturas del render: integrantes, cola, configuración y proveedores salen en una sola tanda; la configuración responde null y los proveedores solo los activos a un guardián, y la página usa esas respuestas solo para el líder; un fallo sigue llegando al boundary del segmento."
+        "summary": "Ciclo de vida: revocar es server-confirmed con protección de doble envío y error dentro del diálogo; otorgar y revocar recargan la lista por reloadToken; disponibilidad y conflictos conservan el borrador de la oferta; decidir una solicitud la saca del filtro y vuelve a pedir la página, un conflicto la deja visible con su estado; búsquedas y paginación muestran Consultando…"
       }
     ],
     "limitations": [
-      "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron las secciones de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T20:44:58.546Z",
+    "recordedAt": "2026-10-25T20:20:03.785Z",
     "result": "partial",
-    "runId": "20261025T204401Z-69f70b",
+    "runId": "20261025T201937Z-7ea139",
     "scope": {
       "decision": "full",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "added",
+          "key": "components/academy/academy-management/index.tsx#MembersSection",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "removed",
+          "key": "components/academy/academy-management/index.tsx#MembersSection/handleRevoke",
+          "reason": "code no longer reached by the unit: an operation may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "components/academy/academy-management/index.tsx#MembersSection~shell",
+          "reason": "code no longer reached by the unit: an operation may have been removed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.manage.bonuses.grant: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -780,7 +791,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T204401Z-69f70b.json"
+    "report": "runs/20261025T201937Z-7ea139.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

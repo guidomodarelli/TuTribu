@@ -1,0 +1,82 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-management-mutations",
+    "commit": "64b87f83eb45941aa8b2b758ae938221dad4baad",
+    "fingerprint": "sha256:fed588134ae96a33e6aa269424050fc8b624c0dcba97c29f00d173409022bec6",
+    "uncommittedFiles": [],
+    "fileCount": 46,
+    "inputCount": 560
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
+      "durationMs": 22828,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "0961a2a989c86fae36ea38318f4c237286a87bed457b65e8c1dede89858f6a00",
+      "recordedAt": "2026-10-25T20:20:01.274Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T20:20:02.112Z",
+      "source": "attested",
+      "summary": "Ciclo de vida: revocar es server-confirmed con protección de doble envío y error dentro del diálogo; otorgar y revocar recargan la lista por reloadToken; disponibilidad y conflictos conservan el borrador de la oferta; decidir una solicitud la saca del filtro y vuelve a pedir la página, un conflicto la deja visible con su estado; búsquedas y paginación muestran Consultando…"
+    }
+  ],
+  "limitations": [
+    "Solo se revisaron las secciones de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T20:20:03.785Z",
+  "result": "partial",
+  "runId": "20261025T201937Z-7ea139",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "components/academy/academy-management/index.tsx#MembersSection",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy/academy-management/index.tsx#MembersSection/handleRevoke",
+        "reason": "code no longer reached by the unit: an operation may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy/academy-management/index.tsx#MembersSection~shell",
+        "reason": "code no longer reached by the unit: an operation may have been removed"
+      }
+    ],
+    "suggestedScope": [
+      "whole unit academy.manage.bonuses.grant: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "96d98d49220f2894",
+      "references/action-catalog.md": "3011dc2f28c2e91c",
+      "references/concurrency-reconciliation.md": "1bb4d0816b1a483d",
+      "references/framework-primitives.md": "16fc928cc9cc1f3c",
+      "references/interaction-state-machine.md": "c09f8f0c506bdd54",
+      "references/optimistic-decision.md": "62c41b62a67ed97a"
+    },
+    "definitionHash": "sha256:e7f9e58f5862e859cec90782e0920de1b6583e9e1904af2e8818f971aeb3448f",
+    "name": "optimistic-action-mutations",
+    "version": "1.2.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T20:19:37.959Z",
+  "unitId": "academy.manage.bonuses.grant"
+}

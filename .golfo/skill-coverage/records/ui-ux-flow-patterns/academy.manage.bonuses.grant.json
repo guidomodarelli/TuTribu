@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "perf/academy-page-round-trips",
-      "commit": "ccb559dffef3630f85b470bbd6ca6f3be559b4fe",
+      "branch": "fix/academy-management-mutations",
+      "commit": "64b87f83eb45941aa8b2b758ae938221dad4baad",
       "files": {
-        "components/academy/academy-management/index.tsx": "b31e2d2038935251",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
+        "components/academy/academy-management/index.tsx": "c9c63144daeb34d0",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/academy/bonuses/route.ts": "2b4c0dee98bd2d99",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
         "src/modules/product-access/infrastructure/repositories/postgres-product-access-repository.ts": "b6d068802851a5fa",
@@ -46,7 +46,7 @@
         "src/constants/time.ts": "98b5459a77a709b0",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:245f6064da2fa01ccf259a95d4df9e51ace7addb0e201e53be1f3fa42e4722b1",
+      "fingerprint": "sha256:fb6c3dfea7390cdb27d7d4d36ee9d855be5b09ef309db0632378619de95dd04e",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-management/index.tsx#BonusDialog/handleSubmit": "6db5a5aa3a3cb844",
@@ -65,8 +65,7 @@
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.saving": "17b92aa11f16cc23",
         "components/academy/academy-management/index.tsx#MIN_REASON_LENGTH": "1c0a5e01e735a4c4",
         "pkg:react": "374a4508a198654b",
-        "components/academy/academy-management/index.tsx#MembersSection/handleRevoke": "14b51a79d22fe867",
-        "components/academy/academy-management/index.tsx#MembersSection~shell": "5e5f716a7ddad39e",
+        "components/academy/academy-management/index.tsx#MembersSection": "e42851580d3ece4e",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": "6371b497b9fa3370",
         "app/api/tribes/[slug]/academy/bonuses/route.ts#<module>": "2da3ec2294295eb1",
@@ -490,46 +489,62 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx",
-        "durationMs": 25313,
+        "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
+        "durationMs": 22621,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "9501d4013fbe96b11ac2fa5a5f677f26404a3c6ee6f90573bc9d95cf0ffd0363",
-        "recordedAt": "2026-10-25T20:43:56.192Z",
+        "outputSha256": "0a406df1d5b5302330c3bfe86e3aadbe02fbb43fba7fc7d8debf9aa5f7b5c6d3",
+        "recordedAt": "2026-10-25T20:19:33.461Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T20:43:56.847Z",
+        "recordedAt": "2026-10-25T20:19:33.960Z",
         "source": "attested",
-        "summary": "Lecturas del render: integrantes, cola, configuración y proveedores salen en una sola tanda; la configuración responde null y los proveedores solo los activos a un guardián, y la página usa esas respuestas solo para el líder; un fallo sigue llegando al boundary del segmento."
+        "summary": "Ciclo de vida: revocar es server-confirmed con protección de doble envío y error dentro del diálogo; otorgar y revocar recargan la lista por reloadToken; disponibilidad y conflictos conservan el borrador de la oferta; decidir una solicitud la saca del filtro y vuelve a pedir la página, un conflicto la deja visible con su estado; búsquedas y paginación muestran Consultando…"
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T20:43:57.530Z",
+        "recordedAt": "2026-10-25T20:19:34.442Z",
         "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Gestionar academia carga para el líder con Configuración, Proveedores de verificación, Solicitudes de verificación y Accesos de integrantes (4/4)."
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: la bonificación otorgada aparece sin recargar, revocar usa el diálogo sin window.prompt y el título sin guardar se conserva al cambiar la disponibilidad (4/4)."
       }
     ],
     "limitations": [
-      "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron las secciones de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T20:43:59.115Z",
+    "recordedAt": "2026-10-25T20:19:35.761Z",
     "result": "partial",
-    "runId": "20261025T204330Z-63fef0",
+    "runId": "20261025T201910Z-c76437",
     "scope": {
       "decision": "full",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "added",
+          "key": "components/academy/academy-management/index.tsx#MembersSection",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "removed",
+          "key": "components/academy/academy-management/index.tsx#MembersSection/handleRevoke",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "components/academy/academy-management/index.tsx#MembersSection~shell",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.manage.bonuses.grant: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
       ]
@@ -547,7 +562,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T204330Z-63fef0.json"
+    "report": "runs/20261025T201910Z-c76437.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

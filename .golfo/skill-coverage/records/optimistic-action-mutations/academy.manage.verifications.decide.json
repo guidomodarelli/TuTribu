@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "perf/academy-page-round-trips",
-      "commit": "ccb559dffef3630f85b470bbd6ca6f3be559b4fe",
+      "branch": "fix/academy-management-mutations",
+      "commit": "64b87f83eb45941aa8b2b758ae938221dad4baad",
       "files": {
-        "components/academy/academy-management/index.tsx": "b31e2d2038935251",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
+        "components/academy/academy-management/index.tsx": "c9c63144daeb34d0",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/verifications/[verificationId]/route.ts": "1169beb137a7ceac",
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
         "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts": "65c276a71c59ef25",
@@ -29,10 +29,10 @@
         "src/modules/shared/infrastructure/observability/server-logger.ts": "91c2a693de13f86f",
         "src/modules/shared/infrastructure/observability/request-context.ts": "298449d5b583123d"
       },
-      "fingerprint": "sha256:cd8585aefc759cfc325a1f0bd87fc8ec1204d6da7ae6e0f63e72847ea8ca52df",
+      "fingerprint": "sha256:e81e51cbed8690af0690b13028510a2a4a50cbd43bfe5fbd0ab3c42e301abaa4",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy/academy-management/index.tsx#ReviewQueueRow/decide": "ac96058e54d5acca",
+        "components/academy/academy-management/index.tsx#ReviewQueueRow/decide": "3683f5730f805045",
         "components/academy/academy-management/index.tsx#HTTP_STATUS_CONFLICT": "4821e07a60f48131",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY~frame": "273d3be735a785d5",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.conflict": "bc59070c0b883870",
@@ -44,7 +44,7 @@
         "components/academy/academy-management/index.tsx#QUEUE_STATUS_LABEL.verified": "e229377279309f06",
         "components/academy/academy-management/index.tsx#QUEUE_STATUS_LABEL~frame": "d4bdd57bd94c9789",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
-        "components/academy/academy-management/index.tsx#ReviewQueueRow~shell": "bd490fac7e5238d0",
+        "components/academy/academy-management/index.tsx#ReviewQueueRow~shell": "ab559fb051d73941",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.decisionReasonLabel": "0f07aa0e7dcc4e40",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.reasonPlaceholder": "57c20650e88d0149",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.reject": "9c7e5c8a43559556",
@@ -52,7 +52,8 @@
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.verify": "8f809e6426a65ae2",
         "pkg:react": "374a4508a198654b",
         "components/academy/academy-management/index.tsx#ReviewQueueSection/replaceItem": "3b65c64521811794",
-        "components/academy/academy-management/index.tsx#ReviewQueueSection~shell": "e2441c089224f76d",
+        "components/academy/academy-management/index.tsx#ReviewQueueSection/settleDecidedItem": "1434035519e9b007",
+        "components/academy/academy-management/index.tsx#ReviewQueueSection~shell": "47f0f4a38ef8fe98",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": "6371b497b9fa3370",
         "app/api/tribes/[slug]/verifications/[verificationId]/route.ts#<module>": "2da3ec2294295eb1",
@@ -324,39 +325,60 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx",
-        "durationMs": 29198,
+        "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
+        "durationMs": 26483,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "60e96619e524b55c324e52548151ea3bdc213c399f8c620634c3f4eaa1875e67",
-        "recordedAt": "2026-10-25T20:57:43.266Z",
+        "outputSha256": "b7c99ddd51b3b0b07a9868e7d1898837674750b2ded52052142c8319c72b5e8a",
+        "recordedAt": "2026-10-25T20:30:26.063Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T20:57:44.535Z",
+        "recordedAt": "2026-10-25T20:30:26.722Z",
         "source": "attested",
-        "summary": "Lecturas del render: integrantes, cola, configuración y proveedores salen en una sola tanda; la configuración responde null y los proveedores solo los activos a un guardián, y la página usa esas respuestas solo para el líder; un fallo sigue llegando al boundary del segmento."
+        "summary": "Ciclo de vida: revocar es server-confirmed con protección de doble envío y error dentro del diálogo; otorgar y revocar recargan la lista por reloadToken; disponibilidad y conflictos conservan el borrador de la oferta; decidir una solicitud la saca del filtro y vuelve a pedir la página, un conflicto la deja visible con su estado; búsquedas y paginación muestran Consultando…"
       }
     ],
     "limitations": [
-      "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron las secciones de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T20:57:46.306Z",
+    "recordedAt": "2026-10-25T20:30:28.108Z",
     "result": "partial",
-    "runId": "20261025T205713Z-aa5f24",
+    "runId": "20261025T202958Z-fb996b",
     "scope": {
       "decision": "full",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "components/academy/academy-management/index.tsx#ReviewQueueRow/decide",
+          "reason": "action handler changed"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-management/index.tsx#ReviewQueueRow~shell",
+          "reason": "component state or render changed"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-management/index.tsx#ReviewQueueSection/settleDecidedItem",
+          "reason": "new action handler"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-management/index.tsx#ReviewQueueSection~shell",
+          "reason": "component state or render changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.manage.verifications.decide: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -374,7 +396,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T205713Z-aa5f24.json"
+    "report": "runs/20261025T202958Z-fb996b.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

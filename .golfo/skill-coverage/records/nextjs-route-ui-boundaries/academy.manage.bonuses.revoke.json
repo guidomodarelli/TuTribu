@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "perf/academy-page-round-trips",
-      "commit": "ccb559dffef3630f85b470bbd6ca6f3be559b4fe",
+      "branch": "fix/academy-management-mutations",
+      "commit": "eb9bbb3133777d61596556f311001d065649fa75",
       "files": {
-        "components/academy/academy-management/index.tsx": "b31e2d2038935251",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
+        "components/academy/academy-management/index.tsx": "c9c63144daeb34d0",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/academy/bonuses/[grantId]/revoke/route.ts": "855f33b51e6eed34",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
         "src/modules/product-access/infrastructure/repositories/postgres-product-access-repository.ts": "b6d068802851a5fa",
@@ -32,8 +32,8 @@
         "app/layout.tsx": "650f4386e125862f",
         "app/not-found.tsx": "7c2bf7b75ccbcef3",
         "next.config.ts": "499b76937ce73f12",
-        "lib/academy/academy-format.ts": "c89823377b85f3a9",
         "lib/academy/academy-api-client.ts": "298112080df602fd",
+        "lib/academy/academy-format.ts": "c89823377b85f3a9",
         "components/academy/academy-management/styles.module.scss": "01f52ce7ee08aa77",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts": "102e81af136adc5a",
         "src/modules/product-access/constants/academy-route-copy.ts": "f1751ca472d6a6c1",
@@ -89,9 +89,9 @@
         "config/cloudflare-output-tracing.ts": "43fa9999704d5e4b",
         "config/legacy-redirects.ts": "6e723edb2bbdd69f",
         "config/cloudflare-dev-runtime.ts": "5c9b3670ad614400",
-        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
+        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/modules/tribes/constants/tribe-page-access.ts": "18091d5392ed8b45",
         "src/constants/query-params.ts": "adb538cd11f8e88a",
         "components/loaders/route-skeleton/styles.module.scss": "aba42533e97ac72c",
@@ -125,19 +125,35 @@
         "src/modules/auth/setup.ts": "37e200547ae950e4",
         "app/not-found.module.scss": "07d324074a6ecb7f",
         "config/deployment-environment.ts": "08bb1a3202ff76f7",
-        "src/constants/time.ts": "98b5459a77a709b0",
-        "src/constants/date-time.ts": "120f12f7530df5ba"
+        "src/constants/date-time.ts": "120f12f7530df5ba",
+        "src/constants/time.ts": "98b5459a77a709b0"
       },
-      "fingerprint": "sha256:4e00c86ca2882f24e4fee53924581057f24ad1499691778c80c2bc40127b48d2",
+      "fingerprint": "sha256:7ead34dacd1195ec970b951dca7def6829a3f220426445adb00fc5759a16a108",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
         "pkg:react-dom": "d2111d79718dba5f",
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy/academy-management/index.tsx#MembersSection~shell": "5e5f716a7ddad39e",
-        "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
-        "components/academy/academy-management/index.tsx#BonusDialog/handleSubmit": "6db5a5aa3a3cb844",
+        "components/academy/academy-management/index.tsx#RevokeBonusDialog/handleSubmit": "b87e9ea8d5cd5607",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY~frame": "273d3be735a785d5",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.bonusRevoked": "d7e8c2405c050147",
+        "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
+        "components/academy/academy-management/index.tsx#RevokeBonusDialog~shell": "a04e045b23a25dd1",
+        "components/academy/academy-management/index.tsx#AcademyGrantDto": "aff7dd6422248e38",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.cancel": "129e70b7dea90a86",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusDescription": "736e4abceec956f1",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusPrompt": "a011f4022643b39e",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusSubject": "c1318d22272d5143",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusSubmit": "592e213aced4fb4c",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusTitle": "fcc403a69ea28b7e",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokingBonus": "4eec890f60b2a1d8",
+        "components/academy/academy-management/index.tsx#MIN_REASON_LENGTH": "1c0a5e01e735a4c4",
+        "components/academy/academy-management/index.tsx#describeGrantRange": "1cfc37b867da5dd6",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantRevoked": "947b9dbec763b2f5",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantUnbounded": "8062493a3bf01a56",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantUntil": "48c9d06d80a71ca7",
+        "components/academy/academy-management/index.tsx#MembersSection": "e42851580d3ece4e",
+        "components/academy/academy-management/index.tsx#BonusDialog/handleSubmit": "6db5a5aa3a3cb844",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.bonusRenewalWarning": "548ceb42d5928065",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.bonusSuccess": "8ddd6e60f3dc75c8",
         "components/academy/academy-management/index.tsx#BonusDialog~shell": "9c1859e23514814b",
@@ -147,13 +163,12 @@
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.bonusException": "12aad61ccbf212c0",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.bonusReasonLabel": "28eb27fdf10f5bbb",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.bonusSubmit": "4ace7783b84c9124",
-        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.cancel": "129e70b7dea90a86",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.saving": "17b92aa11f16cc23",
-        "components/academy/academy-management/index.tsx#MIN_REASON_LENGTH": "1c0a5e01e735a4c4",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.accessNo": "3bd36411dbfa2f7b",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.accessYes": "37da1339ccdcba30",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.bonusButton": "2119d10c913749b8",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.emptyMembers": "6d2a9b678aece630",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.loadingList": "462293ff284a15a0",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.membersDescription": "d087a7f6c79cdf6b",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.membersTitle": "e308e9ffd3b1845f",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.renewalActive": "724a0207af6c81ef",
@@ -167,16 +182,10 @@
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.previous": "6a761da6df287291",
         "components/academy/academy-management/index.tsx#PAGE_SIZE": "6858738053995650",
         "pkg:lucide-react": "6166c881f2c2dd27",
-        "components/academy/academy-management/index.tsx#describeGrantRange": "1cfc37b867da5dd6",
-        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantRevoked": "947b9dbec763b2f5",
-        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantUnbounded": "8062493a3bf01a56",
-        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantUntil": "48c9d06d80a71ca7",
         "components/academy/academy-management/index.tsx#describeGrantSource": "127a620250f0659e",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantBonus": "25c856b850289d52",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantLegacy": "ff6ccee3450ef8d0",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantPaid": "707296e2f5a106ab",
-        "components/academy/academy-management/index.tsx#MembersSection/handleRevoke": "14b51a79d22fe867",
-        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusPrompt": "a011f4022643b39e",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": "6371b497b9fa3370",
         "components/academy/academy-management/index.tsx#AcademyManagement": "3c4bdf0f81d5efd8",
@@ -285,7 +294,7 @@
         "app/(platform)/[slug]/academia/gestionar/page.tsx#MANAGEMENT_PAGE.pendingStatus": "f879946581980090",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#MANAGEMENT_PAGE~frame": "df600e477132a2b8",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#RequestModules": "69bdc535c7130659",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": "2a00c59b13d7afd2",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": "3ebed5c9c877c3bf",
         "src/modules/member-verifications/application/results/member-verification-dto-mappers.ts#<module>": "2da3ec2294295eb1",
         "src/modules/member-verifications/application/results/member-verification-dto-mappers.ts#toReviewQueueItemDto": "c1339f9555eee868",
         "src/modules/member-verifications/application/results/member-verification-dto-mappers.ts#toMemberVerificationDto": "04e0b70f671e4537",
@@ -418,18 +427,15 @@
         "next.config.ts#nextConfig.redirects": "4edba01fc7faab03",
         "next.config.ts#nextConfig.images": "ea50c4dc787b7368",
         "next.config.ts#nextConfig~frame": "94bd7f163d17efa5",
-        "src/modules/product-access/application/results/academy-public-dto-schemas.ts#AcademyMemberRowDto": "b4cd97576de623ac",
-        "src/modules/product-access/application/results/academy-public-dto-schemas.ts#AcademyMembersPageDto": "adf62d8ad399c35a",
-        "lib/academy/academy-format.ts#<module>": "2da3ec2294295eb1",
-        "lib/academy/academy-format.ts#buildBonusEndsAt": "00de446279bf9a7f",
-        "lib/academy/academy-format.ts#START_OF_DAY": "0fcbab93f19db915",
         "lib/academy/academy-api-client.ts#<module>": "2da3ec2294295eb1",
-        "lib/academy/academy-api-client.ts#grantAcademyBonus": "38b72e0ac0769a6c",
+        "lib/academy/academy-api-client.ts#revokeAcademyBonus": "b85895af6e7ef66e",
         "lib/academy/academy-api-client.ts#API_PATH~frame": "ea245786a08b7938",
         "lib/academy/academy-api-client.ts#API_PATH.academy": "e7443c27306b649a",
         "lib/academy/academy-api-client.ts#API_PATH.bonuses": "8c10c7b319a17401",
+        "lib/academy/academy-api-client.ts#API_PATH.revoke": "b897089b13d17c27",
         "lib/academy/academy-api-client.ts#HTTP_METHOD~frame": "eb8c805ac4896c41",
         "lib/academy/academy-api-client.ts#HTTP_METHOD.post": "d93a7a7272c5bf05",
+        "lib/academy/academy-api-client.ts#MessageBody": "eaa87707d87f004e",
         "lib/academy/academy-api-client.ts#requestAcademyApi": "086e4d60a51c8ea7",
         "lib/academy/academy-api-client.ts#AcademyApiResult": "f1afcd44a547173c",
         "lib/academy/academy-api-client.ts#sendAcademyApiRequest": "9819461f2aea37d1",
@@ -441,16 +447,19 @@
         "lib/academy/academy-api-client.ts#readMessage": "c293f45292de7c84",
         "lib/academy/academy-api-client.ts#tribePath": "d0ae1447f68fd514",
         "lib/academy/academy-api-client.ts#API_PATH.tribes": "b1fe75d893630cf5",
-        "lib/academy/academy-format.ts#getTodayDateKey": "425e419960214368",
-        "components/academy/academy-management/styles.module.scss#*": "01f52ce7ee08aa77",
+        "src/modules/product-access/application/results/academy-public-dto-schemas.ts#AcademyMemberRowDto": "b4cd97576de623ac",
+        "lib/academy/academy-format.ts#<module>": "2da3ec2294295eb1",
         "lib/academy/academy-format.ts#formatAcademyDate": "cd3616da31f4d74a",
         "lib/academy/academy-format.ts#YEAR_LENGTH": "7c00b71fcbd0e330",
+        "components/academy/academy-management/styles.module.scss#*": "01f52ce7ee08aa77",
+        "src/modules/product-access/application/results/academy-public-dto-schemas.ts#AcademyMembersPageDto": "adf62d8ad399c35a",
+        "lib/academy/academy-format.ts#buildBonusEndsAt": "00de446279bf9a7f",
+        "lib/academy/academy-format.ts#START_OF_DAY": "0fcbab93f19db915",
+        "lib/academy/academy-api-client.ts#grantAcademyBonus": "38b72e0ac0769a6c",
+        "lib/academy/academy-format.ts#getTodayDateKey": "425e419960214368",
         "lib/academy/academy-api-client.ts#fetchAcademyMembers": "5b901c077886a058",
         "lib/academy/academy-api-client.ts#API_PATH.members": "9c2d2a63c54cd54c",
         "lib/academy/academy-api-client.ts#HTTP_METHOD.get": "53ede39e501fa521",
-        "lib/academy/academy-api-client.ts#revokeAcademyBonus": "b85895af6e7ef66e",
-        "lib/academy/academy-api-client.ts#API_PATH.revoke": "b897089b13d17c27",
-        "lib/academy/academy-api-client.ts#MessageBody": "eaa87707d87f004e",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts#<module>": "2da3ec2294295eb1",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts#ACADEMY_HTTP_STATUS~frame": "3324ab9e2cc6ea90",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts#ACADEMY_HTTP_STATUS.ok": "ba7d68c6023c2396",
@@ -1054,42 +1063,42 @@
         "config/cloudflare-dev-runtime.ts#initializeOpenNextCloudflareForDev": "9ce9e66aae093bf9",
         "config/cloudflare-dev-runtime.ts#shouldInitializeOpenNextCloudflareForDev": "4dae9f8c79521961",
         "pkg:@opennextjs/cloudflare": "39a78c5f009a36e6",
-        "lib/date-time/buenos-aires-format.ts#<module>": "2da3ec2294295eb1",
-        "lib/date-time/buenos-aires-format.ts#addDaysToBuenosAiresDateKey": "f62bd061f3e8012c",
-        "lib/date-time/buenos-aires-format.ts#MILLISECONDS_PER_DAY": "84fbcdc1904fcf49",
-        "lib/date-time/buenos-aires-format.ts#HOURS_PER_DAY": "2a8dd6c2f6d05047",
-        "lib/date-time/buenos-aires-format.ts#MINUTES_PER_HOUR": "279a8c2c9c8c33a2",
-        "lib/date-time/buenos-aires-format.ts#START_OF_DAY_TIME": "466dac9dd090bbd3",
-        "lib/date-time/buenos-aires-format.ts#buildBuenosAiresInstant": "5e849b437092a99a",
-        "lib/date-time/buenos-aires-format.ts#DATE_KEY~frame": "7d5cb11dc75a1a4c",
-        "lib/date-time/buenos-aires-format.ts#DATE_KEY.secondsSuffix": "b04030c46ff74318",
-        "lib/date-time/buenos-aires-format.ts#DATE_KEY.timeSeparator": "58954f68ceff1c96",
-        "lib/date-time/buenos-aires-format.ts#getBuenosAiresDateKey": "c1b2429352332dee",
-        "lib/date-time/buenos-aires-format.ts#DATE_KEY.separator": "243d871e33147bee",
-        "lib/date-time/buenos-aires-format.ts#DATE_KEY_FORMATTER": "112e45ec62aab015",
-        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION~frame": "0594d2c74d77d78b",
-        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.numeric": "8979e5232f1c7e96",
-        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.twoDigit": "dae00c6c37e34107",
-        "lib/date-time/buenos-aires-format.ts#LOCALE~frame": "fec71633af80cddf",
-        "lib/date-time/buenos-aires-format.ts#LOCALE.machine": "b1a581db589805cb",
-        "lib/date-time/buenos-aires-format.ts#DATE_PART~frame": "90dfa8f8dff8cebb",
-        "lib/date-time/buenos-aires-format.ts#DATE_PART.day": "0b5c609f1da2c0ed",
-        "lib/date-time/buenos-aires-format.ts#DATE_PART.month": "7469b833c149a8cb",
-        "lib/date-time/buenos-aires-format.ts#DATE_PART.year": "c074dd4a9fd21fcb",
-        "lib/date-time/buenos-aires-format.ts#readPart": "dc788ed8110c0c1c",
-        "src/modules/product-access/application/results/academy-public-dto-schemas.ts#academyBonusResultDtoSchema": "5c247033ef5cfc35",
         "src/constants/browser-request.ts#<module>": "2da3ec2294295eb1",
         "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MESSAGE": "15130a290077f25a",
         "lib/browser-request-deadline.ts#<module>": "2da3ec2294295eb1",
         "lib/browser-request-deadline.ts#startBrowserRequestDeadline/followCaller": "5fc4bc96b4267cc9",
         "lib/browser-request-deadline.ts#startBrowserRequestDeadline~shell": "51f782e3225cd5f9",
         "lib/browser-request-deadline.ts#BrowserRequestDeadline": "712811cf78078a22",
+        "lib/date-time/buenos-aires-format.ts#<module>": "2da3ec2294295eb1",
         "lib/date-time/buenos-aires-format.ts#formatBuenosAiresShortDate": "15a36b97a9647ea4",
+        "lib/date-time/buenos-aires-format.ts#DATE_PART~frame": "90dfa8f8dff8cebb",
+        "lib/date-time/buenos-aires-format.ts#DATE_PART.day": "0b5c609f1da2c0ed",
+        "lib/date-time/buenos-aires-format.ts#DATE_PART.month": "7469b833c149a8cb",
         "lib/date-time/buenos-aires-format.ts#SHORT_DATE_FORMATTER": "38d2b655dfb4a4ca",
+        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION~frame": "0594d2c74d77d78b",
         "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.short": "757da1c764846c2f",
+        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.twoDigit": "dae00c6c37e34107",
+        "lib/date-time/buenos-aires-format.ts#LOCALE~frame": "fec71633af80cddf",
         "lib/date-time/buenos-aires-format.ts#LOCALE.spanish": "d13dd49da717b594",
+        "lib/date-time/buenos-aires-format.ts#readPart": "dc788ed8110c0c1c",
         "lib/date-time/buenos-aires-format.ts#stripTrailingPeriod": "81e285d2701298ae",
         "lib/date-time/buenos-aires-format.ts#TRAILING_PERIOD_PATTERN": "b5c571f629a756a2",
+        "lib/date-time/buenos-aires-format.ts#getBuenosAiresDateKey": "c1b2429352332dee",
+        "lib/date-time/buenos-aires-format.ts#DATE_KEY~frame": "7d5cb11dc75a1a4c",
+        "lib/date-time/buenos-aires-format.ts#DATE_KEY.separator": "243d871e33147bee",
+        "lib/date-time/buenos-aires-format.ts#DATE_KEY_FORMATTER": "112e45ec62aab015",
+        "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.numeric": "8979e5232f1c7e96",
+        "lib/date-time/buenos-aires-format.ts#LOCALE.machine": "b1a581db589805cb",
+        "lib/date-time/buenos-aires-format.ts#DATE_PART.year": "c074dd4a9fd21fcb",
+        "lib/date-time/buenos-aires-format.ts#addDaysToBuenosAiresDateKey": "f62bd061f3e8012c",
+        "lib/date-time/buenos-aires-format.ts#MILLISECONDS_PER_DAY": "84fbcdc1904fcf49",
+        "lib/date-time/buenos-aires-format.ts#HOURS_PER_DAY": "2a8dd6c2f6d05047",
+        "lib/date-time/buenos-aires-format.ts#MINUTES_PER_HOUR": "279a8c2c9c8c33a2",
+        "lib/date-time/buenos-aires-format.ts#START_OF_DAY_TIME": "466dac9dd090bbd3",
+        "lib/date-time/buenos-aires-format.ts#buildBuenosAiresInstant": "5e849b437092a99a",
+        "lib/date-time/buenos-aires-format.ts#DATE_KEY.secondsSuffix": "b04030c46ff74318",
+        "lib/date-time/buenos-aires-format.ts#DATE_KEY.timeSeparator": "58954f68ceff1c96",
+        "src/modules/product-access/application/results/academy-public-dto-schemas.ts#academyBonusResultDtoSchema": "5c247033ef5cfc35",
         "src/modules/tribes/constants/tribe-page-access.ts#<module>": "2da3ec2294295eb1",
         "src/modules/tribes/constants/tribe-page-access.ts#TRIBE_PAGE_ACCESS_REASON~frame": "6ef348c4317ac33e",
         "src/modules/tribes/constants/tribe-page-access.ts#TRIBE_PAGE_ACCESS_REASON.academyAccessRequired": "bcc7a17b3513caf3",
@@ -1317,16 +1326,20 @@
         "config/deployment-environment.ts#isVercelEnvironment": "1decaad53b271d64",
         "config/deployment-environment.ts#ENABLED_ENVIRONMENT_VALUE": "ee422ceec621ddc8",
         "config/deployment-environment.ts#VERCEL_ENVIRONMENT_VARIABLE": "e3f1ac888c63ad7b",
+        "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MS": "a92cd6c5a2273d38",
+        "src/constants/date-time.ts#<module>": "2da3ec2294295eb1",
+        "src/constants/date-time.ts#BUENOS_AIRES_TIME_ZONE": "32ddc5a9f4e45c83",
         "src/constants/time.ts#<module>": "2da3ec2294295eb1",
         "src/constants/time.ts#MILLISECONDS_PER_SECOND": "cfac244fa1960be9",
         "src/constants/time.ts#SECONDS_PER_MINUTE": "0ad154f12f8642c8",
-        "src/constants/date-time.ts#<module>": "2da3ec2294295eb1",
-        "src/constants/date-time.ts#BUENOS_AIRES_UTC_OFFSET": "9e89ac6972bf4d4e",
-        "src/constants/date-time.ts#BUENOS_AIRES_TIME_ZONE": "32ddc5a9f4e45c83",
-        "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MS": "a92cd6c5a2273d38"
+        "src/constants/date-time.ts#BUENOS_AIRES_UTC_OFFSET": "9e89ac6972bf4d4e"
       },
       "signals": {
-        "components/academy/academy-management/index.tsx#MembersSection~shell": {
+        "components/academy/academy-management/index.tsx#RevokeBonusDialog/handleSubmit": {
+          "awaits": 1,
+          "projectCalls": 1
+        },
+        "components/academy/academy-management/index.tsx#MembersSection": {
           "effects": 1,
           "projectCalls": 1
         },
@@ -1335,10 +1348,6 @@
           "projectCalls": 1
         },
         "components/academy/academy-management/index.tsx#BonusDialog~shell": {
-          "projectCalls": 1
-        },
-        "components/academy/academy-management/index.tsx#MembersSection/handleRevoke": {
-          "awaits": 1,
           "projectCalls": 1
         },
         "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": {
@@ -1391,7 +1400,7 @@
           "projectCalls": 1
         },
         "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": {
-          "awaits": 1
+          "awaits": 2
         },
         "app/(platform)/[slug]/tribe-page-access.ts#resolveVisibleTribePageAccess": {
           "awaits": 1
@@ -1437,10 +1446,10 @@
           "awaits": 2,
           "fetch": 1
         },
-        "lib/academy/academy-format.ts#getTodayDateKey": {
+        "lib/academy/academy-format.ts#formatAcademyDate": {
           "projectCalls": 1
         },
-        "lib/academy/academy-format.ts#formatAcademyDate": {
+        "lib/academy/academy-format.ts#getTodayDateKey": {
           "projectCalls": 1
         },
         "app/api/tribes/[slug]/academy-route-scope.ts#openAcademyRouteScope": {
@@ -1569,63 +1578,56 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx",
-        "durationMs": 29619,
+        "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
+        "durationMs": 57448,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "0ef043d175180fb4e1da98b1c6b2908446117736f7feafc5ba7d2a5e5ee41aaa",
-        "recordedAt": "2026-10-25T20:48:15.138Z",
+        "outputSha256": "1cea6c325b5de329be0f1522e250c58a5b1c9184299a5ca54cdb133e25a03c4a",
+        "recordedAt": "2026-10-25T20:44:58.259Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 7650,
+        "durationMs": 5592,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T20:48:23.463Z",
+        "recordedAt": "2026-10-25T20:45:04.821Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T20:48:24.992Z",
+        "recordedAt": "2026-10-25T20:45:05.765Z",
         "source": "attested",
-        "summary": "Lecturas del render: integrantes, cola, configuración y proveedores salen en una sola tanda; la configuración responde null y los proveedores solo los activos a un guardián, y la página usa esas respuestas solo para el líder; un fallo sigue llegando al boundary del segmento."
+        "summary": "Ciclo de vida: revocar es server-confirmed con protección de doble envío y error dentro del diálogo; otorgar y revocar recargan la lista por reloadToken; disponibilidad y conflictos conservan el borrador de la oferta; decidir una solicitud la saca del filtro y vuelve a pedir la página, un conflicto la deja visible con su estado; búsquedas y paginación muestran Consultando…"
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T20:48:26.112Z",
+        "recordedAt": "2026-10-25T20:45:06.809Z",
         "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Gestionar academia carga para el líder con Configuración, Proveedores de verificación, Solicitudes de verificación y Accesos de integrantes (4/4)."
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: la bonificación otorgada aparece sin recargar, revocar usa el diálogo sin window.prompt y el título sin guardar se conserva al cambiar la disponibilidad (4/4)."
       }
     ],
     "limitations": [
-      "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron las secciones de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T20:48:28.905Z",
+    "recordedAt": "2026-10-25T20:45:09.985Z",
     "result": "partial",
-    "runId": "20261025T204744Z-769b2a",
+    "runId": "20261025T204400Z-c23eb4",
     "scope": {
       "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps",
-          "reason": "route file changed: segment layout, boundary or page"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.manage.bonuses.revoke (/[slug]/academia/gestionar): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
       ]
@@ -1643,7 +1645,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T204744Z-769b2a.json"
+    "report": "runs/20261025T204400Z-c23eb4.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",
