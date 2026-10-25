@@ -125,6 +125,7 @@ const MANAGEMENT_COPY = {
   revoke: "Revocar",
   revokeBonusPrompt: "Motivo de la revocación",
   revokeBonusTitle: "Revocar bonificación",
+  revokeBonusSubject: "Bonificación",
   revokeBonusDescription: "El acceso de la bonificación termina ahora. Contanos el motivo; queda registrado.",
   revokeBonusSubmit: "Revocar bonificación",
   revokingBonus: "Revocando…",
@@ -1208,7 +1209,7 @@ function RevokeBonusDialog({
     <Dialog onOpenChange={(open) => (open || isSubmittingRef.current ? undefined : onClose())} open>
       <DialogContent
         title={MANAGEMENT_COPY.revokeBonusTitle}
-        description={`${memberName}. ${describeGrantRange(grant)}. ${MANAGEMENT_COPY.revokeBonusDescription}`}
+        description={`${memberName} · ${MANAGEMENT_COPY.revokeBonusSubject} ${describeGrantRange(grant)}. ${MANAGEMENT_COPY.revokeBonusDescription}`}
         footer={
           <>
             <Button disabled={isSubmitting} onClick={onClose} type="button" variant="secondary">
