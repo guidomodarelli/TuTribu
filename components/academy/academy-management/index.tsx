@@ -90,6 +90,7 @@ const MANAGEMENT_COPY = {
   grantLegacy: "Legado",
   grantPaid: "Pago",
   grantRevoked: "revocado",
+  bonusRevoked: "La bonificación quedó revocada.",
   grantUntil: "hasta el",
   grantUnbounded: "sin vencimiento",
   instructionsLabel: "Instrucciones",
@@ -123,6 +124,13 @@ const MANAGEMENT_COPY = {
   renewalActive: "Renovación activa",
   revoke: "Revocar",
   revokeBonusPrompt: "Motivo de la revocación",
+  revokeBonusTitle: "Revocar bonificación",
+  revokeBonusSubject: "Bonificación",
+  revokeBonusDescription: "El acceso de la bonificación termina ahora. Contanos el motivo; queda registrado.",
+  revokeBonusSubmit: "Revocar bonificación",
+  revokingBonus: "Revocando…",
+  loadingList: "Consultando…",
+  offerDraftKept: "Tus cambios de la oferta siguen en el formulario.",
   salesLabel: "Ventas abiertas",
   save: "Guardar",
   saving: "Guardando…",
@@ -251,8 +259,23 @@ function SettingsSection({
   const [feedback, setFeedback] = useState<{ isError: boolean; message: string } | null>(null);
   const isBusyRef = useRef(false);
 
-  const applySettings = (next: AcademySettingsDto) => {
+  /** Whether the offer fields hold edits the leader has not saved yet. */
+  const offerDirty =
+    title !== settings.title ||
+    description !== settings.description ||
+    benefits !== settings.benefits.join(LINE_SEPARATOR);
+
+  /**
+   * @param next - Settings the server confirmed.
+   * @param keepOfferDraft - Keeps unsaved offer edits (an availability change or a conflict must not erase them).
+   */
+  const applySettings = (next: AcademySettingsDto, keepOfferDraft = false) => {
     setSettings(next);
+
+    if (keepOfferDraft) {
+      return;
+    }
+
     setTitle(next.title);
     setDescription(next.description);
     setBenefits(next.benefits.join(LINE_SEPARATOR));
@@ -289,10 +312,11 @@ function SettingsSection({
       }
 
       if (result.conflictData) {
-        applySettings(result.conflictData);
+        // The newer version unblocks a retry; what the leader typed stays to compare and save again.
+        applySettings(result.conflictData, true);
       }
 
-      setFeedback({ isError: true, message: result.message });
+      setFeedback({ isError: true, message: result.conflictData ? `${result.message} ${MANAGEMENT_COPY.offerDraftKept}` : result.message });
     } finally {
       isBusyRef.current = false;
       setPending(null);
@@ -316,14 +340,14 @@ function SettingsSection({
       });
 
       if (result.isSuccess) {
-        applySettings(result.data);
+        applySettings(result.data, offerDirty);
         toast.success(MANAGEMENT_COPY.settingsSaved);
 
         return;
       }
 
       if (result.conflictData) {
-        applySettings(result.conflictData);
+        applySettings(result.conflictData, offerDirty);
       }
 
       setFeedback({ isError: true, message: result.message });
@@ -703,23 +727,41 @@ function ReviewQueueSection({ initialQueue, tribeSlug }: { initialQueue: QueuePa
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // The server already loaded the initial query; only a different query
   // fetches (StrictMode-safe: re-running the effect for the same query is a no-op).
-  const loadedQueryKeyRef = useRef(JSON.stringify(query));
+  const [reloadToken, setReloadToken] = useState(0);
+  // A decision that empties a row also refills the page, so the key includes an explicit reload.
+  const queryKey = JSON.stringify({ query, reloadToken });
+  const loadedQueryKeyRef = useRef(queryKey);
+  const [loadingQueryKey, setLoadingQueryKey] = useState<string | null>(null);
+  const isLoading = loadingQueryKey === queryKey;
 
   useEffect(() => {
-    const queryKey = JSON.stringify(query);
-
     if (queryKey === loadedQueryKeyRef.current) {
       return undefined;
     }
 
     const controller = new AbortController();
 
+    // Deferred so the loading line never flashes from inside the effect body.
+    const showLoading = window.setTimeout(() => setLoadingQueryKey(queryKey), 0);
+
     void fetchVerificationReviewQueue(tribeSlug, query, controller.signal).then((result) => {
       if (controller.signal.aborted) {
         return;
       }
 
+      window.clearTimeout(showLoading);
+      setLoadingQueryKey(null);
+
       if (result.isSuccess) {
+        const lastPage = Math.max(1, Math.ceil(result.data.total / PAGE_SIZE));
+
+        // Overlapping decisions can ask for a page that no longer exists; the server's total says which one does.
+        if (result.data.items.length === 0 && query.page > lastPage) {
+          setQuery((current) => ({ ...current, page: lastPage }));
+
+          return;
+        }
+
         loadedQueryKeyRef.current = queryKey;
         setQueue({ items: result.data.items, page: result.data.page, total: result.data.total });
         setErrorMessage(null);
@@ -728,14 +770,35 @@ function ReviewQueueSection({ initialQueue, tribeSlug }: { initialQueue: QueuePa
       }
     });
 
-    return () => controller.abort();
-  }, [query, tribeSlug]);
+    return () => {
+      window.clearTimeout(showLoading);
+      controller.abort();
+    };
+  }, [query, queryKey, tribeSlug]);
 
   const replaceItem = (item: ReviewQueueItemDto) =>
     setQueue((current) => ({
       ...current,
       items: current.items.map((currentItem) => (currentItem.id === item.id ? item : currentItem)),
     }));
+
+  /**
+   * An item the leader just decided leaves a status filter it no longer matches, instead of staying under «pendientes».
+   * The page is then read again (the previous one when it no longer exists), so the next request moves up and the
+   * pagination stays reachable.
+   */
+  const settleDecidedItem = (item: ReviewQueueItemDto) => {
+    if (!query.status || item.status === query.status) {
+      replaceItem(item);
+
+      return;
+    }
+
+    const remaining = Math.max(0, queue.total - 1), lastPage = Math.max(1, Math.ceil(remaining / PAGE_SIZE));
+    setQueue((current) => ({ ...current, items: current.items.filter((currentItem) => currentItem.id !== item.id), total: remaining }));
+    setQuery((current) => ({ ...current, page: Math.min(current.page, lastPage) }));
+    setReloadToken((token) => token + 1);
+  };
 
   return (
     <section aria-labelledby={sectionId} className={styles.AcademyManagement__section}>
@@ -777,12 +840,15 @@ function ReviewQueueSection({ initialQueue, tribeSlug }: { initialQueue: QueuePa
           {errorMessage}
         </p>
       ) : null}
+      {isLoading ? (
+        <p className={styles.AcademyManagement__hint} role="status">{MANAGEMENT_COPY.loadingList}</p>
+      ) : null}
       {queue.items.length === 0 ? (
         <p className={styles.AcademyManagement__hint}>{MANAGEMENT_COPY.emptyQueue}</p>
       ) : (
-        <ul className={styles.AcademyManagement__rows}>
+        <ul aria-busy={isLoading || undefined} className={styles.AcademyManagement__rows}>
           {queue.items.map((item) => (
-            <ReviewQueueRow item={item} key={item.id} onItemChange={replaceItem} tribeSlug={tribeSlug} />
+            <ReviewQueueRow item={item} key={item.id} onItemChange={replaceItem} onItemDecided={settleDecidedItem} tribeSlug={tribeSlug} />
           ))}
         </ul>
       )}
@@ -798,10 +864,14 @@ function ReviewQueueSection({ initialQueue, tribeSlug }: { initialQueue: QueuePa
 function ReviewQueueRow({
   item,
   onItemChange,
+  onItemDecided,
   tribeSlug,
 }: {
   item: ReviewQueueItemDto;
+  /** A newer state seen in a conflict: the row stays, with its feedback. */
   onItemChange: (item: ReviewQueueItemDto) => void;
+  /** The leader's own decision was saved. */
+  onItemDecided: (item: ReviewQueueItemDto) => void;
   tribeSlug: string;
 }) {
   const reasonId = useId();
@@ -833,7 +903,7 @@ function ReviewQueueRow({
       });
 
       if (result.isSuccess) {
-        onItemChange(result.data);
+        onItemDecided(result.data);
         setReason("");
         toast.success(QUEUE_STATUS_LABEL[result.data.status]);
 
@@ -951,26 +1021,34 @@ function MembersSection({
   const [bonusRecipient, setBonusRecipient] = useState<AcademyMemberRowDto | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
-  // The server already loaded the initial query; only a different query
-  // fetches (StrictMode-safe: re-running the effect for the same query is a no-op).
-  const loadedQueryKeyRef = useRef(JSON.stringify(query));
+  const [revokingGrant, setRevokingGrant] = useState<{ grant: AcademyGrantDto; memberName: string } | null>(null);
+  // The server already loaded the initial query; only a different query or an explicit reload after a
+  // bonus change fetches (StrictMode-safe: re-running the effect for the same key is a no-op).
+  const loadKey = JSON.stringify({ query, reloadToken });
+  const loadedKeyRef = useRef(loadKey);
+  const [loadingKey, setLoadingKey] = useState<string | null>(null);
+  const isLoading = loadingKey === loadKey;
 
   useEffect(() => {
-    const queryKey = JSON.stringify(query);
-
-    if (queryKey === loadedQueryKeyRef.current) {
+    if (loadKey === loadedKeyRef.current) {
       return undefined;
     }
 
     const controller = new AbortController();
+
+    // Deferred so the loading line never flashes from inside the effect body.
+    const showLoading = window.setTimeout(() => setLoadingKey(loadKey), 0);
 
     void fetchAcademyMembers(tribeSlug, query, controller.signal).then((result) => {
       if (controller.signal.aborted) {
         return;
       }
 
+      window.clearTimeout(showLoading);
+      setLoadingKey(null);
+
       if (result.isSuccess) {
-        loadedQueryKeyRef.current = queryKey;
+        loadedKeyRef.current = loadKey;
         setMembersPage(result.data);
         setErrorMessage(null);
       } else {
@@ -978,27 +1056,11 @@ function MembersSection({
       }
     });
 
-    return () => controller.abort();
-  }, [query, reloadToken, tribeSlug]);
-
-  const handleRevoke = async (grantId: string) => {
-    const reason = window.prompt(MANAGEMENT_COPY.revokeBonusPrompt);
-
-    if (!reason || reason.trim().length < MIN_REASON_LENGTH) {
-      return;
-    }
-
-    const result = await revokeAcademyBonus(tribeSlug, grantId, reason.trim());
-
-    if (!result.isSuccess) {
-      setErrorMessage(result.message);
-
-      return;
-    }
-
-    toast.success(result.data.message ?? MANAGEMENT_COPY.grantRevoked);
-    setReloadToken((token) => token + 1);
-  };
+    return () => {
+      window.clearTimeout(showLoading);
+      controller.abort();
+    };
+  }, [loadKey, query, tribeSlug]);
 
   return (
     <section aria-labelledby={sectionId} className={styles.AcademyManagement__section}>
@@ -1033,10 +1095,13 @@ function MembersSection({
           {errorMessage}
         </p>
       ) : null}
+      {isLoading ? (
+        <p className={styles.AcademyManagement__hint} role="status">{MANAGEMENT_COPY.loadingList}</p>
+      ) : null}
       {membersPage.members.length === 0 ? (
         <p className={styles.AcademyManagement__hint}>{MANAGEMENT_COPY.emptyMembers}</p>
       ) : (
-        <ul className={styles.AcademyManagement__rows}>
+        <ul aria-busy={isLoading || undefined} className={styles.AcademyManagement__rows}>
           {membersPage.members.map((member) => (
             <li className={styles.AcademyManagement__row} key={member.userId}>
               <span className={styles.AcademyManagement__rowMain}>
@@ -1062,7 +1127,7 @@ function MembersSection({
                           {grant.note ? <span className={styles.AcademyManagement__hint}>{grant.note}</span> : null}
                         </span>
                         {grant.sourceType === "manual_bonus" && !grant.revokedAt ? (
-                          <Button onClick={() => handleRevoke(grant.id)} size="sm" type="button" variant="ghost">
+                          <Button onClick={() => setRevokingGrant({ grant, memberName: member.displayName })} size="sm" type="button" variant="ghost">
                             {MANAGEMENT_COPY.revoke}
                           </Button>
                         ) : null}
@@ -1085,6 +1150,15 @@ function MembersSection({
         page={membersPage.page}
         total={membersPage.total}
       />
+      {revokingGrant ? (
+        <RevokeBonusDialog
+          grant={revokingGrant.grant}
+          memberName={revokingGrant.memberName}
+          onClose={() => setRevokingGrant(null)}
+          onRevoked={() => setReloadToken((token) => token + 1)}
+          tribeSlug={tribeSlug}
+        />
+      ) : null}
       {bonusRecipient ? (
         <BonusDialog
           onClose={() => setBonusRecipient(null)}
@@ -1094,6 +1168,106 @@ function MembersSection({
         />
       ) : null}
     </section>
+  );
+}
+
+/**
+ * Asks for the reason in an accessible dialog and revokes one manual bonus exactly once.
+ *
+ * @param props - The bonus, its member, the route scope and what to do after closing or revoking.
+ * @returns A dialog that keeps the reason while it saves, blocks a second submit and shows failures inside it.
+ */
+function RevokeBonusDialog({
+  grant,
+  memberName,
+  onClose,
+  onRevoked,
+  tribeSlug,
+}: {
+  grant: AcademyGrantDto;
+  memberName: string;
+  onClose: () => void;
+  onRevoked: () => void;
+  tribeSlug: string;
+}) {
+  const reasonId = useId();
+  const formId = useId();
+  const [reason, setReason] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const isSubmittingRef = useRef(false);
+  const reasonReady = reason.trim().length >= MIN_REASON_LENGTH;
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (isSubmittingRef.current || !reasonReady) {
+      return;
+    }
+
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      const result = await revokeAcademyBonus(tribeSlug, grant.id, reason.trim());
+
+      if (!result.isSuccess) {
+        setErrorMessage(result.message);
+
+        return;
+      }
+
+      onRevoked();
+      toast.success(result.data.message ?? MANAGEMENT_COPY.bonusRevoked);
+      onClose();
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog onOpenChange={(open) => (open || isSubmittingRef.current ? undefined : onClose())} open>
+      <DialogContent
+        title={MANAGEMENT_COPY.revokeBonusTitle}
+        description={`${memberName} · ${MANAGEMENT_COPY.revokeBonusSubject} ${describeGrantRange(grant)}. ${MANAGEMENT_COPY.revokeBonusDescription}`}
+        footer={
+          <>
+            <Button disabled={isSubmitting} onClick={onClose} type="button" variant="secondary">
+              {MANAGEMENT_COPY.cancel}
+            </Button>
+            <Button
+              aria-busy={isSubmitting || undefined}
+              disabled={isSubmitting || !reasonReady}
+              form={formId}
+              type="submit"
+              variant="danger"
+            >
+              {isSubmitting ? MANAGEMENT_COPY.revokingBonus : MANAGEMENT_COPY.revokeBonusSubmit}
+            </Button>
+          </>
+        }
+      >
+        <form className={styles.AcademyManagement__form} id={formId} noValidate onSubmit={handleSubmit}>
+          <div className={styles.AcademyManagement__field}>
+            <Input
+              id={reasonId}
+              label={MANAGEMENT_COPY.revokeBonusPrompt}
+              maxLength={500}
+              onChange={(event) => setReason(event.currentTarget.value)}
+              required
+              value={reason}
+            />
+          </div>
+          {errorMessage ? (
+            <p className={styles.AcademyManagement__error} role="alert">
+              {errorMessage}
+            </p>
+          ) : null}
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

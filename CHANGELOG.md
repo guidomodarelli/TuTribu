@@ -111,6 +111,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Cada aspirante puede corregir su WhatsApp mientras la solicitud siga pendiente y vigente; el formulario conserva el cambio original si se pierde la respuesta y avisa cuando debe revisarse de nuevo.
 
 ### Changed
+- En Gestionar academia, revocar una bonificación se hace en un diálogo con el motivo, que muestra el progreso, no se envía dos veces y actualiza la lista al terminar.
+- Gestionar academia muestra «Consultando…» al buscar o paginar, saca de la lista de pendientes la solicitud que acabás de decidir y ya no borra los cambios sin guardar de la oferta al cambiar la disponibilidad o ante un conflicto.
 - Los filtros de fecha de Solicitudes se eligen en hora de Argentina («Desde (hora de Argentina)» y «Hasta (hora de Argentina)») en lugar de UTC.
 - En Avisos de admisión, una zona horaria que no existe se marca junto al campo y no deja continuar, en lugar de fallar recién al guardar.
 - Si al abrir Países y cupos o Conexión la sesión venció, la página ofrece «Iniciar sesión» y vuelve al mismo lugar; si falta el permiso, ya no ofrece un «Reintentar» que no puede funcionar.
