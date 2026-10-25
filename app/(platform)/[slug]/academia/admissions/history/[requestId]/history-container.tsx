@@ -16,7 +16,7 @@ type ReadyHistoryProps = { state: Extract<AdmissionReviewHistoryPageState, { kin
 /** @param props - Current owned SSR snapshot and optional own current-viewer transport. @returns A newly scoped history instance or safe recovery, without private application failures. */
 export function AdmissionReviewHistoryContainer({ initialState, client = admissionApiClient }: { initialState: AdmissionReviewHistoryPageState; client?: Pick<AdmissionBrowserClient, "viewer"> }) {
   const router = useRouter();
-  if (initialState.kind !== "ready") return <AdmissionRouteError embedded message={initialState.message} reset={() => router.refresh()} />;
+  if (initialState.kind !== "ready") return <AdmissionRouteError embedded message={initialState.message} retry={() => router.refresh()} />;
   return <CurrentHistory key={`${initialState.viewerId}:${initialState.renderedAt}:${initialState.page.admissionRequestId}:${initialState.page.items[0]?.id ?? ""}:${initialState.hasPrevious}`} state={initialState} client={client} />;
 }
 

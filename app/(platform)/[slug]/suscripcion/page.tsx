@@ -118,12 +118,12 @@ export default async function TribeSubscriptionPage({
         TRIBE_MEMBER_SUBSCRIPTION_STATUS.active
     ) {
       return (
-        <main>
+        <div>
           <TribeSubscriptionSelfManagement
             subscriptionStatus={subscriptionReconciliationResult.status}
             tribeSlug={accessResult.tribe.slug}
           />
-        </main>
+        </div>
       );
     }
   }
@@ -139,12 +139,12 @@ export default async function TribeSubscriptionPage({
 
     if (subscriptionPaymentStatus) {
       return (
-        <main>
+        <div>
           <TribeSubscriptionPaymentStatus
             subscriptionStatus={subscriptionPaymentStatus}
             tribeSlug={slug}
           />
-        </main>
+        </div>
       );
     }
   }
