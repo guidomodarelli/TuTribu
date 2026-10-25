@@ -34,22 +34,23 @@ function CurrentHistory({ state, client }: ReadyHistoryProps) {
   useEffect(() => {
     const controller = new AbortController();
     viewerController.current = controller;
-    if (activated.current) refresh();
-    else {
+    // Decided after the commit: a mount that is immediately undone (the development double mount) is aborted before it
+    // counts, so only an actual Activity re-show of a consumed history asks the server again.
+    void Promise.resolve().then(async () => {
+      if (controller.signal.aborted) return;
+      if (activated.current) { refresh(); return; }
       // The server-authorized facts stay on screen while the current viewer is checked; refresh and pagination wait for it, and a failed or different viewer hides them.
       activated.current = true;
       /** @param message - Safe recovery copy. */
       const withhold = (message: string) => { setVisible(false); setErrorMessage(message); };
-      void (async () => {
-        try {
-          const viewer = await client.viewer(controller.signal);
-          if (controller.signal.aborted || viewer.status === "aborted") return;
-          if (viewer.status !== "ready") { withhold(ADMISSION_REVIEW_HISTORY_COPY.readFailed); return; }
-          if (viewer.value?.id !== state.viewerId) { withhold(ADMISSION_REVIEW_HISTORY_COPY.changedViewer); return; }
-          setHasCurrentViewer(true); setVisible(true);
-        } catch { if (!controller.signal.aborted) withhold(ADMISSION_REVIEW_HISTORY_COPY.readFailed); }
-      })();
-    }
+      try {
+        const viewer = await client.viewer(controller.signal);
+        if (controller.signal.aborted || viewer.status === "aborted") return;
+        if (viewer.status !== "ready") { withhold(ADMISSION_REVIEW_HISTORY_COPY.readFailed); return; }
+        if (viewer.value?.id !== state.viewerId) { withhold(ADMISSION_REVIEW_HISTORY_COPY.changedViewer); return; }
+        setHasCurrentViewer(true); setVisible(true);
+      } catch { if (!controller.signal.aborted) withhold(ADMISSION_REVIEW_HISTORY_COPY.readFailed); }
+    });
     /** @param event - Native navigation lifecycle. @returns A fresh server authority check only when a browser document was restored. */
     const restored = (event: PageTransitionEvent) => { if (event.persisted) refresh(); };
     window.addEventListener("pageshow", restored);
