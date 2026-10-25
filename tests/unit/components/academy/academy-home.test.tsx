@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import type { ReactElement, ReactNode } from "react";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
+import { ThemedToaster } from "@golfo/ui";
 
 import { AcademyHome } from "@/components/academy/academy-home";
 import { navigateToUrl } from "@/lib/browser-navigation";
@@ -321,5 +322,30 @@ describe("AcademyHome", () => {
       "href",
       "/tribu/academia/gestionar"
     );
+  });
+
+  it("announces a failed cancellation once, inside the dialog where it happened", async () => {
+    const user = userEvent.setup();
+    respondWithJson({ message: "No pudimos contactar a Mercado Pago." }, 503);
+
+    render(
+      <>
+        <AcademyHome
+          access={access({ eligibility: "verified", hasPaidCoverage: true, level: "academy", renewalStatus: "active" })}
+          canManage={false}
+          isCheckoutReturn={false}
+          offer={offer}
+          tribeSlug="tribu"
+        />
+        <ThemedToaster />
+      </>
+    );
+
+    await user.click(screen.getByRole("button", { name: "Cancelar renovación" }));
+    await user.click(screen.getByRole("button", { name: "Sí, cancelar renovación" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("No pudimos contactar a Mercado Pago.");
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 100)); });
+    expect(screen.getAllByText("No pudimos contactar a Mercado Pago.")).toHaveLength(1);
   });
 });

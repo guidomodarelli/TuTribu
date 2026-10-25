@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
+import { ThemedToaster } from "@golfo/ui";
+import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import userEvent from "@testing-library/user-event";
 
 import { AcademyManagement, type AcademyManagementProps } from "@/components/academy/academy-management";
@@ -177,5 +179,21 @@ describe("AcademyManagement", () => {
     await user.click(within(dialog).getByLabelText("Otorgar aunque no esté verificada (excepción)"));
 
     expect(submit).toBeEnabled();
+  });
+
+  it("announces a saved offer once, next to the form", async () => {
+    const user = userEvent.setup();
+    const base = props();
+    respondWithJson({ ...base.settings, configVersion: 3, title: "Academia nueva" }, 200);
+
+    render(<AppUIProvider><AcademyManagement {...base} /><ThemedToaster /></AppUIProvider>);
+    const offer = screen.getByRole("heading", { name: "Oferta" }).closest("section") ?? document.body;
+    await user.clear(within(offer as HTMLElement).getByRole("textbox", { name: /Título/ }));
+    await user.type(within(offer as HTMLElement).getByRole("textbox", { name: /Título/ }), "Academia nueva");
+    await user.click(within(offer as HTMLElement).getByRole("button", { name: "Guardar" }));
+
+    expect(await screen.findByText("Oferta guardada.")).toBeInTheDocument();
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 100)); });
+    expect(screen.getAllByText("Oferta guardada.")).toHaveLength(1);
   });
 });

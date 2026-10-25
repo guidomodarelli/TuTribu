@@ -2,12 +2,12 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+      "branch": "fix/academy-single-announcements",
+      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
       "files": {
         "app/(platform)/[slug]/academia/page.tsx": "a4c7427e95123588",
         "app/(platform)/[slug]/academia/loading.tsx": "b861ca7d027d3bc0",
-        "components/academy/academy-home/index.tsx": "559afae35579d77c",
+        "components/academy/academy-home/index.tsx": "445fcae1bddbac72",
         "app/api/tribes/[slug]/academy/access/route.ts": "2ba664997c38668c",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
         "src/modules/product-access/infrastructure/repositories/postgres-product-access-repository.ts": "b6d068802851a5fa",
@@ -5241,14 +5241,14 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T12:12:07.732Z",
+    "recordedAt": "2026-10-25T13:55:36.833Z",
     "result": "not-applicable",
-    "runId": "20261025T121205Z-35acbb",
+    "runId": "20261025T135534Z-f7f471",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: El cambio de copy de fechas no agrega requests, consultas ni pasos al flujo."
+        "recorded not applicable: Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": []
@@ -5268,8 +5268,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T121205Z-35acbb.json"
+    "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T135534Z-f7f471.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

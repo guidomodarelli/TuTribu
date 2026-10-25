@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+      "branch": "fix/academy-single-announcements",
+      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
       "files": {
         "app/(admission)/admissions/invitations/[token]/personal-invitation-container.tsx": "a456bf4f01d5e9ae",
-        "hooks/use-personal-invitation.ts": "3597e722fb7e889a",
+        "hooks/use-personal-invitation.ts": "85c13c71c9b0b188",
         "app/api/admissions/invitations/[token]/overview/route.ts": "385e5e4b9a0f9aaa",
         "app/api/tribes/[slug]/admissions/submissions/route.ts": "1c17ea1189f30c3c",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
@@ -479,7 +479,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:ade1119cbdd7b91145f307bb0a37b44b911b8f93ecc6a72537bd915fc6d03a0c",
+      "fingerprint": "sha256:f2eb9dd8854d48fdbfc4ba8005cbd414a87cbfc0d3328cebe47207d63c66f3c7",
       "inputs": {
         "app/(admission)/admissions/invitations/[token]/personal-invitation-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(admission)/admissions/invitations/[token]/personal-invitation-container.tsx#PersonalInvitationContainer": "889caeb28894f738",
@@ -501,7 +501,7 @@
         "hooks/use-personal-invitation.ts#usePersonalInvitation/clear": "cf1f3ed1ce7dd20a",
         "hooks/use-personal-invitation.ts#usePersonalInvitation/recover": "fbfaef78f61798c9",
         "hooks/use-personal-invitation.ts#usePersonalInvitation/observe": "7efbcb95505d7fb4",
-        "hooks/use-personal-invitation.ts#usePersonalInvitation/submit": "0bc037cc9048cf04",
+        "hooks/use-personal-invitation.ts#usePersonalInvitation/submit": "f9dbd7f587156759",
         "hooks/use-personal-invitation.ts#usePersonalInvitation/changeAccount": "08a086a2cf32dc4f",
         "hooks/use-personal-invitation.ts#usePersonalInvitation/changeConfirmation": "da64c1d4f120922f",
         "app/api/admissions/invitations/[token]/overview/route.ts#<module>": "33b3fabe1e31dbc7",
@@ -4571,32 +4571,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
-        "durationMs": 29661,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
+        "durationMs": 53037,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "ba7ab3329b36da9aa36eeede3a7dee923aabb9370d5cdd794de570e5450a592e",
-        "recordedAt": "2026-10-25T11:20:40.606Z",
+        "outputSha256": "3261936575197eedd160951023878de1f58c98e62b75fe9babb55ea6b381990e",
+        "recordedAt": "2026-10-25T13:20:37.021Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T11:20:41.129Z",
+        "recordedAt": "2026-10-25T13:20:37.471Z",
         "source": "attested",
-        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T11:20:43.690Z",
+    "recordedAt": "2026-10-25T13:20:39.489Z",
     "result": "partial",
-    "runId": "20261025T112010Z-fd63d5",
+    "runId": "20261025T131943Z-ce7dd0",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -4606,8 +4606,8 @@
       "relevantChangesAtBegin": [
         {
           "change": "modified",
-          "key": "components/academy-admissions/personal-invitation/index.tsx#PersonalInvitation",
-          "reason": "code reached by the unit changed"
+          "key": "hooks/use-personal-invitation.ts#usePersonalInvitation/submit",
+          "reason": "action handler changed"
         }
       ],
       "suggestedScope": [
@@ -4627,7 +4627,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T112010Z-fd63d5.json"
+    "report": "runs/20261025T131943Z-ce7dd0.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

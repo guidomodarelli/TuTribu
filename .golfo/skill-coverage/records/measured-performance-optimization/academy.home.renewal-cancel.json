@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+      "branch": "fix/academy-single-announcements",
+      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
       "files": {
-        "components/academy/academy-home/index.tsx": "559afae35579d77c",
+        "components/academy/academy-home/index.tsx": "445fcae1bddbac72",
         "app/(platform)/[slug]/academia/page.tsx": "a4c7427e95123588",
         "app/api/tribes/[slug]/subscriptions/current/route.ts": "bbfd0641c3d5c6a6",
         "src/modules/subscriptions/setup.ts": "beab8120b07daf1c",
@@ -165,7 +165,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:7e4b7f21d4c0df58189da7e64f059260a07e238c53101dc42facf0d8fd1d71d1",
+      "fingerprint": "sha256:399b02443bf1fac067c40763eca347e9b4019cf431df6e47ca82b577d247a9cd",
       "inputs": {
         "components/academy/academy-home/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-home/index.tsx#AcademyHome~shell": "e682a501a4562464",
@@ -246,7 +246,7 @@
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.paidUntil": "44bd9d501a645c4f",
         "pkg:react": "374a4508a198654b",
         "pkg:next": "ef28293b49c7bae1",
-        "components/academy/academy-home/index.tsx#AcademyHome/handleCancel": "4650779c37d09e22",
+        "components/academy/academy-home/index.tsx#AcademyHome/handleCancel": "d21d240646a4714f",
         "components/academy/academy-home/index.tsx#AcademyHome/reloadAccess": "1df564b7e327ff0e",
         "components/academy/academy-home/index.tsx#AcademyHome/runAction": "a6e5e63ed8953d09",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.canceledUntil": "4ced9c99d55c523d",
@@ -2325,14 +2325,14 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T12:18:05.696Z",
+    "recordedAt": "2026-10-25T14:04:08.581Z",
     "result": "not-applicable",
-    "runId": "20261025T121803Z-aa296e",
+    "runId": "20261025T140407Z-fdb012",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: El cambio de copy de fechas no agrega requests, consultas ni pasos al flujo."
+        "recorded not applicable: Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": []
@@ -2352,8 +2352,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T121803Z-aa296e.json"
+    "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T140407Z-fdb012.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",
