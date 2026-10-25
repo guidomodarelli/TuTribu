@@ -1,6 +1,7 @@
 "use client";
 /** Owns native viewer checks, the guided save of countries and quotas, and original usage recovery; all form controls remain callback-only. @module messaging-usage-container */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { toast } from "@golfo/ui";
 import type { MessagingUsagePageState } from "@/src/modules/messaging/application/results/messaging-usage-page-state";
 import type { MessagingUsageBrowserClient } from "@/src/modules/messaging/application/ports/messaging-usage-browser-client";
@@ -11,6 +12,8 @@ import { createMessagingUsageDraft, parseMessagingUsageDraft, messagingUsageBrow
 import { messagingUsagePolicyStateSchema, type MessagingUsagePolicyDto } from "@/src/modules/messaging/application/results/messaging-public-result-schemas";
 import { MessagingUsage } from "@/components/academy-admissions/messaging-usage";
 import { AdmissionRouteError } from "@/components/academy-admissions/admission-route-error";
+import { resolveMessagingRouteRecovery } from "@/lib/messaging/messaging-route-recovery";
+import { ROUTES } from "@/src/constants/routes";
 import { messagingUsageBrowserClient } from "@/lib/messaging/messaging-usage-api-client";
 import { readMessagingUsageIntent, writeMessagingUsageIntent } from "@/lib/messaging/messaging-usage-intent";
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
@@ -38,6 +41,7 @@ function holdsValues(policy: MessagingUsagePolicyDto, values: MessagingUsageValu
 
 /** @param props - Guarded server snapshot and optional own transport ports. @returns Account-scoped usage summary and guided steps with preserved draft, safe confirmation and no ordinary route refresh. */
 export function MessagingUsageContainer({ initialState, client = messagingUsageBrowserClient }: UsageContainerProps) {
+  const pathname = usePathname() ?? ROUTES.home;
   const ready = initialState.kind === "ready" ? initialState : null;
   const [state, setState] = useState(ready?.usage ?? null), [draft, setDraft] = useState<MessagingUsageDraft | null>(ready ? createMessagingUsageDraft(ready.usage) : null);
   const [phase, setPhase] = useState<MessagingUsageBrowserPhase>(PHASE.checking), [fresh, setFresh] = useState(false), [confirmed, setConfirmed] = useState(false), [canRetry, setCanRetry] = useState(false);
@@ -206,7 +210,7 @@ export function MessagingUsageContainer({ initialState, client = messagingUsageB
     setFresh(true); setStatusMessage(COPY.initialized);
   });
 
-  if (!ready || !state || !draft) return <AdmissionRouteError embedded message={initialState.kind === "unavailable" ? initialState.message : COPY.storageFailed} retry={() => window.location.reload()} />;
+  if (!ready || !state || !draft) return <AdmissionRouteError embedded message={initialState.kind === "unavailable" ? initialState.message : COPY.storageFailed} {...resolveMessagingRouteRecovery(initialState.kind === "unavailable" ? initialState.code : null, pathname)} />;
   if (phase === PHASE.changedViewer) return <AdmissionRouteError embedded message={COPY.changedViewer} retry={() => window.location.reload()} />;
   if (!privateVisible && (phase === PHASE.checking || phase === PHASE.reading)) return <p role="status">Consultando la cuenta y el uso actual…</p>;
   if (!privateVisible) return <AdmissionRouteError embedded message={errorMessage ?? COPY.storageFailed} retry={launchRead} />;

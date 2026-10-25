@@ -326,6 +326,9 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
+- Si al abrir Países y cupos o Conexión la sesión venció, la página ofrece «Iniciar sesión» y vuelve al mismo lugar; si falta el permiso, ya no ofrece un «Reintentar» que no puede funcionar.
+- Habilitados, Importación e Invitaciones ofrecen «Reintentar» cuando cambia la cuenta o se pierde el acceso, en lugar de dejar solo un aviso.
+- Cuando la bandeja de solicitudes no se puede cargar, el aviso aparece dentro de la página, con su título, sin repetir el encabezado.
 - El botón de cerrar de las ventanas emergentes se anuncia como «Cerrar diálogo».
 - La confirmación para eliminar un evento ya no se cierra al hacer click afuera y abre con el foco en «Cancelar».
 - En el visor de imágenes y videos de un mensaje y en la galería de la historia de la tribu, las flechas y los indicadores de posición quedan debajo del contenido; los indicadores se pueden recorrer con el teclado y cada cambio se anuncia, por ejemplo «Medio 2 de 5».
