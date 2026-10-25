@@ -753,6 +753,15 @@ function ReviewQueueSection({ initialQueue, tribeSlug }: { initialQueue: QueuePa
       setLoadingQueryKey(null);
 
       if (result.isSuccess) {
+        const lastPage = Math.max(1, Math.ceil(result.data.total / PAGE_SIZE));
+
+        // Overlapping decisions can ask for a page that no longer exists; the server's total says which one does.
+        if (result.data.items.length === 0 && query.page > lastPage) {
+          setQuery((current) => ({ ...current, page: lastPage }));
+
+          return;
+        }
+
         loadedQueryKeyRef.current = queryKey;
         setQueue({ items: result.data.items, page: result.data.page, total: result.data.total });
         setErrorMessage(null);

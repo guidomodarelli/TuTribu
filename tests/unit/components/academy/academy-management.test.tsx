@@ -266,6 +266,22 @@ describe("AcademyManagement", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 
+  it("recovers the last real page when a reload asks for a page that no longer exists", async () => {
+    const user = userEvent.setup();
+    const second = { ...pendingItem, id: "0c8b9a6f-3d1e-4b6c-8e7d-8f9012345678", memberDisplayName: "Dani" };
+    const next = { ...pendingItem, id: "1d9c0b7a-4e2f-4c7d-9f8e-901234567890", memberDisplayName: "Eva" };
+    respondWithJson({ ...pendingItem, status: "verified", version: 2 }, 200);
+    // Another decision already emptied page 2: the server answers it empty, with the real total.
+    respondWithJson({ items: [], page: 2, scope: "review", total: 20 }, 200);
+    respondWithJson({ items: [next], page: 1, scope: "review", total: 20 }, 200);
+    render(<AcademyManagement {...props({ initialQueue: { items: [pendingItem, second], page: 2, total: 22 } })} />);
+
+    await user.click(screen.getAllByRole("button", { name: "Verificar" })[0]);
+
+    expect(await screen.findByText("Eva")).toBeInTheDocument();
+    expect(new URL(String(fetchMock.mock.calls[2]?.[0]), "https://tutribu.example.invalid").searchParams.get("page")).toBe("1");
+  });
+
   it("goes back to the previous page when the decided request was the only one on its page", async () => {
     const user = userEvent.setup();
     const next = { ...pendingItem, id: "9b7a8f5e-2c0d-4a5b-9d6c-7e8f90123456", memberDisplayName: "Carla" };
