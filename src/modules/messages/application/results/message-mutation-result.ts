@@ -13,6 +13,11 @@ export type MessageCreationResult =
       status: typeof MESSAGE_MUTATION_STATUS.created;
     }
   | {
+      /** Present when the replayed message is visible to its author in this transaction. */
+      messageId: string | null;
+      status: typeof MESSAGE_MUTATION_STATUS.replayed;
+    }
+  | {
       status:
         | typeof MESSAGE_MUTATION_STATUS.forbidden
         | typeof MESSAGE_MUTATION_STATUS.invalidChannel

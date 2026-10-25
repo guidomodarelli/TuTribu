@@ -1,0 +1,95 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-invitation-link-focus",
+    "commit": "0569c8d0c20e2ec8a70d0e8da7fe6957be3c8052",
+    "fingerprint": "sha256:29419ae59ee338c7a4444189dbc1f9bd12ea2539873111a919232e75a8e4b513",
+    "uncommittedFiles": [],
+    "fileCount": 159,
+    "inputCount": 1644
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/modules/messages tests/unit/pages/tribe-message-routes.test.ts",
+      "durationMs": 24217,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "75be9ce073e66882d1330645457feab50f8a962479824ec93877f2756d014724",
+      "recordedAt": "2026-10-24T22:29:44.672Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "measurement",
+      "outcome": "measured",
+      "recordedAt": "2026-10-24T22:29:45.089Z",
+      "source": "attested",
+      "summary": "Con estado deseado liked=true no corre el delete",
+      "tool": "contador de execute sobre el repositorio real",
+      "metric": "sentencias SQL por Me gusta",
+      "before": "4",
+      "after": "3",
+      "conditions": "rama Neon efímera, repositorio real, mediana de 3 muestras"
+    },
+    {
+      "kind": "measurement",
+      "outcome": "measured",
+      "recordedAt": "2026-10-24T22:29:45.508Z",
+      "source": "attested",
+      "summary": "Un viaje menos",
+      "tool": "contador de execute sobre el repositorio real",
+      "metric": "latencia del Me gusta en el repositorio (ms)",
+      "before": "1111",
+      "after": "948",
+      "conditions": "rama Neon efímera, repositorio real, mediana de 3 muestras"
+    },
+    {
+      "kind": "measurement",
+      "outcome": "measured",
+      "recordedAt": "2026-10-24T22:29:45.929Z",
+      "source": "attested",
+      "summary": "Antes el cliente se autocorregía con un segundo toggle; ahora un solo request con el estado deseado",
+      "tool": "Playwright headless (Chromium 1280)",
+      "metric": "requests de Me gusta al reintentar tras una respuesta perdida",
+      "before": "2",
+      "after": "1",
+      "conditions": "next dev con portless en https://dev.tutribu.app, rama Neon efímera (~170 ms por viaje), sesión sintética de líder, mismo script antes y después"
+    }
+  ],
+  "limitations": [],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-24T22:29:47.421Z",
+  "result": "verified",
+  "runId": "20261024T222919Z-3fdc4c",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "pending from the previous run: missing passing evidence of kind measurement",
+      "measure the complete flow /[slug] before and after, same build, data and throttling; median of 3 for noisy metrics"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "d10c4cd971fd4967",
+      "references/bundle-lazy-loading.md": "91990bd1796b9884",
+      "references/database-queries-n-plus-one.md": "3064b23acc3e9f7e",
+      "references/images-fonts-scripts.md": "1ab02d4b1a421c87",
+      "references/incremental-sweep-jobs.md": "c5c8e71bdba2e4a9",
+      "references/measurement-tools.md": "e3e96c85be264c0c",
+      "references/requests-caching.md": "981544e05dee2e5c",
+      "references/unnecessary-renders.md": "2d440f22533a2149"
+    },
+    "definitionHash": "sha256:d161fd46a024c0e9f2698edae2bf21fa465a82b6584c335aaee66a26db4be4c0",
+    "name": "measured-performance-optimization",
+    "version": "1.4.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-24T22:29:19.997Z",
+  "unitId": "tribe.campfire.react"
+}

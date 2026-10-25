@@ -23,8 +23,22 @@ export type CreateTribeMessageRepositoryCommand = Omit<
   videos?: MessageVideoRepositoryDraft[];
 };
 
+/** Identifies a publication by the idempotency key its author's client sent. */
+export type MessagePublicationKeyQuery = {
+  authorId: string;
+  clientRequestId: string;
+  tribeSlug: string;
+};
+
 export interface MessageCreationRepository {
   create(
     command: CreateTribeMessageRepositoryCommand
   ): Promise<MessageCreationResult>;
+  /**
+   * Finds the publication an earlier attempt with the same key stored, so a retry is answered before any attachment is
+   * prepared or cleaned up.
+   *
+   * @returns The stored message id, or `null` when the key was never stored for this author and tribe.
+   */
+  findPublicationByClientRequestId?(query: MessagePublicationKeyQuery): Promise<string | null>;
 }

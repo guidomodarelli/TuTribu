@@ -1,0 +1,129 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-invitation-link-focus",
+    "commit": "0a4edbf24ec78923ec9e2397f84a630d11c29cac",
+    "fingerprint": "sha256:0599ad5eac2b6591db32e2784bbed1e17ea964c74535fbdea0a90b7bc830db33",
+    "uncommittedFiles": [],
+    "fileCount": 70,
+    "inputCount": 843
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/tribe-round/tribe-round-navigation.test.tsx tests/unit/components/tribe-round.test.tsx tests/unit/modules/messages tests/unit/pages/tribe-message-routes.test.ts",
+      "durationMs": 188135,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "9fa03f4fdc2468f918f003db59bc7aaba7ef313f126d59c278028d95fdc3bfd2",
+      "recordedAt": "2026-10-25T00:20:57.500Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "command": "pnpm run -s typecheck",
+      "durationMs": 2619,
+      "exitCode": 0,
+      "kind": "command",
+      "outcome": "pass",
+      "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
+      "recordedAt": "2026-10-25T00:21:00.546Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T00:21:00.974Z",
+      "source": "attested",
+      "summary": "Publicación con respuesta perdida: el aviso de reproducción, la copia optimista hasta la recarga en el lugar, el botón Compartir pendiente durante la recarga y Reintentar si la recarga falla; el Me gusta repetido conserva el estado elegido."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T00:21:01.383Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app con la respuesta de la publicación y del Me gusta perdidas: 1 publicación guardada, aviso «El mensaje ya estaba publicado.», la página se recarga en el lugar (1 GET a la ronda, 0 refresh RSC), el feed nunca queda vacío, el compositor vuelve a aceptar un borrador y el Me gusta se conserva (4/4)."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T00:21:02.636Z",
+  "result": "verified",
+  "runId": "20261025T001748Z-ce50db",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "8 relevant change(s) since the verified run"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "modified",
+        "key": "hooks/use-tribe-round-navigation.ts#RoundNavigationRequest",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "hooks/use-tribe-round-navigation.ts#TribeRoundNavigation",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation/loadRoundPage",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation/reloadCurrentPage",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#createTribeMessage",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messages/domain/repositories/message-creation-repository.ts#MessageCreationRepository",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#PostgresMessageMutationRepository",
+        "reason": "visible or interactive code changed"
+      }
+    ],
+    "suggestedScope": [
+      "hooks/use-tribe-round-navigation.ts › RoundNavigationRequest — behavior of this code in every state of the unit that uses it",
+      "hooks/use-tribe-round-navigation.ts › TribeRoundNavigation — behavior of this code in every state of the unit that uses it",
+      "hooks/use-tribe-round-navigation.ts › useTribeRoundNavigation › loadRoundPage — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
+      "hooks/use-tribe-round-navigation.ts › useTribeRoundNavigation › reloadCurrentPage — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
+      "hooks/use-tribe-round-navigation.ts › useTribeRoundNavigation (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
+      "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts › createTribeMessage — behavior of this code in every state of the unit that uses it",
+      "src/modules/messages/domain/repositories/message-creation-repository.ts › MessageCreationRepository — behavior of this code in every state of the unit that uses it",
+      "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts › PostgresMessageMutationRepository — behavior of this code in every state of the unit that uses it"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a27ab40c70e78c90",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:262d130d4e0582dad8bd65e40b350a22b52d1393120ae35689e1bc817203bf14",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.4.1"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T00:17:48.901Z",
+  "unitId": "tribe.campfire.react"
+}

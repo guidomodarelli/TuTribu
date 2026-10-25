@@ -469,9 +469,13 @@ export const messages = pgTable("messages", {
     .references(() => users.id, { onDelete: "cascade" }),
   title: text("title"),
   content: text("content").notNull(),
+  clientRequestId: uuid("client_request_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 }, (table) => ({
+  authorClientRequestIdKey: uniqueIndex("messages_author_client_request_id_key")
+    .on(table.authorId, table.clientRequestId)
+    .where(sql`${table.clientRequestId} IS NOT NULL`),
   tribeCreatedAtIndex: index("idx_messages_tribe_created_at").on(
     table.tribeId,
     table.createdAt

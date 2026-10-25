@@ -1,0 +1,71 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-invitation-link-focus",
+    "commit": "0569c8d0c20e2ec8a70d0e8da7fe6957be3c8052",
+    "fingerprint": "sha256:a35f1261d89499274efa847cef64ffcb03e432595ef150d49324f2c90ee8427b",
+    "uncommittedFiles": [],
+    "fileCount": 71,
+    "inputCount": 1001
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/tribe-round.test.tsx tests/unit/modules/messages tests/unit/pages/tribe-message-routes.test.ts",
+      "durationMs": 151694,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "6447967a5fb0125f7f5be6a26b9dd542fe61f7da8e31a48eeaf2b0a595998a5d",
+      "recordedAt": "2026-10-24T21:28:49.244Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-24T22:27:05.326Z",
+      "source": "attested",
+      "summary": "Reenvío tras respuesta perdida: aviso El mensaje ya estaba publicado. y relectura; like repetido conserva el estado elegido; errores en toast como antes"
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-24T22:27:05.817Z",
+      "source": "attested",
+      "summary": "dev.tutribu.app a 390 y 1280 con respuestas cortadas tras llegar al servidor: 1 publicación guardada y like dado en los 4 objetivos",
+      "tool": "Playwright headless Chromium y WebKit"
+    }
+  ],
+  "limitations": [],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-24T22:27:20.093Z",
+  "result": "verified",
+  "runId": "20261024T212250Z-50e46e",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "no previous coverage: the whole unit is analyzed"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit tribe.campfire.publish: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a27ab40c70e78c90",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:262d130d4e0582dad8bd65e40b350a22b52d1393120ae35689e1bc817203bf14",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.4.1"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-24T21:22:50.414Z",
+  "unitId": "tribe.campfire.publish"
+}
