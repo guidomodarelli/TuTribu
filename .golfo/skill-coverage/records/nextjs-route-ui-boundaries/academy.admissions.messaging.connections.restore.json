@@ -6,8 +6,8 @@
   "verified": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-messaging-recovery-dead-ends",
-      "commit": "966f3707e2c7d3b7890ddbbe0ce7d0d129c8feb6",
+      "branch": "fix/academy-admission-request-deadline",
+      "commit": "331fe02f374f740259efb79fd0395fedddb30c87",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "d64cc0865a1e8f83",
         "lib/messaging/messaging-connections-intent-store.ts": "7dbed3748a05812b",
@@ -198,10 +198,10 @@
         "lib/academy-admissions/admission-draft.ts": "9baf5fefaa499a20",
         "src/modules/messaging/constants/messaging-activation-browser.ts": "b8a254b107148302",
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts": "f1942bcecd1a2254",
-        "lib/messaging/messaging-browser-api-client.ts": "cf47f9c575463fac",
+        "lib/messaging/messaging-browser-api-client.ts": "4036556459bfd5b2",
         "src/modules/messaging/application/results/messaging-connection-activation-result.ts": "050611e8cdf23d12",
         "src/modules/messaging/application/results/messaging-credential-validation-result.ts": "40349bc86a329f70",
-        "lib/messaging/messaging-usage-api-client.ts": "46670675bcbc22b6",
+        "lib/messaging/messaging-usage-api-client.ts": "43fcd57fd894f7ee",
         "src/modules/academy-admissions/constants/admission-eligibility.ts": "eb86fa4c334de686",
         "src/modules/messaging/constants/connection-diagnostic.ts": "060331e28aefe862",
         "src/modules/messaging/application/results/connection-diagnostic-issuance-result.ts": "4662660631f59d21",
@@ -268,15 +268,17 @@
         "lib/messaging/notification-recovery-local-snapshot-store.ts": "12a2d6f34d90b89b",
         "src/modules/academy-admissions/application/results/admission-contract-fields.ts": "a4913419cef9bbde",
         "src/constants/http-status.ts": "8d7e9b02c87ad83b",
+        "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
         "src/modules/messaging/application/results/messaging-usage-operation-result.ts": "8b1ae9f867ceb003",
         "src/modules/academy-admissions/constants/admission-policy.ts": "a3566bcbcac9ff34",
         "src/modules/messaging/constants/verification-delivery.ts": "6e360294f5e2d066",
         "src/modules/academy-admissions/constants/admission-contact.ts": "cf90895cb275bdd9",
         "src/modules/academy-admissions/domain/value-objects/admission-contact.ts": "b67579afa51cdbd8",
         "src/modules/messaging/application/ports/messaging-provider-catalog-reader.ts": "8bd9a95aacb70962",
-        "src/modules/auth/constants/message-delivery-reauthentication.ts": "f485fe7a77de3464"
+        "src/modules/auth/constants/message-delivery-reauthentication.ts": "f485fe7a77de3464",
+        "src/constants/browser-request.ts": "38ed6a1428c6e81f"
       },
-      "fingerprint": "sha256:f4a9bdb55eec870a05ecbcb86668a75b5b1c536999135a4b52b0b42dc3272544",
+      "fingerprint": "sha256:d35ca6a4cc3a30735fcf9f6e8581639ed4f284a6815b1b196348c1775170b030",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
@@ -1405,8 +1407,9 @@
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#createAdmissionOperationStateSchema": "4928a98a9e4fe5e4",
         "lib/messaging/messaging-browser-api-client.ts#<module>": "d414f6d3ee71f10d",
-        "lib/messaging/messaging-browser-api-client.ts#createMessagingBrowserRequest": "50a2e6ad5eb927c9",
+        "lib/messaging/messaging-browser-api-client.ts#createMessagingBrowserRequest/send": "fd46a762cdfee4b7",
         "lib/messaging/messaging-browser-api-client.ts#messagingBrowserFailure": "a5dd7028d2e871a2",
+        "lib/messaging/messaging-browser-api-client.ts#createMessagingBrowserRequest~shell": "3a453e53c3120958",
         "src/modules/messaging/application/results/messaging-connection-activation-result.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/application/results/messaging-connection-activation-result.ts#messagingConnectionActivationSchema": "938289a3ee13f0cc",
         "src/modules/messaging/constants/messaging-connections-workspace.ts#MESSAGING_CONNECTIONS_NEXT_STEP.testChannel": "8b28b0ad4f3f35f6",
@@ -1420,9 +1423,10 @@
         "lib/messaging/messaging-usage-api-client.ts#messagingUsageBrowserClient": "ee799657db49b94c",
         "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/failure": "e34bc44eafd72834",
         "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/base": "c402d1e9d1dc7949",
-        "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/request": "93c0ce684a377371",
+        "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/request": "d5cbc607a288426c",
         "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient~shell": "2d6161c9b0d268f9",
         "pkg:better-auth": "e6d94d4511d23fb5",
+        "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/send": "6565d46ae9ab8c7f",
         "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/write": "c1500dd22435d9be",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_VERIFICATION_PURPOSE~frame": "344fe85667cec3de",
@@ -1882,6 +1886,12 @@
         "src/constants/http-status.ts#HTTP_STATUS~frame": "aec530ff5cbd1142",
         "src/constants/http-status.ts#HTTP_STATUS.serverError": "0fbed1070c0e4d46",
         "src/modules/messaging/application/results/messaging-public-result-schemas.ts#messagingPublicErrorSchema": "7290bf5619a51f01",
+        "lib/browser-request-deadline.ts#<module>": "2da3ec2294295eb1",
+        "lib/browser-request-deadline.ts#boundBrowserRequest": "76d4e40871494519",
+        "lib/browser-request-deadline.ts#AbortedBrowserRequest": "7247fe3d15039b90",
+        "lib/browser-request-deadline.ts#startBrowserRequestDeadline/followCaller": "5fc4bc96b4267cc9",
+        "lib/browser-request-deadline.ts#startBrowserRequestDeadline~shell": "51f782e3225cd5f9",
+        "lib/browser-request-deadline.ts#BrowserRequestDeadline": "712811cf78078a22",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_BROWSER_PATH~frame": "412cc11bd63dcf44",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_BROWSER_PATH.tribePrefix": "4734dde064f6721c",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_BROWSER_PATH.usageSegment": "31911336571dffe1",
@@ -1943,6 +1953,8 @@
         "src/modules/auth/constants/message-delivery-reauthentication.ts#MessageDeliveryReauthenticationOperation": "fd117a2d6363d385",
         "src/modules/auth/constants/message-delivery-reauthentication.ts#MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.recoverNotification": "7b41b25f15dd080e",
         "src/modules/messaging/application/results/messaging-errors.ts#MessagingPublicError": "bd323a212d0e08cc",
+        "src/constants/browser-request.ts#<module>": "2da3ec2294295eb1",
+        "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MS": "a92cd6c5a2273d38",
         "src/modules/messaging/application/results/messaging-usage-operation-result.ts#MessagingUsageOperationRecoveryDto": "e47baa42bf3e2766",
         "src/modules/messaging/application/results/messaging-public-result-schemas.ts#MessagingUsagePolicyDto": "b8730d5337617e0b",
         "src/modules/messaging/application/results/messaging-public-result-schemas.ts#MessagingUsagePolicyStateDto": "0740fe6b8a2a1f8f",
@@ -2348,14 +2360,14 @@
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-local-snapshot.ts#useNotificationRecoveryLocalSnapshot/source": {
           "projectCalls": 1
         },
-        "lib/messaging/messaging-browser-api-client.ts#createMessagingBrowserRequest": {
-          "awaits": 2
-        },
-        "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/request": {
+        "lib/messaging/messaging-browser-api-client.ts#createMessagingBrowserRequest/send": {
           "awaits": 2
         },
         "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient~shell": {
           "projectCalls": 1,
+          "awaits": 2
+        },
+        "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/send": {
           "awaits": 2
         },
         "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/write": {
@@ -2413,56 +2425,141 @@
         },
         "lib/messaging/notification-recovery-local-snapshot-store.ts#createNotificationRecoveryLocalSnapshotSource": {
           "listeners": 1
+        },
+        "lib/browser-request-deadline.ts#boundBrowserRequest": {
+          "awaits": 1
+        },
+        "lib/browser-request-deadline.ts#startBrowserRequestDeadline~shell": {
+          "listeners": 1,
+          "timers": 1
         }
       },
       "uncommittedFiles": []
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run [redacted]-connections-intent-store.test.ts",
-        "durationMs": 3455,
+        "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx tests/unit/modules/messaging/application tests/unit/modules/academy-admissions/infrastructure tests/unit/lib/academy [redacted]-notification-settings-browser.test.ts",
+        "durationMs": 293042,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "28f54cabbcd52fb38abcfd46ad0ee709d75884494511edaea83c080cbf2f85d0",
-        "recordedAt": "2026-10-24T23:10:02.678Z",
+        "outputSha256": "7202e6c971661e43b6007aced65a01ab116f99286bf2020f6840c2f10b2cb5db",
+        "recordedAt": "2026-10-25T00:58:56.144Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 14431,
+        "durationMs": 3963,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-24T23:10:17.516Z",
+        "recordedAt": "2026-10-25T00:59:02.132Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-24T23:10:17.961Z",
+        "recordedAt": "2026-10-25T00:59:02.614Z",
         "source": "attested",
-        "summary": "Revisión completa: la restauración vive en el cliente de conexiones que monta la página, sin leer params en el layout; no cambia boundaries ni el reparto server/client."
+        "summary": "El cambio vive en adaptadores del navegador; no cambia boundaries, loading, error ni el reparto server/client de la página de conexión."
       }
     ],
     "limitations": [],
-    "mode": "full",
+    "mode": "incremental",
     "pendingChecks": [],
-    "recordedAt": "2026-10-24T23:10:19.550Z",
+    "recordedAt": "2026-10-25T00:59:04.487Z",
     "result": "verified",
-    "runId": "20261024T230958Z-b10321",
+    "runId": "20261025T005402Z-6d08fc",
     "scope": {
-      "decision": "full",
+      "decision": "incremental",
       "reasons": [
-        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "13 relevant change(s) since the verified run"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "added",
+          "key": "lib/browser-request-deadline.ts#<module>",
+          "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-request-deadline.ts#AbortedBrowserRequest",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-request-deadline.ts#boundBrowserRequest",
+          "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-request-deadline.ts#BrowserRequestDeadline",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-request-deadline.ts#startBrowserRequestDeadline/followCaller",
+          "reason": "new interactive handler in the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-request-deadline.ts#startBrowserRequestDeadline~shell",
+          "reason": "component render changed: hooks, Suspense or client imports may differ"
+        },
+        {
+          "change": "removed",
+          "key": "lib/messaging/messaging-browser-api-client.ts#createMessagingBrowserRequest",
+          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+        },
+        {
+          "change": "added",
+          "key": "lib/messaging/messaging-browser-api-client.ts#createMessagingBrowserRequest/send",
+          "reason": "new interactive handler in the route"
+        },
+        {
+          "change": "added",
+          "key": "lib/messaging/messaging-browser-api-client.ts#createMessagingBrowserRequest~shell",
+          "reason": "component render changed: hooks, Suspense or client imports may differ"
+        },
+        {
+          "change": "modified",
+          "key": "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/request",
+          "reason": "interactive handler changed: navigation or server action calls may differ"
+        },
+        {
+          "change": "added",
+          "key": "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/send",
+          "reason": "new interactive handler in the route"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/browser-request.ts#<module>",
+          "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MS",
+          "reason": "new code rendered by the route"
+        }
+      ],
       "suggestedScope": [
-        "pending from the previous run: missing passing evidence of kind command",
-        "whole unit academy.admissions.messaging.connections.restore (/[slug]/academia/admissions/messaging/connections): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
+        "lib/browser-request-deadline.ts (module directives and side effects) — where the server/client boundary falls (\"use client\", \"use server\") and what the client bundle imports through it",
+        "lib/browser-request-deadline.ts › AbortedBrowserRequest — server/client split and awaited work of this code in every route of the unit",
+        "lib/browser-request-deadline.ts › boundBrowserRequest — server/client split and awaited work of this code in every route of the unit",
+        "lib/browser-request-deadline.ts › BrowserRequestDeadline — server/client split and awaited work of this code in every route of the unit",
+        "lib/browser-request-deadline.ts › startBrowserRequestDeadline › followCaller — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+        "lib/browser-request-deadline.ts › startBrowserRequestDeadline (component body outside its handlers) — what this component renders: hooks that force a client island, awaited data, Suspense and the client components it imports",
+        "lib/messaging/messaging-browser-api-client.ts › createMessagingBrowserRequest — what the route lost: a layout, a boundary, a Suspense fallback or a client island; check that each state still has its boundary",
+        "lib/messaging/messaging-browser-api-client.ts › createMessagingBrowserRequest › send — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+        "lib/messaging/messaging-browser-api-client.ts › createMessagingBrowserRequest (component body outside its handlers) — what this component renders: hooks that force a client island, awaited data, Suspense and the client components it imports",
+        "lib/messaging/messaging-usage-api-client.ts › createMessagingUsageBrowserClient › request — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+        "lib/messaging/messaging-usage-api-client.ts › createMessagingUsageBrowserClient › send — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+        "src/constants/browser-request.ts (module directives and side effects) — where the server/client boundary falls (\"use client\", \"use server\") and what the client bundle imports through it",
+        "src/constants/browser-request.ts › BROWSER_REQUEST_TIMEOUT_MS — server/client split and awaited work of this code in every route of the unit"
       ]
     },
     "skill": {
@@ -2478,6 +2575,6 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.2.0"
     },
-    "report": "runs/20261024T230958Z-b10321.json"
+    "report": "runs/20261025T005402Z-6d08fc.json"
   }
 }

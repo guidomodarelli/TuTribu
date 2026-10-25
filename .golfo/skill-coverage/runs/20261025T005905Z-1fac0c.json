@@ -1,0 +1,65 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-admission-request-deadline",
+    "commit": "331fe02f374f740259efb79fd0395fedddb30c87",
+    "fingerprint": "sha256:f80d5bcc8767f4cd55a9f276d6808289d7c39f73cc10e1140e070317717f538e",
+    "uncommittedFiles": [],
+    "fileCount": 57,
+    "inputCount": 852
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx tests/unit/lib/browser-request-deadline.test.ts",
+      "durationMs": 18509,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "9b903d929655b423a8fab72d4fc78bc1d064afa43f6dccb842834291cf8ca04d",
+      "recordedAt": "2026-10-25T00:59:24.687Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T00:59:25.152Z",
+      "source": "attested",
+      "summary": "Solo el deadline de «Contratar academia»: un checkout sin respuesta termina a los 120 s con «La respuesta tardó demasiado», el botón vuelve a habilitarse y no se navega al pago."
+    }
+  ],
+  "limitations": [
+    "Solo se revisó el deadline del checkout; el resto de la unidad (estados de acceso, retorno del pago) queda para su propia auditoría y no se verificó en navegador."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T00:59:26.445Z",
+  "result": "partial",
+  "runId": "20261025T005905Z-1fac0c",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "no previous coverage: the whole unit is analyzed"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit academy.home.checkout: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a27ab40c70e78c90",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:262d130d4e0582dad8bd65e40b350a22b52d1393120ae35689e1bc817203bf14",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.4.1"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T00:59:05.688Z",
+  "unitId": "academy.home.checkout"
+}
