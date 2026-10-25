@@ -111,6 +111,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Cada aspirante puede corregir su WhatsApp mientras la solicitud siga pendiente y vigente; el formulario conserva el cambio original si se pierde la respuesta y avisa cuando debe revisarse de nuevo.
 
 ### Changed
+- Cada resultado se anuncia una sola vez, junto a la acción: aceptar una invitación personal, pedir una verificación, guardar la oferta, guardar países y cupos de mensajería y los errores de la academia ya no repiten el mismo mensaje en una notificación emergente, y un resultado incierto de la solicitud de ingreso ya no aparece dos veces.
+- «Suspender conexión» usa el tono de peligro cuando se suspende la conexión que usa la academia, porque detiene todos los avisos y códigos.
 
 - Conexión de mensajería permite reemplazar una clave de Zavu rechazada o sin comprobar con «Reemplazar la clave»: el paso Clave nombra la candidata, aclara que la conexión seleccionada no cambia y, tras confirmar, retira sólo esa candidata y vuelve al formulario con el mismo nombre.
 - Seguridad y retiro muestra el rol y el estado de cada conexión, explica que suspender conserva su lugar y sólo retirarla lo libera, preselecciona la candidata al llegar desde su aviso y, antes de suspender la conexión activa, avisa que se detienen los avisos y los códigos de verificación de la academia.

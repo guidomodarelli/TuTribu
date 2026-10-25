@@ -58,7 +58,7 @@ export function AdmissionScreen({ state, draft = { phone: "", country: "", messa
         {state.overview.state === ADMISSION_OVERVIEW_STATE.verificationRequired && !verification && !requestFlow && <p className={styles.AdmissionScreen__help}>{ADMISSION_UI_COPY.verifying}</p>}
       </>}
       {feedback && <p role="status">{feedback}</p>}
-      {phase === ADMISSION_UI_PHASE.uncertain && <p role="status">{ADMISSION_UI_COPY.uncertain}</p>}
+      {phase === ADMISSION_UI_PHASE.uncertain && errorMessage !== ADMISSION_UI_COPY.uncertain && <p role="status">{ADMISSION_UI_COPY.uncertain}</p>}
       {errorMessage && <p role="alert" className={styles.AdmissionScreen__error}>{errorMessage}</p>}
       <div className={styles.AdmissionScreen__actions}>
         {ready && !state.viewerId && <Link href={signInHref}>{ADMISSION_UI_COPY.signIn}</Link>}

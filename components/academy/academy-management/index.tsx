@@ -284,7 +284,6 @@ function SettingsSection({
       if (result.isSuccess) {
         applySettings(result.data);
         setFeedback({ isError: false, message: MANAGEMENT_COPY.offerSaved });
-        toast.success(MANAGEMENT_COPY.offerSaved);
 
         return;
       }
@@ -993,7 +992,6 @@ function MembersSection({
 
     if (!result.isSuccess) {
       setErrorMessage(result.message);
-      toast.error(result.message);
 
       return;
     }
