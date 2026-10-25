@@ -16,7 +16,7 @@ import styles from "./styles.module.scss";
  */
 export function AdmissionRouteError({ retry, signInHref, message = ADMISSION_UI_COPY.readFailed, embedded = false }: { retry?: () => void; signInHref?: string; message?: string; embedded?: boolean }) {
   const Container = embedded ? "section" : "main", Heading = embedded ? "h2" : "h1";
-  return <Container className={styles.AdmissionRouteError}><Heading className={styles.AdmissionRouteError__title}>{ADMISSION_UI_COPY.unavailableTitle}</Heading><p className={styles.AdmissionRouteError__message} role="alert">{message}</p><div className={styles.AdmissionRouteError__actions}>
+  return <Container className={embedded ? `${styles.AdmissionRouteError} ${styles["AdmissionRouteError--embedded"]}` : styles.AdmissionRouteError}><Heading className={styles.AdmissionRouteError__title}>{ADMISSION_UI_COPY.unavailableTitle}</Heading><p className={styles.AdmissionRouteError__message} role="alert">{message}</p><div className={styles.AdmissionRouteError__actions}>
     {signInHref ? <ButtonLink href={signInHref} variant="primary">{ADMISSION_UI_COPY.signIn}</ButtonLink> : retry && <Button type="button" onClick={retry}>Reintentar</Button>}
     <Link href={ROUTES.home}>{ADMISSION_UI_COPY.home}</Link>
   </div></Container>;
