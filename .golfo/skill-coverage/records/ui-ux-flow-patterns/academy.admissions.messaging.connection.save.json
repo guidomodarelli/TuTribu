@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "fix/academy-single-announcements",
-      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
+      "commit": "fcbe88fcb243c8ddf8db9e49f2defe0c34c5c9c9",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "52358cd766afdaa0",
         "app/api/tribes/[slug]/messaging/connections/route.ts": "78b3317283264385",
@@ -1744,19 +1744,19 @@
     "evidence": [
       {
         "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 64017,
+        "durationMs": 62141,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "57849b4c60750d26385e3b2e27e9464663317bc14a7bbcd74e7fe77648955a85",
-        "recordedAt": "2026-10-25T09:38:14.373Z",
+        "outputSha256": "11f3f30bf8fc0e2bc2ef4c19fc5be03566e66ffb830cfd055c3fe8972d8eb766",
+        "recordedAt": "2026-10-25T11:49:59.341Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T09:38:14.885Z",
+        "recordedAt": "2026-10-25T11:49:59.868Z",
         "source": "attested",
         "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
       }
@@ -1766,22 +1766,15 @@
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T09:38:17.244Z",
+    "recordedAt": "2026-10-25T11:50:02.294Z",
     "result": "partial",
-    "runId": "20261025T093709Z-72e05a",
+    "runId": "20261025T114856Z-f5b9b6",
     "scope": {
       "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "components/academy-admissions/messaging-connection-lifecycle/index.tsx#MessagingConnectionLifecycle",
-          "reason": "visible or interactive code changed"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.admissions.messaging.connection.save: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
       ]
@@ -1799,7 +1792,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T093709Z-72e05a.json"
+    "report": "runs/20261025T114856Z-f5b9b6.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

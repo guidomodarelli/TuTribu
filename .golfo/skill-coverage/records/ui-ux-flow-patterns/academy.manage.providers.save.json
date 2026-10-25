@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "fix/academy-single-announcements",
-      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
+      "commit": "fcbe88fcb243c8ddf8db9e49f2defe0c34c5c9c9",
       "files": {
         "components/academy/academy-management/index.tsx": "b31e2d2038935251",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
@@ -171,19 +171,19 @@
     "evidence": [
       {
         "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 63728,
+        "durationMs": 62920,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "caf725b90df6f95ee63ad208b58ff62206c3b5238649e7c2de3c64968a92745d",
-        "recordedAt": "2026-10-25T10:25:42.040Z",
+        "outputSha256": "eaabbb781fe8dfc3bc6203aa79b1903ff5cd1b8a8f26d6d4c468d1d1049eff3d",
+        "recordedAt": "2026-10-25T12:34:24.808Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T10:25:42.605Z",
+        "recordedAt": "2026-10-25T12:34:25.309Z",
         "source": "attested",
         "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
       }
@@ -193,13 +193,12 @@
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T10:25:43.908Z",
+    "recordedAt": "2026-10-25T12:34:26.482Z",
     "result": "partial",
-    "runId": "20261025T102437Z-db6fbc",
+    "runId": "20261025T123321Z-ec271b",
     "scope": {
       "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [],
@@ -220,7 +219,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T102437Z-db6fbc.json"
+    "report": "runs/20261025T123321Z-ec271b.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

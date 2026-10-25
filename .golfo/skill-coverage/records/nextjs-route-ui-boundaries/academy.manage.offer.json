@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "fix/academy-single-announcements",
-      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
+      "commit": "fcbe88fcb243c8ddf8db9e49f2defe0c34c5c9c9",
       "files": {
         "components/academy/academy-management/index.tsx": "b31e2d2038935251",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
@@ -1449,30 +1449,30 @@
     "evidence": [
       {
         "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 63884,
+        "durationMs": 62740,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "7d38fb2820289f5df1baa245d349ce6a0c18bedca2aa6ee260cd6aa89f778b11",
-        "recordedAt": "2026-10-25T10:24:26.699Z",
+        "outputSha256": "020df3d13af4c23c268ed7edc0026f74e9677786c355dca87b059c0404e8fb01",
+        "recordedAt": "2026-10-25T12:33:10.815Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 2707,
+        "durationMs": 2632,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T10:24:29.904Z",
+        "recordedAt": "2026-10-25T12:33:13.904Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T10:24:30.409Z",
+        "recordedAt": "2026-10-25T12:33:14.374Z",
         "source": "attested",
         "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
       }
@@ -1482,22 +1482,15 @@
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T10:24:32.053Z",
+    "recordedAt": "2026-10-25T12:33:15.992Z",
     "result": "partial",
-    "runId": "20261025T102322Z-c987b8",
+    "runId": "20261025T123207Z-881df8",
     "scope": {
       "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "components/academy/academy-management/index.tsx#SettingsSection/handleOfferSubmit",
-          "reason": "interactive handler changed: navigation or server action calls may differ"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.manage.offer (/[slug]/academia/gestionar): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
       ]
@@ -1515,7 +1508,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T102322Z-c987b8.json"
+    "report": "runs/20261025T123207Z-881df8.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

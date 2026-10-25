@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "fix/academy-single-announcements",
-      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
+      "commit": "fcbe88fcb243c8ddf8db9e49f2defe0c34c5c9c9",
       "files": {
         "components/academy/academy-management/index.tsx": "b31e2d2038935251",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
@@ -326,14 +326,13 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T10:30:44.850Z",
+    "recordedAt": "2026-10-25T12:40:16.671Z",
     "result": "not-applicable",
-    "runId": "20261025T103043Z-7922ae",
+    "runId": "20261025T124015Z-ca688b",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: El cambio de boundaries no agrega requests, consultas ni pasos al flujo."
+        "recorded not applicable: Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": []
@@ -354,7 +353,7 @@
       "version": "1.5.0"
     },
     "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T103043Z-7922ae.json"
+    "report": "runs/20261025T124015Z-ca688b.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

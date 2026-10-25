@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-readable-dates",
-      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
+      "branch": "fix/academy-single-announcements",
+      "commit": "fcbe88fcb243c8ddf8db9e49f2defe0c34c5c9c9",
       "files": {
         "app/(admission)/admissions/invitations/[token]/personal-invitation-container.tsx": "a456bf4f01d5e9ae",
-        "hooks/use-personal-invitation.ts": "3597e722fb7e889a",
+        "hooks/use-personal-invitation.ts": "85c13c71c9b0b188",
         "app/api/admissions/invitations/[token]/overview/route.ts": "385e5e4b9a0f9aaa",
         "app/api/tribes/[slug]/admissions/submissions/route.ts": "1c17ea1189f30c3c",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
@@ -479,7 +479,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:2a02d5d15fdd6615ba0c50d2cb526905af1755c2c92207e2135ada075f634e7e",
+      "fingerprint": "sha256:84b1daa5cad9feb71ad99e50707aa98f855ac6016769e60147ebd8991d44e440",
       "inputs": {
         "app/(admission)/admissions/invitations/[token]/personal-invitation-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(admission)/admissions/invitations/[token]/personal-invitation-container.tsx#PersonalInvitationContainer": "889caeb28894f738",
@@ -501,7 +501,7 @@
         "hooks/use-personal-invitation.ts#usePersonalInvitation/clear": "cf1f3ed1ce7dd20a",
         "hooks/use-personal-invitation.ts#usePersonalInvitation/recover": "fbfaef78f61798c9",
         "hooks/use-personal-invitation.ts#usePersonalInvitation/observe": "7efbcb95505d7fb4",
-        "hooks/use-personal-invitation.ts#usePersonalInvitation/submit": "0bc037cc9048cf04",
+        "hooks/use-personal-invitation.ts#usePersonalInvitation/submit": "f9dbd7f587156759",
         "hooks/use-personal-invitation.ts#usePersonalInvitation/changeAccount": "08a086a2cf32dc4f",
         "hooks/use-personal-invitation.ts#usePersonalInvitation/changeConfirmation": "da64c1d4f120922f",
         "app/api/admissions/invitations/[token]/overview/route.ts#<module>": "33b3fabe1e31dbc7",
@@ -4570,32 +4570,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
-        "durationMs": 64203,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
+        "durationMs": 62668,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "78df99387443113bd9f1a1e95595cdc90c45f2fc515f6c97e91e9011de99efc9",
-        "recordedAt": "2026-10-25T09:15:11.683Z",
+        "outputSha256": "2c58a443cd349efa3f3543e916e21e870d69764929b2442351ba47bc8fd04c9c",
+        "recordedAt": "2026-10-25T11:20:25.019Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T09:15:12.215Z",
+        "recordedAt": "2026-10-25T11:20:25.560Z",
         "source": "attested",
-        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
+        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
       }
     ],
     "limitations": [
-      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T09:15:14.836Z",
+    "recordedAt": "2026-10-25T11:20:27.974Z",
     "result": "partial",
-    "runId": "20261025T091406Z-7f9e84",
+    "runId": "20261025T111921Z-0350c5",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -4605,13 +4605,8 @@
       "relevantChangesAtBegin": [
         {
           "change": "modified",
-          "key": "components/academy-admissions/contact-verification/index.tsx#ContactVerification",
-          "reason": "code reached by the unit changed"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/contact-verification/index.tsx#formatContactCountdown",
-          "reason": "new code reached by the unit"
+          "key": "hooks/use-personal-invitation.ts#usePersonalInvitation/submit",
+          "reason": "action handler changed"
         }
       ],
       "suggestedScope": [
@@ -4631,7 +4626,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T091406Z-7f9e84.json"
+    "report": "runs/20261025T111921Z-0350c5.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

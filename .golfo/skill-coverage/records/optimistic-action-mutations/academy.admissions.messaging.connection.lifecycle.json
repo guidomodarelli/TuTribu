@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "fix/academy-single-announcements",
-      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
+      "commit": "fcbe88fcb243c8ddf8db9e49f2defe0c34c5c9c9",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-lifecycle-controller.ts": "8028dcf181ee8a1b",
         "app/api/tribes/[slug]/messaging/connections/[connectionId]/suspend/route.ts": "8143b8e61022e394",
@@ -4924,19 +4924,19 @@
     "evidence": [
       {
         "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 63724,
+        "durationMs": 63572,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "494a836293cf8695c9583dad50a658d1ac71a3edafc171238382125a10dd37ff",
-        "recordedAt": "2026-10-25T09:35:40.637Z",
+        "outputSha256": "84735cbb572d407c78652110bcb5890a8e6bbbe3fe2bbe85060722d584828be5",
+        "recordedAt": "2026-10-25T11:47:29.962Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T09:35:41.140Z",
+        "recordedAt": "2026-10-25T11:47:30.451Z",
         "source": "attested",
         "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
       }
@@ -4946,13 +4946,12 @@
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T09:35:43.754Z",
+    "recordedAt": "2026-10-25T11:47:32.885Z",
     "result": "partial",
-    "runId": "20261025T093436Z-3850b5",
+    "runId": "20261025T114625Z-acf1b6",
     "scope": {
       "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [],
@@ -4973,7 +4972,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T093436Z-3850b5.json"
+    "report": "runs/20261025T114625Z-acf1b6.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

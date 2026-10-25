@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-readable-dates",
-      "commit": "5a528dae7a8bc91963b4fb9550f1655d7d462642",
+      "branch": "fix/academy-single-announcements",
+      "commit": "fcbe88fcb243c8ddf8db9e49f2defe0c34c5c9c9",
       "files": {
         "app/(admission)/admissions/invitations/[token]/personal-invitation-container.tsx": "a456bf4f01d5e9ae",
-        "hooks/use-personal-invitation.ts": "3597e722fb7e889a",
+        "hooks/use-personal-invitation.ts": "85c13c71c9b0b188",
         "app/api/admissions/invitations/[token]/overview/route.ts": "385e5e4b9a0f9aaa",
         "app/api/tribes/[slug]/admissions/submissions/route.ts": "1c17ea1189f30c3c",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
@@ -479,7 +479,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:2a02d5d15fdd6615ba0c50d2cb526905af1755c2c92207e2135ada075f634e7e",
+      "fingerprint": "sha256:84b1daa5cad9feb71ad99e50707aa98f855ac6016769e60147ebd8991d44e440",
       "inputs": {
         "app/(admission)/admissions/invitations/[token]/personal-invitation-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(admission)/admissions/invitations/[token]/personal-invitation-container.tsx#PersonalInvitationContainer": "889caeb28894f738",
@@ -501,7 +501,7 @@
         "hooks/use-personal-invitation.ts#usePersonalInvitation/clear": "cf1f3ed1ce7dd20a",
         "hooks/use-personal-invitation.ts#usePersonalInvitation/recover": "fbfaef78f61798c9",
         "hooks/use-personal-invitation.ts#usePersonalInvitation/observe": "7efbcb95505d7fb4",
-        "hooks/use-personal-invitation.ts#usePersonalInvitation/submit": "0bc037cc9048cf04",
+        "hooks/use-personal-invitation.ts#usePersonalInvitation/submit": "f9dbd7f587156759",
         "hooks/use-personal-invitation.ts#usePersonalInvitation/changeAccount": "08a086a2cf32dc4f",
         "hooks/use-personal-invitation.ts#usePersonalInvitation/changeConfirmation": "da64c1d4f120922f",
         "app/api/admissions/invitations/[token]/overview/route.ts#<module>": "33b3fabe1e31dbc7",
@@ -4572,14 +4572,14 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T09:16:35.502Z",
+    "recordedAt": "2026-10-25T11:21:52.386Z",
     "result": "not-applicable",
-    "runId": "20261025T091632Z-a4db2d",
+    "runId": "20261025T112149Z-62f23b",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: El cambio de boundaries no agrega requests, consultas ni pasos al flujo."
+        "recorded not applicable: El cambio de copy de fechas no agrega requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": []
@@ -4599,8 +4599,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "El cambio de copy de fechas no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T091632Z-a4db2d.json"
+    "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T112149Z-62f23b.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "fix/academy-single-announcements",
-      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
+      "commit": "fcbe88fcb243c8ddf8db9e49f2defe0c34c5c9c9",
       "files": {
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "components/academy/academy-management/index.tsx": "b31e2d2038935251",
@@ -1325,30 +1325,30 @@
     "evidence": [
       {
         "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 49752,
+        "durationMs": 58491,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "ce97b79139132047519cab952129d340294699cc4bded510222c0513163c4d7e",
-        "recordedAt": "2026-10-25T10:36:16.153Z",
+        "outputSha256": "d289533921918cd9b3b8d8b5c9db667736fc86f4a56ae239a86fe39ddf00b69b",
+        "recordedAt": "2026-10-25T12:47:02.199Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 2285,
+        "durationMs": 2535,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T10:36:18.918Z",
+        "recordedAt": "2026-10-25T12:47:05.232Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T10:36:19.356Z",
+        "recordedAt": "2026-10-25T12:47:05.696Z",
         "source": "attested",
         "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
       }
@@ -1358,13 +1358,12 @@
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T10:36:20.590Z",
+    "recordedAt": "2026-10-25T12:47:07.121Z",
     "result": "partial",
-    "runId": "20261025T103525Z-1e09ed",
+    "runId": "20261025T124603Z-34f61e",
     "scope": {
       "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [],
@@ -1385,7 +1384,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T103525Z-1e09ed.json"
+    "report": "runs/20261025T124603Z-34f61e.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",
