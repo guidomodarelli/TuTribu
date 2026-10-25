@@ -15,7 +15,7 @@
   "entries": [
     {
       "path": "components/academy/academy-management/index.tsx",
-      "symbol": "MembersSection~shell"
+      "symbol": "MembersSection"
     },
     {
       "follow": false,

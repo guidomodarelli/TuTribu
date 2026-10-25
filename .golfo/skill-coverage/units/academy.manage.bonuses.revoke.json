@@ -8,14 +8,18 @@
     "section": "Bonificaciones",
     "subflow": "Revocar bonificación"
   },
-  "description": "Revocar una bonificación vigente con motivo.",
+  "description": "Revocar una bonificación vigente con motivo, desde su diálogo.",
   "routes": [
     "/[slug]/academia/gestionar"
   ],
   "entries": [
     {
       "path": "components/academy/academy-management/index.tsx",
-      "symbol": "MembersSection/handleRevoke"
+      "symbol": "RevokeBonusDialog"
+    },
+    {
+      "path": "components/academy/academy-management/index.tsx",
+      "symbol": "MembersSection"
     },
     {
       "follow": false,
