@@ -115,6 +115,9 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - En Avisos de admisión, una zona horaria que no existe se marca junto al campo y no deja continuar, en lugar de fallar recién al guardar.
 - Los enlaces de ingreso a una academia y de una solicitud propia ya no se indexan en buscadores ni informan la página de origen al abrir otro sitio, igual que las invitaciones personales.
 
+- Mientras cargan, la academia, Gestionar academia, la verificación, la suscripción y Canales muestran un esqueleto con la forma de cada pantalla en lugar del de la ronda.
+- Las páginas de admisión con pasos (Reglas, Países y cupos, Avisos, Habilitados, Invitaciones y Conexión) muestran mientras cargan un esqueleto con forma de formulario por pasos, y la bandeja, el historial y la actividad uno con forma de lista.
+- Quien pide ingresar ve mientras carga un esqueleto con la forma del formulario, de su solicitud o de la invitación, con el título que va a tener la pantalla («Solicitar ingreso», «Tu solicitud de ingreso» o «Invitación personal»).
 - Los códigos de verificación muestran cuánto falta en minutos («Vence en 9 min 20 s», «Podés reenviar en 1 minuto») en lugar de una cuenta en segundos.
 - Invitaciones, importación de habilitados y consumo e historial muestran fechas legibles en hora de Argentina («25 oct 2026 · 14:30») en lugar de fechas técnicas en UTC; el vencimiento de una invitación personal se elige en hora de Argentina.
 - Países y cupos y el consumo del día explican que el día se cuenta de 21:00 a 21:00, hora de Argentina.

@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
       "files": {
         "app/(platform)/[slug]/canales/page.tsx": "6998e6bd4c5763f3",
-        "app/(platform)/[slug]/canales/loading.tsx": "f9871c638174780b",
+        "app/(platform)/[slug]/canales/loading.tsx": "8de75f6bd35677bd",
         "app/(platform)/error.tsx": "c29ecc8ea3fb911f",
         "src/modules/messages/setup.ts": "ab8435387e22dc52",
         "src/modules/tribes/setup.ts": "71cc96c1b451a171",
@@ -32,7 +32,8 @@
         "src/modules/tribes/infrastructure/repositories/postgres-tribe-welcome-selection-repository.ts": "1347a7494dcca476",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
         "src/modules/auth/setup.ts": "37e200547ae950e4",
-        "app/(platform)/[slug]/loading.tsx": "7bca37b96a4432ce",
+        "components/loaders/route-skeleton/index.tsx": "24ca012df2b27747",
+        "app/(platform)/[slug]/canales/loading.module.scss": "29228531512a2014",
         "components/feedback/error-state/index.tsx": "5090f14a31ac15fc",
         "src/modules/messages/domain/repositories/message-file-repository.ts": "2b599c6afad21271",
         "src/modules/messages/domain/repositories/message-image-repository.ts": "b2180a256259b54b",
@@ -209,17 +210,20 @@
         "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts": "c7f308ccbaa1356b",
         "src/modules/auth/domain/repositories/authenticated-account-provider.ts": "fdc696b5343344df",
         "src/modules/auth/application/use-cases/get-authenticated-member-use-case.ts": "6ae2f4d7a505f8f5",
-        "app/(platform)/[slug]/loading.module.scss": "3f6fcdd2e5f79775",
+        "components/loaders/route-skeleton/styles.module.scss": "aba42533e97ac72c",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
         "components/feedback/error-state/styles.module.scss": "c3291993525c2d1c",
         "src/modules/messaging/domain/value-objects/messaging-key-purpose.ts": "3cb73fd082b826f2"
       },
-      "fingerprint": "sha256:90f1e5aaa1ee96822e044469521833338f107f55e734e3347d156d04fe8993e6",
+      "fingerprint": "sha256:9c1befd3ae8ba174da15108fc3b961ee3426cb68b3a244c3af27f5219cc3f23e",
       "inputs": {
         "app/(platform)/[slug]/canales/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/canales/page.tsx#TribeChannelsPage": "acffa2b9525597a5",
         "app/(platform)/[slug]/canales/loading.tsx#<module>": "2da3ec2294295eb1",
+        "app/(platform)/[slug]/canales/loading.tsx#ChannelsLoading": "b5f6d47c1dd222b2",
+        "app/(platform)/[slug]/canales/loading.tsx#CHANNELS_LOADING_SHAPE~frame": "b8de43a61d1e4ff5",
+        "app/(platform)/[slug]/canales/loading.tsx#CHANNELS_LOADING_SHAPE.channelKeys": "56b7523d9fc90b80",
         "app/(platform)/error.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/error.tsx#PlatformError": "10a1b0632b21a85e",
         "app/(platform)/error.tsx#PLATFORM_ERROR_COPY~frame": "2aef35660089a73b",
@@ -538,16 +542,16 @@
         "src/modules/auth/setup.ts#<module>": "2da3ec2294295eb1",
         "src/modules/auth/setup.ts#buildAuthModule": "fa12aa3c0affb57e",
         "src/modules/auth/setup.ts#AuthModuleDependencies": "c2c64c7a3276646d",
-        "app/(platform)/[slug]/loading.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/loading.tsx#TribeLoadingPage": "9d20796fb5186f24",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON~frame": "aff7438bb5a53b5f",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.filterCount": "3ae064e3d11de24c",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.filterKeyPrefix": "3ae042de2b44226b",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.keySeparator": "5f8aa621b5bba5b8",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.roundItemCount": "37ee9ed8ad8c9e61",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.roundItemKeyPrefix": "cc618c248c4e5d45",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusAriaRole": "45bd83611f8ba7de",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusLabel": "91b448f9dc994012",
+        "components/loaders/route-skeleton/index.tsx#<module>": "2da3ec2294295eb1",
+        "components/loaders/route-skeleton/index.tsx#RouteSkeleton": "223b4db7f24fd665",
+        "components/loaders/route-skeleton/index.tsx#SkeletonBlock": "c340a37ce4ab55ed",
+        "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind": "a357496f078189ee",
+        "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth": "175b5e3780859001",
+        "components/loaders/route-skeleton/index.tsx#SkeletonLines": "60d9052267ae7426",
+        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame": "42404c67903a5744",
+        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount": "b251bfcb1dd93f46",
+        "components/loaders/route-skeleton/index.tsx#placeholderKeys": "a1ec4c5ff5f87bbe",
+        "app/(platform)/[slug]/canales/loading.module.scss#*": "29228531512a2014",
         "components/feedback/error-state/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/feedback/error-state/index.tsx#ErrorState": "20991c4e77bbb771",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
@@ -1421,7 +1425,7 @@
         "src/modules/auth/application/use-cases/get-authenticated-member-use-case.ts#<module>": "2da3ec2294295eb1",
         "src/modules/auth/application/use-cases/get-authenticated-member-use-case.ts#getAuthenticatedMember": "0e469f3e87753693",
         "src/modules/auth/application/use-cases/get-authenticated-member-use-case.ts#GetAuthenticatedMemberDependencies": "df09a8a09c3a70bd",
-        "app/(platform)/[slug]/loading.module.scss#*": "3f6fcdd2e5f79775",
+        "components/loaders/route-skeleton/styles.module.scss#*": "aba42533e97ac72c",
         "components/navigation/link/index.tsx#<module>": "2da3ec2294295eb1",
         "src/constants/routes.ts#<module>": "2da3ec2294295eb1",
         "src/constants/routes.ts#ROUTES~frame": "0506fddc4c13fa99",
@@ -1434,38 +1438,172 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
-        "durationMs": 39763,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
+        "durationMs": 29405,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "8b218f20410ba6ab03368f5e758caf9632404874dd8a96f42927215d08dcdb4d",
-        "recordedAt": "2026-10-25T05:42:21.826Z",
+        "outputSha256": "2afba9ec9d57cd13bdaa635e82bba958493b98f929fe56b360c4deb07ce5e4e6",
+        "recordedAt": "2026-10-25T12:39:21.207Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T05:42:22.502Z",
+        "recordedAt": "2026-10-25T12:39:21.678Z",
         "source": "attested",
-        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
+        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+      },
+      {
+        "kind": "browser",
+        "outcome": "pass",
+        "recordedAt": "2026-10-25T12:39:22.211Z",
+        "source": "attested",
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app, capturando el fallback durante una navegación: antes, academia, gestionar, verificación, suscripción y canales mostraban el esqueleto de la ronda («Cargando sección de tribu») y la invitación «Solicitar ingreso»; después, cada ruta anuncia su propia carga con su forma (panel de pasos en Reglas e Invitaciones, filas en Solicitudes, «Tu solicitud de ingreso» e «Invitación personal» en el solicitante) (4/4)."
       }
     ],
     "limitations": [
-      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T05:42:24.954Z",
+    "recordedAt": "2026-10-25T12:39:24.153Z",
     "result": "partial",
-    "runId": "20261025T054141Z-bd6b61",
+    "runId": "20261025T123851Z-dddf52",
     "scope": {
       "decision": "full",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/canales/loading.module.scss#*",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/canales/loading.tsx#CHANNELS_LOADING_SHAPE.channelKeys",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/canales/loading.tsx#CHANNELS_LOADING_SHAPE~frame",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/canales/loading.tsx#ChannelsLoading",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.module.scss#*",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.tsx#<module>",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.filterCount",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.filterKeyPrefix",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.keySeparator",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.roundItemCount",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.roundItemKeyPrefix",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusAriaRole",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusLabel",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON~frame",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.tsx#TribeLoadingPage",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#placeholderKeys",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#RouteSkeleton",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlock",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#SkeletonLines",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/styles.module.scss#*",
+          "reason": "new visible or interactive code"
+        }
+      ],
       "suggestedScope": [
         "whole unit tribe.channels.view: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
       ]
@@ -1483,7 +1621,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T054141Z-bd6b61.json"
+    "report": "runs/20261025T123851Z-dddf52.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
       "files": {
         "app/(platform)/[slug]/suscripcion/page.tsx": "2de6a6dad92de1cb",
-        "app/(platform)/[slug]/suscripcion/loading.tsx": "f9871c638174780b",
+        "app/(platform)/[slug]/suscripcion/loading.tsx": "df456e65a647f85d",
         "app/(platform)/error.tsx": "c29ecc8ea3fb911f",
         "src/modules/subscriptions/setup.ts": "beab8120b07daf1c",
         "src/modules/auth/infrastructure/composition/authenticated-account-provider.ts": "750f9fbc68d426b1",
@@ -31,7 +31,7 @@
         "src/modules/tribes/infrastructure/repositories/postgres-tribe-welcome-selection-repository.ts": "1347a7494dcca476",
         "src/modules/auth/setup.ts": "37e200547ae950e4",
         "src/modules/tribes/setup.ts": "71cc96c1b451a171",
-        "app/(platform)/[slug]/loading.tsx": "7bca37b96a4432ce",
+        "components/loaders/route-skeleton/index.tsx": "24ca012df2b27747",
         "components/feedback/error-state/index.tsx": "5090f14a31ac15fc",
         "src/modules/subscriptions/domain/repositories/academy-subscription-repository.ts": "4c115392e37469ea",
         "src/modules/subscriptions/domain/repositories/tribe-member-subscription-repository.ts": "9e2b96901b5b8f6a",
@@ -519,11 +519,13 @@
         "src/modules/academy-admissions/constants/admission-review-dates.ts": "ed6ccaa0d7bbce25",
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f"
       },
-      "fingerprint": "sha256:ea1760c31ae0f20d7e816a084664b07cdf2a47d38acc92b6517b0ead1c7c6800",
+      "fingerprint": "sha256:f690fcf62b8ec93b2a4084501541481a0e4b35c87dc41569b74ca400879c5493",
       "inputs": {
         "app/(platform)/[slug]/suscripcion/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/suscripcion/page.tsx#TribeSubscriptionPage": "7cebf1ea1021fc4c",
         "app/(platform)/[slug]/suscripcion/loading.tsx#<module>": "2da3ec2294295eb1",
+        "app/(platform)/[slug]/suscripcion/loading.tsx#SubscriptionLoading": "274198df637609bc",
+        "app/(platform)/[slug]/suscripcion/loading.tsx#SUBSCRIPTION_LOADING_ACTION_COUNT": "15474fc5a72bbd53",
         "app/(platform)/error.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/error.tsx#PlatformError": "10a1b0632b21a85e",
         "app/(platform)/error.tsx#PLATFORM_ERROR_COPY~frame": "2aef35660089a73b",
@@ -876,16 +878,17 @@
         "src/modules/tribes/setup.ts#<module>": "2da3ec2294295eb1",
         "src/modules/tribes/setup.ts#buildTribesModule": "63d1f438b851dac7",
         "src/modules/tribes/setup.ts#TribesModuleDependencies": "6b4d389e3664fe6a",
-        "app/(platform)/[slug]/loading.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/loading.tsx#TribeLoadingPage": "9d20796fb5186f24",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON~frame": "aff7438bb5a53b5f",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.filterCount": "3ae064e3d11de24c",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.filterKeyPrefix": "3ae042de2b44226b",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.keySeparator": "5f8aa621b5bba5b8",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.roundItemCount": "37ee9ed8ad8c9e61",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.roundItemKeyPrefix": "cc618c248c4e5d45",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusAriaRole": "45bd83611f8ba7de",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusLabel": "91b448f9dc994012",
+        "components/loaders/route-skeleton/index.tsx#<module>": "2da3ec2294295eb1",
+        "components/loaders/route-skeleton/index.tsx#RouteSkeleton": "223b4db7f24fd665",
+        "components/loaders/route-skeleton/index.tsx#SkeletonActions": "df9e3baef88be6f1",
+        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame": "42404c67903a5744",
+        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.actionCount": "f92415e0af3e9610",
+        "components/loaders/route-skeleton/index.tsx#SkeletonBlock": "c340a37ce4ab55ed",
+        "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind": "a357496f078189ee",
+        "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth": "175b5e3780859001",
+        "components/loaders/route-skeleton/index.tsx#placeholderKeys": "a1ec4c5ff5f87bbe",
+        "components/loaders/route-skeleton/index.tsx#SkeletonLines": "60d9052267ae7426",
+        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount": "b251bfcb1dd93f46",
         "components/feedback/error-state/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/feedback/error-state/index.tsx#ErrorState": "20991c4e77bbb771",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
@@ -5191,38 +5194,155 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
-        "durationMs": 39420,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
+        "durationMs": 30262,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "111856287e066d20eb3fb871c1ecbe42fa85f1001bf43fca0a3ffda62fafb305",
-        "recordedAt": "2026-10-25T05:53:30.753Z",
+        "outputSha256": "72f62e0539c8abf55b46be91fd55c8978eebc3527c42c314ddd49ae7330fcb1d",
+        "recordedAt": "2026-10-25T12:45:53.702Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T05:53:31.475Z",
+        "recordedAt": "2026-10-25T12:45:54.255Z",
         "source": "attested",
-        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
+        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
       }
     ],
     "limitations": [
-      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T05:53:35.159Z",
+    "recordedAt": "2026-10-25T12:45:56.974Z",
     "result": "partial",
-    "runId": "20261025T055250Z-fe53a0",
+    "runId": "20261025T124522Z-401394",
     "scope": {
       "decision": "full",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.tsx#<module>",
+          "reason": "code no longer reached by the unit: an operation may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.filterCount",
+          "reason": "code no longer reached by the unit: an operation may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.filterKeyPrefix",
+          "reason": "code no longer reached by the unit: an operation may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.keySeparator",
+          "reason": "code no longer reached by the unit: an operation may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.roundItemCount",
+          "reason": "code no longer reached by the unit: an operation may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.roundItemKeyPrefix",
+          "reason": "code no longer reached by the unit: an operation may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusAriaRole",
+          "reason": "code no longer reached by the unit: an operation may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusLabel",
+          "reason": "code no longer reached by the unit: an operation may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON~frame",
+          "reason": "code no longer reached by the unit: an operation may have been removed"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/loading.tsx#TribeLoadingPage",
+          "reason": "code no longer reached by the unit: an operation may have been removed"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/suscripcion/loading.tsx#SUBSCRIPTION_LOADING_ACTION_COUNT",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/suscripcion/loading.tsx#SubscriptionLoading",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#<module>",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#placeholderKeys",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.actionCount",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#RouteSkeleton",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#SkeletonActions",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlock",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "components/loaders/route-skeleton/index.tsx#SkeletonLines",
+          "reason": "new code reached by the unit"
+        }
+      ],
       "suggestedScope": [
         "whole unit tribe.subscription.view: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -5240,7 +5360,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T055250Z-fe53a0.json"
+    "report": "runs/20261025T124522Z-401394.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

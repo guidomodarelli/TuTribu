@@ -33,6 +33,7 @@ import PolicyError from "@/app/(platform)/[slug]/academia/admissions/settings/er
 import PolicyLoading from "@/app/(platform)/[slug]/academia/admissions/settings/loading";
 import { ADMISSION_PAGES, type AdmissionPage } from "@/src/modules/academy-admissions/constants/admission-sections";
 import { ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";
+import { PERSONAL_INVITATION_UI_COPY } from "@/src/modules/academy-admissions/constants/personal-invitation-ui";
 
 type RouteErrorBoundary = ComponentType<RouteErrorBoundaryProps>;
 
@@ -56,6 +57,13 @@ const APPLICANT_ERROR_BOUNDARIES: readonly [string, RouteErrorBoundary][] = [
   ["public admission", PublicAdmissionError],
   ["personal invitation", PersonalInvitationError],
   ["own request", OwnRequestError],
+];
+
+/** Each applicant route keeps the title its loaded screen shows, so the page does not change name when it arrives. */
+const APPLICANT_LOADING_TITLES: readonly [string, ComponentType, string, string][] = [
+  ["public admission", PublicAdmissionLoading, ADMISSION_UI_COPY.title, ADMISSION_UI_COPY.reading],
+  ["own request", OwnRequestLoading, ADMISSION_UI_COPY.statusTitle, ADMISSION_UI_COPY.reading],
+  ["personal invitation", PersonalInvitationLoading, PERSONAL_INVITATION_UI_COPY.title, PERSONAL_INVITATION_UI_COPY.loading],
 ];
 
 const APPLICANT_LOADING_BOUNDARIES: readonly [string, ComponentType][] = [
@@ -125,5 +133,14 @@ describe("academy admission route boundaries", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.getAllByRole("status").length).toBeGreaterThan(0);
+  });
+
+  it.each(APPLICANT_LOADING_TITLES)("should keep the %s title and announce its loading once", (_route, Loading, title, status) => {
+    render(<Loading />);
+
+    expect(screen.getAllByRole("main")).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1, name: title })).toBeInTheDocument();
+    expect(screen.getAllByRole("status")).toHaveLength(1);
+    expect(screen.getByRole("status")).toHaveTextContent(status);
   });
 });

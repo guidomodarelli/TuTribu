@@ -1,0 +1,9 @@
+// Mirrors the subscription views: one column of text with a single action row.
+.SubscriptionLoading {
+  gap: 1rem;
+
+  &__eyebrow {
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+  }
+}

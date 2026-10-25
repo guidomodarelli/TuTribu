@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
       "files": {
         "app/(platform)/[slug]/canales/page.tsx": "6998e6bd4c5763f3",
-        "app/(platform)/[slug]/canales/loading.tsx": "f9871c638174780b",
+        "app/(platform)/[slug]/canales/loading.tsx": "8de75f6bd35677bd",
         "app/(platform)/error.tsx": "c29ecc8ea3fb911f",
         "src/modules/messages/setup.ts": "ab8435387e22dc52",
         "src/modules/tribes/setup.ts": "71cc96c1b451a171",
@@ -32,7 +32,7 @@
         "src/modules/tribes/infrastructure/repositories/postgres-tribe-welcome-selection-repository.ts": "1347a7494dcca476",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
         "src/modules/auth/setup.ts": "37e200547ae950e4",
-        "app/(platform)/[slug]/loading.tsx": "7bca37b96a4432ce",
+        "components/loaders/route-skeleton/index.tsx": "24ca012df2b27747",
         "components/feedback/error-state/index.tsx": "5090f14a31ac15fc",
         "src/modules/messages/domain/repositories/message-file-repository.ts": "2b599c6afad21271",
         "src/modules/messages/domain/repositories/message-image-repository.ts": "b2180a256259b54b",
@@ -532,11 +532,14 @@
         "src/modules/academy-admissions/constants/admission-review-dates.ts": "ed6ccaa0d7bbce25",
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f"
       },
-      "fingerprint": "sha256:712805cae83b8988e428ee6bffe01e89c102d2ad50afd18b55aaf8dc1ad918f4",
+      "fingerprint": "sha256:69c0f94e5117e0eda17c0a378e4e4e8c4b899a3be4493e60a2ce7dc3a5fbbdec",
       "inputs": {
         "app/(platform)/[slug]/canales/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/canales/page.tsx#TribeChannelsPage": "acffa2b9525597a5",
         "app/(platform)/[slug]/canales/loading.tsx#<module>": "2da3ec2294295eb1",
+        "app/(platform)/[slug]/canales/loading.tsx#ChannelsLoading": "b5f6d47c1dd222b2",
+        "app/(platform)/[slug]/canales/loading.tsx#CHANNELS_LOADING_SHAPE~frame": "b8de43a61d1e4ff5",
+        "app/(platform)/[slug]/canales/loading.tsx#CHANNELS_LOADING_SHAPE.channelKeys": "56b7523d9fc90b80",
         "app/(platform)/error.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/error.tsx#PlatformError": "10a1b0632b21a85e",
         "app/(platform)/error.tsx#PLATFORM_ERROR_COPY~frame": "2aef35660089a73b",
@@ -855,16 +858,15 @@
         "src/modules/auth/setup.ts#<module>": "2da3ec2294295eb1",
         "src/modules/auth/setup.ts#buildAuthModule": "fa12aa3c0affb57e",
         "src/modules/auth/setup.ts#AuthModuleDependencies": "c2c64c7a3276646d",
-        "app/(platform)/[slug]/loading.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/loading.tsx#TribeLoadingPage": "9d20796fb5186f24",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON~frame": "aff7438bb5a53b5f",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.filterCount": "3ae064e3d11de24c",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.filterKeyPrefix": "3ae042de2b44226b",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.keySeparator": "5f8aa621b5bba5b8",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.roundItemCount": "37ee9ed8ad8c9e61",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.roundItemKeyPrefix": "cc618c248c4e5d45",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusAriaRole": "45bd83611f8ba7de",
-        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusLabel": "91b448f9dc994012",
+        "components/loaders/route-skeleton/index.tsx#<module>": "2da3ec2294295eb1",
+        "components/loaders/route-skeleton/index.tsx#RouteSkeleton": "223b4db7f24fd665",
+        "components/loaders/route-skeleton/index.tsx#SkeletonBlock": "c340a37ce4ab55ed",
+        "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind": "a357496f078189ee",
+        "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth": "175b5e3780859001",
+        "components/loaders/route-skeleton/index.tsx#SkeletonLines": "60d9052267ae7426",
+        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame": "42404c67903a5744",
+        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount": "b251bfcb1dd93f46",
+        "components/loaders/route-skeleton/index.tsx#placeholderKeys": "a1ec4c5ff5f87bbe",
         "components/feedback/error-state/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/feedback/error-state/index.tsx#ErrorState": "20991c4e77bbb771",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
@@ -5187,18 +5189,17 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T05:44:17.484Z",
+    "recordedAt": "2026-10-25T12:40:51.190Z",
     "result": "not-applicable",
-    "runId": "20261025T054414Z-51838c",
+    "runId": "20261025T124048Z-b0c3bc",
     "scope": {
-      "decision": "full",
+      "decision": "not-applicable",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "recorded not applicable: El cambio de boundaries no agrega requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": [
-        "measure the complete flow /[slug]/canales before and after, same build, data and throttling; median of 3 for noisy metrics"
-      ]
+      "suggestedScope": []
     },
     "skill": {
       "definitionFiles": {
@@ -5215,8 +5216,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "El cambio de boundaries no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T054414Z-51838c.json"
+    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T124048Z-b0c3bc.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",
