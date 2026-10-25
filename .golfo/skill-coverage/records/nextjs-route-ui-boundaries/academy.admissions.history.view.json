@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-leader-recovery-exits",
-      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
+      "branch": "fix/academy-leader-form-inputs",
+      "commit": "03e3a78a65d09197552b6bf28a0c145091755709",
       "files": {
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/page.tsx": "637ce2d70ca99dc5",
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/loading.tsx": "dc81dcab5563118a",
@@ -178,7 +178,7 @@
         "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "components/academy-admissions/admission-review-history/styles.module.scss": "6960d826287f77e3",
         "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
-        "lib/academy-admissions/admission-review-filters.ts": "a3965124a3d6cc22",
+        "lib/academy-admissions/admission-review-filters.ts": "10466fd2945f55fe",
         "src/modules/academy-admissions/constants/admission-review-selection.ts": "fd83901eeac62994",
         "lib/academy-admissions/admission-review-selection.ts": "4af44cf86aa1135f",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
@@ -2721,56 +2721,50 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
-        "durationMs": 173300,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admission-review.test.tsx tests/unit/modules/academy-admissions/infrastructure/admission-review-filters.test.ts tests/unit/components/academy-admission-notification-settings.test.tsx tests/unit/lib/time-zone.test.ts",
+        "durationMs": 35998,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "e3824babd13703ad2b1419ba073f2f4091ef4aa98ef0bfd258568192ec8b96c4",
-        "recordedAt": "2026-10-25T16:20:29.885Z",
+        "outputSha256": "627e0d584dfc881c168274cc5d8e0f8460694ba60c1050d2060c234579532814",
+        "recordedAt": "2026-10-25T18:37:54.897Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 2644,
+        "durationMs": 3974,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T16:20:33.100Z",
+        "recordedAt": "2026-10-25T18:37:59.304Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T16:20:33.720Z",
+        "recordedAt": "2026-10-25T18:37:59.767Z",
         "source": "attested",
-        "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
+        "summary": "Validación: los filtros de fecha se leen en hora de Argentina con la zona fija del producto y rechazan fechas o segundos imposibles en lugar de corregirlas; una zona horaria desconocida se marca junto al campo y bloquea el paso, con un solo anuncio. El contrato HTTP sigue con instantes UTC."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de recuperación que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los campos de fecha y zona horaria que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T16:20:36.580Z",
+    "recordedAt": "2026-10-25T18:38:01.567Z",
     "result": "partial",
-    "runId": "20261025T161736Z-f6012d",
+    "runId": "20261025T183718Z-fb327f",
     "scope": {
       "decision": "full",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
-          "reason": "code rendered by the route changed"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.admissions.history.view (/[slug]/academia/admissions/history/[requestId]): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
       ]
@@ -2788,7 +2782,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T161736Z-f6012d.json"
+    "report": "runs/20261025T183718Z-fb327f.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

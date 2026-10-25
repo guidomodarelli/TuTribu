@@ -1,0 +1,114 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-leader-form-inputs",
+    "commit": "03e3a78a65d09197552b6bf28a0c145091755709",
+    "fingerprint": "sha256:a9ed1ae27bf6c5f3979659123aae0f43a88e18ec215a06a3cb331ed7c0bb177c",
+    "uncommittedFiles": [],
+    "fileCount": 233,
+    "inputCount": 1275
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admission-review.test.tsx tests/unit/modules/academy-admissions/infrastructure/admission-review-filters.test.ts tests/unit/components/academy-admission-notification-settings.test.tsx tests/unit/lib/time-zone.test.ts",
+      "durationMs": 34006,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "55836048117e70c77b4de73ef7d3c0e3c721038894d6e24abf47ea62bdd76413",
+      "recordedAt": "2026-10-25T18:38:44.495Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T18:38:44.901Z",
+      "source": "attested",
+      "summary": "Validación: los filtros de fecha se leen en hora de Argentina con la zona fija del producto y rechazan fechas o segundos imposibles en lugar de corregirlas; una zona horaria desconocida se marca junto al campo y bloquea el paso, con un solo anuncio. El contrato HTTP sigue con instantes UTC."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T18:38:45.335Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: antes, «Desde (UTC)», 10:00 enviado como 10:00 UTC y una zona mal escrita no bloqueaba; después, «Desde (hora de Argentina)», 10:00 enviado como 13:00 UTC, «Continuar» bloqueado y un único aviso junto al campo (4/4)."
+    }
+  ],
+  "limitations": [
+    "Solo se revisaron los campos de fecha y zona horaria que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T18:38:46.829Z",
+  "result": "partial",
+  "runId": "20261025T183810Z-38b8c7",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-notification-settings/index.tsx#describeZoneProblem",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-notification-settings/index.tsx#LeaderSteps",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-notification-settings/index.tsx#TribeEmailFields",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-notification-settings/index.tsx#zoneBlockedReason",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/time-zone.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/time-zone.ts#isKnownTimeZone",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/notifications/constants/admission-notification-settings-browser.ts#ADMISSION_NOTIFICATION_SETTINGS_COPY.zoneFix",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/notifications/constants/admission-notification-settings-browser.ts#ADMISSION_NOTIFICATION_SETTINGS_COPY.zoneUnknown",
+        "reason": "new visible or interactive code"
+      }
+    ],
+    "suggestedScope": [
+      "whole unit academy.admissions.notifications.save: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T18:38:10.019Z",
+  "unitId": "academy.admissions.notifications.save"
+}
