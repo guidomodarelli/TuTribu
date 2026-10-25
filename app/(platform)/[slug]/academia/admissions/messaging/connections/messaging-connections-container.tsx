@@ -222,7 +222,7 @@ export function MessagingConnectionsContainer({initialState,client=messagingConn
       if(outcome.status==="failed"&&!outcome.uncertain){
         if(outcome.code===MESSAGING_ERROR_CODE.connectionConflict)setNeedsCurrent(true);
         // A completed check that failed (rejected key, test account) still advanced the candidate: show its current state instead of the stale one.
-        else{const current=await client.read(ready.slug,controller.signal);if(controller.signal.aborted||!mounted.current)return;if(!await checkViewer(controller.signal))return;if(current.status==="ready")applyConfiguration(current.value);else if(current.code===MESSAGING_ERROR_CODE.connectionConflict)setNeedsCurrent(true);else setCurrentReadFailed(true);}
+        else{const current=await client.read(ready.slug,controller.signal);if(controller.signal.aborted||!mounted.current)return;if(!await checkViewer(controller.signal))return;if(current.status==="ready")applyConfiguration(current.value);else if(current.status==="failed"&&current.code===MESSAGING_ERROR_CODE.connectionConflict)setNeedsCurrent(true);else setCurrentReadFailed(true);}
         if(retain(null))emit({kind:"alert",text:outcome.message});
       }else holdPending(CHECK_COPY.pending);
     }finally{busy.current=false;if(mounted.current)setPhase((current)=>current===PHASE.unavailable?current:PHASE.idle);}}));
