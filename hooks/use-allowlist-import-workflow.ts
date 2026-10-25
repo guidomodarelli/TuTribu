@@ -22,6 +22,7 @@ import { REAUTHENTICATION_OPERATION as OPERATION } from "@/src/modules/auth/cons
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { downloadAllowlistImportFile } from "@/lib/academy-admissions/allowlist-import-file-client";
 import { allowlistImportDraftStore } from "@/lib/academy-admissions/allowlist-import-draft-store";
+import { isSelectableAllowlistImportRow, listSelectableAllowlistImportRows } from "@/lib/academy-admissions/allowlist-import-selection";
 
 /** @param options - Safe current SSR scope and explicit browser collaborators. @returns Controlled state/actions; initial hydration never dispatches a write or accepts stored results. */
 export function useAllowlistImportWorkflow(options: { initialState: AllowlistImportPageState; client?: AllowlistImportBrowserClient; drafts?: AllowlistImportDraftStore }) {
@@ -79,7 +80,7 @@ export function useAllowlistImportWorkflow(options: { initialState: AllowlistImp
     }
     const parsed = allowlistImportSchema.safeParse(result.value);
     if (!parsed.success || parsed.data.importId !== importId || snapshotRef.current?.importId === importId && parsed.data.sourceVersion < snapshotRef.current.sourceVersion) { setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); return false; }
-    const eligible = new Set(parsed.data.rows.filter((row) => row.errors.length === 0 && row.outcome === undefined).map((row) => row.rowNumber));
+    const eligible = new Set(listSelectableAllowlistImportRows(parsed.data.rows));
     const selection = current.current.selection.filter((number) => eligible.has(number));
     if (selection.length !== current.current.selection.length && !persist({ ...current.current, selection })) return false;
     snapshotRef.current = parsed.data; setSnapshot(parsed.data); setConflict(false); setConfirmed(false);
@@ -214,16 +215,22 @@ export function useAllowlistImportWorkflow(options: { initialState: AllowlistImp
     if (Date.parse(resource.expiresAt) <= Date.now()) { setFieldError(COPY.expired); return; }
     if (!confirmed) { setFieldError(COPY.confirmation); return; }
     const selected = new Set(current.current.selection);
-    const selectedRows = resource.rows.filter((row) => selected.has(row.rowNumber) && row.errors.length === 0 && row.outcome === undefined).map((row) => row.rowNumber);
+    const selectedRows = resource.rows.filter((row) => selected.has(row.rowNumber) && isSelectableAllowlistImportRow(row)).map((row) => row.rowNumber);
     if (selectedRows.length === 0 || selectedRows.length !== current.current.selection.length) { setFieldError(COPY.selection); return; }
     const intent: AllowlistImportBrowserIntent = { type: OPERATION.confirmAllowlistImport, operationId: newAdmissionOperationId(), importId: resource.importId, expectedVersion: resource.sourceVersion, selectedRows };
     await run((signal, scope) => dispatch(intent, signal, scope), COPY.confirming, pending ? WRITE_ACTION.resume : WRITE_ACTION.confirm);
   }, [confirmed, conflict, dispatch, originalChecked, ready, run]);
   const selectRow = useCallback((rowNumber: number, selected: boolean) => {
     const row = snapshotRef.current?.rows.find((record) => record.rowNumber === rowNumber);
-    if (!ready || occupied.current || !row || row.errors.length || row.outcome || current.current.pending && !originalChecked) return;
+    if (!ready || occupied.current || !row || !isSelectableAllowlistImportRow(row) || current.current.pending && !originalChecked) return;
     const selection = selected ? [...new Set([...current.current.selection, rowNumber])].sort((left, right) => left - right) : current.current.selection.filter((number) => number !== rowNumber);
     if (persist({ ...current.current, selection })) { setConfirmed(false); setFieldError(null); setErrorMessage(null); setStatusMessage(null); }
+  }, [originalChecked, persist, ready]);
+  /** @param selected - Whether every valid row without a result is chosen, or none. Rows with errors or results are never added, as with one row at a time. */
+  const selectAllValidRows = useCallback((selected: boolean) => {
+    const resource = snapshotRef.current;
+    if (!ready || occupied.current || !resource || current.current.pending && !originalChecked) return;
+    if (persist({ ...current.current, selection: selected ? listSelectableAllowlistImportRows(resource.rows) : [] })) { setConfirmed(false); setFieldError(null); setErrorMessage(null); setStatusMessage(null); }
   }, [originalChecked, persist, ready]);
   const readPolicy = useCallback(() => run(async (signal, scope) => {
     if (current.current.pending) return;
@@ -245,5 +252,5 @@ export function useAllowlistImportWorkflow(options: { initialState: AllowlistImp
     await dispatch(intent, signal, scope);
   }, COPY.confirming, WRITE_ACTION.reconcile), [dispatch, originalChecked, run]);
   const retryInitialization = useCallback(() => { if (!occupied.current && !authorityLost.current) setInitializationRevision((revision) => revision + 1); }, []);
-  return { accessLost, ready, busy, writeAction, confirmed, setConfirmed, step: snapshot ? step : ALLOWLIST_IMPORT_STEP.upload, setStep: (value: number) => { if (!occupied.current) setStep(value); }, initializationFailed, retryInitialization, hasSavedImport: stored.importId !== null, draft: stored.draft, snapshot, selection: stored.selection, pending: stored.pending, unresolved: stored.unresolved, privateVisible, errorMessage, fieldError, statusMessage, conflict, policyConflict, policy, originalChecked, changeDraft, upload, preview, confirm, selectRow, readOriginal, readCurrent, readPolicy, download, reconcilePrevious };
+  return { accessLost, ready, busy, writeAction, confirmed, setConfirmed, step: snapshot ? step : ALLOWLIST_IMPORT_STEP.upload, setStep: (value: number) => { if (!occupied.current) setStep(value); }, initializationFailed, retryInitialization, hasSavedImport: stored.importId !== null, draft: stored.draft, snapshot, selection: stored.selection, pending: stored.pending, unresolved: stored.unresolved, privateVisible, errorMessage, fieldError, statusMessage, conflict, policyConflict, policy, originalChecked, changeDraft, upload, preview, confirm, selectRow, selectAllValidRows, readOriginal, readCurrent, readPolicy, download, reconcilePrevious };
 }
