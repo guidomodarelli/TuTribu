@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-pages-ignore-unknown-query",
-      "commit": "59c3cedd91685b065f9e2dcc12e75e5f4d574872",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
         "app/(admission)/admissions/invitations/[token]/page.tsx": "4520a9f6a91ff6dc",
         "app/(admission)/admissions/invitations/[token]/loading.tsx": "d865834be352a5c9",
@@ -12,13 +12,13 @@
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
         "src/modules/auth/setup.ts": "37e200547ae950e4",
         "src/modules/setup.ts": "b7906aa060d53395",
-        "app/error.tsx": "ea0b13f7fd3eb6c7",
-        "app/global-error.tsx": "b09bade0cbddca32",
+        "app/error.tsx": "be500bfad1d372c9",
+        "app/global-error.tsx": "4fe5158bea164617",
         "app/layout.tsx": "650f4386e125862f",
         "app/not-found.tsx": "7c2bf7b75ccbcef3",
         "next.config.ts": "499b76937ce73f12",
         "components/academy-admissions/admission-screen/index.tsx": "77d088e07ff83d2c",
-        "components/academy-admissions/admission-route-error/index.tsx": "a069fa4c83845f3f",
+        "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
         "src/modules/academy-admissions/constants/admission-errors.ts": "4a393e9826800086",
         "src/modules/academy-admissions/constants/personal-invitation-page.ts": "97b409b131e1d23b",
         "src/modules/academy-admissions/application/results/personal-invitation-page-state.ts": "2e2796ab8e364e43",
@@ -165,7 +165,7 @@
         "src/modules/academy-admissions/constants/admission-policy.ts": "a3566bcbcac9ff34",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:c5b38a3e66c415b09dc65d3d98dffffab747791777510e2370c465dd1c29d4f4",
+      "fingerprint": "sha256:8464faadb1fdadc788d843b21e73e58573e4e56ab2f400719e3e6535275ce614",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
@@ -199,8 +199,8 @@
         "app/error.tsx#ERROR_PAGE_COPY.retryLabel": "55dce502d524a7a7",
         "app/error.tsx#ERROR_PAGE_COPY.title": "36b27df2cd481d52",
         "app/error.tsx#ERROR_PAGE_COPY~frame": "4d35ea48d90cb834",
-        "app/error.tsx#ErrorPageProps": "839f15ee58d54b24",
-        "app/error.tsx#ErrorPage": "950ce5ef8f4ce5d7",
+        "app/error.tsx#ErrorPageProps": "1af725ade0a652c4",
+        "app/error.tsx#ErrorPage": "7e726dbf6cb2260c",
         "app/global-error.tsx#<module>": "1bdeb150c1952562",
         "app/global-error.tsx#GLOBAL_ERROR_PAGE_COPY.description": "b1420d85f5502fc6",
         "app/global-error.tsx#GLOBAL_ERROR_PAGE_COPY.eyebrow": "d3680e774699c553",
@@ -211,8 +211,8 @@
         "app/global-error.tsx#GLOBAL_ERROR_PAGE_COPY~frame": "21648876753445c1",
         "app/global-error.tsx#GLOBAL_ERROR_DOCUMENT_CLASS.body": "5ba2fc953a4e9ff8",
         "app/global-error.tsx#GLOBAL_ERROR_DOCUMENT_CLASS~frame": "ecba0437d9fb8c73",
-        "app/global-error.tsx#GlobalErrorPageProps": "e41636e2d3654792",
-        "app/global-error.tsx#GlobalErrorPage": "1f5705fcf0b2ce51",
+        "app/global-error.tsx#GlobalErrorPageProps": "aa842a191c045b69",
+        "app/global-error.tsx#GlobalErrorPage": "13a8b096d4b2beac",
         "app/layout.tsx#<module>": "3eec7190146f9ff3",
         "app/layout.tsx#ROOT_LAYOUT_DOCUMENT.language": "873de5b6448ed855",
         "app/layout.tsx#ROOT_LAYOUT_DOCUMENT.scrollBehavior": "09fbbcbd13163c52",
@@ -243,7 +243,7 @@
         "components/academy-admissions/admission-screen/index.tsx#AdmissionScreenProps": "dcd95f712b8ad5aa",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "566cf7e5647a035b",
+        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
         "src/modules/academy-admissions/constants/admission-errors.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_MESSAGE": "3cd989ed624f1a0a",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE~frame": "2f799f41481116eb",
@@ -1289,67 +1289,95 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/modules/academy-admissions/application/admission-page.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-page.test.ts [redacted]-connections-page.test.ts [redacted]-usage-page.test.ts",
-        "durationMs": 6220,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 28416,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "a344194e442562fb91a951ee248b36bfd25a1aa958c0bdb6ceece6bf51298441",
-        "recordedAt": "2026-10-25T01:12:43.294Z",
+        "outputSha256": "7dd7b43637ec48bacac457eb336f7170eeb89d7c8d37caeb91ff787c89bd0a66",
+        "recordedAt": "2026-10-25T04:09:57.428Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 2429,
+        "durationMs": 2423,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T01:12:46.173Z",
+        "recordedAt": "2026-10-25T04:10:00.290Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T01:12:46.661Z",
+        "recordedAt": "2026-10-25T04:10:00.746Z",
         "source": "attested",
-        "summary": "La página ignora las claves de query desconocidas (z.object en lugar de z.strictObject) y sigue validando las que lee; las APIs siguen estrictas, según la decisión del usuario."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [
-      "Solo se revisó el manejo de la query de la página; el resto de los estados de la unidad queda para su propia auditoría. No se verificó en navegador: la página necesita un enlace o una solicitud reales."
+      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T01:12:48.276Z",
+    "recordedAt": "2026-10-25T04:10:02.354Z",
     "result": "partial",
-    "runId": "20261025T011236Z-0b323f",
+    "runId": "20261025T040928Z-e13f60",
     "scope": {
       "decision": "full",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "skill definition changed (1.2.0 → 1.3.0): SKILL.md",
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "app/error.tsx#ErrorPage",
+          "reason": "route file changed: segment layout, boundary or page"
+        },
+        {
+          "change": "modified",
+          "key": "app/error.tsx#ErrorPageProps",
+          "reason": "route file changed: segment layout, boundary or page"
+        },
+        {
+          "change": "modified",
+          "key": "app/global-error.tsx#GlobalErrorPage",
+          "reason": "route file changed: segment layout, boundary or page"
+        },
+        {
+          "change": "modified",
+          "key": "app/global-error.tsx#GlobalErrorPageProps",
+          "reason": "route file changed: segment layout, boundary or page"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
+          "reason": "code rendered by the route changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.admissions.applicant.invitation.view (/admissions/invitations/[token]): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
       ]
     },
     "skill": {
       "definitionFiles": {
-        "SKILL.md": "7e0fca17b2a189bf",
+        "SKILL.md": "e456ce5fb1266d0e",
         "references/decision-rules.md": "5340413b30d4e7a7",
         "references/nextjs-apis.md": "7d812e101f16defe",
         "references/server-client-split.md": "7f52ba9f6a13308d",
         "references/skeleton-patterns.md": "65d4c31f0f8beb93",
         "references/version-notes.md": "b6f6488947de60f0"
       },
-      "definitionHash": "sha256:5a183ade06a29d78b3b2aa3587c403ce09b7391dc6eca1eb1575a1b280e57e16",
+      "definitionHash": "sha256:a3b7fb0dda3a877474c7910f4914469c8cb9a94700aa9d750e81067d96406ed1",
       "name": "nextjs-route-ui-boundaries",
-      "version": "1.2.0"
+      "version": "1.3.0"
     },
-    "report": "runs/20261025T011236Z-0b323f.json"
+    "report": "runs/20261025T040928Z-e13f60.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

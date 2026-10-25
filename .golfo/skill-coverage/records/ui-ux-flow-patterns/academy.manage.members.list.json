@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-admission-request-deadline",
-      "commit": "2b2a89c3f6be74f42c5e082a2da4341efcb264f6",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
-        "components/academy/academy-management/index.tsx": "2cdaec4513ec7dcd",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "0f0efff9bd2bbc3e",
+        "components/academy/academy-management/index.tsx": "34f2bdb8739e7845",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/academy/members/route.ts": "3cbb25f32868f5ae",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
         "src/modules/product-access/infrastructure/repositories/postgres-product-access-repository.ts": "b6d068802851a5fa",
@@ -45,7 +45,7 @@
         "src/constants/time.ts": "98b5459a77a709b0",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:5ac3cafd4cc4ff9d895303747ab165c8627d63bfe87115f70d24df33069f129f",
+      "fingerprint": "sha256:aae8d79791ae46599de190e7883bf41e6b28cb41edcfa676cde8c28e178f34a6",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-management/index.tsx#MembersSection~shell": "5e5f716a7ddad39e",
@@ -91,8 +91,8 @@
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantLegacy": "ff6ccee3450ef8d0",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantPaid": "707296e2f5a106ab",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": "b8f0ed9c67a46d96",
-        "components/academy/academy-management/index.tsx#AcademyManagement": "7ffc2c14f59edca8",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": "6371b497b9fa3370",
+        "components/academy/academy-management/index.tsx#AcademyManagement": "3c4bdf0f81d5efd8",
         "app/api/tribes/[slug]/academy/members/route.ts#<module>": "2da3ec2294295eb1",
         "app/api/tribes/[slug]/academy/members/route.ts#GET": "fe1e1e673584e255",
         "app/api/tribes/[slug]/academy/members/route.ts#OPERATION": "671a28a0034a3c9d",
@@ -508,41 +508,47 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/lib/browser-request-deadline.test.ts tests/unit/components/academy/academy-home.test.tsx",
-        "durationMs": 25057,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 36605,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "5b3b225e1d1147ccb0133e4459e5cdd23c2b125d0de57b0835f4f90721ffa858",
-        "recordedAt": "2026-10-25T03:09:28.502Z",
+        "outputSha256": "099e321af0f12af94abed9c5aff2a1935efd3e2be45693a31d54e030e1c6fc8d",
+        "recordedAt": "2026-10-25T05:16:41.773Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T03:09:29.142Z",
+        "recordedAt": "2026-10-25T05:16:42.408Z",
         "source": "attested",
-        "summary": "Deadline compartido de los requests del navegador (120 s) y lectura del cuerpo: un cuerpo cortado por el deadline o por la cancelación propia es un fallo, nunca un éxito; una escritura vencida queda incierta y una lectura vencida es un fallo cierto."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [
-      "Solo se revisó el deadline de los requests del navegador que agrega este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T03:09:30.774Z",
+    "recordedAt": "2026-10-25T05:16:44.180Z",
     "result": "partial",
-    "runId": "20261025T030902Z-1467e5",
+    "runId": "20261025T051604Z-dbb2d5",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [
         {
           "change": "modified",
-          "key": "lib/academy/academy-api-client.ts#sendAcademyApiRequest",
+          "key": "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-management/index.tsx#AcademyManagement",
           "reason": "visible or interactive code changed"
         }
       ],
@@ -563,7 +569,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T030902Z-1467e5.json"
+    "report": "runs/20261025T051604Z-dbb2d5.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

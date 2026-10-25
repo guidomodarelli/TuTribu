@@ -2,17 +2,17 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-pages-ignore-unknown-query",
-      "commit": "59c3cedd91685b065f9e2dcc12e75e5f4d574872",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/page.tsx": "7f44e5f42fe7d6ec",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/loading.tsx": "e4ceaa3516ca5b04",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/error.tsx": "36b51fa145185d20",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/error.tsx": "2eb2abf3d2a56f38",
         "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts": "eb6fe3b977d7d85b",
         "src/modules/messaging/setup.ts": "36ebb75d1e9b9914",
         "src/modules/auth/setup.ts": "37e200547ae950e4",
         "components/academy-admissions/admission-page-skeleton/index.tsx": "22f912978377c2dd",
-        "components/academy-admissions/admission-route-error/index.tsx": "a069fa4c83845f3f",
+        "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
         "components/academy-admissions/admission-settings-page/index.tsx": "8312db77ac7c70e9",
         "src/modules/messaging/constants/messaging-errors.ts": "82843c943e77b48b",
         "src/modules/messaging/application/results/messaging-connections-page-state.ts": "6cb99daba2669d87",
@@ -106,14 +106,14 @@
         "src/modules/messaging/application/results/messaging-usage-policy-result.ts": "85b3000334c4a35b",
         "src/modules/messaging/domain/repositories/messaging-connection-configuration.ts": "6c13816b2e9cb2d8"
       },
-      "fingerprint": "sha256:ed2376b5b93f5a41dec912f216af104f99ea311c4ba896bc5088151a9773a147",
+      "fingerprint": "sha256:2ce47e72e211f1b5ddff4736e76e6158849b704e6e5ea3bc1839567eaacbe856",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/page.tsx#MessagingConnectionsPage": "c170669d22ab5f26",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/loading.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/loading.tsx#MessagingConnectionsLoading": "a92b1ae410f3fdbb",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/error.tsx#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/error.tsx#MessagingConnectionsError": "758940d973c5de06",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/error.tsx#MessagingConnectionsError": "ac423f22e1c6f638",
         "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#<module>": "f7e3cf85771fe55e",
         "pkg:server-only": "b5339fe42edb5191",
         "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#loadMessagingConnectionsPageState/failure": "3f0a7f7750d20901",
@@ -135,7 +135,7 @@
         "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_SKELETON_SHAPE.rowCount": "4f6b5b70a016126c",
         "components/academy-admissions/admission-page-skeleton/index.tsx#placeholderKeys": "a1ec4c5ff5f87bbe",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "566cf7e5647a035b",
+        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "components/academy-admissions/admission-settings-page/index.tsx#<module>": "2da3ec2294295eb1",
         "components/academy-admissions/admission-settings-page/index.tsx#AdmissionSettingsPage": "70ebe75549ed2595",
@@ -493,74 +493,69 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/modules/academy-admissions/application/admission-page.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-page.test.ts [redacted]-connections-page.test.ts [redacted]-usage-page.test.ts",
-        "durationMs": 6725,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 32266,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "862b059af7463f5478e32032038c27b4b647698a19d46d232a81a28da3d08468",
-        "recordedAt": "2026-10-25T01:11:31.704Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
-      },
-      {
-        "command": "pnpm run -s typecheck",
-        "durationMs": 2955,
-        "exitCode": 0,
-        "kind": "command",
-        "outcome": "pass",
-        "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T01:11:35.241Z",
+        "outputSha256": "ecc1f3d001f9adeed904bab349bafadc73924114953c7e8a489d5e35cf22ed7f",
+        "recordedAt": "2026-10-25T04:39:54.277Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T01:11:35.794Z",
+        "recordedAt": "2026-10-25T04:39:54.832Z",
         "source": "attested",
-        "summary": "La página ignora las claves de query desconocidas (z.object en lugar de z.strictObject) y sigue validando las que lee; las APIs siguen estrictas, según la decisión del usuario."
-      },
-      {
-        "kind": "browser",
-        "outcome": "pass",
-        "recordedAt": "2026-10-25T01:11:36.375Z",
-        "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app con ?utm_source, ?utm_campaign y ?fbclid: antes las páginas de admisión, conexión y uso mostraban el estado no disponible (4/4); después cargan normalmente (4/4)."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [
-      "Solo se revisó el manejo de la query de la página; el resto de los estados de la unidad queda para su propia auditoría."
+      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T01:11:38.097Z",
+    "recordedAt": "2026-10-25T04:39:56.395Z",
     "result": "partial",
-    "runId": "20261025T011124Z-9e8c00",
+    "runId": "20261025T043921Z-4caca1",
     "scope": {
       "decision": "full",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "skill definition changed (1.4.1 → 1.5.0): SKILL.md",
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/error.tsx#MessagingConnectionsError",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
+          "reason": "visible or interactive code changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.admissions.messaging.connections.view: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
       ]
     },
     "skill": {
       "definitionFiles": {
-        "SKILL.md": "a27ab40c70e78c90",
+        "SKILL.md": "9fc5ee4bb0e2e4e9",
         "references/feedback-channels.md": "aa0394882f505308",
         "references/flow-catalog.md": "77527b8062d13243",
         "references/sources.md": "018203bece1d2e8a",
         "references/state-matrix.md": "026b6005f6fa0cae",
         "references/validation-feedback.md": "3e4fb5d227cacfbd"
       },
-      "definitionHash": "sha256:262d130d4e0582dad8bd65e40b350a22b52d1393120ae35689e1bc817203bf14",
+      "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
       "name": "ui-ux-flow-patterns",
-      "version": "1.4.1"
+      "version": "1.5.0"
     },
-    "report": "runs/20261025T011124Z-9e8c00.json"
+    "report": "runs/20261025T043921Z-4caca1.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

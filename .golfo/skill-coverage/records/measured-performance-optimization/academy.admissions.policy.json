@@ -2,13 +2,13 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-admission-request-deadline",
-      "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
-        "app/(platform)/[slug]/academia/admissions/settings/policy-container.tsx": "6138a1727480ac5f",
+        "app/(platform)/[slug]/academia/admissions/settings/policy-container.tsx": "2de4232cdc3f6d25",
         "app/(platform)/[slug]/academia/admissions/settings/page.tsx": "75fa14e540d1439d",
         "app/(platform)/[slug]/academia/admissions/settings/loading.tsx": "8c62a6c43ef0fe3b",
-        "app/(platform)/[slug]/academia/admissions/settings/error.tsx": "7f18363e50d03f3e",
+        "app/(platform)/[slug]/academia/admissions/settings/error.tsx": "b0f6c4f974282e18",
         "app/api/tribes/[slug]/admissions/policy/route.ts": "da5a7dc7533cf5f4",
         "app/api/tribes/[slug]/admissions/policy/preflight/route.ts": "3c67c7bed0e3f2a6",
         "app/api/tribes/[slug]/admissions/policy/activate/route.ts": "8217f34085dccef4",
@@ -25,7 +25,7 @@
         "components/academy-admissions/admission-policy-form/index.tsx": "31627f54b5343b6a",
         "src/modules/academy-admissions/application/commands/admission-policy-browser-intent.ts": "1dbc994001a12c5c",
         "src/modules/academy-admissions/application/commands/admission-policy-draft.ts": "7805069dfefbc62a",
-        "components/academy-admissions/admission-route-error/index.tsx": "a069fa4c83845f3f",
+        "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
         "src/modules/academy-admissions/constants/commercial-membership-review.ts": "5026d9c7a413f34e",
         "components/academy-admissions/commercial-membership-review/index.tsx": "dbb0de178fd5db12",
         "src/modules/messaging/constants/messaging-connections-browser.ts": "6324cc25a232f60b",
@@ -481,7 +481,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:59a52a3153b92ede6df0beed44be759771328030ba4bfe31c2d85cbc87b266fa",
+      "fingerprint": "sha256:d2f6c3325b9bcb20f77b9142d815f1253b686334e5c3ece8b6996aa28da7c4c6",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/settings/policy-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/settings/policy-container.tsx#AdmissionPolicyContainer/commitState": "d014513ed6c2dc84",
@@ -489,7 +489,7 @@
         "app/(platform)/[slug]/academia/admissions/settings/policy-container.tsx#AdmissionPolicyContainer/markFresh": "d49647fc0ad23eda",
         "app/(platform)/[slug]/academia/admissions/settings/policy-container.tsx#AdmissionPolicyContainer/noteFailureCode": "7a734a6dc5a4b4d4",
         "app/(platform)/[slug]/academia/admissions/settings/policy-container.tsx#AdmissionPolicyContainer/checkViewer": "00069be869ae6e90",
-        "app/(platform)/[slug]/academia/admissions/settings/policy-container.tsx#AdmissionPolicyContainer~shell": "b3e12e8d201ec801",
+        "app/(platform)/[slug]/academia/admissions/settings/policy-container.tsx#AdmissionPolicyContainer~shell": "40ae83d91a641bd3",
         "app/(platform)/[slug]/academia/admissions/settings/policy-container.tsx#PolicyContainerProps": "8f8904c371a4cbab",
         "app/(platform)/[slug]/academia/admissions/settings/policy-container.tsx#PolicyPhase": "85b36953f7650980",
         "app/(platform)/[slug]/academia/admissions/settings/policy-container.tsx#blockReasons": "bcc5f4243dacfe9c",
@@ -534,7 +534,7 @@
         "app/(platform)/[slug]/academia/admissions/settings/loading.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/settings/loading.tsx#AdmissionPolicyLoading": "df5c4a47bd50ec20",
         "app/(platform)/[slug]/academia/admissions/settings/error.tsx#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/settings/error.tsx#AdmissionPolicySettingsError": "b102c57244988ccc",
+        "app/(platform)/[slug]/academia/admissions/settings/error.tsx#AdmissionPolicySettingsError": "235c14fc4673581e",
         "app/api/tribes/[slug]/admissions/policy/route.ts#<module>": "2da3ec2294295eb1",
         "app/api/tribes/[slug]/admissions/policy/route.ts#GET": "c8a184ea9ce73841",
         "app/api/tribes/[slug]/admissions/policy/route.ts#POST": "e4abaf3f7ec3eecd",
@@ -604,7 +604,7 @@
         "components/academy-admissions/admission-policy-form/index.tsx#AdmissionPolicyForm": "aa9fc1eb28887b90",
         "components/academy-admissions/admission-policy-form/index.tsx#STATE_BADGE": "f8e365b4e9fc8022",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "566cf7e5647a035b",
+        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
         "src/modules/academy-admissions/constants/commercial-membership-review.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_REVIEW_COPY~frame": "c4d445b66c9df8e1",
         "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_REVIEW_COPY.pendingBlocked": "4c9c056776790624",
@@ -4752,18 +4752,17 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T01:55:04.476Z",
+    "recordedAt": "2026-10-25T04:53:14.206Z",
     "result": "not-applicable",
-    "runId": "20261025T015501Z-6c4329",
+    "runId": "20261025T045312Z-a36527",
     "scope": {
-      "decision": "full",
+      "decision": "not-applicable",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "recorded not applicable: El deadline no agrega requests, consultas ni pasos al flujo: solo un timer por request ya existente."
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": [
-        "measure the complete flow /[slug]/academia/admissions/settings before and after, same build, data and throttling; median of 3 for noisy metrics"
-      ]
+      "suggestedScope": []
     },
     "skill": {
       "definitionFiles": {
@@ -4780,8 +4779,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "El deadline no agrega requests, consultas ni pasos al flujo: solo un timer por request ya existente.",
-    "report": "runs/20261025T015501Z-6c4329.json"
+    "summary": "El cambio de boundaries no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T045312Z-a36527.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",
