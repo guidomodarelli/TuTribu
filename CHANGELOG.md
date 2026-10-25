@@ -183,6 +183,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 - Si una acción de admisiones, mensajería o de integrantes de la academia no recibe respuesta, después de dos minutos deja de esperar y avisa que la respuesta tardó demasiado: ya no queda el botón en curso sin salida. Si era un envío o un cambio, primero se consulta si se guardó antes de ofrecer repetirlo.
+- La conexión de mensajería ya no queda en «no disponible» al recargar cuando el navegador guardó un historial que no puede leer: lo descarta y la página sigue funcionando.
 - Al pedir ingreso, un código vencido ya no se muestra como un error rojo del campo: aparece el aviso «El código venció. Reenviá uno nuevo para seguir.» con Reenviar código y su confirmación a la vista, sin abrir «¿No te llegó el código?»; lo mismo pasa cuando el código agotó sus intentos.
 - Después de Reenviar código, el paso «Comprobar código» pasa solo al código nuevo, con el campo habilitado, su nuevo vencimiento y el aviso «Te enviamos un código nuevo»; si la respuesta del reenvío se pierde, la página consulta una vez el envío original y muestra el código nuevo sin recargar.
 - En «Probar canal» de la conexión de mensajería, Reenviar código de prueba explica qué le falta (la espera, el destino o la confirmación), lleva al campo que hay que completar y pasa a ser la acción principal cuando el código de prueba vence.

@@ -23,6 +23,18 @@ describe("connection intent metadata storage",()=>{
     window.sessionStorage.setItem(key,JSON.stringify({type:"save_messaging_credentials",operationId:randomUUID(),apiKey:randomUUID()}));expect(store.read(viewerId,"synthetic")).toBeNull();expect(window.sessionStorage.getItem(key)).toBeNull();
     window.sessionStorage.setItem(key,"{broken");expect(store.read(viewerId,"synthetic")).toBeNull();expect(window.sessionStorage.getItem(key)).toBeNull();
   });
+  it.each([["history","-history"],["diagnostics","-diagnostic"]] as const)("should drop an unreadable %s list instead of blocking every reload",(method,suffixHint)=>{
+    const store=createMessagingConnectionsIntentStore(),viewerId=randomUUID(),prefix=`${MESSAGING_CONNECTIONS_INTENT_STORAGE_PREFIX}:${viewerId}:synthetic`;
+    // Seed through the store so the exact owned key is used, then corrupt it in place.
+    if(method==="history")expect(store.archive(viewerId,"synthetic",{type:"save_messaging_credentials",operationId:randomUUID()})).toBe(true);
+    else expect(store.writeDiagnostic(viewerId,"synthetic",{operationId:randomUUID(),connectionId:randomUUID(),configurationVersion:1,channel:"email"})).toBe(true);
+    const ownedKey=Object.keys(window.sessionStorage).find((key)=>key.startsWith(prefix)&&key!==prefix);
+    expect(ownedKey,suffixHint).toBeDefined();
+    for(const corrupt of["{broken",JSON.stringify([{operationId:"not-a-uuid"}])]){
+      window.sessionStorage.setItem(ownedKey!,corrupt);
+      expect(store[method](viewerId,"synthetic")).toEqual([]);expect(window.sessionStorage.getItem(ownedKey!)).toBeNull();
+    }
+  });
   it("should retain the original credential-check type without storing its connection or input",()=>{
     const store=createMessagingConnectionsIntentStore(),viewerId=randomUUID(),intent={type:"validate_messaging_connection" as const,operationId:randomUUID()};expect(store.write(viewerId,"synthetic",intent)).toBe(true);expect(store.read(viewerId,"synthetic")).toEqual(intent);expect(JSON.parse(window.sessionStorage.getItem(`${MESSAGING_CONNECTIONS_INTENT_STORAGE_PREFIX}:${viewerId}:synthetic`)!)).toEqual(intent);
   });
