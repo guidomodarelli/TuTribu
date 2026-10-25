@@ -143,6 +143,11 @@ async function sendAcademyApiRequest<TData>(input: {
 
   const body: unknown = await response.json().catch(() => null);
 
+  // A body read cut by the caller or the deadline never completed: without this, a null-schema call would read as success.
+  if (input.signal.aborted) {
+    return { isSuccess: false, message: ACADEMY_API_FALLBACK_MESSAGE, status: 0 };
+  }
+
   if (!response.ok) {
     const conflict =
       response.status === HTTP_STATUS_CONFLICT && input.schema

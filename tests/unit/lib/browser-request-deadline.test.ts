@@ -9,7 +9,7 @@ import { createAdmissionManagementBrowserTransport } from "@/lib/academy-admissi
 import { createAdmissionNotificationSettingsApiClient } from "@/lib/academy-admissions/admission-notification-settings-api-client";
 import { createMessagingBrowserRequest } from "@/lib/messaging/messaging-browser-api-client";
 import { createMessagingUsageBrowserClient } from "@/lib/messaging/messaging-usage-api-client";
-import { fetchOwnAcademyAccess, startAcademyCheckout } from "@/lib/academy/academy-api-client";
+import { cancelAcademyRenewal, fetchOwnAcademyAccess, startAcademyCheckout } from "@/lib/academy/academy-api-client";
 import { BROWSER_REQUEST_TIMEOUT_MESSAGE, BROWSER_REQUEST_TIMEOUT_MS } from "@/src/constants/browser-request";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { MESSAGING_ERROR_CODE, MESSAGING_ERROR_MESSAGE } from "@/src/modules/messaging/constants/messaging-errors";
@@ -131,6 +131,17 @@ describe("browser request deadline", () => {
       vi.stubGlobal("fetch", hungFetch());
 
       await expect(afterDeadline(startAcademyCheckout(SLUG, 3))).resolves.toEqual({ isSuccess: false, message: BROWSER_REQUEST_TIMEOUT_MESSAGE, status: 0 });
+    });
+
+    it("never reports success when the response body stalls past the deadline", async () => {
+      // Headers arrive, then the body stops streaming; as native fetch does, the abort errors the body stream.
+      vi.stubGlobal("fetch", vi.fn<typeof globalThis.fetch>((_input, init) => Promise.resolve(new Response(new ReadableStream({
+        start(controller) {
+          init?.signal?.addEventListener("abort", () => controller.error(new DOMException("The operation was aborted.", "AbortError")), { once: true });
+        },
+      }), { status: 200, headers: { "content-type": "application/json" } }))));
+
+      await expect(afterDeadline(cancelAcademyRenewal(SLUG))).resolves.toEqual({ isSuccess: false, message: BROWSER_REQUEST_TIMEOUT_MESSAGE, status: 0 });
     });
 
     it("keeps a caller's cancellation on the existing fallback", async () => {
