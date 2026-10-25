@@ -31,7 +31,7 @@ export function PersonalInvitation(props: PersonalInvitationProps) {
   useEffect(() => { if (props.errorMessage) feedback.current?.focus(); }, [props.errorMessage]);
   return <main className={styles.PersonalInvitation}>
     <header className={styles.PersonalInvitation__header}>
-      <p className={styles.PersonalInvitation__eyebrow}>Ingreso a una academia</p>
+      <p className={styles.PersonalInvitation__eyebrow}>{PERSONAL_INVITATION_UI_COPY.eyebrow}</p>
       <h1 className={styles.PersonalInvitation__title}>{PERSONAL_INVITATION_UI_COPY.title}</h1>
       {available && !props.accountChanged && <h2 className={styles.PersonalInvitation__academy}>{available.overview.tribe.name}</h2>}
       <p className={styles.PersonalInvitation__description}>{PERSONAL_INVITATION_UI_COPY.description}</p>

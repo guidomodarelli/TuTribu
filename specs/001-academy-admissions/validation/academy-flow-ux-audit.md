@@ -55,7 +55,7 @@ Inventario de cada segmento, subflujo y acción de la academia, auditado con las
 
 | Id | Skill | Hallazgo | Evidencia | Estado |
 |---|---|---|---|---|
-| SOL-01 | boundaries, estados | El `loading.tsx` de invitación y de solicitud muestra el encabezado «Solicitar ingreso» y un texto «Consultando estado…» en lugar de un skeleton con la forma de cada pantalla. | `components/academy-admissions/admission-screen/index.tsx` (`AdmissionLoading`) | pendiente |
+| SOL-01 | boundaries, estados | El `loading.tsx` de invitación y de solicitud muestra el encabezado «Solicitar ingreso» y un texto «Consultando estado…» en lugar de un skeleton con la forma de cada pantalla. | `components/academy-admissions/admission-screen/index.tsx` (`AdmissionLoading`) | [#186](https://github.com/guidomodarelli/TuTribu/pull/186) |
 | SOL-02 | boundaries | `AdmissionRouteError` reintenta con `reset`, que no vuelve a pedir el RSC; Next 16.3 recomienda `retry`. | `components/academy-admissions/admission-route-error/index.tsx` | [#183](https://github.com/guidomodarelli/TuTribu/pull/183) |
 | SOL-03 | estados | El estado `unavailable` del enlace y de la solicitud no ofrece reintento: solo «Ir al inicio». | `admission-screen/index.tsx` | pendiente |
 | SOL-04 | estados | Un parámetro de seguimiento (`?utm_source`, `?fbclid`) hace que el enlace de admisión muestre «No podemos mostrar esta admisión», porque la query se valida con `z.strictObject({})`. | `src/modules/academy-admissions/infrastructure/composition/admission-page.ts`, `personal-invitation-page.ts` | [PR #181](https://github.com/guidomodarelli/TuTribu/pull/181); el usuario decidió que las páginas ignoren los parámetros desconocidos y las APIs sigan estrictas |
@@ -118,7 +118,7 @@ Todas las escrituras son pending-first y confirmadas por el servidor, que es la 
 | LID-10 | estados | La importación de hasta 10.000 filas no permite seleccionar todas las válidas. | `allowlist-import`, `use-allowlist-import-workflow.ts` | pendiente |
 | LID-11 | validación | La zona horaria de los avisos es un campo de texto libre. | `admission-notification-settings` | pendiente |
 | LID-12 | boundaries | `/[slug]/academia/gestionar` no tiene `error.tsx` y cualquier fallo de carga termina en `notFound()`. | `app/(platform)/[slug]/academia/gestionar/page.tsx` | [#183](https://github.com/guidomodarelli/TuTribu/pull/183) |
-| LID-13 | boundaries | `AdmissionPageSkeleton` usa el mismo cuerpo (tres datos y tres filas) para formularios con pasos. | `admission-page-skeleton` | pendiente |
+| LID-13 | boundaries | `AdmissionPageSkeleton` usa el mismo cuerpo (tres datos y tres filas) para formularios con pasos. | `admission-page-skeleton` | [#186](https://github.com/guidomodarelli/TuTribu/pull/186) |
 | LID-14 | copy | Los filtros de la bandeja piden «Desde (UTC)» y «Hasta (UTC)»: el líder elige el rango de fechas en UTC y no en hora de Argentina. | `admission-review-filters` | pendiente |
 
 ## 3. Mensajería
@@ -218,7 +218,7 @@ Todas son pending-first y confirmadas por el servidor; ninguna anticipa un enví
 | INT-13 | mutaciones | Ninguna mutación de integrantes tiene deadline: si se cuelga el checkout, el botón queda en «Abriendo el pago…» y no se puede reintentar. | `lib/academy/academy-api-client.ts` | [PR #180](https://github.com/guidomodarelli/TuTribu/pull/180) |
 | INT-14 | estados | Paginar y filtrar en gestionar no muestran carga, y decidir deja el ítem en «pendientes». | `academy-management` | pendiente |
 | INT-15 | mutaciones | Publicar no lleva clave idempotente y el like es un toggle: un reintento tras una respuesta perdida puede duplicar o invertir el resultado. | `tribe-round`, `messages/[id]/like` | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177); migración `20261024210000_add_message_client_request_id.sql` validada en rama efímera |
-| INT-16 | boundaries | Academia, gestionar, verificación, suscripción y canales re-exportan el skeleton del fogón, que no tiene su forma. | `loading.tsx` de cada segmento | pendiente |
+| INT-16 | boundaries | Academia, gestionar, verificación, suscripción y canales re-exportan el skeleton del fogón, que no tiene su forma. | `loading.tsx` de cada segmento | [#186](https://github.com/guidomodarelli/TuTribu/pull/186) |
 
 ## 5. Rendimiento
 
