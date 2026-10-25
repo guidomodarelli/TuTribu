@@ -1,0 +1,79 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "perf/academy-messaging-idle-timers",
+    "commit": "cb946c56edfad1cff4bebc3575dbc0d1fd1bb065",
+    "fingerprint": "sha256:dc6dcbc27aebe34ee7df5e0e7d66f077b754e61b95a1190509d74506e686dce5",
+    "uncommittedFiles": [],
+    "fileCount": 194,
+    "inputCount": 707
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx [redacted]-activation-requirements.test.ts",
+      "durationMs": 224200,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "7cf0604a1e94db5d6ab8a87c4d0be94b8c2226274ae21d390e2f710c47ef1088",
+      "recordedAt": "2026-10-25T19:31:52.405Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T19:31:53.858Z",
+      "source": "attested",
+      "summary": "Ciclo de vida: la activación espera con un único timeout el momento en que una prueba de canal cambia de vigencia, y el diagnóstico solo corre su intervalo mientras queda un vencimiento o un reenvío por delante, con un primer tick inmediato; las cuentas regresivas y la elegibilidad muestran lo mismo que antes."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T19:31:55.361Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: la página de Conexión carga igual y en reposo pasa de 10-11 a 0-1 commits de React cada 10 s (4/4)."
+    }
+  ],
+  "limitations": [
+    "Solo se revisaron los relojes de Conexión que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T19:31:59.434Z",
+  "result": "partial",
+  "runId": "20261025T192806Z-e6a1fb",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController~shell",
+        "reason": "visible or interactive code changed"
+      }
+    ],
+    "suggestedScope": [
+      "whole unit academy.admissions.messaging.test.send: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T19:28:06.831Z",
+  "unitId": "academy.admissions.messaging.test.send"
+}

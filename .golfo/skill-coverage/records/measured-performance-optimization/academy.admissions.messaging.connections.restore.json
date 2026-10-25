@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-leader-recovery-exits",
-      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
+      "branch": "perf/academy-messaging-idle-timers",
+      "commit": "cb946c56edfad1cff4bebc3575dbc0d1fd1bb065",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "9f70561aa07c33cb",
         "lib/messaging/messaging-connections-intent-store.ts": "7dbed3748a05812b",
@@ -43,8 +43,8 @@
         "lib/messaging/messaging-lifecycle-api-client.ts": "e4f9fba74a07442e",
         "lib/messaging/messaging-resources-api-client.ts": "aac9732195a7a043",
         "lib/messaging/messaging-route-recovery.ts": "798ea6aaf2345c96",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts": "c6ecb49e3254189a",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts": "f1a0ddbb068af1c1",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts": "fe362e9763b0f0dd",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts": "ac108ef7daec8f51",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-lifecycle-controller.ts": "8028dcf181ee8a1b",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts": "31d749926479a4ac",
         "src/modules/academy-admissions/constants/admission-limits.ts": "2d7d087ec36ae67b",
@@ -147,9 +147,9 @@
         "src/modules/messaging/constants/messaging-connection-lifecycle.ts": "ed2f2eec167a6a73",
         "lib/auth/sign-in-redirect.ts": "896cfa9806af6656",
         "lib/browser-navigation.ts": "f01888198bf9f346",
-        "src/constants/time.ts": "98b5459a77a709b0",
-        "src/modules/messaging/application/commands/messaging-activation-requirements.ts": "0cceee4ac44ac418",
+        "src/modules/messaging/application/commands/messaging-activation-requirements.ts": "e20e4f4a47a2f1e6",
         "src/modules/messaging/application/commands/messaging-diagnostic-draft.ts": "f76a9730fd4db503",
+        "src/constants/time.ts": "98b5459a77a709b0",
         "src/modules/messaging/domain/repositories/messaging-connection-lifecycle.ts": "105d8e038c49e2df",
         "src/modules/messaging/application/commands/messaging-channel-draft.ts": "2e7df60fa1f72154",
         "src/modules/messaging/constants/messaging-resources.ts": "f084ccedae57cdcb",
@@ -294,7 +294,7 @@
         "src/modules/notifications/constants/admission-notification-email-settings.ts": "df73e3f71fbdba97",
         "src/modules/notifications/constants/admission-notification-audit.ts": "b18df51d33f3dd0a"
       },
-      "fingerprint": "sha256:414fdf8682c5c0b4262e65a368cde03b569e24dd44436d84a083264f8ef7b8ea",
+      "fingerprint": "sha256:6434041501831d31dd69cb9904b6cb9e73ff2e222d58a7831723ced5404a9166",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell": "48395c7cc22fd6db",
@@ -510,12 +510,13 @@
         "lib/messaging/messaging-route-recovery.ts#MessagingRouteRecovery": "ae20ab1a49edbe57",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-feedback.ts#toastMessagingRead": "ee8ebc0f003f0530",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#useMessagingActivationController": "8960f8ba4374919c",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#useMessagingActivationController": "f22e0a162b5e06c1",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#MAXIMUM_TIMEOUT_MS": "e9cfd06c8dd3e765",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController/initial": "14478f8cc182bb90",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController/update": "ea79ecdab2b01f45",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController/change": "8b5ef9adc9c31a82",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController~shell": "07dfa049d19dd396",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController~shell": "f0c79ebf2ce813eb",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController/issue": "4ca39c63ed9d2ae0",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController/verify": "924ee89bd099e499",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-lifecycle-controller.ts#<module>": "d414f6d3ee71f10d",
@@ -1033,10 +1034,9 @@
         "lib/auth/sign-in-redirect.ts#URL_QUERY_SEPARATOR": "8153fb82eaf61238",
         "lib/browser-navigation.ts#<module>": "2da3ec2294295eb1",
         "lib/browser-navigation.ts#reloadCurrentPage": "fa294b932fa1a9ad",
-        "src/constants/time.ts#<module>": "2da3ec2294295eb1",
-        "src/constants/time.ts#MILLISECONDS_PER_SECOND": "cfac244fa1960be9",
         "src/modules/messaging/application/commands/messaging-activation-requirements.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/application/commands/messaging-activation-requirements.ts#assessMessagingActivationRequirements": "7b54e63ede854cd1",
+        "src/modules/messaging/application/commands/messaging-activation-requirements.ts#nextMessagingActivationFreshnessChange": "3d7343daa1b2d272",
         "src/modules/messaging/application/commands/messaging-diagnostic-draft.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/application/commands/messaging-diagnostic-draft.ts#MessagingDiagnosticDraft": "6103d7e345df0815",
         "src/modules/messaging/application/commands/messaging-diagnostic-draft.ts#MessagingDiagnosticFieldErrors": "8ceb1e15588efffe",
@@ -1047,6 +1047,8 @@
         "src/modules/messaging/constants/messaging-diagnostic-browser.ts#MESSAGING_DIAGNOSTIC_RESEND_BLOCK.destination": "98e1d87b297cb6a2",
         "src/modules/messaging/constants/messaging-diagnostic-browser.ts#MESSAGING_DIAGNOSTIC_RESEND_BLOCK.wait": "e39be66e641cc6a7",
         "src/modules/messaging/constants/messaging-diagnostic-browser.ts#MESSAGING_DIAGNOSTIC_UI_COPY.verified": "94035e6c20a0b711",
+        "src/constants/time.ts#<module>": "2da3ec2294295eb1",
+        "src/constants/time.ts#MILLISECONDS_PER_SECOND": "cfac244fa1960be9",
         "src/modules/messaging/application/commands/messaging-diagnostic-draft.ts#validateMessagingDiagnosticCode": "18533a71662c9714",
         "src/modules/messaging/application/commands/messaging-diagnostic-draft.ts#validateMessagingDiagnosticDraft": "87a29a3a74b73160",
         "src/modules/messaging/application/commands/messaging-diagnostic-draft.ts#MessagingDiagnosticDestination": "bff5fe97cd67adc5",
@@ -2400,30 +2402,35 @@
       },
       "uncommittedFiles": []
     },
-    "evidence": [],
-    "limitations": [],
-    "mode": "incremental",
+    "evidence": [
+      {
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx [redacted]-activation-requirements.test.ts",
+        "durationMs": 231240,
+        "exitCode": 0,
+        "kind": "test",
+        "outcome": "pass",
+        "outputSha256": "b9a65a3856c3e884f5f2f694e187cb90ebdeb40f9d5143fe66ca8c63cce21e7e",
+        "recordedAt": "2026-10-25T19:27:56.864Z",
+        "source": "witnessed",
+        "summary": "exit code 0"
+      }
+    ],
+    "limitations": [
+      "Solo se revisaron los relojes de Conexión que cambia este PR; el resto de la unidad queda para su propia auditoría."
+    ],
+    "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T17:07:56.149Z",
-    "result": "not-applicable",
-    "runId": "20261025T170752Z-b7e63a",
+    "recordedAt": "2026-10-25T19:28:00.542Z",
+    "result": "partial",
+    "runId": "20261025T192403Z-443129",
     "scope": {
-      "decision": "incremental",
+      "decision": "not-applicable",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "relevant changes since the skill was recorded not applicable: re-evaluate applicability"
+        "recorded not applicable: Las salidas de recuperación no agregan requests, consultas ni pasos al flujo."
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "added",
-          "key": "pkg:next",
-          "reason": "new package in the flow (bundle or server cost)"
-        }
-      ],
-      "suggestedScope": [
-        "measure the complete flow /[slug]/academia/admissions/messaging/connections: before = revision 6bf39166cc42 (last measured), after = working tree",
-        "package next — new package in the flow (bundle or server cost)"
-      ]
+      "relevantChangesAtBegin": [],
+      "suggestedScope": []
     },
     "skill": {
       "definitionFiles": {
@@ -2440,8 +2447,7 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Las salidas de recuperación no agregan requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T170752Z-b7e63a.json"
+    "report": "runs/20261025T192403Z-443129.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

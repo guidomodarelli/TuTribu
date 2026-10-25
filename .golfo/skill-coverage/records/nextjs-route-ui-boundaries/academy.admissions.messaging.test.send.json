@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-leader-recovery-exits",
-      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
+      "branch": "perf/academy-messaging-idle-timers",
+      "commit": "cb946c56edfad1cff4bebc3575dbc0d1fd1bb065",
       "files": {
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts": "f1a0ddbb068af1c1",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts": "ac108ef7daec8f51",
         "app/api/tribes/[slug]/messaging/connections/[connectionId]/diagnostics/route.ts": "2be99d8cf8511d89",
         "app/api/tribes/[slug]/messaging/connections/[connectionId]/diagnostics/[diagnosticId]/verify/route.ts": "29c63e9f5fe3ade3",
         "src/modules/messaging/setup.ts": "36ebb75d1e9b9914",
@@ -301,7 +301,7 @@
         "app/not-found.module.scss": "07d324074a6ecb7f",
         "config/deployment-environment.ts": "08bb1a3202ff76f7"
       },
-      "fingerprint": "sha256:4ac07285102764ef938695f5ac798a32922a8fb20132b06346fe8e8d674276e0",
+      "fingerprint": "sha256:e203a969849c6af1de645cf262e41ac04b94d2779e2c7cb23f470469e0e5838e",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
@@ -311,7 +311,7 @@
         "pkg:zod": "54793d4376d381b3",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController/update": "ea79ecdab2b01f45",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController/change": "8b5ef9adc9c31a82",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController~shell": "07dfa049d19dd396",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController~shell": "f0c79ebf2ce813eb",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController/issue": "4ca39c63ed9d2ae0",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController/verify": "924ee89bd099e499",
         "app/api/tribes/[slug]/messaging/connections/[connectionId]/diagnostics/route.ts#<module>": "2da3ec2294295eb1",
@@ -2649,43 +2649,50 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
-        "durationMs": 131267,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx [redacted]-activation-requirements.test.ts",
+        "durationMs": 176351,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "9cebdd104cfeffa65495576e5031f5debf7a5bbecfe632279b5fb06c79ea1084",
-        "recordedAt": "2026-10-25T17:29:58.455Z",
+        "outputSha256": "25f34a28ed6e9cffbe9f6c5b08f33c28339fe3f7d21e2b2515951f6af015a628",
+        "recordedAt": "2026-10-25T19:39:03.546Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 3266,
+        "durationMs": 6090,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T17:30:02.261Z",
+        "recordedAt": "2026-10-25T19:39:10.403Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T17:30:02.768Z",
+        "recordedAt": "2026-10-25T19:39:11.150Z",
         "source": "attested",
-        "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
+        "summary": "Ciclo de vida: la activación espera con un único timeout el momento en que una prueba de canal cambia de vigencia, y el diagnóstico solo corre su intervalo mientras queda un vencimiento o un reenvío por delante, con un primer tick inmediato; las cuentas regresivas y la elegibilidad muestran lo mismo que antes."
+      },
+      {
+        "kind": "browser",
+        "outcome": "pass",
+        "recordedAt": "2026-10-25T19:39:12.105Z",
+        "source": "attested",
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: la página de Conexión carga igual y en reposo pasa de 10-11 a 0-1 commits de React cada 10 s (4/4)."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de recuperación que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los relojes de Conexión que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T17:30:04.814Z",
+    "recordedAt": "2026-10-25T19:39:15.916Z",
     "result": "partial",
-    "runId": "20261025T172746Z-6137a1",
+    "runId": "20261025T193606Z-ea091a",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -2695,8 +2702,8 @@
       "relevantChangesAtBegin": [
         {
           "change": "modified",
-          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
-          "reason": "code rendered by the route changed"
+          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController~shell",
+          "reason": "component render changed: hooks, Suspense or client imports may differ"
         }
       ],
       "suggestedScope": [
@@ -2716,7 +2723,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T172746Z-6137a1.json"
+    "report": "runs/20261025T193606Z-ea091a.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",
