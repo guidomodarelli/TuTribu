@@ -253,9 +253,9 @@ export function AdmissionNotificationSettingsContainer({ initialState, client = 
     }
   };
 
-  if (!ready || !preference) return <AdmissionRouteError embedded message={initialState.kind === PAGE_KIND.unavailable ? initialState.message : COPY.storageFailed} reset={() => window.location.reload()} />;
-  if (phase === PHASE.changedViewer) return <AdmissionRouteError embedded message={COPY.changedViewer} reset={() => window.location.reload()} />;
-  if (!privateVisible) return phase === PHASE.reading || phase === PHASE.checking ? <p role="status">{COPY.checking}</p> : <AdmissionRouteError embedded message={error ?? ADMISSION_ERROR_MESSAGE[ADMISSION_ERROR_CODE.dependencyUnavailable]} reset={launchRead} />;
+  if (!ready || !preference) return <AdmissionRouteError embedded message={initialState.kind === PAGE_KIND.unavailable ? initialState.message : COPY.storageFailed} retry={() => window.location.reload()} />;
+  if (phase === PHASE.changedViewer) return <AdmissionRouteError embedded message={COPY.changedViewer} retry={() => window.location.reload()} />;
+  if (!privateVisible) return phase === PHASE.reading || phase === PHASE.checking ? <p role="status">{COPY.checking}</p> : <AdmissionRouteError embedded message={error ?? ADMISSION_ERROR_MESSAGE[ADMISSION_ERROR_CODE.dependencyUnavailable]} retry={launchRead} />;
   const isBusy = phase === PHASE.checking || phase === PHASE.reading || phase === PHASE.writing;
   const settled = isSettled(preference, email, hasPending);
 

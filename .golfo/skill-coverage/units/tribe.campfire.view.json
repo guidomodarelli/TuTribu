@@ -29,6 +29,10 @@
     {
       "path": "app/api/tribes/[slug]/messages/route.ts",
       "symbol": "GET"
+    },
+    {
+      "path": "app/(platform)/error.tsx",
+      "symbol": "default"
     }
   ],
   "origin": "curated",

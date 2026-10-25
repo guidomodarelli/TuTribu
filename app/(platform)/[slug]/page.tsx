@@ -152,12 +152,12 @@ function renderSubscriptionReturnStatus(
   mercadoPagoPreapprovalId: string
 ) {
   return (
-    <main className={styles.TribePage}>
+    <div className={styles.TribePage}>
       <SubscriptionReturnStatusContainer
         providerSubscriptionId={mercadoPagoPreapprovalId}
         tribeSlug={slug}
       />
-    </main>
+    </div>
   );
 }
 
@@ -203,12 +203,12 @@ function renderOpenInExternalBrowserHandoff(
   fallbackSignInUrl: string
 ) {
   return (
-    <main className={styles.TribePage}>
+    <div className={styles.TribePage}>
       <OpenInExternalBrowser
         externalBrowserUrl={externalBrowserUrl}
         fallbackSignInUrl={fallbackSignInUrl}
       />
-    </main>
+    </div>
   );
 }
 
@@ -328,7 +328,7 @@ async function startOpenJoinSubscriptionAction({ slug }: { slug: string }) {
 function renderOpenJoinStatusScreen(joinStatus: string | null, slug: string) {
   if (joinStatus === OPEN_JOIN_STATUS.alreadySubscribed) {
     return (
-      <main className={styles.TribePage}>
+      <div className={styles.TribePage}>
         <TribeOpenJoinStatus
           cta={{
             href: ROUTES.tribes.bySlug(slug),
@@ -337,29 +337,29 @@ function renderOpenJoinStatusScreen(joinStatus: string | null, slug: string) {
           description={OPEN_JOIN_COPY.alreadySubscribedDescription}
           title={OPEN_JOIN_COPY.alreadySubscribedTitle}
         />
-      </main>
+      </div>
     );
   }
 
   if (joinStatus === OPEN_JOIN_STATUS.blocked) {
     return (
-      <main className={styles.TribePage}>
+      <div className={styles.TribePage}>
         <TribeOpenJoinStatus
           description={OPEN_JOIN_COPY.blockedDescription}
           title={OPEN_JOIN_COPY.blockedTitle}
         />
-      </main>
+      </div>
     );
   }
 
   if (joinStatus === OPEN_JOIN_STATUS.paymentUnavailable) {
     return (
-      <main className={styles.TribePage}>
+      <div className={styles.TribePage}>
         <TribeOpenJoinStatus
           description={OPEN_JOIN_COPY.paymentUnavailableDescription}
           title={OPEN_JOIN_COPY.paymentUnavailableTitle}
         />
-      </main>
+      </div>
     );
   }
 
@@ -389,13 +389,7 @@ export async function TribePageContent({
     allowWithChannelReadAccess: true,
     operation: TRIBE_PAGE_LOG.operation,
     slug,
-  }).catch(() => {
-    notFound();
   });
-
-  if (!access) {
-    notFound();
-  }
 
   const {
     authenticatedMember,
@@ -547,9 +541,9 @@ export async function TribePageContent({
         });
 
         return (
-          <main className={styles.TribePage}>
+          <div className={styles.TribePage}>
             <TribeOpenJoin offer={offer.price} startAction={startOpenJoin} />
-          </main>
+          </div>
         );
       }
 
@@ -624,7 +618,7 @@ export async function TribePageContent({
   });
 
   return (
-    <main className={styles.TribePage}>
+    <div className={styles.TribePage}>
       <UpcomingTribeEvents
         events={upcomingEvents.events}
         tribeSlug={accessResult.tribe.slug}
@@ -634,7 +628,7 @@ export async function TribePageContent({
         tribeSlug={accessResult.tribe.slug}
         round={round}
       />
-    </main>
+    </div>
   );
 }
 

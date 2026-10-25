@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-readable-dates",
-      "commit": "fa7cb142183cf6b7cfab79a8ad7ab7095384e455",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
-        "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx": "55140ade2d382a62",
+        "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx": "b100620d825a2ff5",
         "app/api/tribes/[slug]/messaging/usage-policy/route.ts": "bd74481f6c2f3172",
         "app/api/tribes/[slug]/messaging/usage-policy/operations/[operationId]/route.ts": "07b6bc5782cf6dbe",
         "src/modules/messaging/setup.ts": "36ebb75d1e9b9914",
@@ -15,8 +15,8 @@
         "src/modules/shared/infrastructure/database/server-database-client.ts": "895a53cd3c3f72ab",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
         "src/modules/messaging/constants/messaging-usage.ts": "ba71bbac4e985a5a",
-        "components/academy-admissions/admission-route-error/index.tsx": "a069fa4c83845f3f",
-        "components/academy-admissions/messaging-usage/index.tsx": "f9b0ed2b7dfe4fa3",
+        "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
+        "components/academy-admissions/messaging-usage/index.tsx": "2daea40139c750c6",
         "src/modules/messaging/application/commands/messaging-usage-browser-intent.ts": "0157bef1b1925c89",
         "src/modules/messaging/application/commands/messaging-usage-draft.ts": "411daea9963a284f",
         "src/modules/messaging/application/ports/messaging-usage-browser-client.ts": "d59ee061e0823ab5",
@@ -189,13 +189,13 @@
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
         "src/modules/academy-admissions/application/results/admission-contract-fields.ts": "a4913419cef9bbde"
       },
-      "fingerprint": "sha256:64af392d17be6692c9d87814ce03ef23da8e6a7391e2b16025b440ab9c0f8e0b",
+      "fingerprint": "sha256:37f4f078fb169a6f38da0f3cfa284a05de1a13ad7ca742dd4ae702fb21d885ae",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/checkViewer": "46671a3dc374d709",
         "pkg:react": "374a4508a198654b",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/readCurrent": "e0f443c2a99de3f1",
-        "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer~shell": "f3079734c8a5bda4",
+        "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer~shell": "c297f096cfa4fcf6",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#FIRST_STEP_INDEX": "290ca498d6a86edb",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#UsageContainerProps": "8f784398ba007279",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#WRITE_STEP_COPY": "73d180162fe430b7",
@@ -277,7 +277,7 @@
         "src/modules/messaging/constants/messaging-usage.ts#MessagingUsageBrowserPhase": "29367aa74787ed3f",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_BROWSER_PHASE.changedViewer": "94ce2004013a5194",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "566cf7e5647a035b",
+        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_UI_COPY~frame": "989186c512451aa2",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_UI_COPY.changedViewer": "7e5d0a0b7f76bfdb",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_UI_COPY.initializedOnly": "1e7501d73b72c902",
@@ -285,8 +285,8 @@
         "components/academy-admissions/messaging-usage/index.tsx#<module>": "2da3ec2294295eb1",
         "components/academy-admissions/messaging-usage/index.tsx#MessagingUsage/countryName": "2d1f702993bf1d44",
         "components/academy-admissions/messaging-usage/index.tsx#MessagingUsage/describeCountries": "ced70f850338b680",
-        "components/academy-admissions/messaging-usage/index.tsx#MessagingUsage~shell": "2243b880a5645a35",
-        "components/academy-admissions/messaging-usage/index.tsx#describeNoticeQuota": "1aa86c3ebdcac48d",
+        "components/academy-admissions/messaging-usage/index.tsx#MessagingUsage~shell": "f2c98479838e4f3c",
+        "components/academy-admissions/messaging-usage/index.tsx#describeNoticeQuota": "cd68c61c1a2eb3fd",
         "components/academy-admissions/messaging-usage/index.tsx#formatCount": "e5d225b082750648",
         "components/academy-admissions/messaging-usage/index.tsx#describeQuotaChange": "161311e1ba957818",
         "components/academy-admissions/messaging-usage/index.tsx#quotaHelp": "42a1894ec0ab5853",
@@ -939,39 +939,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
-        "durationMs": 64395,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 29340,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "72874c6ad9477fed9ef2f1cf3c3c4f66f6950c8c19f79a0866e20ca1ccad0306",
-        "recordedAt": "2026-10-25T06:00:18.281Z",
+        "outputSha256": "ae8e2da489abb89e3be81b5c6f9dbb77b822b7c55f1d086480dd71533167c82d",
+        "recordedAt": "2026-10-25T04:45:53.598Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T06:00:18.775Z",
+        "recordedAt": "2026-10-25T04:45:54.030Z",
         "source": "attested",
-        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
-      },
-      {
-        "kind": "browser",
-        "outcome": "pass",
-        "recordedAt": "2026-10-25T06:00:19.296Z",
-        "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: antes, «Vencimiento del enlace (fecha y hora UTC)», vigencia «2026-11-01T04:48:00.000Z (UTC)», «día UTC» y «2026-10-25 04:47:57.580 UTC»; después, «(hora de Argentina)», «01 nov 2026 · 01:54», «de 21:00 a 21:00 (hora de Argentina)», «Consumo del día» y «Período iniciado el 24 oct 2026 · 21:00» (4/4)."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [
-      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T06:00:21.267Z",
+    "recordedAt": "2026-10-25T04:45:55.620Z",
     "result": "partial",
-    "runId": "20261025T055913Z-cd86e2",
+    "runId": "20261025T044523Z-4138b1",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -995,7 +988,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T055913Z-cd86e2.json"
+    "report": "runs/20261025T044523Z-4138b1.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

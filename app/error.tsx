@@ -15,10 +15,10 @@ const ERROR_PAGE_COPY = {
 
 type ErrorPageProps = {
   error: Error & { digest?: string };
-  unstable_retry: () => void;
+  retry: () => void;
 };
 
-export default function ErrorPage({ error, unstable_retry }: ErrorPageProps) {
+export default function ErrorPage({ error, retry }: ErrorPageProps) {
   useEffect(() => {
     console.error(error);
   }, [error]);
@@ -29,7 +29,7 @@ export default function ErrorPage({ error, unstable_retry }: ErrorPageProps) {
         description={ERROR_PAGE_COPY.description}
         eyebrow={ERROR_PAGE_COPY.eyebrow}
         homeLabel={ERROR_PAGE_COPY.homeLabel}
-        onRetry={unstable_retry}
+        onRetry={retry}
         retryLabel={ERROR_PAGE_COPY.retryLabel}
         title={ERROR_PAGE_COPY.title}
       />

@@ -58,8 +58,8 @@ export default async function TribeAcademyVerificationPage({
         message: VERIFICATION_PAGE.failureMessage,
         metadata: { slug, viewerId: authenticatedMember.id },
       });
-
-      return null;
+      // A load failure is not a missing page: the segment error boundary offers a retry inside the shell.
+      throw error;
     });
 
   if (!data) {

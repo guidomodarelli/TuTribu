@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-readable-dates",
-      "commit": "fa7cb142183cf6b7cfab79a8ad7ab7095384e455",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
-        "components/academy/academy-home/index.tsx": "809988db00523019",
-        "app/(platform)/[slug]/academia/page.tsx": "8be7106822155a86",
+        "components/academy/academy-home/index.tsx": "559afae35579d77c",
+        "app/(platform)/[slug]/academia/page.tsx": "a4c7427e95123588",
         "app/api/tribes/[slug]/academy/reconcile/route.ts": "884a1b6365b413b5",
         "app/api/tribes/[slug]/academy/access/route.ts": "2ba664997c38668c",
         "src/modules/subscriptions/setup.ts": "beab8120b07daf1c",
@@ -69,7 +69,7 @@
         "src/modules/member-verifications/constants/member-verifications.ts": "6640da7d026fefbb",
         "src/modules/member-verifications/domain/services/member-verification-transitions.ts": "c6028b12077ddcd5",
         "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
-        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
+        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
         "src/modules/setup.ts": "b7906aa060d53395",
@@ -86,10 +86,10 @@
         "src/modules/tribes/domain/value-objects/academy-membership-eligibility.ts": "55e6d38c698718e0",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:d1b805b311c7afc4d6a72772efdc1ab9ff39a4d034b710f18d34409cb2bd4547",
+      "fingerprint": "sha256:7f6f3dc994eb84ff11aaa10addf14492220d47f6decccd0173e8d1a7eaf11fbb",
       "inputs": {
         "components/academy/academy-home/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy/academy-home/index.tsx#AcademyHome~shell": "a4ea8deb2197b9c4",
+        "components/academy/academy-home/index.tsx#AcademyHome~shell": "e682a501a4562464",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY~frame": "d647271201261ec5",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.accessHeading": "7502394d9b8e691b",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.admissionClosed": "2f1103a338c1ae8e",
@@ -172,7 +172,7 @@
         "components/academy/academy-home/index.tsx#AcademyHome/runAction": "a6e5e63ed8953d09",
         "components/academy/academy-home/index.tsx#HTTP_STATUS_NOT_FOUND": "ed1ef3e7359cefbf",
         "app/(platform)/[slug]/academia/page.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/academia/page.tsx#TribeAcademyPage": "96197f3393444487",
+        "app/(platform)/[slug]/academia/page.tsx#TribeAcademyPage": "edb97c58c08a366a",
         "app/api/tribes/[slug]/academy/reconcile/route.ts#<module>": "2da3ec2294295eb1",
         "app/api/tribes/[slug]/academy/reconcile/route.ts#POST": "5352b667e254a167",
         "app/api/tribes/[slug]/academy/reconcile/route.ts#OPERATION": "27153c416a175480",
@@ -1487,9 +1487,9 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T06:14:00.742Z",
+    "recordedAt": "2026-10-25T04:59:08.399Z",
     "result": "not-applicable",
-    "runId": "20261025T061358Z-a8dd07",
+    "runId": "20261025T045906Z-9e4da2",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
@@ -1514,8 +1514,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "El cambio de copy de fechas no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T061358Z-a8dd07.json"
+    "summary": "El cambio de boundaries no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T045906Z-9e4da2.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

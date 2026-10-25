@@ -2,12 +2,12 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-readable-dates",
-      "commit": "fa7cb142183cf6b7cfab79a8ad7ab7095384e455",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
-        "app/(platform)/[slug]/academia/page.tsx": "8be7106822155a86",
+        "app/(platform)/[slug]/academia/page.tsx": "a4c7427e95123588",
         "app/(platform)/[slug]/academia/loading.tsx": "f9871c638174780b",
-        "components/academy/academy-home/index.tsx": "809988db00523019",
+        "components/academy/academy-home/index.tsx": "559afae35579d77c",
         "app/api/tribes/[slug]/academy/access/route.ts": "2ba664997c38668c",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
         "src/modules/product-access/infrastructure/repositories/postgres-product-access-repository.ts": "b6d068802851a5fa",
@@ -202,19 +202,19 @@
         "src/modules/tribes/constants/tribe-welcome.ts": "0724b393d0297638",
         "app/(platform)/[slug]/loading.module.scss": "3f6fcdd2e5f79775",
         "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
-        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
+        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
         "src/modules/messaging/domain/value-objects/messaging-key-purpose.ts": "3cb73fd082b826f2",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:a9145d3b01185e5ace7256fac118fbeb409572b2a35a44671b7f42fd660babf5",
+      "fingerprint": "sha256:707c7608b10d5dfd2f376cb1b35928c2833ff5d3205dfd979a0ce0f7faee3eb0",
       "inputs": {
         "app/(platform)/[slug]/academia/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/page.tsx#loadAcademyPageData": "51c6d1818903a956",
         "app/(platform)/[slug]/academia/page.tsx#AcademyPageData": "ac8e290f279dc805",
-        "app/(platform)/[slug]/academia/page.tsx#TribeAcademyPage": "96197f3393444487",
+        "app/(platform)/[slug]/academia/page.tsx#TribeAcademyPage": "edb97c58c08a366a",
         "app/(platform)/[slug]/academia/loading.tsx#<module>": "2da3ec2294295eb1",
         "components/academy/academy-home/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy/academy-home/index.tsx#AcademyHome~shell": "a4ea8deb2197b9c4",
+        "components/academy/academy-home/index.tsx#AcademyHome~shell": "e682a501a4562464",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY~frame": "d647271201261ec5",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.accessHeading": "7502394d9b8e691b",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.admissionClosed": "2f1103a338c1ae8e",
@@ -1503,32 +1503,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
-        "durationMs": 63548,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 39354,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "7bda96fe7d557d7361bf79adb6ebfc41bf5c6ad3b26bda9dd33f064efd5da33e",
-        "recordedAt": "2026-10-25T06:15:07.876Z",
+        "outputSha256": "41bdee4c901c37d5bcf227d560a36dd1181596b2083a0e128a11cf2a71f8feff",
+        "recordedAt": "2026-10-25T04:59:51.838Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T06:15:08.421Z",
+        "recordedAt": "2026-10-25T04:59:52.456Z",
         "source": "attested",
-        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [
-      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T06:15:10.325Z",
+    "recordedAt": "2026-10-25T04:59:54.621Z",
     "result": "partial",
-    "runId": "20261025T061403Z-d01b9e",
+    "runId": "20261025T045911Z-51062b",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -1552,7 +1552,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T061403Z-d01b9e.json"
+    "report": "runs/20261025T045911Z-51062b.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

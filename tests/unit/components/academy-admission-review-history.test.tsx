@@ -42,7 +42,7 @@ describe("current history visibility and navigation", () => {
   });
   it.each(["unavailable", "render_error"])("should preserve one real platform main and a history page heading for %s", (path) => {
     const unavailable: AdmissionReviewHistoryPageState = { kind: "unavailable", code: "permission_denied", message: "No tenés permiso para realizar esta operación." };
-    render(<AdmissionWorkspaceRoute pathname="/tribu/academia/admissions/history/request-1" slug="tribu">{path === "unavailable" ? <AdmissionSettingsPage page="history"><AdmissionReviewHistoryContainer initialState={unavailable} /></AdmissionSettingsPage> : <AdmissionReviewHistoryError reset={vi.fn()} />}</AdmissionWorkspaceRoute>, { wrapper: Providers });
+    render(<AdmissionWorkspaceRoute pathname="/tribu/academia/admissions/history/request-1" slug="tribu">{path === "unavailable" ? <AdmissionSettingsPage page="history"><AdmissionReviewHistoryContainer initialState={unavailable} /></AdmissionSettingsPage> : <AdmissionReviewHistoryError retry={vi.fn()} />}</AdmissionWorkspaceRoute>, { wrapper: Providers });
     expect(screen.getAllByRole("main")).toHaveLength(1);
     expect(screen.getByRole("heading", { level: 1, name: ADMISSION_REVIEW_HISTORY_COPY.title })).toBeVisible();
     expect(screen.getByRole("alert")).toBeVisible();

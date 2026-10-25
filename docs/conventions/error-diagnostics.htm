@@ -103,6 +103,18 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 
 <div class="section">
   <div class="section-num">06</div>
+  <div class="section-title">Route error boundaries</div>
+<p>Una falla al cargar una página no es una página inexistente. La carga de datos de una página registra el error con su contexto y lo vuelve a lanzar; <code>notFound()</code> queda para lo que de verdad no existe o no corresponde mostrar (una tribu oculta, un segmento inválido, un rol sin acceso). Así el boundary del segmento ofrece reintentar en lugar de un 404 engañoso.</p>
+<ul>
+  <li><strong>Reintentar con <code>retry</code>.</strong> App Router pasa a cada <code>error.tsx</code> las props <code>error</code>, <code>reset</code> y <code>retry</code>. «Reintentar» usa <code>retry</code>, que vuelve a pedir el segmento al servidor y lo renderiza; <code>reset</code> solo vuelve a renderizar lo que ya falló. Next.js 16.3 ya no pasa <code>unstable_retry</code>.</li>
+  <li><strong>Dentro del shell.</strong> <code>app/(platform)/error.tsx</code> recupera cualquier sección de la plataforma sin su propio boundary, conservando el rail y la navegación de la tribu; <code>app/error.tsx</code> queda para lo que falla fuera del shell. El shell ya renderiza el <code>&lt;main&gt;</code> de la página, así que ni el boundary ni las páginas debajo agregan otro.</li>
+  <li><strong>Acceso a la tribu.</strong> <code>resolveVisibleTribePageAccess</code> deja que un error al resolver el acceso llegue al boundary; una tribu oculta sigue respondiendo 404.</li>
+  <li><strong>Tests.</strong> <code>renderThroughAppRouter</code> (<code>tests/support/app-router-error-boundary.tsx</code>) monta el <code>error.tsx</code> dentro del <code>ErrorBoundary</code> real de Next, así un cambio en las props que pasa el framework hace fallar el test.</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">07</div>
   <div class="section-title">Implementation</div>
 <ul>
   <li><code>src/modules/shared/infrastructure/observability/error-cause-summary.ts</code> y <code>src/modules/shared/constants/error-cause-summary.ts</code>: resumen seguro de la cadena de causas.</li>

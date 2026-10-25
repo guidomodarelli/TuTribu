@@ -21,6 +21,10 @@
     {
       "path": "app/(platform)/[slug]/canales/loading.tsx",
       "symbol": "default"
+    },
+    {
+      "path": "app/(platform)/error.tsx",
+      "symbol": "default"
     }
   ],
   "origin": "curated",

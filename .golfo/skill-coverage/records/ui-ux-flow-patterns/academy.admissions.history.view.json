@@ -2,19 +2,19 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-readable-dates",
-      "commit": "fa7cb142183cf6b7cfab79a8ad7ab7095384e455",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/page.tsx": "637ce2d70ca99dc5",
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/loading.tsx": "dc81dcab5563118a",
-        "app/(platform)/[slug]/academia/admissions/history/[requestId]/error.tsx": "70f8a1e0429cc51f",
-        "app/(platform)/[slug]/academia/admissions/history/[requestId]/history-container.tsx": "451528001c78d8c9",
+        "app/(platform)/[slug]/academia/admissions/history/[requestId]/error.tsx": "29df9558bf8e67a2",
+        "app/(platform)/[slug]/academia/admissions/history/[requestId]/history-container.tsx": "3fb74cbcd3725d76",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
         "src/modules/auth/infrastructure/composition/authenticated-account-provider.ts": "750f9fbc68d426b1",
         "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts": "4d37f8e0bc8531b6",
         "src/modules/shared/infrastructure/database/server-database-client.ts": "895a53cd3c3f72ab",
         "components/academy-admissions/admission-page-skeleton/index.tsx": "22f912978377c2dd",
-        "components/academy-admissions/admission-route-error/index.tsx": "a069fa4c83845f3f",
+        "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
         "components/academy-admissions/admission-settings-page/index.tsx": "8312db77ac7c70e9",
         "src/modules/academy-admissions/application/ports/admission-browser-client.ts": "e4d882fd3cf5bf02",
         "src/modules/academy-admissions/application/results/admission-review-history-page-state.ts": "9084f5f1de846174",
@@ -126,7 +126,7 @@
         "src/modules/academy-admissions/application/results/admission-review-selection.ts": "57ed7a58771742ac",
         "src/modules/academy-admissions/constants/admission-review-ui.ts": "42d3d87b513edbbb",
         "components/loaders/skeleton-morph/index.tsx": "364f29380a39b0eb",
-        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
+        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
         "components/academy-admissions/admission-review-history/styles.module.scss": "6960d826287f77e3",
         "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
         "lib/academy-admissions/admission-review-filters.ts": "a3965124a3d6cc22",
@@ -218,16 +218,16 @@
         "src/modules/notifications/constants/admission-notification-groups.ts": "22f213c753d3ef05",
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f"
       },
-      "fingerprint": "sha256:e07107b4d5292ce184802d845d2cf9df3f954a2ce935c8a260eb4f7225986eeb",
+      "fingerprint": "sha256:87763f7f4a972f1739c11a1adda12b4893982d00f83ca405a54703c4d8a8c523",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/page.tsx#AdmissionReviewHistoryPage": "12f41e89e6da6d86",
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/loading.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/loading.tsx#AdmissionReviewHistoryLoading": "775693c14a1fd8c8",
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/error.tsx#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/history/[requestId]/error.tsx#AdmissionReviewHistoryError": "ed9d9642cacfe85c",
+        "app/(platform)/[slug]/academia/admissions/history/[requestId]/error.tsx#AdmissionReviewHistoryError": "2c743b72f4d06fad",
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/history-container.tsx#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/history/[requestId]/history-container.tsx#AdmissionReviewHistoryContainer": "c163ff75216ab060",
+        "app/(platform)/[slug]/academia/admissions/history/[requestId]/history-container.tsx#AdmissionReviewHistoryContainer": "bb75ca94fa333a17",
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/history-container.tsx#CurrentHistory/refresh": "92bd6676fca1349a",
         "pkg:react": "374a4508a198654b",
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/history-container.tsx#CurrentHistory~shell": "9b43ca1c05c17e6b",
@@ -286,7 +286,7 @@
         "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_SKELETON_SHAPE.rowCount": "4f6b5b70a016126c",
         "components/academy-admissions/admission-page-skeleton/index.tsx#placeholderKeys": "a1ec4c5ff5f87bbe",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "566cf7e5647a035b",
+        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "components/academy-admissions/admission-settings-page/index.tsx#<module>": "2da3ec2294295eb1",
         "components/academy-admissions/admission-settings-page/index.tsx#AdmissionSettingsPage": "70ebe75549ed2595",
@@ -1312,32 +1312,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
-        "durationMs": 80972,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 33314,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "bef36bc059d1c9f4e56bbe4a73e98cc2544b13ec52d4b8748f62947e5ac06d42",
-        "recordedAt": "2026-10-25T05:51:39.212Z",
+        "outputSha256": "b0cecfa684644c80a5922d752e29e230d87f4132b51b4148a4f59a8cbdbe3e85",
+        "recordedAt": "2026-10-25T04:24:07.194Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T05:51:39.825Z",
+        "recordedAt": "2026-10-25T04:24:07.756Z",
         "source": "attested",
-        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [
-      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T05:51:42.091Z",
+    "recordedAt": "2026-10-25T04:24:09.740Z",
     "result": "partial",
-    "runId": "20261025T055017Z-74ee2c",
+    "runId": "20261025T042333Z-62f539",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -1361,7 +1361,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T055017Z-74ee2c.json"
+    "report": "runs/20261025T042333Z-62f539.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

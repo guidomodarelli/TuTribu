@@ -79,9 +79,9 @@ export function AdmissionActivityContainer({ initialState, client = admissionAct
   }, [ready, checkViewer, readSnapshot, launchRead]);
 
   const reload = () => { if (selectionRef.current) launchRead(selectionRef.current); };
-  if (!ready || !snapshot || !draft) return <AdmissionRouteError embedded message={initialState.kind === KIND.unavailable ? initialState.message : COPY.readFailed} reset={() => window.location.reload()} />;
-  if (phase === PHASE.changedViewer) return <AdmissionRouteError embedded message={COPY.changedViewer} reset={() => window.location.reload()} />;
-  if (!privateVisible) return phase === PHASE.unavailable ? <AdmissionRouteError embedded message={errorMessage ?? COPY.readFailed} reset={reload} /> : <p role="status">{COPY.loading}</p>;
+  if (!ready || !snapshot || !draft) return <AdmissionRouteError embedded message={initialState.kind === KIND.unavailable ? initialState.message : COPY.readFailed} retry={() => window.location.reload()} />;
+  if (phase === PHASE.changedViewer) return <AdmissionRouteError embedded message={COPY.changedViewer} retry={() => window.location.reload()} />;
+  if (!privateVisible) return phase === PHASE.unavailable ? <AdmissionRouteError embedded message={errorMessage ?? COPY.readFailed} retry={reload} /> : <p role="status">{COPY.loading}</p>;
   const busy = phase === PHASE.checking || phase === PHASE.reading;
   /** New filters are checked before transport and always start from their first page. */
   const applyFilters = () => {

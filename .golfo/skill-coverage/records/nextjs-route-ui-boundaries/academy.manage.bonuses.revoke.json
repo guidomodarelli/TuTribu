@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-readable-dates",
-      "commit": "fa7cb142183cf6b7cfab79a8ad7ab7095384e455",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
-        "components/academy/academy-management/index.tsx": "2cdaec4513ec7dcd",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "0f0efff9bd2bbc3e",
+        "components/academy/academy-management/index.tsx": "34f2bdb8739e7845",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/academy/bonuses/[grantId]/revoke/route.ts": "855f33b51e6eed34",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
         "src/modules/product-access/infrastructure/repositories/postgres-product-access-repository.ts": "b6d068802851a5fa",
@@ -19,15 +19,16 @@
         "src/modules/member-verifications/application/results/member-verification-public-dto-schemas.ts": "c658dcf96affa74b",
         "src/modules/product-access/application/results/academy-dto-mappers.ts": "a40a6cfaf7d3d9c4",
         "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "225eef5ce922c395",
-        "app/(platform)/[slug]/tribe-page-access.ts": "50eec7f94f420c0b",
+        "app/(platform)/[slug]/tribe-page-access.ts": "31f10502f507d6d7",
         "app/(platform)/[slug]/academia/gestionar/loading.tsx": "f9871c638174780b",
         "app/(platform)/[slug]/academia/loading.tsx": "f9871c638174780b",
         "app/(platform)/[slug]/layout.tsx": "091b3dec28a3139f",
         "app/(platform)/[slug]/loading.tsx": "7bca37b96a4432ce",
+        "app/(platform)/error.tsx": "c29ecc8ea3fb911f",
         "app/(platform)/layout.tsx": "eccf66589598096e",
         "app/(platform)/loading.tsx": "1408221519a7a78e",
-        "app/error.tsx": "ea0b13f7fd3eb6c7",
-        "app/global-error.tsx": "b09bade0cbddca32",
+        "app/error.tsx": "be500bfad1d372c9",
+        "app/global-error.tsx": "4fe5158bea164617",
         "app/layout.tsx": "650f4386e125862f",
         "app/not-found.tsx": "7c2bf7b75ccbcef3",
         "next.config.ts": "499b76937ce73f12",
@@ -61,6 +62,7 @@
         "src/modules/shared/infrastructure/observability/request-context.ts": "298449d5b583123d",
         "components/tribes/tribe-presence-heartbeat/index.tsx": "ff8adcd6cb4701ee",
         "app/(platform)/[slug]/loading.module.scss": "3f6fcdd2e5f79775",
+        "components/feedback/error-state/index.tsx": "5090f14a31ac15fc",
         "src/modules/notifications/application/results/notification-public-dto-schemas.ts": "9f04bffec9a201d4",
         "src/modules/shared/infrastructure/validation/validation-issue-summary.ts": "738c0b278fc24011",
         "components/app-rail/app-rail-shell/index.tsx": "182d0fd1e6aa457c",
@@ -72,7 +74,6 @@
         "components/tribes/tribe-support-button/index.tsx": "f0dc1288c895f1f7",
         "components/platform/tribe-switcher/index.tsx": "46e9bf6a143d762e",
         "app/(platform)/loading.module.scss": "55505dfb148e6c98",
-        "components/feedback/error-state/index.tsx": "5090f14a31ac15fc",
         "app/globals.css": "067cf27eba244702",
         "lib/site-config.ts": "fea512b7bfdd756c",
         "components/providers/app-providers/app-ui-provider.tsx": "9f227a001b904603",
@@ -85,11 +86,13 @@
         "config/cloudflare-output-tracing.ts": "43fa9999704d5e4b",
         "config/legacy-redirects.ts": "6e723edb2bbdd69f",
         "config/cloudflare-dev-runtime.ts": "5c9b3670ad614400",
-        "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
+        "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
         "src/modules/tribes/constants/tribe-page-access.ts": "18091d5392ed8b45",
         "src/constants/query-params.ts": "adb538cd11f8e88a",
+        "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
+        "components/feedback/error-state/styles.module.scss": "c3291993525c2d1c",
         "src/modules/notifications/application/results/notification-result.ts": "b51b03f97ab4da09",
         "src/modules/notifications/constants/admission-notifications.ts": "87d82e2897913d7e",
         "src/modules/notifications/constants/notifications.ts": "0ec0a20aa7470553",
@@ -111,8 +114,6 @@
         "components/tribes/tribe-support-button/styles.module.scss": "d1057b70ca8dab70",
         "components/tribes/tribe-support-config-dialog/index.tsx": "c24f53a76db23a08",
         "components/platform/tribe-switcher/styles.module.scss": "df5b3f4712236b21",
-        "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
-        "components/feedback/error-state/styles.module.scss": "c3291993525c2d1c",
         "src/constants/toast.ts": "284fbae4c04bfc82",
         "components/providers/private-aware-siteping/index.tsx": "d2d99d370ff8463b",
         "components/providers/app-providers/styles.module.scss": "04f2ceba20d9ba12",
@@ -123,7 +124,7 @@
         "src/constants/time.ts": "98b5459a77a709b0",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:440daa0acfdeabfe379bae72ea747805e9392bc2167633fd5de60d2ba330f1c6",
+      "fingerprint": "sha256:0fa90d7bad0a5ef47dc591066312e83a4c2c6f54b4e13dfcb23d5e76c8bde77a",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
@@ -173,8 +174,8 @@
         "components/academy/academy-management/index.tsx#MembersSection/handleRevoke": "8e2b751751e0c955",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusPrompt": "a011f4022643b39e",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": "b8f0ed9c67a46d96",
-        "components/academy/academy-management/index.tsx#AcademyManagement": "7ffc2c14f59edca8",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": "6371b497b9fa3370",
+        "components/academy/academy-management/index.tsx#AcademyManagement": "3c4bdf0f81d5efd8",
         "app/api/tribes/[slug]/academy/bonuses/[grantId]/revoke/route.ts#<module>": "2da3ec2294295eb1",
         "app/api/tribes/[slug]/academy/bonuses/[grantId]/revoke/route.ts#POST": "9ddf1f09894eb753",
         "app/api/tribes/[slug]/academy/bonuses/[grantId]/revoke/route.ts#OPERATION": "8a25ccbd9eb751f8",
@@ -303,7 +304,7 @@
         "src/modules/product-access/application/results/academy-public-dto-schemas.ts#isoDateTime": "8f3d28b29e29aae2",
         "src/modules/product-access/application/results/academy-public-dto-schemas.ts#academySettingsDtoSchema": "3b6cbd7782ed0bd8",
         "app/(platform)/[slug]/tribe-page-access.ts#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/tribe-page-access.ts#resolveVisibleTribePageAccess": "7db7c0a95fcdb23e",
+        "app/(platform)/[slug]/tribe-page-access.ts#resolveVisibleTribePageAccess": "936d3dcf6c107212",
         "app/(platform)/[slug]/tribe-page-access.ts#ResolveVisibleTribePageAccessOptions": "6d77478e430abd42",
         "app/(platform)/[slug]/tribe-page-access.ts#ResolveTribePageAccessOptions": "c4be592608c37050",
         "app/(platform)/[slug]/tribe-page-access.ts#TRIBE_PAGE_ACCESS_LOG~frame": "b1f02ca8b21c830a",
@@ -327,6 +328,15 @@
         "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusLabel": "91b448f9dc994012",
         "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON~frame": "aff7438bb5a53b5f",
         "app/(platform)/[slug]/loading.tsx#TribeLoadingPage": "9d20796fb5186f24",
+        "app/(platform)/error.tsx#<module>": "d414f6d3ee71f10d",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.description": "3304d1f7d167d725",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.eyebrow": "d3680e774699c553",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.homeLabel": "058311abe590f3bf",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.retryLabel": "55dce502d524a7a7",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.title": "36b27df2cd481d52",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY~frame": "2aef35660089a73b",
+        "app/(platform)/error.tsx#PlatformErrorProps": "27f9cab13dc73fef",
+        "app/(platform)/error.tsx#PlatformError": "10a1b0632b21a85e",
         "app/(platform)/layout.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/layout.tsx#PLATFORM_LAYOUT_NOTIFICATIONS_LOG.dtoRejectedMessage": "dda49da278a84362",
         "app/(platform)/layout.tsx#PLATFORM_LAYOUT_NOTIFICATIONS_LOG.dtoRejectedReason": "4a725b7ea3d56cee",
@@ -355,8 +365,8 @@
         "app/error.tsx#ERROR_PAGE_COPY.retryLabel": "55dce502d524a7a7",
         "app/error.tsx#ERROR_PAGE_COPY.title": "36b27df2cd481d52",
         "app/error.tsx#ERROR_PAGE_COPY~frame": "4d35ea48d90cb834",
-        "app/error.tsx#ErrorPageProps": "839f15ee58d54b24",
-        "app/error.tsx#ErrorPage": "950ce5ef8f4ce5d7",
+        "app/error.tsx#ErrorPageProps": "1af725ade0a652c4",
+        "app/error.tsx#ErrorPage": "7e726dbf6cb2260c",
         "app/global-error.tsx#<module>": "1bdeb150c1952562",
         "app/global-error.tsx#GLOBAL_ERROR_PAGE_COPY.description": "b1420d85f5502fc6",
         "app/global-error.tsx#GLOBAL_ERROR_PAGE_COPY.eyebrow": "d3680e774699c553",
@@ -367,8 +377,8 @@
         "app/global-error.tsx#GLOBAL_ERROR_PAGE_COPY~frame": "21648876753445c1",
         "app/global-error.tsx#GLOBAL_ERROR_DOCUMENT_CLASS.body": "5ba2fc953a4e9ff8",
         "app/global-error.tsx#GLOBAL_ERROR_DOCUMENT_CLASS~frame": "ecba0437d9fb8c73",
-        "app/global-error.tsx#GlobalErrorPageProps": "e41636e2d3654792",
-        "app/global-error.tsx#GlobalErrorPage": "1f5705fcf0b2ce51",
+        "app/global-error.tsx#GlobalErrorPageProps": "aa842a191c045b69",
+        "app/global-error.tsx#GlobalErrorPage": "13a8b096d4b2beac",
         "app/layout.tsx#<module>": "3eec7190146f9ff3",
         "app/layout.tsx#ROOT_LAYOUT_DOCUMENT.language": "873de5b6448ed855",
         "app/layout.tsx#ROOT_LAYOUT_DOCUMENT.scrollBehavior": "09fbbcbd13163c52",
@@ -705,6 +715,14 @@
         "components/tribes/tribe-presence-heartbeat/index.tsx#PRESENCE_HEARTBEAT.apiPrefix": "8f617152d1038910",
         "components/tribes/tribe-presence-heartbeat/index.tsx#PRESENCE_HEARTBEAT.presenceSegment": "93405a427f23be6d",
         "app/(platform)/[slug]/loading.module.scss#*": "3f6fcdd2e5f79775",
+        "components/feedback/error-state/index.tsx#<module>": "d414f6d3ee71f10d",
+        "components/feedback/error-state/index.tsx#ErrorState": "20991c4e77bbb771",
+        "components/feedback/error-state/index.tsx#ERROR_STATE_UI~frame": "26adb8ff56b60901",
+        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.backdropAriaHidden": "820012bc59803918",
+        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.homeLinkSize": "2e9ffb8d13f313b0",
+        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.homeLinkVariant": "b82a9044da7be018",
+        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.retryButtonSize": "eb534ab249e443a4",
+        "components/feedback/error-state/index.tsx#ErrorStateProps": "ca7336ae33bf58bf",
         "src/modules/notifications/application/results/notification-public-dto-schemas.ts#<module>": "2da3ec2294295eb1",
         "src/modules/notifications/application/results/notification-public-dto-schemas.ts#NotificationInboxResponse": "14da05eaa7cd19c1",
         "src/modules/notifications/application/results/notification-public-dto-schemas.ts#notificationInboxSchema": "07fa71080859c862",
@@ -933,14 +951,6 @@
         "components/platform/tribe-switcher/index.tsx#TRIBE_SWITCHER_UI.triggerAriaLabel": "010331a6fd943530",
         "components/platform/tribe-switcher/index.tsx#TribeSwitcherProps": "3b5a60b4267009e1",
         "app/(platform)/loading.module.scss#*": "55505dfb148e6c98",
-        "components/feedback/error-state/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/feedback/error-state/index.tsx#ErrorState": "20991c4e77bbb771",
-        "components/feedback/error-state/index.tsx#ERROR_STATE_UI~frame": "26adb8ff56b60901",
-        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.backdropAriaHidden": "820012bc59803918",
-        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.homeLinkSize": "2e9ffb8d13f313b0",
-        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.homeLinkVariant": "b82a9044da7be018",
-        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.retryButtonSize": "eb534ab249e443a4",
-        "components/feedback/error-state/index.tsx#ErrorStateProps": "ca7336ae33bf58bf",
         "app/globals.css#*": "067cf27eba244702",
         "lib/site-config.ts#<module>": "2da3ec2294295eb1",
         "lib/site-config.ts#siteConfig~frame": "4a917d832b627399",
@@ -1056,6 +1066,8 @@
         "src/constants/query-params.ts#<module>": "2da3ec2294295eb1",
         "src/constants/query-params.ts#QUERY_PARAMS~frame": "de6c4831e66d2d65",
         "src/constants/query-params.ts#QUERY_PARAMS.auth": "1256fb5f409a695c",
+        "components/navigation/link/index.tsx#<module>": "2da3ec2294295eb1",
+        "components/feedback/error-state/styles.module.scss#*": "c3291993525c2d1c",
         "src/modules/notifications/application/results/notification-result.ts#<module>": "2da3ec2294295eb1",
         "src/modules/notifications/application/results/notification-result.ts#NotificationInboxResult": "f879267135680aef",
         "src/modules/notifications/constants/admission-notifications.ts#<module>": "2da3ec2294295eb1",
@@ -1254,8 +1266,6 @@
         "components/tribes/tribe-support-config-dialog/index.tsx#TribeSupportConfigDialogProps": "91aa691139922c7d",
         "components/tribes/tribe-support-config-dialog/index.tsx#getInitialChannel": "91af063baadeb69f",
         "components/platform/tribe-switcher/styles.module.scss#*": "df5b3f4712236b21",
-        "components/navigation/link/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/feedback/error-state/styles.module.scss#*": "c3291993525c2d1c",
         "src/constants/theme-mode.ts#THEME_MODE_STORAGE_KEY": "2fe12ff9af449189",
         "src/constants/toast.ts#<module>": "2da3ec2294295eb1",
         "src/constants/toast.ts#APP_TOAST_DURATION_MS": "7b662a022aabd0e8",
@@ -1356,6 +1366,9 @@
         "app/(platform)/[slug]/tribe-page-access.ts#resolveTribePageAccess": {
           "awaits": 6,
           "projectCalls": 3
+        },
+        "app/(platform)/error.tsx#PlatformError": {
+          "effects": 1
         },
         "app/(platform)/layout.tsx#loadInitialNotificationInbox": {
           "projectCalls": 1,
@@ -1523,50 +1536,131 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
-        "durationMs": 50114,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 39809,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "dc645baa93b3af615381d45ca17c70df6bebbeb5d715f889b9660bf5f0d49cb6",
-        "recordedAt": "2026-10-25T06:35:18.849Z",
+        "outputSha256": "1b1832e1e75c462aa8b63c5e10b636628974b9fbe32c1532340ae5d229fbb512",
+        "recordedAt": "2026-10-25T05:15:49.223Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 2179,
+        "durationMs": 4138,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T06:35:21.439Z",
+        "recordedAt": "2026-10-25T05:15:53.965Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T06:35:21.849Z",
+        "recordedAt": "2026-10-25T05:15:54.831Z",
         "source": "attested",
-        "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [
-      "Solo se revisó el copy de fechas y el vencimiento de la invitación que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T06:35:23.194Z",
+    "recordedAt": "2026-10-25T05:15:57.095Z",
     "result": "partial",
-    "runId": "20261025T063428Z-f07c24",
+    "runId": "20261025T051508Z-a0ea50",
     "scope": {
       "decision": "full",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage",
+          "reason": "route file changed: segment layout, boundary or page"
+        },
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/tribe-page-access.ts#resolveVisibleTribePageAccess",
+          "reason": "code rendered by the route changed"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#<module>",
+          "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.description",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.eyebrow",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.homeLabel",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.retryLabel",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.title",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY~frame",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PlatformError",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PlatformErrorProps",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "modified",
+          "key": "app/error.tsx#ErrorPage",
+          "reason": "route file changed: segment layout, boundary or page"
+        },
+        {
+          "change": "modified",
+          "key": "app/error.tsx#ErrorPageProps",
+          "reason": "route file changed: segment layout, boundary or page"
+        },
+        {
+          "change": "modified",
+          "key": "app/global-error.tsx#GlobalErrorPage",
+          "reason": "route file changed: segment layout, boundary or page"
+        },
+        {
+          "change": "modified",
+          "key": "app/global-error.tsx#GlobalErrorPageProps",
+          "reason": "route file changed: segment layout, boundary or page"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-management/index.tsx#AcademyManagement",
+          "reason": "code rendered by the route changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.manage.bonuses.revoke (/[slug]/academia/gestionar): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
       ]
@@ -1584,7 +1678,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T063428Z-f07c24.json"
+    "report": "runs/20261025T051508Z-a0ea50.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",
