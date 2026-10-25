@@ -3,7 +3,7 @@ import type { AdmissionReviewSelection } from "@/src/modules/academy-admissions/
 import { ADMISSION_NAVIGATION } from "@/src/modules/academy-admissions/constants/admission-navigation";
 import { ADMISSION_REVIEW_FILTER_ANY } from "@/src/modules/academy-admissions/constants/admission-review-filters";
 import { fromBuenosAiresMinuteKey, toBuenosAiresMinuteKey } from "@/src/modules/shared/application/date-time/buenos-aires-minute";
-import { BUENOS_AIRES_UTC_OFFSET } from "@/src/constants/date-time";
+import { MILLISECONDS_PER_SECOND } from "@/src/constants/time";
 import { ADMISSION_REVIEW_ALL_STATUSES } from "@/src/modules/academy-admissions/constants/admission-review-selection";
 import { admissionReviewPageInputSchema } from "@/src/modules/academy-admissions/constants/admission-review-page-input";
 import { admissionReviewSelectionQuery } from "./admission-review-selection";
@@ -28,14 +28,19 @@ export function createAdmissionReviewFilterDraft(filters: AdmissionReviewSelecti
 
 /** Milliseconds the HTTP contract never needs: a filter cut is a minute or a second. */
 const WHOLE_SECOND_FRACTION = ".000Z";
+/** A typed cut with seconds: its minute part, then the seconds and an optional fraction. */
+const SECONDS_CUT_PATTERN = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}):(\d{2}(?:\.\d{1,3})?)$/u;
 
 /**
  * @param value - Native datetime-local input, read as Argentina time.
  * @returns The UTC instant it names for the HTTP contract, or the raw value so the boundary schema rejects it.
  */
 function argentinaInstant(value: string): string {
-  const instant = fromBuenosAiresMinuteKey(value) ?? new Date(value + BUENOS_AIRES_UTC_OFFSET);
-  return Number.isFinite(instant.getTime()) ? instant.toISOString().replace(WHOLE_SECOND_FRACTION, "Z") : value;
+  // Only a real calendar minute converts: an impossible date such as 02-30 is never rolled into another day.
+  const seconds = SECONDS_CUT_PATTERN.exec(value), minute = fromBuenosAiresMinuteKey(seconds ? seconds[1] : value);
+  if (!minute) return value;
+  const instant = seconds ? new Date(minute.getTime() + Number(seconds[2]) * MILLISECONDS_PER_SECOND) : minute;
+  return instant.toISOString().replace(WHOLE_SECOND_FRACTION, "Z");
 }
 
 /** @param field - Selected date control. @param draft - Current editable strings. @param context - Optional applied baseline and explicit edit tracking. @returns Its complete original ISO when unchanged, otherwise the newly entered candidate or absence. */
