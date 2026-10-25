@@ -47,7 +47,7 @@ describe("reviewer selection continuity", () => {
     expect(parseAdmissionReviewFilterDraft("synthetic-academy", draft, 25)).toMatchObject({ ok: true, filters: { submittedFrom: "2026-10-01T13:00:30Z" } });
   });
 
-  it.each(["2026-02-30T10:00", "2026-10-01T25:00", "unusable"])("should reject an impossible date %s instead of rolling it into another day", (submittedFrom) => {
+  it.each(["2026-02-30T10:00", "2026-10-01T25:00", "2026-10-01T10:00:99", "unusable"])("should reject an impossible date %s instead of rolling it into another day", (submittedFrom) => {
     const draft = { ...createAdmissionReviewFilterDraft(DEFAULT_ADMISSION_REVIEW_SELECTION), submittedFrom };
     expect(parseAdmissionReviewFilterDraft("synthetic-academy", draft, 25)).toEqual({ ok: false });
   });

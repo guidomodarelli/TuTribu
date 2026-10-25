@@ -28,8 +28,8 @@ export function createAdmissionReviewFilterDraft(filters: AdmissionReviewSelecti
 
 /** Milliseconds the HTTP contract never needs: a filter cut is a minute or a second. */
 const WHOLE_SECOND_FRACTION = ".000Z";
-/** A typed cut with seconds: its minute part, then the seconds and an optional fraction. */
-const SECONDS_CUT_PATTERN = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}):(\d{2}(?:\.\d{1,3})?)$/u;
+/** A typed cut with seconds: its minute part, then seconds from 00 to 59 and an optional fraction. */
+const SECONDS_CUT_PATTERN = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}):([0-5]\d(?:\.\d{1,3})?)$/u;
 
 /**
  * @param value - Native datetime-local input, read as Argentina time.
