@@ -1,0 +1,45 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-admission-request-deadline",
+    "commit": "2b2a89c3f6be74f42c5e082a2da4341efcb264f6",
+    "fingerprint": "sha256:05a95dea905403c21188e57389383085b83f0d72073490abacb72fbdd5f4097b",
+    "uncommittedFiles": [],
+    "fileCount": 45,
+    "inputCount": 580
+  },
+  "evidence": [],
+  "limitations": [],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T03:10:38.335Z",
+  "result": "not-applicable",
+  "runId": "20261025T031036Z-e61e6f",
+  "scope": {
+    "decision": "not-applicable",
+    "reasons": [
+      "recorded not applicable: El deadline no agrega requests, consultas ni pasos al flujo: solo un timer por request ya existente."
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": []
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a8d6cde62f2853fa",
+      "references/bundle-lazy-loading.md": "91990bd1796b9884",
+      "references/database-queries-n-plus-one.md": "3064b23acc3e9f7e",
+      "references/images-fonts-scripts.md": "1ab02d4b1a421c87",
+      "references/incremental-sweep-jobs.md": "c5c8e71bdba2e4a9",
+      "references/measurement-tools.md": "e3e96c85be264c0c",
+      "references/requests-caching.md": "981544e05dee2e5c",
+      "references/unnecessary-renders.md": "2d440f22533a2149"
+    },
+    "definitionHash": "sha256:dcb79531d3a56e7765d65880022365639578ed18c69466dbb65f4ce0b59b09d3",
+    "name": "measured-performance-optimization",
+    "version": "1.5.0"
+  },
+  "summary": "El deadline no agrega requests, consultas ni pasos al flujo: solo un timer por request ya existente.",
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T03:10:36.605Z",
+  "unitId": "academy.manage.members.list"
+}

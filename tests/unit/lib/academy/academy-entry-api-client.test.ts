@@ -13,7 +13,7 @@ describe("academy entry browser adapter", () => {
     const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(Response.json({ operationId, outcome: "pending", request: { id: requestId, status: "pending", version: 1, source: "common", submittedAt: "2026-10-07T00:00:00Z", expiresAt: "2026-11-06T00:00:00Z", needsVerification: false, eligibilityReasons: [] }, safeMessage: "Tu solicitud está pendiente." }, { status: 201 }));
     const client = createAdmissionApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
     expect(await client.submitAcademyEntry("synthetic-academy", body, signal)).toMatchObject({ status: "ready", value: { outcome: "pending", operationId, request: { id: requestId } } });
-    expect(fetch).toHaveBeenCalledWith("/api/tribes/synthetic-academy/academy/join", expect.objectContaining({ method: "POST", signal, body: JSON.stringify(body) }));
+    expect(fetch).toHaveBeenCalledWith("/api/tribes/synthetic-academy/academy/join", expect.objectContaining({ method: "POST", signal: expect.any(AbortSignal), body: JSON.stringify(body) }));
   });
 
   it("should preserve network uncertainty and refuse pending as an old direct-membership response", async () => {

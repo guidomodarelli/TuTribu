@@ -184,6 +184,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Los líderes de tribu ya no necesitan confirmar su cuenta con Google para operaciones sensibles de admisiones, mensajería, salida del modo academia o borrado de la tribu; desaparecen el botón y la pantalla de confirmación.
 
 ### Fixed
+- Si una acción de admisiones, mensajería o de integrantes de la academia no recibe respuesta, después de dos minutos deja de esperar y avisa que la respuesta tardó demasiado: ya no queda el botón en curso sin salida. Si era un envío o un cambio, primero se consulta si se guardó antes de ofrecer repetirlo.
 - Los enlaces de admisión e invitación personal y las páginas de mensajería abren normalmente aunque traigan parámetros de campañas o redes sociales (por ejemplo `utm_source` o `fbclid`), en lugar de mostrar «No podemos mostrar esta admisión».
 - Cuando una publicación del fogón se queda sin respuesta, la página la reenvía sola una vez sin duplicarla: si ya se había publicado, avisa «El mensaje ya estaba publicado.» y la muestra, también cuando tenía imágenes o archivos.
 - Repetir un Me gusta después de una falla de conexión ya no lo invierte: se guarda el estado que elegiste.

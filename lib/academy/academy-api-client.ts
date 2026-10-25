@@ -13,6 +13,8 @@ import { legacyAcademyJoinSchema, type LegacyAcademyJoinDto } from "@/src/module
 import type { AdmissionBrowserSubmission, AdmissionBrowserResult, AdmissionStartedResponse } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
 import type { AdmissionOutcomeDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { startBrowserRequestDeadline } from "@/lib/browser-request-deadline";
+import { BROWSER_REQUEST_TIMEOUT_MESSAGE } from "@/src/constants/browser-request";
 
 import {
   academyAccessStatusDtoSchema,
@@ -102,6 +104,28 @@ async function requestAcademyApi<TData>(input: {
   schema: z.ZodType<TData> | null;
   signal?: AbortSignal;
 }): Promise<AcademyApiResult<TData>> {
+  // A hung response ends at the deadline with its own copy instead of leaving the action in progress forever.
+  const deadline = startBrowserRequestDeadline(input.signal);
+
+  try {
+    const result = await sendAcademyApiRequest({ ...input, signal: deadline.signal });
+
+    return !result.isSuccess && deadline.expired() && !input.signal?.aborted
+      ? { isSuccess: false, message: BROWSER_REQUEST_TIMEOUT_MESSAGE, status: 0 }
+      : result;
+  } finally {
+    deadline.dispose();
+  }
+}
+
+/** Sends one academy request under a signal that already follows the caller and the deadline. */
+async function sendAcademyApiRequest<TData>(input: {
+  body?: unknown;
+  method: (typeof HTTP_METHOD)[keyof typeof HTTP_METHOD];
+  path: string;
+  schema: z.ZodType<TData> | null;
+  signal: AbortSignal;
+}): Promise<AcademyApiResult<TData>> {
   let response: Response;
 
   try {
@@ -118,6 +142,11 @@ async function requestAcademyApi<TData>(input: {
   }
 
   const body: unknown = await response.json().catch(() => null);
+
+  // A body read cut by the caller or the deadline never completed: without this, a null-schema call would read as success.
+  if (input.signal.aborted) {
+    return { isSuccess: false, message: ACADEMY_API_FALLBACK_MESSAGE, status: 0 };
+  }
 
   if (!response.ok) {
     const conflict =

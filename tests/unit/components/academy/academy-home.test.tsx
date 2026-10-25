@@ -8,6 +8,7 @@ import { ThemedToaster } from "@golfo/ui";
 
 import { AcademyHome } from "@/components/academy/academy-home";
 import { navigateToUrl } from "@/lib/browser-navigation";
+import { BROWSER_REQUEST_TIMEOUT_MESSAGE, BROWSER_REQUEST_TIMEOUT_MS } from "@/src/constants/browser-request";
 import type {
   AcademyAccessStatusDto,
   AcademyOfferDto,
@@ -143,6 +144,39 @@ describe("AcademyHome", () => {
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({ acceptedOfferVersion: 3 });
+  });
+
+  it("releases a hung checkout at the deadline so the member can try again", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      vi.mocked(navigateToUrl).mockClear();
+      // The provider never answers: the request only settles when its signal aborts, as native fetch does.
+      fetchMock.mockImplementationOnce((_input: RequestInfo | URL, init?: RequestInit) => new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new DOMException("The operation was aborted.", "AbortError")), { once: true });
+      }));
+
+      render(
+        <AcademyHome
+          access={access({ canStartCheckout: true, eligibility: "verified", nextAction: "view_offer" })}
+          canManage={false}
+          isCheckoutReturn={false}
+          offer={offer}
+          tribeSlug="tribu"
+        />
+      );
+
+      await user.click(screen.getByRole("button", { name: "Contratar academia" }));
+      expect(await screen.findByRole("button", { name: "Abriendo el pago…" })).toBeDisabled();
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(BROWSER_REQUEST_TIMEOUT_MS); });
+
+      expect(await screen.findAllByText(BROWSER_REQUEST_TIMEOUT_MESSAGE)).not.toHaveLength(0);
+      expect(screen.getByRole("button", { name: "Contratar academia" })).toBeEnabled();
+      expect(navigateToUrl).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("shows the confirmation state on a checkout return instead of a new purchase", () => {

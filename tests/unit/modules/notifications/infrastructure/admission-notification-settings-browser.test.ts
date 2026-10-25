@@ -17,7 +17,7 @@ describe("notification settings browser transport", () => {
     const client = createAdmissionNotificationSettingsApiClient({ fetch });
 
     expect(await client.readPreference("test", signal)).toEqual({ status: "ready", value: { viewerId, data: value } });
-    expect(fetch).toHaveBeenCalledExactlyOnceWith("/api/tribes/test/admissions/notification-preferences", { credentials: "same-origin", cache: "no-store", signal });
+    expect(fetch).toHaveBeenCalledExactlyOnceWith("/api/tribes/test/admissions/notification-preferences", { credentials: "same-origin", cache: "no-store", signal: expect.any(AbortSignal) });
   });
 
   it.each(["missing_viewer", "malformed_viewer", "invalid_body"])("should close an own read with %s", async (scenario) => {

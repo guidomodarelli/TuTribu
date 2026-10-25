@@ -1,0 +1,75 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-admission-request-deadline",
+    "commit": "dc79bf03a5f4e8a1d423a68aaabb2bf4462de3e2",
+    "fingerprint": "sha256:3721530c175c0d8edca7f3c067be7d66c52387d6f062db67a5d511bdf937144c",
+    "uncommittedFiles": [],
+    "fileCount": 457,
+    "inputCount": 2940
+  },
+  "evidence": [],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T01:51:40.330Z",
+  "result": "not-applicable",
+  "runId": "20261025T015137Z-b4570e",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "skill definition changed (1.4.0 → 1.5.0): SKILL.md",
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "4 relevant change(s) since the verified run"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/send",
+        "reason": "adds load: +2 awaited steps"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-management-browser-transport.ts#createAdmissionManagementBrowserTransport/send",
+        "reason": "adds load: +3 awaited steps"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-request-deadline.ts#boundBrowserRequest",
+        "reason": "adds load: +1 awaited steps"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-request-deadline.ts#startBrowserRequestDeadline~shell",
+        "reason": "adds load: +1 listeners or subscriptions, +1 timers or polling"
+      }
+    ],
+    "suggestedScope": [
+      "re-check the unit against the rules changed in measured-performance-optimization/SKILL.md",
+      "measure the complete flow /[slug]/academia/admissions/invitations: before = revision 0569c8d0c20e (last measured), after = working tree",
+      "lib/academy-admissions/admission-api-client.ts › createAdmissionApiClient › send — adds load: +2 awaited steps",
+      "lib/academy-admissions/admission-management-browser-transport.ts › createAdmissionManagementBrowserTransport › send — adds load: +3 awaited steps",
+      "lib/browser-request-deadline.ts › boundBrowserRequest — adds load: +1 awaited steps",
+      "lib/browser-request-deadline.ts › startBrowserRequestDeadline (component body outside its handlers) — adds load: +1 listeners or subscriptions, +1 timers or polling"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a8d6cde62f2853fa",
+      "references/bundle-lazy-loading.md": "91990bd1796b9884",
+      "references/database-queries-n-plus-one.md": "3064b23acc3e9f7e",
+      "references/images-fonts-scripts.md": "1ab02d4b1a421c87",
+      "references/incremental-sweep-jobs.md": "c5c8e71bdba2e4a9",
+      "references/measurement-tools.md": "e3e96c85be264c0c",
+      "references/requests-caching.md": "981544e05dee2e5c",
+      "references/unnecessary-renders.md": "2d440f22533a2149"
+    },
+    "definitionHash": "sha256:dcb79531d3a56e7765d65880022365639578ed18c69466dbb65f4ce0b59b09d3",
+    "name": "measured-performance-optimization",
+    "version": "1.5.0"
+  },
+  "summary": "El deadline no agrega requests, consultas ni pasos al flujo: solo un timer por request ya existente.",
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T01:51:37.673Z",
+  "unitId": "academy.admissions.invitations.manage"
+}
