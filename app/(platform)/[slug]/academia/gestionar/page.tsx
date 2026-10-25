@@ -40,8 +40,8 @@ async function loadManagementProps(
   modules: RequestModules,
   tribeSlug: string
 ): Promise<AcademyManagementProps | null> {
-  // One wave instead of two: settings and providers no longer wait for the viewer's role. Both reads check the role
-  // in SQL and answer a guardian with nothing, and only a leader's answers are used below.
+  // One wave instead of two: settings and providers no longer wait for the viewer's role. Neither read fails for a
+  // guardian (settings answers null, providers only the active ones), and only a leader's answers are used below.
   const [membersResult, queue, leaderSettings, leaderProviders] = await Promise.all([
     modules.productAccess.useCases.listAcademyMembers({
       page: MANAGEMENT_PAGE.firstPage,
