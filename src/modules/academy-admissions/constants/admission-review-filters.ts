@@ -7,8 +7,6 @@ import { ADMISSION_REVIEW_SOURCE_LABEL } from "./admission-review-ui";
 
 /** Unrestricted optional controls omit their API field; this is not a domain status. */
 export const ADMISSION_REVIEW_FILTER_ANY = "any";
-/** Native datetime-local can omit seconds; the boundary still requires an ISO instant. */
-export const ADMISSION_REVIEW_FILTER_MINUTE_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/u;
 /** All selectors preserve an explicit false separately from an unrestricted selection. */
 export const ADMISSION_REVIEW_FILTER_GROUPS = [
   { field: "status", label: "Estado", options: [
@@ -36,16 +34,16 @@ export const ADMISSION_REVIEW_FILTER_GROUPS = [
     { value: ADMISSION_REVIEW_BOOLEAN_QUERY.no, label: "Sin ese requisito actual" },
   ] },
 ] as const;
-/** Dates are explicit UTC instants, matching the HTTP contract and deterministic server rendering. */
+/** Dates are picked in Argentina time, the product's single time zone; the HTTP contract still carries UTC instants. */
 export const ADMISSION_REVIEW_FILTER_DATES = [
-  { field: "submittedFrom", label: "Desde (UTC)" },
-  { field: "submittedUntil", label: "Hasta (UTC)" },
+  { field: "submittedFrom", label: "Desde (hora de Argentina)" },
+  { field: "submittedUntil", label: "Hasta (hora de Argentina)" },
 ] as const;
 /** Filter validation is separate from decision confirmation and operation feedback. */
 export const ADMISSION_REVIEW_FILTER_COPY = {
   title: "Filtrar solicitudes", search: "Búsqueda", apply: "Aplicar filtros", reset: "Mostrar pendientes",
   description: "Buscá y filtrá las solicitudes. Abrir un detalle conserva esta selección.",
-  dateHelp: "Indicá fecha y hora en UTC. Si no aparece un selector, usá AAAA-MM-DDTHH:mm. El detalle muestra la hora de Buenos Aires.", datePlaceholder: "AAAA-MM-DDTHH:mm",
+  dateHelp: "Indicá fecha y hora de Argentina. Si no aparece un selector, usá AAAA-MM-DDTHH:mm.", datePlaceholder: "AAAA-MM-DDTHH:mm",
   invalid: "Revisá la búsqueda y las fechas: el inicio debe ser anterior o igual al final.",
   blocked: "Terminá la consulta o recuperá la decisión original antes de cambiar los filtros.",
   emptyPage: "No hay coincidencias en este tramo. Podés seguir consultando con «Ver más solicitudes».",

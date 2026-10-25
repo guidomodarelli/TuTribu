@@ -43,6 +43,7 @@ export const ADMISSION_NOTIFICATION_SETTINGS_COPY = {
   noChanges: "No hay cambios para guardar.",
   confirmRequired: "Marcá la confirmación para guardar.",
   zoneRequired: "Indicá una zona horaria para continuar.",
+  zoneUnknown: "No reconocemos esa zona horaria. Escribila como Región/Ciudad, por ejemplo America/Argentina/Buenos_Aires.",
   emailOriginalBlocked: "El cambio anterior del correo de la tribu sigue sin confirmar. Consultá el estado actual antes de guardar.",
 } as const;
 /** Terminal business rejections never announce a save or copy a provider diagnostic. */

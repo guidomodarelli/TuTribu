@@ -10,6 +10,7 @@ import { ADMISSION_NOTIFICATION_PREFERENCE_MODE as MODE } from "@/src/modules/no
 import { ADMISSION_NOTIFICATION_SETTINGS_TIME_ZONE_MAX_LENGTH } from "@/src/modules/notifications/constants/admission-notification-settings-http";
 import { ADMISSION_NOTIFICATION_TIME_ZONE_HELP, ADMISSION_NOTIFICATION_PREFERENCE_OPTIONS as OPTIONS, ADMISSION_NOTIFICATION_PREFERENCE_SUMMARY as SUMMARY, ADMISSION_NOTIFICATION_EMAIL_PLAN_LABEL, ADMISSION_NOTIFICATION_PREFERENCE_PLAN_LABEL } from "@/src/modules/notifications/constants/admission-notification-settings-options";
 import { ADMISSION_NOTIFICATION_SETTINGS_COPY as COPY, ADMISSION_NOTIFICATION_SETTINGS_EMAIL_PLAN as EMAIL_PLAN, ADMISSION_NOTIFICATION_SETTINGS_GUIDED_STEP as GUIDED_STEP, ADMISSION_NOTIFICATION_SETTINGS_SAVE_STEP as SAVE_STEP, type AdmissionNotificationSettingsEmailPlan, type AdmissionNotificationSettingsSaveStep } from "@/src/modules/notifications/constants/admission-notification-settings-browser";
+import { isKnownTimeZone } from "@/lib/date-time/time-zone";
 import styles from "./styles.module.scss";
 
 /** What the final save writes: the tribe email outcome and whether the personal preference changes. */
@@ -110,14 +111,27 @@ function MemberTribeNotice({ tribeEmailEnabled }: Pick<AdmissionNotificationSett
     : <Alert tone="info" title="El correo de admisión lo habilita el líder de la tribu">Si todavía no lo habilitó, no vas a recibir correos hasta que lo haga.</Alert>;
 }
 
+/**
+ * @param draft - Edited tribe email settings.
+ * @param pending - Whether an earlier change is waiting to be retried as it was sent.
+ * @returns Why the zone blocks the step (missing, or a name the runtime does not recognize), or `null`; checked here so a
+ * mistyped zone is caught next to its field instead of failing at the final save.
+ */
+function describeZoneProblem(draft: AdmissionNotificationSettingsProps["draft"], pending: boolean): string | null {
+  const zone = draft.timeZone.trim();
+  if (!draft.enabled || pending) return null;
+  if (!zone) return COPY.zoneRequired;
+  return isKnownTimeZone(zone) ? null : COPY.zoneUnknown;
+}
+
 /** @param props - Edited email fields and recovery state. @returns The tribe email switch, its zone and the messaging requirement. */
 function TribeEmailFields({ draft, pending, messagingHref, onDraft }: Pick<AdmissionNotificationSettingsProps, "draft" | "pending" | "messagingHref" | "onDraft">) {
-  const zoneHelpId = useId();
+  const zoneHelpId = useId(), zoneProblem = describeZoneProblem(draft, pending);
   return <div className={styles.AdmissionNotificationSettings__fields}>
     <Checkbox label="Habilitar correo de admisión" description="Se aplica a las solicitudes nuevas y respeta la frecuencia que elija cada responsable." checked={draft.enabled} disabled={pending} onCheckedChange={(checked) => onDraft({ ...draft, enabled: checked === true })} />
     {/* Plain help instead of the field's animated description, which splits "09:00" into rolling digits and is read twice. */}
     {draft.enabled && <div className={styles.AdmissionNotificationSettings__zone}>
-      <Input label="Zona horaria de la tribu" description={undefined} error={undefined} value={draft.timeZone} disabled={pending} maxLength={ADMISSION_NOTIFICATION_SETTINGS_TIME_ZONE_MAX_LENGTH} aria-describedby={zoneHelpId} aria-invalid={!draft.timeZone.trim() || undefined} onChange={(event) => onDraft({ ...draft, timeZone: event.target.value })} />
+      <Input label="Zona horaria de la tribu" description={undefined} error={zoneProblem === COPY.zoneUnknown ? zoneProblem : undefined} value={draft.timeZone} disabled={pending} maxLength={ADMISSION_NOTIFICATION_SETTINGS_TIME_ZONE_MAX_LENGTH} aria-describedby={zoneHelpId} aria-invalid={zoneProblem ? true : undefined} onChange={(event) => onDraft({ ...draft, timeZone: event.target.value })} />
       <p id={zoneHelpId} className={styles.AdmissionNotificationSettings__help}>{ADMISSION_NOTIFICATION_TIME_ZONE_HELP}</p>
     </div>}
     <p className={styles.AdmissionNotificationSettings__note}>Para enviar correos, la tribu necesita un correo preparado en mensajería. <Link href={messagingHref}>Revisar mensajería</Link></p>
@@ -178,9 +192,9 @@ function MemberForm(props: AdmissionNotificationSettingsProps) {
 
 /** @param props - Current state of the tribe leader. @returns Three small steps: tribe email, personal frequency, and review with one save. */
 function LeaderSteps(props: AdmissionNotificationSettingsProps) {
-  const zoneMissing = props.draft.enabled && !props.draft.timeZone.trim() && !props.pending;
+  const zoneProblem = describeZoneProblem(props.draft, props.pending);
   const steps: GuidedStep[] = [
-    { id: GUIDED_STEP.tribeEmail, title: "Correo de la tribu", description: "Habilitalo para que TuTribu envíe por correo los avisos de solicitudes de admisión a quienes las revisan.", content: <TribeEmailFields draft={props.draft} pending={props.pending} messagingHref={props.messagingHref} onDraft={props.onDraft} />, blockedReason: zoneMissing ? COPY.zoneRequired : undefined },
+    { id: GUIDED_STEP.tribeEmail, title: "Correo de la tribu", description: "Habilitalo para que TuTribu envíe por correo los avisos de solicitudes de admisión a quienes las revisan.", content: <TribeEmailFields draft={props.draft} pending={props.pending} messagingHref={props.messagingHref} onDraft={props.onDraft} />, blockedReason: zoneProblem ?? undefined },
     { id: GUIDED_STEP.frequency, title: "Cómo querés recibir los avisos", description: "Elegí la frecuencia de tus correos. Esta elección es sólo tuya.", content: <>
       <FrequencyField mode={props.mode} busy={props.busy} onMode={props.onMode} />
       {!props.draft.enabled && props.mode !== MODE.omitted && <Alert tone="info" title="El correo de la tribu va a quedar deshabilitado">Mientras esté deshabilitado nadie recibe correos de revisión. Podés habilitarlo en el paso anterior.</Alert>}

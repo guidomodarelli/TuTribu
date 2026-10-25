@@ -109,8 +109,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await page.getByRole("combobox", { name: "Comprobación de contacto", exact: true }).click(); await page.getByRole("option", { name: "Sin ese requisito actual", exact: true }).click();
               await page.getByRole("combobox", { name: "Estado", exact: true }).click(); await page.getByRole("option", { name: "Todos los estados", exact: true }).click();
               await page.getByLabel("Búsqueda", { exact: true }).fill("Primer");
-              await page.getByLabel("Desde (UTC)", { exact: true }).fill("2020-01-01T00:00");
-              await page.getByLabel("Hasta (UTC)", { exact: true }).fill("2099-01-01T00:00");
+              await page.getByLabel("Desde (hora de Argentina)", { exact: true }).fill("2020-01-01T00:00");
+              await page.getByLabel("Hasta (hora de Argentina)", { exact: true }).fill("2099-01-01T00:00");
               listReads.length = 0;
               await apply.click();
               await page.waitForURL((url) => url.searchParams.get("requiresExceptionReason") === "true" && url.searchParams.get("search") === "Primer");
@@ -166,10 +166,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await expectBrowser(page.getByRole("heading", { name: applicants[1].name, exact: true })).toBeVisible();
               stage = reportStage("reset_unapplied_edits_on_same_selection");
               await page.getByLabel("Búsqueda", { exact: true }).fill("Edición todavía sin aplicar");
-              await page.getByLabel("Desde (UTC)", { exact: true }).fill("2020-01-01T00:00");
+              await page.getByLabel("Desde (hora de Argentina)", { exact: true }).fill("2020-01-01T00:00");
               await page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.reset, exact: true }).click();
               await expectBrowser(page.getByLabel("Búsqueda", { exact: true })).toHaveValue("");
-              await expectBrowser(page.getByLabel("Desde (UTC)", { exact: true })).toHaveValue("");
+              await expectBrowser(page.getByLabel("Desde (hora de Argentina)", { exact: true })).toHaveValue("");
               await expectBrowser(page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply, exact: true })).toBeEnabled();
               await expectBrowser(page.getByRole("heading", { name: applicants[1].name, exact: true })).toBeVisible();
               if (recordFrames) await captureAdmissionReview(page, "review-filter-default", forbidden, REVIEW_VALIDATION.captureFile);

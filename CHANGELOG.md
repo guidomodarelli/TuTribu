@@ -111,6 +111,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Cada aspirante puede corregir su WhatsApp mientras la solicitud siga pendiente y vigente; el formulario conserva el cambio original si se pierde la respuesta y avisa cuando debe revisarse de nuevo.
 
 ### Changed
+- Los filtros de fecha de Solicitudes se eligen en hora de Argentina («Desde (hora de Argentina)» y «Hasta (hora de Argentina)») en lugar de UTC.
+- En Avisos de admisión, una zona horaria que no existe se marca junto al campo y no deja continuar, en lugar de fallar recién al guardar.
 - Los enlaces de ingreso a una academia y de una solicitud propia ya no se indexan en buscadores ni informan la página de origen al abrir otro sitio, igual que las invitaciones personales.
 
 - Los códigos de verificación muestran cuánto falta en minutos («Vence en 9 min 20 s», «Podés reenviar en 1 minuto») en lugar de una cuenta en segundos.
