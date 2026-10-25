@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-single-announcements",
+      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
       "files": {
         "app/(admission)/admissions/invitations/[token]/page.tsx": "4520a9f6a91ff6dc",
         "app/(admission)/admissions/invitations/[token]/loading.tsx": "d865834be352a5c9",
@@ -11,7 +11,7 @@
         "src/modules/academy-admissions/infrastructure/composition/personal-invitation-page.ts": "c96ae634c5787d69",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
         "src/modules/auth/setup.ts": "37e200547ae950e4",
-        "components/academy-admissions/admission-screen/index.tsx": "77d088e07ff83d2c",
+        "components/academy-admissions/admission-screen/index.tsx": "960ef7fa9cf9683c",
         "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
         "src/modules/academy-admissions/constants/admission-errors.ts": "4a393e9826800086",
         "src/modules/academy-admissions/constants/personal-invitation-page.ts": "97b409b131e1d23b",
@@ -137,7 +137,7 @@
         "src/modules/academy-admissions/constants/admission-policy.ts": "a3566bcbcac9ff34",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:3fe741dcea7b2e0d71600dec94a73405d78603f6c2aa8f819b786bf5c8e78b03",
+      "fingerprint": "sha256:500cee8802884dbe1332f4761fc3af78994b793df2d63ef95843ebbdae1ee6ca",
       "inputs": {
         "app/(admission)/admissions/invitations/[token]/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(admission)/admissions/invitations/[token]/page.tsx#PersonalInvitationPage": "45a5651afd8691be",
@@ -156,7 +156,7 @@
         "src/modules/auth/setup.ts#AuthModuleDependencies": "c2c64c7a3276646d",
         "components/academy-admissions/admission-screen/index.tsx#<module>": "2da3ec2294295eb1",
         "components/academy-admissions/admission-screen/index.tsx#AdmissionLoading": "ce34971915465dcf",
-        "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen": "4eb04b5414bc549d",
+        "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen": "a624bd679dc8abbf",
         "components/academy-admissions/admission-screen/index.tsx#AdmissionScreenProps": "dcd95f712b8ad5aa",
         "pkg:react": "374a4508a198654b",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
@@ -731,43 +731,42 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
-        "durationMs": 27948,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
+        "durationMs": 64213,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "03cf820b9ff9d02adeb609c2e0140fb9376bceef099061e1258ca465ea31d0f9",
-        "recordedAt": "2026-10-25T04:08:50.633Z",
+        "outputSha256": "b4d2b92fcf1b40e49cea4368fbef826a96057c32c5321755d023babe3e1f44f3",
+        "recordedAt": "2026-10-25T09:12:09.116Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T04:08:51.069Z",
+        "recordedAt": "2026-10-25T09:12:09.667Z",
         "source": "attested",
-        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
+        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
       }
     ],
     "limitations": [
-      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T04:08:52.458Z",
+    "recordedAt": "2026-10-25T09:12:11.292Z",
     "result": "partial",
-    "runId": "20261025T040822Z-2657f4",
+    "runId": "20261025T091104Z-009d5e",
     "scope": {
       "decision": "full",
       "reasons": [
-        "skill definition changed (1.4.1 → 1.5.0): SKILL.md",
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [
         {
           "change": "modified",
-          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
+          "key": "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen",
           "reason": "visible or interactive code changed"
         }
       ],
@@ -788,7 +787,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T040822Z-2657f4.json"
+    "report": "runs/20261025T091104Z-009d5e.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

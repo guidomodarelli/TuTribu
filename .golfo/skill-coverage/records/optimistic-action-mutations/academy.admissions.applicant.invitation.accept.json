@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-single-announcements",
+      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
       "files": {
         "app/(admission)/admissions/invitations/[token]/personal-invitation-container.tsx": "a456bf4f01d5e9ae",
-        "hooks/use-personal-invitation.ts": "3597e722fb7e889a",
+        "hooks/use-personal-invitation.ts": "85c13c71c9b0b188",
         "app/api/admissions/invitations/[token]/overview/route.ts": "385e5e4b9a0f9aaa",
         "app/api/tribes/[slug]/admissions/submissions/route.ts": "1c17ea1189f30c3c",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
@@ -479,7 +479,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:05ae9f996a99388b54134f169980f279bde02027804f0bbdf3f6460a9d61de68",
+      "fingerprint": "sha256:4884ae4e682b9951d9004a4b166f45512cf1db9ede62bbb707328e59ecbd5a30",
       "inputs": {
         "app/(admission)/admissions/invitations/[token]/personal-invitation-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(admission)/admissions/invitations/[token]/personal-invitation-container.tsx#PersonalInvitationContainer": "889caeb28894f738",
@@ -501,7 +501,7 @@
         "hooks/use-personal-invitation.ts#usePersonalInvitation/clear": "cf1f3ed1ce7dd20a",
         "hooks/use-personal-invitation.ts#usePersonalInvitation/recover": "fbfaef78f61798c9",
         "hooks/use-personal-invitation.ts#usePersonalInvitation/observe": "7efbcb95505d7fb4",
-        "hooks/use-personal-invitation.ts#usePersonalInvitation/submit": "0bc037cc9048cf04",
+        "hooks/use-personal-invitation.ts#usePersonalInvitation/submit": "f9dbd7f587156759",
         "hooks/use-personal-invitation.ts#usePersonalInvitation/changeAccount": "08a086a2cf32dc4f",
         "hooks/use-personal-invitation.ts#usePersonalInvitation/changeConfirmation": "da64c1d4f120922f",
         "app/api/admissions/invitations/[token]/overview/route.ts#<module>": "33b3fabe1e31dbc7",
@@ -4569,38 +4569,45 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
-        "durationMs": 27509,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
+        "durationMs": 63650,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "cd709e27c00ebc52fea5b26e1203f213edbd1da7d2f11c33cd14d7943c75eb55",
-        "recordedAt": "2026-10-25T04:07:24.475Z",
+        "outputSha256": "79eb03cdad51f180fd8385d08f85af7093ccef7ec45fe265e8ecbedcdaf69177",
+        "recordedAt": "2026-10-25T09:09:38.151Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T04:07:24.926Z",
+        "recordedAt": "2026-10-25T09:09:38.679Z",
         "source": "attested",
-        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
+        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
       }
     ],
     "limitations": [
-      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T04:07:27.801Z",
+    "recordedAt": "2026-10-25T09:09:41.195Z",
     "result": "partial",
-    "runId": "20261025T040656Z-b60595",
+    "runId": "20261025T090833Z-625084",
     "scope": {
       "decision": "full",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "hooks/use-personal-invitation.ts#usePersonalInvitation/submit",
+          "reason": "action handler changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.admissions.applicant.invitation.accept: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -4618,7 +4625,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T040656Z-b60595.json"
+    "report": "runs/20261025T090833Z-625084.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-single-announcements",
+      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
       "files": {
-        "components/academy/academy-verification/index.tsx": "bb96dce99745dcee",
+        "components/academy/academy-verification/index.tsx": "1b1a4ac290d05894",
         "app/(platform)/[slug]/academia/verificacion/page.tsx": "78e36c8d189424cc",
         "app/(platform)/[slug]/academia/verificacion/loading.tsx": "f9871c638174780b",
         "app/api/tribes/[slug]/verifications/route.ts": "7143222c4b934955",
@@ -104,17 +104,17 @@
         "app/not-found.module.scss": "07d324074a6ecb7f",
         "config/deployment-environment.ts": "08bb1a3202ff76f7"
       },
-      "fingerprint": "sha256:b2cde81cccdd7002004d77623e67c18e8bf74d204ee139c8a7afae9a810f60ef",
+      "fingerprint": "sha256:fbc9c93d5275ec1b7b33c77ffd84b7055bc52cd90273dcb7524d6aeeee6345eb",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
         "pkg:react-dom": "d2111d79718dba5f",
         "components/academy/academy-verification/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy/academy-verification/index.tsx#ProviderRequest/handleSubmit": "b71de1b0b9772211",
+        "components/academy/academy-verification/index.tsx#ProviderRequest/handleSubmit": "49f97ec72dbb1644",
         "components/academy/academy-verification/index.tsx#VERIFICATION_COPY~frame": "1a724bc06daccc9d",
         "components/academy/academy-verification/index.tsx#VERIFICATION_COPY.requestSuccess": "4f36f4aa21eadf76",
-        "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "components/academy/academy-verification/index.tsx#ProviderRequest~shell": "8389cad556c70f5e",
+        "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "components/academy/academy-verification/index.tsx#VERIFICATION_COPY.declaredEmailHelp": "80f57a582ff3c2cd",
         "components/academy/academy-verification/index.tsx#VERIFICATION_COPY.declaredEmailLabel": "1babcae4057eabdd",
         "components/academy/academy-verification/index.tsx#VERIFICATION_COPY.openProviderLink": "d8a4185ac3e742a3",
@@ -1171,43 +1171,43 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
-        "durationMs": 30868,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
+        "durationMs": 50269,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "67fc523bd415671680b8e0325fb056094c587076d5b8bdb6814ca37c5cf8ef0c",
-        "recordedAt": "2026-10-25T05:29:59.333Z",
+        "outputSha256": "d55513c1151c79650cf32d8c5b4d9dafb652b5c887dd40d011bbeaaea6f26dde",
+        "recordedAt": "2026-10-25T10:39:03.269Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 2842,
+        "durationMs": 2228,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T05:30:02.704Z",
+        "recordedAt": "2026-10-25T10:39:05.927Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T05:30:03.260Z",
+        "recordedAt": "2026-10-25T10:39:06.374Z",
         "source": "attested",
-        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
+        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
       }
     ],
     "limitations": [
-      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T05:30:04.794Z",
+    "recordedAt": "2026-10-25T10:39:07.519Z",
     "result": "partial",
-    "runId": "20261025T052927Z-492d1d",
+    "runId": "20261025T103812Z-a24f7a",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -1217,83 +1217,8 @@
       "relevantChangesAtBegin": [
         {
           "change": "modified",
-          "key": "app/(platform)/[slug]/academia/verificacion/page.tsx#TribeAcademyVerificationPage",
-          "reason": "route file changed: segment layout, boundary or page"
-        },
-        {
-          "change": "modified",
-          "key": "app/(platform)/[slug]/tribe-page-access.ts#resolveVisibleTribePageAccess",
-          "reason": "code rendered by the route changed"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/error.tsx#<module>",
-          "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.description",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.eyebrow",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.homeLabel",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.retryLabel",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.title",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY~frame",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/error.tsx#PlatformError",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/error.tsx#PlatformErrorProps",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "modified",
-          "key": "app/error.tsx#ErrorPage",
-          "reason": "route file changed: segment layout, boundary or page"
-        },
-        {
-          "change": "modified",
-          "key": "app/error.tsx#ErrorPageProps",
-          "reason": "route file changed: segment layout, boundary or page"
-        },
-        {
-          "change": "modified",
-          "key": "app/global-error.tsx#GlobalErrorPage",
-          "reason": "route file changed: segment layout, boundary or page"
-        },
-        {
-          "change": "modified",
-          "key": "app/global-error.tsx#GlobalErrorPageProps",
-          "reason": "route file changed: segment layout, boundary or page"
-        },
-        {
-          "change": "modified",
-          "key": "components/academy/academy-verification/index.tsx#AcademyVerification",
-          "reason": "code rendered by the route changed"
+          "key": "components/academy/academy-verification/index.tsx#ProviderRequest/handleSubmit",
+          "reason": "interactive handler changed: navigation or server action calls may differ"
         }
       ],
       "suggestedScope": [
@@ -1313,7 +1238,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T052927Z-492d1d.json"
+    "report": "runs/20261025T103812Z-a24f7a.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

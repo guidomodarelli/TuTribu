@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-single-announcements",
+      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "52358cd766afdaa0",
         "app/api/tribes/[slug]/messaging/connections/route.ts": "78b3317283264385",
@@ -32,7 +32,7 @@
         "src/modules/messaging/constants/messaging-public-contract.ts": "d8e21158a5fb4c77",
         "src/modules/messaging/constants/messaging-usage.ts": "ba71bbac4e985a5a",
         "src/modules/messaging/application/results/messaging-configuration-result.ts": "006db510fe714df8",
-        "components/academy-admissions/messaging-connection-lifecycle/index.tsx": "e5e3ba938bfea6c4",
+        "components/academy-admissions/messaging-connection-lifecycle/index.tsx": "86f803a5f94a422a",
         "components/academy-admissions/messaging-connections/index.tsx": "7ca72a5ebda6bf91",
         "components/academy-admissions/messaging-connections-workspace/index.tsx": "2a65a6a8e1fbfcce",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-feedback.ts": "7ad5879ac6d1fc43",
@@ -658,7 +658,7 @@
         "src/modules/academy-admissions/constants/admission-review-dates.ts": "ed6ccaa0d7bbce25",
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f"
       },
-      "fingerprint": "sha256:20bb21d9f7921497f79c1c506b0138d494b6cf94bc2284ba71ec26afb1c7245e",
+      "fingerprint": "sha256:5d70bfd2745f2e4b30b1f68c02d5275faebb1dd259b73615a0bfb3f6e82e8808",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/emit": "de5c828cbc366dc2",
@@ -820,7 +820,7 @@
         "src/modules/messaging/application/results/messaging-configuration-result.ts#messagingConfigurationConnectionSchema": "f8fe93883bd7b1df",
         "src/modules/messaging/application/results/messaging-configuration-result.ts#configurationCapabilitySchema": "2c7a6f85a0fca8c5",
         "components/academy-admissions/messaging-connection-lifecycle/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/academy-admissions/messaging-connection-lifecycle/index.tsx#MessagingConnectionLifecycle": "697c0faadac45d69",
+        "components/academy-admissions/messaging-connection-lifecycle/index.tsx#MessagingConnectionLifecycle": "cc0e32a31a49e214",
         "components/academy-admissions/messaging-connections/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy-admissions/messaging-connections/index.tsx#MessagingConnections": "414f8eff41cae121",
         "components/academy-admissions/messaging-connections-workspace/index.tsx#<module>": "d414f6d3ee71f10d",
@@ -6144,18 +6144,17 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T04:37:10.453Z",
+    "recordedAt": "2026-10-25T09:40:55.789Z",
     "result": "not-applicable",
-    "runId": "20261025T043707Z-72d43f",
+    "runId": "20261025T094052Z-e275f0",
     "scope": {
-      "decision": "full",
+      "decision": "not-applicable",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "recorded not applicable: El cambio de boundaries no agrega requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": [
-        "measure the complete flow /[slug]/academia/admissions/messaging/connections before and after, same build, data and throttling; median of 3 for noisy metrics"
-      ]
+      "suggestedScope": []
     },
     "skill": {
       "definitionFiles": {
@@ -6172,8 +6171,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "El cambio de boundaries no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T043707Z-72d43f.json"
+    "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T094052Z-e275f0.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

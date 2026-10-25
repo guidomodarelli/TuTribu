@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-single-announcements",
+      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
       "files": {
-        "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx": "b100620d825a2ff5",
+        "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx": "e219dcdf4b270fb0",
         "app/api/tribes/[slug]/messaging/usage-policy/route.ts": "bd74481f6c2f3172",
         "app/api/tribes/[slug]/messaging/usage-policy/operations/[operationId]/route.ts": "07b6bc5782cf6dbe",
         "src/modules/messaging/setup.ts": "36ebb75d1e9b9914",
@@ -189,7 +189,7 @@
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
         "src/modules/academy-admissions/application/results/admission-contract-fields.ts": "a4913419cef9bbde"
       },
-      "fingerprint": "sha256:37f4f078fb169a6f38da0f3cfa284a05de1a13ad7ca742dd4ae702fb21d885ae",
+      "fingerprint": "sha256:1a62afd8ea7cc7e895ded28a1c6471f108b95640bd067818e096b43cdb722e3f",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/checkViewer": "46671a3dc374d709",
@@ -201,13 +201,12 @@
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#WRITE_STEP_COPY": "73d180162fe430b7",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#REVIEW_STEP_INDEX": "0138ae7857db882b",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/launchRead": "40d0b408d3af3425",
-        "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/write": "cab3a86e62cfdae0",
+        "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/write": "74ef9f10447a28f8",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageWriteOutcome": "a97a1bf81cc75bcc",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#STOPPED.status": "667a9efb95c371eb",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#STOPPED~frame": "4ee72fda8ec7c249",
-        "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/runWriteSession": "7eced26575e5739c",
-        "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/finishSaved": "cb00e42e19a1492c",
+        "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/finishSaved": "6ab4e73754c19bb3",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/saveValues": "a3490626caef7463",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#holdsValues": "700e61d6137fa6c4",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/retryOriginal": "04de69b8a28ab990",
@@ -278,6 +277,7 @@
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_BROWSER_PHASE.changedViewer": "94ce2004013a5194",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
+        "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_UI_COPY~frame": "989186c512451aa2",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_UI_COPY.changedViewer": "7e5d0a0b7f76bfdb",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_UI_COPY.initializedOnly": "1e7501d73b72c902",
@@ -939,38 +939,57 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
-        "durationMs": 29340,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
+        "durationMs": 64776,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "ae8e2da489abb89e3be81b5c6f9dbb77b822b7c55f1d086480dd71533167c82d",
-        "recordedAt": "2026-10-25T04:45:53.598Z",
+        "outputSha256": "a32805a740eebb4beb558030d77187a6dbf8006ebdfedb089799173d74ec29b1",
+        "recordedAt": "2026-10-25T09:45:45.972Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T04:45:54.030Z",
+        "recordedAt": "2026-10-25T09:45:46.494Z",
         "source": "attested",
-        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
+        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+      },
+      {
+        "kind": "browser",
+        "outcome": "pass",
+        "recordedAt": "2026-10-25T09:45:47.011Z",
+        "source": "attested",
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app al guardar países y cupos: antes, «Los países y cupos quedaron guardados.» aparecía 2 veces y con 1 toast; después, 1 vez y sin toast (4/4)."
       }
     ],
     "limitations": [
-      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T04:45:55.620Z",
+    "recordedAt": "2026-10-25T09:45:48.910Z",
     "result": "partial",
-    "runId": "20261025T044523Z-4138b1",
+    "runId": "20261025T094440Z-748a57",
     "scope": {
       "decision": "full",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/finishSaved",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/write",
+          "reason": "visible or interactive code changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.admissions.messaging.usage.save: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
       ]
@@ -988,7 +1007,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T044523Z-4138b1.json"
+    "report": "runs/20261025T094440Z-748a57.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

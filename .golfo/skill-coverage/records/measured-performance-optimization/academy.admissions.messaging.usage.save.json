@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-single-announcements",
+      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
       "files": {
-        "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx": "b100620d825a2ff5",
+        "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx": "e219dcdf4b270fb0",
         "app/api/tribes/[slug]/messaging/usage-policy/route.ts": "bd74481f6c2f3172",
         "app/api/tribes/[slug]/messaging/usage-policy/operations/[operationId]/route.ts": "07b6bc5782cf6dbe",
         "src/modules/messaging/setup.ts": "36ebb75d1e9b9914",
@@ -572,7 +572,7 @@
         "src/modules/academy-admissions/constants/admission-review-dates.ts": "ed6ccaa0d7bbce25",
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f"
       },
-      "fingerprint": "sha256:02e72d6be91e9fa196a68a7b9a77ecaa3d2352abfb45e1cdc41716e8250a4143",
+      "fingerprint": "sha256:9c7df92d438bddcf740aaf71ca41be9ab583e40343a82b69eac24666a6917e1e",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/checkViewer": "46671a3dc374d709",
@@ -584,13 +584,12 @@
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#WRITE_STEP_COPY": "73d180162fe430b7",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#REVIEW_STEP_INDEX": "0138ae7857db882b",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/launchRead": "40d0b408d3af3425",
-        "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/write": "cab3a86e62cfdae0",
+        "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/write": "74ef9f10447a28f8",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageWriteOutcome": "a97a1bf81cc75bcc",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#STOPPED.status": "667a9efb95c371eb",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#STOPPED~frame": "4ee72fda8ec7c249",
-        "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/runWriteSession": "7eced26575e5739c",
-        "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/finishSaved": "cb00e42e19a1492c",
+        "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/finishSaved": "6ab4e73754c19bb3",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/saveValues": "a3490626caef7463",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#holdsValues": "700e61d6137fa6c4",
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/retryOriginal": "04de69b8a28ab990",
@@ -661,6 +660,7 @@
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_BROWSER_PHASE.changedViewer": "94ce2004013a5194",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
+        "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_UI_COPY~frame": "989186c512451aa2",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_UI_COPY.changedViewer": "7e5d0a0b7f76bfdb",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_UI_COPY.initializedOnly": "1e7501d73b72c902",
@@ -5161,18 +5161,17 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T04:47:24.577Z",
+    "recordedAt": "2026-10-25T09:48:23.871Z",
     "result": "not-applicable",
-    "runId": "20261025T044722Z-dfc804",
+    "runId": "20261025T094821Z-11566c",
     "scope": {
-      "decision": "full",
+      "decision": "not-applicable",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "recorded not applicable: El cambio de boundaries no agrega requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": [
-        "measure the complete flow /[slug]/academia/admissions/messaging before and after, same build, data and throttling; median of 3 for noisy metrics"
-      ]
+      "suggestedScope": []
     },
     "skill": {
       "definitionFiles": {
@@ -5189,8 +5188,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "El cambio de boundaries no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T044722Z-dfc804.json"
+    "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T094821Z-11566c.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

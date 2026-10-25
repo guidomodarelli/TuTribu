@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "fix/academy-single-announcements",
+      "commit": "4c2585da15b1b6f0fc6fd4af5a53cb8e10991b54",
       "files": {
-        "components/academy/academy-management/index.tsx": "34f2bdb8739e7845",
+        "components/academy/academy-management/index.tsx": "b31e2d2038935251",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/academy/bonuses/route.ts": "2b4c0dee98bd2d99",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
@@ -46,7 +46,7 @@
         "src/constants/time.ts": "98b5459a77a709b0",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:3eab3b966261413118608f74cc2225f788014bb23e3d31cb45df6d9eb265812a",
+      "fingerprint": "sha256:245f6064da2fa01ccf259a95d4df9e51ace7addb0e201e53be1f3fa42e4722b1",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-management/index.tsx#BonusDialog/handleSubmit": "6db5a5aa3a3cb844",
@@ -65,7 +65,7 @@
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.saving": "17b92aa11f16cc23",
         "components/academy/academy-management/index.tsx#MIN_REASON_LENGTH": "1c0a5e01e735a4c4",
         "pkg:react": "374a4508a198654b",
-        "components/academy/academy-management/index.tsx#MembersSection/handleRevoke": "8e2b751751e0c955",
+        "components/academy/academy-management/index.tsx#MembersSection/handleRevoke": "14b51a79d22fe867",
         "components/academy/academy-management/index.tsx#MembersSection~shell": "5e5f716a7ddad39e",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": "6371b497b9fa3370",
@@ -490,32 +490,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
-        "durationMs": 37927,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
+        "durationMs": 63583,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "24183fce1af340b9c2b8723d2bae48bef47a97436580d3b479b0c92cc4dbb32f",
-        "recordedAt": "2026-10-25T05:11:49.236Z",
+        "outputSha256": "511af80feddbc95d0fa0e2762d9480823aa3fd877f4c4511b98c518d4a0b1905",
+        "recordedAt": "2026-10-25T10:11:22.670Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T05:11:49.936Z",
+        "recordedAt": "2026-10-25T10:11:23.221Z",
         "source": "attested",
-        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
+        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
       }
     ],
     "limitations": [
-      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T05:11:52.024Z",
+    "recordedAt": "2026-10-25T10:11:24.703Z",
     "result": "partial",
-    "runId": "20261025T051110Z-a5119a",
+    "runId": "20261025T101018Z-541fcb",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -525,7 +525,7 @@
       "relevantChangesAtBegin": [
         {
           "change": "modified",
-          "key": "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage",
+          "key": "components/academy/academy-management/index.tsx#MembersSection/handleRevoke",
           "reason": "visible or interactive code changed"
         }
       ],
@@ -546,7 +546,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T051110Z-a5119a.json"
+    "report": "runs/20261025T101018Z-541fcb.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",
