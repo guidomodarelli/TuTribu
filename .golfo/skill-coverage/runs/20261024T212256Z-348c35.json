@@ -1,0 +1,63 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-invitation-link-focus",
+    "commit": "0569c8d0c20e2ec8a70d0e8da7fe6957be3c8052",
+    "fingerprint": "sha256:29419ae59ee338c7a4444189dbc1f9bd12ea2539873111a919232e75a8e4b513",
+    "uncommittedFiles": [],
+    "fileCount": 159,
+    "inputCount": 1644
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/tribe-round.test.tsx tests/unit/modules/messages tests/unit/pages/tribe-message-routes.test.ts",
+      "durationMs": 131716,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "2769d2275e44031d827c2831c78235296413d60a3bea2993c657fc94ac1cb17a",
+      "recordedAt": "2026-10-24T21:41:06.182Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-24T22:27:08.252Z",
+      "source": "attested",
+      "summary": "Publicar: optimista con rollback y clave idempotente por payload completo; replay quita la copia optimista y relee. Like: optimista con coalescencia y estado deseado en el request; validado contra Postgres real"
+    }
+  ],
+  "limitations": [],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-24T22:27:27.932Z",
+  "result": "verified",
+  "runId": "20261024T212256Z-348c35",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "no previous coverage: the whole unit is analyzed"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit tribe.campfire.react: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "edc05978e69da764",
+      "references/action-catalog.md": "3011dc2f28c2e91c",
+      "references/concurrency-reconciliation.md": "1bb4d0816b1a483d",
+      "references/framework-primitives.md": "16fc928cc9cc1f3c",
+      "references/interaction-state-machine.md": "c09f8f0c506bdd54",
+      "references/optimistic-decision.md": "62c41b62a67ed97a"
+    },
+    "definitionHash": "sha256:dd15a0530a5e006cb85c263e146db04b998dcd88a4841dada65d0e9377c4dfda",
+    "name": "optimistic-action-mutations",
+    "version": "1.1.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-24T21:22:56.992Z",
+  "unitId": "tribe.campfire.react"
+}

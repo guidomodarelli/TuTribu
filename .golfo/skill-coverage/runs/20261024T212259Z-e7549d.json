@@ -1,0 +1,60 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-invitation-link-focus",
+    "commit": "0569c8d0c20e2ec8a70d0e8da7fe6957be3c8052",
+    "fingerprint": "sha256:29419ae59ee338c7a4444189dbc1f9bd12ea2539873111a919232e75a8e4b513",
+    "uncommittedFiles": [],
+    "fileCount": 159,
+    "inputCount": 1644
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/tribe-round.test.tsx tests/unit/modules/messages tests/unit/pages/tribe-message-routes.test.ts",
+      "durationMs": 131528,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "925b1f87572f6134b8360af1dcd48cfaf9e34d6d41e83fa66b938c037c7fe87f",
+      "recordedAt": "2026-10-24T21:43:18.189Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    }
+  ],
+  "limitations": [],
+  "mode": "full",
+  "pendingChecks": [
+    "missing passing evidence of kind measurement"
+  ],
+  "recordedAt": "2026-10-24T22:27:31.062Z",
+  "result": "partial",
+  "runId": "20261024T212259Z-e7549d",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "no previous coverage: the whole unit is analyzed"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "measure the complete flow /[slug] before and after, same build, data and throttling; median of 3 for noisy metrics"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "d10c4cd971fd4967",
+      "references/bundle-lazy-loading.md": "91990bd1796b9884",
+      "references/database-queries-n-plus-one.md": "3064b23acc3e9f7e",
+      "references/images-fonts-scripts.md": "1ab02d4b1a421c87",
+      "references/incremental-sweep-jobs.md": "c5c8e71bdba2e4a9",
+      "references/measurement-tools.md": "e3e96c85be264c0c",
+      "references/requests-caching.md": "981544e05dee2e5c",
+      "references/unnecessary-renders.md": "2d440f22533a2149"
+    },
+    "definitionHash": "sha256:d161fd46a024c0e9f2698edae2bf21fa465a82b6584c335aaee66a26db4be4c0",
+    "name": "measured-performance-optimization",
+    "version": "1.4.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-24T21:22:59.533Z",
+  "unitId": "tribe.campfire.react"
+}

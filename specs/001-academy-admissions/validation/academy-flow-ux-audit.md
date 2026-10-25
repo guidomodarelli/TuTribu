@@ -97,7 +97,7 @@ Todas las escrituras son pending-first y confirmadas por el servidor, que es la 
 | Volver a comprobar | — | — | Lectura | cumple |
 | Alta y baja en la allowlist | Casilla | 120 s | Relectura | cumple |
 | Importar CSV | Selección y confirmación | 120 s | Reanudar y conciliar | pendiente (LID-10) |
-| Crear, reemitir, renombrar y revocar invitaciones | Motivo y reconocimiento si ya se canjeó | 120 s | Relectura; enlace de un solo uso | pendiente (LID-01) |
+| Crear, reemitir, renombrar y revocar invitaciones | Motivo y reconocimiento si ya se canjeó | 120 s | Relectura; enlace de un solo uso, copiable mientras corre la relectura | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |
 | Decidir una solicitud o un lote | Casilla; motivo para rechazar | Sin deadline | Recuperación del lote por `operation` | pendiente (LID-09) |
 | Decidir una membresía comercial | Casilla | Sin deadline | Relectura | pendiente (LID-09) |
 | Guardar avisos | — | Sin deadline | Cadena correo → preferencia con progreso parcial | pendiente (LID-09) |
@@ -106,7 +106,7 @@ Todas las escrituras son pending-first y confirmadas por el servidor, que es la 
 
 | Id | Skill | Hallazgo | Evidencia | Estado |
 |---|---|---|---|---|
-| LID-01 | estados, mutaciones | Volver a la ventana (`focus`) borra el enlace de invitación de un solo uso antes de copiarlo y muestra «La cuenta o el acceso cambió». | `use-personal-invitation-management.ts` (listener de `focus`) | pendiente |
+| LID-01 | estados, mutaciones | Volver a la ventana (`focus`) borra el enlace de invitación de un solo uso antes de copiarlo y muestra «La cuenta o el acceso cambió». | `use-personal-invitation-management.ts` (listener de `focus`) | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |
 | LID-02 | estados | La actividad oculta su contenido cada vez que la pestaña vuelve a estar visible, y al filtrar o paginar reemplaza todo por un texto de carga. | `activity/admission-activity-container.tsx` | pendiente |
 | LID-03 | boundaries, estados | La bandeja y el historial ocultan los datos del SSR al hidratar y los vuelven a mostrar tras el chequeo de viewer (contenido, vacío, contenido). | `admission-review-container.tsx`, `history/[requestId]/history-container.tsx` | pendiente |
 | LID-04 | estados, a11y | El error de la bandeja no usa `embedded`: anida un `<main>` y duplica el `<h1>`. | `admission-review-container.tsx` | pendiente |
@@ -185,11 +185,11 @@ Todas son pending-first y confirmadas por el servidor; ninguna anticipa un enví
 | Contratar (checkout) | Confirmada por el servidor | La misma (pago) | INT-07, INT-13 | pendiente |
 | Cancelar renovación | Confirmada, con diálogo | La misma | INT-05, INT-13 | pendiente |
 | Actualizar cobertura | Confirmada | La misma | INT-09 | pendiente |
-| Ingresar gratis (academia) | Confirmada + `router.refresh()` | La misma | INT-12 | pendiente |
+| Ingresar gratis (academia) | Confirmada + `router.refresh()` | La misma | INT-12 (descartado) | cumple |
 | Ingresar gratis (historia) | Confirmada (server action) | La misma | INT-10 | pendiente |
 | Cancelar suscripción y reintentar pago | Confirmada | La misma (pago) | INT-13 | pendiente |
-| Publicar en el fogón | Optimista con rollback | La misma | INT-15 | pendiente |
-| Reaccionar | Optimista con coalescencia | La misma | INT-15 | pendiente |
+| Publicar en el fogón | Optimista con rollback | La misma, con clave idempotente | INT-15 | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |
+| Reaccionar | Optimista con coalescencia | La misma, enviando el estado deseado | INT-15 | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |
 | Crear, editar y borrar canales | Confirmada | La misma | INT-13 | pendiente |
 | Guardar oferta y disponibilidad | Confirmada con versión | La misma | INT-04 | pendiente |
 | Guardar proveedor | Confirmada | La misma | — | cumple |
@@ -213,10 +213,10 @@ Todas son pending-first y confirmadas por el servidor; ninguna anticipa un enví
 | INT-09 | estados | La respuesta `throttled` de actualizar cobertura nunca se muestra y una relectura fallida queda en silencio. | `academy-home` (`handleRefresh`) | pendiente |
 | INT-10 | estados | El ingreso gratis desde la historia falla en silencio: redirige sin mensaje. | `app/(platform)/[slug]/historia/page.tsx` | pendiente |
 | INT-11 | a11y | `<main>` anidados dentro del `<main>` del shell. | `academy-home`, `academy-management`, `academy-verification`, `suscripcion/page.tsx`, `canales/page.tsx`, `[slug]/page.tsx` | pendiente |
-| INT-12 | seguridad | Ingresar gratis a la academia usa la conexión de mantenimiento en un request de usuario. | `app/api/tribes/[slug]/academy/join/route.ts` | pendiente; el usuario decidió pasar a la conexión de request |
+| INT-12 | seguridad | Ingresar gratis a la academia usa la conexión de mantenimiento en un request de usuario. | `app/api/tribes/[slug]/academy/join/route.ts` | cumple: hallazgo descartado. `docs/architecture/academy-admissions.htm` documenta que las escrituras de admisión abren su root de request con propósito `maintenance` y el actor de la sesión, y `academy/join` delega en la misma admisión que `/submissions`. El JSDoc de `DATABASE_CONNECTION_USAGE`, que decía solo «cron», se corrigió en [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177). La decisión del usuario de cambiar la conexión se tomó sobre esa descripción equivocada y queda para revisarla con él al cierre. |
 | INT-13 | mutaciones | Ninguna mutación de integrantes tiene deadline: si se cuelga el checkout, el botón queda en «Abriendo el pago…» y no se puede reintentar. | `lib/academy/academy-api-client.ts` | [PR #180](https://github.com/guidomodarelli/TuTribu/pull/180) |
 | INT-14 | estados | Paginar y filtrar en gestionar no muestran carga, y decidir deja el ítem en «pendientes». | `academy-management` | pendiente |
-| INT-15 | mutaciones | Publicar no lleva clave idempotente y el like es un toggle: un reintento tras una respuesta perdida puede duplicar o invertir el resultado. | `tribe-round`, `messages/[id]/like` | pendiente; el usuario decidió corregirlo en el servidor sin cambiar quién puede publicar o reaccionar |
+| INT-15 | mutaciones | Publicar no lleva clave idempotente y el like es un toggle: un reintento tras una respuesta perdida puede duplicar o invertir el resultado. | `tribe-round`, `messages/[id]/like` | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177); migración `20261024210000_add_message_client_request_id.sql` validada en rama efímera |
 | INT-16 | boundaries | Academia, gestionar, verificación, suscripción y canales re-exportan el skeleton del fogón, que no tiene su forma. | `loading.tsx` de cada segmento | pendiente |
 
 ## 5. Rendimiento
@@ -228,3 +228,6 @@ La línea base y el después de cada optimización se registran acá y en su PR,
 | PERF-01 | Páginas de integrantes (`resolveTribePageAccess`) | Viajes secuenciales por request | pendiente | pendiente | pendiente |
 | PERF-02 | Gestionar academia | Viajes secuenciales por request | pendiente | pendiente | pendiente |
 | PERF-03 | Conexión de mensajería (MEN-09) | Renders por segundo en reposo | pendiente | pendiente | pendiente |
+| PERF-04 | Invitaciones: copiar el enlace recién emitido (LID-01) | Espera desde que aparece el enlace hasta poder copiarlo | 17,4 s (Chromium 1280) y 17,2 s (WebKit 390) | 0,016 s y 0,013 s | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |
+| PERF-05 | Fogón: publicar con clave idempotente (INT-15) | Sentencias SQL y latencia por publicación (repositorio real, mediana de 3) | 1 sentencia; 637 ms | 1 sentencia; 638 ms (ruido) | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |
+| PERF-06 | Fogón: Me gusta con estado deseado (INT-15) | Sentencias SQL y latencia por Me gusta; requests al reintentar tras una respuesta perdida | 4 sentencias; 1111 ms; 2 requests | 3 sentencias; 948 ms; 1 request | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |

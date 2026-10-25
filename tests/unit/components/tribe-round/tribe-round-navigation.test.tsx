@@ -444,4 +444,69 @@ describe("TribeRound in-place navigation", () => {
     });
     expect(screen.getByText("Ronda del viernes")).toBeInTheDocument();
   });
+
+  /** Counts the round page reads, leaving out the publications sent to the same path. */
+  const roundReads = () => (global.fetch as Mock).mock.calls.filter(([url, init]) => String(url).startsWith(ROUND_API_PATH) && init?.method !== "POST").length;
+
+  /** Publishes one message whose first response is lost; the automatic resend finds it stored and replays it. */
+  async function publishReplayedMessage(user: ReturnType<typeof userEvent.setup>, reads: Array<Promise<Response>>, storedMessageId: string) {
+    let publications = 0;
+    (global.fetch as Mock).mockImplementation((_url: string, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        publications += 1;
+        return publications === 1
+          ? Promise.reject(new TypeError("Failed to fetch"))
+          : Promise.resolve(jsonResponse({ message: "El mensaje ya estaba publicado.", messageId: storedMessageId, replayed: true }));
+      }
+      return reads.shift() ?? Promise.reject(new Error("Unexpected round read"));
+    });
+    renderRound();
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(screen.getByRole("textbox", { name: "Título del mensaje" }), "Nuevo encuentro");
+    typeInMessageEditor(screen.getByRole("textbox", { name: "Contenido del mensaje" }), "Nos vemos el viernes.");
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+    return () => publications;
+  }
+
+  it("retries the in-place reload of a replayed publication when that reload failed", async () => {
+    const user = userEvent.setup();
+    const storedMessage = { ...firstPageRound.messages[0], id: "5d2c7a1e-9b3f-4e8a-a1c2-7f6e5d4c3b2a", title: "Nuevo encuentro" };
+    const failedRead = createDeferredResponse();
+    const retriedRead = createDeferredResponse();
+    await publishReplayedMessage(user, [failedRead.promise, retriedRead.promise], storedMessage.id);
+
+    await act(async () => { failedRead.resolve(jsonResponse({ message: "No pudimos cargar la ronda." }, 500)); });
+    await user.click(await screen.findByRole("button", { name: "Reintentar" }));
+    await act(async () => { retriedRead.resolve(roundResponse({ ...firstPageRound, messages: [storedMessage, ...firstPageRound.messages] })); });
+
+    // The retry reads the shown page again instead of treating it as already displayed.
+    await waitFor(() => expect(roundReads()).toBe(2));
+    expect(await screen.findAllByText("Nuevo encuentro")).not.toHaveLength(0);
+    expect(screen.queryByRole("button", { name: "Reintentar" })).not.toBeInTheDocument();
+  });
+
+  it("reloads a replayed publication in place and holds new publications until that reload settles", async () => {
+    const user = userEvent.setup();
+    const storedMessage = { ...firstPageRound.messages[0], id: "8e1f2a3b-4c5d-4e6f-9a0b-1c2d3e4f5a6b", title: "Nuevo encuentro" };
+    const reload = createDeferredResponse();
+    const publications = await publishReplayedMessage(user, [reload.promise], storedMessage.id);
+
+    await waitFor(() => expect(roundReads()).toBe(1));
+    // While the stored publication is read back, a newer one cannot be sent: the older snapshot would erase it.
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    expect(screen.getByRole("button", { name: "Compartir" })).toBeDisabled();
+
+    await act(async () => { reload.resolve(roundResponse({ ...firstPageRound, messages: [storedMessage, ...firstPageRound.messages] })); });
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Compartir" })).toBeEnabled());
+    await user.type(screen.getByRole("textbox", { name: "Título del mensaje" }), "Segundo encuentro");
+    expect(screen.getByRole("textbox", { name: "Título del mensaje" })).toHaveValue("Segundo encuentro");
+    expect(screen.getAllByText("Nuevo encuentro").length).toBeGreaterThan(0);
+    expect(refreshMock).not.toHaveBeenCalled();
+    expect(window.location.pathname + window.location.search).toBe(TRIBE_PATH);
+    expect(publications()).toBe(2);
+  });
 });

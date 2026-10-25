@@ -9,6 +9,8 @@ export type CreateTribeMessageCommand = {
   media?: MessageMediaDraftCommand[] | null;
   poll?: MessagePollDraftCommand | null;
   title: string;
+  /** Idempotency key the author's client chose for this publication; a repeat replays the stored message. */
+  clientRequestId?: string;
 };
 
 /**
@@ -48,6 +50,11 @@ export type ToggleMessageLikeCommand = {
   tribeSlug: string;
   messageId: string;
   userId: string;
+  /**
+   * State the viewer wants. When present the write is idempotent, so a retry after a lost response
+   * cannot invert it; when absent the reaction toggles, as older clients expect.
+   */
+  liked?: boolean;
 };
 
 export type ToggleMessagePinCommand = {
