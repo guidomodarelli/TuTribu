@@ -150,6 +150,9 @@ export function MorphBlock({ children, width = "100%", height, radius = SKELETON
   const [resolvedState, setResolved] = useState(!loading);
   if (loading && resolvedState) setResolved(false);
   const resolved = resolvedState && !loading;
+  // A block that starts with its content (server HTML included) shows it as rendered: only a block that was a skeleton morphs into it.
+  const [morphs, setMorphs] = useState(loading);
+  if (loading && !morphs) setMorphs(true);
   useEffect(() => {
     if (loading) return;
     const delay = reduced ? 0 : order(ref.current) * stagger * MILLISECONDS_PER_SECOND;
@@ -198,12 +201,12 @@ export function MorphBlock({ children, width = "100%", height, radius = SKELETON
 
   return <Tag ref={ref} className={[styles.SkeletonMorph__block, className].filter(Boolean).join(" ")} data-state={resolved ? BLOCK_STATE.content : BLOCK_STATE.skeleton} data-fill={fill || undefined} style={sizing}>
     {resolved && <motion.div className={styles.SkeletonMorph__content}
-      initial={reduced ? { opacity: 0 } : { opacity: 0, filter: `blur(${CONTENT_BLUR_PX}px)` }} animate={{ opacity: 1, filter: "blur(0px)" }}
+      initial={!morphs ? false : reduced ? { opacity: 0 } : { opacity: 0, filter: `blur(${CONTENT_BLUR_PX}px)` }} animate={{ opacity: 1, filter: "blur(0px)" }}
       transition={reduced ? { duration: MOTION_TIMING.instant } : CONTENT_ENTER}>
       {children}
     </motion.div>}
-    <span ref={placeholderRef} className={styles.SkeletonMorph__placeholder} aria-hidden="true" data-lines={lineCount || undefined} style={placeholderStyle}>
+    {morphs && <span ref={placeholderRef} className={styles.SkeletonMorph__placeholder} aria-hidden="true" data-lines={lineCount || undefined} style={placeholderStyle}>
       {lineCount > 0 && Array.from({ length: lineCount }, (_line, index) => <span key={index} className={styles.SkeletonMorph__line} data-last={index === lineCount - 1 && lineCount > 1 || undefined} />)}
-    </span>
+    </span>}
   </Tag>;
 }

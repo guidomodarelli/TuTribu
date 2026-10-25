@@ -231,7 +231,8 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
       if (controller.signal.aborted) return;
       const snapshotAt = ready?.renderedAt ?? null, useServerSnapshot = snapshotAt !== consumedSnapshotAt.current;
       consumedSnapshotAt.current = snapshotAt;
-      loaded.current = false; loadedPageCount.current = 1; setPrivateVisible(false); setConfirmed(false);
+      // The server snapshot stays on screen while the current viewer is checked, with its actions disabled until the read is fresh; an already consumed one (restored Activity) is withheld.
+      loaded.current = false; loadedPageCount.current = 1; if (!useServerSnapshot) setPrivateVisible(false); setConfirmed(false);
       return readCurrent(controller.signal, currentSelected.current?.id, false, null, useServerSnapshot);
     });
     /** Restored Activity/bfcache must reload the original scoped intent before enabling another decision. */

@@ -20,7 +20,7 @@ export function AdmissionReviewHistoryContainer({ initialState, client = admissi
   return <CurrentHistory key={`${initialState.viewerId}:${initialState.renderedAt}:${initialState.page.admissionRequestId}:${initialState.page.items[0]?.id ?? ""}:${initialState.hasPrevious}`} state={initialState} client={client} />;
 }
 
-/** @param props - One immutable native-authorized render. @returns Visible history only after current-account confirmation; Activity/bfcache restoration requests fresh role and resource authority. */
+/** @param props - One immutable native-authorized render. @returns The server history as rendered, with its actions after current-account confirmation; Activity/bfcache restoration withholds it and requests fresh role and resource authority. */
 function CurrentHistory({ state, client }: ReadyHistoryProps) {
   const router = useRouter(), [pending, startRefresh] = useTransition();
   const [visible, setVisible] = useState(true), [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -36,15 +36,18 @@ function CurrentHistory({ state, client }: ReadyHistoryProps) {
     viewerController.current = controller;
     if (activated.current) refresh();
     else {
-      activated.current = true; setVisible(false);
+      // The server-authorized facts stay on screen while the current viewer is checked; refresh and pagination wait for it, and a failed or different viewer hides them.
+      activated.current = true;
+      /** @param message - Safe recovery copy. */
+      const withhold = (message: string) => { setVisible(false); setErrorMessage(message); };
       void (async () => {
         try {
           const viewer = await client.viewer(controller.signal);
           if (controller.signal.aborted || viewer.status === "aborted") return;
-          if (viewer.status !== "ready") { setErrorMessage(ADMISSION_REVIEW_HISTORY_COPY.readFailed); return; }
-          if (viewer.value?.id !== state.viewerId) { setErrorMessage(ADMISSION_REVIEW_HISTORY_COPY.changedViewer); return; }
+          if (viewer.status !== "ready") { withhold(ADMISSION_REVIEW_HISTORY_COPY.readFailed); return; }
+          if (viewer.value?.id !== state.viewerId) { withhold(ADMISSION_REVIEW_HISTORY_COPY.changedViewer); return; }
           setHasCurrentViewer(true); setVisible(true);
-        } catch { if (!controller.signal.aborted) setErrorMessage(ADMISSION_REVIEW_HISTORY_COPY.readFailed); }
+        } catch { if (!controller.signal.aborted) withhold(ADMISSION_REVIEW_HISTORY_COPY.readFailed); }
       })();
     }
     /** @param event - Native navigation lifecycle. @returns A fresh server authority check only when a browser document was restored. */
