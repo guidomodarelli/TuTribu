@@ -253,15 +253,31 @@ describe("AcademyManagement", () => {
     expect(screen.getByLabelText("Título")).toHaveValue("Academia avanzada");
   });
 
-  it("moves a request the leader just verified out of the pending list", async () => {
+  it("moves a request the leader just verified out of the pending list and reads the page again", async () => {
     const user = userEvent.setup();
     respondWithJson({ ...pendingItem, status: "verified", version: 2 }, 200);
+    respondWithJson({ items: [], page: 1, scope: "review", total: 0 }, 200);
     render(<AcademyManagement {...props()} />);
 
     await user.click(screen.getByRole("button", { name: "Verificar" }));
 
     await waitFor(() => expect(screen.queryByText("Ana")).not.toBeInTheDocument());
     expect(screen.getByText("No hay solicitudes con esos filtros.")).toBeInTheDocument();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("goes back to the previous page when the decided request was the only one on its page", async () => {
+    const user = userEvent.setup();
+    const next = { ...pendingItem, id: "9b7a8f5e-2c0d-4a5b-9d6c-7e8f90123456", memberDisplayName: "Carla" };
+    respondWithJson({ ...pendingItem, status: "verified", version: 2 }, 200);
+    respondWithJson({ items: [next], page: 1, scope: "review", total: 20 }, 200);
+    render(<AcademyManagement {...props({ initialQueue: { items: [pendingItem], page: 2, total: 21 } })} />);
+
+    await user.click(screen.getByRole("button", { name: "Verificar" }));
+
+    expect(await screen.findByText("Carla")).toBeInTheDocument();
+    const reload = new URL(String(fetchMock.mock.calls[1]?.[0]), "https://tutribu.example.invalid");
+    expect(reload.searchParams.get("page")).toBe("1");
   });
 
   it("shows that a new member search is loading until its page arrives", async () => {

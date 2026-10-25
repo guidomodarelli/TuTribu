@@ -727,13 +727,14 @@ function ReviewQueueSection({ initialQueue, tribeSlug }: { initialQueue: QueuePa
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // The server already loaded the initial query; only a different query
   // fetches (StrictMode-safe: re-running the effect for the same query is a no-op).
-  const loadedQueryKeyRef = useRef(JSON.stringify(query));
+  const [reloadToken, setReloadToken] = useState(0);
+  // A decision that empties a row also refills the page, so the key includes an explicit reload.
+  const queryKey = JSON.stringify({ query, reloadToken });
+  const loadedQueryKeyRef = useRef(queryKey);
   const [loadingQueryKey, setLoadingQueryKey] = useState<string | null>(null);
-  const isLoading = loadingQueryKey === JSON.stringify(query);
+  const isLoading = loadingQueryKey === queryKey;
 
   useEffect(() => {
-    const queryKey = JSON.stringify(query);
-
     if (queryKey === loadedQueryKeyRef.current) {
       return undefined;
     }
@@ -764,7 +765,7 @@ function ReviewQueueSection({ initialQueue, tribeSlug }: { initialQueue: QueuePa
       window.clearTimeout(showLoading);
       controller.abort();
     };
-  }, [query, tribeSlug]);
+  }, [query, queryKey, tribeSlug]);
 
   const replaceItem = (item: ReviewQueueItemDto) =>
     setQueue((current) => ({
@@ -772,11 +773,23 @@ function ReviewQueueSection({ initialQueue, tribeSlug }: { initialQueue: QueuePa
       items: current.items.map((currentItem) => (currentItem.id === item.id ? item : currentItem)),
     }));
 
-  /** An item the leader just decided leaves a status filter it no longer matches, instead of staying under «pendientes». */
-  const settleDecidedItem = (item: ReviewQueueItemDto) =>
-    query.status && item.status !== query.status
-      ? setQueue((current) => ({ ...current, items: current.items.filter((currentItem) => currentItem.id !== item.id), total: Math.max(0, current.total - 1) }))
-      : replaceItem(item);
+  /**
+   * An item the leader just decided leaves a status filter it no longer matches, instead of staying under «pendientes».
+   * The page is then read again (the previous one when it no longer exists), so the next request moves up and the
+   * pagination stays reachable.
+   */
+  const settleDecidedItem = (item: ReviewQueueItemDto) => {
+    if (!query.status || item.status === query.status) {
+      replaceItem(item);
+
+      return;
+    }
+
+    const remaining = Math.max(0, queue.total - 1), lastPage = Math.max(1, Math.ceil(remaining / PAGE_SIZE));
+    setQueue((current) => ({ ...current, items: current.items.filter((currentItem) => currentItem.id !== item.id), total: remaining }));
+    setQuery((current) => ({ ...current, page: Math.min(current.page, lastPage) }));
+    setReloadToken((token) => token + 1);
+  };
 
   return (
     <section aria-labelledby={sectionId} className={styles.AcademyManagement__section}>

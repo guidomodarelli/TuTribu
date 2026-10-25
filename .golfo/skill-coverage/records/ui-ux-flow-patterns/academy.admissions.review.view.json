@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-leader-recovery-exits",
-      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
+      "branch": "fix/academy-leader-form-inputs",
+      "commit": "03e3a78a65d09197552b6bf28a0c145091755709",
       "files": {
         "app/(platform)/[slug]/academia/admissions/page.tsx": "33ca5cc942c75b6a",
         "app/(platform)/[slug]/academia/admissions/loading.tsx": "30d2c5951cad7c98",
@@ -28,12 +28,12 @@
         "src/modules/academy-admissions/constants/admission-batch-review-ui.ts": "c11058b5d2a3a7ef",
         "src/modules/academy-admissions/constants/admission-batch-decision.ts": "1b4c50b0eaa3670d",
         "src/modules/academy-admissions/constants/admission-request.ts": "f65628a88eca20f3",
-        "src/modules/academy-admissions/constants/admission-review-filters.ts": "49aa5b7307b1d78d",
+        "src/modules/academy-admissions/constants/admission-review-filters.ts": "21f83f27e42d3045",
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts": "f1942bcecd1a2254",
         "components/academy-admissions/admission-batch-review/index.tsx": "ea3e6381f39d6432",
         "lib/academy-admissions/admission-review-intent.ts": "05d87687f99eba1c",
         "components/academy-admissions/admission-review/index.tsx": "145fa15e81bb2d7b",
-        "lib/academy-admissions/admission-review-filters.ts": "a3965124a3d6cc22",
+        "lib/academy-admissions/admission-review-filters.ts": "10466fd2945f55fe",
         "components/academy-admissions/admission-review-filters/index.tsx": "6dffad70b1e29937",
         "src/modules/academy-admissions/constants/admission-review-selection.ts": "fd83901eeac62994",
         "src/modules/academy-admissions/application/ports/admission-review-browser-client.ts": "5783d86c29dc8beb",
@@ -259,8 +259,10 @@
         "src/modules/academy-admissions/application/results/admission-public-result-schemas.ts": "00775c03c35f69d8",
         "src/modules/academy-admissions/constants/admission-review-intent-schemas.ts": "b9bb04fc2c21f5ba",
         "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
+        "src/modules/shared/application/date-time/buenos-aires-minute.ts": "4968676132a37835",
         "src/modules/academy-admissions/application/results/admission-review-selection.ts": "57ed7a58771742ac",
         "src/modules/academy-admissions/constants/admission-review-page-input.ts": "56c4a0f0af97c12f",
+        "src/constants/time.ts": "98b5459a77a709b0",
         "hooks/use-admission-notification-context.ts": "6ab6450e3bb1dc3a",
         "hooks/use-visible-notification-refresh.ts": "bab9c862247b57d4",
         "src/modules/academy-admissions/application/results/admission-review-visible-snapshot.ts": "2a51007784411a30",
@@ -327,7 +329,7 @@
         "src/modules/notifications/constants/admission-notification-groups.ts": "22f213c753d3ef05",
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f"
       },
-      "fingerprint": "sha256:3a0c41de297ff58ef53f6480a19a7783ccc153c91187638dfd660b2ff3b661e9",
+      "fingerprint": "sha256:95bacba89f869e0c3f685388f9a22fc2279569b26147cdb1229285a96bd64e82",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/page.tsx#AdmissionReviewPage": "bbab395488b303a4",
@@ -530,7 +532,7 @@
         "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/policyCommand": "b0c11a19b7214466",
         "lib/academy-admissions/admission-review-history-routes.ts#<module>": "2da3ec2294295eb1",
         "lib/academy-admissions/admission-review-history-routes.ts#buildAdmissionReviewHistoryRoute": "8f577b04466104ed",
-        "lib/academy-admissions/admission-review-filters.ts#createAdmissionReviewFilterDraft": "3139f4f5ac48cab7",
+        "lib/academy-admissions/admission-review-filters.ts#createAdmissionReviewFilterDraft": "00a3293316a46780",
         "lib/academy-admissions/admission-review-filters.ts#AdmissionReviewFilterDraft": "828d344c4dfafa48",
         "src/modules/academy-admissions/application/results/admission-review-intent.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/results/admission-review-intent.ts#isAdmissionBatchReviewIntent": "0517439a9bc8c46d",
@@ -555,8 +557,10 @@
         "lib/academy-admissions/admission-draft.ts#UUID_PROTOCOL.versionFour": "ed6a34c54476b521",
         "lib/academy-admissions/admission-draft.ts#UUID_PROTOCOL.versionIndex": "ca7a8bb455d00e1e",
         "lib/academy-admissions/admission-review-filters.ts#parseAdmissionReviewFilterDraft": "10d9d06363dc5d00",
-        "lib/academy-admissions/admission-review-filters.ts#selectedInstant": "b4be86ee49262274",
-        "lib/academy-admissions/admission-review-filters.ts#utcInstant": "1d07a2ce417468a1",
+        "lib/academy-admissions/admission-review-filters.ts#selectedInstant": "6543da2bf1a736d8",
+        "lib/academy-admissions/admission-review-filters.ts#argentinaInstant": "76467f044c4a0f17",
+        "lib/academy-admissions/admission-review-filters.ts#SECONDS_CUT_PATTERN": "f7a82315dc524b8d",
+        "lib/academy-admissions/admission-review-filters.ts#WHOLE_SECOND_FRACTION": "75ab67a8f7283150",
         "hooks/use-admission-notification-refresh.ts#<module>": "d414f6d3ee71f10d",
         "hooks/use-admission-notification-refresh.ts#useAdmissionNotificationRefresh/confirmOwnAction": "79546997c0ea2d82",
         "hooks/use-admission-notification-refresh.ts#useAdmissionNotificationRefresh~shell": "8cee741e4cec0925",
@@ -1387,13 +1391,13 @@
         "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_QUERY_LIMIT~frame": "ad2947ef126efc5e",
         "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_QUERY_LIMIT.searchCharacters": "eafefc720642ca5e",
         "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_COPY.apply": "f367ee55d437f035",
-        "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_COPY.dateHelp": "57bab5a4dbffe8d4",
+        "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_COPY.dateHelp": "8b269570cf1d628c",
         "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_COPY.datePlaceholder": "d79f52df07ebd7c5",
         "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_COPY.description": "5b536441eac4ad46",
         "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_COPY.reset": "ec9b7ea3594d8438",
         "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_COPY.search": "4fa5db023cc2166f",
         "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_COPY.title": "8bd0c4e9846233e4",
-        "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_DATES": "e532aae429d9074b",
+        "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_DATES": "4d12511ed1b0fb07",
         "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_GROUPS": "12d5be402dd34ce9",
         "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_ANY": "1d5895e11172b59a",
         "components/academy-admissions/admission-review-filters/styles.module.scss#*": "cded73648c627f19",
@@ -1486,6 +1490,9 @@
         "src/modules/academy-admissions/constants/admission-review-history-page.ts#ADMISSION_REVIEW_HISTORY_NAVIGATION~frame": "fee5ebae7bb48b5d",
         "src/modules/academy-admissions/constants/admission-review-history-page.ts#ADMISSION_REVIEW_HISTORY_NAVIGATION.cursorQuery": "313d1b102f4bed2a",
         "src/modules/academy-admissions/constants/admission-review-history-page.ts#ADMISSION_REVIEW_HISTORY_NAVIGATION.segment": "262c7864e68ba0c5",
+        "src/modules/shared/application/date-time/buenos-aires-minute.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/shared/application/date-time/buenos-aires-minute.ts#toBuenosAiresMinuteKey": "02b4f9cab325f13d",
+        "src/modules/shared/application/date-time/buenos-aires-minute.ts#MINUTE_KEY_FORMATTER": "265322c01c0ef395",
         "src/modules/academy-admissions/application/ports/admission-review-browser-client.ts#AdmissionBrowserDecisionConfirmation": "40067d18782d8464",
         "src/modules/academy-admissions/constants/admission-navigation.ts#ADMISSION_NAVIGATION.requestQuery": "38ca057eaebd22be",
         "src/modules/academy-admissions/application/results/admission-review-selection.ts#<module>": "2da3ec2294295eb1",
@@ -1494,7 +1501,11 @@
         "src/modules/academy-admissions/constants/admission-review-page-input.ts#admissionReviewPageInputSchema": "a78a7acb3585af9f",
         "src/modules/academy-admissions/constants/admission-review-page-input.ts#reviewPageQuerySchema": "74d5426e761ad26c",
         "src/modules/academy-admissions/constants/admission-review-page-input.ts#admissionReviewNavigationQuerySchema": "ad3ec17a755a05df",
-        "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_MINUTE_PATTERN": "d25b5e13cbadbd63",
+        "src/constants/time.ts#<module>": "2da3ec2294295eb1",
+        "src/constants/time.ts#MILLISECONDS_PER_SECOND": "cfac244fa1960be9",
+        "src/modules/shared/application/date-time/buenos-aires-minute.ts#fromBuenosAiresMinuteKey": "2e7a2c6672bc6ff5",
+        "src/modules/shared/application/date-time/buenos-aires-minute.ts#BUENOS_AIRES_MINUTE_KEY_PATTERN": "bd1a9b69cadcd61c",
+        "src/modules/shared/application/date-time/buenos-aires-minute.ts#SECONDS_SUFFIX": "f3e75c6bb403f622",
         "src/modules/notifications/constants/admission-notification-refresh.ts#ADMISSION_NOTIFICATION_REFRESH_INTERVAL_MS": "b4d3b9cbe08052ef",
         "hooks/use-admission-notification-context.ts#<module>": "d414f6d3ee71f10d",
         "hooks/use-admission-notification-context.ts#useAdmissionNotificationInterest": "36de78fb3ca639c2",
@@ -1712,6 +1723,7 @@
         "src/modules/academy-admissions/application/results/admission-errors.ts#AdmissionPublicError": "31dc755314672ee8",
         "src/modules/academy-admissions/constants/admission-route-input.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-route-input.ts#admissionTribeParamsSchema": "6c82e67e1cfebc39",
+        "src/constants/date-time.ts#BUENOS_AIRES_UTC_OFFSET": "9e89ac6972bf4d4e",
         "lib/notifications/admission-notification-refresh-store.ts#registerAdmissionNotificationRefresh": "9ab065641914a012",
         "src/modules/academy-admissions/constants/admission-batch-result-presentation.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-batch-result-presentation.ts#ADMISSION_BATCH_DECISION_MESSAGE.approved": "3524cb02f67a0949",
@@ -1891,32 +1903,39 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
-        "durationMs": 102217,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admission-review.test.tsx tests/unit/modules/academy-admissions/infrastructure/admission-review-filters.test.ts tests/unit/components/academy-admission-notification-settings.test.tsx tests/unit/lib/time-zone.test.ts",
+        "durationMs": 30582,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "a718281713d423c1dbc218ec282e470b36b524b4a8c79b741b867d963b01be80",
-        "recordedAt": "2026-10-25T18:02:17.789Z",
+        "outputSha256": "6886f7d7bbb667030cf45e9878249ba48f80083cb91fc5ab17b84e48bf64a84a",
+        "recordedAt": "2026-10-25T18:40:39.016Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T18:02:18.197Z",
+        "recordedAt": "2026-10-25T18:40:39.419Z",
         "source": "attested",
-        "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
+        "summary": "Validación: los filtros de fecha se leen en hora de Argentina con la zona fija del producto y rechazan fechas o segundos imposibles en lugar de corregirlas; una zona horaria desconocida se marca junto al campo y bloquea el paso, con un solo anuncio. El contrato HTTP sigue con instantes UTC."
+      },
+      {
+        "kind": "browser",
+        "outcome": "pass",
+        "recordedAt": "2026-10-25T18:40:39.817Z",
+        "source": "attested",
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: antes, «Desde (UTC)», 10:00 enviado como 10:00 UTC y una zona mal escrita no bloqueaba; después, «Desde (hora de Argentina)», 10:00 enviado como 13:00 UTC, «Continuar» bloqueado y un único aviso junto al campo (4/4)."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de recuperación que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los campos de fecha y zona horaria que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T18:02:19.870Z",
+    "recordedAt": "2026-10-25T18:40:41.484Z",
     "result": "partial",
-    "runId": "20261025T180035Z-29ab77",
+    "runId": "20261025T184008Z-b01ab7",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -1925,23 +1944,93 @@
       ],
       "relevantChangesAtBegin": [
         {
-          "change": "modified",
-          "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer~shell",
-          "reason": "visible or interactive code changed"
+          "change": "added",
+          "key": "lib/academy-admissions/admission-review-filters.ts#argentinaInstant",
+          "reason": "new visible or interactive code"
         },
         {
           "change": "modified",
-          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
-          "reason": "visible or interactive code changed"
-        },
-        {
-          "change": "modified",
-          "key": "components/academy-admissions/admission-route-error/styles.module.scss#*",
+          "key": "lib/academy-admissions/admission-review-filters.ts#createAdmissionReviewFilterDraft",
           "reason": "visible or interactive code changed"
         },
         {
           "change": "added",
-          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.signIn",
+          "key": "lib/academy-admissions/admission-review-filters.ts#SECONDS_CUT_PATTERN",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "lib/academy-admissions/admission-review-filters.ts#selectedInstant",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/academy-admissions/admission-review-filters.ts#utcInstant",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "added",
+          "key": "lib/academy-admissions/admission-review-filters.ts#WHOLE_SECOND_FRACTION",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/date-time.ts#BUENOS_AIRES_UTC_OFFSET",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/time.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/time.ts#MILLISECONDS_PER_SECOND",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_COPY.dateHelp",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_DATES",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_MINUTE_PATTERN",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#BUENOS_AIRES_MINUTE_KEY_PATTERN",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#fromBuenosAiresMinuteKey",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#MINUTE_KEY_FORMATTER",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#SECONDS_SUFFIX",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#toBuenosAiresMinuteKey",
           "reason": "new visible or interactive code"
         }
       ],
@@ -1962,7 +2051,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T180035Z-29ab77.json"
+    "report": "runs/20261025T184008Z-b01ab7.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

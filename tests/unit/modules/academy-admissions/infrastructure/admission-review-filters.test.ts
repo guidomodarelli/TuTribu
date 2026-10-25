@@ -16,13 +16,14 @@ describe("reviewer selection continuity", () => {
   it("should accept an intentionally edited date even when it matches the rounded display of the original cutoff", () => {
     const selection = { ...DEFAULT_ADMISSION_REVIEW_SELECTION, submittedUntil: "2026-10-07T00:00:00.123500Z" };
     const draft = createAdmissionReviewFilterDraft(selection);
-    expect(parseAdmissionReviewFilterDraft("synthetic-academy", draft, selection.limit, { original: selection, editedDates: new Set(["submittedUntil"]) })).toMatchObject({ ok: true, filters: { submittedUntil: "2026-10-07T00:00:00.123Z" } });
+    expect(parseAdmissionReviewFilterDraft("synthetic-academy", draft, selection.limit, { original: selection, editedDates: new Set(["submittedUntil"]) })).toMatchObject({ ok: true, filters: { submittedUntil: "2026-10-07T00:00:00Z" } });
   });
 
   it("should round trip normalized filters, explicit false and encoded search through the real page boundary", () => {
     const selection = { limit: 25, source: "common" as const, search: "Ana + García & request=ajena", needsVerification: false, requiresExceptionReason: true, submittedFrom: "2026-10-01T08:00:00-03:00", submittedUntil: "2026-10-08T12:00:00Z" };
     const draft = createAdmissionReviewFilterDraft(selection);
-    expect(draft.submittedFrom).toBe("2026-10-01T11:00:00.000");
+    // The form shows the cut in Argentina time, at minute precision.
+    expect(draft.submittedFrom).toBe("2026-10-01T08:00");
     const parsed = parseAdmissionReviewFilterDraft("synthetic-academy", draft, selection.limit);
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) throw new Error("The valid public selection was rejected");
@@ -41,7 +42,12 @@ describe("reviewer selection continuity", () => {
     expect(input.query).toEqual(DEFAULT_ADMISSION_REVIEW_SELECTION);
   });
 
-  it.each(["2026-02-30T10:00", "2026-10-01T25:00", "unusable"])("should reject an invalid UTC date %s before building navigation", (submittedFrom) => {
+  it("should read a typed cut with seconds in Argentina time", () => {
+    const draft = { ...createAdmissionReviewFilterDraft(DEFAULT_ADMISSION_REVIEW_SELECTION), submittedFrom: "2026-10-01T10:00:30" };
+    expect(parseAdmissionReviewFilterDraft("synthetic-academy", draft, 25)).toMatchObject({ ok: true, filters: { submittedFrom: "2026-10-01T13:00:30Z" } });
+  });
+
+  it.each(["2026-02-30T10:00", "2026-10-01T25:00", "2026-10-01T10:00:99", "unusable"])("should reject an impossible date %s instead of rolling it into another day", (submittedFrom) => {
     const draft = { ...createAdmissionReviewFilterDraft(DEFAULT_ADMISSION_REVIEW_SELECTION), submittedFrom };
     expect(parseAdmissionReviewFilterDraft("synthetic-academy", draft, 25)).toEqual({ ok: false });
   });
