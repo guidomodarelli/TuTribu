@@ -1,0 +1,76 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-pages-ignore-unknown-query",
+    "commit": "59c3cedd91685b065f9e2dcc12e75e5f4d574872",
+    "fingerprint": "sha256:c5b38a3e66c415b09dc65d3d98dffffab747791777510e2370c465dd1c29d4f4",
+    "uncommittedFiles": [],
+    "fileCount": 159,
+    "inputCount": 743
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/modules/academy-admissions/application/admission-page.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-page.test.ts [redacted]-connections-page.test.ts [redacted]-usage-page.test.ts",
+      "durationMs": 6220,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "a344194e442562fb91a951ee248b36bfd25a1aa958c0bdb6ceece6bf51298441",
+      "recordedAt": "2026-10-25T01:12:43.294Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "command": "pnpm run -s typecheck",
+      "durationMs": 2429,
+      "exitCode": 0,
+      "kind": "command",
+      "outcome": "pass",
+      "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
+      "recordedAt": "2026-10-25T01:12:46.173Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T01:12:46.661Z",
+      "source": "attested",
+      "summary": "La página ignora las claves de query desconocidas (z.object en lugar de z.strictObject) y sigue validando las que lee; las APIs siguen estrictas, según la decisión del usuario."
+    }
+  ],
+  "limitations": [
+    "Solo se revisó el manejo de la query de la página; el resto de los estados de la unidad queda para su propia auditoría. No se verificó en navegador: la página necesita un enlace o una solicitud reales."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T01:12:48.276Z",
+  "result": "partial",
+  "runId": "20261025T011236Z-0b323f",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "no previous coverage: the whole unit is analyzed"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit academy.admissions.applicant.invitation.view (/admissions/invitations/[token]): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "7e0fca17b2a189bf",
+      "references/decision-rules.md": "5340413b30d4e7a7",
+      "references/nextjs-apis.md": "7d812e101f16defe",
+      "references/server-client-split.md": "7f52ba9f6a13308d",
+      "references/skeleton-patterns.md": "65d4c31f0f8beb93",
+      "references/version-notes.md": "b6f6488947de60f0"
+    },
+    "definitionHash": "sha256:5a183ade06a29d78b3b2aa3587c403ce09b7391dc6eca1eb1575a1b280e57e16",
+    "name": "nextjs-route-ui-boundaries",
+    "version": "1.2.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T01:12:36.544Z",
+  "unitId": "academy.admissions.applicant.invitation.view"
+}

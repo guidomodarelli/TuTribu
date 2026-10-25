@@ -185,6 +185,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 ### Fixed
 - «Reintentar» en las páginas de error de admisiones y en el error general vuelve a cargar la sección; antes no volvía a pedirla o no hacía nada.
 - Si la academia, su gestión, la verificación, los canales o el fogón no pueden cargarse por un problema temporal, la tribu muestra un error con «Reintentar» sin perder el menú lateral, en lugar de «página no encontrada».
+- Los enlaces de admisión e invitación personal y las páginas de mensajería abren normalmente aunque traigan parámetros de campañas o redes sociales (por ejemplo `utm_source` o `fbclid`), en lugar de mostrar «No podemos mostrar esta admisión».
 - Cuando una publicación del fogón se queda sin respuesta, la página la reenvía sola una vez sin duplicarla: si ya se había publicado, avisa «El mensaje ya estaba publicado.» y la muestra, también cuando tenía imágenes o archivos.
 - Repetir un Me gusta después de una falla de conexión ya no lo invierte: se guarda el estado que elegiste.
 - Al volver a la ventana de invitaciones también se comprueba que sigas pudiendo gestionarlas; si perdiste ese permiso, el enlace recién emitido se oculta.

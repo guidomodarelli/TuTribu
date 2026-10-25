@@ -8,8 +8,8 @@ import { MESSAGING_ERROR_CODE, MESSAGING_ERROR_MESSAGE } from "../../constants/m
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
-/** Caller account, countries or channel readiness never enter SSR input. */
-const pageInputSchema = z.strictObject({ params: messagingTribeParamsSchema, query: z.strictObject({}) });
+/** Caller account, countries or channel readiness never enter SSR input: unknown query keys are dropped, never read. */
+const pageInputSchema = z.strictObject({ params: messagingTribeParamsSchema, query: z.object({}) });
 /** @param input - Untrusted resolved runtime params/query. @param open - Server-selected inward use case. @returns A current safe leader snapshot or Spanish failure without partial private data. */
 export async function loadMessagingUsagePageState(input: unknown, open: () => Promise<Pick<GetMessagingUsagePageUseCase, "execute">>): Promise<MessagingUsagePageState> {
   const failure = (code: typeof MESSAGING_ERROR_CODE[keyof typeof MESSAGING_ERROR_CODE]): MessagingUsagePageState => ({ kind: "unavailable", code, message: MESSAGING_ERROR_MESSAGE[code] });

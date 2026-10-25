@@ -61,9 +61,21 @@ describe("admission page state", () => {
     expect(await fixture.useCase.execute({ slug: fixture.overview.tribe.slug, requestId: randomUUID() })).toMatchObject({ ok: false, failure: { code: "authentication_required" } });
   });
 
+  it("should drop unknown query keys without reading them and still reject a malformed known key", async () => {
+    const execute = vi.fn(async () => ({ ok: false as const, failure: { code: ADMISSION_ERROR_CODE.authenticationRequired, cause: new Error("Synthetic") } })), requestId = randomUUID();
+    // A role in the query is ignored: the use case only receives the slug, the request id and its own request context.
+    await loadAdmissionPageState({ params: { requestId }, query: { tribe: "synthetic-academy", role: "leader", utm_source: "newsletter" }, mode: "request" }, async () => ({ page: { execute } }));
+    expect(execute).toHaveBeenCalledOnce();
+    expect(JSON.stringify(execute.mock.calls)).not.toMatch(/leader|newsletter/);
+    expect(await loadAdmissionPageState({ params: { slug: "synthetic-academy" }, query: { fbclid: "tracking" }, mode: "entry" }, async () => ({ page: { execute } }))).not.toMatchObject({ code: "invalid_input" });
+    const open = vi.fn();
+    expect(await loadAdmissionPageState({ params: { requestId: randomUUID() }, query: { tribe: "Not A Slug!" }, mode: "request" }, open)).toMatchObject({ kind: "unavailable", code: "invalid_input" });
+    expect(open).not.toHaveBeenCalled();
+  });
+
   it("should reject malformed input before composition and keep auth returns local without exposing causes", async () => {
     const open = vi.fn();
-    expect(await loadAdmissionPageState({ params: { requestId: randomUUID() }, query: { tribe: "synthetic-academy", role: "leader" }, mode: "request" }, open)).toMatchObject({ kind: "unavailable", code: "invalid_input" });
+    expect(await loadAdmissionPageState({ params: { requestId: "not-a-uuid" }, query: { tribe: "synthetic-academy" }, mode: "request" }, open)).toMatchObject({ kind: "unavailable", code: "invalid_input" });
     expect(open).not.toHaveBeenCalled();
     const requestId = randomUUID();
     const state = await loadAdmissionPageState({ params: { requestId }, query: { tribe: "synthetic-academy" }, mode: "request" }, async () => ({ page: { execute: async () => ({ ok: false, failure: { code: ADMISSION_ERROR_CODE.authenticationRequired, cause: new Error("Synthetic private auth payload") } }) } }));

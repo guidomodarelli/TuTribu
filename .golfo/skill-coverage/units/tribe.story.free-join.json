@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "id": "tribe.story.free-join",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Tribu",
+    "page": "Historia",
+    "section": null,
+    "subflow": "Ingresar gratis desde la historia"
+  },
+  "description": "Ingreso gratuito desde la historia de la tribu con una server action.",
+  "routes": [
+    "/[slug]/historia"
+  ],
+  "entries": [
+    {
+      "path": "app/(platform)/[slug]/historia/page.tsx",
+      "symbol": "joinTribeFreeAction"
+    },
+    {
+      "path": "components/tribes/tribe-story-about/free-join-submit-button/index.tsx",
+      "symbol": "FreeJoinSubmitButton"
+    }
+  ],
+  "origin": "curated",
+  "dependsOn": [
+    {
+      "path": "src/modules/tribes/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildTribesModule"
+    },
+    {
+      "path": "src/modules/auth/infrastructure/composition/authenticated-account-provider.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "createRequestAuthenticatedAccountProvider"
+    },
+    {
+      "path": "src/modules/tribes/infrastructure/repositories/postgres-tribe-free-join-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresTribeFreeJoinRepository"
+    },
+    {
+      "path": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "readMessagingRecoveryLock"
+    },
+    {
+      "path": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "readMessagingHostingSecurityConfig"
+    },
+    {
+      "path": "src/modules/auth/infrastructure/repositories/better-auth-session-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "BetterAuthSessionRepository"
+    },
+    {
+      "path": "src/modules/shared/infrastructure/observability/server-logger.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "createServerLogger"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/repositories/postgres-tribe-member-subscription-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresTribeMemberSubscriptionRepository"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/repositories/postgres-tribe-payment-integration-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresTribePaymentIntegrationRepository"
+    },
+    {
+      "path": "src/modules/tribes/infrastructure/repositories/cloudflare-images-tribe-image-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "CloudflareImagesTribeImageRepository"
+    },
+    {
+      "path": "src/modules/tribes/infrastructure/repositories/postgres-tribe-academy-admission-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresTribeAcademyAdmissionRepository"
+    },
+    {
+      "path": "src/modules/tribes/infrastructure/repositories/postgres-tribe-creation-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresTribeCreationRepository"
+    },
+    {
+      "path": "src/modules/tribes/infrastructure/repositories/postgres-tribe-creator-whitelist-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresTribeCreatorWhitelistRepository"
+    },
+    {
+      "path": "src/modules/tribes/infrastructure/repositories/postgres-tribe-identity-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresTribeIdentityRepository"
+    },
+    {
+      "path": "src/modules/tribes/infrastructure/repositories/postgres-tribe-invitation-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresTribeInvitationRepository"
+    },
+    {
+      "path": "src/modules/tribes/infrastructure/repositories/postgres-tribe-presence-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresTribePresenceRepository"
+    },
+    {
+      "path": "src/modules/tribes/infrastructure/repositories/postgres-tribe-read-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresTribeReadRepository"
+    },
+    {
+      "path": "src/modules/tribes/infrastructure/repositories/postgres-tribe-story-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresTribeStoryRepository"
+    },
+    {
+      "path": "src/modules/tribes/infrastructure/repositories/postgres-tribe-support-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresTribeSupportRepository"
+    },
+    {
+      "path": "src/modules/tribes/infrastructure/repositories/postgres-tribe-welcome-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresTribeWelcomeRepository"
+    },
+    {
+      "path": "src/modules/tribes/infrastructure/repositories/postgres-tribe-welcome-selection-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresTribeWelcomeSelectionRepository"
+    },
+    {
+      "path": "src/modules/academy-admissions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAcademyAdmissionsModule"
+    },
+    {
+      "path": "src/modules/auth/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAuthModule"
+    },
+    {
+      "path": "src/modules/subscriptions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildSubscriptionsModule"
+    }
+  ]
+}
