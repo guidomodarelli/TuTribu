@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { ThemedToaster } from "@golfo/ui";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import userEvent from "@testing-library/user-event";
@@ -195,5 +195,119 @@ describe("AcademyManagement", () => {
     expect(await screen.findByText("Oferta guardada.")).toBeInTheDocument();
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 100)); });
     expect(screen.getAllByText("Oferta guardada.")).toHaveLength(1);
+  });
+
+  it("revokes a bonus through an accessible dialog that sends once and then reloads the members", async () => {
+    const user = userEvent.setup();
+    const bonus = { endsAt: "2026-12-31T23:59:59.000Z", id: "7f5e6d3c-0a8b-4e3f-9b4a-5c6d7e8f9012", note: null, revokedAt: null, sourceType: "manual_bonus" as const, startsAt: "2026-06-01T00:00:00.000Z" };
+    let finishRevoke!: (response: Response) => void;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((resolve) => { finishRevoke = resolve; }));
+    respondWithJson({ members: [{ ...member, grants: [{ ...bonus, revokedAt: "2026-06-03T00:00:00.000Z" }] }], page: 1, total: 1, viewerRole: "leader" }, 200);
+    render(<AcademyManagement {...props({ initialMembers: { members: [{ ...member, grants: [bonus] }], page: 1, total: 1, viewerRole: "leader" } })} />);
+
+    await user.click(screen.getByRole("button", { name: "Revocar" }));
+    const dialog = await screen.findByRole("dialog", { name: "Revocar bonificación" });
+    const submit = within(dialog).getByRole("button", { name: "Revocar bonificación" });
+    expect(submit).toBeDisabled();
+
+    await user.type(within(dialog).getByLabelText("Motivo de la revocación"), "Error de carga");
+    await user.click(submit);
+    await user.click(submit);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(within(dialog).getByRole("button", { name: "Revocando…" })).toBeDisabled();
+
+    await act(async () => { finishRevoke(new Response(JSON.stringify({ message: "La bonificación quedó revocada." }), { headers: { "Content-Type": "application/json" }, status: 200 })); });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain("/members");
+    expect(await screen.findByText(/\(revocado\)/)).toBeInTheDocument();
+  });
+
+  it("keeps the failure of a revocation inside its dialog, with the reason still written", async () => {
+    const user = userEvent.setup();
+    const bonus = { endsAt: null, id: "8a6f7e4d-1b9c-4f4a-8c5b-6d7e8f901234", note: null, revokedAt: null, sourceType: "manual_bonus" as const, startsAt: "2026-06-01T00:00:00.000Z" };
+    respondWithJson({ message: "No pudimos revocar la bonificación." }, 503);
+    render(<AcademyManagement {...props({ initialMembers: { members: [{ ...member, grants: [bonus] }], page: 1, total: 1, viewerRole: "leader" } })} />);
+
+    await user.click(screen.getByRole("button", { name: "Revocar" }));
+    const dialog = await screen.findByRole("dialog", { name: "Revocar bonificación" });
+    await user.type(within(dialog).getByLabelText("Motivo de la revocación"), "Error de carga");
+    await user.click(within(dialog).getByRole("button", { name: "Revocar bonificación" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("No pudimos revocar la bonificación.");
+    expect(within(dialog).getByLabelText("Motivo de la revocación")).toHaveValue("Error de carga");
+  });
+
+  it("keeps unsaved offer edits when the availability changes", async () => {
+    const user = userEvent.setup();
+    const settings = props().settings!;
+    respondWithJson({ ...settings, configVersion: 3, salesEnabled: true }, 200);
+    render(<AcademyManagement {...props()} />);
+
+    await user.clear(screen.getByLabelText("Título"));
+    await user.type(screen.getByLabelText("Título"), "Academia avanzada");
+    await user.click(screen.getByRole("switch", { name: "Ventas abiertas" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByRole("switch", { name: "Ventas abiertas" })).toBeChecked());
+    expect(screen.getByLabelText("Título")).toHaveValue("Academia avanzada");
+  });
+
+  it("moves a request the leader just verified out of the pending list and reads the page again", async () => {
+    const user = userEvent.setup();
+    respondWithJson({ ...pendingItem, status: "verified", version: 2 }, 200);
+    respondWithJson({ items: [], page: 1, scope: "review", total: 0 }, 200);
+    render(<AcademyManagement {...props()} />);
+
+    await user.click(screen.getByRole("button", { name: "Verificar" }));
+
+    await waitFor(() => expect(screen.queryByText("Ana")).not.toBeInTheDocument());
+    expect(screen.getByText("No hay solicitudes con esos filtros.")).toBeInTheDocument();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("recovers the last real page when a reload asks for a page that no longer exists", async () => {
+    const user = userEvent.setup();
+    const second = { ...pendingItem, id: "0c8b9a6f-3d1e-4b6c-8e7d-8f9012345678", memberDisplayName: "Dani" };
+    const next = { ...pendingItem, id: "1d9c0b7a-4e2f-4c7d-9f8e-901234567890", memberDisplayName: "Eva" };
+    respondWithJson({ ...pendingItem, status: "verified", version: 2 }, 200);
+    // Another decision already emptied page 2: the server answers it empty, with the real total.
+    respondWithJson({ items: [], page: 2, scope: "review", total: 20 }, 200);
+    respondWithJson({ items: [next], page: 1, scope: "review", total: 20 }, 200);
+    render(<AcademyManagement {...props({ initialQueue: { items: [pendingItem, second], page: 2, total: 22 } })} />);
+
+    await user.click(screen.getAllByRole("button", { name: "Verificar" })[0]);
+
+    expect(await screen.findByText("Eva")).toBeInTheDocument();
+    expect(new URL(String(fetchMock.mock.calls[2]?.[0]), "https://tutribu.example.invalid").searchParams.get("page")).toBe("1");
+  });
+
+  it("goes back to the previous page when the decided request was the only one on its page", async () => {
+    const user = userEvent.setup();
+    const next = { ...pendingItem, id: "9b7a8f5e-2c0d-4a5b-9d6c-7e8f90123456", memberDisplayName: "Carla" };
+    respondWithJson({ ...pendingItem, status: "verified", version: 2 }, 200);
+    respondWithJson({ items: [next], page: 1, scope: "review", total: 20 }, 200);
+    render(<AcademyManagement {...props({ initialQueue: { items: [pendingItem], page: 2, total: 21 } })} />);
+
+    await user.click(screen.getByRole("button", { name: "Verificar" }));
+
+    expect(await screen.findByText("Carla")).toBeInTheDocument();
+    const reload = new URL(String(fetchMock.mock.calls[1]?.[0]), "https://tutribu.example.invalid");
+    expect(reload.searchParams.get("page")).toBe("1");
+  });
+
+  it("shows that a new member search is loading until its page arrives", async () => {
+    const user = userEvent.setup();
+    let finishSearch!: (response: Response) => void;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((resolve) => { finishSearch = resolve; }));
+    render(<AcademyManagement {...props()} />);
+    const membersSection = screen.getByRole("heading", { name: "Accesos de integrantes" }).closest("section") as HTMLElement;
+
+    await user.type(within(membersSection).getByLabelText("Buscar por nombre"), "Beto");
+    await user.click(within(membersSection).getByRole("button", { name: "Buscar" }));
+    expect(await within(membersSection).findByRole("status")).toHaveTextContent("Consultando…");
+
+    await act(async () => { finishSearch(new Response(JSON.stringify({ members: [member], page: 1, total: 1, viewerRole: "leader" }), { headers: { "Content-Type": "application/json" }, status: 200 })); });
+    await waitFor(() => expect(within(membersSection).queryByRole("status")).not.toBeInTheDocument());
   });
 });
