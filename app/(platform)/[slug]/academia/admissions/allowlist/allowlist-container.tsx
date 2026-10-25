@@ -11,7 +11,7 @@ import { ADMISSION_POLICY_SETTINGS_SEGMENT } from "@/src/modules/academy-admissi
 /** @param props - Guarded SSR snapshot and optional owned browser ports. @returns One presenter with deterministic first-render props and explicit actions; a write's progress is its own toast. */
 export function AllowlistContainer({ initialState, client }: { initialState: AllowlistPageState; client?: AllowlistBrowserClient }) {
   const workflow = useAllowlistWorkflow({ initialState, client });
-  if (initialState.kind === "unavailable") return <AdmissionRouteError embedded message={initialState.message} reset={() => window.location.reload()} />;
+  if (initialState.kind === "unavailable") return <AdmissionRouteError embedded message={initialState.message} retry={() => window.location.reload()} />;
   const writing = workflow.phase === ALLOWLIST_BROWSER_PHASE.writing;
   const busy = workflow.phase === ALLOWLIST_BROWSER_PHASE.checking || workflow.phase === ALLOWLIST_BROWSER_PHASE.reading || writing;
   return <>

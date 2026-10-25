@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "622fc297a81165d651538448906da0c5f3c44887",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx": "29b5c54dc7392c91",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx": "c1c83ca4850ca392",
         "hooks/use-admission-review-batch-selection.ts": "daf741308d49c7a7",
         "app/api/tribes/[slug]/admissions/requests/[requestId]/decision/route.ts": "a600ca2ed24e41ed",
         "app/api/tribes/[slug]/admissions/request-decisions/route.ts": "957e77ecc40a6143",
@@ -438,7 +438,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:fb69e01119f789a56d6da84f7c6161462c6f6a4272f5f4cc35d66fe6f6dac6c6",
+      "fingerprint": "sha256:66c184ec2edd18aa3f8107484fdd35ad66b13958f16fdb291bff141c3232f700",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/publishItems": "83e901f531794b36",
@@ -454,7 +454,7 @@
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/clearBatch": "76ced9d93aca96f3",
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/retryOriginal": "d1fa6c8121a60a86",
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/batchAvailability": "c65cf6e184e478ff",
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer~shell": "7eafaddb8e64f137",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer~shell": "b9231b43efc90108",
         "hooks/use-admission-review-batch-selection.ts#<module>": "d414f6d3ee71f10d",
         "hooks/use-admission-review-batch-selection.ts#useAdmissionReviewBatchSelection/resetConfirmation": "78aa010634834939",
         "pkg:react": "374a4508a198654b",
@@ -4091,32 +4091,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
-        "durationMs": 23670,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 28085,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "63ccbfc7348aee40cfb616d02c5b8b8d89a26a8720b8299a53cd9bbccc3359dd",
-        "recordedAt": "2026-10-25T08:16:46.992Z",
+        "outputSha256": "941b5e27ce390d96a3f1c865f898388e8aa3db31eae4608338f619b22d4dca1a",
+        "recordedAt": "2026-10-25T04:54:20.726Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T08:16:47.430Z",
+        "recordedAt": "2026-10-25T04:54:21.210Z",
         "source": "attested",
-        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T08:16:49.296Z",
+    "recordedAt": "2026-10-25T04:54:23.489Z",
     "result": "partial",
-    "runId": "20261025T081622Z-af7373",
+    "runId": "20261025T045352Z-c85635",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -4140,7 +4140,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T081622Z-af7373.json"
+    "report": "runs/20261025T045352Z-c85635.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

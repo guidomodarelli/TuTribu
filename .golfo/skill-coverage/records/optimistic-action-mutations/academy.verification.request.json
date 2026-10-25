@@ -2,19 +2,19 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "622fc297a81165d651538448906da0c5f3c44887",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
-        "components/academy/academy-verification/index.tsx": "c8c2a308b27583b4",
-        "app/(platform)/[slug]/academia/verificacion/page.tsx": "095d0477f5fe56ea",
-        "app/(platform)/[slug]/academia/verificacion/loading.tsx": "786cb608d49e60c4",
+        "components/academy/academy-verification/index.tsx": "bb96dce99745dcee",
+        "app/(platform)/[slug]/academia/verificacion/page.tsx": "78e36c8d189424cc",
+        "app/(platform)/[slug]/academia/verificacion/loading.tsx": "f9871c638174780b",
         "app/api/tribes/[slug]/verifications/route.ts": "7143222c4b934955",
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
         "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts": "65c276a71c59ef25",
         "src/modules/product-access/infrastructure/repositories/academy-access-sql.ts": "eba86e37e91970d9",
         "lib/academy/academy-api-client.ts": "298112080df602fd",
         "src/modules/member-verifications/application/results/member-verification-public-dto-schemas.ts": "c658dcf96affa74b",
-        "components/loaders/route-skeleton/index.tsx": "24ca012df2b27747",
+        "app/(platform)/[slug]/academia/loading.tsx": "f9871c638174780b",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts": "102e81af136adc5a",
         "src/modules/product-access/constants/academy-route-copy.ts": "f1751ca472d6a6c1",
         "src/modules/product-access/infrastructure/api/academy-request-schemas.ts": "153a8ff211e2f807",
@@ -26,12 +26,13 @@
         "src/modules/member-verifications/domain/services/member-verification-transitions.ts": "c6028b12077ddcd5",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
+        "app/(platform)/[slug]/loading.tsx": "7bca37b96a4432ce",
         "src/modules/shared/infrastructure/validation/validation-issue-summary.ts": "738c0b278fc24011",
         "src/modules/setup.ts": "b7906aa060d53395",
         "src/modules/shared/infrastructure/observability/server-logger.ts": "91c2a693de13f86f",
         "src/modules/shared/infrastructure/observability/request-context.ts": "298449d5b583123d"
       },
-      "fingerprint": "sha256:d32141e19f459eac6f0db8fadfb679bdb7f05d403faf1cd7f7b504b49d9eaf4e",
+      "fingerprint": "sha256:16461337f182ee81388b68db6df1bece6e897c326a9a9a8845d3e12528de81de",
       "inputs": {
         "components/academy/academy-verification/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-verification/index.tsx#ProviderRequest/handleSubmit": "b71de1b0b9772211",
@@ -56,14 +57,10 @@
         "components/academy/academy-verification/index.tsx#STATUS_LABEL.verified": "e229377279309f06",
         "components/academy/academy-verification/index.tsx#STATUS_LABEL~frame": "5f1537e0f93ccc85",
         "pkg:react": "374a4508a198654b",
-        "components/academy/academy-verification/index.tsx#AcademyVerification": "99da3d01dfa5c911",
+        "components/academy/academy-verification/index.tsx#AcademyVerification": "93f3248e56ce214a",
         "app/(platform)/[slug]/academia/verificacion/page.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/academia/verificacion/page.tsx#TribeAcademyVerificationPage": "3f11f582faed3587",
+        "app/(platform)/[slug]/academia/verificacion/page.tsx#TribeAcademyVerificationPage": "4539fd7c7f8f6628",
         "app/(platform)/[slug]/academia/verificacion/loading.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/academia/verificacion/loading.tsx#AcademyVerificationLoading": "8229ac0e1a2840f4",
-        "app/(platform)/[slug]/academia/verificacion/loading.tsx#ACADEMY_VERIFICATION_LOADING_SHAPE~frame": "daabdcb853750723",
-        "app/(platform)/[slug]/academia/verificacion/loading.tsx#ACADEMY_VERIFICATION_LOADING_SHAPE.providerActionCount": "905fa81ec476f20b",
-        "app/(platform)/[slug]/academia/verificacion/loading.tsx#ACADEMY_VERIFICATION_LOADING_SHAPE.providerKeys": "33c3325b9848393b",
         "app/api/tribes/[slug]/verifications/route.ts#<module>": "2da3ec2294295eb1",
         "app/api/tribes/[slug]/verifications/route.ts#POST": "8fbde2b4cc5464fe",
         "app/api/tribes/[slug]/verifications/route.ts#OPERATION": "49b20aae5b80078b",
@@ -116,18 +113,7 @@
         "pkg:zod": "54793d4376d381b3",
         "src/modules/member-verifications/application/results/member-verification-public-dto-schemas.ts#VerificationProviderDto": "0bb059e033e7fb13",
         "src/modules/member-verifications/application/results/member-verification-public-dto-schemas.ts#verificationProviderDtoSchema": "2a384efe41cf8231",
-        "components/loaders/route-skeleton/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/loaders/route-skeleton/index.tsx#RouteSkeleton": "223b4db7f24fd665",
-        "components/loaders/route-skeleton/index.tsx#SkeletonActions": "df9e3baef88be6f1",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame": "42404c67903a5744",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.actionCount": "f92415e0af3e9610",
-        "components/loaders/route-skeleton/index.tsx#SkeletonBlock": "c340a37ce4ab55ed",
-        "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind": "a357496f078189ee",
-        "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth": "175b5e3780859001",
-        "components/loaders/route-skeleton/index.tsx#placeholderKeys": "a1ec4c5ff5f87bbe",
-        "components/loaders/route-skeleton/index.tsx#SkeletonField": "d1ce3464b143b551",
-        "components/loaders/route-skeleton/index.tsx#SkeletonLines": "60d9052267ae7426",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount": "b251bfcb1dd93f46",
+        "app/(platform)/[slug]/academia/loading.tsx#<module>": "2da3ec2294295eb1",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts#<module>": "2da3ec2294295eb1",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts#ACADEMY_HTTP_STATUS~frame": "3324ab9e2cc6ea90",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts#ACADEMY_HTTP_STATUS.badRequest": "9c9fbbe79257ca54",
@@ -212,6 +198,16 @@
         "lib/browser-request-deadline.ts#startBrowserRequestDeadline/followCaller": "5fc4bc96b4267cc9",
         "lib/browser-request-deadline.ts#startBrowserRequestDeadline~shell": "51f782e3225cd5f9",
         "lib/browser-request-deadline.ts#BrowserRequestDeadline": "712811cf78078a22",
+        "app/(platform)/[slug]/loading.tsx#<module>": "2da3ec2294295eb1",
+        "app/(platform)/[slug]/loading.tsx#TribeLoadingPage": "9d20796fb5186f24",
+        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON~frame": "aff7438bb5a53b5f",
+        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.filterCount": "3ae064e3d11de24c",
+        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.filterKeyPrefix": "3ae042de2b44226b",
+        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.keySeparator": "5f8aa621b5bba5b8",
+        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.roundItemCount": "37ee9ed8ad8c9e61",
+        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.roundItemKeyPrefix": "cc618c248c4e5d45",
+        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusAriaRole": "45bd83611f8ba7de",
+        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusLabel": "91b448f9dc994012",
         "src/modules/shared/infrastructure/validation/validation-issue-summary.ts#<module>": "2da3ec2294295eb1",
         "src/modules/shared/infrastructure/validation/validation-issue-summary.ts#summarizeValidationIssues": "10b23b186e9a3fe7",
         "src/modules/shared/infrastructure/validation/validation-issue-summary.ts#ISSUE_PATH_SEPARATOR": "c922ff0b56e1b525",
@@ -336,32 +332,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
-        "durationMs": 23650,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 31260,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "ca8c1843a085d6f41fc2fd93dc1921e7a214e455e5a7fb36ac47c4ea0aa84b9f",
-        "recordedAt": "2026-10-25T08:41:36.737Z",
+        "outputSha256": "5b4dcdb9f1b018da13ad791a104372cac24f840d3bb6e32cc65fc52b46b3af5d",
+        "recordedAt": "2026-10-25T05:29:23.267Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T08:41:37.142Z",
+        "recordedAt": "2026-10-25T05:29:23.817Z",
         "source": "attested",
-        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T08:41:38.127Z",
+    "recordedAt": "2026-10-25T05:29:25.321Z",
     "result": "partial",
-    "runId": "20261025T084112Z-e2d06e",
+    "runId": "20261025T052851Z-2bd9c6",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -370,139 +366,14 @@
       ],
       "relevantChangesAtBegin": [
         {
-          "change": "removed",
-          "key": "app/(platform)/[slug]/academia/loading.tsx#<module>",
-          "reason": "code no longer reached by the unit: an operation may have been removed"
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/verificacion/page.tsx#TribeAcademyVerificationPage",
+          "reason": "code reached by the unit changed"
         },
         {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/verificacion/loading.tsx#ACADEMY_VERIFICATION_LOADING_SHAPE.providerActionCount",
-          "reason": "unclassified object member: lifecycle impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/verificacion/loading.tsx#ACADEMY_VERIFICATION_LOADING_SHAPE.providerKeys",
-          "reason": "lifecycle configuration member (providerKeys)"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/verificacion/loading.tsx#ACADEMY_VERIFICATION_LOADING_SHAPE~frame",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/verificacion/loading.tsx#AcademyVerificationLoading",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "removed",
-          "key": "app/(platform)/[slug]/loading.tsx#<module>",
-          "reason": "code no longer reached by the unit: an operation may have been removed"
-        },
-        {
-          "change": "removed",
-          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.filterCount",
-          "reason": "code no longer reached by the unit: an operation may have been removed"
-        },
-        {
-          "change": "removed",
-          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.filterKeyPrefix",
-          "reason": "code no longer reached by the unit: an operation may have been removed"
-        },
-        {
-          "change": "removed",
-          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.keySeparator",
-          "reason": "code no longer reached by the unit: an operation may have been removed"
-        },
-        {
-          "change": "removed",
-          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.roundItemCount",
-          "reason": "code no longer reached by the unit: an operation may have been removed"
-        },
-        {
-          "change": "removed",
-          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.roundItemKeyPrefix",
-          "reason": "code no longer reached by the unit: an operation may have been removed"
-        },
-        {
-          "change": "removed",
-          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusAriaRole",
-          "reason": "code no longer reached by the unit: an operation may have been removed"
-        },
-        {
-          "change": "removed",
-          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusLabel",
-          "reason": "code no longer reached by the unit: an operation may have been removed"
-        },
-        {
-          "change": "removed",
-          "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON~frame",
-          "reason": "code no longer reached by the unit: an operation may have been removed"
-        },
-        {
-          "change": "removed",
-          "key": "app/(platform)/[slug]/loading.tsx#TribeLoadingPage",
-          "reason": "code no longer reached by the unit: an operation may have been removed"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#<module>",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#placeholderKeys",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.actionCount",
-          "reason": "unclassified object member: lifecycle impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount",
-          "reason": "unclassified object member: lifecycle impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#RouteSkeleton",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonActions",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlock",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonField",
-          "reason": "new code reached by the unit"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonLines",
-          "reason": "new code reached by the unit"
+          "change": "modified",
+          "key": "components/academy/academy-verification/index.tsx#AcademyVerification",
+          "reason": "code reached by the unit changed"
         }
       ],
       "suggestedScope": [
@@ -522,7 +393,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T084112Z-e2d06e.json"
+    "report": "runs/20261025T052851Z-2bd9c6.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

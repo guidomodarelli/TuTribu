@@ -64,15 +64,16 @@ export default async function TribeChannelsPage({
           viewerId: authenticatedMember.id,
         },
       });
-      notFound();
+      // A load failure is not a missing page: the segment error boundary offers a retry inside the shell.
+      throw error;
     });
 
   return (
-    <main>
+    <div>
       <TribeChannelManagement
         channels={channelResult.channels}
         tribeSlug={tribe.slug}
       />
-    </main>
+    </div>
   );
 }

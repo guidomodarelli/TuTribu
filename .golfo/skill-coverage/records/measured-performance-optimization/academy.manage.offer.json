@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "622fc297a81165d651538448906da0c5f3c44887",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
-        "components/academy/academy-management/index.tsx": "2cdaec4513ec7dcd",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "0f0efff9bd2bbc3e",
+        "components/academy/academy-management/index.tsx": "34f2bdb8739e7845",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/academy/settings/route.ts": "9bd70ac5e58480b1",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
         "src/modules/product-access/infrastructure/repositories/postgres-product-access-repository.ts": "b6d068802851a5fa",
@@ -50,7 +50,7 @@
         "src/modules/subscriptions/domain/services/monthly-billing-cycle.ts": "1e253b01e98f41b8",
         "src/constants/time.ts": "98b5459a77a709b0"
       },
-      "fingerprint": "sha256:7f03afae3fe3036fd016929826fca991c23a8c4672c1879ef29f5dbbf0d50c81",
+      "fingerprint": "sha256:e0f76ced8a4740b0cdc773007c7c9328f6363c2d609705f9f0de5957e5b595ce",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-management/index.tsx#SettingsSection~shell": "c222b1571ed4aaf1",
@@ -83,8 +83,8 @@
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.offerSaved": "b9686be9d8bbe7d1",
         "components/academy/academy-management/index.tsx#MAX_BENEFITS": "01438cf0a4615478",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": "b8f0ed9c67a46d96",
-        "components/academy/academy-management/index.tsx#AcademyManagement": "7ffc2c14f59edca8",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": "6371b497b9fa3370",
+        "components/academy/academy-management/index.tsx#AcademyManagement": "3c4bdf0f81d5efd8",
         "app/api/tribes/[slug]/academy/settings/route.ts#<module>": "2da3ec2294295eb1",
         "app/api/tribes/[slug]/academy/settings/route.ts#PUT": "67b792d8532705c9",
         "app/api/tribes/[slug]/academy/settings/route.ts#OPERATION": "30b2be0f64949ae9",
@@ -679,9 +679,9 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T08:34:45.700Z",
+    "recordedAt": "2026-10-25T05:20:28.204Z",
     "result": "not-applicable",
-    "runId": "20261025T083444Z-6c98c4",
+    "runId": "20261025T052026Z-007d92",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
@@ -706,8 +706,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T083444Z-6c98c4.json"
+    "summary": "El cambio de boundaries no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T052026Z-007d92.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

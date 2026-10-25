@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "622fc297a81165d651538448906da0c5f3c44887",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts": "c6ecb49e3254189a",
         "app/api/tribes/[slug]/messaging/connections/[connectionId]/activate/route.ts": "cd6ab6d726572968",
@@ -765,32 +765,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
-        "durationMs": 24440,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 35409,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "764900786d6fd26236dde0238e52e425ea32b21d4450d7ee507a63b36fadc857",
-        "recordedAt": "2026-10-25T07:59:34.157Z",
+        "outputSha256": "c166c95d6903b7c0f3798225b45904fff554d0b4cf7c55b82409df4583667b82",
+        "recordedAt": "2026-10-25T04:30:56.160Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T07:59:34.569Z",
+        "recordedAt": "2026-10-25T04:30:56.758Z",
         "source": "attested",
-        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T07:59:36.025Z",
+    "recordedAt": "2026-10-25T04:30:58.876Z",
     "result": "partial",
-    "runId": "20261025T075909Z-43d125",
+    "runId": "20261025T043020Z-027383",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -814,7 +814,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T075909Z-43d125.json"
+    "report": "runs/20261025T043020Z-027383.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

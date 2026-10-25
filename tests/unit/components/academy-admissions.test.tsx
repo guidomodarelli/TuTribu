@@ -1,7 +1,8 @@
 /** Exercises every admission route loading and error boundary through its real App Router entrypoint. @module academy-admissions-route-boundaries-tests */
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentType } from "react";
+import { RECOVERED_SEGMENT_TEXT, renderThroughAppRouter, type RouteErrorBoundaryProps } from "@/tests/support/app-router-error-boundary";
 import { describe, expect, it, vi } from "vitest";
 import PublicAdmissionError from "@/app/(admission)/admissions/[slug]/error";
 import PublicAdmissionLoading from "@/app/(admission)/admissions/[slug]/loading";
@@ -34,7 +35,7 @@ import { ADMISSION_PAGES, type AdmissionPage } from "@/src/modules/academy-admis
 import { ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";
 import { PERSONAL_INVITATION_UI_COPY } from "@/src/modules/academy-admissions/constants/personal-invitation-ui";
 
-type RouteErrorBoundary = ComponentType<{ error: Error & { digest?: string }; reset: () => void }>;
+type RouteErrorBoundary = ComponentType<RouteErrorBoundaryProps>;
 
 /** A private cause that must never reach the rendered recovery surface. */
 const PRIVATE_FAILURE_MESSAGE = "relation admission_requests leaked token=synthetic-private-value";
@@ -77,8 +78,8 @@ function createPrivateRenderFailure() {
   return Object.assign(new Error(PRIVATE_FAILURE_MESSAGE), { digest: "synthetic-digest" });
 }
 
-/** Asserts the boundary shows safe recovery and that keyboard activation of the retry reaches the framework reset. */
-async function expectKeyboardRecovery(reset: ReturnType<typeof vi.fn>) {
+/** Asserts the boundary shows safe recovery and that keyboard activation of the retry re-fetches the segment and renders it again. */
+async function expectKeyboardRecovery({ refresh, recover }: ReturnType<typeof renderThroughAppRouter>) {
   const user = userEvent.setup();
   expect(screen.getByRole("alert")).not.toHaveTextContent(PRIVATE_FAILURE_MESSAGE);
   expect(document.body).not.toHaveTextContent(PRIVATE_FAILURE_MESSAGE);
@@ -88,8 +89,11 @@ async function expectKeyboardRecovery(reset: ReturnType<typeof vi.fn>) {
   const retry = screen.getByRole("button", { name: "Reintentar" });
   await user.tab();
   expect(retry).toHaveFocus();
-  await user.keyboard("{Enter}");
-  expect(reset).toHaveBeenCalledTimes(1);
+  recover();
+  await act(async () => { await user.keyboard("{Enter}"); });
+  // The framework retry re-requests the segment from the server and re-renders it: a plain reset would skip the refresh.
+  expect(refresh).toHaveBeenCalledTimes(1);
+  expect(await screen.findByText(RECOVERED_SEGMENT_TEXT)).toBeInTheDocument();
 }
 
 describe("academy admission route boundaries", () => {
@@ -104,25 +108,23 @@ describe("academy admission route boundaries", () => {
   });
 
   it.each(LEADER_PAGE_BOUNDARIES)("should recover the %s page under its own heading without rendering the private failure", async (page, _Loading, ErrorBoundary) => {
-    const reset = vi.fn();
-    render(<ErrorBoundary error={createPrivateRenderFailure()} reset={reset} />);
+    const boundary = renderThroughAppRouter(ErrorBoundary, createPrivateRenderFailure());
 
     const definition = ADMISSION_PAGES[page];
     const region = screen.getByRole("region", { name: definition.title });
     expect(within(region).getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(within(region).getByRole("heading", { level: 1, name: definition.title })).toBeInTheDocument();
     expect(within(region).getByRole("heading", { level: 2, name: ADMISSION_UI_COPY.unavailableTitle })).toBeInTheDocument();
-    await expectKeyboardRecovery(reset);
+    await expectKeyboardRecovery(boundary);
   });
 
   it.each(APPLICANT_ERROR_BOUNDARIES)("should recover the %s route in one main landmark without rendering the private failure", async (_route, ErrorBoundary) => {
-    const reset = vi.fn();
-    render(<ErrorBoundary error={createPrivateRenderFailure()} reset={reset} />);
+    const boundary = renderThroughAppRouter(ErrorBoundary, createPrivateRenderFailure());
 
     const main = screen.getByRole("main");
     expect(within(main).getByRole("heading", { level: 1, name: ADMISSION_UI_COPY.unavailableTitle })).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent(ADMISSION_UI_COPY.readFailed);
-    await expectKeyboardRecovery(reset);
+    await expectKeyboardRecovery(boundary);
   });
 
   it.each(APPLICANT_LOADING_BOUNDARIES)("should render the %s loading shell without actions that could submit stale state", (_route, Loading) => {

@@ -111,6 +111,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Cada aspirante puede corregir su WhatsApp mientras la solicitud siga pendiente y vigente; el formulario conserva el cambio original si se pierde la respuesta y avisa cuando debe revisarse de nuevo.
 
 ### Changed
+- Los enlaces de ingreso a una academia y de una solicitud propia ya no se indexan en buscadores ni informan la página de origen al abrir otro sitio, igual que las invitaciones personales.
 
 - Mientras cargan, la academia, Gestionar academia, la verificación, la suscripción y Canales muestran un esqueleto con la forma de cada pantalla en lugar del de la ronda.
 - Las páginas de admisión con pasos (Reglas, Países y cupos, Avisos, Habilitados, Invitaciones y Conexión) muestran mientras cargan un esqueleto con forma de formulario por pasos, y la bandeja, el historial y la actividad uno con forma de lista.
@@ -185,6 +186,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Los líderes de tribu ya no necesitan confirmar su cuenta con Google para operaciones sensibles de admisiones, mensajería, salida del modo academia o borrado de la tribu; desaparecen el botón y la pantalla de confirmación.
 
 ### Fixed
+- «Reintentar» en las páginas de error de admisiones y en el error general vuelve a cargar la sección; antes no volvía a pedirla o no hacía nada.
+- Si la academia, su gestión, la verificación, los canales o el fogón no pueden cargarse por un problema temporal, la tribu muestra un error con «Reintentar» sin perder el menú lateral, en lugar de «página no encontrada».
 - Si una acción de admisiones, mensajería o de integrantes de la academia no recibe respuesta, después de dos minutos deja de esperar y avisa que la respuesta tardó demasiado: ya no queda el botón en curso sin salida. Si era un envío o un cambio, primero se consulta si se guardó antes de ofrecer repetirlo.
 - Los enlaces de admisión e invitación personal y las páginas de mensajería abren normalmente aunque traigan parámetros de campañas o redes sociales (por ejemplo `utm_source` o `fbclid`), en lugar de mostrar «No podemos mostrar esta admisión».
 - Cuando una publicación del fogón se queda sin respuesta, la página la reenvía sola una vez sin duplicarla: si ya se había publicado, avisa «El mensaje ya estaba publicado.» y la muestra, también cuando tenía imágenes o archivos.

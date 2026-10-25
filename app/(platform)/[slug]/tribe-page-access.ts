@@ -127,7 +127,8 @@ export async function resolveTribePageAccess({
  * A visitor without a session is redirected to sign-in with `callbackPath`, the
  * same rule the tribe home applies, so losing the session (or opening a saved
  * link while signed out) never ends in a misleading 404. Signed-in viewers
- * without access still get `notFound()` so hidden tribes stay hidden.
+ * without access still get `notFound()` so hidden tribes stay hidden, while a
+ * failure to resolve access propagates to the segment error boundary.
  *
  * @param options - Log operation, tribe slug, and the page's callback path.
  * @returns The authenticated member, the visible tribe, and request modules.
@@ -136,13 +137,9 @@ export async function resolveVisibleTribePageAccess({
   callbackPath,
   ...options
 }: ResolveVisibleTribePageAccessOptions) {
-  const access = await resolveTribePageAccess(options).catch(() => {
-    notFound();
-  });
-
-  if (!access) {
-    notFound();
-  }
+  // A failure to resolve access is transient, not a hidden tribe: it reaches the segment error boundary, which offers a
+  // retry inside the shell, instead of a misleading 404.
+  const access = await resolveTribePageAccess(options);
 
   const {
     authenticatedMember,

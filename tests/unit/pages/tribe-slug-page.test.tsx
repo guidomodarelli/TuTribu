@@ -1849,7 +1849,7 @@ describe("TribePage", () => {
     });
   });
 
-  it("returns 404 and logs unexpected repository failures", async () => {
+  it("logs unexpected repository failures and lets the segment error boundary offer a retry instead of a 404", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
       email: "leader@example.com",
@@ -1863,13 +1863,15 @@ describe("TribePage", () => {
       throw new Error("NEXT_NOT_FOUND");
     });
 
+    // A transient failure is not a hidden tribe: it reaches the error boundary, which re-fetches the segment on retry.
     await expect(
       TribePageContent({
         params: Promise.resolve({
           slug: "matematica-pro",
         }),
       })
-    ).rejects.toThrow("NEXT_NOT_FOUND");
+    ).rejects.toThrow("Database exploded");
+    expect(notFound).not.toHaveBeenCalled();
 
     expect(errorMock).toHaveBeenCalledWith({
       message: "Failed to resolve tribe access",

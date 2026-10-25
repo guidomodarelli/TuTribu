@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "622fc297a81165d651538448906da0c5f3c44887",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx": "29b5c54dc7392c91",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx": "c1c83ca4850ca392",
         "hooks/use-admission-review-batch-selection.ts": "daf741308d49c7a7",
         "app/api/tribes/[slug]/admissions/requests/[requestId]/decision/route.ts": "a600ca2ed24e41ed",
         "app/api/tribes/[slug]/admissions/request-decisions/route.ts": "957e77ecc40a6143",
@@ -120,7 +120,7 @@
         "src/modules/shared/infrastructure/database/server-environment.ts": "cb00db6eec131df8",
         "src/modules/messaging/domain/value-objects/messaging-key-purpose.ts": "3cb73fd082b826f2"
       },
-      "fingerprint": "sha256:9e1ebae5470da9665b630c3afb66cb4fadd44f733a98a576c573fc95d47777fb",
+      "fingerprint": "sha256:4f08205c9fd62143c7956d335c5cf7648db68d16b8a1daf5dc301ad66ed98aee",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/publishItems": "83e901f531794b36",
@@ -136,7 +136,7 @@
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/clearBatch": "76ced9d93aca96f3",
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/retryOriginal": "d1fa6c8121a60a86",
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/batchAvailability": "c65cf6e184e478ff",
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer~shell": "7eafaddb8e64f137",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer~shell": "b9231b43efc90108",
         "hooks/use-admission-review-batch-selection.ts#<module>": "d414f6d3ee71f10d",
         "hooks/use-admission-review-batch-selection.ts#useAdmissionReviewBatchSelection/resetConfirmation": "78aa010634834939",
         "pkg:react": "374a4508a198654b",
@@ -549,39 +549,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
-        "durationMs": 24010,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 29595,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "4d098dd929575acf130b34de6e67414b21a927387bb4ee6de445b0c5d2d417ec",
-        "recordedAt": "2026-10-25T08:16:17.535Z",
+        "outputSha256": "bd8f4f41ded67c54cf0a4eb73b246cae1275ddb5214bb571fa7b3afb716725b7",
+        "recordedAt": "2026-10-25T04:53:46.479Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T08:16:17.966Z",
+        "recordedAt": "2026-10-25T04:53:46.919Z",
         "source": "attested",
-        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
-      },
-      {
-        "kind": "browser",
-        "outcome": "pass",
-        "recordedAt": "2026-10-25T08:16:18.385Z",
-        "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app, capturando el fallback durante una navegación: antes, academia, gestionar, verificación, suscripción y canales mostraban el esqueleto de la ronda («Cargando sección de tribu») y la invitación «Solicitar ingreso»; después, cada ruta anuncia su propia carga con su forma (panel de pasos en Reglas e Invitaciones, filas en Solicitudes, «Tu solicitud de ingreso» e «Invitación personal» en el solicitante) (4/4)."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T08:16:19.700Z",
+    "recordedAt": "2026-10-25T04:53:48.783Z",
     "result": "partial",
-    "runId": "20261025T081553Z-3d01c8",
+    "runId": "20261025T045316Z-641c7c",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -605,7 +598,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T081553Z-3d01c8.json"
+    "report": "runs/20261025T045316Z-641c7c.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

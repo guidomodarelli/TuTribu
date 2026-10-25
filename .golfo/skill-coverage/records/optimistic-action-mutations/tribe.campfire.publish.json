@@ -6,8 +6,8 @@
   "verified": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-invitation-link-focus",
-      "commit": "0a4edbf24ec78923ec9e2397f84a630d11c29cac",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
         "components/tribe-round/tribe-round/index.tsx": "b1c88af3c07fca82",
         "app/api/tribes/[slug]/messages/route.ts": "932448e76027dccc",
@@ -2348,131 +2348,54 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/tribe-round/tribe-round-navigation.test.tsx tests/unit/components/tribe-round.test.tsx tests/unit/modules/messages tests/unit/pages/tribe-message-routes.test.ts",
-        "durationMs": 143487,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 34082,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "412beec1a4d47f1fbef93f9615bb77ed67cd4aa73e1e2c93ee11abe84b52622c",
-        "recordedAt": "2026-10-25T00:11:42.253Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
-      },
-      {
-        "command": "pnpm run -s typecheck",
-        "durationMs": 2356,
-        "exitCode": 0,
-        "kind": "command",
-        "outcome": "pass",
-        "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T00:11:45.029Z",
+        "outputSha256": "4c98046a2959ce2388b12c40922e04c70eaea1ac17fc51b3b4742ace32a941f0",
+        "recordedAt": "2026-10-25T05:33:31.735Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T00:11:45.574Z",
+        "recordedAt": "2026-10-25T05:33:32.268Z",
         "source": "attested",
-        "summary": "Reconciliación de publicación incierta con la misma clave, búsqueda previa a los adjuntos, recarga en el lugar sin remount, acción pendiente hasta la recarga para que una publicación nueva no se pierda, reintento con reload conservado; Me gusta con estado deseado."
-      },
-      {
-        "kind": "browser",
-        "outcome": "pass",
-        "recordedAt": "2026-10-25T00:11:46.000Z",
-        "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app con la respuesta de la publicación y del Me gusta perdidas: 1 publicación guardada, aviso «El mensaje ya estaba publicado.», la página se recarga en el lugar (1 GET a la ronda, 0 refresh RSC), el feed nunca queda vacío, el compositor vuelve a aceptar un borrador y el Me gusta se conserva (4/4)."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [],
     "mode": "incremental",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T00:11:47.632Z",
+    "recordedAt": "2026-10-25T05:33:34.263Z",
     "result": "verified",
-    "runId": "20261025T000918Z-6c25e5",
+    "runId": "20261025T053257Z-4a15b6",
     "scope": {
       "decision": "incremental",
       "reasons": [
-        "10 relevant change(s) since the verified run"
+        "skill definition changed (1.1.0 → 1.2.0): SKILL.md",
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "app/api/tribes/[slug]/messages/route.ts#POST",
-          "reason": "code reached by the unit changed"
-        },
-        {
-          "change": "modified",
-          "key": "components/tribe-round/tribe-round/index.tsx#TribeRoundContent/handleCreateMessage",
-          "reason": "action handler changed"
-        },
-        {
-          "change": "modified",
-          "key": "hooks/use-tribe-round-navigation.ts#RoundNavigationRequest",
-          "reason": "code reached by the unit changed"
-        },
-        {
-          "change": "modified",
-          "key": "hooks/use-tribe-round-navigation.ts#TribeRoundNavigation",
-          "reason": "code reached by the unit changed"
-        },
-        {
-          "change": "modified",
-          "key": "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation/loadRoundPage",
-          "reason": "action handler changed"
-        },
-        {
-          "change": "added",
-          "key": "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation/reloadCurrentPage",
-          "reason": "new action handler"
-        },
-        {
-          "change": "modified",
-          "key": "hooks/use-tribe-round-navigation.ts#useTribeRoundNavigation~shell",
-          "reason": "component state or render changed"
-        },
-        {
-          "change": "modified",
-          "key": "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#createTribeMessage",
-          "reason": "code reached by the unit changed"
-        },
-        {
-          "change": "modified",
-          "key": "src/modules/messages/domain/repositories/message-creation-repository.ts#MessageCreationRepository",
-          "reason": "code reached by the unit changed"
-        },
-        {
-          "change": "modified",
-          "key": "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#PostgresMessageMutationRepository",
-          "reason": "code reached by the unit changed"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
-        "app/api/tribes/[slug]/messages/route.ts › POST — server contract of the operation: idempotency, transactions, minimal reconciliation payload, versions and permission rejections",
-        "components/tribe-round/tribe-round/index.tsx › TribeRoundContent › handleCreateMessage — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
-        "hooks/use-tribe-round-navigation.ts › RoundNavigationRequest — operations that reach this code: intent, concurrency, rollback and reconciliation",
-        "hooks/use-tribe-round-navigation.ts › TribeRoundNavigation — operations that reach this code: intent, concurrency, rollback and reconciliation",
-        "hooks/use-tribe-round-navigation.ts › useTribeRoundNavigation › loadRoundPage — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
-        "hooks/use-tribe-round-navigation.ts › useTribeRoundNavigation › reloadCurrentPage — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
-        "hooks/use-tribe-round-navigation.ts › useTribeRoundNavigation (component body outside its handlers) — how the component state and render show pending, optimistic and confirmed values, and what is cleaned up on unmount or context change",
-        "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts › createTribeMessage — operations that reach this code: intent, concurrency, rollback and reconciliation",
-        "src/modules/messages/domain/repositories/message-creation-repository.ts › MessageCreationRepository — operations that reach this code: intent, concurrency, rollback and reconciliation",
-        "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts › PostgresMessageMutationRepository — operations that reach this code: intent, concurrency, rollback and reconciliation"
+        "re-check the unit against the rules changed in optimistic-action-mutations/SKILL.md"
       ]
     },
     "skill": {
       "definitionFiles": {
-        "SKILL.md": "edc05978e69da764",
+        "SKILL.md": "96d98d49220f2894",
         "references/action-catalog.md": "3011dc2f28c2e91c",
         "references/concurrency-reconciliation.md": "1bb4d0816b1a483d",
         "references/framework-primitives.md": "16fc928cc9cc1f3c",
         "references/interaction-state-machine.md": "c09f8f0c506bdd54",
         "references/optimistic-decision.md": "62c41b62a67ed97a"
       },
-      "definitionHash": "sha256:dd15a0530a5e006cb85c263e146db04b998dcd88a4841dada65d0e9377c4dfda",
+      "definitionHash": "sha256:e7f9e58f5862e859cec90782e0920de1b6583e9e1904af2e8818f971aeb3448f",
       "name": "optimistic-action-mutations",
-      "version": "1.1.0"
+      "version": "1.2.0"
     },
-    "report": "runs/20261025T000918Z-6c25e5.json"
+    "report": "runs/20261025T053257Z-4a15b6.json"
   }
 }

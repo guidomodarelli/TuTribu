@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "622fc297a81165d651538448906da0c5f3c44887",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
-        "components/academy/academy-management/index.tsx": "2cdaec4513ec7dcd",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "0f0efff9bd2bbc3e",
+        "components/academy/academy-management/index.tsx": "34f2bdb8739e7845",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/verifications/[verificationId]/route.ts": "1169beb137a7ceac",
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
         "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts": "65c276a71c59ef25",
@@ -26,7 +26,7 @@
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3"
       },
-      "fingerprint": "sha256:4f501a87580b0ab2cf4c32decab2b7c4ee0b6d7fbb4a5bed9f73a7ac4606ac4e",
+      "fingerprint": "sha256:b02ac088628f1dcb59d31b1f2e86d924fe172207e2ea81ecc71ada21da823c72",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-management/index.tsx#ReviewQueueRow/decide": "ac96058e54d5acca",
@@ -51,7 +51,7 @@
         "components/academy/academy-management/index.tsx#ReviewQueueSection/replaceItem": "3b65c64521811794",
         "components/academy/academy-management/index.tsx#ReviewQueueSection~shell": "e2441c089224f76d",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": "b8f0ed9c67a46d96",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": "6371b497b9fa3370",
         "app/api/tribes/[slug]/verifications/[verificationId]/route.ts#<module>": "2da3ec2294295eb1",
         "app/api/tribes/[slug]/verifications/[verificationId]/route.ts#PATCH": "aac92a7d51f9c13d",
         "app/api/tribes/[slug]/verifications/[verificationId]/route.ts#DECISION_STATUS.conflict": "c7992a2374f6e866",
@@ -200,46 +200,45 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
-        "durationMs": 23715,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 30853,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "5e3df63055bcd8cda1d9530413b028c95cfa838c16a0ad8e556ba11d9458d525",
-        "recordedAt": "2026-10-25T08:36:40.801Z",
+        "outputSha256": "5cc5cf68a03ba73c194281b97c9bd8cdf58ce264ed8c1d7ab1f7ab497b182c4b",
+        "recordedAt": "2026-10-25T05:23:00.405Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T08:36:41.230Z",
+        "recordedAt": "2026-10-25T05:23:01.004Z",
         "source": "attested",
-        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
-      },
-      {
-        "kind": "browser",
-        "outcome": "pass",
-        "recordedAt": "2026-10-25T08:36:41.645Z",
-        "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app, capturando el fallback durante una navegación: antes, academia, gestionar, verificación, suscripción y canales mostraban el esqueleto de la ronda («Cargando sección de tribu») y la invitación «Solicitar ingreso»; después, cada ruta anuncia su propia carga con su forma (panel de pasos en Reglas e Invitaciones, filas en Solicitudes, «Tu solicitud de ingreso» e «Invitación personal» en el solicitante) (4/4)."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T08:36:42.638Z",
+    "recordedAt": "2026-10-25T05:23:02.285Z",
     "result": "partial",
-    "runId": "20261025T083616Z-432813",
+    "runId": "20261025T052228Z-a9e506",
     "scope": {
       "decision": "full",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage",
+          "reason": "visible or interactive code changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.manage.verifications.decide: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
       ]
@@ -257,7 +256,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T083616Z-432813.json"
+    "report": "runs/20261025T052228Z-a9e506.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

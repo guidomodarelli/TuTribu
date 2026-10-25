@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "622fc297a81165d651538448906da0c5f3c44887",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
         "app/(admission)/admissions/[slug]/admission-container.tsx": "c241519f0d3f3cf0",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
@@ -22,7 +22,7 @@
         "lib/academy-admissions/admission-draft.ts": "9baf5fefaa499a20",
         "src/modules/academy-admissions/application/results/admission-page-state.ts": "257070d64a948071",
         "components/academy-admissions/admission-request-steps/index.tsx": "2d12a783510f8d99",
-        "components/academy-admissions/admission-screen/index.tsx": "1c44547441b8a7e7",
+        "components/academy-admissions/admission-screen/index.tsx": "77d088e07ff83d2c",
         "src/modules/academy-admissions/application/ports/admission-whatsapp-number-browser-client.ts": "17cd63bd4972d963",
         "components/academy-admissions/admission-whatsapp-number-form/index.tsx": "80de8b3f98df6312",
         "src/modules/messaging/constants/messaging-public-contract.ts": "d8e21158a5fb4c77",
@@ -139,7 +139,6 @@
         "components/forms/guided-steps/index.tsx": "3408dd218a444fb6",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "components/academy-admissions/request-status/index.tsx": "ae2f32edf0ad70b8",
-        "components/loaders/route-skeleton/index.tsx": "24ca012df2b27747",
         "src/modules/academy-admissions/domain/repositories/admission-whatsapp-number-writer.ts": "25a448bd954a5e32",
         "components/academy-admissions/admission-whatsapp-number-field/index.tsx": "10cbeb4aeca70640",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
@@ -463,7 +462,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:5879978c8dffe813cc4bf5a079543eddf13f4a04316d52164c8f4ef65910beac",
+      "fingerprint": "sha256:a801b9eba29f07044281d6044f55e0e714c0099713b0fa969941d2a953396782",
       "inputs": {
         "app/(admission)/admissions/[slug]/admission-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(admission)/admissions/[slug]/admission-container.tsx#AdmissionContainer~shell": "b216182b238364d1",
@@ -551,10 +550,7 @@
         "components/academy-admissions/admission-request-steps/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy-admissions/admission-request-steps/index.tsx#AdmissionRequestSteps": "7205e070dac787bf",
         "components/academy-admissions/admission-screen/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen": "3b831ec638f7f0a8",
-        "components/academy-admissions/admission-screen/index.tsx#ADMISSION_LOADING_SHAPE~frame": "bbfb229dd91a8484",
-        "components/academy-admissions/admission-screen/index.tsx#ADMISSION_LOADING_SHAPE.entryStepCount": "acbf48c7e02510ba",
-        "components/academy-admissions/admission-screen/index.tsx#ADMISSION_LOADING_SHAPE.requestFactCount": "afeca3ded9107868",
+        "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen": "4eb04b5414bc549d",
         "components/academy-admissions/admission-screen/index.tsx#AdmissionScreenProps": "dcd95f712b8ad5aa",
         "src/modules/academy-admissions/application/ports/admission-whatsapp-number-browser-client.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/ports/admission-whatsapp-number-browser-client.ts#AdmissionWhatsappNumberBrowserClient": "32367548f3a454f0",
@@ -1087,22 +1083,6 @@
         "components/academy-admissions/request-status/index.tsx#RequestStatus": "46b45fe9fe29ea2a",
         "components/academy-admissions/request-status/index.tsx#RequestStatusProps": "ffd6a1922c8b9a82",
         "components/academy-admissions/request-status/index.tsx#describeInstant": "9828f04c79883541",
-        "components/loaders/route-skeleton/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/loaders/route-skeleton/index.tsx#SkeletonFacts": "e96a6dccf846eedb",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame": "42404c67903a5744",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.factCount": "28a692b9a0feab70",
-        "components/loaders/route-skeleton/index.tsx#SkeletonBlock": "c340a37ce4ab55ed",
-        "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind": "a357496f078189ee",
-        "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth": "175b5e3780859001",
-        "components/loaders/route-skeleton/index.tsx#placeholderKeys": "a1ec4c5ff5f87bbe",
-        "components/loaders/route-skeleton/index.tsx#SkeletonLines": "60d9052267ae7426",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount": "b251bfcb1dd93f46",
-        "components/loaders/route-skeleton/index.tsx#SkeletonStepsPanel": "8c6064fdd8e4cfad",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.fieldCount": "48ae612fcafb5f81",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.stepCount": "68cf38af6f4044af",
-        "components/loaders/route-skeleton/index.tsx#SkeletonActions": "df9e3baef88be6f1",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.actionCount": "f92415e0af3e9610",
-        "components/loaders/route-skeleton/index.tsx#SkeletonField": "d1ce3464b143b551",
         "src/modules/academy-admissions/domain/repositories/admission-whatsapp-number-writer.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/domain/repositories/admission-whatsapp-number-writer.ts#AdmissionWhatsappNumberResult": "b222dccd47f094b3",
         "src/modules/academy-admissions/constants/admission-whatsapp-number.ts#ADMISSION_WHATSAPP_COPY~frame": "9cda125a3849a5c9",
@@ -4489,32 +4469,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
-        "durationMs": 24001,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 34871,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "7ea24bffac68e3dfcd08b14418a5dc4cabb70641ef238707e9748dd0b231a622",
-        "recordedAt": "2026-10-25T07:38:06.972Z",
+        "outputSha256": "26ba188882ac189b7422c280f45ebbd4ebe60ffb2939f6f2c84d6b7e967bccaa",
+        "recordedAt": "2026-10-25T04:01:17.908Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T07:38:07.392Z",
+        "recordedAt": "2026-10-25T04:01:18.417Z",
         "source": "attested",
-        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T07:38:09.351Z",
+    "recordedAt": "2026-10-25T04:01:21.334Z",
     "result": "partial",
-    "runId": "20261025T073742Z-f411de",
+    "runId": "20261025T040042Z-40afe1",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -4538,7 +4518,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T073742Z-f411de.json"
+    "report": "runs/20261025T040042Z-40afe1.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

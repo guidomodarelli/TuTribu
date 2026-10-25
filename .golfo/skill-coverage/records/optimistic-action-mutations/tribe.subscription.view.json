@@ -2,11 +2,12 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "622fc297a81165d651538448906da0c5f3c44887",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
-        "app/(platform)/[slug]/suscripcion/page.tsx": "95e03ac3aacf52b1",
-        "app/(platform)/[slug]/suscripcion/loading.tsx": "df456e65a647f85d",
+        "app/(platform)/[slug]/suscripcion/page.tsx": "2de6a6dad92de1cb",
+        "app/(platform)/[slug]/suscripcion/loading.tsx": "f9871c638174780b",
+        "app/(platform)/error.tsx": "c29ecc8ea3fb911f",
         "src/modules/subscriptions/setup.ts": "beab8120b07daf1c",
         "src/modules/auth/infrastructure/composition/authenticated-account-provider.ts": "750f9fbc68d426b1",
         "src/modules/subscriptions/infrastructure/repositories/postgres-tribe-member-subscription-repository.ts": "408a3039476ace48",
@@ -30,7 +31,8 @@
         "src/modules/tribes/infrastructure/repositories/postgres-tribe-welcome-selection-repository.ts": "1347a7494dcca476",
         "src/modules/auth/setup.ts": "37e200547ae950e4",
         "src/modules/tribes/setup.ts": "71cc96c1b451a171",
-        "components/loaders/route-skeleton/index.tsx": "24ca012df2b27747",
+        "app/(platform)/[slug]/loading.tsx": "7bca37b96a4432ce",
+        "components/feedback/error-state/index.tsx": "5090f14a31ac15fc",
         "src/modules/subscriptions/domain/repositories/academy-subscription-repository.ts": "4c115392e37469ea",
         "src/modules/subscriptions/domain/repositories/tribe-member-subscription-repository.ts": "9e2b96901b5b8f6a",
         "src/modules/subscriptions/domain/repositories/tribe-payment-integration-repository.ts": "a5b97519ef4b7c7d",
@@ -199,6 +201,7 @@
         "src/modules/tribes/application/use-cases/manage-tribe-welcome-selection-use-cases.ts": "b91ba96cd9b97995",
         "src/modules/tribes/application/use-cases/list-visible-tribe-members-use-case.ts": "07b0ed457062a48c",
         "src/modules/tribes/application/use-cases/manage-tribe-presence-use-cases.ts": "fd0ca9f0db4b75e3",
+        "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "src/modules/subscriptions/application/results/tribe-subscription-price-result.ts": "44d236b6cd1d9a05",
         "src/modules/shared/application/validation/uuid.ts": "84d63a8c45bf04be",
         "src/modules/auth/domain/entities/authenticated-account.ts": "b69eceb452ae2698",
@@ -516,13 +519,21 @@
         "src/modules/academy-admissions/constants/admission-review-dates.ts": "ed6ccaa0d7bbce25",
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f"
       },
-      "fingerprint": "sha256:6cfdae5449c8031aa3cf569abb391a70234c68eed4fd5a531fa8f9d5d5099d76",
+      "fingerprint": "sha256:ea1760c31ae0f20d7e816a084664b07cdf2a47d38acc92b6517b0ead1c7c6800",
       "inputs": {
         "app/(platform)/[slug]/suscripcion/page.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/suscripcion/page.tsx#TribeSubscriptionPage": "0f4d520fce2a7c85",
+        "app/(platform)/[slug]/suscripcion/page.tsx#TribeSubscriptionPage": "7cebf1ea1021fc4c",
         "app/(platform)/[slug]/suscripcion/loading.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/suscripcion/loading.tsx#SubscriptionLoading": "274198df637609bc",
-        "app/(platform)/[slug]/suscripcion/loading.tsx#SUBSCRIPTION_LOADING_ACTION_COUNT": "15474fc5a72bbd53",
+        "app/(platform)/error.tsx#<module>": "d414f6d3ee71f10d",
+        "app/(platform)/error.tsx#PlatformError": "10a1b0632b21a85e",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY~frame": "2aef35660089a73b",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.description": "3304d1f7d167d725",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.eyebrow": "d3680e774699c553",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.homeLabel": "058311abe590f3bf",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.retryLabel": "55dce502d524a7a7",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.title": "36b27df2cd481d52",
+        "app/(platform)/error.tsx#PlatformErrorProps": "27f9cab13dc73fef",
+        "pkg:react": "374a4508a198654b",
         "src/modules/subscriptions/setup.ts#<module>": "2da3ec2294295eb1",
         "src/modules/subscriptions/setup.ts#buildSubscriptionsModule": "f2714225f8de9dd7",
         "src/modules/subscriptions/setup.ts#SubscriptionsModuleDependencies": "ee6807a1629dc1a4",
@@ -865,18 +876,25 @@
         "src/modules/tribes/setup.ts#<module>": "2da3ec2294295eb1",
         "src/modules/tribes/setup.ts#buildTribesModule": "63d1f438b851dac7",
         "src/modules/tribes/setup.ts#TribesModuleDependencies": "6b4d389e3664fe6a",
-        "components/loaders/route-skeleton/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/loaders/route-skeleton/index.tsx#RouteSkeleton": "223b4db7f24fd665",
-        "pkg:react": "374a4508a198654b",
-        "components/loaders/route-skeleton/index.tsx#SkeletonActions": "df9e3baef88be6f1",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame": "42404c67903a5744",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.actionCount": "f92415e0af3e9610",
-        "components/loaders/route-skeleton/index.tsx#SkeletonBlock": "c340a37ce4ab55ed",
-        "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind": "a357496f078189ee",
-        "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth": "175b5e3780859001",
-        "components/loaders/route-skeleton/index.tsx#placeholderKeys": "a1ec4c5ff5f87bbe",
-        "components/loaders/route-skeleton/index.tsx#SkeletonLines": "60d9052267ae7426",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount": "b251bfcb1dd93f46",
+        "app/(platform)/[slug]/loading.tsx#<module>": "2da3ec2294295eb1",
+        "app/(platform)/[slug]/loading.tsx#TribeLoadingPage": "9d20796fb5186f24",
+        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON~frame": "aff7438bb5a53b5f",
+        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.filterCount": "3ae064e3d11de24c",
+        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.filterKeyPrefix": "3ae042de2b44226b",
+        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.keySeparator": "5f8aa621b5bba5b8",
+        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.roundItemCount": "37ee9ed8ad8c9e61",
+        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.roundItemKeyPrefix": "cc618c248c4e5d45",
+        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusAriaRole": "45bd83611f8ba7de",
+        "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusLabel": "91b448f9dc994012",
+        "components/feedback/error-state/index.tsx#<module>": "d414f6d3ee71f10d",
+        "components/feedback/error-state/index.tsx#ErrorState": "20991c4e77bbb771",
+        "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
+        "components/feedback/error-state/index.tsx#ERROR_STATE_UI~frame": "26adb8ff56b60901",
+        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.backdropAriaHidden": "820012bc59803918",
+        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.homeLinkSize": "2e9ffb8d13f313b0",
+        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.homeLinkVariant": "b82a9044da7be018",
+        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.retryButtonSize": "eb534ab249e443a4",
+        "components/feedback/error-state/index.tsx#ErrorStateProps": "ca7336ae33bf58bf",
         "src/modules/subscriptions/domain/repositories/academy-subscription-repository.ts#<module>": "2da3ec2294295eb1",
         "src/modules/subscriptions/domain/repositories/academy-subscription-repository.ts#AcademySubscriptionRepository": "5bffdbd63b955d3a",
         "src/modules/subscriptions/domain/repositories/academy-subscription-repository.ts#AcademyAuthorizedPaymentWebhookResult": "ac0b3a35a1e8c3d0",
@@ -1752,6 +1770,8 @@
         "src/modules/tribes/application/use-cases/manage-tribe-presence-use-cases.ts#normalizeText": "0b06f74aebea8947",
         "src/modules/tribes/application/use-cases/manage-tribe-invitations-use-cases.ts#updateTribeInvitationReferralMetadata": "579377ba40db7dd7",
         "src/modules/tribes/application/use-cases/manage-tribe-invitations-use-cases.ts#updateTribeInvitationSubscriptionAssociation": "2b24eefa0f91c758",
+        "components/navigation/link/index.tsx#<module>": "2da3ec2294295eb1",
+        "src/constants/routes.ts#ROUTES.home": "417f8dff1ce6dd72",
         "src/modules/subscriptions/constants/subscriptions.ts#AcademySubscriptionRenewalStatus": "6c4eaf64ce7618d7",
         "src/modules/subscriptions/constants/subscriptions.ts#TRIBE_SUBSCRIPTION_PRICE_STATUS~frame": "b0cdbed1e81acc12",
         "src/modules/subscriptions/constants/subscriptions.ts#TRIBE_SUBSCRIPTION_PRICE_STATUS.connected": "2f1d54452e7ae8f9",
@@ -4127,6 +4147,9 @@
         "app/(platform)/[slug]/suscripcion/page.tsx#TribeSubscriptionPage": {
           "awaits": 3
         },
+        "app/(platform)/error.tsx#PlatformError": {
+          "effects": 1
+        },
         "src/modules/subscriptions/setup.ts#buildSubscriptionsModule": {
           "projectCalls": 25
         },
@@ -5168,32 +5191,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
-        "durationMs": 24020,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 39420,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "169e57ea7497789c2549ab4e91357dfde0d9414b0fc70461fa9f3b2750e5165b",
-        "recordedAt": "2026-10-25T08:49:18.102Z",
+        "outputSha256": "111856287e066d20eb3fb871c1ecbe42fa85f1001bf43fca0a3ffda62fafb305",
+        "recordedAt": "2026-10-25T05:53:30.753Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T08:49:18.538Z",
+        "recordedAt": "2026-10-25T05:53:31.475Z",
         "source": "attested",
-        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T08:49:20.541Z",
+    "recordedAt": "2026-10-25T05:53:35.159Z",
     "result": "partial",
-    "runId": "20261025T084853Z-19c3c1",
+    "runId": "20261025T055250Z-fe53a0",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -5217,7 +5240,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T084853Z-19c3c1.json"
+    "report": "runs/20261025T055250Z-fe53a0.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

@@ -1,0 +1,83 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-route-boundaries",
+    "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+    "fingerprint": "sha256:f386fe48111830fe28400077fca326cc31cb25a88a50aed8e3feeed11ce9046f",
+    "uncommittedFiles": [],
+    "fileCount": 105,
+    "inputCount": 1010
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+      "durationMs": 31228,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "2141965ef4caf7e285e0318c12a62604b521e5172b867a095b771a6bad563912",
+      "recordedAt": "2026-10-25T05:28:04.954Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "command": "pnpm run -s typecheck",
+      "durationMs": 2976,
+      "exitCode": 0,
+      "kind": "command",
+      "outcome": "pass",
+      "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
+      "recordedAt": "2026-10-25T05:28:08.500Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T05:28:09.069Z",
+      "source": "attested",
+      "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T05:28:09.615Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app con una falla transitoria inyectada en gestionar: antes, página no encontrada, sin reintento y dos <main>; después, «No pudimos cargar esta sección» dentro del shell, «Reintentar» recupera la página, un solo <main> y la entrada de admisión con noindex y no-referrer (4/4)."
+    }
+  ],
+  "limitations": [
+    "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T05:28:11.236Z",
+  "result": "partial",
+  "runId": "20261025T052733Z-4af1c9",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "no previous coverage: the whole unit is analyzed"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit academy.manage.view (/[slug]/academia/gestionar): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "e456ce5fb1266d0e",
+      "references/decision-rules.md": "5340413b30d4e7a7",
+      "references/nextjs-apis.md": "7d812e101f16defe",
+      "references/server-client-split.md": "7f52ba9f6a13308d",
+      "references/skeleton-patterns.md": "65d4c31f0f8beb93",
+      "references/version-notes.md": "b6f6488947de60f0"
+    },
+    "definitionHash": "sha256:a3b7fb0dda3a877474c7910f4914469c8cb9a94700aa9d750e81067d96406ed1",
+    "name": "nextjs-route-ui-boundaries",
+    "version": "1.3.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T05:27:33.040Z",
+  "unitId": "academy.manage.view"
+}

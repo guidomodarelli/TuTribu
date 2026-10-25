@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "622fc297a81165d651538448906da0c5f3c44887",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx": "8318b9343ef315b2",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-local-snapshot.ts": "d45c6cf5cba2628b",
@@ -5366,9 +5366,9 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T08:07:48.054Z",
+    "recordedAt": "2026-10-25T04:43:11.800Z",
     "result": "not-applicable",
-    "runId": "20261025T080745Z-3609ef",
+    "runId": "20261025T044309Z-9e605c",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -5394,8 +5394,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T080745Z-3609ef.json"
+    "summary": "El cambio de boundaries no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T044309Z-9e605c.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

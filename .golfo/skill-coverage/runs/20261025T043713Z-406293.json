@@ -1,0 +1,78 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-route-boundaries",
+    "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+    "fingerprint": "sha256:6f6841a5f5bcea004b21765740952e3e3e7cc60bc215774d02131a004988f2c7",
+    "uncommittedFiles": [],
+    "fileCount": 176,
+    "inputCount": 922
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+      "durationMs": 32467,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "d2f0d16a536ab5977a4d23c2e360ad51f17aba17648a6330b6fe9f391a3fb1c4",
+      "recordedAt": "2026-10-25T04:37:46.877Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T04:37:47.478Z",
+      "source": "attested",
+      "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [
+    "missing passing evidence of kind browser or accessibility"
+  ],
+  "recordedAt": "2026-10-25T04:37:49.401Z",
+  "result": "partial",
+  "runId": "20261025T043713Z-406293",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "2 relevant change(s) since the verified run"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
+        "reason": "visible or interactive code changed"
+      }
+    ],
+    "suggestedScope": [
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx › MessagingConnectionsContainer (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
+      "components/academy-admissions/admission-route-error/index.tsx › AdmissionRouteError — behavior of this code in every state of the unit that uses it"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T04:37:13.827Z",
+  "unitId": "academy.admissions.messaging.connections.restore"
+}

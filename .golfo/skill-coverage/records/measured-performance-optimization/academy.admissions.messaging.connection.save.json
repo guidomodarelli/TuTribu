@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "622fc297a81165d651538448906da0c5f3c44887",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "d64cc0865a1e8f83",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "52358cd766afdaa0",
         "app/api/tribes/[slug]/messaging/connections/route.ts": "78b3317283264385",
         "app/api/tribes/[slug]/messaging/connections/[connectionId]/validate/route.ts": "a4e4bc02a839bd52",
         "app/api/tribes/[slug]/messaging/configuration/route.ts": "d2637ecb2e0f8614",
@@ -17,7 +17,7 @@
         "src/modules/notifications/infrastructure/messaging/admission-notification-resource-authority.ts": "f6e7d09293eba381",
         "src/modules/shared/infrastructure/database/server-database-client.ts": "895a53cd3c3f72ab",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
-        "components/academy-admissions/admission-route-error/index.tsx": "a069fa4c83845f3f",
+        "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
         "src/modules/messaging/constants/messaging-connections-browser.ts": "6324cc25a232f60b",
         "src/modules/messaging/application/ports/messaging-activation-browser-client.ts": "1c4aefbdb29c8cc8",
         "src/modules/messaging/application/ports/messaging-connections-browser-client.ts": "0ed8eda234a11a70",
@@ -658,12 +658,12 @@
         "src/modules/academy-admissions/constants/admission-review-dates.ts": "ed6ccaa0d7bbce25",
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f"
       },
-      "fingerprint": "sha256:31d09d708219cc502475bcf24a3ca6d0948b2ea2ce712d1ceb3a970d61fcd0a8",
+      "fingerprint": "sha256:20bb21d9f7921497f79c1c506b0138d494b6cf94bc2284ba71ec26afb1c7245e",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/emit": "de5c828cbc366dc2",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/holdPending": "212e43e40665b50b",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell": "706898203eef29c1",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell": "a17794a55cdde176",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#ContainerProps": "54c55af7fe2f98e9",
         "pkg:react": "374a4508a198654b",
@@ -767,7 +767,7 @@
         "src/modules/academy-admissions/setup.ts#buildAcademyAdmissionsModule/executeVerification": "707d588e39064e42",
         "src/modules/academy-admissions/setup.ts#buildAcademyAdmissionsModule~shell": "644ae422572afd83",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "566cf7e5647a035b",
+        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
         "src/modules/messaging/constants/messaging-connections-browser.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/constants/messaging-connections-browser.ts#MESSAGING_CREDENTIAL_CHECK_UI_COPY~frame": "bcf5b6730ac04c98",
         "src/modules/messaging/constants/messaging-connections-browser.ts#MESSAGING_CREDENTIAL_CHECK_UI_COPY.stale": "4ae88fd54af7d22d",
@@ -6144,9 +6144,9 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T08:04:00.275Z",
+    "recordedAt": "2026-10-25T04:37:10.453Z",
     "result": "not-applicable",
-    "runId": "20261025T080357Z-5e0970",
+    "runId": "20261025T043707Z-72d43f",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -6172,8 +6172,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T080357Z-5e0970.json"
+    "summary": "El cambio de boundaries no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T043707Z-72d43f.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

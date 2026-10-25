@@ -97,7 +97,7 @@ export default async function TribeAcademyPage({
     allowWithoutCommunityAccess: true,
     operation: ACADEMY_PAGE.operation,
     slug,
-  }).catch(() => notFound());
+  });
   const { authenticatedMember, logger, modules, result } = access;
 
   if (!authenticatedMember) {
@@ -129,8 +129,8 @@ export default async function TribeAcademyPage({
       message: ACADEMY_PAGE.failureMessage,
       metadata: { slug, viewerId: authenticatedMember.id },
     });
-
-    return null;
+      // A load failure is not a missing page: the segment error boundary offers a retry inside the shell.
+    throw error;
   });
 
   if (!data) {

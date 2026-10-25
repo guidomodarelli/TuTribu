@@ -24,6 +24,6 @@ export function LegacyAdmissionContainer({ initialState }: { initialState: Admis
     );
     return () => controller.abort();
   }, [token]);
-  if (!LEGACY_ADMISSION_ARRIVAL.canonicalTokenPattern.test(token) || failedToken === token) return <AdmissionRouteError message={ADMISSION_ERROR_MESSAGE[ADMISSION_ERROR_CODE.invalidInput]} reset={() => window.location.reload()} />;
+  if (!LEGACY_ADMISSION_ARRIVAL.canonicalTokenPattern.test(token) || failedToken === token) return <AdmissionRouteError message={ADMISSION_ERROR_MESSAGE[ADMISSION_ERROR_CODE.invalidInput]} retry={() => window.location.reload()} />;
   return <AdmissionContainer key={`${slug}:${token}`} initialState={initialState} legacyInvitationToken={token} arrivalScope={reference?.token === token ? reference.scope : undefined} arrivalReturnPath={buildLegacyAdmissionEntryRoute(slug, token)} />;
 }

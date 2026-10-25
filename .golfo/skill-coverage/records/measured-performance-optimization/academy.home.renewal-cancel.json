@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "622fc297a81165d651538448906da0c5f3c44887",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
-        "components/academy/academy-home/index.tsx": "809988db00523019",
-        "app/(platform)/[slug]/academia/page.tsx": "8be7106822155a86",
+        "components/academy/academy-home/index.tsx": "559afae35579d77c",
+        "app/(platform)/[slug]/academia/page.tsx": "a4c7427e95123588",
         "app/api/tribes/[slug]/subscriptions/current/route.ts": "bbfd0641c3d5c6a6",
         "src/modules/subscriptions/setup.ts": "beab8120b07daf1c",
         "src/modules/subscriptions/infrastructure/repositories/postgres-academy-subscription-repository.ts": "f627f9da8ad78a3d",
@@ -165,10 +165,10 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:3226940b96f313ea545b0c97f3c82d82c39fd70c8eaaae4c8805c70d0df3272d",
+      "fingerprint": "sha256:7e4b7f21d4c0df58189da7e64f059260a07e238c53101dc42facf0d8fd1d71d1",
       "inputs": {
         "components/academy/academy-home/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy/academy-home/index.tsx#AcademyHome~shell": "a4ea8deb2197b9c4",
+        "components/academy/academy-home/index.tsx#AcademyHome~shell": "e682a501a4562464",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY~frame": "d647271201261ec5",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.accessHeading": "7502394d9b8e691b",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.admissionClosed": "2f1103a338c1ae8e",
@@ -251,7 +251,7 @@
         "components/academy/academy-home/index.tsx#AcademyHome/runAction": "a6e5e63ed8953d09",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.canceledUntil": "4ced9c99d55c523d",
         "app/(platform)/[slug]/academia/page.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/academia/page.tsx#TribeAcademyPage": "96197f3393444487",
+        "app/(platform)/[slug]/academia/page.tsx#TribeAcademyPage": "edb97c58c08a366a",
         "app/api/tribes/[slug]/subscriptions/current/route.ts#<module>": "2da3ec2294295eb1",
         "app/api/tribes/[slug]/subscriptions/current/route.ts#DELETE": "7fb0f5876ddd3e03",
         "app/api/tribes/[slug]/subscriptions/current/route.ts#ACADEMY_PRODUCT": "d58502e280ccd9ed",
@@ -2325,9 +2325,9 @@
     "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T08:27:02.596Z",
+    "recordedAt": "2026-10-25T05:08:51.169Z",
     "result": "not-applicable",
-    "runId": "20261025T082701Z-a04e8a",
+    "runId": "20261025T050848Z-01d3fe",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
@@ -2352,8 +2352,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T082701Z-a04e8a.json"
+    "summary": "El cambio de boundaries no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T050848Z-01d3fe.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

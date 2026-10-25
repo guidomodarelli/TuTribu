@@ -2,18 +2,18 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "622fc297a81165d651538448906da0c5f3c44887",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
-        "app/(admission)/admissions/[slug]/page.tsx": "67170dc0d4d7cd40",
+        "app/(admission)/admissions/[slug]/page.tsx": "87d2419a7e1b84de",
         "app/(admission)/admissions/[slug]/loading.tsx": "12be8cbc448c8353",
         "app/(admission)/admissions/[slug]/error.tsx": "85ec542c738c0685",
         "app/(admission)/admissions/[slug]/legacy/[token]/page.tsx": "1f9a8bc3a26f005c",
         "src/modules/academy-admissions/infrastructure/composition/admission-page.ts": "e4e2d0b2517d17d5",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
         "src/modules/auth/setup.ts": "37e200547ae950e4",
-        "components/academy-admissions/admission-screen/index.tsx": "1c44547441b8a7e7",
-        "components/academy-admissions/admission-route-error/index.tsx": "a069fa4c83845f3f",
+        "components/academy-admissions/admission-screen/index.tsx": "77d088e07ff83d2c",
+        "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
         "src/modules/academy-admissions/constants/admission-errors.ts": "4a393e9826800086",
         "src/modules/academy-admissions/application/results/admission-page-state.ts": "257070d64a948071",
         "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
@@ -113,8 +113,7 @@
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
         "components/academy-admissions/request-status/index.tsx": "ae2f32edf0ad70b8",
-        "components/loaders/route-skeleton/index.tsx": "24ca012df2b27747",
-        "components/academy-admissions/admission-screen/styles.module.scss": "88c5804c520c1c6b",
+        "components/academy-admissions/admission-screen/styles.module.scss": "5cd3e3368c7deb11",
         "components/academy-admissions/admission-route-error/styles.module.scss": "e8e041d2af1c8b74",
         "src/modules/academy-admissions/application/results/admission-contract-fields.ts": "a4913419cef9bbde",
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts": "f1942bcecd1a2254",
@@ -126,7 +125,6 @@
         "lib/date-time/buenos-aires-format.ts": "c1fc58e8406151e3",
         "src/modules/academy-admissions/application/results/admission-own-request-message.ts": "376aa9f92849ede5",
         "components/academy-admissions/request-status/styles.module.scss": "5d84f9da7950f90a",
-        "components/loaders/route-skeleton/styles.module.scss": "aba42533e97ac72c",
         "src/modules/academy-admissions/constants/admission-contact.ts": "cf90895cb275bdd9",
         "src/modules/messaging/constants/messaging-public-contract.ts": "d8e21158a5fb4c77",
         "src/modules/tribes/domain/value-objects/tribe-slug.ts": "07196b88770dfa73",
@@ -137,7 +135,7 @@
         "components/academy-admissions/admission-whatsapp-number-field/styles.module.scss": "90351ceb6f74003f",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:bdf3b530106d48bf228d1e51014a9181cf1a4f47dcc3792dfcd77739a5643761",
+      "fingerprint": "sha256:8db7bda756ec26196e1c6981aab04ec2f7836817867c8c369918747dfd5a75af",
       "inputs": {
         "app/(admission)/admissions/[slug]/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(admission)/admissions/[slug]/page.tsx#AdmissionPage": "52d4812a1f51af2a",
@@ -159,16 +157,13 @@
         "src/modules/auth/setup.ts#buildAuthModule": "fa12aa3c0affb57e",
         "src/modules/auth/setup.ts#AuthModuleDependencies": "c2c64c7a3276646d",
         "components/academy-admissions/admission-screen/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/academy-admissions/admission-screen/index.tsx#AdmissionLoading": "fb198c8b590ab56f",
-        "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen": "3b831ec638f7f0a8",
-        "components/academy-admissions/admission-screen/index.tsx#ADMISSION_LOADING_SHAPE~frame": "bbfb229dd91a8484",
-        "components/academy-admissions/admission-screen/index.tsx#ADMISSION_LOADING_SHAPE.entryStepCount": "acbf48c7e02510ba",
-        "components/academy-admissions/admission-screen/index.tsx#ADMISSION_LOADING_SHAPE.requestFactCount": "afeca3ded9107868",
+        "components/academy-admissions/admission-screen/index.tsx#AdmissionLoading": "ce34971915465dcf",
+        "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen": "4eb04b5414bc549d",
         "components/academy-admissions/admission-screen/index.tsx#AdmissionScreenProps": "dcd95f712b8ad5aa",
         "pkg:react": "374a4508a198654b",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "566cf7e5647a035b",
+        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
         "src/modules/academy-admissions/constants/admission-errors.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_MESSAGE": "3cd989ed624f1a0a",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE~frame": "2f799f41481116eb",
@@ -544,23 +539,7 @@
         "components/academy-admissions/request-status/index.tsx#RequestStatus": "46b45fe9fe29ea2a",
         "components/academy-admissions/request-status/index.tsx#RequestStatusProps": "ffd6a1922c8b9a82",
         "components/academy-admissions/request-status/index.tsx#describeInstant": "9828f04c79883541",
-        "components/loaders/route-skeleton/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/loaders/route-skeleton/index.tsx#SkeletonFacts": "e96a6dccf846eedb",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame": "42404c67903a5744",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.factCount": "28a692b9a0feab70",
-        "components/loaders/route-skeleton/index.tsx#SkeletonBlock": "c340a37ce4ab55ed",
-        "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind": "a357496f078189ee",
-        "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth": "175b5e3780859001",
-        "components/loaders/route-skeleton/index.tsx#placeholderKeys": "a1ec4c5ff5f87bbe",
-        "components/loaders/route-skeleton/index.tsx#SkeletonLines": "60d9052267ae7426",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount": "b251bfcb1dd93f46",
-        "components/loaders/route-skeleton/index.tsx#SkeletonStepsPanel": "8c6064fdd8e4cfad",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.fieldCount": "48ae612fcafb5f81",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.stepCount": "68cf38af6f4044af",
-        "components/loaders/route-skeleton/index.tsx#SkeletonActions": "df9e3baef88be6f1",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.actionCount": "f92415e0af3e9610",
-        "components/loaders/route-skeleton/index.tsx#SkeletonField": "d1ce3464b143b551",
-        "components/academy-admissions/admission-screen/styles.module.scss#*": "88c5804c520c1c6b",
+        "components/academy-admissions/admission-screen/styles.module.scss#*": "5cd3e3368c7deb11",
         "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.readFailed": "e40e9012cde9fe54",
         "components/academy-admissions/admission-route-error/styles.module.scss#*": "e8e041d2af1c8b74",
         "src/modules/academy-admissions/application/results/admission-contract-fields.ts#<module>": "2da3ec2294295eb1",
@@ -628,7 +607,6 @@
         "src/modules/academy-admissions/application/results/admission-own-request-message.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/results/admission-own-request-message.ts#getOwnAdmissionRequestMessage": "8603571768596424",
         "components/academy-admissions/request-status/styles.module.scss#*": "5d84f9da7950f90a",
-        "components/loaders/route-skeleton/styles.module.scss#*": "aba42533e97ac72c",
         "src/modules/academy-admissions/constants/admission-public-contract.ts#ADMISSION_LOCAL_HREF_PATTERN": "52e87d4a36eb9b4e",
         "src/modules/academy-admissions/constants/admission-contact.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-contact.ts#ADMISSION_CONTACT_TYPE~frame": "8cf43d05ba3ee68d",
@@ -733,39 +711,32 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
-        "durationMs": 23879,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 26655,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "feba4cbf25ae4cce9f8e0b1da0bcdefc9b74c0aa81c4965433a83c7ec8887165",
-        "recordedAt": "2026-10-25T07:40:50.617Z",
+        "outputSha256": "0aa9f24e6d70ab4b3f9e2e6cb46119b677c00035038ac2da2aa180bad4e9dcd8",
+        "recordedAt": "2026-10-25T04:05:01.489Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T07:40:51.044Z",
+        "recordedAt": "2026-10-25T04:05:02.032Z",
         "source": "attested",
-        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
-      },
-      {
-        "kind": "browser",
-        "outcome": "pass",
-        "recordedAt": "2026-10-25T07:40:51.463Z",
-        "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app, capturando el fallback durante una navegación: antes, academia, gestionar, verificación, suscripción y canales mostraban el esqueleto de la ronda («Cargando sección de tribu») y la invitación «Solicitar ingreso»; después, cada ruta anuncia su propia carga con su forma (panel de pasos en Reglas e Invitaciones, filas en Solicitudes, «Tu solicitud de ingreso» e «Invitación personal» en el solicitante) (4/4)."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T07:40:52.746Z",
+    "recordedAt": "2026-10-25T04:05:03.547Z",
     "result": "partial",
-    "runId": "20261025T074026Z-f8e83b",
+    "runId": "20261025T040434Z-1a70ae",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -775,119 +746,9 @@
       ],
       "relevantChangesAtBegin": [
         {
-          "change": "added",
-          "key": "components/academy-admissions/admission-screen/index.tsx#ADMISSION_LOADING_SHAPE.entryStepCount",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-screen/index.tsx#ADMISSION_LOADING_SHAPE.requestFactCount",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-screen/index.tsx#ADMISSION_LOADING_SHAPE~frame",
-          "reason": "new visible or interactive code"
-        },
-        {
           "change": "modified",
-          "key": "components/academy-admissions/admission-screen/index.tsx#AdmissionLoading",
+          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
           "reason": "visible or interactive code changed"
-        },
-        {
-          "change": "modified",
-          "key": "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen",
-          "reason": "visible or interactive code changed"
-        },
-        {
-          "change": "modified",
-          "key": "components/academy-admissions/admission-screen/styles.module.scss#*",
-          "reason": "visible or interactive code changed"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#<module>",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#placeholderKeys",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.actionCount",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.factCount",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.fieldCount",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.stepCount",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonActions",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlock",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonFacts",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonField",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonLines",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonStepsPanel",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/styles.module.scss#*",
-          "reason": "new visible or interactive code"
         }
       ],
       "suggestedScope": [
@@ -907,7 +768,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T074026Z-f8e83b.json"
+    "report": "runs/20261025T040434Z-1a70ae.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

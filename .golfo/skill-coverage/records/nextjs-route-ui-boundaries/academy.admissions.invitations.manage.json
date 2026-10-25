@@ -6,11 +6,11 @@
   "verified": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "622fc297a81165d651538448906da0c5f3c44887",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
         "app/(platform)/[slug]/academia/admissions/invitations/page.tsx": "5731b66b99705bd9",
-        "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx": "0ae1742a06c8464b",
+        "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx": "afc5715fe57edbc5",
         "hooks/use-personal-invitation-management.ts": "2d57762623290e7d",
         "components/academy-admissions/invitation-management/index.tsx": "2c0490589ada4ec9",
         "app/api/tribes/[slug]/admissions/invitations/route.ts": "1ab19645aca4c8d0",
@@ -22,22 +22,23 @@
         "src/modules/auth/infrastructure/repositories/better-auth-session-repository.ts": "9c52b296a068064a",
         "src/modules/setup.ts": "b7906aa060d53395",
         "src/modules/academy-admissions/infrastructure/composition/personal-invitation-management-page.ts": "ce92730df1f28ce4",
-        "app/(platform)/[slug]/academia/admissions/error.tsx": "24122e588672e77f",
-        "app/(platform)/[slug]/academia/admissions/invitations/error.tsx": "d7a8df955bc2fbc3",
+        "app/(platform)/[slug]/academia/admissions/error.tsx": "7eec2a65075e982d",
+        "app/(platform)/[slug]/academia/admissions/invitations/error.tsx": "2c8ff9c6d16e50b1",
         "app/(platform)/[slug]/academia/admissions/invitations/loading.tsx": "659005746749c305",
         "app/(platform)/[slug]/academia/admissions/layout.tsx": "bad63f5347d1d6a8",
         "app/(platform)/[slug]/academia/admissions/loading.tsx": "30d2c5951cad7c98",
-        "app/(platform)/[slug]/academia/loading.tsx": "b861ca7d027d3bc0",
+        "app/(platform)/[slug]/academia/loading.tsx": "f9871c638174780b",
         "app/(platform)/[slug]/layout.tsx": "091b3dec28a3139f",
         "app/(platform)/[slug]/loading.tsx": "7bca37b96a4432ce",
+        "app/(platform)/error.tsx": "c29ecc8ea3fb911f",
         "app/(platform)/layout.tsx": "eccf66589598096e",
         "app/(platform)/loading.tsx": "1408221519a7a78e",
-        "app/error.tsx": "ea0b13f7fd3eb6c7",
-        "app/global-error.tsx": "b09bade0cbddca32",
+        "app/error.tsx": "be500bfad1d372c9",
+        "app/global-error.tsx": "4fe5158bea164617",
         "app/layout.tsx": "650f4386e125862f",
         "app/not-found.tsx": "7c2bf7b75ccbcef3",
         "next.config.ts": "499b76937ce73f12",
-        "components/academy-admissions/admission-route-error/index.tsx": "a069fa4c83845f3f",
+        "components/academy-admissions/admission-route-error/index.tsx": "ec55d0b1a70d0600",
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts": "0b8a4ad902ce4210",
         "src/modules/academy-admissions/application/ports/personal-invitation-management-browser-client.ts": "31afaf330e73d6ff",
         "src/modules/academy-admissions/application/results/personal-invitation-management-page-state.ts": "84e8a54f1c9df3cf",
@@ -148,12 +149,11 @@
         "src/modules/shared/infrastructure/observability/request-context.ts": "298449d5b583123d",
         "src/modules/academy-admissions/constants/admission-review-ui.ts": "42d3d87b513edbbb",
         "components/academy-admissions/admission-settings-page/index.tsx": "8312db77ac7c70e9",
-        "components/academy-admissions/admission-page-skeleton/index.tsx": "0d887d9221b645c1",
+        "components/academy-admissions/admission-page-skeleton/index.tsx": "22f912978377c2dd",
         "components/academy-admissions/admission-workspace-frame/index.tsx": "5db4f2bc6394d65a",
-        "components/loaders/route-skeleton/index.tsx": "24ca012df2b27747",
-        "app/(platform)/[slug]/academia/loading.module.scss": "c9c38284a6116209",
         "components/tribes/tribe-presence-heartbeat/index.tsx": "ff8adcd6cb4701ee",
         "app/(platform)/[slug]/loading.module.scss": "3f6fcdd2e5f79775",
+        "components/feedback/error-state/index.tsx": "5090f14a31ac15fc",
         "src/modules/notifications/application/results/notification-public-dto-schemas.ts": "9f04bffec9a201d4",
         "src/modules/shared/infrastructure/validation/validation-issue-summary.ts": "738c0b278fc24011",
         "components/app-rail/app-rail-shell/index.tsx": "182d0fd1e6aa457c",
@@ -166,7 +166,6 @@
         "components/tribes/tribe-support-button/index.tsx": "f0dc1288c895f1f7",
         "components/platform/tribe-switcher/index.tsx": "46e9bf6a143d762e",
         "app/(platform)/loading.module.scss": "55505dfb148e6c98",
-        "components/feedback/error-state/index.tsx": "5090f14a31ac15fc",
         "app/globals.css": "067cf27eba244702",
         "lib/site-config.ts": "fea512b7bfdd756c",
         "components/providers/app-providers/app-ui-provider.tsx": "9f227a001b904603",
@@ -199,11 +198,11 @@
         "src/modules/tribes/domain/value-objects/tribe-slug.ts": "07196b88770dfa73",
         "src/modules/academy-admissions/constants/admission-sections.ts": "31db560723a90ebd",
         "components/academy-admissions/admission-settings-page/styles.module.scss": "833cfa2341b7fc1c",
-        "components/academy-admissions/admission-page-skeleton/styles.module.scss": "8afe65bc39c4f234",
+        "components/academy-admissions/admission-page-skeleton/styles.module.scss": "68befccc538de14f",
         "components/academy-admissions/admission-section-navigation/index.tsx": "2da520e2b38b2142",
         "lib/academy-admissions/admission-sections.ts": "e8d18988c816333a",
         "components/academy-admissions/admission-workspace-frame/styles.module.scss": "f6e53e7b4a510f61",
-        "components/loaders/route-skeleton/styles.module.scss": "aba42533e97ac72c",
+        "components/feedback/error-state/styles.module.scss": "c3291993525c2d1c",
         "src/modules/notifications/application/results/notification-result.ts": "b51b03f97ab4da09",
         "src/modules/notifications/constants/admission-notifications.ts": "87d82e2897913d7e",
         "src/modules/notifications/constants/notifications.ts": "0ec0a20aa7470553",
@@ -225,7 +224,6 @@
         "components/tribes/tribe-support-button/styles.module.scss": "d1057b70ca8dab70",
         "components/tribes/tribe-support-config-dialog/index.tsx": "c24f53a76db23a08",
         "components/platform/tribe-switcher/styles.module.scss": "df5b3f4712236b21",
-        "components/feedback/error-state/styles.module.scss": "c3291993525c2d1c",
         "src/constants/toast.ts": "284fbae4c04bfc82",
         "components/providers/private-aware-siteping/index.tsx": "d2d99d370ff8463b",
         "components/providers/app-providers/styles.module.scss": "04f2ceba20d9ba12",
@@ -303,7 +301,7 @@
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f",
         "src/modules/academy-admissions/domain/entities/admission-policy.ts": "a602f5d4e4fee0b2"
       },
-      "fingerprint": "sha256:cafe42caefc99e8e5f1f5d794fe92a3e4ec6e2f265b38d0b5b9962a5f6f9cf7a",
+      "fingerprint": "sha256:600ad5afb57d24f6f5b15fd9bf23a693648a95a8c6ed0b41d14f82f1dd33d519",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
@@ -311,7 +309,7 @@
         "app/(platform)/[slug]/academia/admissions/invitations/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/invitations/page.tsx#InvitationsPage": "4e110598df2d3c91",
         "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx#InvitationsContainer": "78620de595f361d6",
+        "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx#InvitationsContainer": "c037bf8da264b9d2",
         "hooks/use-personal-invitation-management.ts#<module>": "d414f6d3ee71f10d",
         "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/client": "cb2f027a3e9fd9d6",
         "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/live": "3377e9eb1de06adf",
@@ -370,9 +368,9 @@
         "src/modules/academy-admissions/infrastructure/composition/personal-invitation-management-page.ts#loadPersonalInvitationManagementPageState/failure": "4e30fcd96de9ac6d",
         "src/modules/academy-admissions/infrastructure/composition/personal-invitation-management-page.ts#loadPersonalInvitationManagementPageState~shell": "7621b7fc00dc74b6",
         "app/(platform)/[slug]/academia/admissions/error.tsx#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/error.tsx#AdmissionReviewError": "0431b58c26c186c1",
+        "app/(platform)/[slug]/academia/admissions/error.tsx#AdmissionReviewError": "69c8355e2a53cc80",
         "app/(platform)/[slug]/academia/admissions/invitations/error.tsx#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/invitations/error.tsx#Error": "e0dcc5c007027e46",
+        "app/(platform)/[slug]/academia/admissions/invitations/error.tsx#Error": "14482fb825f3bd38",
         "app/(platform)/[slug]/academia/admissions/invitations/loading.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/invitations/loading.tsx#InvitationsLoading": "7889f9c564c9c4a0",
         "app/(platform)/[slug]/academia/admissions/layout.tsx#<module>": "2da3ec2294295eb1",
@@ -380,13 +378,6 @@
         "app/(platform)/[slug]/academia/admissions/loading.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/loading.tsx#AdmissionReviewLoading": "f41e32ed18b1f989",
         "app/(platform)/[slug]/academia/loading.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.stepKeys": "41921ce057f8f3e0",
-        "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.benefitLineCount": "4183d3caf1a88c40",
-        "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.priceFactCount": "3724463e19f31e43",
-        "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.accessActionCount": "cd1fbc5f1f3d7099",
-        "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.offerActionCount": "a8a8c58cabadd18f",
-        "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE~frame": "265b2efba609ab49",
-        "app/(platform)/[slug]/academia/loading.tsx#AcademyLoading": "d39e4a43e853373e",
         "app/(platform)/[slug]/layout.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/layout.tsx#TribeSegmentLayout": "d2ebfbc75a3ec0fd",
         "app/(platform)/[slug]/loading.tsx#<module>": "2da3ec2294295eb1",
@@ -399,6 +390,15 @@
         "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusLabel": "91b448f9dc994012",
         "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON~frame": "aff7438bb5a53b5f",
         "app/(platform)/[slug]/loading.tsx#TribeLoadingPage": "9d20796fb5186f24",
+        "app/(platform)/error.tsx#<module>": "d414f6d3ee71f10d",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.description": "3304d1f7d167d725",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.eyebrow": "d3680e774699c553",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.homeLabel": "058311abe590f3bf",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.retryLabel": "55dce502d524a7a7",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.title": "36b27df2cd481d52",
+        "app/(platform)/error.tsx#PLATFORM_ERROR_COPY~frame": "2aef35660089a73b",
+        "app/(platform)/error.tsx#PlatformErrorProps": "27f9cab13dc73fef",
+        "app/(platform)/error.tsx#PlatformError": "10a1b0632b21a85e",
         "app/(platform)/layout.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/layout.tsx#PLATFORM_LAYOUT_NOTIFICATIONS_LOG.dtoRejectedMessage": "dda49da278a84362",
         "app/(platform)/layout.tsx#PLATFORM_LAYOUT_NOTIFICATIONS_LOG.dtoRejectedReason": "4a725b7ea3d56cee",
@@ -427,8 +427,8 @@
         "app/error.tsx#ERROR_PAGE_COPY.retryLabel": "55dce502d524a7a7",
         "app/error.tsx#ERROR_PAGE_COPY.title": "36b27df2cd481d52",
         "app/error.tsx#ERROR_PAGE_COPY~frame": "4d35ea48d90cb834",
-        "app/error.tsx#ErrorPageProps": "839f15ee58d54b24",
-        "app/error.tsx#ErrorPage": "950ce5ef8f4ce5d7",
+        "app/error.tsx#ErrorPageProps": "1af725ade0a652c4",
+        "app/error.tsx#ErrorPage": "7e726dbf6cb2260c",
         "app/global-error.tsx#<module>": "1bdeb150c1952562",
         "app/global-error.tsx#GLOBAL_ERROR_PAGE_COPY.description": "b1420d85f5502fc6",
         "app/global-error.tsx#GLOBAL_ERROR_PAGE_COPY.eyebrow": "d3680e774699c553",
@@ -439,8 +439,8 @@
         "app/global-error.tsx#GLOBAL_ERROR_PAGE_COPY~frame": "21648876753445c1",
         "app/global-error.tsx#GLOBAL_ERROR_DOCUMENT_CLASS.body": "5ba2fc953a4e9ff8",
         "app/global-error.tsx#GLOBAL_ERROR_DOCUMENT_CLASS~frame": "ecba0437d9fb8c73",
-        "app/global-error.tsx#GlobalErrorPageProps": "e41636e2d3654792",
-        "app/global-error.tsx#GlobalErrorPage": "1f5705fcf0b2ce51",
+        "app/global-error.tsx#GlobalErrorPageProps": "aa842a191c045b69",
+        "app/global-error.tsx#GlobalErrorPage": "13a8b096d4b2beac",
         "app/layout.tsx#<module>": "3eec7190146f9ff3",
         "app/layout.tsx#ROOT_LAYOUT_DOCUMENT.language": "873de5b6448ed855",
         "app/layout.tsx#ROOT_LAYOUT_DOCUMENT.scrollBehavior": "09fbbcbd13163c52",
@@ -466,7 +466,7 @@
         "next.config.ts#nextConfig.images": "ea50c4dc787b7368",
         "next.config.ts#nextConfig~frame": "94bd7f163d17efa5",
         "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "566cf7e5647a035b",
+        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "a495faed644922f1",
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_COPY~frame": "6def629c6ac81e5b",
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_COPY.reading": "f8cc3945a2e1047d",
@@ -934,37 +934,14 @@
         "components/academy-admissions/admission-settings-page/index.tsx#AdmissionPageHeader": "6110c696671918ae",
         "components/academy-admissions/admission-settings-page/index.tsx#AdmissionSettingsPageProps": "f5045537881eebf2",
         "components/academy-admissions/admission-page-skeleton/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionPageSkeleton": "d3a2a430ac0ce08a",
-        "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.review": "8d1698c00bd2c93d",
-        "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.history": "ba3cfc91601c557f",
-        "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.policy": "5847a69980328ace",
-        "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.allowlist": "52c1670700a8d7df",
-        "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.allowlistImport": "a7a0c2ab2ef6f4bc",
-        "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.invitations": "e057bd35efc47097",
-        "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.usage": "f0a7f5afa1d57219",
-        "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.connections": "70daf1af7b9d968e",
-        "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.notifications": "38ce22af5e9cc96e",
-        "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.activity": "4eb8da73eaf8a129",
-        "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS~frame": "5567ddee28712c78",
-        "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionSkeletonPart": "e5a5e3e356afe0c1",
-        "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionSkeletonPartPlaceholder": "d5b53572863b7903",
+        "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionPageSkeleton": "f456cf1bc411865c",
+        "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_SKELETON_SHAPE~frame": "b5d20cfde612a3f1",
+        "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_SKELETON_SHAPE.factCount": "28a692b9a0feab70",
+        "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_SKELETON_SHAPE.rowCount": "4f6b5b70a016126c",
+        "components/academy-admissions/admission-page-skeleton/index.tsx#placeholderKeys": "a1ec4c5ff5f87bbe",
         "components/academy-admissions/admission-workspace-frame/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy-admissions/admission-workspace-frame/index.tsx#AdmissionWorkspaceFrame": "b2adab62907085a3",
         "components/academy-admissions/admission-workspace-frame/index.tsx#AdmissionWorkspaceHeader": "2560b8ea54ce0cf7",
-        "components/loaders/route-skeleton/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/loaders/route-skeleton/index.tsx#RouteSkeleton": "223b4db7f24fd665",
-        "components/loaders/route-skeleton/index.tsx#SkeletonActions": "df9e3baef88be6f1",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame": "42404c67903a5744",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.actionCount": "f92415e0af3e9610",
-        "components/loaders/route-skeleton/index.tsx#SkeletonBlock": "c340a37ce4ab55ed",
-        "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind": "a357496f078189ee",
-        "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth": "175b5e3780859001",
-        "components/loaders/route-skeleton/index.tsx#placeholderKeys": "a1ec4c5ff5f87bbe",
-        "components/loaders/route-skeleton/index.tsx#SkeletonFacts": "e96a6dccf846eedb",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.factCount": "28a692b9a0feab70",
-        "components/loaders/route-skeleton/index.tsx#SkeletonLines": "60d9052267ae7426",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount": "b251bfcb1dd93f46",
-        "app/(platform)/[slug]/academia/loading.module.scss#*": "c9c38284a6116209",
         "components/tribes/tribe-presence-heartbeat/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/tribes/tribe-presence-heartbeat/index.tsx#TribePresenceHeartbeat": "8590a091864a731e",
         "components/tribes/tribe-presence-heartbeat/index.tsx#PRESENCE_HEARTBEAT~frame": "e3c7aa8cc8b620e3",
@@ -977,6 +954,14 @@
         "components/tribes/tribe-presence-heartbeat/index.tsx#PRESENCE_HEARTBEAT.apiPrefix": "8f617152d1038910",
         "components/tribes/tribe-presence-heartbeat/index.tsx#PRESENCE_HEARTBEAT.presenceSegment": "93405a427f23be6d",
         "app/(platform)/[slug]/loading.module.scss#*": "3f6fcdd2e5f79775",
+        "components/feedback/error-state/index.tsx#<module>": "d414f6d3ee71f10d",
+        "components/feedback/error-state/index.tsx#ErrorState": "20991c4e77bbb771",
+        "components/feedback/error-state/index.tsx#ERROR_STATE_UI~frame": "26adb8ff56b60901",
+        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.backdropAriaHidden": "820012bc59803918",
+        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.homeLinkSize": "2e9ffb8d13f313b0",
+        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.homeLinkVariant": "b82a9044da7be018",
+        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.retryButtonSize": "eb534ab249e443a4",
+        "components/feedback/error-state/index.tsx#ErrorStateProps": "ca7336ae33bf58bf",
         "src/modules/setup.ts#createRequestModules/executeWithRequestContext": "08675cdc210a33ff",
         "src/modules/setup.ts#createRequestModules~shell": "389ed7be79fc5562",
         "src/modules/notifications/application/results/notification-public-dto-schemas.ts#<module>": "2da3ec2294295eb1",
@@ -1208,14 +1193,6 @@
         "components/platform/tribe-switcher/index.tsx#TRIBE_SWITCHER_UI.triggerAriaLabel": "010331a6fd943530",
         "components/platform/tribe-switcher/index.tsx#TribeSwitcherProps": "3b5a60b4267009e1",
         "app/(platform)/loading.module.scss#*": "55505dfb148e6c98",
-        "components/feedback/error-state/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/feedback/error-state/index.tsx#ErrorState": "20991c4e77bbb771",
-        "components/feedback/error-state/index.tsx#ERROR_STATE_UI~frame": "26adb8ff56b60901",
-        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.backdropAriaHidden": "820012bc59803918",
-        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.homeLinkSize": "2e9ffb8d13f313b0",
-        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.homeLinkVariant": "b82a9044da7be018",
-        "components/feedback/error-state/index.tsx#ERROR_STATE_UI.retryButtonSize": "eb534ab249e443a4",
-        "components/feedback/error-state/index.tsx#ErrorStateProps": "ca7336ae33bf58bf",
         "app/globals.css#*": "067cf27eba244702",
         "lib/site-config.ts#<module>": "2da3ec2294295eb1",
         "lib/site-config.ts#siteConfig~frame": "4a917d832b627399",
@@ -1412,13 +1389,7 @@
         "src/modules/academy-admissions/constants/admission-sections.ts#ADMISSION_WORKSPACE_COPY.related": "fca48c1d41c7d58d",
         "src/modules/academy-admissions/constants/admission-sections.ts#ADMISSION_WORKSPACE_COPY.eyebrow": "513ee08a77117d14",
         "components/academy-admissions/admission-settings-page/styles.module.scss#*": "833cfa2341b7fc1c",
-        "components/loaders/route-skeleton/index.tsx#SkeletonRows": "350cf9c04a654cf3",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.rowCount": "4f6b5b70a016126c",
-        "components/loaders/route-skeleton/index.tsx#SkeletonStepsPanel": "8c6064fdd8e4cfad",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.fieldCount": "48ae612fcafb5f81",
-        "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.stepCount": "68cf38af6f4044af",
-        "components/loaders/route-skeleton/index.tsx#SkeletonField": "d1ce3464b143b551",
-        "components/academy-admissions/admission-page-skeleton/styles.module.scss#*": "8afe65bc39c4f234",
+        "components/academy-admissions/admission-page-skeleton/styles.module.scss#*": "68befccc538de14f",
         "src/modules/academy-admissions/constants/admission-sections.ts#ADMISSION_WORKSPACE_COPY.navigation": "358b917ea5f5d26c",
         "src/modules/academy-admissions/constants/admission-sections.ts#ADMISSION_WORKSPACE_RETURN~frame": "6fe4b90043c53c52",
         "src/modules/academy-admissions/constants/admission-sections.ts#ADMISSION_WORKSPACE_RETURN.href": "8d196ed082a288e6",
@@ -1441,7 +1412,7 @@
         "lib/academy-admissions/admission-sections.ts#TRAILING_SEPARATORS": "d59292a8757d19ba",
         "components/academy-admissions/admission-workspace-frame/styles.module.scss#*": "f6e53e7b4a510f61",
         "components/platform/member-tribes-provider/index.tsx#useMemberTribe": "331e56bb2efdfa41",
-        "components/loaders/route-skeleton/styles.module.scss#*": "aba42533e97ac72c",
+        "components/feedback/error-state/styles.module.scss#*": "c3291993525c2d1c",
         "src/modules/notifications/application/results/notification-result.ts#<module>": "2da3ec2294295eb1",
         "src/modules/notifications/application/results/notification-result.ts#NotificationInboxResult": "f879267135680aef",
         "src/modules/notifications/constants/admission-notifications.ts#<module>": "2da3ec2294295eb1",
@@ -1660,7 +1631,6 @@
         "components/tribes/tribe-support-config-dialog/index.tsx#TribeSupportConfigDialogProps": "91aa691139922c7d",
         "components/tribes/tribe-support-config-dialog/index.tsx#getInitialChannel": "91af063baadeb69f",
         "components/platform/tribe-switcher/styles.module.scss#*": "df5b3f4712236b21",
-        "components/feedback/error-state/styles.module.scss#*": "c3291993525c2d1c",
         "src/constants/theme-mode.ts#THEME_MODE_STORAGE_KEY": "2fe12ff9af449189",
         "src/constants/toast.ts#<module>": "2da3ec2294295eb1",
         "src/constants/toast.ts#APP_TOAST_DURATION_MS": "7b662a022aabd0e8",
@@ -2233,6 +2203,9 @@
           "awaits": 2,
           "database": 1
         },
+        "app/(platform)/error.tsx#PlatformError": {
+          "effects": 1
+        },
         "app/(platform)/layout.tsx#loadInitialNotificationInbox": {
           "projectCalls": 1,
           "awaits": 1
@@ -2721,321 +2694,152 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
-        "durationMs": 24067,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 33410,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "558f8b0aea54ced7489bfec13fcb97d5f96ebb88a5cc7e26bfd1de2e0ddc40e5",
-        "recordedAt": "2026-10-25T07:57:19.764Z",
+        "outputSha256": "9da1a51ba6fc2027308d2fc9cc0751c0bf0a683793c4470e480cbd8da3d3cbbd",
+        "recordedAt": "2026-10-25T04:27:43.332Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 2201,
+        "durationMs": 3251,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T07:57:22.391Z",
+        "recordedAt": "2026-10-25T04:27:47.140Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T07:57:22.822Z",
+        "recordedAt": "2026-10-25T04:27:47.716Z",
         "source": "attested",
-        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
-      },
-      {
-        "kind": "browser",
-        "outcome": "pass",
-        "recordedAt": "2026-10-25T07:57:23.241Z",
-        "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app, capturando el fallback durante una navegación: antes, academia, gestionar, verificación, suscripción y canales mostraban el esqueleto de la ronda («Cargando sección de tribu») y la invitación «Solicitar ingreso»; después, cada ruta anuncia su propia carga con su forma (panel de pasos en Reglas e Invitaciones, filas en Solicitudes, «Tu solicitud de ingreso» e «Invitación personal» en el solicitante) (4/4)."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [],
     "mode": "incremental",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T07:57:24.920Z",
+    "recordedAt": "2026-10-25T04:27:50.003Z",
     "result": "verified",
-    "runId": "20261025T075655Z-b989b8",
+    "runId": "20261025T042709Z-c149ae",
     "scope": {
       "decision": "incremental",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "44 relevant change(s) since the verified run"
+        "17 relevant change(s) since the verified run"
       ],
       "relevantChangesAtBegin": [
         {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/loading.module.scss#*",
-          "reason": "styles of a skeleton or loading boundary changed"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.accessActionCount",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.benefitLineCount",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.offerActionCount",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.priceFactCount",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE.stepKeys",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/loading.tsx#ACADEMY_LOADING_SHAPE~frame",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/loading.tsx#AcademyLoading",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.activity",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.allowlist",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.allowlistImport",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.connections",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.history",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.invitations",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.notifications",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.policy",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.review",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.usage",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS~frame",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "removed",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_SKELETON_SHAPE.factCount",
-          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
-        },
-        {
-          "change": "removed",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_SKELETON_SHAPE.rowCount",
-          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
-        },
-        {
-          "change": "removed",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_SKELETON_SHAPE~frame",
-          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/admissions/error.tsx#AdmissionReviewError",
+          "reason": "route file changed: segment layout, boundary or page"
         },
         {
           "change": "modified",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionPageSkeleton",
+          "key": "app/(platform)/[slug]/academia/admissions/invitations/error.tsx#Error",
+          "reason": "route file changed: segment layout, boundary or page"
+        },
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx#InvitationsContainer",
           "reason": "code rendered by the route changed"
         },
         {
           "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionSkeletonPart",
-          "reason": "new code rendered by the route"
+          "key": "app/(platform)/error.tsx#<module>",
+          "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
         },
         {
           "change": "added",
-          "key": "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionSkeletonPartPlaceholder",
-          "reason": "new code rendered by the route"
+          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.description",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.eyebrow",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.homeLabel",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.retryLabel",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY.title",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PLATFORM_ERROR_COPY~frame",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PlatformError",
+          "reason": "new route file: segment, layout or boundary added"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/error.tsx#PlatformErrorProps",
+          "reason": "new route file: segment, layout or boundary added"
         },
         {
           "change": "modified",
-          "key": "components/academy-admissions/admission-page-skeleton/styles.module.scss#*",
-          "reason": "styles of a skeleton or loading boundary changed"
+          "key": "app/error.tsx#ErrorPage",
+          "reason": "route file changed: segment layout, boundary or page"
         },
         {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.actionCount",
-          "reason": "object member read by the route changed: route configuration impact unknown"
+          "change": "modified",
+          "key": "app/error.tsx#ErrorPageProps",
+          "reason": "route file changed: segment layout, boundary or page"
         },
         {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.factCount",
-          "reason": "object member read by the route changed: route configuration impact unknown"
+          "change": "modified",
+          "key": "app/global-error.tsx#GlobalErrorPage",
+          "reason": "route file changed: segment layout, boundary or page"
         },
         {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.fieldCount",
-          "reason": "object member read by the route changed: route configuration impact unknown"
+          "change": "modified",
+          "key": "app/global-error.tsx#GlobalErrorPageProps",
+          "reason": "route file changed: segment layout, boundary or page"
         },
         {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.rowCount",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.stepCount",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#RouteSkeleton",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonActions",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlock",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonFacts",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonField",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonLines",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonRows",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonStepsPanel",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/styles.module.scss#*",
-          "reason": "styles of a skeleton or loading boundary changed"
+          "change": "modified",
+          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
+          "reason": "code rendered by the route changed"
         }
       ],
       "suggestedScope": [
-        "app/(platform)/[slug]/academia/loading.module.scss (whole file) — skeleton that uses these styles: final shape, reserved heights and reduced motion",
-        "app/(platform)/[slug]/academia/loading.tsx › ACADEMY_LOADING_SHAPE.accessActionCount — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
-        "app/(platform)/[slug]/academia/loading.tsx › ACADEMY_LOADING_SHAPE.benefitLineCount — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
-        "app/(platform)/[slug]/academia/loading.tsx › ACADEMY_LOADING_SHAPE.offerActionCount — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
-        "app/(platform)/[slug]/academia/loading.tsx › ACADEMY_LOADING_SHAPE.priceFactCount — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
-        "app/(platform)/[slug]/academia/loading.tsx › ACADEMY_LOADING_SHAPE.stepKeys — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
-        "app/(platform)/[slug]/academia/loading.tsx › ACADEMY_LOADING_SHAPE (object structure) — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
-        "app/(platform)/[slug]/academia/loading.tsx › AcademyLoading — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS.activity — route configuration read from this member, in every segment that uses it",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS.allowlist — route configuration read from this member, in every segment that uses it",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS.allowlistImport — route configuration read from this member, in every segment that uses it",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS.connections — route configuration read from this member, in every segment that uses it",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS.history — route configuration read from this member, in every segment that uses it",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS.invitations — route configuration read from this member, in every segment that uses it",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS.notifications — route configuration read from this member, in every segment that uses it",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS.policy — route configuration read from this member, in every segment that uses it",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS.review — route configuration read from this member, in every segment that uses it",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS.usage — route configuration read from this member, in every segment that uses it",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_PAGE_SKELETON_PARTS (object structure) — server/client split and awaited work of this code in every route of the unit",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_SKELETON_SHAPE.factCount — what the route lost: a layout, a boundary, a Suspense fallback or a client island; check that each state still has its boundary",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_SKELETON_SHAPE.rowCount — what the route lost: a layout, a boundary, a Suspense fallback or a client island; check that each state still has its boundary",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › ADMISSION_SKELETON_SHAPE (object structure) — what the route lost: a layout, a boundary, a Suspense fallback or a client island; check that each state still has its boundary",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › AdmissionPageSkeleton — server/client split and awaited work of this code in every route of the unit",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › AdmissionSkeletonPart — server/client split and awaited work of this code in every route of the unit",
-        "components/academy-admissions/admission-page-skeleton/index.tsx › AdmissionSkeletonPartPlaceholder — server/client split and awaited work of this code in every route of the unit",
-        "components/academy-admissions/admission-page-skeleton/styles.module.scss (whole file) — skeleton that uses these styles: final shape, reserved heights and reduced motion",
-        "components/loaders/route-skeleton/index.tsx › ROUTE_SKELETON_DEFAULT.actionCount — route configuration read from this member, in every segment that uses it",
-        "components/loaders/route-skeleton/index.tsx › ROUTE_SKELETON_DEFAULT.factCount — route configuration read from this member, in every segment that uses it",
-        "components/loaders/route-skeleton/index.tsx › ROUTE_SKELETON_DEFAULT.fieldCount — route configuration read from this member, in every segment that uses it",
-        "components/loaders/route-skeleton/index.tsx › ROUTE_SKELETON_DEFAULT.lineCount — route configuration read from this member, in every segment that uses it",
-        "components/loaders/route-skeleton/index.tsx › ROUTE_SKELETON_DEFAULT.rowCount — route configuration read from this member, in every segment that uses it",
-        "components/loaders/route-skeleton/index.tsx › ROUTE_SKELETON_DEFAULT.stepCount — route configuration read from this member, in every segment that uses it",
-        "components/loaders/route-skeleton/index.tsx › ROUTE_SKELETON_DEFAULT (object structure) — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/index.tsx › RouteSkeleton — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/index.tsx › SkeletonActions — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/index.tsx › SkeletonBlock — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/index.tsx › SkeletonBlockKind — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/index.tsx › SkeletonBlockWidth — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/index.tsx › SkeletonFacts — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/index.tsx › SkeletonField — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/index.tsx › SkeletonLines — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/index.tsx › SkeletonRows — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/index.tsx › SkeletonStepsPanel — server/client split and awaited work of this code in every route of the unit",
-        "components/loaders/route-skeleton/styles.module.scss (whole file) — skeleton that uses these styles: final shape, reserved heights and reduced motion"
+        "app/(platform)/[slug]/academia/admissions/error.tsx › AdmissionReviewError — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/(platform)/[slug]/academia/admissions/invitations/error.tsx › Error — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx › InvitationsContainer — server/client split and awaited work of this code in every route of the unit",
+        "app/(platform)/error.tsx (module directives and side effects) — where the server/client boundary falls (\"use client\", \"use server\") and what the client bundle imports through it",
+        "app/(platform)/error.tsx › PLATFORM_ERROR_COPY.description — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/(platform)/error.tsx › PLATFORM_ERROR_COPY.eyebrow — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/(platform)/error.tsx › PLATFORM_ERROR_COPY.homeLabel — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/(platform)/error.tsx › PLATFORM_ERROR_COPY.retryLabel — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/(platform)/error.tsx › PLATFORM_ERROR_COPY.title — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/(platform)/error.tsx › PLATFORM_ERROR_COPY (object structure) — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/(platform)/error.tsx › PlatformError — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/(platform)/error.tsx › PlatformErrorProps — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/error.tsx › ErrorPage — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/error.tsx › ErrorPageProps — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/global-error.tsx › GlobalErrorPage — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "app/global-error.tsx › GlobalErrorPageProps — segment decisions of this file: layout chrome, Suspense, loading and error boundaries, route segment config and the data it awaits",
+        "components/academy-admissions/admission-route-error/index.tsx › AdmissionRouteError — server/client split and awaited work of this code in every route of the unit"
       ]
     },
     "skill": {
@@ -3051,6 +2855,6 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T075655Z-b989b8.json"
+    "report": "runs/20261025T042709Z-c149ae.json"
   }
 }

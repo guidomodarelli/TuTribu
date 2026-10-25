@@ -1,0 +1,64 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-route-boundaries",
+    "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+    "fingerprint": "sha256:09496cda7f87a3380cb3657959a988d32490eb6f027c3d1139e02dfa123560fd",
+    "uncommittedFiles": [],
+    "fileCount": 159,
+    "inputCount": 1645
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+      "durationMs": 30051,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "71a6201fa8d678a86bbd32a4b97e180622fbd290a9ca5cd21b121759c105cf48",
+      "recordedAt": "2026-10-25T05:35:27.877Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T05:35:28.397Z",
+      "source": "attested",
+      "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T05:35:30.441Z",
+  "result": "verified",
+  "runId": "20261025T053457Z-8e642b",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "skill definition changed (1.1.0 → 1.2.0): SKILL.md",
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "re-check the unit against the rules changed in optimistic-action-mutations/SKILL.md"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "96d98d49220f2894",
+      "references/action-catalog.md": "3011dc2f28c2e91c",
+      "references/concurrency-reconciliation.md": "1bb4d0816b1a483d",
+      "references/framework-primitives.md": "16fc928cc9cc1f3c",
+      "references/interaction-state-machine.md": "c09f8f0c506bdd54",
+      "references/optimistic-decision.md": "62c41b62a67ed97a"
+    },
+    "definitionHash": "sha256:e7f9e58f5862e859cec90782e0920de1b6583e9e1904af2e8818f971aeb3448f",
+    "name": "optimistic-action-mutations",
+    "version": "1.2.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T05:34:57.239Z",
+  "unitId": "tribe.campfire.react"
+}

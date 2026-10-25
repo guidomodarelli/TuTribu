@@ -31,7 +31,7 @@ type PersonalContainerProps = { initialState: PersonalInvitationPageState; clien
 /** @param props - Safe SSR state and own transport ports. @returns A fresh workflow for the current route/account without adding token material to SSR props. */
 export function PersonalInvitationContainer(props: PersonalContainerProps) {
   const { token } = useParams<{ token: string }>();
-  if (props.initialState.kind === "unavailable") return <AdmissionRouteError message={props.initialState.message} reset={() => { window.location.reload(); /* A failed read-only SSR snapshot is retried as a fresh document. */ }} />;
+  if (props.initialState.kind === "unavailable") return <AdmissionRouteError message={props.initialState.message} retry={() => { window.location.reload(); /* A failed read-only SSR snapshot is retried as a fresh document. */ }} />;
   const viewer = props.initialState.kind === "ready" ? props.initialState.viewerId : null;
   return <PersonalInvitationWorkflow key={`${token}:${viewer ?? ""}`} {...props} token={token} />;
 }

@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "622fc297a81165d651538448906da0c5f3c44887",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
-        "components/academy/academy-management/index.tsx": "2cdaec4513ec7dcd",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "0f0efff9bd2bbc3e",
+        "components/academy/academy-management/index.tsx": "34f2bdb8739e7845",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
         "app/api/tribes/[slug]/academy/members/route.ts": "3cbb25f32868f5ae",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
         "src/modules/product-access/infrastructure/repositories/postgres-product-access-repository.ts": "b6d068802851a5fa",
@@ -51,7 +51,7 @@
         "src/constants/time.ts": "98b5459a77a709b0",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:05a95dea905403c21188e57389383085b83f0d72073490abacb72fbdd5f4097b",
+      "fingerprint": "sha256:451da13e9557f7b4200cf53a85cce0b3419e7c684afb6bf4b54b29d9c9f8a8ca",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-management/index.tsx#MembersSection~shell": "5e5f716a7ddad39e",
@@ -97,8 +97,8 @@
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantLegacy": "ff6ccee3450ef8d0",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantPaid": "707296e2f5a106ab",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": "b8f0ed9c67a46d96",
-        "components/academy/academy-management/index.tsx#AcademyManagement": "7ffc2c14f59edca8",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": "6371b497b9fa3370",
+        "components/academy/academy-management/index.tsx#AcademyManagement": "3c4bdf0f81d5efd8",
         "app/api/tribes/[slug]/academy/members/route.ts#<module>": "2da3ec2294295eb1",
         "app/api/tribes/[slug]/academy/members/route.ts#GET": "fe1e1e673584e255",
         "app/api/tribes/[slug]/academy/members/route.ts#OPERATION": "671a28a0034a3c9d",
@@ -744,39 +744,50 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
-        "durationMs": 24097,
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 44365,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "0f8570f8f79089f2af6a9d50ffd934f48e7f48947309be15dd4bba7158534dd2",
-        "recordedAt": "2026-10-25T08:32:29.318Z",
+        "outputSha256": "3e652b1c167dc3a608a0efe330259a1d2da6dfe5d442521734c8e0904d68f167",
+        "recordedAt": "2026-10-25T05:17:33.470Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T08:32:29.745Z",
+        "recordedAt": "2026-10-25T05:17:34.172Z",
         "source": "attested",
-        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T08:32:30.975Z",
+    "recordedAt": "2026-10-25T05:17:37.479Z",
     "result": "partial",
-    "runId": "20261025T083204Z-d55c20",
+    "runId": "20261025T051648Z-488a51",
     "scope": {
       "decision": "full",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage",
+          "reason": "code reached by the unit changed"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-management/index.tsx#AcademyManagement",
+          "reason": "code reached by the unit changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.manage.members.list: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -794,7 +805,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T083204Z-d55c20.json"
+    "report": "runs/20261025T051648Z-488a51.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",
