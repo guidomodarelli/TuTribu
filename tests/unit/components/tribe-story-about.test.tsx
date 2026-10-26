@@ -3,6 +3,10 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { TribeStoryAbout } from "@/components/tribes/tribe-story-about";
+import {
+  TRIBE_FREE_JOIN_FORM_INITIAL_STATE,
+  type TribeFreeJoinFormState,
+} from "@/src/modules/tribes/constants/tribe-story";
 
 class ResizeObserverMock {
   disconnect = vi.fn();
@@ -154,7 +158,7 @@ describe("TribeStoryAbout", () => {
   });
 
   it("renders a free join form when the tribe allows tokenless free joins", () => {
-    const freeJoinAction = vi.fn(async () => undefined);
+    const freeJoinAction = vi.fn(async () => TRIBE_FREE_JOIN_FORM_INITIAL_STATE);
 
     render(
       <TribeStoryAbout
@@ -181,7 +185,7 @@ describe("TribeStoryAbout", () => {
   it("disables the free join button and shows progress while joining", async () => {
     const user = userEvent.setup();
     const freeJoinAction = vi.fn(
-      () => new Promise<void>(() => undefined)
+      () => new Promise<TribeFreeJoinFormState>(() => undefined)
     );
 
     render(

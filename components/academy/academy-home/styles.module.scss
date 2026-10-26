@@ -304,6 +304,11 @@ $academy-home-wide: 48rem;
     align-items: center;
   }
 
+  // An action's error takes its own row under the buttons it belongs to.
+  &__actionError {
+    flex-basis: 100%;
+  }
+
   &__primaryLink,
   &__secondaryLink {
     display: inline-flex;

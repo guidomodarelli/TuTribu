@@ -169,4 +169,33 @@ describe("notification recovery container", () => {
     expect(screen.queryByRole("button", { name: /Google/ })).not.toBeInTheDocument(); expect(screen.queryByRole("link", { name: /Google/ })).not.toBeInTheDocument();
     expect(fixture.props.client!.recover).not.toHaveBeenCalled(); expect(fixture.snapshot.draft?.deliveryId).toBe(fixture.item.id);
   });
+  it("should add earlier notices below the current page and keep the chosen notice when loading them", async () => {
+    const fixture = prepareContainer(), user = userEvent.setup(), earlier = { ...fixture.item, id: randomUUID(), createdAt: "2026-10-01T12:00:00Z" };
+    fixture.props.initialCatalog = { items: [fixture.item], nextCursor: { deliveryId: fixture.item.id, createdAt: fixture.item.createdAt } };
+    vi.mocked(fixture.props.client!.catalog).mockResolvedValue({ status: "ready", value: { items: [earlier], nextCursor: null } });
+    render(<NotificationRecoveryContainer {...fixture.props} />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ver avisos anteriores" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Ver avisos anteriores" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Ver avisos anteriores" })).not.toBeInTheDocument());
+    expect(fixture.props.client!.catalog).toHaveBeenCalledWith({ slug: "synthetic", cursor: { deliveryId: fixture.item.id, createdAt: fixture.item.createdAt } }, expect.any(AbortSignal));
+    expect(screen.getByRole("combobox", { name: "Aviso que querés recuperar" })).toHaveTextContent("Aviso 1");
+    await user.click(screen.getByRole("combobox", { name: "Aviso que querés recuperar" }));
+    expect(await screen.findByRole("option", { name: /^Aviso 1 .*2026-10-11/ })).toBeVisible(); expect(screen.getByRole("option", { name: /^Aviso 2 .*2026-10-01/ })).toBeVisible();
+    expect(fixture.props.client!.recover).not.toHaveBeenCalled();
+  });
+  it("should show a notice whose deadline passed as no longer recoverable, without its consent or recovery action", async () => {
+    const fixture = prepareContainer(); fixture.props.initialCatalog = { items: [{ ...fixture.item, deadlineAt: "2026-10-11T13:00:00Z" }], nextCursor: null };
+    render(<NotificationRecoveryContainer {...fixture.props} />);
+    expect(await screen.findByText(NOTIFICATION_RECOVERY_UI_COPY.expired)).toHaveAttribute("role", "status");
+    expect(screen.queryByRole("button", { name: "Registrar recuperación" })).not.toBeInTheDocument(); expect(screen.queryByRole("checkbox", { name: /Revisé el aviso/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(NOTIFICATION_RECOVERY_UI_COPY.selectionRequired)).not.toBeInTheDocument(); expect(fixture.props.client!.recover).not.toHaveBeenCalled();
+  });
+  it("should withdraw the recovery action when the selected notice's deadline passes while the page is open", async () => {
+    const fixture = prepareContainer(), renderedAt = new Date().toISOString();
+    fixture.props.renderedAt = renderedAt; fixture.props.initialCatalog = { items: [{ ...fixture.item, deadlineAt: new Date(Date.now() + 600).toISOString() }], nextCursor: null };
+    render(<NotificationRecoveryContainer {...fixture.props} />);
+    expect(screen.getByRole("button", { name: "Registrar recuperación" })).toBeVisible();
+    expect(await screen.findByText(NOTIFICATION_RECOVERY_UI_COPY.expired, {}, { timeout: 3000 })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Registrar recuperación" })).not.toBeInTheDocument(); expect(fixture.props.client!.recover).not.toHaveBeenCalled();
+  });
 });

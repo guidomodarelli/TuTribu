@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "fix/academy-management-mutations",
+      "commit": "64b87f83eb45941aa8b2b758ae938221dad4baad",
       "files": {
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
-        "components/academy/academy-management/index.tsx": "b31e2d2038935251",
+        "components/academy/academy-management/index.tsx": "c9c63144daeb34d0",
         "app/(platform)/[slug]/academia/gestionar/loading.tsx": "efdd51c1e0f631dd",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
@@ -392,32 +392,39 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 49173,
+        "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
+        "durationMs": 30205,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "ffe93a912447237644448edd7ae5f36ac2f7ecf278f3ebe420ed34236942a5ce",
-        "recordedAt": "2026-10-25T14:26:59.609Z",
+        "outputSha256": "74afbce5f4bfadb2f827f4c4756797233046920dca6972861e06fa9655e9dc0a",
+        "recordedAt": "2026-10-25T20:34:56.434Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T14:27:00.294Z",
+        "recordedAt": "2026-10-25T20:34:56.883Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Ciclo de vida: revocar es server-confirmed con protección de doble envío y error dentro del diálogo; otorgar y revocar recargan la lista por reloadToken; disponibilidad y conflictos conservan el borrador de la oferta; decidir una solicitud la saca del filtro y vuelve a pedir la página, un conflicto la deja visible con su estado; búsquedas y paginación muestran Consultando…"
+      },
+      {
+        "kind": "browser",
+        "outcome": "pass",
+        "recordedAt": "2026-10-25T20:34:57.399Z",
+        "source": "attested",
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: la bonificación otorgada aparece sin recargar, revocar usa el diálogo sin window.prompt y el título sin guardar se conserva al cambiar la disponibilidad (4/4)."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron las secciones de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T14:27:01.547Z",
+    "recordedAt": "2026-10-25T20:34:59.254Z",
     "result": "partial",
-    "runId": "20261025T142610Z-6a686d",
+    "runId": "20261025T203425Z-4da2d3",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -442,7 +449,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T142610Z-6a686d.json"
+    "report": "runs/20261025T203425Z-4da2d3.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

@@ -112,6 +112,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - La importación de la lista de habilitados ofrece «Seleccionar todas las válidas» y «Quitar selección», y muestra cuántas filas válidas sin resultado hay, para elegir de una vez filas de archivos de hasta 10.000 filas.
 
 ### Changed
+
+- En Gestionar academia, revocar una bonificación se hace en un diálogo con el motivo, que muestra el progreso, no se envía dos veces y actualiza la lista al terminar.
+- Gestionar academia muestra «Consultando…» al buscar o paginar, saca de la lista de pendientes la solicitud que acabás de decidir y ya no borra los cambios sin guardar de la oferta al cambiar la disponibilidad o ante un conflicto.
+- Gestionar academia abre más rápido: la página pide de una sola vez los integrantes, las solicitudes, la oferta y los proveedores.
 - Los filtros de fecha de Solicitudes se eligen en hora de Argentina («Desde (hora de Argentina)» y «Hasta (hora de Argentina)») en lugar de UTC.
 - En Avisos de admisión, una zona horaria que no existe se marca junto al campo y no deja continuar, en lugar de fallar recién al guardar.
 - Si al abrir Países y cupos o Conexión la sesión venció, la página ofrece «Iniciar sesión» y vuelve al mismo lugar; si falta el permiso, ya no ofrece un «Reintentar» que no puede funcionar.
@@ -197,6 +201,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Los líderes de tribu ya no necesitan confirmar su cuenta con Google para operaciones sensibles de admisiones, mensajería, salida del modo academia o borrado de la tribu; desaparecen el botón y la pantalla de confirmación.
 
 ### Fixed
+- En la academia, el diálogo de cancelar la renovación ya no muestra un error de un intento anterior o de otra acción: cada error aparece junto a la acción que falló y se borra al reintentar o al volver a abrir el diálogo.
+- Al volver de Mercado Pago, mientras se confirma el pago ya no se ofrece «Contratar academia» y «Abriendo el pago…» queda en curso hasta salir de la página; «Actualizar estado» avisa si el pago sigue sin confirmarse o, si no hay un pago en curso, vuelve a ofrecer contratar.
+- «Actualizar estado» en la academia avisa cuando el estado se revisó hace instantes y hay que esperar un minuto, y cuando no se pudo leer el estado actualizado, en lugar de no mostrar nada.
+- Si el ingreso gratis desde la historia de la tribu no se completa, la página explica qué pasó y qué hacer, junto al botón «Unirse gratis», en lugar de recargarse sin mensaje.
 - «Reintentar» en las páginas de error de admisiones y en el error general vuelve a cargar la sección; antes no volvía a pedirla o no hacía nada.
 - Si la academia, su gestión, la verificación, los canales o el fogón no pueden cargarse por un problema temporal, la tribu muestra un error con «Reintentar» sin perder el menú lateral, en lugar de «página no encontrada».
 - Si una acción de admisiones, mensajería o de integrantes de la academia no recibe respuesta, después de dos minutos deja de esperar y avisa que la respuesta tardó demasiado: ya no queda el botón en curso sin salida. Si era un envío o un cambio, primero se consulta si se guardó antes de ofrecer repetirlo.
@@ -302,6 +310,14 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Las solicitudes de admisión pueden guardarse mientras se actualiza el indicador de personas en línea, sin quedar inciertas por un bloqueo mutuo entre esas operaciones.
 - Los avisos de «no hay nada para mostrar», como los del calendario de eventos, vuelven a cambiar de alto con una transición suave cuando cambia su texto, también en dispositivos lentos.
 - Si el pedido del código de ingreso nunca llegó a registrarse, la pantalla del solicitante ya no queda trabada consultando para siempre: pasados diez minutos y con la ausencia confirmada, ofrece «Descartar la referencia y pedir otro código» sin riesgo de un envío doble.
+- «Guardar conexión» ya no queda deshabilitado sin explicación: al presionarlo, el líder ve debajo de cada campo qué falta completar y el cursor va al primero.
+- Consultar remitentes o plantillas muestra que está trabajando, no se repite con un segundo click y, si Zavu no devuelve opciones o la consulta falla, lo explica junto al campo en lugar de pedir otra vez que se consulten.
+- «Ver avisos anteriores» suma los avisos más antiguos debajo de los que ya se ven, sin perder el aviso elegido.
+- Un aviso cuyo plazo venció se muestra como no recuperable, con el motivo, en lugar de ofrecer una recuperación que termina en un error que no corresponde.
+- Si «Consultar conexión actual» falla o tarda demasiado, se muestra como un error de la consulta con su reintento y ya no indica que la conexión cambió.
+- Cuando la solicitud de ingreso o su enlace no pueden mostrarse por un problema temporal, la página ofrece «Reintentar» además de «Ir al inicio»; si el motivo no cambia al reintentar (falta de permiso, enlace inválido o solicitud inexistente), solo ofrece la salida.
+- Al pedir ingreso, un rechazo del envío aparece en el paso «Enviar solicitud», junto a la confirmación; el de la cancelación, junto a «Cancelar solicitud»; y el de corregir el teléfono, en su formulario. Cada uno se muestra una sola vez y desaparece al cambiar la confirmación o el dato.
+- Un enlace de invitación anterior con un código mal copiado o incompleto explica que el enlace no es válido y sugiere pedirle uno nuevo a la academia, en lugar de ofrecer «Reintentar», que no podía funcionar.
 - «Ver más» en la lista de habilitados, en el historial de invitaciones y en Consumo e historial de admisión suma la página siguiente debajo de lo ya mostrado, sin repetir elementos, en lugar de reemplazarlo; su carga y su error aparecen junto al botón.
 - Consumo e historial de admisión ya no oculta su contenido al volver a la pestaña ni al aplicar filtros: los datos anteriores siguen a la vista con un aviso de actualización hasta que llega la respuesta, y un error de consulta se muestra sin borrarlos.
 - Solicitudes y el historial de una solicitud ya no se vacían por un instante al terminar de cargar: los datos que llegan con la página siguen a la vista mientras se comprueba la cuenta, con sus acciones habilitadas al terminar.

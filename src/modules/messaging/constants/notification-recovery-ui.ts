@@ -19,5 +19,6 @@ export const NOTIFICATION_RECOVERY_UI_COPY = {
   stopped: "Se detuvo la observación. El servidor puede continuar; se conserva la referencia original antes de otra acción.",
   currentRequired: "La sesión cambió. Volvé a abrir esta pantalla con tu cuenta actual antes de continuar.",
   historyFull: "El historial de esta pestaña está lleno. Conservá y consultá las referencias anteriores; no se borrará un intento para iniciar otro.",
+  expired: "Este aviso ya no se puede recuperar: venció su plazo. Elegí otro aviso con plazo vigente.",
   archived: "La referencia quedó conservada en el historial. El servidor puede continuar; revisá el estado actual antes de otra acción.",
 } as const;

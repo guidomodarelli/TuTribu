@@ -21,9 +21,11 @@ import {
   academyBonusResultDtoSchema,
   academyCheckoutDtoSchema,
   academyMembersPageDtoSchema,
+  academyReconcileDtoSchema,
   academySettingsDtoSchema,
   type AcademyAccessStatusDto,
   type AcademyMembersPageDto,
+  type AcademyReconcileDto,
   type AcademySettingsDto,
 } from "@/src/modules/product-access/application/results/academy-public-dto-schemas";
 import {
@@ -210,10 +212,10 @@ export function startAcademyCheckout(tribeSlug: string, acceptedOfferVersion: nu
 }
 
 export function reconcileAcademyCoverage(tribeSlug: string) {
-  return requestAcademyApi<MessageBody>({
+  return requestAcademyApi<AcademyReconcileDto>({
     method: HTTP_METHOD.post,
     path: tribePath(tribeSlug, API_PATH.academy + API_PATH.reconcile),
-    schema: null,
+    schema: academyReconcileDtoSchema,
   });
 }
 
