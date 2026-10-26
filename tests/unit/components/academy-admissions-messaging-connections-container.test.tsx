@@ -25,6 +25,7 @@ import {OPERATION_STATE} from "@/src/constants/operation-state";
 import {createMessagingDiagnosticBrowserClient} from "@/lib/messaging/messaging-diagnostic-api-client";
 import {createMessagingConnectionsBrowserClient} from "@/lib/messaging/messaging-connections-api-client";
 import {REAUTHENTICATION_OPERATION} from "@/src/modules/auth/constants/reauthentication-resources";
+import {ADMISSION_CONTACT_ABSENT_DISCARD_AFTER_MS} from "@/src/modules/academy-admissions/constants/admission-contact-browser";
 
 /** @param ui - The container under test. @returns Its render next to the app's real toaster, where operation results are announced. */
 const renderWithToasts=(ui:ReactElement)=>render(<><ThemedToaster />{ui}</>);
@@ -51,7 +52,7 @@ const savedUsageWithoutCountries={state:"configured" as const,policy:{version:1,
 /** @returns Guarded own SSR state and readonly/writing ports without auth/platform mocks. */
 function containerFixture(){
   const viewerId=randomUUID(),tribeId=randomUUID(),configuration={audience:"leader" as const,selected:null,candidate:null,usage:savedUsageWithoutCountries},initialState:MessagingConnectionsPageState={kind:"ready",slug:"synthetic",tribeId,viewerId,renderedAt:new Date().toISOString(),configuration,providerCatalog:[{id:"zavu",channels:["email","sms","whatsapp"]}]},connectionId=randomUUID();
-  const create=vi.fn<MessagingConnectionsBrowserClient["create"]>(async(_slug,input)=>({status:"ready",value:{state:"completed",operationId:input.operationId,replayed:false,result:{id:connectionId,name:input.name,version:1,configurationVersion:1,state:"draft",maskedCredential:"••••••••"}}})),client:MessagingConnectionsBrowserClient={viewer:vi.fn<MessagingConnectionsBrowserClient["viewer"]>(async()=>({status:"ready",value:{id:viewerId}})),read:vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:configuration})),create,validate:vi.fn<MessagingConnectionsBrowserClient["validate"]>(async()=>({status:"failed",code:"resource_unavailable",message:"No disponible.",uncertain:false})),operation:vi.fn<MessagingConnectionsBrowserClient["operation"]>(async()=>({status:"failed",code:"resource_unavailable",message:"No disponible.",uncertain:false}))},store={read:vi.fn<MessagingConnectionsIntentStore["read"]>(()=>null),write:vi.fn<MessagingConnectionsIntentStore["write"]>(()=>true),history:vi.fn<MessagingConnectionsIntentStore["history"]>(()=>[]),archive:vi.fn<MessagingConnectionsIntentStore["archive"]>(()=>true),diagnostic:vi.fn<MessagingConnectionsIntentStore["diagnostic"]>(()=>null),writeDiagnostic:vi.fn<MessagingConnectionsIntentStore["writeDiagnostic"]>(()=>true)};
+  const create=vi.fn<MessagingConnectionsBrowserClient["create"]>(async(_slug,input)=>({status:"ready",value:{state:"completed",operationId:input.operationId,replayed:false,result:{id:connectionId,name:input.name,version:1,configurationVersion:1,state:"draft",maskedCredential:"••••••••"}}})),client:MessagingConnectionsBrowserClient={viewer:vi.fn<MessagingConnectionsBrowserClient["viewer"]>(async()=>({status:"ready",value:{id:viewerId}})),read:vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:configuration})),create,validate:vi.fn<MessagingConnectionsBrowserClient["validate"]>(async()=>({status:"failed",code:"resource_unavailable",message:"No disponible.",uncertain:false})),operation:vi.fn<MessagingConnectionsBrowserClient["operation"]>(async()=>({status:"failed",code:"resource_unavailable",message:"No disponible.",uncertain:false}))},store={read:vi.fn<MessagingConnectionsIntentStore["read"]>(()=>null),write:vi.fn<MessagingConnectionsIntentStore["write"]>(()=>true),history:vi.fn<MessagingConnectionsIntentStore["history"]>(()=>[]),archive:vi.fn<MessagingConnectionsIntentStore["archive"]>(()=>true),diagnostic:vi.fn<MessagingConnectionsIntentStore["diagnostic"]>(()=>null),writeDiagnostic:vi.fn<MessagingConnectionsIntentStore["writeDiagnostic"]>(()=>true),keepLatestDiagnostic:vi.fn<MessagingConnectionsIntentStore["keepLatestDiagnostic"]>(()=>true)};
   return{initialState,viewerId,tribeId,connectionId,configuration,client,create,store:{...store,diagnostics:vi.fn<()=>MessagingDiagnosticObservationReference[]>(()=>[])}};
 }
 /** @returns A real container fixture with an existing active selection and a separate tested production candidate. */
@@ -677,5 +678,85 @@ describe("connection wizard states beside their origin",()=>{
     const readCurrent=screen.getByRole("button",{name:"Consultar conexión actual"});await waitFor(()=>expect(readCurrent).toBeEnabled());
     await user.click(readCurrent);
     expect(await screen.findByText(MESSAGING_CREDENTIAL_CHECK_UI_COPY.stale)).toBeVisible();expect(screen.queryByText(MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedTitle)).not.toBeInTheDocument();
+  });
+});
+
+describe("uncertain tests and a full test history",()=>{
+  afterEach(()=>{vi.useRealTimers();toast.dismiss();});
+  /** @param fixture - Base container fixture. @returns A tested-in-production candidate whose email step is the next test, and the diagnostic client that would send it. */
+  function testFixture(fixture:ReturnType<typeof containerFixture>){
+    const candidate={id:fixture.connectionId,name:"Candidata",version:3,configurationVersion:2,state:"draft" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,capabilities:[{channel:"email" as const,state:"unprepared" as const,checkedAt:new Date().toISOString(),testedAt:null}]};
+    const configuration={...fixture.configuration,candidate},initialState:MessagingConnectionsPageState={...fixture.initialState,kind:"ready",configuration};
+    const diagnosticClient:MessagingDiagnosticBrowserClient={issue:vi.fn<MessagingDiagnosticBrowserClient["issue"]>(async()=>({status:"failed",code:"resource_unavailable",message:"No disponible.",uncertain:false})),verify:vi.fn<MessagingDiagnosticBrowserClient["verify"]>(async()=>({status:"failed",code:"resource_unavailable",message:"No disponible.",uncertain:false})),delivery:vi.fn<MessagingDiagnosticBrowserClient["delivery"]>(async()=>({status:"failed",code:"resource_unavailable",message:"No disponible.",uncertain:false}))};
+    fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:configuration}));
+    return{candidate,initialState,diagnosticClient};
+  }
+  /** @param fixture - Base container fixture. @param startedAt - Browser dispatch instant, or none for a reference saved before it was kept. @returns A pending email test of the candidate, as the browser keeps it. */
+  const pendingTest=(fixture:ReturnType<typeof containerFixture>,startedAt?:string)=>({type:REAUTHENTICATION_OPERATION.diagnoseMessagingConnection,operationId:randomUUID(),original:{connectionId:fixture.connectionId,configurationVersion:2,expectedVersion:3,channel:MESSAGING_PUBLIC_CHANNEL.email},...(startedAt?{startedAt}:{})});
+  /** @param elapsedMs - How long ago the test was dispatched. @returns Its ISO dispatch instant. */
+  const dispatchedAgo=(elapsedMs:number)=>new Date(Date.now()-elapsedMs).toISOString();
+  /** The applicant's window for an original that never registered, reused for tests. */
+  const absenceWindowMs=ADMISSION_CONTACT_ABSENT_DISCARD_AFTER_MS;
+  /** @param user - Session driving the page. @returns After asking for the original of the pending test once. */
+  async function consultPending(user:ReturnType<typeof userEvent.setup>){
+    const consult=await screen.findByRole("button",{name:"Consultar guardado"});await waitFor(()=>expect(consult).toBeEnabled());await user.click(consult);
+  }
+  /** @param user - Session driving the page. @returns After typing a destination and consenting on the open test step. */
+  async function prepareTest(user:ReturnType<typeof userEvent.setup>){
+    await waitFor(()=>expect(screen.getByLabelText("Destino de la prueba")).toBeEnabled());await user.type(screen.getByLabelText("Destino de la prueba"),"diagnostic@example.test");await user.click(screen.getByRole("checkbox",{name:/Confirmo el destino y el consumo/i}));
+  }
+
+  it("should let the leader keep a test whose original stayed absent for the whole window in history and request another, without resending the first",async()=>{
+    const fixture=containerFixture(),user=userEvent.setup(),{initialState,diagnosticClient}=testFixture(fixture),intent=pendingTest(fixture,dispatchedAgo(absenceWindowMs+60_000));fixture.store.read.mockReturnValue(intent);
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} diagnosticClient={diagnosticClient} />);await consultPending(user);
+    expect((await screen.findAllByText(/no llegó a registrarse, así que no se envió ningún mensaje facturable/)).length).toBeGreaterThan(0);expect(screen.getByText(/Las pruebas no se reanudan/)).toBeVisible();expect(screen.queryByRole("button",{name:"Reanudar operación original"})).not.toBeInTheDocument();
+    const archive=screen.getByRole("button",{name:"Conservar en historial y continuar"});expect(archive).toBeDisabled();
+    await user.click(screen.getByRole("checkbox",{name:/Entiendo que dejar de seguir este intento/}));await user.click(archive);
+    await waitFor(()=>expect(fixture.store.archive).toHaveBeenCalledWith(fixture.viewerId,"synthetic",intent));expect(fixture.store.write).toHaveBeenCalledWith(fixture.viewerId,"synthetic",null);
+    // The absence is read again right before it stops being followed.
+    expect(fixture.client.operation).toHaveBeenCalledTimes(2);expect(vi.mocked(fixture.client.operation).mock.calls.every((call)=>call[1]===intent.operationId)).toBe(true);
+    await waitFor(()=>expect(screen.queryByRole("button",{name:"Consultar guardado"})).not.toBeInTheDocument());expect(diagnosticClient.issue).not.toHaveBeenCalled();
+    await openTab("Pruebas");await prepareTest(user);await user.click(screen.getByRole("button",{name:"Enviar código de prueba"}));
+    await waitFor(()=>expect(diagnosticClient.issue).toHaveBeenCalledTimes(1));expect(vi.mocked(diagnosticClient.issue).mock.calls[0][1].operationId).not.toBe(intent.operationId);
+  });
+  it("should keep blocking another test while the original is still started, until its result is read",async()=>{
+    const fixture=containerFixture(),user=userEvent.setup(),{initialState,diagnosticClient}=testFixture(fixture),intent=pendingTest(fixture,dispatchedAgo(absenceWindowMs+60_000));fixture.store.read.mockReturnValue(intent);
+    fixture.client.operation=vi.fn<MessagingConnectionsBrowserClient["operation"]>(async()=>({status:"ready",value:{type:"diagnose_messaging_connection",state:"started",operationId:intent.operationId,replayed:true}}));
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} diagnosticClient={diagnosticClient} />);await consultPending(user);
+    expect(await screen.findByText(/La prueba original sigue en proceso/)).toBeVisible();expect(screen.queryByRole("button",{name:"Conservar en historial y continuar"})).not.toBeInTheDocument();expect(screen.getByRole("button",{name:"Consultar guardado"})).toBeVisible();
+    await openTab("Pruebas");expect(screen.getByLabelText("Destino de la prueba")).toBeDisabled();expect(screen.getByRole("button",{name:"Enviar código de prueba"})).toBeDisabled();expect(fixture.store.archive).not.toHaveBeenCalled();expect(fixture.store.write).not.toHaveBeenCalledWith(fixture.viewerId,"synthetic",null);expect(diagnosticClient.issue).not.toHaveBeenCalled();
+  });
+  it("should keep blocking a test whose original has been absent for less than the window, and say when it can stop being followed",async()=>{
+    const fixture=containerFixture(),user=userEvent.setup(),{initialState,diagnosticClient}=testFixture(fixture),intent=pendingTest(fixture,dispatchedAgo(absenceWindowMs/2));fixture.store.read.mockReturnValue(intent);
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} diagnosticClient={diagnosticClient} />);await consultPending(user);
+    expect(await screen.findByText(/La prueba original todavía no aparece. Si sigue sin registrarse 10 minutos después de pedirla/)).toBeVisible();expect(screen.queryByRole("button",{name:"Conservar en historial y continuar"})).not.toBeInTheDocument();
+    await openTab("Pruebas");expect(screen.getByRole("button",{name:"Enviar código de prueba"})).toBeDisabled();expect(fixture.store.archive).not.toHaveBeenCalled();expect(diagnosticClient.issue).not.toHaveBeenCalled();
+  });
+  it("should count the wait of an older reference without its dispatch instant from the first absence this page saw",async()=>{
+    vi.useFakeTimers({toFake:["Date"]});
+    const fixture=containerFixture(),user=userEvent.setup(),{initialState,diagnosticClient}=testFixture(fixture),intent=pendingTest(fixture);fixture.store.read.mockReturnValue(intent);
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} diagnosticClient={diagnosticClient} />);await consultPending(user);
+    expect(await screen.findByText(/La prueba original todavía no aparece/)).toBeVisible();expect(screen.queryByRole("button",{name:"Conservar en historial y continuar"})).not.toBeInTheDocument();
+    vi.setSystemTime(Date.now()+absenceWindowMs);await consultPending(user);
+    expect(await screen.findByRole("button",{name:"Conservar en historial y continuar"})).toBeVisible();expect(fixture.client.operation).toHaveBeenCalledTimes(2);expect(diagnosticClient.issue).not.toHaveBeenCalled();
+  });
+  it("should keep following a test whose original appears right before it stops being followed",async()=>{
+    const fixture=containerFixture(),user=userEvent.setup(),{initialState,diagnosticClient}=testFixture(fixture),intent=pendingTest(fixture,dispatchedAgo(absenceWindowMs+60_000));fixture.store.read.mockReturnValue(intent);
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} diagnosticClient={diagnosticClient} />);await consultPending(user);
+    const archive=await screen.findByRole("button",{name:"Conservar en historial y continuar"});await user.click(screen.getByRole("checkbox",{name:/Entiendo que dejar de seguir este intento/}));
+    fixture.client.operation=vi.fn<MessagingConnectionsBrowserClient["operation"]>(async()=>({status:"ready",value:{type:"diagnose_messaging_connection",state:"started",operationId:intent.operationId,replayed:true}}));await user.click(archive);
+    expect((await screen.findAllByText(/La prueba original apareció/)).length).toBeGreaterThan(0);expect(screen.queryByRole("button",{name:"Conservar en historial y continuar"})).not.toBeInTheDocument();expect(fixture.store.archive).not.toHaveBeenCalled();expect(fixture.store.write).not.toHaveBeenCalledWith(fixture.viewerId,"synthetic",null);expect(screen.getByRole("button",{name:"Consultar guardado"})).toBeVisible();
+  });
+  it("should empty a full test history down to the latest reference only after confirming, and then request another test",async()=>{
+    const fixture=containerFixture(),user=userEvent.setup(),{initialState,diagnosticClient}=testFixture(fixture),references=Array.from({length:MESSAGING_CONNECTION_HISTORY_LIMIT},()=>({operationId:randomUUID(),connectionId:fixture.connectionId,configurationVersion:1,channel:"email" as const}));fixture.store.diagnostics.mockReturnValue(references);
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} diagnosticClient={diagnosticClient} />);await openTab("Pruebas");await prepareTest(user);
+    expect(screen.getByText(/Se alcanzó el límite de/)).toBeVisible();expect(screen.getByRole("button",{name:"Enviar código de prueba"})).toBeDisabled();
+    await user.click(screen.getByRole("button",{name:"Vaciar pruebas anteriores"}));await user.click(within(await screen.findByRole("alertdialog",{name:"¿Vaciar pruebas anteriores?"})).getByRole("button",{name:"Cancelar"}));
+    await waitFor(()=>expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());expect(fixture.store.keepLatestDiagnostic).not.toHaveBeenCalled();expect(screen.getByText(/Se alcanzó el límite de/)).toBeVisible();expect(screen.getByRole("heading",{name:`Pruebas conservadas (${MESSAGING_CONNECTION_HISTORY_LIMIT})`})).toBeVisible();
+    await user.click(screen.getByRole("button",{name:"Vaciar pruebas anteriores"}));await user.click(within(await screen.findByRole("alertdialog")).getByRole("button",{name:"Vaciar pruebas anteriores"}));
+    expect(fixture.store.keepLatestDiagnostic).toHaveBeenCalledWith(fixture.viewerId,"synthetic");expect(await screen.findByText(/Vaciamos las pruebas anteriores y conservamos la última/)).toBeVisible();
+    await waitFor(()=>expect(screen.queryByText(/Se alcanzó el límite de/)).not.toBeInTheDocument());expect(screen.getByRole("heading",{name:"Pruebas conservadas (1)"})).toBeVisible();expect(diagnosticClient.issue).not.toHaveBeenCalled();
+    // The destination and consent typed before stay in place: emptying the history never sends nor clears them.
+    await waitFor(()=>expect(screen.getByRole("button",{name:"Enviar código de prueba"})).toBeEnabled());await user.click(screen.getByRole("button",{name:"Enviar código de prueba"}));await waitFor(()=>expect(diagnosticClient.issue).toHaveBeenCalledTimes(1));
   });
 });
