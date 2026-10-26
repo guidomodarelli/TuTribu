@@ -113,6 +113,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
+- En Academia, «Cancelar renovación» también aparece mientras Mercado Pago no confirmó el pago de la suscripción: el diálogo avisa que se cancela la suscripción que espera esa confirmación y que no se generan cobros nuevos, y el resultado se muestra recién cuando se confirma la cancelación.
 - En Verificación, cambiar el email de una vinculación ya verificada pide confirmar antes con «Cambiar correo» o «Cancelar», porque vuelve a revisión y puede afectar el acceso a la academia; si la vinculación no está verificada, se envía sin preguntar.
 - En Gestionar academia, revocar una verificación se confirma en el diálogo «Revocar verificación» con el motivo, que muestra el progreso, no se envía dos veces, conserva el error dentro del diálogo y se cierra al confirmarse.
 - En Gestionar academia, revocar una bonificación se hace en un diálogo con el motivo, que muestra el progreso, no se envía dos veces y actualiza la lista al terminar.

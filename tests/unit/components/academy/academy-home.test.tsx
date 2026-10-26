@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
-import { act, render as renderWithoutProviders, screen, waitFor } from "@testing-library/react";
+import { act, render as renderWithoutProviders, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import type { ReactElement, ReactNode } from "react";
@@ -242,6 +242,63 @@ describe("AcademyHome", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("No pudimos contactar a Mercado Pago.");
     expect(screen.queryByText(/Cancelaste la renovación/)).not.toBeInTheDocument();
+  });
+
+  it("lets the member cancel a subscription still waiting for its payment, once and only after the server confirms it", async () => {
+    const user = userEvent.setup();
+    const pendingAccess = access({ eligibility: "verified", nextAction: "complete_checkout", renewalStatus: "pending" });
+    respondWithJson({ message: "ok", status: "canceled" }, 200);
+    respondWithJson({ ...pendingAccess, canStartCheckout: true, nextAction: "view_offer", renewalStatus: "canceled" }, 200);
+
+    render(<AcademyHome access={pendingAccess} canManage={false} isCheckoutReturn offer={offer} tribeSlug="tribu" />);
+
+    expect(screen.getByRole("button", { name: "Actualizar estado" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Cancelar renovación" }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByText(
+        "Se cancela la suscripción que está esperando la confirmación del pago y no se generan cobros nuevos. Tu cuenta y tu progreso siguen guardados."
+      )
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByText(/acceso ya pagado/)).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await user.dblClick(within(dialog).getByRole("button", { name: "Sí, cancelar renovación" }));
+
+    expect(
+      await screen.findByText(
+        "Cancelaste la suscripción que estaba esperando la confirmación del pago. No se generan cobros nuevos.",
+        { selector: "p" }
+      )
+    ).toHaveAttribute("role", "status");
+    const cancelRequests = fetchMock.mock.calls.filter(([, init]) => init?.method === "DELETE");
+    expect(cancelRequests).toHaveLength(1);
+    expect(cancelRequests[0]?.[0]).toBe("/api/tribes/tribu/subscriptions/current?product=academy");
+    expect(screen.queryByText(/Conservás el acceso hasta/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Estamos confirmando tu suscripción. No hace falta que vuelvas a pagar.")
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancelar renovación" })).not.toBeInTheDocument();
+  });
+
+  it("keeps a failed cancellation of a pending subscription inside its dialog, without claiming it was canceled", async () => {
+    const user = userEvent.setup();
+    const pendingAccess = access({ eligibility: "verified", nextAction: "complete_checkout", renewalStatus: "pending" });
+    respondWithJson({ message: "No pudimos contactar a Mercado Pago. Intentá de nuevo más tarde." }, 503);
+
+    render(<AcademyHome access={pendingAccess} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
+
+    await user.click(screen.getByRole("button", { name: "Cancelar renovación" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Sí, cancelar renovación" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "No pudimos contactar a Mercado Pago. Intentá de nuevo más tarde."
+    );
+    expect(within(dialog).getByRole("button", { name: "Sí, cancelar renovación" })).toBeEnabled();
+    expect(screen.queryByText(/Cancelaste la suscripción/)).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("lets a signed-in visitor join for free and refreshes the access", async () => {

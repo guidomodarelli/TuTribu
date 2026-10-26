@@ -70,6 +70,11 @@ const ACADEMY_HOME_COPY = {
   cancelDialogTitle: "¿Cancelar la renovación de la academia?",
   cancelKeep: "Mantener renovación",
   cancelPending: "Cancelando…",
+  cancelPendingSubscriptionDialogDescription:
+    "Se cancela la suscripción que está esperando la confirmación del pago y no se generan cobros nuevos. Tu cuenta y tu progreso siguen guardados.",
+  cancelPendingSubscriptionDialogTitle: "¿Cancelar la suscripción a la academia?",
+  canceledPendingSubscription:
+    "Cancelaste la suscripción que estaba esperando la confirmación del pago. No se generan cobros nuevos.",
   canceledUntil: (date: string) => `Cancelaste la renovación. Conservás el acceso hasta el ${date}.`,
   checkoutButton: "Contratar academia",
   checkoutPending: "Abriendo el pago…",
@@ -133,6 +138,36 @@ type PendingAction = AcademyHomeAction | null;
 type ActionErrors = Record<AcademyHomeAction, string | null>;
 
 const NO_ACTION_ERRORS: ActionErrors = { cancel: null, checkout: null, join: null, refresh: null };
+
+/**
+ * Renewals the member can cancel: a confirmed one, or one whose subscription
+ * still waits for the provider to confirm its payment.
+ */
+type CancelableRenewalStatus = "active" | "pending";
+
+/**
+ * Whether the member can cancel this renewal from the academy home.
+ *
+ * @param renewalStatus - Renewal status confirmed by the server.
+ * @returns True for an active renewal or a subscription waiting for its payment.
+ */
+function isCancelableRenewal(
+  renewalStatus: AcademyAccessStatusDto["renewalStatus"]
+): renewalStatus is CancelableRenewalStatus {
+  return renewalStatus === "active" || renewalStatus === "pending";
+}
+
+/** A pending subscription has no paid access to keep: its dialog never promises an end date. */
+const CANCEL_DIALOG_COPY: Record<CancelableRenewalStatus, { description: string; title: string }> = {
+  active: {
+    description: ACADEMY_HOME_COPY.cancelDialogDescription,
+    title: ACADEMY_HOME_COPY.cancelDialogTitle,
+  },
+  pending: {
+    description: ACADEMY_HOME_COPY.cancelPendingSubscriptionDialogDescription,
+    title: ACADEMY_HOME_COPY.cancelPendingSubscriptionDialogTitle,
+  },
+};
 
 /**
  * Whether a subscription payment may still be confirmed: a renewal that is
@@ -350,6 +385,9 @@ export function AcademyHome({
   const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
   const [actionErrors, setActionErrors] = useState<ActionErrors>(NO_ACTION_ERRORS);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  // Frozen when the dialog opens: its copy and the outcome describe what the member chose to cancel.
+  const [cancelingRenewalStatus, setCancelingRenewalStatus] =
+    useState<CancelableRenewalStatus>("active");
   // A checkout return waits for the payment only until a server read says otherwise.
   const [isAwaitingCheckoutReturn, setIsAwaitingCheckoutReturn] = useState(isCheckoutReturn);
   // Blocks a second submit before the disabled state renders (double click).
@@ -488,18 +526,25 @@ export function AcademyHome({
       }
 
       setIsCancelDialogOpen(false);
+      // The canceled subscription leaves no payment to wait for, and an earlier refresh outcome is stale.
+      setIsAwaitingCheckoutReturn(false);
+      setRefreshNotice(null);
       const updated = await reloadAccess();
       const endsAt = updated?.accessEndsAt ?? access?.accessEndsAt ?? null;
-      const message = endsAt
-        ? ACADEMY_HOME_COPY.canceledUntil(formatAcademyDate(endsAt))
-        : ACADEMY_HOME_COPY.renewalCanceled;
+      const message =
+        cancelingRenewalStatus === "pending"
+          ? ACADEMY_HOME_COPY.canceledPendingSubscription
+          : endsAt
+            ? ACADEMY_HOME_COPY.canceledUntil(formatAcademyDate(endsAt))
+            : ACADEMY_HOME_COPY.renewalCanceled;
 
       setNotice(message);
     });
 
-  const openCancelDialog = () => {
+  const openCancelDialog = (renewalStatus: CancelableRenewalStatus) => {
     // The dialog never inherits an error from an earlier attempt or another action.
     setActionError("cancel", null);
+    setCancelingRenewalStatus(renewalStatus);
     setIsCancelDialogOpen(true);
   };
 
@@ -507,6 +552,9 @@ export function AcademyHome({
   const showConfirming =
     access !== null &&
     (isPaymentInProgress(access) || (isAwaitingCheckoutReturn && access.level === "basic"));
+  const cancelableRenewalStatus =
+    access && isCancelableRenewal(access.renewalStatus) ? access.renewalStatus : null;
+  const cancelDialogCopy = CANCEL_DIALOG_COPY[cancelingRenewalStatus];
   const isAcademyMode = access?.accessModel === "academy";
   const status = access && isAcademyMode ? resolveAccessStatus(access) : null;
   const steps = access && isAcademyMode && status?.showSteps ? buildAccessSteps(access) : [];
@@ -655,11 +703,11 @@ export function AcademyHome({
                   : ACADEMY_HOME_COPY.refreshButton}
               </Button>
             ) : null}
-            {access.renewalStatus === "active" ? (
+            {cancelableRenewalStatus ? (
               <Button
                 className={styles.AcademyHome__actionButton}
                 disabled={pendingAction !== null}
-                onClick={openCancelDialog}
+                onClick={() => openCancelDialog(cancelableRenewalStatus)}
                 type="button"
                 variant="secondary"
               >
@@ -761,8 +809,8 @@ export function AcademyHome({
 
       <Dialog onOpenChange={setIsCancelDialogOpen} open={isCancelDialogOpen}>
         <DialogContent
-          title={ACADEMY_HOME_COPY.cancelDialogTitle}
-          description={ACADEMY_HOME_COPY.cancelDialogDescription}
+          title={cancelDialogCopy.title}
+          description={cancelDialogCopy.description}
           footer={
             <>
               <Button

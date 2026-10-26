@@ -8,7 +8,7 @@
     "section": "Acceso y suscripción",
     "subflow": "Cancelar renovación"
   },
-  "description": "Cancelar la renovación de la academia: confirma en diálogo, cancela la suscripción actual y muestra hasta cuándo sigue el acceso.",
+  "description": "Cancelar la renovación de la academia, activa o con el pago todavía sin confirmar: confirma en diálogo, cancela la suscripción actual y muestra hasta cuándo sigue el acceso o, si estaba pendiente, que no se va a cobrar.",
   "routes": [
     "/[slug]/academia"
   ],
