@@ -9,5 +9,9 @@
       "path": "/api/maintenance/file-cleanup",
       "schedule": "30 4 * * *"
     }
-  ]
+  ],
+  "regions": [
+    "iad1"
+  ],
+  "framework": "nextjs"
 }

@@ -1,0 +1,8 @@
+.env*
+!.env.example
+.next
+node_modules
+user-guides
+specs/001-academy-admissions/validation
+test-results
+playwright-report
