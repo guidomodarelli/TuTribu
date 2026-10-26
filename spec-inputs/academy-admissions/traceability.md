@@ -170,7 +170,7 @@ Los 71 escenarios identificados en las 12 historias y los 45 casos límite de `s
 | FR-139 | `legacy_routes` | US-02, US-10, US-12 | SC-007, SC-019, SC-020, SC-021 | Contratos sustituibles, activación cerrada y evidencia de entrega. |
 | FR-140 | `rollback` | US-02, US-10, US-12 | SC-007, SC-019, SC-020, SC-021 | Contratos sustituibles, activación cerrada y evidencia de entrega. |
 | FR-141 | `delivery_complete` | US-02, US-10, US-12 | SC-007, SC-019, SC-020, SC-021 | Contratos sustituibles, activación cerrada y evidencia de entrega. |
-| FR-142 | `metrics` | US-08, US-11 | SC-017 | Métricas agregadas por tribu: US-08-AC-06 exige que la admisión automática figure en métricas, y US-11-AC-04 que la analítica no muestre secretos ni cuerpos OTP; SC-017 cubre la reconstrucción por tribu sin leer secretos. |
+| FR-142 | `metrics` | US-08 (US-08-AC-06), US-11 (US-11-AC-04) | SC-017 (relacionado; ningún SC afirma el registro de métricas) | Métricas agregadas por tribu: el escenario de aceptación de métricas es US-08-AC-06 (la admisión automática figura en actividad y métricas) y US-11-AC-04 exige que la analítica no muestre secretos ni cuerpos OTP. Ningún SC de spec.md afirma el registro de métricas; SC-017 cubre la reconstrucción de auditoría por tribu sin leer secretos y no sustituye a US-08-AC-06. |
 
 El identificador corto de “Tema” es únicamente una etiqueta de trazabilidad, no un nombre de función obligatorio ni una ampliación de entidades.
 
