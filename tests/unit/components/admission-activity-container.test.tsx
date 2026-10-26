@@ -211,6 +211,31 @@ describe("activity kept on screen while it is reread", () => {
     expect(alert.parentElement).toContainElement(screen.getByRole("button", { name: "Ver actividad anterior" }));
     expect(screen.getAllByText("Cambio de países y cupos")).toHaveLength(2);
   });
+
+  it("should show a reread first page with its own cursor after older pages, so new events never leave a gap", async () => {
+    const data = fixture(), shown = data.state.activity.items[0];
+    const older = { ...shown, id: "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d", createdAt: "2026-10-12T12:00:00.000Z" };
+    const newest = { ...shown, id: "2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e", createdAt: "2026-10-15T12:00:00.000Z" };
+    data.state.activity.nextCursor = `2026-10-13T12:00:00.000000Z|${shown.id}`;
+    render(data.node, { wrapper: Providers });
+    await currentReadButton();
+    const olderPage = structuredClone(data.state);
+    olderPage.selection = { ...data.state.selection, cursor: data.state.activity.nextCursor };
+    olderPage.activity = { ...data.state.activity, items: [older], nextCursor: null };
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: olderPage });
+    fireEvent.click(screen.getByRole("button", { name: "Ver actividad anterior" }));
+    await waitFor(() => expect(Array.from(document.querySelectorAll("li time")).map((time) => time.getAttribute("datetime"))).toEqual([shown.createdAt, older.createdAt]));
+
+    // Two newer events arrived: the fresh first page holds only the newest one, and its own cursor leads to the rest.
+    const freshCursor = `2026-10-15T12:00:00.000000Z|${newest.id}`;
+    const freshPage = structuredClone(data.state);
+    freshPage.activity = { ...data.state.activity, items: [newest], nextCursor: freshCursor };
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: freshPage });
+    fireEvent.click(await currentReadButton());
+    await waitFor(() => expect(Array.from(document.querySelectorAll("li time")).map((time) => time.getAttribute("datetime"))).toEqual([newest.createdAt]));
+    fireEvent.click(await currentOlderButton());
+    await waitFor(() => expect(data.client.read.mock.calls.at(-1)?.[1]).toEqual({ limit: data.state.selection.limit, cursor: freshCursor }));
+  });
 });
 
 /** @returns The enabled older-page control once no read is in flight. */

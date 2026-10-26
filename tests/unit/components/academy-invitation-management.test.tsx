@@ -411,7 +411,7 @@ describe("personal invitation save feedback", () => {
 });
 
 describe("invitation history «Ver más»", () => {
-  it("should add the next page below the shown invitations without repeating one, keep them after a background reread and show a failure next to its button", async () => {
+  it("should add the next page below the shown invitations without repeating one, start again from the fresh first page after a background reread and show a failure next to its button", async () => {
     const data = fixture(), user = userEvent.setup();
     const older = { ...data.metadata, id: randomUUID(), internalName: "Grupo anterior", recipient: { type: "email" as const, value: "older@example.test" } };
     const failure = "No pudimos consultar más invitaciones. Volvé a intentarlo.";
@@ -437,18 +437,19 @@ describe("invitation history «Ver más»", () => {
     await act(async () => { finish({ status: "ready", value: { ...data.initial, page: { items: [older, data.metadata], nextCursor: "synthetic-cursor-2" }, query: { limit: 25, cursor: "synthetic-cursor-1" } } }); });
     await waitFor(() => expect(renamed()).toEqual([`Renombrar ${data.metadata.internalName}`, `Renombrar ${older.internalName}`]));
 
-    // Returning to the window rereads the first page and keeps the older invitation and its cursor below it.
+    // Returning to the window rereads the first page and shows it with its own cursor: an older invitation kept below
+    // it could carry a version that a later rename or revocation would send as current.
     await act(async () => { window.dispatchEvent(new Event("focus")); });
     await waitFor(() => expect(data.client.page).toHaveBeenCalledTimes(2));
     expect(data.client.page).toHaveBeenLastCalledWith(data.initial.slug, { limit: 25 }, expect.any(AbortSignal));
-    await waitFor(() => expect(renamed()).toEqual([`Renombrar ${data.metadata.internalName}`, `Renombrar ${older.internalName}`]));
+    await waitFor(() => expect(renamed()).toEqual([`Renombrar ${data.metadata.internalName}`]));
 
     await user.click(screen.getByRole("button", { name: "Ver más invitaciones" }));
     await waitFor(() => expect(data.client.page).toHaveBeenCalledTimes(3));
-    expect(data.client.page).toHaveBeenLastCalledWith(data.initial.slug, { limit: 25, cursor: "synthetic-cursor-2" }, expect.any(AbortSignal));
+    expect(data.client.page).toHaveBeenLastCalledWith(data.initial.slug, { limit: 25, cursor: "synthetic-cursor-1" }, expect.any(AbortSignal));
     const alert = await screen.findByText(failure);
     expect(alert).toHaveAttribute("role", "alert");
     expect(alert.parentElement).toContainElement(screen.getByRole("button", { name: "Ver más invitaciones" }));
-    expect(renamed()).toHaveLength(2);
+    expect(renamed()).toHaveLength(1);
   });
 });

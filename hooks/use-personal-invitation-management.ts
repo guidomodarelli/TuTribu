@@ -17,22 +17,8 @@ import { personalInvitationMutationResultSchema, personalInvitationMutationDenia
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
-import { appendAdmissionListPage, refreshAdmissionListFirstPage } from "@/lib/academy-admissions/admission-list-pages";
+import { appendAdmissionListPage } from "@/lib/academy-admissions/admission-list-pages";
 import { isAdmissionAccessLoss } from "@/lib/academy-admissions/admission-access-loss";
-
-/** A current management snapshot for the initial viewer. */
-type ReadyInvitationState = Extract<PersonalInvitationManagementPageState, { kind: "ready" }>;
-
-/**
- * @param fresh - The first page reread with the shown filters.
- * @param shown - What the leader sees now.
- * @param loadedPages - Pages added with «Ver más» after the first one.
- * @returns The fresh snapshot, keeping below it the older invitations already loaded and their next cursor, so a reread never shrinks the list.
- */
-function keepLoadedInvitationPages(fresh: ReadyInvitationState, shown: ReadyInvitationState | null, loadedPages: number): ReadyInvitationState {
-  if (!shown || loadedPages === 0) return fresh;
-  return { ...fresh, query: shown.query, page: { items: refreshAdmissionListFirstPage(fresh.page.items, shown.page.items), nextCursor: shown.page.nextCursor } };
-}
 
 /** @param options - Guarded SSR snapshot and optional own ports. @returns Controlled actions with no automatic POST, restored consent or ordinary route refresh. */
 export function usePersonalInvitationManagement(options: { initialState: PersonalInvitationManagementPageState; client?: PersonalInvitationManagementBrowserClient }) {
@@ -83,7 +69,7 @@ export function usePersonalInvitationManagement(options: { initialState: Persona
     if (!live(signal, scope) || !await authorize(signal, scope)) return false;
     if (result.status !== "ready") { if (result.status === "failed") report(result); return false; }
     if (result.value.viewerId !== initial!.viewerId || result.value.tribeId !== initial!.tribeId) { close(); return false; }
-    stateRef.current = keepLoadedInvitationPages(result.value, stateRef.current, loadedPages.current); setState(stateRef.current); setNeedsCurrent(false); return true;
+    loadedPages.current = 0; stateRef.current = result.value; setState(stateRef.current); setNeedsCurrent(false); return true;
   }, [authorize, client, close, initial, report]);
   /**
    * @param action - Explicit observation or write. @param writing - Whether the user confirmed a mutation.
@@ -159,7 +145,7 @@ export function usePersonalInvitationManagement(options: { initialState: Persona
         if (result.status === "failed") { if (isAdmissionAccessLoss(result.code)) close(); return; }
         if (result.status !== "ready") return;
         if (result.value.viewerId !== initial!.viewerId || result.value.tribeId !== initial!.tribeId) { close(); return; }
-        stateRef.current = keepLoadedInvitationPages(result.value, stateRef.current, loadedPages.current); setState(stateRef.current); observeReference();
+        loadedPages.current = 0; stateRef.current = result.value; setState(stateRef.current); observeReference();
       })().catch(() => undefined).finally(() => { window.clearTimeout(checkTimeout); if (focusCheck.current === check) focusCheck.current = null; });
     };
     window.addEventListener("pageshow", restored);

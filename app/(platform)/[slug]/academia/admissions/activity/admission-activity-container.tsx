@@ -12,7 +12,7 @@ import { ADMISSION_ACTIVITY_BROWSER_PHASE as PHASE, ADMISSION_ACTIVITY_UI_COPY a
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { MESSAGING_USAGE_SETTINGS_SEGMENT } from "@/src/modules/messaging/constants/messaging-usage";
 import { admissionActivityApiClient } from "@/lib/academy-admissions/admission-activity-api-client";
-import { appendAdmissionListPage, refreshAdmissionListFirstPage } from "@/lib/academy-admissions/admission-list-pages";
+import { appendAdmissionListPage } from "@/lib/academy-admissions/admission-list-pages";
 import { isAdmissionAccessLoss } from "@/lib/academy-admissions/admission-access-loss";
 import styles from "./styles.module.scss";
 
@@ -23,12 +23,10 @@ type ActivityContainerProps = { initialState: AdmissionActivityPageState; client
  * @param shown - The snapshot on screen.
  * @param fresh - The guarded snapshot just read.
  * @param mode - How the read treats the view on screen.
- * @param olderPages - Pages added below the first one with «Ver actividad anterior».
- * @returns The snapshot to show: consumption and settings always come from the fresh read, while the history pages already loaded are extended or kept.
+ * @returns The snapshot to show: «Ver actividad anterior» extends the history already loaded; any other read shows the fresh first page with its own cursor, because older pages kept below it could leave a gap of new events that the cursor would skip.
  */
-function combineActivitySnapshots(shown: AdmissionActivityReadyPageState, fresh: AdmissionActivityReadyPageState, mode: AdmissionActivityReadMode, olderPages: number): AdmissionActivityReadyPageState {
+function combineActivitySnapshots(shown: AdmissionActivityReadyPageState, fresh: AdmissionActivityReadyPageState, mode: AdmissionActivityReadMode): AdmissionActivityReadyPageState {
   if (mode === READ_MODE.older) return { ...fresh, selection: shown.selection, activity: { ...fresh.activity, items: appendAdmissionListPage(shown.activity.items, fresh.activity.items) } };
-  if (mode === READ_MODE.refresh && olderPages > 0) return { ...fresh, activity: { ...fresh.activity, items: refreshAdmissionListFirstPage(fresh.activity.items, shown.activity.items), nextCursor: shown.activity.nextCursor } };
   return fresh;
 }
 
@@ -45,7 +43,7 @@ export function AdmissionActivityContainer({ initialState, client = admissionAct
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const controllerRef = useRef<AbortController | null>(null), activated = useRef(false);
   /** Applied filters without the cursor of an older page, the snapshot a read combines with, and the older pages already shown. */
-  const selectionRef = useRef(ready?.selection), snapshotRef = useRef(ready), olderPages = useRef(0);
+  const selectionRef = useRef(ready?.selection), snapshotRef = useRef(ready);
   /** The read in flight and whether private facts are on screen: a tab that becomes visible again neither supersedes that read nor reveals withheld facts. */
   const readingRef = useRef<AbortController | null>(null), visibleRef = useRef(true);
 
@@ -85,8 +83,7 @@ export function AdmissionActivityContainer({ initialState, client = admissionAct
       if (!await checkViewer(controller) || !current()) return;
       if (result.status === STATUS.failed) { fail(result.message, result.code); return; }
       if (result.value.tribeId !== ready.tribeId || result.value.viewerId !== ready.viewerId) { showPrivate(false); setErrorMessage(ADMISSION_ERROR_MESSAGE[ADMISSION_ERROR_CODE.publicContractUnusable]); setPhase(PHASE.unavailable); return; }
-      const next = combineActivitySnapshots(snapshotRef.current ?? result.value, result.value, mode, olderPages.current);
-      if (mode === READ_MODE.older) olderPages.current += 1; else if (mode !== READ_MODE.refresh) olderPages.current = 0;
+      const next = combineActivitySnapshots(snapshotRef.current ?? result.value, result.value, mode);
       if (mode !== READ_MODE.older) selectionRef.current = result.value.selection;
       snapshotRef.current = next; setSnapshot(next); showPrivate(true); setPhase(PHASE.ready);
     } catch { if (current()) fail(COPY.readFailed); }
