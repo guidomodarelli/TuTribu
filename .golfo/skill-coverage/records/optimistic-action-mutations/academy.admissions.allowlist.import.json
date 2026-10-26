@@ -2,14 +2,14 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-leader-recovery-exits",
-      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "app/(platform)/[slug]/academia/admissions/allowlist/imports/page.tsx": "1e7419aa621cc38d",
         "app/(platform)/[slug]/academia/admissions/allowlist/imports/loading.tsx": "fa0bd7116c5562f7",
         "app/(platform)/[slug]/academia/admissions/allowlist/imports/error.tsx": "dd87ce1af52e63fa",
-        "app/(platform)/[slug]/academia/admissions/allowlist/allowlist-import-container.tsx": "b0ca192697a56c31",
-        "hooks/use-allowlist-import-workflow.ts": "28ddaaa67b930bc3",
+        "app/(platform)/[slug]/academia/admissions/allowlist/allowlist-import-container.tsx": "b03fc52c6b6fa2bb",
+        "hooks/use-allowlist-import-workflow.ts": "cea281a872429b3b",
         "app/api/tribes/[slug]/admissions/allowlist/imports/route.ts": "29038bf8146e0ea7",
         "app/api/tribes/[slug]/admissions/allowlist/imports/[importId]/route.ts": "2abec20e73ef51f4",
         "app/api/tribes/[slug]/admissions/allowlist/imports/[importId]/confirm/route.ts": "27f08fc82416c53b",
@@ -24,7 +24,7 @@
         "components/academy-admissions/admission-settings-page/index.tsx": "8312db77ac7c70e9",
         "src/modules/academy-admissions/constants/admission-policy-browser.ts": "90cfa795912c0e8c",
         "src/modules/academy-admissions/constants/allowlist-import-browser.ts": "e825df46f40108a0",
-        "components/academy-admissions/allowlist-import/index.tsx": "4b33d6e7eb389d40",
+        "components/academy-admissions/allowlist-import/index.tsx": "03e3980264c07db0",
         "src/modules/academy-admissions/application/ports/allowlist-import-browser-client.ts": "f1da9601bcd55500",
         "src/modules/academy-admissions/application/results/allowlist-import-page-state.ts": "218b4fd35c10c410",
         "src/modules/auth/constants/reauthentication-resources.ts": "73b5e0d97c9862f7",
@@ -35,6 +35,7 @@
         "lib/toasts/write-toast.ts": "2bdc7e827e8fc523",
         "lib/academy-admissions/allowlist-import-api-client.ts": "2c6ece6327e0e3af",
         "lib/academy-admissions/allowlist-import-draft-store.ts": "8bdf5a6cfe8d6482",
+        "lib/academy-admissions/allowlist-import-selection.ts": "6e4a5616b1825e8f",
         "src/constants/operation-state.ts": "8658825f51feae9a",
         "src/modules/academy-admissions/application/results/allowlist-import-operation-schemas.ts": "3be650809d06a1cc",
         "lib/academy-admissions/allowlist-import-file-client.ts": "6873e2de2dc75956",
@@ -133,7 +134,7 @@
         "src/modules/shared/infrastructure/database/server-environment.ts": "cb00db6eec131df8",
         "src/modules/academy-admissions/constants/admission-sections.ts": "31db560723a90ebd",
         "components/loaders/route-skeleton/index.tsx": "24ca012df2b27747",
-        "src/modules/academy-admissions/constants/admission-ui.ts": "a57d7d4286770b34",
+        "src/modules/academy-admissions/constants/admission-ui.ts": "c0ed62cb0dafbbf7",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
         "src/modules/academy-admissions/constants/allowlist-import.ts": "b47e705cc555ed07",
@@ -175,7 +176,7 @@
         "src/modules/academy-admissions/application/results/admission-batch-decision-result.ts": "e7b6140dec98efd9",
         "src/modules/academy-admissions/application/results/admission-activity-result.ts": "9a90cb2e8735c2a9",
         "src/modules/academy-admissions/application/results/admission-metrics-result.ts": "08620a4f1a506f0f",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "d0af64144b8cacf3",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "7e28bd61704eb630",
         "src/modules/academy-admissions/constants/admission-activity.ts": "a6c5519798822d7b",
         "src/modules/academy-admissions/constants/admission-activity-page-schemas.ts": "7522ac9ef5450726",
         "src/modules/tribes/constants/academy-membership.ts": "458dd8dd26c19140",
@@ -265,7 +266,7 @@
         "src/modules/academy-admissions/application/results/admission-writer-result-schemas.ts": "2792c8a8e8eea5f4",
         "src/modules/academy-admissions/domain/repositories/admission-whatsapp-number-writer.ts": "25a448bd954a5e32",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-submission-proof-reader.ts": "931f9ad7a5aa7eac",
-        "src/modules/tribes/constants/tribe-story.ts": "56fbe141834e760e",
+        "src/modules/tribes/constants/tribe-story.ts": "95b0fb552f1928b0",
         "src/modules/academy-admissions/constants/admission-batch-decision-schema.ts": "21d31f0bdcf55085",
         "src/modules/academy-admissions/constants/admission-command-denial-schema.ts": "7da544dec6ac92b3",
         "src/modules/academy-admissions/infrastructure/repositories/assert-unreserved-admission-contact.ts": "dab62a6379fe508d",
@@ -348,14 +349,14 @@
         "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
         "src/modules/academy-admissions/constants/admission-review-ui.ts": "42d3d87b513edbbb",
         "src/modules/messaging/constants/messaging-usage.ts": "ba71bbac4e985a5a",
-        "src/modules/messaging/constants/messaging-connections-browser.ts": "6324cc25a232f60b",
+        "src/modules/messaging/constants/messaging-connections-browser.ts": "fc77878f34cf9bcd",
         "src/modules/notifications/constants/admission-notification-settings-page.ts": "806d23ea29b33640",
         "src/constants/date-time.ts": "120f12f7530df5ba",
         "src/modules/academy-admissions/application/results/admission-resource-result.ts": "133e7be7f53e5965",
         "lib/academy-admissions/admission-api-client.ts": "685e72943289a164",
         "src/modules/academy-admissions/application/results/admission-public-result-schemas.ts": "00775c03c35f69d8",
         "lib/academy-admissions/admission-management-browser-transport.ts": "6d18b2208b7fc42e",
-        "src/constants/time.ts": "98b5459a77a709b0",
+        "src/constants/time.ts": "987c18a571e92d4d",
         "src/modules/academy-admissions/constants/admission-route-input.ts": "8322931e28733bcb",
         "src/modules/academy-admissions/constants/admission-diagnostics.ts": "1d9852f30b24dee4",
         "src/modules/academy-admissions/infrastructure/api/admission-error-status.ts": "42249044fc9231d8",
@@ -480,7 +481,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:835525d9d0508eb63e02aff5f3919bee0c69ce4e2db89aa50b7a339fb45cc5f9",
+      "fingerprint": "sha256:649af78b6614323c5caa14d3fd4110c43536dcce02ee23666ae4ea6f790dee5b",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/allowlist/imports/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/allowlist/imports/page.tsx#AllowlistImportPage": "dfde9d85a2ef7592",
@@ -489,7 +490,7 @@
         "app/(platform)/[slug]/academia/admissions/allowlist/imports/error.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/allowlist/imports/error.tsx#AllowlistImportError": "911c128b2bdbbce2",
         "app/(platform)/[slug]/academia/admissions/allowlist/allowlist-import-container.tsx#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/allowlist/allowlist-import-container.tsx#AllowlistImportContainer": "f4a3a7c3b9b446f5",
+        "app/(platform)/[slug]/academia/admissions/allowlist/allowlist-import-container.tsx#AllowlistImportContainer": "36c7740621d229af",
         "hooks/use-allowlist-import-workflow.ts#<module>": "d414f6d3ee71f10d",
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/empty": "b2d7050f552eac46",
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/live": "43596eff23eabea2",
@@ -498,8 +499,8 @@
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/reportFailure": "dc3071e97dfac0fb",
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/announceFailure": "a9d7257ea7d654db",
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/authorize": "733c50936d42947c",
-        "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow~shell": "fb54edc33dca3674",
-        "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/fetchCurrent": "2844f6524ccbdbeb",
+        "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow~shell": "4b77117daa6be5a5",
+        "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/fetchCurrent": "90982a3a811a190d",
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/run": "ff012f609fd03ac2",
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/consume": "18a0f73d3972fb95",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
@@ -510,8 +511,9 @@
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/changeDraft": "413632a000f5ce82",
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/upload": "cba3b1f8c169d942",
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/preview": "19bb13e1ae9af899",
-        "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/confirm": "537c2fa0f12f1d68",
-        "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/selectRow": "71d2b722650b2dfd",
+        "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/confirm": "7eb9040da7d20ec5",
+        "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/selectRow": "68a71a6580aaebd9",
+        "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/selectAllValidRows": "3bd357c9d61a3946",
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/readPolicy": "7c787151656a46f8",
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/download": "cc15a28c94f01394",
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/reconcilePrevious": "4c17acb1b6c10bf6",
@@ -600,7 +602,8 @@
         "src/modules/academy-admissions/constants/allowlist-import-browser.ts#ALLOWLIST_IMPORT_BROWSER_COPY.account": "e613a2fb7ab12996",
         "components/academy-admissions/allowlist-import/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy-admissions/allowlist-import/index.tsx#AllowlistImport/selected": "84c43bad30a28893",
-        "components/academy-admissions/allowlist-import/index.tsx#AllowlistImport~shell": "797c897f3214da8e",
+        "components/academy-admissions/allowlist-import/index.tsx#AllowlistImport/selectableCount": "59dcaaf89f330c73",
+        "components/academy-admissions/allowlist-import/index.tsx#AllowlistImport~shell": "2fb235222a2159b5",
         "src/modules/academy-admissions/application/ports/allowlist-import-browser-client.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/ports/allowlist-import-browser-client.ts#AllowlistImportBrowserClient": "a5e6248c697a2639",
         "src/modules/academy-admissions/application/results/allowlist-import-page-state.ts#<module>": "2da3ec2294295eb1",
@@ -690,6 +693,9 @@
         "lib/academy-admissions/allowlist-import-draft-store.ts#allowlistImportDraftStore~frame": "4d49caca2e14f27a",
         "lib/academy-admissions/allowlist-import-draft-store.ts#allowlistImportDraftStore.remove": "bf1c32329913190f",
         "lib/academy-admissions/allowlist-import-intent.ts#readAllowlistImport": "bcb07549f75c9230",
+        "lib/academy-admissions/allowlist-import-selection.ts#<module>": "2da3ec2294295eb1",
+        "lib/academy-admissions/allowlist-import-selection.ts#listSelectableAllowlistImportRows": "d9cadd67f1caed56",
+        "lib/academy-admissions/allowlist-import-selection.ts#isSelectableAllowlistImportRow": "eed53e6a728123ef",
         "src/modules/academy-admissions/constants/allowlist-import-browser.ts#ALLOWLIST_IMPORT_BROWSER_COPY.reading": "b3d7230522bc44e7",
         "lib/toasts/write-toast.ts#startWriteToast/settle": "9e49be25a15ee216",
         "lib/toasts/write-toast.ts#startWriteToast~shell": "f4c40182c8d27789",
@@ -3603,7 +3609,8 @@
           "awaits": 4
         },
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/fetchCurrent": {
-          "awaits": 2
+          "awaits": 2,
+          "projectCalls": 1
         },
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/run": {
           "projectCalls": 1,
@@ -3635,6 +3642,9 @@
         },
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/confirm": {
           "awaits": 1
+        },
+        "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/selectAllValidRows": {
+          "projectCalls": 1
         },
         "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/readPolicy": {
           "awaits": 2
@@ -3696,6 +3706,9 @@
         },
         "src/modules/shared/infrastructure/database/server-database-client.ts#getDatabasePool": {
           "projectCalls": 4
+        },
+        "components/academy-admissions/allowlist-import/index.tsx#AllowlistImport/selectableCount": {
+          "projectCalls": 1
         },
         "lib/academy-admissions/allowlist-import-api-client.ts#createAllowlistImportApiClient~shell": {
           "projectCalls": 4,
@@ -4573,32 +4586,28 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
-        "durationMs": 110290,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "0e40c1a65a767f2583fa2380852f142d46fdd4c2b4c79a47fe45707f417cde64",
-        "recordedAt": "2026-10-25T14:59:02.292Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:37:54.286Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx: Tests 122 passed (122) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T14:59:02.724Z",
+        "recordedAt": "2026-10-26T15:37:54.705Z",
         "source": "attested",
-        "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
+        "summary": "Estados: Ver más acumula sin duplicados y su carga y error quedan junto al botón; las relecturas y filtros conservan lo mostrado con aria-busy y descartan respuestas viejas; la bandeja y el historial muestran los datos del servidor al hidratar y habilitan las acciones tras el chequeo de cuenta; la importación selecciona todas las válidas sin cambiar el contrato; el doble montaje de desarrollo ya no se toma como restauración."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de recuperación que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron las listas del líder que cambia este PR; el resto de cada unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T14:59:04.645Z",
+    "recordedAt": "2026-10-26T15:37:56.653Z",
     "result": "partial",
-    "runId": "20261025T145711Z-8a8e2e",
+    "runId": "20261026T153753Z-12b3d1",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -4612,24 +4621,54 @@
           "reason": "code reached by the unit changed"
         },
         {
-          "change": "modified",
-          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
-          "reason": "code reached by the unit changed"
+          "change": "added",
+          "key": "components/academy-admissions/allowlist-import/index.tsx#AllowlistImport/selectableCount",
+          "reason": "new action handler"
         },
         {
           "change": "modified",
-          "key": "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/authorize",
+          "key": "components/academy-admissions/allowlist-import/index.tsx#AllowlistImport~shell",
+          "reason": "component state or render changed"
+        },
+        {
+          "change": "modified",
+          "key": "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/confirm",
           "reason": "action handler changed"
         },
         {
           "change": "modified",
-          "key": "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/reportFailure",
+          "key": "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/fetchCurrent",
+          "reason": "action handler changed"
+        },
+        {
+          "change": "added",
+          "key": "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/selectAllValidRows",
+          "reason": "new action handler"
+        },
+        {
+          "change": "modified",
+          "key": "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow/selectRow",
           "reason": "action handler changed"
         },
         {
           "change": "modified",
           "key": "hooks/use-allowlist-import-workflow.ts#useAllowlistImportWorkflow~shell",
           "reason": "component state or render changed"
+        },
+        {
+          "change": "added",
+          "key": "lib/academy-admissions/allowlist-import-selection.ts#<module>",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/academy-admissions/allowlist-import-selection.ts#isSelectableAllowlistImportRow",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/academy-admissions/allowlist-import-selection.ts#listSelectableAllowlistImportRows",
+          "reason": "new code reached by the unit"
         }
       ],
       "suggestedScope": [
@@ -4649,7 +4688,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T145711Z-8a8e2e.json"
+    "report": "runs/20261026T153753Z-12b3d1.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

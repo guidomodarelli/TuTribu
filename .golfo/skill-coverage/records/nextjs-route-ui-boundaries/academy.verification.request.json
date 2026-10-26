@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
-        "components/academy/academy-verification/index.tsx": "1b1a4ac290d05894",
+        "components/academy/academy-verification/index.tsx": "d093813d476f7d37",
         "app/(platform)/[slug]/academia/verificacion/page.tsx": "78e36c8d189424cc",
         "app/(platform)/[slug]/academia/verificacion/loading.tsx": "786cb608d49e60c4",
         "app/api/tribes/[slug]/verifications/route.ts": "7143222c4b934955",
@@ -26,7 +26,7 @@
         "app/layout.tsx": "650f4386e125862f",
         "app/not-found.tsx": "7c2bf7b75ccbcef3",
         "next.config.ts": "499b76937ce73f12",
-        "lib/academy/academy-api-client.ts": "298112080df602fd",
+        "lib/academy/academy-api-client.ts": "3e35ac9504a0812c",
         "components/academy/academy-verification/styles.module.scss": "9b66a043e5665d89",
         "components/loaders/route-skeleton/index.tsx": "24ca012df2b27747",
         "app/(platform)/[slug]/academia/verificacion/loading.module.scss": "e9b4d46d79b6e55d",
@@ -108,19 +108,25 @@
         "app/not-found.module.scss": "07d324074a6ecb7f",
         "config/deployment-environment.ts": "08bb1a3202ff76f7"
       },
-      "fingerprint": "sha256:72aab0bebe336312ade7b9370e0c36b1aca38707468fb59fe9cc00b5095946f5",
+      "fingerprint": "sha256:645e2659797385e04ade44f0828162cab33274cc33b437960b5fa8b7bbb0d45a",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
         "pkg:react-dom": "d2111d79718dba5f",
         "components/academy/academy-verification/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy/academy-verification/index.tsx#ProviderRequest/handleSubmit": "49f97ec72dbb1644",
+        "components/academy/academy-verification/index.tsx#ProviderRequest/sendRequest": "91ccedcf4c948837",
         "components/academy/academy-verification/index.tsx#VERIFICATION_COPY~frame": "1a724bc06daccc9d",
         "components/academy/academy-verification/index.tsx#VERIFICATION_COPY.requestSuccess": "4f36f4aa21eadf76",
-        "components/academy/academy-verification/index.tsx#ProviderRequest~shell": "8389cad556c70f5e",
+        "components/academy/academy-verification/index.tsx#ProviderRequest/handleSubmit": "2ebb8a83f323437d",
+        "components/academy/academy-verification/index.tsx#ProviderRequest~shell": "faeb6e42d48dc390",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
+        "components/academy/academy-verification/index.tsx#VERIFICATION_COPY.cancelEmailChange": "9540992c85d371ca",
+        "components/academy/academy-verification/index.tsx#VERIFICATION_COPY.confirmEmailChange": "df217c3ad8cdeda5",
         "components/academy/academy-verification/index.tsx#VERIFICATION_COPY.declaredEmailHelp": "80f57a582ff3c2cd",
         "components/academy/academy-verification/index.tsx#VERIFICATION_COPY.declaredEmailLabel": "1babcae4057eabdd",
+        "components/academy/academy-verification/index.tsx#VERIFICATION_COPY.emailChangeDescriptionPrefix": "c71423ad12864642",
+        "components/academy/academy-verification/index.tsx#VERIFICATION_COPY.emailChangeDescriptionSuffix": "02738dd27f41d43e",
+        "components/academy/academy-verification/index.tsx#VERIFICATION_COPY.emailChangeTitle": "ac6270c160fa4544",
         "components/academy/academy-verification/index.tsx#VERIFICATION_COPY.openProviderLink": "d8a4185ac3e742a3",
         "components/academy/academy-verification/index.tsx#VERIFICATION_COPY.requestAgainButton": "4891eb86838fe512",
         "components/academy/academy-verification/index.tsx#VERIFICATION_COPY.requestButton": "3f51b3f6d3492613",
@@ -135,6 +141,10 @@
         "components/academy/academy-verification/index.tsx#STATUS_LABEL.revoked": "3f594076439728a7",
         "components/academy/academy-verification/index.tsx#STATUS_LABEL.verified": "e229377279309f06",
         "components/academy/academy-verification/index.tsx#STATUS_LABEL~frame": "5f1537e0f93ccc85",
+        "components/academy/academy-verification/index.tsx#reopensApprovedVerification": "1ec4a7d23863ddfb",
+        "components/academy/academy-verification/index.tsx#VERIFIED_STATUS": "54d9f5e16be725b9",
+        "components/academy/academy-verification/index.tsx#normalizeDeclaredEmail": "8dfac48300dfa2a0",
+        "components/academy/academy-verification/index.tsx#ProviderRequest/confirmEmailChange": "f78a498dc9a934d2",
         "components/academy/academy-verification/index.tsx#AcademyVerification": "93f3248e56ce214a",
         "app/(platform)/[slug]/academia/verificacion/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/verificacion/page.tsx#TribeAcademyVerificationPage": "4539fd7c7f8f6628",
@@ -1011,7 +1021,7 @@
         "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MS": "a92cd6c5a2273d38"
       },
       "signals": {
-        "components/academy/academy-verification/index.tsx#ProviderRequest/handleSubmit": {
+        "components/academy/academy-verification/index.tsx#ProviderRequest/sendRequest": {
           "awaits": 1,
           "projectCalls": 1
         },
@@ -1203,43 +1213,42 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 48769,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "7622009489346348a736f2898af79c44f4dc1c11ce9020143490328f0498b58f",
-        "recordedAt": "2026-10-25T14:31:30.361Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:40:50.935Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/academy/academy-management.test.tsx: Tests 23 passed (23) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
-        "command": "pnpm run -s typecheck",
-        "durationMs": 2200,
-        "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
-        "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T14:31:33.020Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:40:51.353Z",
+        "source": "attested",
+        "summary": "pnpm run -s typecheck: sin errores sobre el código mergeado"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T14:31:33.449Z",
+        "recordedAt": "2026-10-26T15:40:51.783Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Ciclo de vida: reabrir y revocar una verificación son server-confirmed; la confirmación del correo solo aparece si el email normalizado cambia en una verificación aprobada; revocar usa un diálogo con motivo, pending, protección de doble envío y error dentro del diálogo, y el toast llega con la confirmación del servidor."
+      },
+      {
+        "kind": "browser",
+        "outcome": "pass",
+        "recordedAt": "2026-10-26T15:40:52.204Z",
+        "source": "attested",
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: cambiar el correo de una verificación aprobada pide confirmación, Cancelar no envía y conserva el correo y Cambiar correo envía una vez y la deja En revisión; Revocar abre su diálogo sin enviar y al confirmar hace un solo PATCH (4/4; antes se enviaba sin preguntar y no había diálogo)."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron las confirmaciones de verificación que cambia este PR; el resto de cada unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T14:31:34.584Z",
+    "recordedAt": "2026-10-26T15:40:53.367Z",
     "result": "partial",
-    "runId": "20261025T143041Z-b91400",
+    "runId": "20261026T154050Z-e2bec2",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -1248,9 +1257,39 @@
       ],
       "relevantChangesAtBegin": [
         {
+          "change": "added",
+          "key": "components/academy/academy-verification/index.tsx#normalizeDeclaredEmail",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-verification/index.tsx#ProviderRequest/confirmEmailChange",
+          "reason": "new interactive handler in the route"
+        },
+        {
           "change": "modified",
           "key": "components/academy/academy-verification/index.tsx#ProviderRequest/handleSubmit",
           "reason": "interactive handler changed: navigation or server action calls may differ"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-verification/index.tsx#ProviderRequest/sendRequest",
+          "reason": "new interactive handler in the route"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-verification/index.tsx#ProviderRequest~shell",
+          "reason": "component render changed: hooks, Suspense or client imports may differ"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-verification/index.tsx#reopensApprovedVerification",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-verification/index.tsx#VERIFIED_STATUS",
+          "reason": "new code rendered by the route"
         }
       ],
       "suggestedScope": [
@@ -1270,7 +1309,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T143041Z-b91400.json"
+    "report": "runs/20261026T154050Z-e2bec2.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

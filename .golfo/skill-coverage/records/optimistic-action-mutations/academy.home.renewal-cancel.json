@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
-        "components/academy/academy-home/index.tsx": "445fcae1bddbac72",
+        "components/academy/academy-home/index.tsx": "ba78725db5c7cd26",
         "app/(platform)/[slug]/academia/page.tsx": "a4c7427e95123588",
         "app/api/tribes/[slug]/subscriptions/current/route.ts": "bbfd0641c3d5c6a6",
         "src/modules/subscriptions/setup.ts": "beab8120b07daf1c",
@@ -20,12 +20,12 @@
         "src/modules/auth/setup.ts": "37e200547ae950e4",
         "src/modules/auth/infrastructure/repositories/better-auth-session-repository.ts": "9c52b296a068064a",
         "src/modules/auth/infrastructure/composition/authenticated-account-provider.ts": "750f9fbc68d426b1",
-        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "225eef5ce922c395",
+        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "6cf3cca717bd71e3",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
         "lib/academy-admissions/admission-routes.ts": "adac74b9727d9a17",
         "lib/academy/academy-format.ts": "c89823377b85f3a9",
-        "lib/academy/academy-api-client.ts": "298112080df602fd",
+        "lib/academy/academy-api-client.ts": "3e35ac9504a0812c",
         "src/modules/product-access/constants/academy-route-copy.ts": "f1751ca472d6a6c1",
         "src/modules/subscriptions/constants/subscriptions.ts": "6ba50c0da5428de7",
         "src/modules/setup.ts": "b7906aa060d53395",
@@ -71,7 +71,7 @@
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
         "src/modules/shared/application/validation/uuid.ts": "84d63a8c45bf04be",
         "src/modules/subscriptions/domain/services/monthly-billing-cycle.ts": "1e253b01e98f41b8",
-        "src/constants/time.ts": "98b5459a77a709b0",
+        "src/constants/time.ts": "987c18a571e92d4d",
         "src/modules/tribes/constants/tribe-page-access.ts": "18091d5392ed8b45",
         "src/modules/tribes/constants/tribe-member-role.ts": "bcd5a756222224ce",
         "src/modules/tribes/constants/academy-membership.ts": "458dd8dd26c19140",
@@ -165,18 +165,16 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:399b02443bf1fac067c40763eca347e9b4019cf431df6e47ca82b577d247a9cd",
+      "fingerprint": "sha256:dcfb53a0fd1b666bf31bb8e6ad384dddfdca47b506210b1d4c381801bc86ad23",
       "inputs": {
         "components/academy/academy-home/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy/academy-home/index.tsx#AcademyHome~shell": "e682a501a4562464",
+        "components/academy/academy-home/index.tsx#AcademyHome~shell": "f697c5705fa5b8e2",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY~frame": "d647271201261ec5",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.accessHeading": "7502394d9b8e691b",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.admissionClosed": "2f1103a338c1ae8e",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.basicCourses": "7a72b6e794a5be07",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelButton": "219bce9507bb3237",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelConfirm": "957f32fd67593896",
-        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelDialogDescription": "ef99608981b64735",
-        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelDialogTitle": "132a1184a50b06f8",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelKeep": "4c14d8227b235578",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelPending": "af6da76a0657c5b9",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.checkoutButton": "6359f5b4455207f3",
@@ -202,9 +200,25 @@
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.verificationLink": "5e1bdc3bb50ba8b7",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.whatsappNote": "35886a1a73790abf",
         "components/academy/academy-home/index.tsx#AcademyHomeProps": "eb157c1a9d1338b6",
+        "components/academy/academy-home/index.tsx#ActionErrors": "7646f732d236f9c4",
+        "components/academy/academy-home/index.tsx#AcademyHomeAction": "840948ad056b5a3d",
         "pkg:lucide-react": "6166c881f2c2dd27",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
-        "components/academy/academy-home/index.tsx#PendingAction": "c200131b42a3cbf7",
+        "components/academy/academy-home/index.tsx#CANCEL_DIALOG_COPY.active": "70e4570365992adc",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelDialogDescription": "ef99608981b64735",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelDialogTitle": "132a1184a50b06f8",
+        "components/academy/academy-home/index.tsx#CANCEL_DIALOG_COPY.pending": "a961c0c38fdfb412",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelPendingSubscriptionDialogDescription": "04c5eb48b747ae3a",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelPendingSubscriptionDialogTitle": "2e4d3be65457c34a",
+        "components/academy/academy-home/index.tsx#CANCEL_DIALOG_COPY~frame": "735c51ff67ea5f12",
+        "components/academy/academy-home/index.tsx#CancelableRenewalStatus": "9dd87decb11950d5",
+        "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.cancel": "4f18148ec304a187",
+        "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.checkout": "1d497dada23f5a99",
+        "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.join": "4c588d954e312fd6",
+        "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.refresh": "5baa26f2324b632b",
+        "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS~frame": "eae0f31806662871",
+        "components/academy/academy-home/index.tsx#PAGE_SHOW_EVENT": "4a9fc6ef3ed16f39",
+        "components/academy/academy-home/index.tsx#PendingAction": "7d5321c0fe436d78",
         "components/academy/academy-home/index.tsx#buildAccessSteps": "0cdefd526fa3ea5b",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.eligibilityPending": "301fbeba85613914",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.eligibilityRequired": "d2e3ef51736f82d5",
@@ -218,6 +232,8 @@
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.stepVerifyTitle": "8f3b796612ac7eb2",
         "components/academy/academy-home/index.tsx#AccessStep": "038714e2227c2ce8",
         "components/academy/academy-home/index.tsx#AccessStepState": "f26b9b074a9cdfd1",
+        "components/academy/academy-home/index.tsx#isCancelableRenewal": "bac002a229cceb7a",
+        "components/academy/academy-home/index.tsx#isPaymentInProgress": "339d7a03a34a011a",
         "components/academy/academy-home/index.tsx#resolveAccessStatus": "a3cd160acb9e6f9e",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.accessUnbounded": "77f4198682b14b04",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.basicLevel": "e16b6c0f9e5d895c",
@@ -246,9 +262,11 @@
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.paidUntil": "44bd9d501a645c4f",
         "pkg:react": "374a4508a198654b",
         "pkg:next": "ef28293b49c7bae1",
-        "components/academy/academy-home/index.tsx#AcademyHome/handleCancel": "d21d240646a4714f",
+        "components/academy/academy-home/index.tsx#AcademyHome/handleCancel": "f75cbc441b6bfc93",
         "components/academy/academy-home/index.tsx#AcademyHome/reloadAccess": "1df564b7e327ff0e",
-        "components/academy/academy-home/index.tsx#AcademyHome/runAction": "a6e5e63ed8953d09",
+        "components/academy/academy-home/index.tsx#AcademyHome/runAction": "f8d692ae7a8346f1",
+        "components/academy/academy-home/index.tsx#AcademyHome/setActionError": "623829589c90fca0",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.canceledPendingSubscription": "b098b3fc0d15a7ee",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.canceledUntil": "4ced9c99d55c523d",
         "app/(platform)/[slug]/academia/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/page.tsx#TribeAcademyPage": "edb97c58c08a366a",
@@ -1804,6 +1822,10 @@
         "src/modules/messaging/constants/messaging-dispatch.ts#MESSAGING_DISPATCH_BOUND.maximumRunBudgetMs": "36e1832808b95a39"
       },
       "signals": {
+        "components/academy/academy-home/index.tsx#AcademyHome~shell": {
+          "effects": 1,
+          "listeners": 1
+        },
         "components/academy/academy-home/index.tsx#AcademyHome/handleCancel": {
           "awaits": 2,
           "projectCalls": 1
@@ -2323,45 +2345,34 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 49825,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "a26e9c6ef8bbcce65f02624381558ae0e3cbf59d89f9016bc54d60bfd5bb1fd2",
-        "recordedAt": "2026-10-25T14:03:06.508Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:41:05.968Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx: Tests 24 passed (24) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T14:03:07.000Z",
+        "recordedAt": "2026-10-26T15:41:06.384Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Ciclo de vida: cancelar una renovación pending es server-confirmed, reusa el diálogo, la protección de doble envío y el error por acción, y su copy no promete que no se cobra un pago ya hecho."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó la cancelación de una renovación pending que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T14:03:08.446Z",
+    "recordedAt": "2026-10-26T15:41:07.794Z",
     "result": "partial",
-    "runId": "20261025T140216Z-37ad7c",
+    "runId": "20261026T154105Z-5fc68e",
     "scope": {
       "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "components/academy/academy-home/index.tsx#AcademyHome/handleCancel",
-          "reason": "action handler changed"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.home.renewal-cancel: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -2379,7 +2390,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T140216Z-37ad7c.json"
+    "report": "runs/20261026T154105Z-5fc68e.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

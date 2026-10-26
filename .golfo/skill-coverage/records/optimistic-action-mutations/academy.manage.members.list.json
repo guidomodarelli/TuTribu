@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-management-mutations",
-      "commit": "eb9bbb3133777d61596556f311001d065649fa75",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
-        "components/academy/academy-management/index.tsx": "c9c63144daeb34d0",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
+        "components/academy/academy-management/index.tsx": "30fb9d4e436f90ac",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
         "app/api/tribes/[slug]/academy/members/route.ts": "3cbb25f32868f5ae",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
         "src/modules/product-access/infrastructure/repositories/postgres-product-access-repository.ts": "b6d068802851a5fa",
@@ -15,9 +15,9 @@
         "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts": "65c276a71c59ef25",
         "src/modules/product-access/infrastructure/repositories/academy-access-sql.ts": "eba86e37e91970d9",
         "src/modules/subscriptions/infrastructure/repositories/postgres-academy-subscription-repository.ts": "f627f9da8ad78a3d",
-        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "225eef5ce922c395",
+        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "6cf3cca717bd71e3",
         "lib/academy/academy-format.ts": "c89823377b85f3a9",
-        "lib/academy/academy-api-client.ts": "298112080df602fd",
+        "lib/academy/academy-api-client.ts": "3e35ac9504a0812c",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts": "102e81af136adc5a",
         "src/modules/product-access/infrastructure/api/academy-request-schemas.ts": "153a8ff211e2f807",
         "app/api/tribes/[slug]/academy-route-scope.ts": "439f451d9503336b",
@@ -48,10 +48,10 @@
         "src/modules/product-access/domain/services/academy-access-status.ts": "a29877b6da702662",
         "src/modules/product-access/domain/services/academy-access-policy.ts": "d04a7ffb4ed6f2da",
         "src/modules/subscriptions/domain/services/monthly-billing-cycle.ts": "1e253b01e98f41b8",
-        "src/constants/time.ts": "98b5459a77a709b0",
+        "src/constants/time.ts": "987c18a571e92d4d",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:6355a992cb0a879ca365a090335b8b9497d6de2002e8d321e707923aa4fc011b",
+      "fingerprint": "sha256:225805637286a0f79634d57197440edc55c343e015a13c2c8d9dee92b0944335",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-management/index.tsx#MembersSection": "e42851580d3ece4e",
@@ -91,13 +91,13 @@
         "components/academy/academy-management/index.tsx#PAGE_SIZE": "6858738053995650",
         "components/academy/academy-management/index.tsx#RevokeBonusDialog/handleSubmit": "b87e9ea8d5cd5607",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.bonusRevoked": "d7e8c2405c050147",
-        "components/academy/academy-management/index.tsx#RevokeBonusDialog~shell": "a04e045b23a25dd1",
+        "components/academy/academy-management/index.tsx#RevokeBonusDialog~shell": "bae42cea3835b8ab",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusDescription": "736e4abceec956f1",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusPrompt": "a011f4022643b39e",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusSubject": "c1318d22272d5143",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusSubmit": "592e213aced4fb4c",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusTitle": "fcc403a69ea28b7e",
-        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokingBonus": "4eec890f60b2a1d8",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revoking": "1406d3db841a1080",
         "components/academy/academy-management/index.tsx#describeGrantRange": "1cfc37b867da5dd6",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantRevoked": "947b9dbec763b2f5",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantUnbounded": "8062493a3bf01a56",
@@ -762,38 +762,46 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
-        "durationMs": 32601,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "4dc9cd66b718fb5dca1bbafc0e523454928192ff73cad0455ac8423115529bed",
-        "recordedAt": "2026-10-25T20:47:21.228Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:28:28.004Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx: Tests 21 passed (21) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T20:47:21.770Z",
+        "recordedAt": "2026-10-26T15:28:28.620Z",
         "source": "attested",
-        "summary": "Ciclo de vida: revocar es server-confirmed con protección de doble envío y error dentro del diálogo; otorgar y revocar recargan la lista por reloadToken; disponibilidad y conflictos conservan el borrador de la oferta; decidir una solicitud la saca del filtro y vuelve a pedir la página, un conflicto la deja visible con su estado; búsquedas y paginación muestran Consultando…"
+        "summary": "Lecturas del render: integrantes, cola, configuración y proveedores salen en una sola tanda; la configuración responde null y los proveedores solo los activos a un guardián, y la página usa esas respuestas solo para el líder; un fallo sigue llegando al boundary del segmento."
       }
     ],
     "limitations": [
-      "Solo se revisaron las secciones de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T20:47:23.656Z",
+    "recordedAt": "2026-10-26T15:28:30.322Z",
     "result": "partial",
-    "runId": "20261025T204647Z-82a065",
+    "runId": "20261026T152827Z-2633e5",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "removed",
+          "key": "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokingBonus",
+          "reason": "code no longer reached by the unit: an operation may have been removed"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-management/index.tsx#RevokeBonusDialog~shell",
+          "reason": "component state or render changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.manage.members.list: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -811,7 +819,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T204647Z-82a065.json"
+    "report": "runs/20261026T152827Z-2633e5.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

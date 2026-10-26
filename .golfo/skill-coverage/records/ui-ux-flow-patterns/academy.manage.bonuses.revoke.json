@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-management-mutations",
-      "commit": "eb9bbb3133777d61596556f311001d065649fa75",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
-        "components/academy/academy-management/index.tsx": "c9c63144daeb34d0",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
+        "components/academy/academy-management/index.tsx": "30fb9d4e436f90ac",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
         "app/api/tribes/[slug]/academy/bonuses/[grantId]/revoke/route.ts": "855f33b51e6eed34",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
         "src/modules/product-access/infrastructure/repositories/postgres-product-access-repository.ts": "b6d068802851a5fa",
@@ -15,8 +15,8 @@
         "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts": "65c276a71c59ef25",
         "src/modules/product-access/infrastructure/repositories/academy-access-sql.ts": "eba86e37e91970d9",
         "src/modules/subscriptions/infrastructure/repositories/postgres-academy-subscription-repository.ts": "f627f9da8ad78a3d",
-        "lib/academy/academy-api-client.ts": "298112080df602fd",
-        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "225eef5ce922c395",
+        "lib/academy/academy-api-client.ts": "3e35ac9504a0812c",
+        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "6cf3cca717bd71e3",
         "lib/academy/academy-format.ts": "c89823377b85f3a9",
         "components/academy/academy-management/styles.module.scss": "01f52ce7ee08aa77",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts": "102e81af136adc5a",
@@ -43,16 +43,16 @@
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
         "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/constants/date-time.ts": "120f12f7530df5ba",
-        "src/constants/time.ts": "98b5459a77a709b0"
+        "src/constants/time.ts": "987c18a571e92d4d"
       },
-      "fingerprint": "sha256:4edb3df08cc13a6e556608034a9a2d2a9a7be34e3fefd1ad03cc37532d1ee7fa",
+      "fingerprint": "sha256:9d7b2fd66cfa8488b6282bfe29640018daf5c19942711be5e1c99fb22be458ca",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-management/index.tsx#RevokeBonusDialog/handleSubmit": "b87e9ea8d5cd5607",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY~frame": "273d3be735a785d5",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.bonusRevoked": "d7e8c2405c050147",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
-        "components/academy/academy-management/index.tsx#RevokeBonusDialog~shell": "a04e045b23a25dd1",
+        "components/academy/academy-management/index.tsx#RevokeBonusDialog~shell": "bae42cea3835b8ab",
         "components/academy/academy-management/index.tsx#AcademyGrantDto": "aff7dd6422248e38",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.cancel": "129e70b7dea90a86",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusDescription": "736e4abceec956f1",
@@ -60,7 +60,7 @@
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusSubject": "c1318d22272d5143",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusSubmit": "592e213aced4fb4c",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusTitle": "fcc403a69ea28b7e",
-        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokingBonus": "4eec890f60b2a1d8",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revoking": "1406d3db841a1080",
         "components/academy/academy-management/index.tsx#MIN_REASON_LENGTH": "1c0a5e01e735a4c4",
         "components/academy/academy-management/index.tsx#describeGrantRange": "1cfc37b867da5dd6",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantRevoked": "947b9dbec763b2f5",
@@ -526,45 +526,58 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
-        "durationMs": 41644,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "5168a62e35fae3d74ee668d964e78912fd64c93cb4e5f32f40783e14c6c01d53",
-        "recordedAt": "2026-10-25T20:43:18.449Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:27:57.650Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx: Tests 21 passed (21) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T20:43:19.228Z",
+        "recordedAt": "2026-10-26T15:27:58.206Z",
         "source": "attested",
-        "summary": "Ciclo de vida: revocar es server-confirmed con protección de doble envío y error dentro del diálogo; otorgar y revocar recargan la lista por reloadToken; disponibilidad y conflictos conservan el borrador de la oferta; decidir una solicitud la saca del filtro y vuelve a pedir la página, un conflicto la deja visible con su estado; búsquedas y paginación muestran Consultando…"
+        "summary": "Lecturas del render: integrantes, cola, configuración y proveedores salen en una sola tanda; la configuración responde null y los proveedores solo los activos a un guardián, y la página usa esas respuestas solo para el líder; un fallo sigue llegando al boundary del segmento."
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T20:43:20.078Z",
+        "recordedAt": "2026-10-26T15:27:58.754Z",
         "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: la bonificación otorgada aparece sin recargar, revocar usa el diálogo sin window.prompt y el título sin guardar se conserva al cambiar la disponibilidad (4/4)."
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Gestionar academia carga para el líder con Configuración, Proveedores de verificación, Solicitudes de verificación y Accesos de integrantes (4/4)."
       }
     ],
     "limitations": [
-      "Solo se revisaron las secciones de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T20:43:22.127Z",
+    "recordedAt": "2026-10-26T15:28:00.366Z",
     "result": "partial",
-    "runId": "20261025T204235Z-d724ee",
+    "runId": "20261026T152757Z-bfd7d7",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "added",
+          "key": "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revoking",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "removed",
+          "key": "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokingBonus",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-management/index.tsx#RevokeBonusDialog~shell",
+          "reason": "visible or interactive code changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.manage.bonuses.revoke: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
       ]
@@ -582,7 +595,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T204235Z-d724ee.json"
+    "report": "runs/20261026T152757Z-bfd7d7.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-management-mutations",
-      "commit": "64b87f83eb45941aa8b2b758ae938221dad4baad",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
-        "components/academy/academy-management/index.tsx": "c9c63144daeb34d0",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
+        "components/academy/academy-management/index.tsx": "30fb9d4e436f90ac",
         "app/(platform)/[slug]/academia/gestionar/loading.tsx": "efdd51c1e0f631dd",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
@@ -15,7 +15,7 @@
         "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts": "65c276a71c59ef25",
         "src/modules/product-access/infrastructure/repositories/academy-access-sql.ts": "eba86e37e91970d9",
         "src/modules/subscriptions/infrastructure/repositories/postgres-academy-subscription-repository.ts": "f627f9da8ad78a3d",
-        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "225eef5ce922c395",
+        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "6cf3cca717bd71e3",
         "src/modules/member-verifications/application/results/member-verification-public-dto-schemas.ts": "c658dcf96affa74b",
         "src/modules/product-access/application/results/academy-dto-mappers.ts": "a40a6cfaf7d3d9c4",
         "src/modules/member-verifications/application/results/member-verification-dto-mappers.ts": "d206542561c4b8d9",
@@ -39,12 +39,12 @@
         "src/modules/product-access/domain/services/academy-access-status.ts": "a29877b6da702662",
         "src/modules/product-access/domain/services/academy-access-policy.ts": "d04a7ffb4ed6f2da",
         "src/modules/subscriptions/domain/services/monthly-billing-cycle.ts": "1e253b01e98f41b8",
-        "src/constants/time.ts": "98b5459a77a709b0"
+        "src/constants/time.ts": "987c18a571e92d4d"
       },
-      "fingerprint": "sha256:bbf46a0d193aea4112dca3ef3440d2e1c6cc13539d04a6a510e5da326b5d55d3",
+      "fingerprint": "sha256:29705da58ece06e99009af248b1264b17aabeb538a61d0a38809266795b26463",
       "inputs": {
         "app/(platform)/[slug]/academia/gestionar/page.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": "3ebed5c9c877c3bf",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": "2a00c59b13d7afd2",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#MANAGEMENT_PAGE~frame": "df600e477132a2b8",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#MANAGEMENT_PAGE.firstPage": "5ef54f08154e6bad",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#MANAGEMENT_PAGE.pendingStatus": "f879946581980090",
@@ -484,7 +484,7 @@
       },
       "signals": {
         "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": {
-          "awaits": 2
+          "awaits": 1
         },
         "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": {
           "awaits": 3
@@ -553,33 +553,31 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
-        "durationMs": 128318,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "ad1a60fcf803e094fe54f8d6f23662f616c7d7f45f9a1e6d79b0c4cb21e1ea8c",
-        "recordedAt": "2026-10-25T20:38:52.518Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:30:47.628Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx: Tests 21 passed (21) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       }
     ],
     "limitations": [
-      "La recarga tras decidir o revocar suma una request GET por acción del líder sobre el mismo endpoint que ya usa la paginación; no se midió por separado."
+      "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T20:38:59.298Z",
+    "recordedAt": "2026-10-26T15:30:50.391Z",
     "result": "partial",
-    "runId": "20261025T203638Z-4eb476",
+    "runId": "20261026T153047Z-9e4e4e",
     "scope": {
-      "decision": "not-applicable",
+      "decision": "full",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo."
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": []
+      "suggestedScope": [
+        "measure the complete flow /[slug]/academia/gestionar before and after, same build, data and throttling; median of 3 for noisy metrics"
+      ]
     },
     "skill": {
       "definitionFiles": {
@@ -596,7 +594,7 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T203638Z-4eb476.json"
+    "report": "runs/20261026T153047Z-9e4e4e.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

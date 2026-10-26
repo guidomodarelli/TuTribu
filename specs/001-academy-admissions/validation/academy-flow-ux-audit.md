@@ -29,27 +29,27 @@ Inventario de cada segmento, subflujo y acción de la academia, auditado con las
 
 ### Segmentos
 
-| Ruta | Subflujo | Contenedor y componentes | Endpoints y casos de uso | Boundaries |
-|---|---|---|---|---|
-| `/admissions/[slug]` | Enlace de admisión, formulario, código por correo o SMS, confirmación | `admission-container.tsx` (cliente), `AdmissionScreen`, `AdmissionRequestSteps`, `AdmissionForm`, `ContactVerification`, `RequestStatus` | `POST submissions` → `SubmitAdmissionUseCase`; `challenges`, `challenges/current`, `challenges/[id]/{verify,resend}`; `requests/[id]/{cancel,proof,whatsapp}`; `operations/[id]` | `loading.tsx` y `error.tsx` propios |
-| `/admissions/[slug]/legacy/[token]` | Enlace heredado | `legacy-admission-container.tsx` envuelve el contenedor de admisión | Los mismos | `loading.tsx` re-exporta al padre; sin `error.tsx` propio |
-| `/admissions/invitations/[token]` | Invitación personal | `personal-invitation-container.tsx`, `PersonalInvitation`, `ContactVerification` | `GET /api/admissions/invitations/[token]/overview`; `POST submissions` con `invitationToken` | `loading.tsx` y `error.tsx` propios |
-| `/admissions/requests/[requestId]?tribe=` | Estado de la solicitud | `request-container.tsx` re-exporta el contenedor de admisión | `own-request`, `requests/[id]/cancel` | `loading.tsx` y `error.tsx` propios |
+| Ruta | Subflujo | Contenedor y componentes | Endpoints y casos de uso | Boundaries | Estado |
+|---|---|---|---|---|---|
+| `/admissions/[slug]` | Enlace de admisión, formulario, código por correo o SMS, confirmación | `admission-container.tsx` (cliente), `AdmissionScreen`, `AdmissionRequestSteps`, `AdmissionForm`, `ContactVerification`, `RequestStatus` | `POST submissions` → `SubmitAdmissionUseCase`; `challenges`, `challenges/current`, `challenges/[id]/{verify,resend}`; `requests/[id]/{cancel,proof,whatsapp}`; `operations/[id]` | `loading.tsx` y `error.tsx` propios | [#180](https://github.com/guidomodarelli/TuTribu/pull/180), [#183](https://github.com/guidomodarelli/TuTribu/pull/183), [#187](https://github.com/guidomodarelli/TuTribu/pull/187), [#193](https://github.com/guidomodarelli/TuTribu/pull/193) (SOL-05, SOL-06, SOL-08, SOL-09) |
+| `/admissions/[slug]/legacy/[token]` | Enlace heredado | `legacy-admission-container.tsx` envuelve el contenedor de admisión | Los mismos | `loading.tsx` re-exporta al padre; sin `error.tsx` propio | [#193](https://github.com/guidomodarelli/TuTribu/pull/193) (SOL-11) |
+| `/admissions/invitations/[token]` | Invitación personal | `personal-invitation-container.tsx`, `PersonalInvitation`, `ContactVerification` | `GET /api/admissions/invitations/[token]/overview`; `POST submissions` con `invitationToken` | `loading.tsx` y `error.tsx` propios | [#181](https://github.com/guidomodarelli/TuTribu/pull/181), [#187](https://github.com/guidomodarelli/TuTribu/pull/187) (SOL-04, SOL-07) |
+| `/admissions/requests/[requestId]?tribe=` | Estado de la solicitud | `request-container.tsx` re-exporta el contenedor de admisión | `own-request`, `requests/[id]/cancel` | `loading.tsx` y `error.tsx` propios | cumple |
 
 ### Acciones
 
 | Acción | Clase actual | Clase que corresponde | Doble envío | Error, timeout y resultado incierto | Idempotencia en el servidor | Estado |
 |---|---|---|---|---|---|---|
-| Enviar solicitud | Pending-first, confirmada por el servidor | La misma | `busy`, `pending`, botón con `loading` | Sin deadline: un request colgado deja `writing` sin salida (SOL-05) | `operationId` persistido antes del POST; ledger con huella firmada | pendiente (SOL-05) |
+| Enviar solicitud | Pending-first, confirmada por el servidor | La misma | `busy`, `pending`, botón con `loading` | Sin deadline: un request colgado deja `writing` sin salida (SOL-05) | `operationId` persistido antes del POST; ledger con huella firmada | [#180](https://github.com/guidomodarelli/TuTribu/pull/180) (SOL-05) |
 | Pedir código | Confirmada por el servidor | La misma (envío real de Zavu) | `busy` y `record.pending` | Deadline de 120 s y una lectura del original | Ledger de operaciones | cumple |
 | Verificar código | Confirmada por el servidor | La misma | Ídem | Ídem; errores de campo junto al input | Ledger | cumple |
 | Reenviar código o pasar a SMS | Confirmada por el servidor, con cooldown | La misma | Ídem | Ídem | Ledger | cumple |
 | Aplicar prueba | Confirmada por el servidor | La misma | Ídem | Ídem | Ledger | cumple |
 | Descartar una operación ausente | Lectura de `operations/[id]` | La misma | `busy` | 120 s | — | cumple |
-| Cancelar solicitud | Confirmada por el servidor, con casilla | La misma | Casilla y `busy` | Sin deadline (SOL-05) | Ledger | pendiente (SOL-05) |
-| Actualizar WhatsApp | Confirmada por el servidor, atada a la versión | La misma | `busy`, versión | Sin deadline (SOL-05) | Versión esperada | pendiente (SOL-05) |
-| Aceptar invitación | Confirmada por el servidor | La misma | `busy`, `pending`, `ready` | 120 s; éxito duplicado en toast e inline (SOL-07) | Ledger | pendiente (SOL-07) |
-| Cambiar de cuenta | Confirmada por el servidor | La misma | `busy` | Sin deadline en el contenedor de admisión (SOL-05) | — | pendiente (SOL-05) |
+| Cancelar solicitud | Confirmada por el servidor, con casilla | La misma | Casilla y `busy` | Sin deadline (SOL-05) | Ledger | [#180](https://github.com/guidomodarelli/TuTribu/pull/180) (SOL-05) |
+| Actualizar WhatsApp | Confirmada por el servidor, atada a la versión | La misma | `busy`, versión | Sin deadline (SOL-05) | Versión esperada | [#180](https://github.com/guidomodarelli/TuTribu/pull/180) (SOL-05) |
+| Aceptar invitación | Confirmada por el servidor | La misma | `busy`, `pending`, `ready` | 120 s; éxito duplicado en toast e inline (SOL-07) | Ledger | [#187](https://github.com/guidomodarelli/TuTribu/pull/187) (SOL-07) |
+| Cambiar de cuenta | Confirmada por el servidor | La misma | `busy` | Sin deadline en el contenedor de admisión (SOL-05) | — | [#180](https://github.com/guidomodarelli/TuTribu/pull/180) (SOL-05) |
 
 ### Hallazgos
 
@@ -73,17 +73,17 @@ Inventario de cada segmento, subflujo y acción de la academia, auditado con las
 
 Todas las hojas de `academia/admissions/**` envuelven un componente async en `<Suspense fallback={<Loading/>}>`, esperan `params` y `searchParams` dentro de ese boundary y cargan un snapshot en el servidor. Cada hoja tiene `loading.tsx` (`AdmissionPageSkeleton`) y `error.tsx` (`AdmissionRouteError embedded`).
 
-| Ruta | Subflujo | Contenedor | Endpoints y casos de uso |
-|---|---|---|---|
-| `/[slug]/ajustes` | Activación de la academia | `components/academy/academy-activation` | Activación de la academia |
-| `/[slug]/academia/admissions/settings` | Política y reglas (países, cupos, teléfono), pausa y reanudación, comprobación previa, membresías comerciales | `settings/policy-container.tsx`, `use-commercial-membership-review.ts` | `policy`, `policy/{activate,pause,preflight}`, `commercial-memberships/**` |
-| `/[slug]/academia/admissions/allowlist` | Allowlist: alta y baja | `allowlist/allowlist-container.tsx`, `use-allowlist-workflow.ts` | `allowlist`, `allowlist/[entryId]` |
-| `/[slug]/academia/admissions/allowlist/imports` | Importación CSV con vista previa, selección, confirmación y reporte | `allowlist-import-container.tsx`, `use-allowlist-import-workflow.ts` | `allowlist/imports/**` |
-| `/[slug]/academia/admissions/invitations` | Invitaciones personales: crear, revocar, reemitir, renombrar | `invitations-container.tsx`, `use-personal-invitation-management.ts` | `invitations/**` |
-| `/[slug]/academia/admissions` | Bandeja y revisión: aprobar, rechazar, en lote, ver más, filtros; guía de configuración | `admission-review-container.tsx`, `AdmissionSetupGuide` | `requests`, `request-decisions`, `requests/[id]/decision`, `operations/[id]`, `overview` |
-| `/[slug]/academia/admissions/history/[requestId]` | Historial de una solicitud | `history-container.tsx` | Lectura del historial |
-| `/[slug]/academia/admissions/notifications` | Avisos: preferencias y correo de la tribu | `notification-settings-container.tsx` | `notification-preferences`, `email-settings` |
-| `/[slug]/academia/admissions/activity` | Actividad y métricas | `admission-activity-container.tsx`, `AdmissionMetrics` | `activity`, `activity/snapshot`, `metrics` |
+| Ruta | Subflujo | Contenedor | Endpoints y casos de uso | Estado |
+|---|---|---|---|---|
+| `/[slug]/ajustes` | Activación de la academia | `components/academy/academy-activation` | Activación de la academia | cumple |
+| `/[slug]/academia/admissions/settings` | Política y reglas (países, cupos, teléfono), pausa y reanudación, comprobación previa, membresías comerciales | `settings/policy-container.tsx`, `use-commercial-membership-review.ts` | `policy`, `policy/{activate,pause,preflight}`, `commercial-memberships/**` | [#186](https://github.com/guidomodarelli/TuTribu/pull/186) (LID-05, LID-13) |
+| `/[slug]/academia/admissions/allowlist` | Allowlist: alta y baja | `allowlist/allowlist-container.tsx`, `use-allowlist-workflow.ts` | `allowlist`, `allowlist/[entryId]` | [#186](https://github.com/guidomodarelli/TuTribu/pull/186), [#188](https://github.com/guidomodarelli/TuTribu/pull/188), [#196](https://github.com/guidomodarelli/TuTribu/pull/196) (LID-07, LID-05, LID-06, LID-13) |
+| `/[slug]/academia/admissions/allowlist/imports` | Importación CSV con vista previa, selección, confirmación y reporte | `allowlist-import-container.tsx`, `use-allowlist-import-workflow.ts` | `allowlist/imports/**` | [#185](https://github.com/guidomodarelli/TuTribu/pull/185), [#186](https://github.com/guidomodarelli/TuTribu/pull/186), [#188](https://github.com/guidomodarelli/TuTribu/pull/188), [#196](https://github.com/guidomodarelli/TuTribu/pull/196) (LID-10, LID-05, LID-06, LID-08, LID-13) |
+| `/[slug]/academia/admissions/invitations` | Invitaciones personales: crear, revocar, reemitir, renombrar | `invitations-container.tsx`, `use-personal-invitation-management.ts` | `invitations/**` | [#177](https://github.com/guidomodarelli/TuTribu/pull/177), [#185](https://github.com/guidomodarelli/TuTribu/pull/185), [#186](https://github.com/guidomodarelli/TuTribu/pull/186), [#188](https://github.com/guidomodarelli/TuTribu/pull/188), [#196](https://github.com/guidomodarelli/TuTribu/pull/196) (LID-01, LID-07, LID-05, LID-06, LID-08, LID-13) |
+| `/[slug]/academia/admissions` | Bandeja y revisión: aprobar, rechazar, en lote, ver más, filtros; guía de configuración | `admission-review-container.tsx`, `AdmissionSetupGuide` | `requests`, `request-decisions`, `requests/[id]/decision`, `operations/[id]`, `overview` | [#186](https://github.com/guidomodarelli/TuTribu/pull/186), [#188](https://github.com/guidomodarelli/TuTribu/pull/188), [#189](https://github.com/guidomodarelli/TuTribu/pull/189), [#196](https://github.com/guidomodarelli/TuTribu/pull/196) (LID-03, LID-04, LID-13, LID-14) |
+| `/[slug]/academia/admissions/history/[requestId]` | Historial de una solicitud | `history-container.tsx` | Lectura del historial | [#183](https://github.com/guidomodarelli/TuTribu/pull/183), [#196](https://github.com/guidomodarelli/TuTribu/pull/196) (SOL-08, LID-03, LID-15) |
+| `/[slug]/academia/admissions/notifications` | Avisos: preferencias y correo de la tribu | `notification-settings-container.tsx` | `notification-preferences`, `email-settings` | [#186](https://github.com/guidomodarelli/TuTribu/pull/186), [#189](https://github.com/guidomodarelli/TuTribu/pull/189) (LID-05, LID-11, LID-13) |
+| `/[slug]/academia/admissions/activity` | Actividad y métricas | `admission-activity-container.tsx`, `AdmissionMetrics` | `activity`, `activity/snapshot`, `metrics` | [#185](https://github.com/guidomodarelli/TuTribu/pull/185), [#186](https://github.com/guidomodarelli/TuTribu/pull/186), [#196](https://github.com/guidomodarelli/TuTribu/pull/196) (LID-02, LID-07, LID-05, LID-08, LID-13) |
 
 ### Acciones
 
@@ -91,16 +91,16 @@ Todas las escrituras son pending-first y confirmadas por el servidor, que es la 
 
 | Acción | Confirmación | Timeout | Reconciliación | Estado |
 |---|---|---|---|---|
-| Activar academia | Diálogo | Sin deadline | `router.refresh()` | pendiente (LID-09) |
-| Guardar y activar reglas | Casilla | Sin deadline | Relectura del recurso | pendiente (LID-09) |
-| Pausar y reanudar admisiones | Motivo y botón de peligro para pausar | Sin deadline | Relectura antes de escribir | pendiente (LID-09) |
+| Activar academia | Diálogo | Sin deadline | `router.refresh()` | [#180](https://github.com/guidomodarelli/TuTribu/pull/180) (LID-09) |
+| Guardar y activar reglas | Casilla | Sin deadline | Relectura del recurso | [#180](https://github.com/guidomodarelli/TuTribu/pull/180) (LID-09) |
+| Pausar y reanudar admisiones | Motivo y botón de peligro para pausar | Sin deadline | Relectura antes de escribir | [#180](https://github.com/guidomodarelli/TuTribu/pull/180) (LID-09) |
 | Volver a comprobar | — | — | Lectura | cumple |
 | Alta y baja en la allowlist | Casilla | 120 s | Relectura | cumple |
-| Importar CSV | Selección y confirmación | 120 s | Reanudar y conciliar | pendiente (LID-10) |
+| Importar CSV | Selección y confirmación | 120 s | Reanudar y conciliar | [#196](https://github.com/guidomodarelli/TuTribu/pull/196) (LID-10) |
 | Crear, reemitir, renombrar y revocar invitaciones | Motivo y reconocimiento si ya se canjeó | 120 s | Relectura; enlace de un solo uso, copiable mientras corre la relectura | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |
-| Decidir una solicitud o un lote | Casilla; motivo para rechazar | Sin deadline | Recuperación del lote por `operation` | pendiente (LID-09) |
-| Decidir una membresía comercial | Casilla | Sin deadline | Relectura | pendiente (LID-09) |
-| Guardar avisos | — | Sin deadline | Cadena correo → preferencia con progreso parcial | pendiente (LID-09) |
+| Decidir una solicitud o un lote | Casilla; motivo para rechazar | Sin deadline | Recuperación del lote por `operation` | [#180](https://github.com/guidomodarelli/TuTribu/pull/180) (LID-09) |
+| Decidir una membresía comercial | Casilla | Sin deadline | Relectura | [#180](https://github.com/guidomodarelli/TuTribu/pull/180) (LID-09) |
+| Guardar avisos | — | Sin deadline | Cadena correo → preferencia con progreso parcial | [#180](https://github.com/guidomodarelli/TuTribu/pull/180) (LID-09) |
 
 ### Hallazgos
 
@@ -126,10 +126,10 @@ Todas las escrituras son pending-first y confirmadas por el servidor, que es la 
 
 ### Segmentos
 
-| Ruta | Subflujo | Contenedor y controladores | Endpoints y casos de uso | Boundaries |
-|---|---|---|---|---|
-| `/[slug]/academia/admissions/messaging` | Uso (países y cupos) | `messaging-usage-container.tsx`, `MessagingUsage` | `usage-policy`, `usage-policy/operations/[id]` → `manage-messaging-usage` | `loading.tsx` y `error.tsx` propios; datos en el `<Suspense>` de la hoja |
-| `/[slug]/academia/admissions/messaging/connections` | Conexión, clave, canales, diagnóstico, activación, retiro, recuperación de originales y de avisos | `messaging-connections-container.tsx` y los controladores `messaging-*-controller.ts`, `notification-recovery-container.tsx` | `messaging/connections/**`, `deliveries/[id]/recover`, `notification-recovery-operations/[id]`, `messaging/configuration`, `messaging/operations/[id]` | Ídem |
+| Ruta | Subflujo | Contenedor y controladores | Endpoints y casos de uso | Boundaries | Estado |
+|---|---|---|---|---|---|
+| `/[slug]/academia/admissions/messaging` | Uso (países y cupos) | `messaging-usage-container.tsx`, `MessagingUsage` | `usage-policy`, `usage-policy/operations/[id]` → `manage-messaging-usage` | `loading.tsx` y `error.tsx` propios; datos en el `<Suspense>` de la hoja | [#180](https://github.com/guidomodarelli/TuTribu/pull/180), [#187](https://github.com/guidomodarelli/TuTribu/pull/187), [#188](https://github.com/guidomodarelli/TuTribu/pull/188) (MEN-05, MEN-08, MEN-10) |
+| `/[slug]/academia/admissions/messaging/connections` | Conexión, clave, canales, diagnóstico, activación, retiro, recuperación de originales y de avisos | `messaging-connections-container.tsx` y los controladores `messaging-*-controller.ts`, `notification-recovery-container.tsx` | `messaging/connections/**`, `deliveries/[id]/recover`, `notification-recovery-operations/[id]`, `messaging/configuration`, `messaging/operations/[id]` | Ídem | [#178](https://github.com/guidomodarelli/TuTribu/pull/178), [#188](https://github.com/guidomodarelli/TuTribu/pull/188), [#195](https://github.com/guidomodarelli/TuTribu/pull/195), [#199](https://github.com/guidomodarelli/TuTribu/pull/199) (MEN-01, MEN-02, MEN-03, MEN-05, MEN-11, MEN-12) |
 
 ### Acciones
 
@@ -137,17 +137,17 @@ Todas son pending-first y confirmadas por el servidor; ninguna anticipa un enví
 
 | Acción | Confirmación | Timeout | Estado |
 |---|---|---|---|
-| Guardar conexión | Casilla | Sin deadline | pendiente (MEN-08) |
-| Comprobar credencial | Casilla | Sin deadline | pendiente (MEN-08) |
-| Reemplazar clave candidata | Casilla con alcance; botón de peligro | Sin deadline | pendiente (MEN-08) |
-| Consultar remitentes y plantillas | — | Sin deadline; botones sin `loading` | pendiente (MEN-07) |
-| Configurar canal | Casilla | Sin deadline | pendiente (MEN-08) |
+| Guardar conexión | Casilla | Sin deadline | [#180](https://github.com/guidomodarelli/TuTribu/pull/180) (MEN-08) |
+| Comprobar credencial | Casilla | Sin deadline | [#180](https://github.com/guidomodarelli/TuTribu/pull/180) (MEN-08) |
+| Reemplazar clave candidata | Casilla con alcance; botón de peligro | Sin deadline | [#180](https://github.com/guidomodarelli/TuTribu/pull/180) (MEN-08) |
+| Consultar remitentes y plantillas | — | Sin deadline; botones sin `loading` | [#195](https://github.com/guidomodarelli/TuTribu/pull/195) (MEN-07) |
+| Configurar canal | Casilla | Sin deadline | [#180](https://github.com/guidomodarelli/TuTribu/pull/180) (MEN-08) |
 | Enviar, reenviar y verificar prueba | Casilla de destino y consumo | Sin deadline | [issue #179](https://github.com/guidomodarelli/TuTribu/issues/179) (MEN-01, MEN-02); pendiente (MEN-08) |
-| Activar conexión | Casilla con alcance | Sin deadline | pendiente (MEN-08) |
-| Suspender y desconectar | Casilla con alcance y motivo | Sin deadline; suspender sin tono de peligro | pendiente (MEN-10) |
-| Reanudar o archivar original | Casilla | Sin deadline | pendiente (MEN-08); pruebas inciertas: [issue #179](https://github.com/guidomodarelli/TuTribu/issues/179) |
-| Recuperar aviso | Casilla; «Dejar de observar» | Observación cancelable | pendiente (MEN-11) |
-| Guardar uso | Casilla | Sin deadline | pendiente (MEN-08) |
+| Activar conexión | Casilla con alcance | Sin deadline | [#180](https://github.com/guidomodarelli/TuTribu/pull/180) (MEN-08) |
+| Suspender y desconectar | Casilla con alcance y motivo | Sin deadline; suspender sin tono de peligro | [#187](https://github.com/guidomodarelli/TuTribu/pull/187) (MEN-10) |
+| Reanudar o archivar original | Casilla | Sin deadline | [#180](https://github.com/guidomodarelli/TuTribu/pull/180) (MEN-08); pruebas inciertas: [#199](https://github.com/guidomodarelli/TuTribu/pull/199) (MEN-01, MEN-02) |
+| Recuperar aviso | Casilla; «Dejar de observar» | Observación cancelable | [#195](https://github.com/guidomodarelli/TuTribu/pull/195) (MEN-11) |
+| Guardar uso | Casilla | Sin deadline | [#180](https://github.com/guidomodarelli/TuTribu/pull/180) (MEN-08) |
 
 ### Hallazgos
 
@@ -170,35 +170,35 @@ Todas son pending-first y confirmadas por el servidor; ninguna anticipa un enví
 
 ### Segmentos
 
-| Ruta | Subflujo | Contenedor | Endpoints y casos de uso | Boundaries |
-|---|---|---|---|---|
-| `/[slug]/academia` | Estado de acceso (gratuito, suscrito, líder, sin permiso), contratar, actualizar cobertura, cancelar renovación, ingresar gratis | `components/academy/academy-home` (cliente) | `academy/checkout`, `academy/reconcile`, `academy/join`, `subscriptions/current` | `loading.tsx` re-exporta el skeleton del fogón; sin `error.tsx` |
-| `/[slug]/academia/verificacion` | Solicitar verificación | `components/academy/academy-verification` | `verifications` | Ídem |
-| `/[slug]/academia/gestionar` | Oferta, disponibilidad, proveedores, verificaciones, integrantes, bonificaciones | `components/academy/academy-management` | `academy/settings`, `academy/availability`, `verification-providers`, `verifications/[id]`, `academy/bonuses/**` | Ídem |
-| `/[slug]/suscripcion` | Cancelar suscripción y reintentar el pago | `tribe-subscription-self-management`, `tribe-subscription-payment-status` | `subscriptions/current`, `subscriptions/start` | Ídem |
-| `/[slug]` | Fogón: leer, publicar y reaccionar, para gratuitos y suscritos | `components/tribe-round/tribe-round` | `messages`, `messages/[id]/like` | Skeleton propio del fogón |
-| `/[slug]/canales` | Canales | `tribe-channel-management` | `channels`, `channels/[id]` | `loading.tsx` re-exporta el skeleton del fogón; sin `error.tsx` |
-| `/[slug]/historia` | Ingreso gratis desde la historia | Server action con `free-join-submit-button` | `joinTribeFree` | — |
+| Ruta | Subflujo | Contenedor | Endpoints y casos de uso | Boundaries | Estado |
+|---|---|---|---|---|---|
+| `/[slug]/academia` | Estado de acceso (gratuito, suscrito, líder, sin permiso), contratar, actualizar cobertura, cancelar renovación, ingresar gratis | `components/academy/academy-home` (cliente) | `academy/checkout`, `academy/reconcile`, `academy/join`, `subscriptions/current` | `loading.tsx` re-exporta el skeleton del fogón; sin `error.tsx` | [#183](https://github.com/guidomodarelli/TuTribu/pull/183), [#187](https://github.com/guidomodarelli/TuTribu/pull/187), [#194](https://github.com/guidomodarelli/TuTribu/pull/194) (INT-05, INT-06, INT-07, INT-09, INT-11) |
+| `/[slug]/academia/verificacion` | Solicitar verificación | `components/academy/academy-verification` | `verifications` | Ídem | [#183](https://github.com/guidomodarelli/TuTribu/pull/183), [#187](https://github.com/guidomodarelli/TuTribu/pull/187), [#197](https://github.com/guidomodarelli/TuTribu/pull/197) (INT-06, INT-08, INT-11) |
+| `/[slug]/academia/gestionar` | Oferta, disponibilidad, proveedores, verificaciones, integrantes, bonificaciones | `components/academy/academy-management` | `academy/settings`, `academy/availability`, `verification-providers`, `verifications/[id]`, `academy/bonuses/**` | Ídem | [#183](https://github.com/guidomodarelli/TuTribu/pull/183), [#187](https://github.com/guidomodarelli/TuTribu/pull/187), [#191](https://github.com/guidomodarelli/TuTribu/pull/191), [#197](https://github.com/guidomodarelli/TuTribu/pull/197) (LID-12, INT-02, INT-03, INT-04, INT-06, INT-08, INT-11, INT-14) |
+| `/[slug]/suscripcion` | Cancelar suscripción y reintentar el pago | `tribe-subscription-self-management`, `tribe-subscription-payment-status` | `subscriptions/current`, `subscriptions/start` | Ídem | [#180](https://github.com/guidomodarelli/TuTribu/pull/180), [#183](https://github.com/guidomodarelli/TuTribu/pull/183) (INT-11, INT-13) |
+| `/[slug]` | Fogón: leer, publicar y reaccionar, para gratuitos y suscritos | `components/tribe-round/tribe-round` | `messages`, `messages/[id]/like` | Skeleton propio del fogón | [#177](https://github.com/guidomodarelli/TuTribu/pull/177) (INT-15) |
+| `/[slug]/canales` | Canales | `tribe-channel-management` | `channels`, `channels/[id]` | `loading.tsx` re-exporta el skeleton del fogón; sin `error.tsx` | [#180](https://github.com/guidomodarelli/TuTribu/pull/180), [#183](https://github.com/guidomodarelli/TuTribu/pull/183), [#186](https://github.com/guidomodarelli/TuTribu/pull/186) (INT-01, INT-11, INT-13, INT-16) |
+| `/[slug]/historia` | Ingreso gratis desde la historia | Server action con `free-join-submit-button` | `joinTribeFree` | — | [#194](https://github.com/guidomodarelli/TuTribu/pull/194) (INT-10) |
 
 ### Acciones
 
 | Acción | Clase actual | Clase que corresponde | Hallazgo | Estado |
 |---|---|---|---|---|
-| Contratar (checkout) | Confirmada por el servidor | La misma (pago) | INT-07, INT-13 | pendiente |
-| Cancelar renovación | Confirmada, con diálogo | La misma | INT-05, INT-13 | pendiente |
-| Actualizar cobertura | Confirmada | La misma | INT-09 | pendiente |
+| Contratar (checkout) | Confirmada por el servidor | La misma (pago) | INT-07, INT-13 | [#180](https://github.com/guidomodarelli/TuTribu/pull/180), [#194](https://github.com/guidomodarelli/TuTribu/pull/194) (INT-07, INT-13) |
+| Cancelar renovación | Confirmada, con diálogo | La misma | INT-05, INT-13 | [#180](https://github.com/guidomodarelli/TuTribu/pull/180), [#194](https://github.com/guidomodarelli/TuTribu/pull/194) (INT-05, INT-13) |
+| Actualizar cobertura | Confirmada | La misma | INT-09 | [#194](https://github.com/guidomodarelli/TuTribu/pull/194) (INT-09) |
 | Ingresar gratis (academia) | Confirmada + `router.refresh()` | La misma | INT-12 (descartado) | cumple |
-| Ingresar gratis (historia) | Confirmada (server action) | La misma | INT-10 | pendiente |
-| Cancelar suscripción y reintentar pago | Confirmada | La misma (pago) | INT-13 | pendiente |
+| Ingresar gratis (historia) | Confirmada (server action) | La misma | INT-10 | [#194](https://github.com/guidomodarelli/TuTribu/pull/194) (INT-10) |
+| Cancelar suscripción y reintentar pago | Confirmada | La misma (pago) | INT-13 | [#180](https://github.com/guidomodarelli/TuTribu/pull/180) (INT-13) |
 | Publicar en el fogón | Optimista con rollback | La misma, con clave idempotente | INT-15 | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |
 | Reaccionar | Optimista con coalescencia | La misma, enviando el estado deseado | INT-15 | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177) |
-| Crear, editar y borrar canales | Confirmada | La misma | INT-13 | pendiente |
-| Guardar oferta y disponibilidad | Confirmada con versión | La misma | INT-04 | pendiente |
+| Crear, editar y borrar canales | Confirmada | La misma | INT-13 | [#180](https://github.com/guidomodarelli/TuTribu/pull/180) (INT-13) |
+| Guardar oferta y disponibilidad | Confirmada con versión | La misma | INT-04 | [#191](https://github.com/guidomodarelli/TuTribu/pull/191) (INT-04) |
 | Guardar proveedor | Confirmada | La misma | — | cumple |
-| Decidir verificación | Confirmada con versión | La misma | INT-08 | pendiente |
-| Otorgar bonificación | Confirmada con clave idempotente | La misma | INT-02 | pendiente |
-| Revocar bonificación | Confirmada, sin guard | La misma, con diálogo y guard | INT-03 | pendiente |
-| Solicitar verificación | Confirmada | La misma | INT-08 | pendiente |
+| Decidir verificación | Confirmada con versión | La misma | INT-08 | [#197](https://github.com/guidomodarelli/TuTribu/pull/197) (INT-08) |
+| Otorgar bonificación | Confirmada con clave idempotente | La misma | INT-02 | [#191](https://github.com/guidomodarelli/TuTribu/pull/191) (INT-02) |
+| Revocar bonificación | Confirmada, sin guard | La misma, con diálogo y guard | INT-03 | [#191](https://github.com/guidomodarelli/TuTribu/pull/191) (INT-03) |
+| Solicitar verificación | Confirmada | La misma | INT-08 | [#197](https://github.com/guidomodarelli/TuTribu/pull/197) (INT-08) |
 
 ### Hallazgos
 
@@ -215,7 +215,7 @@ Todas son pending-first y confirmadas por el servidor; ninguna anticipa un enví
 | INT-09 | estados | La respuesta `throttled` de actualizar cobertura nunca se muestra y una relectura fallida queda en silencio. | `academy-home` (`handleRefresh`) | [#194](https://github.com/guidomodarelli/TuTribu/pull/194) |
 | INT-10 | estados | El ingreso gratis desde la historia falla en silencio: redirige sin mensaje. | `app/(platform)/[slug]/historia/page.tsx` | [#194](https://github.com/guidomodarelli/TuTribu/pull/194) |
 | INT-11 | a11y | `<main>` anidados dentro del `<main>` del shell. | `academy-home`, `academy-management`, `academy-verification`, `suscripcion/page.tsx`, `canales/page.tsx`, `[slug]/page.tsx` | [#183](https://github.com/guidomodarelli/TuTribu/pull/183) |
-| INT-12 | seguridad | Ingresar gratis a la academia usa la conexión de mantenimiento en un request de usuario. | `app/api/tribes/[slug]/academy/join/route.ts` | cumple: hallazgo descartado. `docs/architecture/academy-admissions.htm` documenta que las escrituras de admisión abren su root de request con propósito `maintenance` y el actor de la sesión, y `academy/join` delega en la misma admisión que `/submissions`. El JSDoc de `DATABASE_CONNECTION_USAGE`, que decía solo «cron», se corrigió en [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177). La decisión del usuario de cambiar la conexión se tomó sobre esa descripción equivocada y queda para revisarla con él al cierre. |
+| INT-12 | seguridad | Ingresar gratis a la academia usa la conexión de mantenimiento en un request de usuario. | `app/api/tribes/[slug]/academy/join/route.ts` | cumple: hallazgo descartado. `docs/architecture/academy-admissions.htm` documenta que las escrituras de admisión abren su root de request con propósito `maintenance` y el actor de la sesión, y `academy/join` delega en la misma admisión que `/submissions`. El JSDoc de `DATABASE_CONNECTION_USAGE`, que decía solo «cron», se corrigió en [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177). La decisión anterior de cambiar la conexión se había tomado sobre esa descripción equivocada; al cierre, el 2026-10-26, el usuario confirmó mantener `academy/join` como está. |
 | INT-13 | mutaciones | Ninguna mutación de integrantes tiene deadline: si se cuelga el checkout, el botón queda en «Abriendo el pago…» y no se puede reintentar. | `lib/academy/academy-api-client.ts` | [PR #180](https://github.com/guidomodarelli/TuTribu/pull/180) |
 | INT-14 | estados | Paginar y filtrar en gestionar no muestran carga, y decidir deja el ítem en «pendientes». | `academy-management` | [#191](https://github.com/guidomodarelli/TuTribu/pull/191) |
 | INT-15 | mutaciones | Publicar no lleva clave idempotente y el like es un toggle: un reintento tras una respuesta perdida puede duplicar o invertir el resultado. | `tribe-round`, `messages/[id]/like` | [PR #177](https://github.com/guidomodarelli/TuTribu/pull/177); migración `20261024210000_add_message_client_request_id.sql` validada en rama efímera |

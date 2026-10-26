@@ -1,0 +1,185 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "chore/academy-audit-coverage",
+    "commit": "2718f53c946a536caa7a065feab104de23414063",
+    "fingerprint": "sha256:7b3962522cc2bb12ef234498c1abb13bffe833fe011ba622ac16e7daed7090d0",
+    "uncommittedFiles": [],
+    "fileCount": 246,
+    "inputCount": 1476
+  },
+  "evidence": [
+    {
+      "kind": "test",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T15:31:47.447Z",
+      "source": "attested",
+      "summary": "pnpm exec vitest run tests/unit/components/academy-admission-applicant-recovery.test.tsx tests/unit/components/academy-admissions-manual.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx: Tests 53 passed (53) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T15:31:47.889Z",
+      "source": "attested",
+      "summary": "Estados: unavailable ofrece reintento solo para fallas transitorias; los errores de envío, cancelación y corrección del WhatsApp quedan junto a su origen, una sola vez, y se limpian al corregir; los inciertos siguen en la página junto a Consultar estado; un token heredado mal formado ya no ofrece un reintento que no puede funcionar."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T15:31:48.323Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: una falla temporal de la entrada ofrece Reintentar y recupera la página, una solicitud ajena y un enlace heredado inválido no lo ofrecen y explican qué hacer, y un conflicto al enviar se muestra dentro del paso Enviar solicitud, junto al botón (4/4; antes quedaba al pie de la página)."
+    }
+  ],
+  "limitations": [
+    "Solo se revisaron los estados de error y de no disponible de la página del aspirante que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T15:31:50.025Z",
+  "result": "partial",
+  "runId": "20261026T153146Z-79fe69",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "modified",
+        "key": "app/(admission)/admissions/[slug]/admission-container.tsx#AdmissionContainer/cancel",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(admission)/admissions/[slug]/admission-container.tsx#AdmissionContainer/completeWrite",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(admission)/admissions/[slug]/admission-container.tsx#AdmissionContainer/persist",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(admission)/admissions/[slug]/admission-container.tsx#AdmissionContainer~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "app/(admission)/admissions/[slug]/admission-container.tsx#feedbackOriginOf",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-screen/index.tsx#AdmissionScreenProps",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-whatsapp-number-form/index.tsx#AdmissionWhatsappNumberForm",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-whatsapp-number-form/styles.module.scss#*",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "hooks/use-admission-view-feedback.ts#AdmissionViewFeedback",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "hooks/use-admission-view-feedback.ts#useAdmissionViewFeedback/setErrorMessage",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "hooks/use-admission-view-feedback.ts#useAdmissionViewFeedback/setReadErrorMessage",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "hooks/use-admission-view-feedback.ts#useAdmissionViewFeedback~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-navigation.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-navigation.ts#reloadCurrentPage",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_FEEDBACK_ORIGIN.cancel",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_FEEDBACK_ORIGIN.page",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_FEEDBACK_ORIGIN.submit",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_FEEDBACK_ORIGIN.whatsapp",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_FEEDBACK_ORIGIN~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_TRANSIENT_PAGE_ERROR_CODES",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.retryUnavailable",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#AdmissionFeedbackOrigin",
+        "reason": "new visible or interactive code"
+      }
+    ],
+    "suggestedScope": [
+      "whole unit academy.admissions.applicant.request.cancel: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T15:31:46.974Z",
+  "unitId": "academy.admissions.applicant.request.cancel"
+}

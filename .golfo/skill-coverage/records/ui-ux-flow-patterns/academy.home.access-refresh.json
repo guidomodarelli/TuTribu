@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
-        "components/academy/academy-home/index.tsx": "445fcae1bddbac72",
+        "components/academy/academy-home/index.tsx": "ba78725db5c7cd26",
         "app/(platform)/[slug]/academia/page.tsx": "a4c7427e95123588",
         "app/api/tribes/[slug]/academy/reconcile/route.ts": "884a1b6365b413b5",
         "app/api/tribes/[slug]/academy/access/route.ts": "2ba664997c38668c",
@@ -22,13 +22,13 @@
         "src/modules/product-access/infrastructure/repositories/postgres-product-access-repository.ts": "b6d068802851a5fa",
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
         "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts": "65c276a71c59ef25",
-        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "225eef5ce922c395",
+        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "6cf3cca717bd71e3",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
         "lib/academy-admissions/admission-routes.ts": "adac74b9727d9a17",
         "lib/academy/academy-format.ts": "c89823377b85f3a9",
-        "components/academy/academy-home/styles.module.scss": "e079b6399536b3a5",
-        "lib/academy/academy-api-client.ts": "298112080df602fd",
+        "components/academy/academy-home/styles.module.scss": "e5f2b43479351fc1",
+        "lib/academy/academy-api-client.ts": "3e35ac9504a0812c",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts": "102e81af136adc5a",
         "src/modules/product-access/constants/academy-route-copy.ts": "f1751ca472d6a6c1",
         "src/modules/product-access/infrastructure/api/academy-request-schemas.ts": "153a8ff211e2f807",
@@ -75,18 +75,16 @@
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:c1ebb5841890f6d15e9c9fc5ccbbb9762a68d6a52ef603d25d33df994dbecf22",
+      "fingerprint": "sha256:402e923c68abca22eb74aaadace69c1843b494814e39ffba5fe9794e08b70ee0",
       "inputs": {
         "components/academy/academy-home/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy/academy-home/index.tsx#AcademyHome~shell": "e682a501a4562464",
+        "components/academy/academy-home/index.tsx#AcademyHome~shell": "f697c5705fa5b8e2",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY~frame": "d647271201261ec5",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.accessHeading": "7502394d9b8e691b",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.admissionClosed": "2f1103a338c1ae8e",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.basicCourses": "7a72b6e794a5be07",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelButton": "219bce9507bb3237",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelConfirm": "957f32fd67593896",
-        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelDialogDescription": "ef99608981b64735",
-        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelDialogTitle": "132a1184a50b06f8",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelKeep": "4c14d8227b235578",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelPending": "af6da76a0657c5b9",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.checkoutButton": "6359f5b4455207f3",
@@ -112,9 +110,25 @@
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.verificationLink": "5e1bdc3bb50ba8b7",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.whatsappNote": "35886a1a73790abf",
         "components/academy/academy-home/index.tsx#AcademyHomeProps": "eb157c1a9d1338b6",
+        "components/academy/academy-home/index.tsx#ActionErrors": "7646f732d236f9c4",
+        "components/academy/academy-home/index.tsx#AcademyHomeAction": "840948ad056b5a3d",
         "pkg:lucide-react": "6166c881f2c2dd27",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
-        "components/academy/academy-home/index.tsx#PendingAction": "c200131b42a3cbf7",
+        "components/academy/academy-home/index.tsx#CANCEL_DIALOG_COPY.active": "70e4570365992adc",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelDialogDescription": "ef99608981b64735",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelDialogTitle": "132a1184a50b06f8",
+        "components/academy/academy-home/index.tsx#CANCEL_DIALOG_COPY.pending": "a961c0c38fdfb412",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelPendingSubscriptionDialogDescription": "04c5eb48b747ae3a",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelPendingSubscriptionDialogTitle": "2e4d3be65457c34a",
+        "components/academy/academy-home/index.tsx#CANCEL_DIALOG_COPY~frame": "735c51ff67ea5f12",
+        "components/academy/academy-home/index.tsx#CancelableRenewalStatus": "9dd87decb11950d5",
+        "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.cancel": "4f18148ec304a187",
+        "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.checkout": "1d497dada23f5a99",
+        "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.join": "4c588d954e312fd6",
+        "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.refresh": "5baa26f2324b632b",
+        "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS~frame": "eae0f31806662871",
+        "components/academy/academy-home/index.tsx#PAGE_SHOW_EVENT": "4a9fc6ef3ed16f39",
+        "components/academy/academy-home/index.tsx#PendingAction": "7d5321c0fe436d78",
         "components/academy/academy-home/index.tsx#buildAccessSteps": "0cdefd526fa3ea5b",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.eligibilityPending": "301fbeba85613914",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.eligibilityRequired": "d2e3ef51736f82d5",
@@ -128,6 +142,8 @@
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.stepVerifyTitle": "8f3b796612ac7eb2",
         "components/academy/academy-home/index.tsx#AccessStep": "038714e2227c2ce8",
         "components/academy/academy-home/index.tsx#AccessStepState": "f26b9b074a9cdfd1",
+        "components/academy/academy-home/index.tsx#isCancelableRenewal": "bac002a229cceb7a",
+        "components/academy/academy-home/index.tsx#isPaymentInProgress": "339d7a03a34a011a",
         "components/academy/academy-home/index.tsx#resolveAccessStatus": "a3cd160acb9e6f9e",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.accessUnbounded": "77f4198682b14b04",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.basicLevel": "e16b6c0f9e5d895c",
@@ -156,10 +172,18 @@
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.paidUntil": "44bd9d501a645c4f",
         "pkg:react": "374a4508a198654b",
         "pkg:next": "ef28293b49c7bae1",
-        "components/academy/academy-home/index.tsx#AcademyHome/handleRefresh": "7b655ceb1b0e3a5a",
+        "components/academy/academy-home/index.tsx#AcademyHome/handleRefresh": "b28f30845404c5d4",
         "components/academy/academy-home/index.tsx#AcademyHome/reloadAccess": "1df564b7e327ff0e",
-        "components/academy/academy-home/index.tsx#AcademyHome/runAction": "a6e5e63ed8953d09",
+        "components/academy/academy-home/index.tsx#AcademyHome/runAction": "f8d692ae7a8346f1",
+        "components/academy/academy-home/index.tsx#AcademyHome/setActionError": "623829589c90fca0",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.refreshReadFailed": "49d3c6eb3b51fbab",
         "components/academy/academy-home/index.tsx#HTTP_STATUS_NOT_FOUND": "ed1ef3e7359cefbf",
+        "components/academy/academy-home/index.tsx#RECONCILE_THROTTLED_STATUS": "0b188ce4c3e89157",
+        "components/academy/academy-home/index.tsx#describeRefreshOutcome": "0d2640dbfec6a8a8",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.paymentNotFound": "2a4a5d238206ad7b",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.paymentStillPending": "88502d8bcc9beda7",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.refreshDone": "d244699a12a120df",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.refreshThrottled": "8cafcce42f9f17b1",
         "app/(platform)/[slug]/academia/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/page.tsx#TribeAcademyPage": "edb97c58c08a366a",
         "app/api/tribes/[slug]/academy/reconcile/route.ts#<module>": "2da3ec2294295eb1",
@@ -560,7 +584,7 @@
         "lib/academy/academy-format.ts#THOUSANDS_SEPARATOR": "e2e5a5a294d38d99",
         "lib/academy/academy-format.ts#formatAcademyDate": "cd3616da31f4d74a",
         "lib/academy/academy-format.ts#YEAR_LENGTH": "7c00b71fcbd0e330",
-        "components/academy/academy-home/styles.module.scss#*": "e079b6399536b3a5",
+        "components/academy/academy-home/styles.module.scss#*": "e5f2b43479351fc1",
         "lib/academy/academy-api-client.ts#<module>": "2da3ec2294295eb1",
         "lib/academy/academy-api-client.ts#fetchOwnAcademyAccess": "5e540f3d801617e2",
         "lib/academy/academy-api-client.ts#API_PATH~frame": "ea245786a08b7938",
@@ -579,10 +603,11 @@
         "lib/academy/academy-api-client.ts#readMessage": "c293f45292de7c84",
         "lib/academy/academy-api-client.ts#tribePath": "d0ae1447f68fd514",
         "lib/academy/academy-api-client.ts#API_PATH.tribes": "b1fe75d893630cf5",
-        "lib/academy/academy-api-client.ts#reconcileAcademyCoverage": "927263804b5e87da",
+        "src/modules/product-access/application/results/academy-public-dto-schemas.ts#AcademyReconcileDto": "71d3f1cf21795777",
+        "src/modules/product-access/application/results/academy-public-dto-schemas.ts#academyReconcileDtoSchema": "6ede7caedbd614fc",
+        "lib/academy/academy-api-client.ts#reconcileAcademyCoverage": "8d8bc126598f0218",
         "lib/academy/academy-api-client.ts#API_PATH.reconcile": "60124f5155b73452",
         "lib/academy/academy-api-client.ts#HTTP_METHOD.post": "d93a7a7272c5bf05",
-        "lib/academy/academy-api-client.ts#MessageBody": "eaa87707d87f004e",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts#<module>": "2da3ec2294295eb1",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts#ACADEMY_HTTP_STATUS~frame": "3324ab9e2cc6ea90",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts#ACADEMY_HTTP_STATUS.notFound": "36cab050cbd08c54",
@@ -1060,39 +1085,208 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 48975,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "169d5a30f999fd9d176f0e9a3254aa5650e9bbb85fa7ab047fe46c905ad65a0c",
-        "recordedAt": "2026-10-25T13:50:41.547Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:33:03.295Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx tests/unit/pages/tribe-story-page.test.tsx tests/unit/components/tribe-story-about.test.tsx tests/unit/lib/academy/academy-api-client.test.ts: Tests 47 passed (47) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T13:50:42.042Z",
+        "recordedAt": "2026-10-26T15:33:03.705Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Ciclo de vida: contratar y cancelar son server-confirmed y la confirmación del pago es pending-first, terminada solo por una relectura confirmada; cada acción tiene su propio error junto a su control y se limpia al reintentar; el checkout queda bloqueado mientras se abre el proveedor y se libera al restaurar la página; la server action del ingreso gratis devuelve forbidden o failed y registra el error inesperado."
+      },
+      {
+        "kind": "browser",
+        "outcome": "pass",
+        "recordedAt": "2026-10-26T15:33:04.153Z",
+        "source": "attested",
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: mientras se confirma el pago no se ofrece Contratar academia y vuelve cuando no hay pago; throttled y la relectura fallida se informan junto a Actualizar estado; el error de cancelar queda solo en el diálogo y se limpia al reabrirlo; el rechazo del ingreso gratis desde la historia muestra su motivo (4/4; antes, los cuatro casos fallaban)."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados y mutaciones de la página de academia y del ingreso gratis que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T13:50:43.431Z",
+    "recordedAt": "2026-10-26T15:33:05.348Z",
     "result": "partial",
-    "runId": "20261025T134952Z-7b21a1",
+    "runId": "20261026T153302Z-004880",
     "scope": {
       "decision": "full",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelPendingSubscriptionDialogDescription",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelPendingSubscriptionDialogTitle",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.paymentNotFound",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.paymentStillPending",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.refreshDone",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.refreshReadFailed",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.refreshThrottled",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-home/index.tsx#AcademyHome/handleRefresh",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-home/index.tsx#AcademyHome/runAction",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#AcademyHome/setActionError",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-home/index.tsx#AcademyHome~shell",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#AcademyHomeAction",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#ActionErrors",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#CANCEL_DIALOG_COPY.active",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#CANCEL_DIALOG_COPY.pending",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#CANCEL_DIALOG_COPY~frame",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#CancelableRenewalStatus",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#describeRefreshOutcome",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#isCancelableRenewal",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#isPaymentInProgress",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.cancel",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.checkout",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.join",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.refresh",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS~frame",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#PAGE_SHOW_EVENT",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-home/index.tsx#PendingAction",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#RECONCILE_THROTTLED_STATUS",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-home/styles.module.scss#*",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/academy/academy-api-client.ts#MessageBody",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "modified",
+          "key": "lib/academy/academy-api-client.ts#reconcileAcademyCoverage",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/product-access/application/results/academy-public-dto-schemas.ts#AcademyReconcileDto",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/product-access/application/results/academy-public-dto-schemas.ts#academyReconcileDtoSchema",
+          "reason": "new visible or interactive code"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.home.access-refresh: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
       ]
@@ -1110,7 +1304,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T134952Z-7b21a1.json"
+    "report": "runs/20261026T153302Z-004880.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

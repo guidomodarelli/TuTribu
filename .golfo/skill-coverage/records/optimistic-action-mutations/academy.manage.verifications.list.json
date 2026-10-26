@@ -2,17 +2,17 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-management-mutations",
-      "commit": "64b87f83eb45941aa8b2b758ae938221dad4baad",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
-        "components/academy/academy-management/index.tsx": "c9c63144daeb34d0",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
+        "components/academy/academy-management/index.tsx": "30fb9d4e436f90ac",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
         "app/api/tribes/[slug]/verifications/route.ts": "7143222c4b934955",
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
         "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts": "65c276a71c59ef25",
         "src/modules/product-access/infrastructure/repositories/academy-access-sql.ts": "eba86e37e91970d9",
         "src/modules/member-verifications/application/results/member-verification-public-dto-schemas.ts": "c658dcf96affa74b",
-        "lib/academy/academy-api-client.ts": "298112080df602fd",
+        "lib/academy/academy-api-client.ts": "3e35ac9504a0812c",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts": "102e81af136adc5a",
         "src/modules/product-access/infrastructure/api/academy-request-schemas.ts": "153a8ff211e2f807",
         "app/api/tribes/[slug]/academy-route-scope.ts": "439f451d9503336b",
@@ -28,7 +28,7 @@
         "src/modules/shared/infrastructure/observability/server-logger.ts": "91c2a693de13f86f",
         "src/modules/shared/infrastructure/observability/request-context.ts": "298449d5b583123d"
       },
-      "fingerprint": "sha256:71ebe120d07eb95c000f6b52bab21c099d508479aaff3924252d0cc47ce230d5",
+      "fingerprint": "sha256:990af3a86ccd6f1d813a7308731666dcc6de0b72debf9722271b163f39929720",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-management/index.tsx#ReviewQueueSection/replaceItem": "3b65c64521811794",
@@ -56,17 +56,26 @@
         "components/academy/academy-management/index.tsx#QUEUE_STATUS_LABEL.verified": "e229377279309f06",
         "components/academy/academy-management/index.tsx#QUEUE_STATUS_LABEL~frame": "d4bdd57bd94c9789",
         "components/academy/academy-management/index.tsx#QueuePage": "d319eab9fb53e03a",
-        "components/academy/academy-management/index.tsx#ReviewQueueRow/decide": "3683f5730f805045",
+        "components/academy/academy-management/index.tsx#ReviewQueueRow/decide": "7c743b9b055dfb66",
         "components/academy/academy-management/index.tsx#HTTP_STATUS_CONFLICT": "4821e07a60f48131",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.conflict": "bc59070c0b883870",
-        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.decisionReasonRequired": "932789cf4c459071",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.decisionReasonRequired": "36d4631f797f70c1",
         "components/academy/academy-management/index.tsx#MIN_REASON_LENGTH": "1c0a5e01e735a4c4",
-        "components/academy/academy-management/index.tsx#ReviewQueueRow~shell": "ab559fb051d73941",
+        "components/academy/academy-management/index.tsx#ReviewQueueRow~shell": "a2cc9a0355ffc4ae",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.decisionReasonLabel": "0f07aa0e7dcc4e40",
-        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.reasonPlaceholder": "57c20650e88d0149",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.reasonPlaceholder": "7f5d5acc3d460d08",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.reject": "9c7e5c8a43559556",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revoke": "68a219128846ef29",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.verify": "8f809e6426a65ae2",
+        "components/academy/academy-management/index.tsx#RevokeVerificationDialog/handleSubmit": "9a0bb7883f7b560e",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.verificationRevoked": "ae129a9d22467442",
+        "components/academy/academy-management/index.tsx#RevokeVerificationDialog~shell": "2328a6411cea9fbe",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.cancel": "129e70b7dea90a86",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeVerificationDescription": "51b0df895247a29d",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeVerificationPrompt": "161368d3d33bdcb6",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeVerificationSubmit": "a21f71c48404355a",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeVerificationTitle": "ab56a9f16af88712",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revoking": "1406d3db841a1080",
         "pkg:react": "374a4508a198654b",
         "pkg:lucide-react": "6166c881f2c2dd27",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#<module>": "2da3ec2294295eb1",
@@ -271,6 +280,10 @@
           "awaits": 1,
           "projectCalls": 1
         },
+        "components/academy/academy-management/index.tsx#RevokeVerificationDialog/handleSubmit": {
+          "awaits": 1,
+          "projectCalls": 1
+        },
         "app/(platform)/[slug]/academia/gestionar/page.tsx#TribeAcademyManagementPage": {
           "awaits": 3
         },
@@ -332,60 +345,34 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
-        "durationMs": 31377,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "d523094e3ad80572143d6d3655eae95a2abef724180402c236190b3f2cf62537",
-        "recordedAt": "2026-10-25T20:32:50.484Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:40:32.172Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/academy/academy-management.test.tsx: Tests 23 passed (23) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T20:32:51.255Z",
+        "recordedAt": "2026-10-26T15:40:32.595Z",
         "source": "attested",
-        "summary": "Ciclo de vida: revocar es server-confirmed con protección de doble envío y error dentro del diálogo; otorgar y revocar recargan la lista por reloadToken; disponibilidad y conflictos conservan el borrador de la oferta; decidir una solicitud la saca del filtro y vuelve a pedir la página, un conflicto la deja visible con su estado; búsquedas y paginación muestran Consultando…"
+        "summary": "Ciclo de vida: reabrir y revocar una verificación son server-confirmed; la confirmación del correo solo aparece si el email normalizado cambia en una verificación aprobada; revocar usa un diálogo con motivo, pending, protección de doble envío y error dentro del diálogo, y el toast llega con la confirmación del servidor."
       }
     ],
     "limitations": [
-      "Solo se revisaron las secciones de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron las confirmaciones de verificación que cambia este PR; el resto de cada unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T20:32:53.399Z",
+    "recordedAt": "2026-10-26T15:40:33.607Z",
     "result": "partial",
-    "runId": "20261025T203218Z-ac7412",
+    "runId": "20261026T154031Z-74ce07",
     "scope": {
       "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "components/academy/academy-management/index.tsx#ReviewQueueRow/decide",
-          "reason": "action handler changed"
-        },
-        {
-          "change": "modified",
-          "key": "components/academy/academy-management/index.tsx#ReviewQueueRow~shell",
-          "reason": "component state or render changed"
-        },
-        {
-          "change": "added",
-          "key": "components/academy/academy-management/index.tsx#ReviewQueueSection/settleDecidedItem",
-          "reason": "new action handler"
-        },
-        {
-          "change": "modified",
-          "key": "components/academy/academy-management/index.tsx#ReviewQueueSection~shell",
-          "reason": "component state or render changed"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.manage.verifications.list: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -403,7 +390,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T203218Z-ac7412.json"
+    "report": "runs/20261026T154031Z-74ce07.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

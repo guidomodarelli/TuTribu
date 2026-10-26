@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
-        "components/academy/academy-home/index.tsx": "445fcae1bddbac72",
+        "components/academy/academy-home/index.tsx": "ba78725db5c7cd26",
         "app/(platform)/[slug]/academia/page.tsx": "a4c7427e95123588",
         "app/api/tribes/[slug]/academy/checkout/route.ts": "2cac28f1f18d006b",
         "src/modules/subscriptions/setup.ts": "beab8120b07daf1c",
@@ -17,13 +17,13 @@
         "src/modules/product-access/infrastructure/repositories/academy-access-sql.ts": "eba86e37e91970d9",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
         "src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway.ts": "8032559a8cc86633",
-        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "225eef5ce922c395",
+        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "6cf3cca717bd71e3",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
         "lib/academy-admissions/admission-routes.ts": "adac74b9727d9a17",
         "lib/academy/academy-format.ts": "c89823377b85f3a9",
         "lib/browser-navigation.ts": "f01888198bf9f346",
-        "lib/academy/academy-api-client.ts": "298112080df602fd",
+        "lib/academy/academy-api-client.ts": "3e35ac9504a0812c",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts": "102e81af136adc5a",
         "src/modules/product-access/constants/academy-route-copy.ts": "f1751ca472d6a6c1",
         "src/modules/product-access/infrastructure/api/academy-request-schemas.ts": "153a8ff211e2f807",
@@ -65,25 +65,23 @@
         "src/modules/shared/infrastructure/observability/request-context.ts": "298449d5b583123d",
         "src/modules/shared/application/validation/uuid.ts": "84d63a8c45bf04be",
         "src/modules/subscriptions/domain/services/monthly-billing-cycle.ts": "1e253b01e98f41b8",
-        "src/constants/time.ts": "98b5459a77a709b0",
+        "src/constants/time.ts": "987c18a571e92d4d",
         "src/modules/tribes/constants/tribe-page-access.ts": "18091d5392ed8b45",
         "src/modules/tribes/constants/tribe-member-role.ts": "bcd5a756222224ce",
         "src/modules/tribes/constants/academy-membership.ts": "458dd8dd26c19140",
         "src/modules/tribes/domain/value-objects/academy-membership-eligibility.ts": "55e6d38c698718e0",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:4b3c3d7e092cbe615bae0131f752932f91129fa8d4868090d96de01284efe938",
+      "fingerprint": "sha256:fd0d88d470a24707201e5cb40dfb011af566111bc7e48b04b17c2c8fcb93ecea",
       "inputs": {
         "components/academy/academy-home/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy/academy-home/index.tsx#AcademyHome~shell": "e682a501a4562464",
+        "components/academy/academy-home/index.tsx#AcademyHome~shell": "f697c5705fa5b8e2",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY~frame": "d647271201261ec5",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.accessHeading": "7502394d9b8e691b",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.admissionClosed": "2f1103a338c1ae8e",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.basicCourses": "7a72b6e794a5be07",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelButton": "219bce9507bb3237",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelConfirm": "957f32fd67593896",
-        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelDialogDescription": "ef99608981b64735",
-        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelDialogTitle": "132a1184a50b06f8",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelKeep": "4c14d8227b235578",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelPending": "af6da76a0657c5b9",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.checkoutButton": "6359f5b4455207f3",
@@ -109,9 +107,25 @@
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.verificationLink": "5e1bdc3bb50ba8b7",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.whatsappNote": "35886a1a73790abf",
         "components/academy/academy-home/index.tsx#AcademyHomeProps": "eb157c1a9d1338b6",
+        "components/academy/academy-home/index.tsx#ActionErrors": "7646f732d236f9c4",
+        "components/academy/academy-home/index.tsx#AcademyHomeAction": "840948ad056b5a3d",
         "pkg:lucide-react": "6166c881f2c2dd27",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
-        "components/academy/academy-home/index.tsx#PendingAction": "c200131b42a3cbf7",
+        "components/academy/academy-home/index.tsx#CANCEL_DIALOG_COPY.active": "70e4570365992adc",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelDialogDescription": "ef99608981b64735",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelDialogTitle": "132a1184a50b06f8",
+        "components/academy/academy-home/index.tsx#CANCEL_DIALOG_COPY.pending": "a961c0c38fdfb412",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelPendingSubscriptionDialogDescription": "04c5eb48b747ae3a",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelPendingSubscriptionDialogTitle": "2e4d3be65457c34a",
+        "components/academy/academy-home/index.tsx#CANCEL_DIALOG_COPY~frame": "735c51ff67ea5f12",
+        "components/academy/academy-home/index.tsx#CancelableRenewalStatus": "9dd87decb11950d5",
+        "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.cancel": "4f18148ec304a187",
+        "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.checkout": "1d497dada23f5a99",
+        "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.join": "4c588d954e312fd6",
+        "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.refresh": "5baa26f2324b632b",
+        "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS~frame": "eae0f31806662871",
+        "components/academy/academy-home/index.tsx#PAGE_SHOW_EVENT": "4a9fc6ef3ed16f39",
+        "components/academy/academy-home/index.tsx#PendingAction": "7d5321c0fe436d78",
         "components/academy/academy-home/index.tsx#buildAccessSteps": "0cdefd526fa3ea5b",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.eligibilityPending": "301fbeba85613914",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.eligibilityRequired": "d2e3ef51736f82d5",
@@ -125,6 +139,8 @@
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.stepVerifyTitle": "8f3b796612ac7eb2",
         "components/academy/academy-home/index.tsx#AccessStep": "038714e2227c2ce8",
         "components/academy/academy-home/index.tsx#AccessStepState": "f26b9b074a9cdfd1",
+        "components/academy/academy-home/index.tsx#isCancelableRenewal": "bac002a229cceb7a",
+        "components/academy/academy-home/index.tsx#isPaymentInProgress": "339d7a03a34a011a",
         "components/academy/academy-home/index.tsx#resolveAccessStatus": "a3cd160acb9e6f9e",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.accessUnbounded": "77f4198682b14b04",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.basicLevel": "e16b6c0f9e5d895c",
@@ -153,8 +169,9 @@
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.paidUntil": "44bd9d501a645c4f",
         "pkg:react": "374a4508a198654b",
         "pkg:next": "ef28293b49c7bae1",
-        "components/academy/academy-home/index.tsx#AcademyHome/handleCheckout": "57d25869a6d25099",
-        "components/academy/academy-home/index.tsx#AcademyHome/runAction": "a6e5e63ed8953d09",
+        "components/academy/academy-home/index.tsx#AcademyHome/handleCheckout": "4ac2b1ab971808b8",
+        "components/academy/academy-home/index.tsx#AcademyHome/runAction": "f8d692ae7a8346f1",
+        "components/academy/academy-home/index.tsx#AcademyHome/setActionError": "623829589c90fca0",
         "app/(platform)/[slug]/academia/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/page.tsx#TribeAcademyPage": "edb97c58c08a366a",
         "app/api/tribes/[slug]/academy/checkout/route.ts#<module>": "2da3ec2294295eb1",
@@ -1001,6 +1018,10 @@
         "src/modules/tribes/constants/academy-membership.ts#ACADEMY_MEMBERSHIP_ELIGIBILITY.create": "9b5cb553a2f567ee"
       },
       "signals": {
+        "components/academy/academy-home/index.tsx#AcademyHome~shell": {
+          "effects": 1,
+          "listeners": 1
+        },
         "components/academy/academy-home/index.tsx#AcademyHome/handleCheckout": {
           "awaits": 1,
           "projectCalls": 1
@@ -1224,21 +1245,40 @@
       },
       "uncommittedFiles": []
     },
-    "evidence": [],
-    "limitations": [],
-    "mode": "full",
+    "evidence": [
+      {
+        "kind": "test",
+        "outcome": "pass",
+        "recordedAt": "2026-10-26T15:33:59.331Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx tests/unit/pages/tribe-story-page.test.tsx tests/unit/components/tribe-story-about.test.tsx tests/unit/lib/academy/academy-api-client.test.ts: Tests 47 passed (47) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+      }
+    ],
+    "limitations": [
+      "El PR no agrega requests nuevas: Actualizar estado ya pedía reconcile y la relectura; no se midió."
+    ],
+    "mode": "incremental",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T13:58:26.809Z",
-    "result": "not-applicable",
-    "runId": "20261025T135825Z-b7cb0d",
+    "recordedAt": "2026-10-26T15:34:00.576Z",
+    "result": "partial",
+    "runId": "20261026T153358Z-676186",
     "scope": {
-      "decision": "not-applicable",
+      "decision": "incremental",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo."
+        "relevant changes since the skill was recorded not applicable: re-evaluate applicability"
       ],
-      "relevantChangesAtBegin": [],
-      "suggestedScope": []
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "components/academy/academy-home/index.tsx#AcademyHome~shell",
+          "reason": "adds load: +1 effects, +1 listeners or subscriptions"
+        }
+      ],
+      "suggestedScope": [
+        "measure the complete flow /[slug]/academia: before = revision 6bf39166cc42 (last measured), after = working tree",
+        "components/academy/academy-home/index.tsx › AcademyHome (component body outside its handlers) — adds load: +1 effects, +1 listeners or subscriptions"
+      ]
     },
     "skill": {
       "definitionFiles": {
@@ -1255,8 +1295,7 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T135825Z-b7cb0d.json"
+    "report": "runs/20261026T153358Z-676186.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

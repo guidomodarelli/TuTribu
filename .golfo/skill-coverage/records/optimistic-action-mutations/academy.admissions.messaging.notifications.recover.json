@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-leader-recovery-exits",
-      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx": "8318b9343ef315b2",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx": "f6c3b98b5b822d1f",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-local-snapshot.ts": "d45c6cf5cba2628b",
         "app/api/tribes/[slug]/messaging/notification-deliveries/route.ts": "84d1565a7a50c4e3",
         "app/api/tribes/[slug]/messaging/notification-recovery-operations/[operationId]/route.ts": "33eb1c1831ddf893",
@@ -18,15 +18,16 @@
         "src/modules/shared/infrastructure/database/server-database-client.ts": "895a53cd3c3f72ab",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
         "src/modules/messaging/constants/message-delivery.ts": "45811d35a492678f",
-        "src/modules/messaging/constants/notification-recovery-ui.ts": "a2866972f4b31b93",
+        "src/modules/messaging/constants/notification-recovery-ui.ts": "b274826933e66cee",
         "src/modules/messaging/constants/messaging-public-contract.ts": "d8e21158a5fb4c77",
         "src/modules/messaging/constants/messaging-connection.ts": "abba3abf6b505594",
-        "components/academy-admissions/messaging-notification-recovery/index.tsx": "0a54083a747df3dd",
+        "components/academy-admissions/messaging-notification-recovery/index.tsx": "7fc2a7643106fa86",
         "src/modules/messaging/constants/notification-recovery-intent.ts": "c44f3183eafc6d4c",
         "src/modules/messaging/application/results/notification-delivery-catalog-result.ts": "21f01383ba581954",
         "src/modules/messaging/application/results/messaging-configuration-result.ts": "006db510fe714df8",
         "src/modules/messaging/application/ports/notification-recovery-browser-client.ts": "60198882abbf7ec0",
         "src/modules/messaging/application/ports/notification-recovery-intent-store.ts": "7518927b6bfaa873",
+        "src/constants/time.ts": "987c18a571e92d4d",
         "lib/messaging/notification-recovery-api-client.ts": "fc4f767b15a76ff5",
         "lib/messaging/notification-recovery-intent-store.ts": "4104ff8b27688543",
         "src/modules/messaging/constants/messaging-errors.ts": "82843c943e77b48b",
@@ -181,14 +182,14 @@
         "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operation-reader.ts": "08d89713bad14ac9",
         "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operations.ts": "dfbcb8a5f713a8a4",
         "src/modules/messaging/application/use-cases/read-messaging-usage-operation-use-case.ts": "b75b28fb4fe7e63e",
-        "src/modules/messaging/constants/messaging-diagnostic-browser.ts": "ed8ca8f52e2b7e72",
+        "src/modules/messaging/constants/messaging-diagnostic-browser.ts": "dc9ecb8bff01ab74",
         "src/modules/academy-admissions/constants/admission-limits.ts": "2d7d087ec36ae67b",
         "src/modules/messaging/constants/messaging-credential-validation.ts": "0712b1ab28ca1ec2",
         "src/modules/academy-admissions/domain/entities/admission-operation.ts": "3cefd00867036cfe",
         "src/modules/messaging/application/ports/messaging-usage-browser-client.ts": "d59ee061e0823ab5",
         "src/modules/messaging/application/results/notification-delivery-recovery-result.ts": "8ef1a807e7c05c82",
         "src/modules/messaging/application/results/notification-recovery-operation-result.ts": "313e39e4f4222e91",
-        "src/modules/messaging/constants/messaging-connections-browser.ts": "6324cc25a232f60b",
+        "src/modules/messaging/constants/messaging-connections-browser.ts": "fc77878f34cf9bcd",
         "src/modules/messaging/constants/notification-delivery-catalog.ts": "91de009b833e5503",
         "src/modules/messaging/constants/notification-recovery-browser.ts": "e6c31de1edee6758",
         "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts": "f1942bcecd1a2254",
@@ -232,7 +233,6 @@
         "src/modules/notifications/constants/admission-notification-email-intent.ts": "26a365ba0eb9db0e",
         "src/modules/notifications/constants/admission-notification-group-authority.ts": "e16384d766bad192",
         "src/modules/notifications/constants/admission-notification-groups.ts": "22f213c753d3ef05",
-        "src/constants/time.ts": "98b5459a77a709b0",
         "src/modules/notifications/domain/entities/admission-notification.ts": "212274f200d5274b",
         "src/modules/notifications/infrastructure/repositories/admission-notification-group-reader.ts": "2007bf85307d6c72",
         "src/modules/notifications/domain/policies/admission-notification-group-authority.ts": "8710e8bb30737460",
@@ -256,7 +256,7 @@
         "src/modules/academy-admissions/application/results/admission-batch-decision-result.ts": "e7b6140dec98efd9",
         "src/modules/academy-admissions/application/results/admission-activity-result.ts": "9a90cb2e8735c2a9",
         "src/modules/academy-admissions/application/results/admission-metrics-result.ts": "08620a4f1a506f0f",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "d0af64144b8cacf3",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "7e28bd61704eb630",
         "src/modules/academy-admissions/constants/admission-activity.ts": "a6c5519798822d7b",
         "src/modules/academy-admissions/constants/admission-activity-page-schemas.ts": "7522ac9ef5450726",
         "src/modules/tribes/constants/academy-membership.ts": "458dd8dd26c19140",
@@ -339,7 +339,7 @@
         "src/modules/academy-admissions/application/results/admission-writer-result-schemas.ts": "2792c8a8e8eea5f4",
         "src/modules/academy-admissions/domain/repositories/admission-whatsapp-number-writer.ts": "25a448bd954a5e32",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-submission-proof-reader.ts": "931f9ad7a5aa7eac",
-        "src/modules/tribes/constants/tribe-story.ts": "56fbe141834e760e",
+        "src/modules/tribes/constants/tribe-story.ts": "95b0fb552f1928b0",
         "src/modules/academy-admissions/constants/admission-batch-decision-schema.ts": "21d31f0bdcf55085",
         "src/modules/academy-admissions/constants/admission-command-denial-schema.ts": "7da544dec6ac92b3",
         "src/modules/academy-admissions/infrastructure/repositories/assert-unreserved-admission-contact.ts": "dab62a6379fe508d",
@@ -603,7 +603,7 @@
         "src/modules/academy-admissions/constants/admission-review-dates.ts": "ed6ccaa0d7bbce25",
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f"
       },
-      "fingerprint": "sha256:5c32f84434f5f457afe46719d121e271f2d2d2fd93dae3e1cc95638c7caad547",
+      "fingerprint": "sha256:c112edd806ecf9188982d1d16f13720910068f43b218b1b9ec99fc4e946d67e0",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/setConfirmed": "3b67f1234962d501",
@@ -611,14 +611,14 @@
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/eligible": "c58c842b40c7cd4f",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/bound": "774f3605a6544c68",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/preserve": "c81f96d1ae44b5e0",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer~shell": "45de1c290bfbf10a",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer~shell": "3eb705c9a1a77847",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainerProps": "63b7d38bc7af8db0",
         "pkg:react": "374a4508a198654b",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/observe": "fe4600ff0f290b22",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/current": "b92af9cb28abc575",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/readCatalog": "cc9fac7104bae7a4",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/readCatalog": "77cddd46d58d418a",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/submit": "bd700d5345dbf9fc",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/recover": "f13bbf20ae11dafe",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/recover": "aa9088ecb1484bd5",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/readOriginal": "7b320339261143b8",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/stopObserving": "c64d7ba01d1c6ad0",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/archiveOriginal": "1fda0d8f22eb84df",
@@ -707,7 +707,7 @@
         "src/modules/messaging/constants/messaging-public-contract.ts#MESSAGING_PUBLIC_CHANNEL~frame": "46f33c9d94bfccd5",
         "src/modules/messaging/constants/messaging-public-contract.ts#MESSAGING_PUBLIC_CHANNEL.email": "c708141b4f1f6c5b",
         "components/academy-admissions/messaging-notification-recovery/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/academy-admissions/messaging-notification-recovery/index.tsx#MessagingNotificationRecovery": "5d857d658a76c32e",
+        "components/academy-admissions/messaging-notification-recovery/index.tsx#MessagingNotificationRecovery": "6f5d4c2ff33ff40a",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "src/modules/messaging/constants/notification-recovery-intent.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/constants/notification-recovery-intent.ts#NOTIFICATION_RECOVERY_HISTORY_LIMIT": "0819bcc3b3c824bf",
@@ -727,6 +727,8 @@
         "src/modules/messaging/application/ports/notification-recovery-intent-store.ts#NotificationRecoveryDraft": "cf450632865189b2",
         "src/modules/messaging/application/ports/notification-recovery-intent-store.ts#NotificationRecoveryReference": "48bede7f6268df55",
         "src/modules/messaging/constants/notification-recovery-ui.ts#NotificationRecoveryWriteAction": "c811ddc426cf5e7f",
+        "src/constants/time.ts#<module>": "2da3ec2294295eb1",
+        "src/constants/time.ts#TIMER_MAXIMUM_DELAY_MS": "05d2cda1114fd800",
         "lib/messaging/notification-recovery-api-client.ts#<module>": "d414f6d3ee71f10d",
         "lib/messaging/notification-recovery-api-client.ts#notificationRecoveryBrowserClient": "ddded59ea2d0be45",
         "lib/messaging/notification-recovery-api-client.ts#createNotificationRecoveryBrowserClient": "1b960a245c182df1",
@@ -1265,6 +1267,7 @@
         "src/modules/messaging/constants/messaging-diagnostic-browser.ts#MESSAGING_DELIVERY_STATE_LABEL.cancelled": "3c95c31ad696f0a4",
         "src/modules/messaging/constants/messaging-diagnostic-browser.ts#MESSAGING_DELIVERY_STATE_LABEL~frame": "daba69347a1eb15e",
         "src/modules/messaging/constants/notification-recovery-ui.ts#NOTIFICATION_RECOVERY_DATE_LABEL_CHARACTERS": "78e64d1ca8f59db7",
+        "src/modules/messaging/constants/notification-recovery-ui.ts#NOTIFICATION_RECOVERY_UI_COPY.expired": "dce1bce6a97732ef",
         "src/modules/academy-admissions/constants/admission-limits.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-limits.ts#ADMISSION_LIMIT~frame": "4fb1c4f3def84f86",
         "src/modules/academy-admissions/constants/admission-limits.ts#ADMISSION_LIMIT.displayNameCharacters": "5f264b49f1efc74b",
@@ -1533,7 +1536,6 @@
         "src/modules/notifications/constants/admission-notification-groups.ts#ADMISSION_NOTIFICATION_EMAIL_CAPABILITY_UNAVAILABLE": "bda33187599e99be",
         "src/modules/notifications/constants/admission-notification-groups.ts#ADMISSION_NOTIFICATION_GROUP_REASON.deadlineExpired": "473f36dfe5370030",
         "src/modules/notifications/constants/admission-notification-groups.ts#ADMISSION_NOTIFICATION_DEADLINE_EXPIRED": "73c95811be6e99da",
-        "src/constants/time.ts#<module>": "2da3ec2294295eb1",
         "src/constants/time.ts#MICROSECONDS_PER_SECOND": "103f794d99001076",
         "src/modules/messaging/constants/notification-delivery-recovery.ts#NOTIFICATION_DELIVERY_RECOVERY_PURPOSE": "2da287e83f4a7078",
         "src/modules/notifications/domain/entities/admission-notification.ts#<module>": "2da3ec2294295eb1",
@@ -4111,7 +4113,7 @@
       },
       "signals": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer~shell": {
-          "effects": 1
+          "effects": 2
         },
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/observe": {
           "awaits": 2
@@ -5364,39 +5366,66 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
-        "durationMs": 130347,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "94c37650a6faf1f93b6573ce417025af09e076f47c70f7c1605f7586fe7e148b",
-        "recordedAt": "2026-10-25T17:20:39.925Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:36:59.312Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx tests/unit/components/academy-admissions-messaging-resources.test.tsx tests/unit/components/academy-admissions-notification-recovery-container.test.tsx tests/unit/components/academy-admissions-notification-recovery.test.tsx: Tests 107 passed (107) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T17:20:40.422Z",
+        "recordedAt": "2026-10-26T15:36:59.734Z",
         "source": "attested",
-        "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
+        "summary": "Estados: el guardado valida al presionar y muestra qué falta junto a cada campo; las consultas de remitentes y plantillas muestran su carga, evitan la doble consulta y dejan el vacío y el error junto al select; Ver avisos anteriores acumula sin duplicados y una recuperación vencida se muestra como no disponible; solo un conflicto real marca la conexión como cambiada, también en la relectura tras una comprobación rechazada."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de recuperación que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Remitentes, plantillas y recuperación de avisos no se recorrieron en el navegador: necesitan una conexión de Zavu con credencial válida o activa, que la rama efímera no tiene."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T17:20:42.992Z",
+    "recordedAt": "2026-10-26T15:37:01.964Z",
     "result": "partial",
-    "runId": "20261025T171829Z-79a4ec",
+    "runId": "20261026T153658Z-a913e4",
     "scope": {
       "decision": "full",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/readCatalog",
+          "reason": "action handler changed"
+        },
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/recover",
+          "reason": "action handler changed"
+        },
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer~shell",
+          "reason": "component state or render changed"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy-admissions/messaging-notification-recovery/index.tsx#MessagingNotificationRecovery",
+          "reason": "code reached by the unit changed"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/time.ts#TIMER_MAXIMUM_DELAY_MS",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/constants/notification-recovery-ui.ts#NOTIFICATION_RECOVERY_UI_COPY.expired",
+          "reason": "lifecycle configuration member (expired)"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.admissions.messaging.notifications.recover: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -5414,7 +5443,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T171829Z-79a4ec.json"
+    "report": "runs/20261026T153658Z-a913e4.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

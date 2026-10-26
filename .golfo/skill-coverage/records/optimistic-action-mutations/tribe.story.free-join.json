@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
-        "app/(platform)/[slug]/historia/page.tsx": "2ff1cf20c44bc9a0",
+        "app/(platform)/[slug]/historia/page.tsx": "01e693bd30248791",
         "components/tribes/tribe-story-about/free-join-submit-button/index.tsx": "2cb4bd71406768d8",
         "src/modules/tribes/setup.ts": "71cc96c1b451a171",
         "src/modules/auth/infrastructure/composition/authenticated-account-provider.ts": "750f9fbc68d426b1",
@@ -31,9 +31,10 @@
         "src/modules/auth/setup.ts": "37e200547ae950e4",
         "src/modules/subscriptions/setup.ts": "beab8120b07daf1c",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
-        "src/modules/tribes/constants/tribe-story.ts": "56fbe141834e760e",
+        "src/modules/tribes/constants/tribe-story.ts": "95b0fb552f1928b0",
         "lib/auth/sign-in-redirect.ts": "896cfa9806af6656",
         "src/modules/setup.ts": "b7906aa060d53395",
+        "src/modules/shared/infrastructure/observability/request-context.ts": "298449d5b583123d",
         "src/modules/tribes/domain/repositories/academy-admission-entry.ts": "8d44b0d963f9e697",
         "src/modules/tribes/domain/repositories/tribe-academy-admission-repository.ts": "ea14dc2bb4246503",
         "src/modules/tribes/domain/repositories/tribe-creation-repository.ts": "b88ebcad107e0d7e",
@@ -219,7 +220,7 @@
         "src/modules/messaging/domain/value-objects/messaging-key-purpose.ts": "3cb73fd082b826f2",
         "src/modules/tribes/constants/academy-membership.ts": "458dd8dd26c19140",
         "src/modules/tribes/domain/value-objects/academy-membership-eligibility.ts": "55e6d38c698718e0",
-        "src/constants/time.ts": "98b5459a77a709b0",
+        "src/constants/time.ts": "987c18a571e92d4d",
         "src/modules/tribes/infrastructure/repositories/read-approved-academy-membership-context.ts": "cf877c0349dbc4b0",
         "src/modules/product-access/constants/product-access.ts": "9918d8d426c90ab6",
         "src/modules/academy-admissions/domain/repositories/messaging-usage-policy-reader.ts": "0eb68523b3b7a5a8",
@@ -242,7 +243,7 @@
         "src/modules/academy-admissions/application/results/admission-batch-decision-result.ts": "e7b6140dec98efd9",
         "src/modules/academy-admissions/application/results/admission-activity-result.ts": "9a90cb2e8735c2a9",
         "src/modules/academy-admissions/application/results/admission-metrics-result.ts": "08620a4f1a506f0f",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "d0af64144b8cacf3",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "7e28bd61704eb630",
         "src/modules/academy-admissions/constants/admission-activity.ts": "a6c5519798822d7b",
         "src/modules/academy-admissions/constants/admission-activity-page-schemas.ts": "7522ac9ef5450726",
         "src/modules/academy-admissions/constants/admission-overview.ts": "2789bf3e166578b3",
@@ -415,7 +416,6 @@
         "src/modules/auth/infrastructure/dev-sign-in/dev-sign-in-auth-options.ts": "b5a11c8f05e32718",
         "src/modules/auth/infrastructure/better-auth/provider-account-errors.ts": "f81d9b9a6f9ebf84",
         "src/modules/shared/constants/private-http.ts": "d0c330157a6a4fec",
-        "src/modules/shared/infrastructure/observability/request-context.ts": "298449d5b583123d",
         "src/modules/messaging/domain/errors/messaging-error-code.ts": "347a9bbe72af0c8b",
         "src/modules/academy-admissions/constants/admission-batch-result-presentation.ts": "e1cc834da382b531",
         "src/modules/academy-admissions/constants/admission-activity-schemas.ts": "b39acbcf5df711be",
@@ -514,10 +514,14 @@
         "src/modules/academy-admissions/constants/admission-review-dates.ts": "ed6ccaa0d7bbce25",
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f"
       },
-      "fingerprint": "sha256:ff69e85154428db9480f89e88a47d0a66aa8d1e535625b15f71159fe5ce969d9",
+      "fingerprint": "sha256:c30263c86d140b5f296737bed60d705f540e1406e8dcb2966a631983c1133e60",
       "inputs": {
         "app/(platform)/[slug]/historia/page.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/historia/page.tsx#joinTribeFreeAction": "a4597eb6caead57a",
+        "app/(platform)/[slug]/historia/page.tsx#joinTribeFreeAction": "07f04ab102a76848",
+        "app/(platform)/[slug]/historia/page.tsx#TRIBE_STORY_PAGE~frame": "80a20befedee8a89",
+        "app/(platform)/[slug]/historia/page.tsx#TRIBE_STORY_PAGE.freeJoinFailureMessage": "bf9e38a0e83cfc4a",
+        "app/(platform)/[slug]/historia/page.tsx#TRIBE_STORY_PAGE.freeJoinOperation": "097b3d5fb1abd80b",
+        "app/(platform)/[slug]/historia/page.tsx#TRIBE_STORY_PAGE.logFeature": "36234d47d0da7343",
         "app/(platform)/[slug]/historia/page.tsx#buildStorySignInRedirect": "af7c90b494eb07fa",
         "pkg:next": "ef28293b49c7bae1",
         "components/tribes/tribe-story-about/free-join-submit-button/index.tsx#<module>": "d414f6d3ee71f10d",
@@ -826,16 +830,27 @@
         "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.welcome": "d303eab2a15aa376",
         "src/constants/routes.ts#buildTribeSectionRoute": "832cd9691055927d",
         "src/modules/tribes/constants/tribe-story.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_FORM_STATUS~frame": "4bd7151ddf9cd73a",
+        "src/modules/tribes/constants/tribe-story.ts#TribeFreeJoinFormStatus": "575af53c782fc222",
+        "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_FORM_STATUS.failed": "30b78e1585d30f33",
+        "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_FORM_STATUS.forbidden": "ad1922287d03e2f4",
         "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_STATUS~frame": "e586e07000b18676",
         "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_STATUS.alreadyMember": "46c9c0dc5ed123ef",
-        "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_STATUS.forbidden": "ad1922287d03e2f4",
         "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_STATUS.joined": "12e3add4ac7a8798",
+        "src/modules/tribes/constants/tribe-story.ts#TribeFreeJoinFormState": "c7efd626b446317d",
         "lib/auth/sign-in-redirect.ts#<module>": "2da3ec2294295eb1",
         "lib/auth/sign-in-redirect.ts#buildSignInRedirectUrl": "4b67671152b6df6a",
         "lib/auth/sign-in-redirect.ts#URL_QUERY_SEPARATOR": "8153fb82eaf61238",
         "src/modules/setup.ts#<module>": "2da3ec2294295eb1",
         "src/modules/setup.ts#createRequestModules/executeWithRequestContext": "08675cdc210a33ff",
         "src/modules/setup.ts#createRequestModules~shell": "389ed7be79fc5562",
+        "src/modules/shared/infrastructure/observability/request-context.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/shared/infrastructure/observability/request-context.ts#resolveRequestContext": "e2676e3119582cbe",
+        "src/modules/shared/infrastructure/observability/request-context.ts#REQUEST_ID_HEADER": "f424d3b14aaf34ae",
+        "src/modules/shared/infrastructure/observability/request-context.ts#RequestContext": "3c853e0cdccfd2b4",
+        "src/modules/shared/infrastructure/observability/request-context.ts#TRACE_ID_HEADER": "53521ebe088784f4",
+        "src/modules/shared/infrastructure/observability/request-context.ts#buildRequestId": "264e4321e679f159",
+        "src/modules/shared/infrastructure/observability/request-context.ts#readFirstHeaderValue": "17626511501da534",
         "src/modules/tribes/domain/repositories/academy-admission-entry.ts#<module>": "2da3ec2294295eb1",
         "src/modules/tribes/domain/repositories/academy-admission-entry.ts#AcademyAdmissionEntry": "fe1b586f16f7e4da",
         "src/modules/tribes/domain/repositories/tribe-academy-admission-repository.ts#<module>": "2da3ec2294295eb1",
@@ -1053,6 +1068,7 @@
         "src/modules/auth/infrastructure/better-auth/server-auth-context.ts#isConnectionAcquisitionTimeout": "44f403da21a2a4c0",
         "src/modules/auth/infrastructure/better-auth/server-auth-context.ts#isRetryableBetterAuthSessionFailure": "e7483d4bc461c959",
         "src/modules/tribes/domain/repositories/tribe-free-join-repository.ts#JoinTribeFreeCommand": "5a99195d26006c43",
+        "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_STATUS.forbidden": "ad1922287d03e2f4",
         "src/modules/tribes/constants/tribe-page-access.ts#<module>": "2da3ec2294295eb1",
         "src/modules/tribes/constants/tribe-page-access.ts#TRIBE_MEMBERSHIP_STATUS~frame": "0609f6a3493e42ef",
         "src/modules/tribes/constants/tribe-page-access.ts#TRIBE_MEMBERSHIP_STATUS.active": "d999a37e74d137f4",
@@ -3068,13 +3084,6 @@
         "src/modules/auth/infrastructure/better-auth/provider-account-errors.ts#isMissingProviderAccountError": "4045cd63bf7eec6f",
         "src/modules/shared/constants/private-http.ts#<module>": "2da3ec2294295eb1",
         "src/modules/shared/constants/private-http.ts#PRIVATE_HTTP_CORRELATION_ID_PATTERN": "bc06748fa43e5be5",
-        "src/modules/shared/infrastructure/observability/request-context.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/shared/infrastructure/observability/request-context.ts#REQUEST_ID_HEADER": "f424d3b14aaf34ae",
-        "src/modules/shared/infrastructure/observability/request-context.ts#RequestContext": "3c853e0cdccfd2b4",
-        "src/modules/shared/infrastructure/observability/request-context.ts#TRACE_ID_HEADER": "53521ebe088784f4",
-        "src/modules/shared/infrastructure/observability/request-context.ts#resolveRequestContext": "e2676e3119582cbe",
-        "src/modules/shared/infrastructure/observability/request-context.ts#buildRequestId": "264e4321e679f159",
-        "src/modules/shared/infrastructure/observability/request-context.ts#readFirstHeaderValue": "17626511501da534",
         "src/modules/tribes/constants/academy-membership.ts#ACADEMY_MEMBERSHIP_DECISION.approved": "bc45ed06e0967f1a",
         "src/modules/messaging/domain/errors/messaging-error-code.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/domain/errors/messaging-error-code.ts#MessagingErrorCode": "86386dfd6a97f4e1",
@@ -4016,8 +4025,8 @@
       },
       "signals": {
         "app/(platform)/[slug]/historia/page.tsx#joinTribeFreeAction": {
-          "awaits": 3,
-          "projectCalls": 1
+          "awaits": 4,
+          "projectCalls": 2
         },
         "src/modules/tribes/setup.ts#buildTribesModule": {
           "projectCalls": 35
@@ -5027,38 +5036,81 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
-        "durationMs": 39093,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "092048a0ef0cb67cde1a407940270a3d97883dbff599dc4ced2ca947cbeb437b",
-        "recordedAt": "2026-10-25T05:45:50.400Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:34:54.562Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx tests/unit/pages/tribe-story-page.test.tsx tests/unit/components/tribe-story-about.test.tsx tests/unit/lib/academy/academy-api-client.test.ts: Tests 47 passed (47) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T05:45:51.129Z",
+        "recordedAt": "2026-10-26T15:34:54.995Z",
         "source": "attested",
-        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
+        "summary": "Ciclo de vida: contratar y cancelar son server-confirmed y la confirmación del pago es pending-first, terminada solo por una relectura confirmada; cada acción tiene su propio error junto a su control y se limpia al reintentar; el checkout queda bloqueado mientras se abre el proveedor y se libera al restaurar la página; la server action del ingreso gratis devuelve forbidden o failed y registra el error inesperado."
       }
     ],
     "limitations": [
-      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados y mutaciones de la página de academia y del ingreso gratis que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T05:45:54.658Z",
+    "recordedAt": "2026-10-26T15:34:57.030Z",
     "result": "partial",
-    "runId": "20261025T054510Z-6b9348",
+    "runId": "20261026T153454Z-05f87c",
     "scope": {
       "decision": "full",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/historia/page.tsx#joinTribeFreeAction",
+          "reason": "code reached by the unit changed"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/historia/page.tsx#TRIBE_STORY_PAGE.freeJoinOperation",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/historia/page.tsx#TRIBE_STORY_PAGE.logFeature",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/historia/page.tsx#TRIBE_STORY_PAGE~frame",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_FORM_STATUS.failed",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_FORM_STATUS.forbidden",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_FORM_STATUS~frame",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/tribes/constants/tribe-story.ts#TribeFreeJoinFormState",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/tribes/constants/tribe-story.ts#TribeFreeJoinFormStatus",
+          "reason": "new code reached by the unit"
+        }
+      ],
       "suggestedScope": [
         "whole unit tribe.story.free-join: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -5076,7 +5128,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T054510Z-6b9348.json"
+    "report": "runs/20261026T153454Z-05f87c.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

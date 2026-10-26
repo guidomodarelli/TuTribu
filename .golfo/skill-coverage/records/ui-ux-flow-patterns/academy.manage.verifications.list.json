@@ -2,18 +2,18 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-management-mutations",
-      "commit": "64b87f83eb45941aa8b2b758ae938221dad4baad",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
-        "components/academy/academy-management/index.tsx": "c9c63144daeb34d0",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
+        "components/academy/academy-management/index.tsx": "30fb9d4e436f90ac",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
         "app/api/tribes/[slug]/verifications/route.ts": "7143222c4b934955",
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
         "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts": "65c276a71c59ef25",
         "src/modules/product-access/infrastructure/repositories/academy-access-sql.ts": "eba86e37e91970d9",
         "components/academy/academy-management/styles.module.scss": "01f52ce7ee08aa77",
         "src/modules/member-verifications/application/results/member-verification-public-dto-schemas.ts": "c658dcf96affa74b",
-        "lib/academy/academy-api-client.ts": "298112080df602fd",
+        "lib/academy/academy-api-client.ts": "3e35ac9504a0812c",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts": "102e81af136adc5a",
         "src/modules/product-access/infrastructure/api/academy-request-schemas.ts": "153a8ff211e2f807",
         "app/api/tribes/[slug]/academy-route-scope.ts": "439f451d9503336b",
@@ -25,7 +25,7 @@
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3"
       },
-      "fingerprint": "sha256:47fc4401f7afc955c2a2c09b194d2e204251e86bdc4262f40b5780b8a848df76",
+      "fingerprint": "sha256:1d6f49c6596003e1499c1619aaabe61373f7ce9cfe8977fbd3d8e496ceb4c6c2",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy/academy-management/index.tsx#ReviewQueueSection/replaceItem": "3b65c64521811794",
@@ -53,17 +53,26 @@
         "components/academy/academy-management/index.tsx#QUEUE_STATUS_LABEL.verified": "e229377279309f06",
         "components/academy/academy-management/index.tsx#QUEUE_STATUS_LABEL~frame": "d4bdd57bd94c9789",
         "components/academy/academy-management/index.tsx#QueuePage": "d319eab9fb53e03a",
-        "components/academy/academy-management/index.tsx#ReviewQueueRow/decide": "3683f5730f805045",
+        "components/academy/academy-management/index.tsx#ReviewQueueRow/decide": "7c743b9b055dfb66",
         "components/academy/academy-management/index.tsx#HTTP_STATUS_CONFLICT": "4821e07a60f48131",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.conflict": "bc59070c0b883870",
-        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.decisionReasonRequired": "932789cf4c459071",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.decisionReasonRequired": "36d4631f797f70c1",
         "components/academy/academy-management/index.tsx#MIN_REASON_LENGTH": "1c0a5e01e735a4c4",
-        "components/academy/academy-management/index.tsx#ReviewQueueRow~shell": "ab559fb051d73941",
+        "components/academy/academy-management/index.tsx#ReviewQueueRow~shell": "a2cc9a0355ffc4ae",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.decisionReasonLabel": "0f07aa0e7dcc4e40",
-        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.reasonPlaceholder": "57c20650e88d0149",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.reasonPlaceholder": "7f5d5acc3d460d08",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.reject": "9c7e5c8a43559556",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revoke": "68a219128846ef29",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.verify": "8f809e6426a65ae2",
+        "components/academy/academy-management/index.tsx#RevokeVerificationDialog/handleSubmit": "9a0bb7883f7b560e",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.verificationRevoked": "ae129a9d22467442",
+        "components/academy/academy-management/index.tsx#RevokeVerificationDialog~shell": "2328a6411cea9fbe",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.cancel": "129e70b7dea90a86",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeVerificationDescription": "51b0df895247a29d",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeVerificationPrompt": "161368d3d33bdcb6",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeVerificationSubmit": "a21f71c48404355a",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeVerificationTitle": "ab56a9f16af88712",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revoking": "1406d3db841a1080",
         "pkg:react": "374a4508a198654b",
         "pkg:lucide-react": "6166c881f2c2dd27",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#<module>": "2da3ec2294295eb1",
@@ -211,72 +220,41 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
-        "durationMs": 29336,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "1b9ec68277fe8eaf27fc9b82c81290cf76c7d0406e250b6995a932ff301a1a4b",
-        "recordedAt": "2026-10-25T20:32:13.453Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:40:28.407Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/academy/academy-management.test.tsx: Tests 23 passed (23) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T20:32:14.038Z",
+        "recordedAt": "2026-10-26T15:40:28.835Z",
         "source": "attested",
-        "summary": "Ciclo de vida: revocar es server-confirmed con protección de doble envío y error dentro del diálogo; otorgar y revocar recargan la lista por reloadToken; disponibilidad y conflictos conservan el borrador de la oferta; decidir una solicitud la saca del filtro y vuelve a pedir la página, un conflicto la deja visible con su estado; búsquedas y paginación muestran Consultando…"
+        "summary": "Ciclo de vida: reabrir y revocar una verificación son server-confirmed; la confirmación del correo solo aparece si el email normalizado cambia en una verificación aprobada; revocar usa un diálogo con motivo, pending, protección de doble envío y error dentro del diálogo, y el toast llega con la confirmación del servidor."
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T20:32:14.609Z",
+        "recordedAt": "2026-10-26T15:40:29.255Z",
         "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: la bonificación otorgada aparece sin recargar, revocar usa el diálogo sin window.prompt y el título sin guardar se conserva al cambiar la disponibilidad (4/4)."
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: cambiar el correo de una verificación aprobada pide confirmación, Cancelar no envía y conserva el correo y Cambiar correo envía una vez y la deja En revisión; Revocar abre su diálogo sin enviar y al confirmar hace un solo PATCH (4/4; antes se enviaba sin preguntar y no había diálogo)."
       }
     ],
     "limitations": [
-      "Solo se revisaron las secciones de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron las confirmaciones de verificación que cambia este PR; el resto de cada unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T20:32:16.168Z",
+    "recordedAt": "2026-10-26T15:40:30.230Z",
     "result": "partial",
-    "runId": "20261025T203143Z-51244a",
+    "runId": "20261026T154027Z-1cc1a3",
     "scope": {
       "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "added",
-          "key": "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.loadingList",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "modified",
-          "key": "components/academy/academy-management/index.tsx#ReviewQueueRow/decide",
-          "reason": "visible or interactive code changed"
-        },
-        {
-          "change": "modified",
-          "key": "components/academy/academy-management/index.tsx#ReviewQueueRow~shell",
-          "reason": "visible or interactive code changed"
-        },
-        {
-          "change": "added",
-          "key": "components/academy/academy-management/index.tsx#ReviewQueueSection/settleDecidedItem",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "modified",
-          "key": "components/academy/academy-management/index.tsx#ReviewQueueSection~shell",
-          "reason": "visible or interactive code changed"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.manage.verifications.list: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
       ]
@@ -294,7 +272,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T203143Z-51244a.json"
+    "report": "runs/20261026T154027Z-1cc1a3.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

@@ -1,0 +1,135 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "chore/academy-audit-coverage",
+    "commit": "2718f53c946a536caa7a065feab104de23414063",
+    "fingerprint": "sha256:616d263971c1ff3fb22f44ddd208e9a8347191819be4c360dc2ebbda9a822054",
+    "uncommittedFiles": [],
+    "fileCount": 20,
+    "inputCount": 177
+  },
+  "evidence": [
+    {
+      "kind": "test",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T15:29:40.513Z",
+      "source": "attested",
+      "summary": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx: Tests 21 passed (21) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T15:29:41.140Z",
+      "source": "attested",
+      "summary": "Lecturas del render: integrantes, cola, configuración y proveedores salen en una sola tanda; la configuración responde null y los proveedores solo los activos a un guardián, y la página usa esas respuestas solo para el líder; un fallo sigue llegando al boundary del segmento."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T15:29:41.768Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Gestionar academia carga para el líder con Configuración, Proveedores de verificación, Solicitudes de verificación y Accesos de integrantes (4/4)."
+    }
+  ],
+  "limitations": [
+    "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T15:29:43.255Z",
+  "result": "partial",
+  "runId": "20261026T152939Z-81fa94",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.cancel",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.decisionReasonRequired",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.reasonPlaceholder",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeVerificationDescription",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeVerificationPrompt",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeVerificationSubmit",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeVerificationTitle",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revoking",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.verificationRevoked",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy/academy-management/index.tsx#ReviewQueueRow/decide",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy/academy-management/index.tsx#ReviewQueueRow~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-management/index.tsx#RevokeVerificationDialog/handleSubmit",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-management/index.tsx#RevokeVerificationDialog~shell",
+        "reason": "new visible or interactive code"
+      }
+    ],
+    "suggestedScope": [
+      "whole unit academy.manage.verifications.decide: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T15:29:39.802Z",
+  "unitId": "academy.manage.verifications.decide"
+}
