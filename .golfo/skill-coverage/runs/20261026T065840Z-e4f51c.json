@@ -1,0 +1,72 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/admission-leader-lists",
+    "commit": "e6f93720e9a8bbf3820c7764d2dddccaca67ed97",
+    "fingerprint": "sha256:a9ed1ae27bf6c5f3979659123aae0f43a88e18ec215a06a3cb331ed7c0bb177c",
+    "uncommittedFiles": [],
+    "fileCount": 233,
+    "inputCount": 1275
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admission-applicant-recovery.test.tsx tests/unit/components/academy-admissions-manual.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx",
+      "durationMs": 46887,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "7cc84baa80801cdd697214a7ddbac0cbbcf00e0d7f2142c8060ebbf8b411a5a0",
+      "recordedAt": "2026-10-26T06:59:28.003Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T06:59:28.713Z",
+      "source": "attested",
+      "summary": "Estados: unavailable ofrece reintento solo para fallas transitorias; los errores de envío, cancelación y corrección del WhatsApp quedan junto a su origen, una sola vez, y se limpian al corregir; los inciertos siguen en la página junto a Consultar estado; un token heredado mal formado ya no ofrece un reintento que no puede funcionar."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T06:59:29.394Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: una falla temporal de la entrada ofrece Reintentar y recupera la página, una solicitud ajena y un enlace heredado inválido no lo ofrecen y explican qué hacer, y un conflicto al enviar se muestra dentro del paso Enviar solicitud, junto al botón (4/4; antes quedaba al pie de la página)."
+    }
+  ],
+  "limitations": [
+    "Solo se revisaron los estados de error y de no disponible de la página del aspirante que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T06:59:31.996Z",
+  "result": "partial",
+  "runId": "20261026T065840Z-e4f51c",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit academy.admissions.notifications.save: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T06:58:40.391Z",
+  "unitId": "academy.admissions.notifications.save"
+}

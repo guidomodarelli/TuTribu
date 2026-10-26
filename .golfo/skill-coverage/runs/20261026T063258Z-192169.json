@@ -1,0 +1,227 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/admission-leader-lists",
+    "commit": "e6f93720e9a8bbf3820c7764d2dddccaca67ed97",
+    "fingerprint": "sha256:4e81ea9a16bf6acc14d04b5e9ad9b8f8eb9bb29d9c506668bbd301e7b282301d",
+    "uncommittedFiles": [],
+    "fileCount": 181,
+    "inputCount": 942
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admission-applicant-recovery.test.tsx tests/unit/components/academy-admissions-manual.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx",
+      "durationMs": 41120,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "e03a1422f10d6681d127c19b72df336042a5c34f4c874a38e9ddecb65e9ae06f",
+      "recordedAt": "2026-10-26T06:33:40.690Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T06:33:41.296Z",
+      "source": "attested",
+      "summary": "Estados: unavailable ofrece reintento solo para fallas transitorias; los errores de envío, cancelación y corrección del WhatsApp quedan junto a su origen, una sola vez, y se limpian al corregir; los inciertos siguen en la página junto a Consultar estado; un token heredado mal formado ya no ofrece un reintento que no puede funcionar."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T06:33:41.885Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: una falla temporal de la entrada ofrece Reintentar y recupera la página, una solicitud ajena y un enlace heredado inválido no lo ofrecen y explican qué hacer, y un conflicto al enviar se muestra dentro del paso Enviar solicitud, junto al botón (4/4; antes quedaba al pie de la página)."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T06:33:43.868Z",
+  "result": "verified",
+  "runId": "20261026T063258Z-192169",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "26 relevant change(s) since the verified run"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#MAXIMUM_TIMEOUT_MS",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#useMessagingActivationController",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/initialScope",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/read",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/setSenders",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/setTemplates",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/readCatalog",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/recover",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-connection-resources/index.tsx#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-connection-resources/index.tsx#MessagingResourceListState",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-connection-resources/index.tsx#MessagingResourceReading",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/messaging-connections-workspace/index.tsx#MessagingConnectionsWorkspace",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/messaging-connections/index.tsx#MessagingConnections",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-connections/index.tsx#MessagingConnections/focusFirstInvalid",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-connections/index.tsx#MessagingConnections~shell",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/messaging-notification-recovery/index.tsx#MessagingNotificationRecovery",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/time.ts#TIMER_MAXIMUM_DELAY_MS",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-connections-browser.ts#MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedDetail",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-connections-browser.ts#MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedTitle",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-connections-browser.ts#MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadRetry",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/constants/messaging-resources-browser.ts#MESSAGING_RESOURCE_UI_COPY.sendersEmpty",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/constants/messaging-resources-browser.ts#MESSAGING_RESOURCE_UI_COPY.templatesEmpty",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/notification-recovery-ui.ts#NOTIFICATION_RECOVERY_UI_COPY.expired",
+        "reason": "new visible or interactive code"
+      }
+    ],
+    "suggestedScope": [
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts › MAXIMUM_TIMEOUT_MS — behavior of this code in every state of the unit that uses it",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts › useMessagingActivationController — behavior of this code in every state of the unit that uses it",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx › MessagingConnectionsContainer (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts › useMessagingResourceController › initialScope — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts › useMessagingResourceController › read — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts › useMessagingResourceController › setSenders — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts › useMessagingResourceController › setTemplates — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts › useMessagingResourceController (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx › NotificationRecoveryContainer › readCatalog — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx › NotificationRecoveryContainer › recover — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx › NotificationRecoveryContainer (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
+      "components/academy-admissions/messaging-connection-resources/index.tsx (module directives and side effects) — client/server boundary and side effects of the module",
+      "components/academy-admissions/messaging-connection-resources/index.tsx › MessagingResourceListState — behavior of this code in every state of the unit that uses it",
+      "components/academy-admissions/messaging-connection-resources/index.tsx › MessagingResourceReading — behavior of this code in every state of the unit that uses it",
+      "components/academy-admissions/messaging-connections-workspace/index.tsx › MessagingConnectionsWorkspace — behavior of this code in every state of the unit that uses it",
+      "components/academy-admissions/messaging-connections/index.tsx › MessagingConnections — behavior of this code in every state of the unit that uses it",
+      "components/academy-admissions/messaging-connections/index.tsx › MessagingConnections › focusFirstInvalid — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
+      "components/academy-admissions/messaging-connections/index.tsx › MessagingConnections (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
+      "components/academy-admissions/messaging-notification-recovery/index.tsx › MessagingNotificationRecovery — behavior of this code in every state of the unit that uses it",
+      "src/constants/time.ts › TIMER_MAXIMUM_DELAY_MS — behavior of this code in every state of the unit that uses it",
+      "src/modules/messaging/constants/messaging-connections-browser.ts › MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedDetail — copy or configuration read from this member, in every state that shows it",
+      "src/modules/messaging/constants/messaging-connections-browser.ts › MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedTitle — copy or configuration read from this member, in every state that shows it",
+      "src/modules/messaging/constants/messaging-connections-browser.ts › MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadRetry — copy or configuration read from this member, in every state that shows it",
+      "src/modules/messaging/constants/messaging-resources-browser.ts › MESSAGING_RESOURCE_UI_COPY.sendersEmpty — copy or configuration read from this member, in every state that shows it",
+      "src/modules/messaging/constants/messaging-resources-browser.ts › MESSAGING_RESOURCE_UI_COPY.templatesEmpty — copy or configuration read from this member, in every state that shows it",
+      "src/modules/messaging/constants/notification-recovery-ui.ts › NOTIFICATION_RECOVERY_UI_COPY.expired — copy or configuration read from this member, in every state that shows it"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T06:32:58.823Z",
+  "unitId": "academy.admissions.messaging.connections.restore"
+}

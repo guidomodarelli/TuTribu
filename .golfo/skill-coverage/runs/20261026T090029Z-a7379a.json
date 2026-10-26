@@ -1,0 +1,83 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/admission-leader-lists",
+    "commit": "e6f93720e9a8bbf3820c7764d2dddccaca67ed97",
+    "fingerprint": "sha256:1b7cc769b6b9deea5572898cf2021a6fa0c8cc44d4e327546b5643f42dcdeedb",
+    "uncommittedFiles": [],
+    "fileCount": 109,
+    "inputCount": 1039
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx tests/unit/pages/tribe-story-page.test.tsx tests/unit/components/tribe-story-about.test.tsx tests/unit/lib/academy/academy-api-client.test.ts",
+      "durationMs": 30025,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "bc1faeffb4170e19ff9bf003884d857b2cec99ff770feffbecf9883cba46367d",
+      "recordedAt": "2026-10-26T09:01:00.349Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "command": "pnpm run -s typecheck",
+      "durationMs": 2723,
+      "exitCode": 0,
+      "kind": "command",
+      "outcome": "pass",
+      "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
+      "recordedAt": "2026-10-26T09:01:03.689Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T09:01:04.328Z",
+      "source": "attested",
+      "summary": "Ciclo de vida: contratar y cancelar son server-confirmed y la confirmación del pago es pending-first, terminada solo por una relectura confirmada; cada acción tiene su propio error junto a su control y se limpia al reintentar; el checkout queda bloqueado mientras se abre el proveedor y se libera al restaurar la página; la server action del ingreso gratis devuelve forbidden o failed y registra el error inesperado."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T09:01:04.975Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: mientras se confirma el pago no se ofrece Contratar academia y vuelve cuando no hay pago; throttled y la relectura fallida se informan junto a Actualizar estado; el error de cancelar queda solo en el diálogo y se limpia al reabrirlo; el rechazo del ingreso gratis desde la historia muestra su motivo (4/4; antes, los cuatro casos fallaban)."
+    }
+  ],
+  "limitations": [
+    "Solo se revisaron los estados y mutaciones de la página de academia y del ingreso gratis que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T09:01:06.819Z",
+  "result": "partial",
+  "runId": "20261026T090029Z-a7379a",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit academy.manage.view (/[slug]/academia/gestionar): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "e456ce5fb1266d0e",
+      "references/decision-rules.md": "5340413b30d4e7a7",
+      "references/nextjs-apis.md": "7d812e101f16defe",
+      "references/server-client-split.md": "7f52ba9f6a13308d",
+      "references/skeleton-patterns.md": "65d4c31f0f8beb93",
+      "references/version-notes.md": "b6f6488947de60f0"
+    },
+    "definitionHash": "sha256:a3b7fb0dda3a877474c7910f4914469c8cb9a94700aa9d750e81067d96406ed1",
+    "name": "nextjs-route-ui-boundaries",
+    "version": "1.3.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T09:00:29.660Z",
+  "unitId": "academy.manage.view"
+}

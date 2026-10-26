@@ -1,0 +1,208 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/admission-leader-lists",
+    "commit": "e6f93720e9a8bbf3820c7764d2dddccaca67ed97",
+    "fingerprint": "sha256:c1b7a86d077295238ce987b1cdcf1a1188718fdbebf83b7679cf74e17f93aee8",
+    "uncommittedFiles": [],
+    "fileCount": 289,
+    "inputCount": 1629
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admission-applicant-recovery.test.tsx tests/unit/components/academy-admissions-manual.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx",
+      "durationMs": 40972,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "a14c015ca0dddb1d58478dacdc179c16d16d6eaea0965c6f15a2ccfbfb8bd8ae",
+      "recordedAt": "2026-10-26T06:34:29.445Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T06:34:30.099Z",
+      "source": "attested",
+      "summary": "Estados: unavailable ofrece reintento solo para fallas transitorias; los errores de envío, cancelación y corrección del WhatsApp quedan junto a su origen, una sola vez, y se limpian al corregir; los inciertos siguen en la página junto a Consultar estado; un token heredado mal formado ya no ofrece un reintento que no puede funcionar."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T06:34:32.792Z",
+  "result": "verified",
+  "runId": "20261026T063347Z-d656d4",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "24 relevant change(s) since the verified run"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#MAXIMUM_TIMEOUT_MS",
+        "reason": "code no longer reached by the unit: an operation may have been removed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#useMessagingActivationController",
+        "reason": "code reached by the unit changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell",
+        "reason": "component state or render changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/initialScope",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/read",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/setSenders",
+        "reason": "code no longer reached by the unit: an operation may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/setTemplates",
+        "reason": "code no longer reached by the unit: an operation may have been removed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController~shell",
+        "reason": "component state or render changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/readCatalog",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/recover",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer~shell",
+        "reason": "component state or render changed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-connection-resources/index.tsx#<module>",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-connection-resources/index.tsx#MessagingResourceListState",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-connection-resources/index.tsx#MessagingResourceReading",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/messaging-connections-workspace/index.tsx#MessagingConnectionsWorkspace",
+        "reason": "code reached by the unit changed"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/messaging-connections/index.tsx#MessagingConnections",
+        "reason": "code no longer reached by the unit: an operation may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-connections/index.tsx#MessagingConnections/focusFirstInvalid",
+        "reason": "new action handler"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-connections/index.tsx#MessagingConnections~shell",
+        "reason": "component state or render changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/messaging-notification-recovery/index.tsx#MessagingNotificationRecovery",
+        "reason": "code reached by the unit changed"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/time.ts#TIMER_MAXIMUM_DELAY_MS",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-connections-browser.ts#MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadRetry",
+        "reason": "lifecycle configuration member (currentReadRetry)"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/constants/messaging-resources-browser.ts#MESSAGING_RESOURCE_UI_COPY.sendersEmpty",
+        "reason": "code no longer reached by the unit: an operation may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/constants/messaging-resources-browser.ts#MESSAGING_RESOURCE_UI_COPY.templatesEmpty",
+        "reason": "code no longer reached by the unit: an operation may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/notification-recovery-ui.ts#NOTIFICATION_RECOVERY_UI_COPY.expired",
+        "reason": "lifecycle configuration member (expired)"
+      }
+    ],
+    "suggestedScope": [
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts › MAXIMUM_TIMEOUT_MS — an operation was removed or moved: check that no pending intent, timer, rollback or cache entry still points to it",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts › useMessagingActivationController — operations that reach this code: intent, concurrency, rollback and reconciliation",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx › MessagingConnectionsContainer (component body outside its handlers) — how the component state and render show pending, optimistic and confirmed values, and what is cleaned up on unmount or context change",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts › useMessagingResourceController › initialScope — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts › useMessagingResourceController › read — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts › useMessagingResourceController › setSenders — an operation was removed or moved: check that no pending intent, timer, rollback or cache entry still points to it",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts › useMessagingResourceController › setTemplates — an operation was removed or moved: check that no pending intent, timer, rollback or cache entry still points to it",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts › useMessagingResourceController (component body outside its handlers) — how the component state and render show pending, optimistic and confirmed values, and what is cleaned up on unmount or context change",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx › NotificationRecoveryContainer › readCatalog — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx › NotificationRecoveryContainer › recover — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx › NotificationRecoveryContainer (component body outside its handlers) — how the component state and render show pending, optimistic and confirmed values, and what is cleaned up on unmount or context change",
+      "components/academy-admissions/messaging-connection-resources/index.tsx (module directives and side effects) — module directives (\"use client\", \"use server\") and side effects that change where the operation runs",
+      "components/academy-admissions/messaging-connection-resources/index.tsx › MessagingResourceListState — operations that reach this code: intent, concurrency, rollback and reconciliation",
+      "components/academy-admissions/messaging-connection-resources/index.tsx › MessagingResourceReading — operations that reach this code: intent, concurrency, rollback and reconciliation",
+      "components/academy-admissions/messaging-connections-workspace/index.tsx › MessagingConnectionsWorkspace — operations that reach this code: intent, concurrency, rollback and reconciliation",
+      "components/academy-admissions/messaging-connections/index.tsx › MessagingConnections — an operation was removed or moved: check that no pending intent, timer, rollback or cache entry still points to it",
+      "components/academy-admissions/messaging-connections/index.tsx › MessagingConnections › focusFirstInvalid — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+      "components/academy-admissions/messaging-connections/index.tsx › MessagingConnections (component body outside its handlers) — how the component state and render show pending, optimistic and confirmed values, and what is cleaned up on unmount or context change",
+      "components/academy-admissions/messaging-notification-recovery/index.tsx › MessagingNotificationRecovery — operations that reach this code: intent, concurrency, rollback and reconciliation",
+      "src/constants/time.ts › TIMER_MAXIMUM_DELAY_MS — operations that reach this code: intent, concurrency, rollback and reconciliation",
+      "src/modules/messaging/constants/messaging-connections-browser.ts › MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadRetry — lifecycle configuration read from this member (timing, limits, endpoints, cache keys) in every operation that uses it",
+      "src/modules/messaging/constants/messaging-resources-browser.ts › MESSAGING_RESOURCE_UI_COPY.sendersEmpty — an operation was removed or moved: check that no pending intent, timer, rollback or cache entry still points to it",
+      "src/modules/messaging/constants/messaging-resources-browser.ts › MESSAGING_RESOURCE_UI_COPY.templatesEmpty — an operation was removed or moved: check that no pending intent, timer, rollback or cache entry still points to it",
+      "src/modules/messaging/constants/notification-recovery-ui.ts › NOTIFICATION_RECOVERY_UI_COPY.expired — lifecycle configuration read from this member (timing, limits, endpoints, cache keys) in every operation that uses it"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "96d98d49220f2894",
+      "references/action-catalog.md": "3011dc2f28c2e91c",
+      "references/concurrency-reconciliation.md": "1bb4d0816b1a483d",
+      "references/framework-primitives.md": "16fc928cc9cc1f3c",
+      "references/interaction-state-machine.md": "c09f8f0c506bdd54",
+      "references/optimistic-decision.md": "62c41b62a67ed97a"
+    },
+    "definitionHash": "sha256:e7f9e58f5862e859cec90782e0920de1b6583e9e1904af2e8818f971aeb3448f",
+    "name": "optimistic-action-mutations",
+    "version": "1.2.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T06:33:47.877Z",
+  "unitId": "academy.admissions.messaging.connections.restore"
+}

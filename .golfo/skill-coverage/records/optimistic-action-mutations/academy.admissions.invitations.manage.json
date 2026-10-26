@@ -6,13 +6,13 @@
   "verified": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-leader-recovery-exits",
-      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
+      "branch": "fix/admission-leader-lists",
+      "commit": "e6f93720e9a8bbf3820c7764d2dddccaca67ed97",
       "files": {
         "app/(platform)/[slug]/academia/admissions/invitations/page.tsx": "5731b66b99705bd9",
-        "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx": "606677bb3acc94b4",
-        "hooks/use-personal-invitation-management.ts": "2d57762623290e7d",
-        "components/academy-admissions/invitation-management/index.tsx": "79d3a32c12af37ed",
+        "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx": "a8000c078798a64e",
+        "hooks/use-personal-invitation-management.ts": "8a53d45c45814d07",
+        "components/academy-admissions/invitation-management/index.tsx": "3f5acbb8145d5964",
         "app/api/tribes/[slug]/admissions/invitations/route.ts": "1ab19645aca4c8d0",
         "app/api/tribes/[slug]/admissions/invitations/[invitationId]/route.ts": "626d54f78fe12588",
         "app/api/tribes/[slug]/admissions/invitations/[invitationId]/revoke/route.ts": "744bec237ebb9cb2",
@@ -29,12 +29,14 @@
         "src/modules/academy-admissions/application/commands/personal-invitation-management-intent.ts": "b9259cde3e332804",
         "lib/toasts/write-toast.ts": "2bdc7e827e8fc523",
         "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts": "f1c7d9accf25dffa",
+        "lib/academy-admissions/admission-access-loss.ts": "8bc3d9fe5ffba75f",
         "lib/academy-admissions/personal-invitation-management-intent.ts": "1589f75f6b7371ce",
         "src/constants/operation-state.ts": "8658825f51feae9a",
         "src/modules/auth/constants/reauthentication-resources.ts": "73b5e0d97c9862f7",
         "src/modules/academy-admissions/constants/personal-invitation-management-schemas.ts": "a55729785be0b9a6",
         "lib/academy-admissions/admission-draft.ts": "9baf5fefaa499a20",
         "src/modules/academy-admissions/constants/admission-eligibility.ts": "eb86fa4c334de686",
+        "lib/academy-admissions/admission-list-pages.ts": "04108c707bf439c1",
         "src/modules/academy-admissions/constants/admission-limits.ts": "2d7d087ec36ae67b",
         "components/forms/guided-steps/index.tsx": "3408dd218a444fb6",
         "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
@@ -126,7 +128,7 @@
         "src/modules/auth/application/use-cases/get-authenticated-member-use-case.ts": "6ae2f4d7a505f8f5",
         "src/modules/auth/domain/entities/authenticated-member.ts": "1a2dac539d8da9d9",
         "src/modules/auth/infrastructure/better-auth/server-auth-context.ts": "1c98179f3341e101",
-        "src/modules/academy-admissions/constants/admission-ui.ts": "a57d7d4286770b34",
+        "src/modules/academy-admissions/constants/admission-ui.ts": "c0ed62cb0dafbbf7",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
         "src/modules/academy-admissions/application/results/admission-operation-recovery.ts": "08e3bb7982308b78",
@@ -166,7 +168,7 @@
         "src/modules/academy-admissions/application/results/admission-batch-decision-result.ts": "e7b6140dec98efd9",
         "src/modules/academy-admissions/application/results/admission-activity-result.ts": "9a90cb2e8735c2a9",
         "src/modules/academy-admissions/application/results/admission-metrics-result.ts": "08620a4f1a506f0f",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "d0af64144b8cacf3",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "7e28bd61704eb630",
         "src/modules/academy-admissions/constants/admission-activity.ts": "a6c5519798822d7b",
         "src/modules/academy-admissions/constants/admission-activity-page-schemas.ts": "7522ac9ef5450726",
         "src/modules/tribes/constants/academy-membership.ts": "458dd8dd26c19140",
@@ -259,7 +261,7 @@
         "src/modules/academy-admissions/application/results/admission-writer-result-schemas.ts": "2792c8a8e8eea5f4",
         "src/modules/academy-admissions/domain/repositories/admission-whatsapp-number-writer.ts": "25a448bd954a5e32",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-submission-proof-reader.ts": "931f9ad7a5aa7eac",
-        "src/modules/tribes/constants/tribe-story.ts": "56fbe141834e760e",
+        "src/modules/tribes/constants/tribe-story.ts": "95b0fb552f1928b0",
         "src/modules/academy-admissions/constants/admission-batch-decision-schema.ts": "21d31f0bdcf55085",
         "src/modules/academy-admissions/constants/admission-command-denial-schema.ts": "7da544dec6ac92b3",
         "src/modules/academy-admissions/infrastructure/repositories/assert-unreserved-admission-contact.ts": "dab62a6379fe508d",
@@ -350,7 +352,7 @@
         "src/modules/academy-admissions/application/results/admission-batch-browser-result.ts": "af9e5a8a9b24a2ca",
         "src/modules/academy-admissions/constants/personal-invitation-token.ts": "e6bec12eaf4702b9",
         "src/modules/tribes/domain/value-objects/tribe-slug.ts": "07196b88770dfa73",
-        "src/constants/time.ts": "98b5459a77a709b0",
+        "src/constants/time.ts": "987c18a571e92d4d",
         "src/modules/academy-admissions/constants/admission-diagnostics.ts": "1d9852f30b24dee4",
         "src/modules/academy-admissions/infrastructure/api/admission-error-status.ts": "42249044fc9231d8",
         "src/modules/shared/infrastructure/http/own-json-route-boundary.ts": "27889d5d9779d486",
@@ -470,36 +472,37 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:84b1d0a55d72e197576fc6148cad82afca06945e276e993c77265672cf6f5faa",
+      "fingerprint": "sha256:c0bac240a7cd80af78c08bcf1d73b2261b178cb38105a69a90a975a6078e7a80",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/invitations/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/invitations/page.tsx#InvitationsPage": "4e110598df2d3c91",
         "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx#InvitationsContainer": "0b7bb54fa4ea8964",
+        "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx#InvitationsContainer": "e6e3dd8c0265c4af",
         "hooks/use-personal-invitation-management.ts#<module>": "d414f6d3ee71f10d",
         "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/client": "cb2f027a3e9fd9d6",
         "pkg:react": "374a4508a198654b",
         "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/live": "3377e9eb1de06adf",
         "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/close": "42b5c170b09ff708",
         "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/authorize": "2b8b9d2b01260d8c",
-        "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement~shell": "8a6b1b23d4dce12c",
+        "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement~shell": "b2ba0218a0b764eb",
         "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/persist": "a705a8ce9bc5c914",
         "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/observeReference": "e14a13a59b9a28d9",
-        "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/report": "47a50a26bb38c130",
-        "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/refresh": "674d917d77ea095e",
-        "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/run": "6ede04c182544ab7",
+        "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/report": "d0835292a30125f2",
+        "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/refresh": "7dc936e76248e1a6",
+        "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/run": "c152bad9e6825b1b",
         "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/consume": "dc7a173b2fbd0f1d",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/save": "6b9434135750f844",
         "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/readOriginal": "f3cccb7a1e1b9f20",
         "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/readCurrent": "b673f72b4324b1ed",
+        "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/readMore": "8d5d76130532d354",
         "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/changeDraft": "725614ebecbf1d64",
         "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/select": "390d1d90fc57a477",
         "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/copyUrl": "a23342df18181e06",
         "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/discardSelection": "38032b437dfc259d",
         "components/academy-admissions/invitation-management/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy-admissions/invitation-management/index.tsx#InvitationManagement/change": "1b5a538f84919e40",
-        "components/academy-admissions/invitation-management/index.tsx#InvitationManagement~shell": "7535017498e6bd60",
+        "components/academy-admissions/invitation-management/index.tsx#InvitationManagement~shell": "31ecd357d62978b3",
         "components/academy-admissions/invitation-management/index.tsx#formatInvitationExpiry": "59cfd1e84fdb590d",
         "app/api/tribes/[slug]/admissions/invitations/route.ts#<module>": "2da3ec2294295eb1",
         "app/api/tribes/[slug]/admissions/invitations/route.ts#GET": "81267c483e9f161d",
@@ -551,16 +554,15 @@
         "lib/academy-admissions/personal-invitation-management-api-client.ts#createPersonalInvitationManagementApiClient/base": "92cbff5940db95cc",
         "lib/academy-admissions/personal-invitation-management-api-client.ts#createPersonalInvitationManagementApiClient~shell": "f0328d3297cd0b3e",
         "src/modules/academy-admissions/constants/admission-errors.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_MESSAGE": "3cd989ed624f1a0a",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE~frame": "2f799f41481116eb",
         "src/modules/academy-admissions/constants/admission-errors.ts#AdmissionErrorCode": "d40fce53bfa2dcc3",
-        "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.authenticationRequired": "e8f0fd5231a55b76",
-        "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.permissionDenied": "04dfe24c619dd951",
-        "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_MESSAGE": "3cd989ed624f1a0a",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.additionalVerificationRequired": "bfe8586c59f798cd",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.admissionIneligible": "f9105059234dfbd2",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.admissionsPaused": "9ddf8c7b99c2b435",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.allowlistConflict": "62d559c76285847e",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.allowlistImportConflict": "9d239b12178cffe7",
+        "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.authenticationRequired": "e8f0fd5231a55b76",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.challengeExpired": "6b4dff8cffa91a34",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.challengeInvalidated": "54fbfe9052a71de6",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.connectionConflict": "34091f5d89b7e37f",
@@ -577,6 +579,7 @@
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.membershipRecoveryRequired": "8819b2674ef2d4e1",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.missingCapability": "c87e9bf8ecae255d",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.operationUnresolved": "fb0dcd36263e917e",
+        "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.permissionDenied": "04dfe24c619dd951",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.policyConflict": "a1521b87c6308d62",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.proofUnavailable": "14388aabfb5d0f4d",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.providerRateLimited": "0f64b762d6a2f143",
@@ -606,6 +609,8 @@
         "lib/toasts/write-toast.ts#WriteToast": "814b5d754cefadee",
         "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts#emptyPersonalInvitationManagementDraft": "7cb7df5547112731",
+        "lib/academy-admissions/admission-access-loss.ts#<module>": "2da3ec2294295eb1",
+        "lib/academy-admissions/admission-access-loss.ts#isAdmissionAccessLoss": "46346b411253860c",
         "lib/academy-admissions/personal-invitation-management-intent.ts#<module>": "d414f6d3ee71f10d",
         "lib/academy-admissions/personal-invitation-management-intent.ts#writePersonalInvitationManagementReference": "ca9fcdf371ca9165",
         "lib/academy-admissions/personal-invitation-management-intent.ts#key": "6a6aace45ad34668",
@@ -662,6 +667,9 @@
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_COPY.current": "7b4229b8dd00fd56",
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_REPLACEMENT_UNAVAILABLE": "2b7fe85bc76b5072",
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_SELECTION_MISSING": "418ff1c20aa442e0",
+        "lib/academy-admissions/admission-list-pages.ts#<module>": "2da3ec2294295eb1",
+        "lib/academy-admissions/admission-list-pages.ts#appendAdmissionListPage": "a51836f90a8fcff2",
+        "lib/academy-admissions/admission-list-pages.ts#IdentifiedItem": "a7da7681400aaa52",
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_MODE~frame": "706a5e26a3265e7d",
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_MODE.create": "9b5cb553a2f567ee",
         "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_COPY.clipboard": "39fcd96a89154cfa",
@@ -3474,6 +3482,9 @@
         "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/readCurrent": {
           "awaits": 1
         },
+        "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/readMore": {
+          "awaits": 3
+        },
         "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/copyUrl": {
           "awaits": 1
         },
@@ -4370,35 +4381,35 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
-        "durationMs": 175604,
+        "command": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx",
+        "durationMs": 109236,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "b7b163cf905f7163d0fb558365338ffbf91c7bf59048535216697bc540c74fd9",
-        "recordedAt": "2026-10-25T16:26:42.702Z",
+        "outputSha256": "073f4858354f312c28d71d8fa603515c481ccd71243568f6f243320ace33a07e",
+        "recordedAt": "2026-10-26T02:21:54.228Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T16:26:43.278Z",
+        "recordedAt": "2026-10-26T02:21:54.949Z",
         "source": "attested",
-        "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
+        "summary": "Estados: Ver más acumula sin duplicados y su carga y error quedan junto al botón; las relecturas y filtros conservan lo mostrado con aria-busy y descartan respuestas viejas; la bandeja y el historial muestran los datos del servidor al hidratar y habilitan las acciones tras el chequeo de cuenta; la importación selecciona todas las válidas sin cambiar el contrato; el doble montaje de desarrollo ya no se toma como restauración."
       }
     ],
     "limitations": [],
     "mode": "incremental",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T16:26:45.482Z",
+    "recordedAt": "2026-10-26T02:21:58.009Z",
     "result": "verified",
-    "runId": "20261025T162346Z-3ef462",
+    "runId": "20261026T022004Z-4d52c5",
     "scope": {
       "decision": "incremental",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "2 relevant change(s) since the verified run"
+        "12 relevant change(s) since the verified run"
       ],
       "relevantChangesAtBegin": [
         {
@@ -4408,13 +4419,73 @@
         },
         {
           "change": "modified",
-          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
-          "reason": "code reached by the unit changed"
+          "key": "components/academy-admissions/invitation-management/index.tsx#InvitationManagement~shell",
+          "reason": "component state or render changed"
+        },
+        {
+          "change": "added",
+          "key": "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/readMore",
+          "reason": "new action handler"
+        },
+        {
+          "change": "modified",
+          "key": "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/refresh",
+          "reason": "action handler changed"
+        },
+        {
+          "change": "modified",
+          "key": "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/report",
+          "reason": "action handler changed"
+        },
+        {
+          "change": "modified",
+          "key": "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/run",
+          "reason": "action handler changed"
+        },
+        {
+          "change": "modified",
+          "key": "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement~shell",
+          "reason": "component state or render changed"
+        },
+        {
+          "change": "added",
+          "key": "lib/academy-admissions/admission-access-loss.ts#<module>",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/academy-admissions/admission-access-loss.ts#isAdmissionAccessLoss",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/academy-admissions/admission-list-pages.ts#<module>",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/academy-admissions/admission-list-pages.ts#appendAdmissionListPage",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "lib/academy-admissions/admission-list-pages.ts#IdentifiedItem",
+          "reason": "new code reached by the unit"
         }
       ],
       "suggestedScope": [
         "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx › InvitationsContainer — operations that reach this code: intent, concurrency, rollback and reconciliation",
-        "components/academy-admissions/admission-route-error/index.tsx › AdmissionRouteError — operations that reach this code: intent, concurrency, rollback and reconciliation"
+        "components/academy-admissions/invitation-management/index.tsx › InvitationManagement (component body outside its handlers) — how the component state and render show pending, optimistic and confirmed values, and what is cleaned up on unmount or context change",
+        "hooks/use-personal-invitation-management.ts › usePersonalInvitationManagement › readMore — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+        "hooks/use-personal-invitation-management.ts › usePersonalInvitationManagement › refresh — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+        "hooks/use-personal-invitation-management.ts › usePersonalInvitationManagement › report — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+        "hooks/use-personal-invitation-management.ts › usePersonalInvitationManagement › run — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+        "hooks/use-personal-invitation-management.ts › usePersonalInvitationManagement (component body outside its handlers) — how the component state and render show pending, optimistic and confirmed values, and what is cleaned up on unmount or context change",
+        "lib/academy-admissions/admission-access-loss.ts (module directives and side effects) — module directives (\"use client\", \"use server\") and side effects that change where the operation runs",
+        "lib/academy-admissions/admission-access-loss.ts › isAdmissionAccessLoss — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "lib/academy-admissions/admission-list-pages.ts (module directives and side effects) — module directives (\"use client\", \"use server\") and side effects that change where the operation runs",
+        "lib/academy-admissions/admission-list-pages.ts › appendAdmissionListPage — operations that reach this code: intent, concurrency, rollback and reconciliation",
+        "lib/academy-admissions/admission-list-pages.ts › IdentifiedItem — operations that reach this code: intent, concurrency, rollback and reconciliation"
       ]
     },
     "skill": {
@@ -4430,6 +4501,6 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T162346Z-3ef462.json"
+    "report": "runs/20261026T022004Z-4d52c5.json"
   }
 }

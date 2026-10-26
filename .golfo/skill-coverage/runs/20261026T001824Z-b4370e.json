@@ -1,0 +1,194 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/admission-leader-lists",
+    "commit": "6fea69e218f66add443d4b396ef5dca06c9d6536",
+    "fingerprint": "sha256:410a0bcfc359c22c0d18accdeac3de635f609ff551d39f086b90cf5fa9c8756d",
+    "uncommittedFiles": [],
+    "fileCount": 309,
+    "inputCount": 1626
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx",
+      "durationMs": 150069,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "e84ebd3deb70f65e0daae2efb89bc988340026fe5f6e152ebc526a68480e18a9",
+      "recordedAt": "2026-10-26T00:20:55.432Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T00:20:56.911Z",
+      "source": "attested",
+      "summary": "Estados: Ver más acumula sin duplicados y su carga y error quedan junto al botón; las relecturas y filtros conservan lo mostrado con aria-busy y descartan respuestas viejas; la bandeja y el historial muestran los datos del servidor al hidratar y habilitan las acciones tras el chequeo de cuenta; la importación selecciona todas las válidas sin cambiar el contrato; el doble montaje de desarrollo ya no se toma como restauración."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T00:20:58.121Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Ver más entradas suma 25 a 27 sin duplicados con aria-busy; la importación elige las 55 válidas de 60 filas; la actividad no se oculta al releer ni al filtrar y suma el hecho anterior; la bandeja muestra la solicitud una sola vez al hidratar y el historial carga en next dev (4/4; antes Ver más dejaba 2, no había selección total, la actividad se vaciaba y la bandeja pasaba por vacía)."
+    }
+  ],
+  "limitations": [
+    "Solo se revisaron las listas del líder que cambia este PR; el resto de cada unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T00:21:02.224Z",
+  "result": "partial",
+  "runId": "20261026T001824Z-b4370e",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer/applyFilters",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer/checkViewer",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer/launchRead",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer/readSnapshot",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer/reload",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer/showPrivate",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#combineActivitySnapshots",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/activity/styles.module.scss#*",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-activity/index.tsx#AdmissionActivity",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-activity/styles.module.scss#*",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-access-loss.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-access-loss.ts#isAdmissionAccessLoss",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-list-pages.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-list-pages.ts#appendAdmissionListPage",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-list-pages.ts#IdentifiedItem",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-list-pages.ts#refreshAdmissionListFirstPage",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_READ_MODE.older",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_READ_MODE.refresh",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_READ_MODE.replace",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_READ_MODE.restore",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_READ_MODE~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_UI_COPY.updating",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-activity-browser.ts#AdmissionActivityReadMode",
+        "reason": "new visible or interactive code"
+      }
+    ],
+    "suggestedScope": [
+      "whole unit academy.admissions.activity.view: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T00:18:24.438Z",
+  "unitId": "academy.admissions.activity.view"
+}

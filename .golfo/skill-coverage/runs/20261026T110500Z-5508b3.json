@@ -1,0 +1,72 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/admission-leader-lists",
+    "commit": "e6f93720e9a8bbf3820c7764d2dddccaca67ed97",
+    "fingerprint": "sha256:6fddf74910dc86fa6cffb93193cd68b5fce5dfc60b31cc930257fb9344045b72",
+    "uncommittedFiles": [],
+    "fileCount": 246,
+    "inputCount": 1472
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx tests/unit/components/academy-admissions-messaging-resources.test.tsx tests/unit/components/academy-admissions-notification-recovery-container.test.tsx tests/unit/components/academy-admissions-notification-recovery.test.tsx",
+      "durationMs": 113549,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "472eec3a010352e6a60ae1c3aadd5c3491841e2785fa55a8aab17b9e1f64927e",
+      "recordedAt": "2026-10-26T11:06:54.708Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T11:06:55.337Z",
+      "source": "attested",
+      "summary": "Estados: el guardado valida al presionar y muestra qué falta junto a cada campo; las consultas de remitentes y plantillas muestran su carga, evitan la doble consulta y dejan el vacío y el error junto al select; Ver avisos anteriores acumula sin duplicados y una recuperación vencida se muestra como no disponible; solo un conflicto real marca la conexión como cambiada, también en la relectura tras una comprobación rechazada."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T11:06:55.942Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Guardar conexión marca cada campo que falta y lleva el foco al primero, y una lectura fallida de la conexión actual ofrece Reintentar consulta sin el banner de conexión cambiada (4/4; antes el botón estaba deshabilitado sin explicación y la lectura fallida mostraba el banner). Remitentes, plantillas y recuperación de avisos necesitan una conexión de Zavu real y quedaron verificados con tests."
+    }
+  ],
+  "limitations": [
+    "Remitentes, plantillas y recuperación de avisos no se recorrieron en el navegador: necesitan una conexión de Zavu con credencial válida o activa, que la rama efímera no tiene."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T11:06:58.181Z",
+  "result": "partial",
+  "runId": "20261026T110500Z-5508b3",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit academy.admissions.applicant.whatsapp.update: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T11:05:00.527Z",
+  "unitId": "academy.admissions.applicant.whatsapp.update"
+}

@@ -1,0 +1,177 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "chore/academy-audit-coverage",
+    "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+    "fingerprint": "sha256:ede276df124a96295ec2e87cd5c0a3ec6f7bf056b532759f650bf6b17566be35",
+    "uncommittedFiles": [],
+    "fileCount": 657,
+    "inputCount": 4115
+  },
+  "evidence": [
+    {
+      "kind": "test",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T13:53:03.200Z",
+      "source": "attested",
+      "summary": "pnpm exec vitest run tests/unit/components/academy-admission-applicant-recovery.test.tsx tests/unit/components/academy-admissions-manual.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx: Tests 53 passed (53) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T13:53:03.962Z",
+      "source": "attested",
+      "summary": "Estados: unavailable ofrece reintento solo para fallas transitorias; los errores de envío, cancelación y corrección del WhatsApp quedan junto a su origen, una sola vez, y se limpian al corregir; los inciertos siguen en la página junto a Consultar estado; un token heredado mal formado ya no ofrece un reintento que no puede funcionar."
+    }
+  ],
+  "limitations": [
+    "Solo se revisaron los estados de error y de no disponible de la página del aspirante que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T13:53:09.099Z",
+  "result": "partial",
+  "runId": "20261026T135302Z-283dec",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#diagnosticAbsenceSince",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#DiagnosticPendingIntent",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#isDiagnosticIntent",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/archiveOriginal",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/clearEarlierDiagnostics",
+        "reason": "new action handler"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/issueDiagnostic",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/recover",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/verifyDiagnostic",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell",
+        "reason": "component state or render changed"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/messaging-diagnostic-history/index.tsx#MessagingDiagnosticHistory",
+        "reason": "code no longer reached by the unit: an operation may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-diagnostic-history/index.tsx#MessagingDiagnosticHistory/confirmClear",
+        "reason": "new action handler"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-diagnostic-history/index.tsx#MessagingDiagnosticHistory~shell",
+        "reason": "component state or render changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/messaging-original-recovery/index.tsx#MessagingOriginalRecovery",
+        "reason": "code reached by the unit changed"
+      },
+      {
+        "change": "modified",
+        "key": "lib/messaging/messaging-connections-intent-store.ts#createMessagingConnectionsIntentStore~shell",
+        "reason": "component state or render changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/messaging/messaging-connections-intent-store.ts#dispatchedAtSchema",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "modified",
+        "key": "lib/messaging/messaging-connections-intent-store.ts#intentSchema",
+        "reason": "code reached by the unit changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-contact-browser.ts#<module>",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-contact-browser.ts#ADMISSION_CONTACT_ABSENT_DISCARD_AFTER_MS",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/ports/messaging-connections-intent-store.ts#MessagingConnectionsIntentStore",
+        "reason": "code reached by the unit changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/ports/messaging-connections-intent-store.ts#MessagingConnectionsPendingIntent",
+        "reason": "code reached by the unit changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-diagnostic-browser.ts#ABSENT_ARCHIVE_AFTER_MINUTES",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-diagnostic-browser.ts#MESSAGING_DIAGNOSTIC_ABSENT_ARCHIVE_AFTER_MS",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-diagnostic-browser.ts#MESSAGING_DIAGNOSTIC_RECOVERY_UI_COPY~frame",
+        "reason": "new code reached by the unit"
+      }
+    ],
+    "suggestedScope": [
+      "whole unit academy.admissions.messaging.connection.save: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "96d98d49220f2894",
+      "references/action-catalog.md": "3011dc2f28c2e91c",
+      "references/concurrency-reconciliation.md": "1bb4d0816b1a483d",
+      "references/framework-primitives.md": "16fc928cc9cc1f3c",
+      "references/interaction-state-machine.md": "c09f8f0c506bdd54",
+      "references/optimistic-decision.md": "62c41b62a67ed97a"
+    },
+    "definitionHash": "sha256:e7f9e58f5862e859cec90782e0920de1b6583e9e1904af2e8818f971aeb3448f",
+    "name": "optimistic-action-mutations",
+    "version": "1.2.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T13:53:02.377Z",
+  "unitId": "academy.admissions.messaging.connection.save"
+}

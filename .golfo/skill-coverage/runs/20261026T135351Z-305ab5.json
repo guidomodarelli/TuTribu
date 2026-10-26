@@ -1,0 +1,155 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "chore/academy-audit-coverage",
+    "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+    "fingerprint": "sha256:0d1238ff1c761ba66cca10223a5dbf15e7b6d693fb85b53155d87697ada0614c",
+    "uncommittedFiles": [],
+    "fileCount": 276,
+    "inputCount": 1762
+  },
+  "evidence": [
+    {
+      "kind": "test",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T13:53:52.575Z",
+      "source": "attested",
+      "summary": "pnpm exec vitest run tests/unit/components/academy-admission-applicant-recovery.test.tsx tests/unit/components/academy-admissions-manual.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx: Tests 53 passed (53) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+    },
+    {
+      "kind": "command",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T13:53:53.121Z",
+      "source": "attested",
+      "summary": "pnpm run -s typecheck: sin errores sobre el código mergeado"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T13:53:53.677Z",
+      "source": "attested",
+      "summary": "Estados: unavailable ofrece reintento solo para fallas transitorias; los errores de envío, cancelación y corrección del WhatsApp quedan junto a su origen, una sola vez, y se limpian al corregir; los inciertos siguen en la página junto a Consultar estado; un token heredado mal formado ya no ofrece un reintento que no puede funcionar."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T13:53:54.192Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: una falla temporal de la entrada ofrece Reintentar y recupera la página, una solicitud ajena y un enlace heredado inválido no lo ofrecen y explican qué hacer, y un conflicto al enviar se muestra dentro del paso Enviar solicitud, junto al botón (4/4; antes quedaba al pie de la página)."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [
+    "test evidence (build, lint, typecheck or tests) must be run with evidence --exec, not declared",
+    "command evidence (build, lint, typecheck or tests) must be run with evidence --exec, not declared",
+    "missing passing evidence of kind command"
+  ],
+  "recordedAt": "2026-10-26T13:53:56.552Z",
+  "result": "partial",
+  "runId": "20261026T135351Z-305ab5",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "13 relevant change(s) since the verified run"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#DiagnosticPendingIntent",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#isDiagnosticIntent",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/messaging-diagnostic-history/index.tsx#MessagingDiagnosticHistory",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-diagnostic-history/index.tsx#MessagingDiagnosticHistory/confirmClear",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-diagnostic-history/index.tsx#MessagingDiagnosticHistory~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/messaging-original-recovery/index.tsx#MessagingOriginalRecovery",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "lib/messaging/messaging-connections-intent-store.ts#createMessagingConnectionsIntentStore~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "lib/messaging/messaging-connections-intent-store.ts#dispatchedAtSchema",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "lib/messaging/messaging-connections-intent-store.ts#intentSchema",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/ports/messaging-connections-intent-store.ts#MessagingConnectionsIntentStore",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/ports/messaging-connections-intent-store.ts#MessagingConnectionsPendingIntent",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-diagnostic-browser.ts#MESSAGING_DIAGNOSTIC_RECOVERY_UI_COPY~frame",
+        "reason": "new code rendered by the route"
+      }
+    ],
+    "suggestedScope": [
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx › DiagnosticPendingIntent — server/client split and awaited work of this code in every route of the unit",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx › isDiagnosticIntent — server/client split and awaited work of this code in every route of the unit",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx › MessagingConnectionsContainer (component body outside its handlers) — what this component renders: hooks that force a client island, awaited data, Suspense and the client components it imports",
+      "components/academy-admissions/messaging-diagnostic-history/index.tsx › MessagingDiagnosticHistory — what the route lost: a layout, a boundary, a Suspense fallback or a client island; check that each state still has its boundary",
+      "components/academy-admissions/messaging-diagnostic-history/index.tsx › MessagingDiagnosticHistory › confirmClear — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
+      "components/academy-admissions/messaging-diagnostic-history/index.tsx › MessagingDiagnosticHistory (component body outside its handlers) — what this component renders: hooks that force a client island, awaited data, Suspense and the client components it imports",
+      "components/academy-admissions/messaging-original-recovery/index.tsx › MessagingOriginalRecovery — server/client split and awaited work of this code in every route of the unit",
+      "lib/messaging/messaging-connections-intent-store.ts › createMessagingConnectionsIntentStore (component body outside its handlers) — what this component renders: hooks that force a client island, awaited data, Suspense and the client components it imports",
+      "lib/messaging/messaging-connections-intent-store.ts › dispatchedAtSchema — server/client split and awaited work of this code in every route of the unit",
+      "lib/messaging/messaging-connections-intent-store.ts › intentSchema — server/client split and awaited work of this code in every route of the unit",
+      "src/modules/messaging/application/ports/messaging-connections-intent-store.ts › MessagingConnectionsIntentStore — server/client split and awaited work of this code in every route of the unit",
+      "src/modules/messaging/application/ports/messaging-connections-intent-store.ts › MessagingConnectionsPendingIntent — server/client split and awaited work of this code in every route of the unit",
+      "src/modules/messaging/constants/messaging-diagnostic-browser.ts › MESSAGING_DIAGNOSTIC_RECOVERY_UI_COPY (object structure) — server/client split and awaited work of this code in every route of the unit"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "e456ce5fb1266d0e",
+      "references/decision-rules.md": "5340413b30d4e7a7",
+      "references/nextjs-apis.md": "7d812e101f16defe",
+      "references/server-client-split.md": "7f52ba9f6a13308d",
+      "references/skeleton-patterns.md": "65d4c31f0f8beb93",
+      "references/version-notes.md": "b6f6488947de60f0"
+    },
+    "definitionHash": "sha256:a3b7fb0dda3a877474c7910f4914469c8cb9a94700aa9d750e81067d96406ed1",
+    "name": "nextjs-route-ui-boundaries",
+    "version": "1.3.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T13:53:51.936Z",
+  "unitId": "academy.admissions.messaging.connections.restore"
+}

@@ -1,0 +1,68 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/admission-leader-lists",
+    "commit": "e6f93720e9a8bbf3820c7764d2dddccaca67ed97",
+    "fingerprint": "sha256:766db80e0f1c3bd78714ed9a5abee6d1c9f9cd56ad9d2b488a178daed18fdc8b",
+    "uncommittedFiles": [],
+    "fileCount": 159,
+    "inputCount": 1645
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx tests/unit/pages/tribe-story-page.test.tsx tests/unit/components/tribe-story-about.test.tsx tests/unit/lib/academy/academy-api-client.test.ts",
+      "durationMs": 29712,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "e784bb2e374d1078bd505c52495f71315b9344f5164d5a0219e8fe11771feead",
+      "recordedAt": "2026-10-26T08:39:53.938Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    }
+  ],
+  "limitations": [
+    "El PR no agrega requests nuevas: Actualizar estado ya pedía reconcile y la relectura; no se midió."
+  ],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T08:39:55.838Z",
+  "result": "partial",
+  "runId": "20261026T083923Z-4d1a18",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "relevant changes since the skill was recorded not applicable: re-evaluate applicability"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "modified",
+        "key": "components/academy/academy-home/index.tsx#AcademyHome~shell",
+        "reason": "adds load: +1 effects, +1 listeners or subscriptions"
+      }
+    ],
+    "suggestedScope": [
+      "measure the complete flow /[slug]/academia: before = revision 6bf39166cc42 (last measured), after = working tree",
+      "components/academy/academy-home/index.tsx › AcademyHome (component body outside its handlers) — adds load: +1 effects, +1 listeners or subscriptions"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a8d6cde62f2853fa",
+      "references/bundle-lazy-loading.md": "91990bd1796b9884",
+      "references/database-queries-n-plus-one.md": "3064b23acc3e9f7e",
+      "references/images-fonts-scripts.md": "1ab02d4b1a421c87",
+      "references/incremental-sweep-jobs.md": "c5c8e71bdba2e4a9",
+      "references/measurement-tools.md": "e3e96c85be264c0c",
+      "references/requests-caching.md": "981544e05dee2e5c",
+      "references/unnecessary-renders.md": "2d440f22533a2149"
+    },
+    "definitionHash": "sha256:dcb79531d3a56e7765d65880022365639578ed18c69466dbb65f4ce0b59b09d3",
+    "name": "measured-performance-optimization",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T08:39:23.615Z",
+  "unitId": "academy.home.renewal-cancel"
+}

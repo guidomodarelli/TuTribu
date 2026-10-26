@@ -1,0 +1,204 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/admission-leader-lists",
+    "commit": "e6f93720e9a8bbf3820c7764d2dddccaca67ed97",
+    "fingerprint": "sha256:61f8fa7bff2736623ac9e113c79d1c081150ff9117b6d469942472dc750fd909",
+    "uncommittedFiles": [],
+    "fileCount": 69,
+    "inputCount": 996
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx tests/unit/pages/tribe-story-page.test.tsx tests/unit/components/tribe-story-about.test.tsx tests/unit/lib/academy/academy-api-client.test.ts",
+      "durationMs": 30268,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "eab7e6acfc17597e3be77f67fdf90ff1697299e0c5358e12f860273e0af6a701",
+      "recordedAt": "2026-10-26T08:27:43.084Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T08:27:43.658Z",
+      "source": "attested",
+      "summary": "Ciclo de vida: contratar y cancelar son server-confirmed y la confirmación del pago es pending-first, terminada solo por una relectura confirmada; cada acción tiene su propio error junto a su control y se limpia al reintentar; el checkout queda bloqueado mientras se abre el proveedor y se libera al restaurar la página; la server action del ingreso gratis devuelve forbidden o failed y registra el error inesperado."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T08:27:44.194Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: mientras se confirma el pago no se ofrece Contratar academia y vuelve cuando no hay pago; throttled y la relectura fallida se informan junto a Actualizar estado; el error de cancelar queda solo en el diálogo y se limpia al reabrirlo; el rechazo del ingreso gratis desde la historia muestra su motivo (4/4; antes, los cuatro casos fallaban)."
+    }
+  ],
+  "limitations": [
+    "Solo se revisaron los estados y mutaciones de la página de academia y del ingreso gratis que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T08:27:45.701Z",
+  "result": "partial",
+  "runId": "20261026T082712Z-c893cd",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.paymentNotFound",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.paymentStillPending",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.refreshDone",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.refreshReadFailed",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.refreshThrottled",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy/academy-home/index.tsx#AcademyHome/handleRefresh",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy/academy-home/index.tsx#AcademyHome/runAction",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-home/index.tsx#AcademyHome/setActionError",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy/academy-home/index.tsx#AcademyHome~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-home/index.tsx#AcademyHomeAction",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-home/index.tsx#ActionErrors",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-home/index.tsx#describeRefreshOutcome",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-home/index.tsx#isPaymentInProgress",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.cancel",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.checkout",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.join",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.refresh",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-home/index.tsx#PAGE_SHOW_EVENT",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy/academy-home/index.tsx#PendingAction",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy/academy-home/index.tsx#RECONCILE_THROTTLED_STATUS",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy/academy-home/styles.module.scss#*",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "removed",
+        "key": "lib/academy/academy-api-client.ts#MessageBody",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "modified",
+        "key": "lib/academy/academy-api-client.ts#reconcileAcademyCoverage",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/product-access/application/results/academy-public-dto-schemas.ts#AcademyReconcileDto",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/product-access/application/results/academy-public-dto-schemas.ts#academyReconcileDtoSchema",
+        "reason": "new visible or interactive code"
+      }
+    ],
+    "suggestedScope": [
+      "whole unit academy.home.access-refresh: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T08:27:12.245Z",
+  "unitId": "academy.home.access-refresh"
+}

@@ -1,0 +1,72 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/admission-leader-lists",
+    "commit": "e6f93720e9a8bbf3820c7764d2dddccaca67ed97",
+    "fingerprint": "sha256:1ad405ecb7ba5e57558f7c875cb7676e1db3760740744d727d9bdc0971d0d5cf",
+    "uncommittedFiles": [],
+    "fileCount": 195,
+    "inputCount": 1152
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx tests/unit/pages/tribe-story-page.test.tsx tests/unit/components/tribe-story-about.test.tsx tests/unit/lib/academy/academy-api-client.test.ts",
+      "durationMs": 29978,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "9ad82fc5d54f320bef3b15716c2a61ac455196cddcb66835faaefb7e5a10e674",
+      "recordedAt": "2026-10-26T09:12:30.405Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T09:12:30.929Z",
+      "source": "attested",
+      "summary": "Ciclo de vida: contratar y cancelar son server-confirmed y la confirmación del pago es pending-first, terminada solo por una relectura confirmada; cada acción tiene su propio error junto a su control y se limpia al reintentar; el checkout queda bloqueado mientras se abre el proveedor y se libera al restaurar la página; la server action del ingreso gratis devuelve forbidden o failed y registra el error inesperado."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T09:12:31.457Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: mientras se confirma el pago no se ofrece Contratar academia y vuelve cuando no hay pago; throttled y la relectura fallida se informan junto a Actualizar estado; el error de cancelar queda solo en el diálogo y se limpia al reabrirlo; el rechazo del ingreso gratis desde la historia muestra su motivo (4/4; antes, los cuatro casos fallaban)."
+    }
+  ],
+  "limitations": [
+    "Solo se revisaron los estados y mutaciones de la página de academia y del ingreso gratis que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T09:12:33.381Z",
+  "result": "partial",
+  "runId": "20261026T091159Z-7a1427",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit tribe.story.free-join: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T09:11:59.761Z",
+  "unitId": "tribe.story.free-join"
+}

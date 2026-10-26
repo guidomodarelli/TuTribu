@@ -2,14 +2,14 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-leader-recovery-exits",
-      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
       "files": {
         "app/(platform)/[slug]/academia/admissions/allowlist/page.tsx": "dfeba0daad07c568",
         "app/(platform)/[slug]/academia/admissions/allowlist/loading.tsx": "b7097d95c7025926",
         "app/(platform)/[slug]/academia/admissions/allowlist/error.tsx": "2a5e2cbe0ea463d2",
-        "app/(platform)/[slug]/academia/admissions/allowlist/allowlist-container.tsx": "cee23316ecfcc4c4",
-        "hooks/use-allowlist-workflow.ts": "a65c643d7ae35045",
+        "app/(platform)/[slug]/academia/admissions/allowlist/allowlist-container.tsx": "2612aeb60ca44cfd",
+        "hooks/use-allowlist-workflow.ts": "6a4b9691959bff09",
         "app/api/tribes/[slug]/admissions/allowlist/route.ts": "bd23ef78dfabf5d1",
         "app/api/tribes/[slug]/admissions/allowlist/[entryId]/route.ts": "dedef0b7538e536d",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
@@ -22,10 +22,11 @@
         "src/modules/academy-admissions/constants/admission-policy-browser.ts": "90cfa795912c0e8c",
         "src/modules/academy-admissions/constants/allowlist-browser.ts": "b515269f65c7afcf",
         "src/modules/academy-admissions/application/ports/allowlist-browser-client.ts": "a656b047a0655d83",
-        "components/academy-admissions/allowlist-management/index.tsx": "19be418f20ccc116",
+        "components/academy-admissions/allowlist-management/index.tsx": "d915145dfb3fde09",
         "src/modules/academy-admissions/application/results/allowlist-page-state.ts": "80467f62cfd352d7",
-        "src/modules/academy-admissions/constants/admission-errors.ts": "4a393e9826800086",
+        "lib/academy-admissions/admission-access-loss.ts": "8bc3d9fe5ffba75f",
         "lib/academy-admissions/allowlist-intent.ts": "7f46f97e4837cf52",
+        "src/modules/academy-admissions/constants/admission-errors.ts": "4a393e9826800086",
         "src/modules/academy-admissions/constants/admission-public-contract.ts": "f9491ce66f74206d",
         "src/modules/academy-admissions/application/commands/allowlist-browser-intent.ts": "65280a9f210b019b",
         "lib/toasts/write-toast.ts": "2bdc7e827e8fc523",
@@ -34,6 +35,7 @@
         "src/constants/operation-state.ts": "8658825f51feae9a",
         "src/modules/auth/constants/reauthentication-resources.ts": "73b5e0d97c9862f7",
         "src/modules/academy-admissions/application/results/allowlist-mutation-schemas.ts": "2a669ebea3d64900",
+        "lib/academy-admissions/admission-list-pages.ts": "04108c707bf439c1",
         "src/modules/academy-admissions/constants/admission-contact.ts": "cf90895cb275bdd9",
         "lib/academy-admissions/admission-draft.ts": "9baf5fefaa499a20",
         "src/modules/academy-admissions/domain/value-objects/admission-contact.ts": "b67579afa51cdbd8",
@@ -131,7 +133,7 @@
         "src/modules/shared/infrastructure/database/server-environment.ts": "cb00db6eec131df8",
         "src/modules/academy-admissions/constants/admission-sections.ts": "31db560723a90ebd",
         "components/loaders/route-skeleton/index.tsx": "24ca012df2b27747",
-        "src/modules/academy-admissions/constants/admission-ui.ts": "a57d7d4286770b34",
+        "src/modules/academy-admissions/constants/admission-ui.ts": "c0ed62cb0dafbbf7",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
         "src/modules/academy-admissions/application/results/admission-operation-recovery.ts": "08e3bb7982308b78",
@@ -167,7 +169,7 @@
         "src/modules/academy-admissions/application/results/admission-batch-decision-result.ts": "e7b6140dec98efd9",
         "src/modules/academy-admissions/application/results/admission-activity-result.ts": "9a90cb2e8735c2a9",
         "src/modules/academy-admissions/application/results/admission-metrics-result.ts": "08620a4f1a506f0f",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "d0af64144b8cacf3",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "7e28bd61704eb630",
         "src/modules/academy-admissions/constants/admission-activity.ts": "a6c5519798822d7b",
         "src/modules/academy-admissions/constants/admission-activity-page-schemas.ts": "7522ac9ef5450726",
         "src/modules/tribes/constants/academy-membership.ts": "458dd8dd26c19140",
@@ -255,7 +257,7 @@
         "src/modules/academy-admissions/application/results/admission-writer-result-schemas.ts": "2792c8a8e8eea5f4",
         "src/modules/academy-admissions/domain/repositories/admission-whatsapp-number-writer.ts": "25a448bd954a5e32",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-submission-proof-reader.ts": "931f9ad7a5aa7eac",
-        "src/modules/tribes/constants/tribe-story.ts": "56fbe141834e760e",
+        "src/modules/tribes/constants/tribe-story.ts": "95b0fb552f1928b0",
         "src/modules/academy-admissions/constants/admission-batch-decision-schema.ts": "21d31f0bdcf55085",
         "src/modules/academy-admissions/constants/admission-command-denial-schema.ts": "7da544dec6ac92b3",
         "src/modules/academy-admissions/infrastructure/repositories/assert-unreserved-admission-contact.ts": "dab62a6379fe508d",
@@ -339,7 +341,7 @@
         "src/modules/academy-admissions/constants/admission-review-ui.ts": "42d3d87b513edbbb",
         "src/modules/academy-admissions/constants/allowlist-import-browser.ts": "e825df46f40108a0",
         "src/modules/messaging/constants/messaging-usage.ts": "ba71bbac4e985a5a",
-        "src/modules/messaging/constants/messaging-connections-browser.ts": "6324cc25a232f60b",
+        "src/modules/messaging/constants/messaging-connections-browser.ts": "fc77878f34cf9bcd",
         "src/modules/notifications/constants/admission-notification-settings-page.ts": "806d23ea29b33640",
         "src/modules/academy-admissions/constants/admission-operation-recovery-schemas.ts": "04485d588425272a",
         "src/modules/academy-admissions/application/ports/admission-browser-client.ts": "e4d882fd3cf5bf02",
@@ -376,7 +378,7 @@
         "src/modules/academy-admissions/domain/entities/admission-metric-dimensions.ts": "6957c9c14dd1d2c2",
         "src/modules/academy-admissions/constants/admission-policy-audit.ts": "fd7df5f729db9e00",
         "src/modules/academy-admissions/domain/entities/admission-policy-audit-snapshot.ts": "e3d29107ee0a96ce",
-        "src/constants/time.ts": "98b5459a77a709b0",
+        "src/constants/time.ts": "987c18a571e92d4d",
         "src/modules/academy-admissions/domain/repositories/admission-audit-repository.ts": "932bd7548c01a6f7",
         "src/modules/messaging/constants/notification-delivery-recovery.ts": "c3be3c9a2985f5e2",
         "src/modules/academy-admissions/constants/admission-leader-guard.ts": "824d12f18d5c4b77",
@@ -470,7 +472,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:5956bbd632ba03285968af1e25a8ce5998bd47763303a0ae2dcb18b6ec18516b",
+      "fingerprint": "sha256:a970b3f27cab73470e8d216b54be3eccfae942307f8711544b7f0a46c4b79e32",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/allowlist/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/allowlist/page.tsx#AllowlistPage": "91f77a38d6099526",
@@ -479,22 +481,23 @@
         "app/(platform)/[slug]/academia/admissions/allowlist/error.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/allowlist/error.tsx#AllowlistError": "1b600a4ad7ba9e9d",
         "app/(platform)/[slug]/academia/admissions/allowlist/allowlist-container.tsx#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/allowlist/allowlist-container.tsx#AllowlistContainer": "b6128d432ad45694",
+        "app/(platform)/[slug]/academia/admissions/allowlist/allowlist-container.tsx#AllowlistContainer": "7e95615012867383",
         "hooks/use-allowlist-workflow.ts#<module>": "d414f6d3ee71f10d",
         "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow/live": "43596eff23eabea2",
-        "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow/reportFailure": "22235af1ba15d4aa",
+        "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow/reportFailure": "1ce932cb1a7d8c65",
         "pkg:react": "374a4508a198654b",
         "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow/persist": "51444fbdaecdb8d4",
         "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow/authorize": "83eda9ed2a7c6dab",
-        "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow~shell": "224e73f0a0202ccb",
+        "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow~shell": "b8b31b8b475bb96d",
         "hooks/use-allowlist-workflow.ts#emptyDraft": "b1361e678bc8c705",
         "hooks/use-allowlist-workflow.ts#firstPendingStep": "4341004b35b4c783",
         "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow/mergeEntry": "ea2887578dc9b3aa",
         "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow/consume": "4657a855b4fa9125",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
-        "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow/run": "7079cc760f6cf60a",
+        "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow/run": "d07bc84d374ad852",
         "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow/readOriginal": "c6fb758c59e2eda1",
-        "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow/readList": "72254d5c4756d90f",
+        "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow/readList": "7b9199e2e5daf668",
+        "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow/loadMore": "60e2a04955cec5b9",
         "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow/save": "625e3090be875eed",
         "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow/readCurrentEntry": "40df0ca0495be1de",
         "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow/changeDraft": "9e2d8b2959a4b5f0",
@@ -588,27 +591,28 @@
         "src/modules/academy-admissions/application/ports/allowlist-browser-client.ts#AllowlistBrowserClient": "4eb64bbdb573e05d",
         "src/modules/academy-admissions/application/ports/allowlist-browser-client.ts#AllowlistBrowserResult": "6c19c5ad0580957b",
         "components/academy-admissions/allowlist-management/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/allowlist-management/index.tsx#AllowlistManagement": "d5256460c3883b56",
+        "components/academy-admissions/allowlist-management/index.tsx#AllowlistManagement": "4ece9d70ab3c2412",
         "src/modules/academy-admissions/application/results/allowlist-page-state.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/results/allowlist-page-state.ts#AllowlistPageState": "c47b155897229978",
         "src/modules/academy-admissions/application/results/allowlist-page-state.ts#allowlistPageStateSchema": "8edd4ab6dda0b230",
         "src/modules/academy-admissions/application/results/allowlist-page-state.ts#allowlistBrowserQuerySchema": "4a39b3c6fde77409",
-        "src/modules/academy-admissions/constants/admission-errors.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE~frame": "2f799f41481116eb",
-        "src/modules/academy-admissions/constants/admission-errors.ts#AdmissionErrorCode": "d40fce53bfa2dcc3",
-        "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.authenticationRequired": "e8f0fd5231a55b76",
-        "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.permissionDenied": "04dfe24c619dd951",
+        "lib/academy-admissions/admission-access-loss.ts#<module>": "2da3ec2294295eb1",
+        "lib/academy-admissions/admission-access-loss.ts#isAdmissionAccessLoss": "46346b411253860c",
         "src/modules/academy-admissions/constants/allowlist-browser.ts#ALLOWLIST_BROWSER_COPY.storage": "265fc093a25cfa5d",
         "lib/academy-admissions/allowlist-intent.ts#<module>": "d414f6d3ee71f10d",
         "lib/academy-admissions/allowlist-intent.ts#writeAllowlistWorkflow": "bd796500bc8afe1e",
         "lib/academy-admissions/allowlist-intent.ts#key": "89dd8d9e0cc410d1",
         "lib/academy-admissions/allowlist-intent.ts#storedSchema": "f60645252efdf87d",
+        "src/modules/academy-admissions/constants/admission-errors.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_MESSAGE": "3cd989ed624f1a0a",
+        "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE~frame": "2f799f41481116eb",
+        "src/modules/academy-admissions/constants/admission-errors.ts#AdmissionErrorCode": "d40fce53bfa2dcc3",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.additionalVerificationRequired": "bfe8586c59f798cd",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.admissionIneligible": "f9105059234dfbd2",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.admissionsPaused": "9ddf8c7b99c2b435",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.allowlistConflict": "62d559c76285847e",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.allowlistImportConflict": "9d239b12178cffe7",
+        "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.authenticationRequired": "e8f0fd5231a55b76",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.challengeExpired": "6b4dff8cffa91a34",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.challengeInvalidated": "54fbfe9052a71de6",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.connectionConflict": "34091f5d89b7e37f",
@@ -625,6 +629,7 @@
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.membershipRecoveryRequired": "8819b2674ef2d4e1",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.missingCapability": "c87e9bf8ecae255d",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.operationUnresolved": "fb0dcd36263e917e",
+        "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.permissionDenied": "04dfe24c619dd951",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.policyConflict": "a1521b87c6308d62",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.proofUnavailable": "14388aabfb5d0f4d",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.providerRateLimited": "0f64b762d6a2f143",
@@ -693,6 +698,9 @@
         "lib/toasts/write-toast.ts#WriteToastFailure": "d65355d9099f8044",
         "src/modules/academy-admissions/constants/allowlist-browser.ts#ALLOWLIST_BROWSER_COPY.absent": "be0377669395a171",
         "src/modules/academy-admissions/constants/allowlist-browser.ts#ALLOWLIST_BROWSER_COPY.recovered": "7187bb2f32f3cf81",
+        "lib/academy-admissions/admission-list-pages.ts#<module>": "2da3ec2294295eb1",
+        "lib/academy-admissions/admission-list-pages.ts#appendAdmissionListPage": "a51836f90a8fcff2",
+        "lib/academy-admissions/admission-list-pages.ts#IdentifiedItem": "a7da7681400aaa52",
         "src/modules/academy-admissions/constants/admission-contact.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-contact.ts#ADMISSION_CONTACT_NORMALIZATION_STATUS~frame": "a79bffba98160b21",
         "src/modules/academy-admissions/constants/admission-contact.ts#ADMISSION_CONTACT_NORMALIZATION_STATUS.valid": "237b8386dc04842f",
@@ -3510,6 +3518,9 @@
         "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow/readList": {
           "awaits": 2
         },
+        "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow/loadMore": {
+          "awaits": 3
+        },
         "hooks/use-allowlist-workflow.ts#useAllowlistWorkflow/save": {
           "awaits": 4
         },
@@ -4405,21 +4416,32 @@
       },
       "uncommittedFiles": []
     },
-    "evidence": [],
-    "limitations": [],
+    "evidence": [
+      {
+        "kind": "test",
+        "outcome": "pass",
+        "recordedAt": "2026-10-26T14:48:22.385Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx: Tests 122 passed (122) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+      }
+    ],
+    "limitations": [
+      "El PR no agrega requests: Ver más ya pedía la página siguiente y la relectura de actividad no se suma a otra en curso; no se midió."
+    ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T15:07:09.930Z",
-    "result": "not-applicable",
-    "runId": "20261025T150708Z-8efd93",
+    "recordedAt": "2026-10-26T14:48:24.278Z",
+    "result": "partial",
+    "runId": "20261026T144821Z-ead7cd",
     "scope": {
-      "decision": "not-applicable",
+      "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo."
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": []
+      "suggestedScope": [
+        "measure the complete flow /[slug]/academia/admissions/allowlist before and after, same build, data and throttling; median of 3 for noisy metrics"
+      ]
     },
     "skill": {
       "definitionFiles": {
@@ -4436,8 +4458,7 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Las salidas de recuperación no agregan requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T150708Z-8efd93.json"
+    "report": "runs/20261026T144821Z-ead7cd.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

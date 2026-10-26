@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-leader-recovery-exits",
-      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
       "files": {
         "hooks/use-admission-contact-verification.ts": "1aaaf3a20c295e66",
         "app/api/tribes/[slug]/admissions/challenges/route.ts": "3df8743122144cf5",
@@ -26,7 +26,7 @@
         "src/modules/academy-admissions/domain/repositories/admission-contact-verification.ts": "09431249162ed73d",
         "lib/academy-admissions/admission-contact-intent.ts": "7ae37ac28eeae1b4",
         "src/modules/academy-admissions/application/ports/admission-contact-browser-client.ts": "4343dce501c9c6e4",
-        "src/constants/time.ts": "98b5459a77a709b0",
+        "src/constants/time.ts": "987c18a571e92d4d",
         "lib/toasts/write-toast.ts": "2bdc7e827e8fc523",
         "lib/academy-admissions/admission-contact-api-client.ts": "95bc8eff23184f7d",
         "src/modules/messaging/application/results/messaging-flow-result-schemas.ts": "a994709cbdac8618",
@@ -188,7 +188,7 @@
         "src/modules/academy-admissions/application/results/admission-batch-decision-result.ts": "e7b6140dec98efd9",
         "src/modules/academy-admissions/application/results/admission-activity-result.ts": "9a90cb2e8735c2a9",
         "src/modules/academy-admissions/application/results/admission-metrics-result.ts": "08620a4f1a506f0f",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "d0af64144b8cacf3",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "7e28bd61704eb630",
         "src/modules/academy-admissions/constants/admission-activity.ts": "a6c5519798822d7b",
         "src/modules/academy-admissions/constants/admission-activity-page-schemas.ts": "7522ac9ef5450726",
         "src/modules/tribes/constants/academy-membership.ts": "458dd8dd26c19140",
@@ -273,7 +273,7 @@
         "src/modules/academy-admissions/application/results/admission-writer-result-schemas.ts": "2792c8a8e8eea5f4",
         "src/modules/academy-admissions/domain/repositories/admission-whatsapp-number-writer.ts": "25a448bd954a5e32",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-submission-proof-reader.ts": "931f9ad7a5aa7eac",
-        "src/modules/tribes/constants/tribe-story.ts": "56fbe141834e760e",
+        "src/modules/tribes/constants/tribe-story.ts": "95b0fb552f1928b0",
         "src/modules/academy-admissions/constants/admission-batch-decision-schema.ts": "21d31f0bdcf55085",
         "src/modules/academy-admissions/constants/admission-command-denial-schema.ts": "7da544dec6ac92b3",
         "src/modules/academy-admissions/infrastructure/repositories/assert-unreserved-admission-contact.ts": "dab62a6379fe508d",
@@ -394,7 +394,7 @@
         "src/modules/messaging/constants/verification-material.ts": "f3903b66ab1e7612",
         "src/modules/messaging/domain/repositories/verification-material-maintenance.ts": "f6336771db239765",
         "src/modules/notifications/infrastructure/repositories/postgres-admission-notification-delivery-preparation.ts": "f142c14d98014951",
-        "src/modules/academy-admissions/constants/legacy-admission-arrival.ts": "3b70a5d41f0d9afe",
+        "src/modules/academy-admissions/constants/legacy-admission-arrival.ts": "896653d2d29a8cde",
         "src/modules/messaging/application/results/messaging-errors.ts": "b595f26ba1b1f309",
         "src/modules/academy-admissions/application/results/admission-contract-fields.ts": "a4913419cef9bbde",
         "src/modules/notifications/application/results/admission-email-settings-result-schemas.ts": "7021ee62c3743ea6",
@@ -4938,36 +4938,31 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
-        "durationMs": 104950,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "64b0bdf7c27d5db5de50633f0fd8321682a570caa1ffc579df8d05a4fd96136d",
-        "recordedAt": "2026-10-25T15:16:39.617Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T14:48:56.898Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx: Tests 122 passed (122) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T15:16:40.043Z",
+        "recordedAt": "2026-10-26T14:48:57.340Z",
         "source": "attested",
-        "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
+        "summary": "Estados: Ver más acumula sin duplicados y su carga y error quedan junto al botón; las relecturas y filtros conservan lo mostrado con aria-busy y descartan respuestas viejas; la bandeja y el historial muestran los datos del servidor al hidratar y habilitan las acciones tras el chequeo de cuenta; la importación selecciona todas las válidas sin cambiar el contrato; el doble montaje de desarrollo ya no se toma como restauración."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de recuperación que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron las listas del líder que cambia este PR; el resto de cada unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T15:16:42.867Z",
+    "recordedAt": "2026-10-26T14:48:59.364Z",
     "result": "partial",
-    "runId": "20261025T151454Z-ed708e",
+    "runId": "20261026T144856Z-ff25a5",
     "scope": {
       "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [],
@@ -4988,7 +4983,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T151454Z-ed708e.json"
+    "report": "runs/20261026T144856Z-ff25a5.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

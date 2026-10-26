@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
       "files": {
         "components/tribe-round/tribe-channel-management/index.tsx": "390a2ee3b0d12211",
         "app/api/tribes/[slug]/channels/route.ts": "2854242912c5817b",
@@ -103,7 +103,7 @@
         "src/modules/notifications/infrastructure/database/admission-notification-producer-progress-schema.ts": "b4881309de24badd",
         "src/modules/auth/infrastructure/database/authenticated-account-schema.ts": "8c513f6e9123db53",
         "src/modules/messaging/infrastructure/database/messaging-dispatch-observation-schema.ts": "109cc9dadf4757c7",
-        "src/constants/time.ts": "98b5459a77a709b0",
+        "src/constants/time.ts": "987c18a571e92d4d",
         "src/modules/auth/constants/better-auth-logging.ts": "091ea7af8e595d9a",
         "src/modules/auth/constants/auth-database-diagnostics.ts": "b1badea544f9639c",
         "src/modules/auth/infrastructure/better-auth/auth-database-operation-error.ts": "61acca0dc03a2e9c",
@@ -1988,18 +1988,28 @@
       },
       "uncommittedFiles": []
     },
-    "evidence": [],
-    "limitations": [],
+    "evidence": [
+      {
+        "kind": "test",
+        "outcome": "pass",
+        "recordedAt": "2026-10-26T14:44:55.834Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx tests/unit/components/academy-admissions-messaging-resources.test.tsx tests/unit/components/academy-admissions-notification-recovery-container.test.tsx tests/unit/components/academy-admissions-notification-recovery.test.tsx: Tests 107 passed (107) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+      }
+    ],
+    "limitations": [
+      "El PR no agrega requests: la recuperación acumula páginas que ya se pedían y el reloj del vencimiento usa un único temporizador; no se midió."
+    ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T12:38:47.928Z",
-    "result": "not-applicable",
-    "runId": "20261025T123846Z-2fd32c",
+    "recordedAt": "2026-10-26T14:44:57.139Z",
+    "result": "partial",
+    "runId": "20261026T144455Z-6a06ec",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: El cambio de boundaries no agrega requests, consultas ni pasos al flujo."
+        "recorded not applicable: Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": []
@@ -2019,8 +2029,7 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T123846Z-2fd32c.json"
+    "report": "runs/20261026T144455Z-6a06ec.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

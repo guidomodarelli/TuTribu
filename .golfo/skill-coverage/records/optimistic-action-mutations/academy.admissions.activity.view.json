@@ -2,13 +2,13 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-leader-recovery-exits",
-      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
       "files": {
         "app/(platform)/[slug]/academia/admissions/activity/page.tsx": "0ce9c474d7fcd444",
         "app/(platform)/[slug]/academia/admissions/activity/loading.tsx": "0637d05028ddbfcd",
         "app/(platform)/[slug]/academia/admissions/activity/error.tsx": "ce95b6a15a162996",
-        "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx": "1febccee68e5f67c",
+        "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx": "80cc0ce37cc59028",
         "app/api/tribes/[slug]/admissions/activity/route.ts": "5025f1fa05e764bc",
         "app/api/tribes/[slug]/admissions/activity/snapshot/route.ts": "aa164ab0bd88ee6d",
         "app/api/tribes/[slug]/admissions/metrics/route.ts": "a3fa4523aeaf0f57",
@@ -21,15 +21,17 @@
         "components/academy-admissions/admission-page-skeleton/index.tsx": "0d887d9221b645c1",
         "components/academy-admissions/admission-route-error/index.tsx": "f1d403b2508a4b3e",
         "components/academy-admissions/admission-settings-page/index.tsx": "8312db77ac7c70e9",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "d0af64144b8cacf3",
         "src/modules/academy-admissions/application/ports/admission-activity-browser-client.ts": "f94248e631855853",
         "src/modules/academy-admissions/application/results/admission-activity-page-state.ts": "2a090308c48657f0",
-        "components/academy-admissions/admission-activity/index.tsx": "4d200c74a9d3b08c",
+        "components/academy-admissions/admission-activity/index.tsx": "2e8898223292a9bd",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "7e28bd61704eb630",
         "components/academy-admissions/admission-metrics/index.tsx": "67d1abcc5d5070ca",
         "src/modules/messaging/constants/messaging-usage.ts": "ba71bbac4e985a5a",
         "lib/academy-admissions/admission-activity-api-client.ts": "59624535d06e68da",
         "src/modules/academy-admissions/application/commands/admission-activity-filter-draft.ts": "12a35f5f587efd1e",
         "src/modules/academy-admissions/constants/admission-errors.ts": "4a393e9826800086",
+        "lib/academy-admissions/admission-list-pages.ts": "04108c707bf439c1",
+        "lib/academy-admissions/admission-access-loss.ts": "8bc3d9fe5ffba75f",
         "src/modules/academy-admissions/infrastructure/api/admission-activity-handlers.ts": "9638a96d65de8766",
         "src/modules/setup.ts": "b7906aa060d53395",
         "src/modules/academy-admissions/infrastructure/api/admission-activity-page-handler.ts": "67a6ed50149db90f",
@@ -179,7 +181,7 @@
         "src/modules/messaging/application/use-cases/read-messaging-usage-operation-use-case.ts": "b75b28fb4fe7e63e",
         "src/modules/academy-admissions/constants/admission-sections.ts": "31db560723a90ebd",
         "components/loaders/route-skeleton/index.tsx": "24ca012df2b27747",
-        "src/modules/academy-admissions/constants/admission-ui.ts": "a57d7d4286770b34",
+        "src/modules/academy-admissions/constants/admission-ui.ts": "c0ed62cb0dafbbf7",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
         "src/modules/academy-admissions/application/ports/admission-browser-client.ts": "e4d882fd3cf5bf02",
@@ -301,7 +303,7 @@
         "src/modules/academy-admissions/application/results/admission-writer-result-schemas.ts": "2792c8a8e8eea5f4",
         "src/modules/academy-admissions/domain/repositories/admission-whatsapp-number-writer.ts": "25a448bd954a5e32",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-submission-proof-reader.ts": "931f9ad7a5aa7eac",
-        "src/modules/tribes/constants/tribe-story.ts": "56fbe141834e760e",
+        "src/modules/tribes/constants/tribe-story.ts": "95b0fb552f1928b0",
         "src/modules/academy-admissions/constants/admission-batch-decision-schema.ts": "21d31f0bdcf55085",
         "src/modules/academy-admissions/constants/admission-command-denial-schema.ts": "7da544dec6ac92b3",
         "src/modules/academy-admissions/infrastructure/repositories/assert-unreserved-admission-contact.ts": "dab62a6379fe508d",
@@ -476,11 +478,11 @@
         "src/modules/academy-admissions/constants/admission-policy-browser.ts": "90cfa795912c0e8c",
         "src/modules/academy-admissions/constants/allowlist-browser.ts": "b515269f65c7afcf",
         "src/modules/academy-admissions/constants/allowlist-import-browser.ts": "e825df46f40108a0",
-        "src/modules/messaging/constants/messaging-connections-browser.ts": "6324cc25a232f60b",
+        "src/modules/messaging/constants/messaging-connections-browser.ts": "fc77878f34cf9bcd",
         "src/modules/notifications/constants/admission-notification-settings-page.ts": "806d23ea29b33640",
         "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/modules/academy-admissions/domain/entities/admission-metric-dimensions.ts": "6957c9c14dd1d2c2",
-        "src/constants/time.ts": "98b5459a77a709b0",
+        "src/constants/time.ts": "987c18a571e92d4d",
         "src/modules/academy-admissions/constants/admission-maintenance-health.ts": "bf2111a604013450",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f",
         "lib/browser-request-deadline.ts": "790b51a4e720e6c3",
@@ -598,7 +600,7 @@
         "src/modules/notifications/domain/entities/admission-notification-email-settings.ts": "e702bf2146cc568f",
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d"
       },
-      "fingerprint": "sha256:2c157fd9ab9d81c7375e91ba7e057049db8514f9ded8233b14de7ab9c04b50cc",
+      "fingerprint": "sha256:9357c8440a30a01a11f1466168bf78ae437472999367b3f8df6524e380d9844d",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/activity/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/activity/page.tsx#AdmissionActivityPage": "2ecc85ca46c87584",
@@ -607,15 +609,17 @@
         "app/(platform)/[slug]/academia/admissions/activity/error.tsx#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/activity/error.tsx#AdmissionActivityError": "f1e9e6fcc454813b",
         "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer/checkViewer": "4b6f8d67c4d26d71",
+        "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer/showPrivate": "2e58e4fa2778249c",
         "pkg:react": "374a4508a198654b",
-        "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer/readSnapshot": "e7bd9dacaa52ce38",
-        "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer~shell": "8a97e89679c1affe",
+        "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer/checkViewer": "be9ecda69345bf90",
+        "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer~shell": "ce4c4c5e98d141a4",
         "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#ActivityContainerProps": "4924c59521371bd1",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
-        "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer/launchRead": "c2dc7f7fed3bbe71",
-        "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer/reload": "0c2135cc2c006a8c",
-        "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer/applyFilters": "5a610b14ccdf5d42",
+        "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer/readSnapshot": "5033f94586a836bd",
+        "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#combineActivitySnapshots": "e1ccd334b02c13f8",
+        "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer/launchRead": "f6349cd4b3680df1",
+        "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer/reload": "101b947b15702a0c",
+        "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer/applyFilters": "5557e1609e21ee90",
         "app/api/tribes/[slug]/admissions/activity/route.ts#<module>": "2da3ec2294295eb1",
         "app/api/tribes/[slug]/admissions/activity/route.ts#GET": "1269438ad6804ea3",
         "app/api/tribes/[slug]/admissions/activity/snapshot/route.ts#<module>": "2da3ec2294295eb1",
@@ -698,14 +702,6 @@
         "components/academy-admissions/admission-settings-page/index.tsx#AdmissionSettingsPage": "70ebe75549ed2595",
         "components/academy-admissions/admission-settings-page/index.tsx#AdmissionPageHeader": "6110c696671918ae",
         "components/academy-admissions/admission-settings-page/index.tsx#AdmissionSettingsPageProps": "f5045537881eebf2",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_BROWSER_PHASE~frame": "f9c26b1fda3c718c",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts#AdmissionActivityBrowserPhase": "12ab31dc708ed725",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_BROWSER_PHASE.changedViewer": "94ce2004013a5194",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_BROWSER_PHASE.unavailable": "2a544b584801321a",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_BROWSER_STATUS~frame": "8a920dde3d7da52a",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_BROWSER_STATUS.aborted": "916fdd7a30fad4d8",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_BROWSER_STATUS.failed": "30b78e1585d30f33",
         "src/modules/academy-admissions/application/ports/admission-activity-browser-client.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/ports/admission-activity-browser-client.ts#AdmissionActivityBrowserClient": "89b52377c0d279da",
         "src/modules/academy-admissions/application/results/admission-activity-page-state.ts#<module>": "2da3ec2294295eb1",
@@ -713,7 +709,10 @@
         "src/modules/academy-admissions/application/results/admission-activity-page-state.ts#AdmissionActivityReadyPageState": "5571fae227d7c4b1",
         "src/modules/academy-admissions/application/results/admission-activity-page-state.ts#AdmissionActivityPageSelection": "9739b2ecfdae3835",
         "components/academy-admissions/admission-activity/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/academy-admissions/admission-activity/index.tsx#AdmissionActivity": "f0c0ae1b8b53a6c2",
+        "components/academy-admissions/admission-activity/index.tsx#AdmissionActivity": "8a5d19f65627984b",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts#AdmissionActivityBrowserPhase": "12ab31dc708ed725",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts#AdmissionActivityReadMode": "c21bdb78739191a9",
         "components/academy-admissions/admission-metrics/index.tsx#<module>": "2da3ec2294295eb1",
         "components/academy-admissions/admission-metrics/index.tsx#AdmissionMetrics": "1a8af99bb787755a",
         "components/academy-admissions/admission-metrics/index.tsx#AdmissionMetricsProps": "90c40539576de9e5",
@@ -722,20 +721,31 @@
         "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_UI_COPY.changedViewer": "9497943eeb3e6415",
         "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_UI_COPY.loading": "e5de41421f5fcdcc",
         "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_UI_COPY.readFailed": "6900b5d601d05b18",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_UI_COPY.updating": "1b95ebde85777cd2",
         "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_PAGE_KIND~frame": "e77f5cac539d8086",
         "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_PAGE_KIND.ready": "fe82a1e5fbada910",
         "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_PAGE_KIND.unavailable": "2a544b584801321a",
         "src/modules/messaging/constants/messaging-usage.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_SETTINGS_SEGMENT": "ee704ea62c0803d0",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_BROWSER_PHASE~frame": "f9c26b1fda3c718c",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_BROWSER_PHASE.changedViewer": "94ce2004013a5194",
         "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_BROWSER_PHASE.checking": "050a73dca1b0dc7a",
         "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_BROWSER_PHASE.reading": "298fb5cf5ab9ec0f",
         "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_BROWSER_PHASE.ready": "fe82a1e5fbada910",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_BROWSER_PHASE.unavailable": "2a544b584801321a",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_READ_MODE~frame": "aef94b61571c2579",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_READ_MODE.older": "b8e821b90f5d1f1a",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_READ_MODE.refresh": "3b2d179bbb40585e",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_READ_MODE.restore": "2c6a81734573a81f",
         "lib/academy-admissions/admission-activity-api-client.ts#<module>": "d414f6d3ee71f10d",
         "lib/academy-admissions/admission-activity-api-client.ts#admissionActivityApiClient": "cc89af6ae77a28cc",
         "lib/academy-admissions/admission-activity-api-client.ts#createAdmissionActivityApiClient": "ccc7711c1006e8ba",
         "src/modules/academy-admissions/application/commands/admission-activity-filter-draft.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/commands/admission-activity-filter-draft.ts#createAdmissionActivityFilterDraft": "bccd5a300d8c140b",
         "src/modules/academy-admissions/application/commands/admission-activity-filter-draft.ts#AdmissionActivityFilterDraft": "615507a7133a1b87",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_BROWSER_STATUS~frame": "8a920dde3d7da52a",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_BROWSER_STATUS.aborted": "916fdd7a30fad4d8",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_BROWSER_STATUS.failed": "30b78e1585d30f33",
         "src/modules/academy-admissions/constants/admission-errors.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE~frame": "2f799f41481116eb",
         "src/modules/academy-admissions/constants/admission-errors.ts#AdmissionErrorCode": "d40fce53bfa2dcc3",
@@ -781,6 +791,12 @@
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.verificationAttemptsExceeded": "407a491d0043760d",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.verificationCodeIncorrect": "4e7e6d90d921528b",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.whatsappNumberRequired": "0e927164217449fd",
+        "lib/academy-admissions/admission-list-pages.ts#<module>": "2da3ec2294295eb1",
+        "lib/academy-admissions/admission-list-pages.ts#appendAdmissionListPage": "a51836f90a8fcff2",
+        "lib/academy-admissions/admission-list-pages.ts#IdentifiedItem": "a7da7681400aaa52",
+        "lib/academy-admissions/admission-access-loss.ts#<module>": "2da3ec2294295eb1",
+        "lib/academy-admissions/admission-access-loss.ts#isAdmissionAccessLoss": "46346b411253860c",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_READ_MODE.replace": "0579fdb920cf6ef6",
         "src/modules/academy-admissions/application/commands/admission-activity-filter-draft.ts#parseAdmissionActivityFilterDraft": "11c340baa0dcb41b",
         "src/modules/academy-admissions/infrastructure/api/admission-activity-handlers.ts#<module>": "f7e3cf85771fe55e",
         "src/modules/academy-admissions/infrastructure/api/admission-activity-handlers.ts#createAdmissionActivityHandlers": "52ae74102de9fa1b",
@@ -4223,14 +4239,14 @@
         "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer/checkViewer": {
           "awaits": 1
         },
-        "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer/readSnapshot": {
-          "awaits": 3
-        },
         "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer~shell": {
           "projectCalls": 1,
           "effects": 1,
           "awaits": 2,
           "listeners": 2
+        },
+        "app/(platform)/[slug]/academia/admissions/activity/admission-activity-container.tsx#AdmissionActivityContainer/readSnapshot": {
+          "awaits": 3
         },
         "app/api/tribes/[slug]/admissions/activity/route.ts#GET": {
           "projectCalls": 2,
@@ -5404,45 +5420,34 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
-        "durationMs": 109910,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "f396be56165e77e628569d5dce85f026e06675dcfb343def919c28171f318c29",
-        "recordedAt": "2026-10-25T14:53:06.188Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T14:47:20.624Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx: Tests 122 passed (122) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T14:53:06.610Z",
+        "recordedAt": "2026-10-26T14:47:21.046Z",
         "source": "attested",
-        "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
+        "summary": "Estados: Ver más acumula sin duplicados y su carga y error quedan junto al botón; las relecturas y filtros conservan lo mostrado con aria-busy y descartan respuestas viejas; la bandeja y el historial muestran los datos del servidor al hidratar y habilitan las acciones tras el chequeo de cuenta; la importación selecciona todas las válidas sin cambiar el contrato; el doble montaje de desarrollo ya no se toma como restauración."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de recuperación que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron las listas del líder que cambia este PR; el resto de cada unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T14:53:08.848Z",
+    "recordedAt": "2026-10-26T14:47:23.196Z",
     "result": "partial",
-    "runId": "20261025T145115Z-194157",
+    "runId": "20261026T144720Z-d8bb28",
     "scope": {
       "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
-          "reason": "code reached by the unit changed"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.admissions.activity.view: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -5460,7 +5465,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T145115Z-194157.json"
+    "report": "runs/20261026T144720Z-d8bb28.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-management-mutations",
-      "commit": "64b87f83eb45941aa8b2b758ae938221dad4baad",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
       "files": {
-        "components/academy/academy-management/index.tsx": "c9c63144daeb34d0",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
+        "components/academy/academy-management/index.tsx": "30fb9d4e436f90ac",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
         "app/api/tribes/[slug]/academy/availability/route.ts": "9ef458f491466125",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
         "src/modules/product-access/infrastructure/repositories/postgres-product-access-repository.ts": "b6d068802851a5fa",
@@ -18,7 +18,7 @@
         "src/modules/member-verifications/application/results/member-verification-dto-mappers.ts": "d206542561c4b8d9",
         "src/modules/member-verifications/application/results/member-verification-public-dto-schemas.ts": "c658dcf96affa74b",
         "src/modules/product-access/application/results/academy-dto-mappers.ts": "a40a6cfaf7d3d9c4",
-        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "225eef5ce922c395",
+        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "6cf3cca717bd71e3",
         "app/(platform)/[slug]/tribe-page-access.ts": "31f10502f507d6d7",
         "app/(platform)/[slug]/academia/gestionar/loading.tsx": "efdd51c1e0f631dd",
         "app/(platform)/[slug]/academia/loading.tsx": "b861ca7d027d3bc0",
@@ -35,7 +35,7 @@
         "components/academy/academy-management/styles.module.scss": "01f52ce7ee08aa77",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
-        "lib/academy/academy-api-client.ts": "298112080df602fd",
+        "lib/academy/academy-api-client.ts": "3e35ac9504a0812c",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts": "102e81af136adc5a",
         "src/modules/product-access/constants/academy-route-copy.ts": "f1751ca472d6a6c1",
         "src/modules/product-access/infrastructure/api/academy-request-schemas.ts": "153a8ff211e2f807",
@@ -124,7 +124,7 @@
         "app/not-found.module.scss": "07d324074a6ecb7f",
         "config/deployment-environment.ts": "08bb1a3202ff76f7"
       },
-      "fingerprint": "sha256:eb42ba0b04e2a7e6bf1fe31f5882164b0520e40b15a25bce11813dd6d6cb8fea",
+      "fingerprint": "sha256:ce0eb0aa651167e81ac9ce6cbe2e4a7a46947ccb8b34bdd7b1819e882d50d73d",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
@@ -259,7 +259,7 @@
         "app/(platform)/[slug]/academia/gestionar/page.tsx#MANAGEMENT_PAGE.pendingStatus": "f879946581980090",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#MANAGEMENT_PAGE~frame": "df600e477132a2b8",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#RequestModules": "69bdc535c7130659",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": "3ebed5c9c877c3bf",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": "2a00c59b13d7afd2",
         "src/modules/member-verifications/application/results/member-verification-dto-mappers.ts#<module>": "2da3ec2294295eb1",
         "src/modules/member-verifications/application/results/member-verification-dto-mappers.ts#toReviewQueueItemDto": "c1339f9555eee868",
         "src/modules/member-verifications/application/results/member-verification-dto-mappers.ts#toMemberVerificationDto": "04e0b70f671e4537",
@@ -1309,7 +1309,7 @@
           "projectCalls": 1
         },
         "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": {
-          "awaits": 2
+          "awaits": 1
         },
         "app/(platform)/[slug]/tribe-page-access.ts#resolveVisibleTribePageAccess": {
           "awaits": 1
@@ -1481,73 +1481,48 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
-        "durationMs": 22863,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "4e1ad2e397ad5beb61617b2f7b845f358aadce7a84e491f06a0652bdd5ef86ab",
-        "recordedAt": "2026-10-25T20:18:33.144Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:01:48.483Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/academy/academy-management.test.tsx: Tests 23 passed (23) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
-        "command": "pnpm run -s typecheck",
-        "durationMs": 4283,
-        "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
-        "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T20:18:37.926Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:01:48.904Z",
+        "source": "attested",
+        "summary": "pnpm run -s typecheck: sin errores sobre el código mergeado"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T20:18:38.451Z",
+        "recordedAt": "2026-10-26T15:01:49.316Z",
         "source": "attested",
-        "summary": "Ciclo de vida: revocar es server-confirmed con protección de doble envío y error dentro del diálogo; otorgar y revocar recargan la lista por reloadToken; disponibilidad y conflictos conservan el borrador de la oferta; decidir una solicitud la saca del filtro y vuelve a pedir la página, un conflicto la deja visible con su estado; búsquedas y paginación muestran Consultando…"
+        "summary": "Ciclo de vida: reabrir y revocar una verificación son server-confirmed; la confirmación del correo solo aparece si el email normalizado cambia en una verificación aprobada; revocar usa un diálogo con motivo, pending, protección de doble envío y error dentro del diálogo, y el toast llega con la confirmación del servidor."
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T20:18:38.935Z",
+        "recordedAt": "2026-10-26T15:01:49.754Z",
         "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: la bonificación otorgada aparece sin recargar, revocar usa el diálogo sin window.prompt y el título sin guardar se conserva al cambiar la disponibilidad (4/4)."
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: cambiar el correo de una verificación aprobada pide confirmación, Cancelar no envía y conserva el correo y Cambiar correo envía una vez y la deja En revisión; Revocar abre su diálogo sin enviar y al confirmar hace un solo PATCH (4/4; antes se enviaba sin preguntar y no había diálogo)."
       }
     ],
     "limitations": [
-      "Solo se revisaron las secciones de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron las confirmaciones de verificación que cambia este PR; el resto de cada unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T20:18:40.559Z",
+    "recordedAt": "2026-10-26T15:01:51.045Z",
     "result": "partial",
-    "runId": "20261025T201809Z-d90b92",
+    "runId": "20261026T150148Z-ce7906",
     "scope": {
       "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "components/academy/academy-management/index.tsx#SettingsSection/applySettings",
-          "reason": "interactive handler changed: navigation or server action calls may differ"
-        },
-        {
-          "change": "modified",
-          "key": "components/academy/academy-management/index.tsx#SettingsSection/toggleAvailability",
-          "reason": "interactive handler changed: navigation or server action calls may differ"
-        },
-        {
-          "change": "modified",
-          "key": "components/academy/academy-management/index.tsx#SettingsSection~shell",
-          "reason": "component render changed: hooks, Suspense or client imports may differ"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.manage.availability (/[slug]/academia/gestionar): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
       ]
@@ -1565,7 +1540,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T201809Z-d90b92.json"
+    "report": "runs/20261026T150148Z-ce7906.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

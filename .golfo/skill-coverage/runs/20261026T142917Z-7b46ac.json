@@ -1,0 +1,61 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "chore/academy-audit-coverage",
+    "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+    "fingerprint": "sha256:a970b3f27cab73470e8d216b54be3eccfae942307f8711544b7f0a46c4b79e32",
+    "uncommittedFiles": [],
+    "fileCount": 466,
+    "inputCount": 3022
+  },
+  "evidence": [
+    {
+      "kind": "test",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T14:29:18.161Z",
+      "source": "attested",
+      "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx tests/unit/components/academy-admissions-messaging-resources.test.tsx tests/unit/components/academy-admissions-notification-recovery-container.test.tsx tests/unit/components/academy-admissions-notification-recovery.test.tsx: Tests 107 passed (107) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T14:29:18.610Z",
+      "source": "attested",
+      "summary": "Estados: el guardado valida al presionar y muestra qué falta junto a cada campo; las consultas de remitentes y plantillas muestran su carga, evitan la doble consulta y dejan el vacío y el error junto al select; Ver avisos anteriores acumula sin duplicados y una recuperación vencida se muestra como no disponible; solo un conflicto real marca la conexión como cambiada, también en la relectura tras una comprobación rechazada."
+    }
+  ],
+  "limitations": [
+    "Remitentes, plantillas y recuperación de avisos no se recorrieron en el navegador: necesitan una conexión de Zavu con credencial válida o activa, que la rama efímera no tiene."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T14:29:20.741Z",
+  "result": "partial",
+  "runId": "20261026T142917Z-7b46ac",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit academy.admissions.allowlist.manage: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "96d98d49220f2894",
+      "references/action-catalog.md": "3011dc2f28c2e91c",
+      "references/concurrency-reconciliation.md": "1bb4d0816b1a483d",
+      "references/framework-primitives.md": "16fc928cc9cc1f3c",
+      "references/interaction-state-machine.md": "c09f8f0c506bdd54",
+      "references/optimistic-decision.md": "62c41b62a67ed97a"
+    },
+    "definitionHash": "sha256:e7f9e58f5862e859cec90782e0920de1b6583e9e1904af2e8818f971aeb3448f",
+    "name": "optimistic-action-mutations",
+    "version": "1.2.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T14:29:17.666Z",
+  "unitId": "academy.admissions.allowlist.manage"
+}

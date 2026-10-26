@@ -1,0 +1,136 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/admission-leader-lists",
+    "commit": "e6f93720e9a8bbf3820c7764d2dddccaca67ed97",
+    "fingerprint": "sha256:c0bac240a7cd80af78c08bcf1d73b2261b178cb38105a69a90a975a6078e7a80",
+    "uncommittedFiles": [],
+    "fileCount": 462,
+    "inputCount": 2976
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx",
+      "durationMs": 109236,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "073f4858354f312c28d71d8fa603515c481ccd71243568f6f243320ace33a07e",
+      "recordedAt": "2026-10-26T02:21:54.228Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T02:21:54.949Z",
+      "source": "attested",
+      "summary": "Estados: Ver más acumula sin duplicados y su carga y error quedan junto al botón; las relecturas y filtros conservan lo mostrado con aria-busy y descartan respuestas viejas; la bandeja y el historial muestran los datos del servidor al hidratar y habilitan las acciones tras el chequeo de cuenta; la importación selecciona todas las válidas sin cambiar el contrato; el doble montaje de desarrollo ya no se toma como restauración."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T02:21:58.009Z",
+  "result": "verified",
+  "runId": "20261026T022004Z-4d52c5",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "12 relevant change(s) since the verified run"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx#InvitationsContainer",
+        "reason": "code reached by the unit changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/invitation-management/index.tsx#InvitationManagement~shell",
+        "reason": "component state or render changed"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/readMore",
+        "reason": "new action handler"
+      },
+      {
+        "change": "modified",
+        "key": "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/refresh",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "modified",
+        "key": "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/report",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "modified",
+        "key": "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement/run",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "modified",
+        "key": "hooks/use-personal-invitation-management.ts#usePersonalInvitationManagement~shell",
+        "reason": "component state or render changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-access-loss.ts#<module>",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-access-loss.ts#isAdmissionAccessLoss",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-list-pages.ts#<module>",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-list-pages.ts#appendAdmissionListPage",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-list-pages.ts#IdentifiedItem",
+        "reason": "new code reached by the unit"
+      }
+    ],
+    "suggestedScope": [
+      "app/(platform)/[slug]/academia/admissions/invitations/invitations-container.tsx › InvitationsContainer — operations that reach this code: intent, concurrency, rollback and reconciliation",
+      "components/academy-admissions/invitation-management/index.tsx › InvitationManagement (component body outside its handlers) — how the component state and render show pending, optimistic and confirmed values, and what is cleaned up on unmount or context change",
+      "hooks/use-personal-invitation-management.ts › usePersonalInvitationManagement › readMore — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+      "hooks/use-personal-invitation-management.ts › usePersonalInvitationManagement › refresh — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+      "hooks/use-personal-invitation-management.ts › usePersonalInvitationManagement › report — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+      "hooks/use-personal-invitation-management.ts › usePersonalInvitationManagement › run — the action of this handler: class (optimistic, pending-first or server-confirmed), double submit, stale responses, rollback, unknown outcome and reconciliation",
+      "hooks/use-personal-invitation-management.ts › usePersonalInvitationManagement (component body outside its handlers) — how the component state and render show pending, optimistic and confirmed values, and what is cleaned up on unmount or context change",
+      "lib/academy-admissions/admission-access-loss.ts (module directives and side effects) — module directives (\"use client\", \"use server\") and side effects that change where the operation runs",
+      "lib/academy-admissions/admission-access-loss.ts › isAdmissionAccessLoss — operations that reach this code: intent, concurrency, rollback and reconciliation",
+      "lib/academy-admissions/admission-list-pages.ts (module directives and side effects) — module directives (\"use client\", \"use server\") and side effects that change where the operation runs",
+      "lib/academy-admissions/admission-list-pages.ts › appendAdmissionListPage — operations that reach this code: intent, concurrency, rollback and reconciliation",
+      "lib/academy-admissions/admission-list-pages.ts › IdentifiedItem — operations that reach this code: intent, concurrency, rollback and reconciliation"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "96d98d49220f2894",
+      "references/action-catalog.md": "3011dc2f28c2e91c",
+      "references/concurrency-reconciliation.md": "1bb4d0816b1a483d",
+      "references/framework-primitives.md": "16fc928cc9cc1f3c",
+      "references/interaction-state-machine.md": "c09f8f0c506bdd54",
+      "references/optimistic-decision.md": "62c41b62a67ed97a"
+    },
+    "definitionHash": "sha256:e7f9e58f5862e859cec90782e0920de1b6583e9e1904af2e8818f971aeb3448f",
+    "name": "optimistic-action-mutations",
+    "version": "1.2.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T02:20:04.187Z",
+  "unitId": "academy.admissions.invitations.manage"
+}

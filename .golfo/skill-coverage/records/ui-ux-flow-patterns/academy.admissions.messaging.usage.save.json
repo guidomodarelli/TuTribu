@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-leader-recovery-exits",
-      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx": "597ffc5fc2f44343",
         "app/api/tribes/[slug]/messaging/usage-policy/route.ts": "bd74481f6c2f3172",
@@ -171,7 +171,7 @@
         "src/modules/tribes/infrastructure/repositories/lock-academy-admission-membership-scope.ts": "fb2c88f8f4c42db9",
         "src/modules/shared/infrastructure/request-scope/request-memo.ts": "646750641cffbc07",
         "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts": "c7f308ccbaa1356b",
-        "src/modules/academy-admissions/constants/admission-ui.ts": "a57d7d4286770b34",
+        "src/modules/academy-admissions/constants/admission-ui.ts": "c0ed62cb0dafbbf7",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "components/academy-admissions/admission-route-error/styles.module.scss": "06d52f5195bb701e",
         "components/forms/guided-steps/index.tsx": "3408dd218a444fb6",
@@ -956,120 +956,41 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
-        "durationMs": 132345,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "fc94e4c204926916a206327d8c6e792192e1974f20addab7dd570cd54d0d53dc",
-        "recordedAt": "2026-10-25T17:32:28.460Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T14:56:01.065Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx: Tests 122 passed (122) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T17:32:28.985Z",
+        "recordedAt": "2026-10-26T14:56:01.492Z",
         "source": "attested",
-        "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
+        "summary": "Estados: Ver más acumula sin duplicados y su carga y error quedan junto al botón; las relecturas y filtros conservan lo mostrado con aria-busy y descartan respuestas viejas; la bandeja y el historial muestran los datos del servidor al hidratar y habilitan las acciones tras el chequeo de cuenta; la importación selecciona todas las válidas sin cambiar el contrato; el doble montaje de desarrollo ya no se toma como restauración."
+      },
+      {
+        "kind": "browser",
+        "outcome": "pass",
+        "recordedAt": "2026-10-26T14:56:01.918Z",
+        "source": "attested",
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Ver más entradas suma 25 a 27 sin duplicados con aria-busy; la importación elige las 55 válidas de 60 filas; la actividad no se oculta al releer ni al filtrar y suma el hecho anterior; la bandeja muestra la solicitud una sola vez al hidratar y el historial carga en next dev (4/4; antes Ver más dejaba 2, no había selección total, la actividad se vaciaba y la bandeja pasaba por vacía)."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de recuperación que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron las listas del líder que cambia este PR; el resto de cada unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T17:32:30.775Z",
+    "recordedAt": "2026-10-26T14:56:03.456Z",
     "result": "partial",
-    "runId": "20261025T173015Z-cca523",
+    "runId": "20261026T145600Z-3645da",
     "scope": {
       "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer~shell",
-          "reason": "visible or interactive code changed"
-        },
-        {
-          "change": "modified",
-          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
-          "reason": "visible or interactive code changed"
-        },
-        {
-          "change": "modified",
-          "key": "components/academy-admissions/admission-route-error/styles.module.scss#*",
-          "reason": "visible or interactive code changed"
-        },
-        {
-          "change": "added",
-          "key": "lib/auth/sign-in-redirect.ts#<module>",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "lib/auth/sign-in-redirect.ts#buildSignInRedirectUrl",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "lib/auth/sign-in-redirect.ts#URL_QUERY_SEPARATOR",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "lib/browser-navigation.ts#<module>",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "lib/browser-navigation.ts#reloadCurrentPage",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "lib/messaging/messaging-route-recovery.ts#<module>",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "lib/messaging/messaging-route-recovery.ts#MessagingRouteRecovery",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "lib/messaging/messaging-route-recovery.ts#resolveMessagingRouteRecovery",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "src/constants/query-params.ts#<module>",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "src/constants/query-params.ts#QUERY_PARAMS.auth",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "src/constants/query-params.ts#QUERY_PARAMS~frame",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "src/constants/routes.ts#ROUTES.auth",
-          "reason": "new visible or interactive code"
-        },
-        {
-          "change": "added",
-          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.signIn",
-          "reason": "new visible or interactive code"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.admissions.messaging.usage.save: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
       ]
@@ -1087,7 +1008,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T173015Z-cca523.json"
+    "report": "runs/20261026T145600Z-3645da.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

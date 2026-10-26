@@ -1,0 +1,90 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/admission-leader-lists",
+    "commit": "e6f93720e9a8bbf3820c7764d2dddccaca67ed97",
+    "fingerprint": "sha256:d7a860bc229c60715d0a2ace6e1349faf42c4d2d8f3365ba75178d6e39c25d1e",
+    "uncommittedFiles": [],
+    "fileCount": 121,
+    "inputCount": 1195
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx",
+      "durationMs": 28529,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "f99b8c6a9a794e8b421b2219e62c5d4332db41e62af0ea5608e74aac5ac4dbf2",
+      "recordedAt": "2026-10-26T05:10:19.931Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "command": "pnpm run -s typecheck",
+      "durationMs": 3439,
+      "exitCode": 0,
+      "kind": "command",
+      "outcome": "pass",
+      "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
+      "recordedAt": "2026-10-26T05:10:23.953Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T05:10:24.628Z",
+      "source": "attested",
+      "summary": "Lecturas del render: integrantes, cola, configuración y proveedores salen en una sola tanda; la configuración responde null y los proveedores solo los activos a un guardián, y la página usa esas respuestas solo para el líder; un fallo sigue llegando al boundary del segmento."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T05:10:25.249Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Gestionar academia carga para el líder con Configuración, Proveedores de verificación, Solicitudes de verificación y Accesos de integrantes (4/4)."
+    }
+  ],
+  "limitations": [
+    "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T05:10:27.050Z",
+  "result": "partial",
+  "runId": "20261026T050950Z-ac3edc",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps",
+        "reason": "route file changed: segment layout, boundary or page"
+      }
+    ],
+    "suggestedScope": [
+      "whole unit academy.manage.members.list (/[slug]/academia/gestionar): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "e456ce5fb1266d0e",
+      "references/decision-rules.md": "5340413b30d4e7a7",
+      "references/nextjs-apis.md": "7d812e101f16defe",
+      "references/server-client-split.md": "7f52ba9f6a13308d",
+      "references/skeleton-patterns.md": "65d4c31f0f8beb93",
+      "references/version-notes.md": "b6f6488947de60f0"
+    },
+    "definitionHash": "sha256:a3b7fb0dda3a877474c7910f4914469c8cb9a94700aa9d750e81067d96406ed1",
+    "name": "nextjs-route-ui-boundaries",
+    "version": "1.3.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T05:09:50.781Z",
+  "unitId": "academy.manage.members.list"
+}

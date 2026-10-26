@@ -2,16 +2,16 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-management-mutations",
-      "commit": "64b87f83eb45941aa8b2b758ae938221dad4baad",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
       "files": {
-        "components/academy/academy-management/index.tsx": "c9c63144daeb34d0",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
+        "components/academy/academy-management/index.tsx": "30fb9d4e436f90ac",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
         "app/api/tribes/[slug]/verifications/[verificationId]/route.ts": "1169beb137a7ceac",
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
         "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts": "65c276a71c59ef25",
         "src/modules/product-access/infrastructure/repositories/academy-access-sql.ts": "eba86e37e91970d9",
-        "lib/academy/academy-api-client.ts": "298112080df602fd",
+        "lib/academy/academy-api-client.ts": "3e35ac9504a0812c",
         "src/modules/member-verifications/application/results/member-verification-public-dto-schemas.ts": "c658dcf96affa74b",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts": "102e81af136adc5a",
         "src/modules/product-access/constants/academy-route-copy.ts": "f1751ca472d6a6c1",
@@ -29,14 +29,14 @@
         "src/modules/shared/infrastructure/observability/server-logger.ts": "91c2a693de13f86f",
         "src/modules/shared/infrastructure/observability/request-context.ts": "298449d5b583123d"
       },
-      "fingerprint": "sha256:e81e51cbed8690af0690b13028510a2a4a50cbd43bfe5fbd0ab3c42e301abaa4",
+      "fingerprint": "sha256:d0f8b65ef3ea4f0f733a1273a9390372973e1c6b483343c76d2da66e37cc8186",
       "inputs": {
         "components/academy/academy-management/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy/academy-management/index.tsx#ReviewQueueRow/decide": "3683f5730f805045",
+        "components/academy/academy-management/index.tsx#ReviewQueueRow/decide": "7c743b9b055dfb66",
         "components/academy/academy-management/index.tsx#HTTP_STATUS_CONFLICT": "4821e07a60f48131",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY~frame": "273d3be735a785d5",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.conflict": "bc59070c0b883870",
-        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.decisionReasonRequired": "932789cf4c459071",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.decisionReasonRequired": "36d4631f797f70c1",
         "components/academy/academy-management/index.tsx#MIN_REASON_LENGTH": "1c0a5e01e735a4c4",
         "components/academy/academy-management/index.tsx#QUEUE_STATUS_LABEL.pending": "292ed17fd217f098",
         "components/academy/academy-management/index.tsx#QUEUE_STATUS_LABEL.rejected": "bc3e707df6d09421",
@@ -44,12 +44,21 @@
         "components/academy/academy-management/index.tsx#QUEUE_STATUS_LABEL.verified": "e229377279309f06",
         "components/academy/academy-management/index.tsx#QUEUE_STATUS_LABEL~frame": "d4bdd57bd94c9789",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
-        "components/academy/academy-management/index.tsx#ReviewQueueRow~shell": "ab559fb051d73941",
+        "components/academy/academy-management/index.tsx#ReviewQueueRow~shell": "a2cc9a0355ffc4ae",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.decisionReasonLabel": "0f07aa0e7dcc4e40",
-        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.reasonPlaceholder": "57c20650e88d0149",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.reasonPlaceholder": "7f5d5acc3d460d08",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.reject": "9c7e5c8a43559556",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revoke": "68a219128846ef29",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.verify": "8f809e6426a65ae2",
+        "components/academy/academy-management/index.tsx#RevokeVerificationDialog/handleSubmit": "9a0bb7883f7b560e",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.verificationRevoked": "ae129a9d22467442",
+        "components/academy/academy-management/index.tsx#RevokeVerificationDialog~shell": "2328a6411cea9fbe",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.cancel": "129e70b7dea90a86",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeVerificationDescription": "51b0df895247a29d",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeVerificationPrompt": "161368d3d33bdcb6",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeVerificationSubmit": "a21f71c48404355a",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeVerificationTitle": "ab56a9f16af88712",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revoking": "1406d3db841a1080",
         "pkg:react": "374a4508a198654b",
         "components/academy/academy-management/index.tsx#ReviewQueueSection/replaceItem": "3b65c64521811794",
         "components/academy/academy-management/index.tsx#ReviewQueueSection/settleDecidedItem": "1434035519e9b007",
@@ -257,6 +266,10 @@
           "awaits": 1,
           "projectCalls": 1
         },
+        "components/academy/academy-management/index.tsx#RevokeVerificationDialog/handleSubmit": {
+          "awaits": 1,
+          "projectCalls": 1
+        },
         "components/academy/academy-management/index.tsx#ReviewQueueSection~shell": {
           "effects": 1,
           "projectCalls": 1
@@ -325,33 +338,30 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
-        "durationMs": 30491,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "8b0805a323565d53e2f734a508e17d96a127089a30b6edf07c1f4a3ea3594ced",
-        "recordedAt": "2026-10-25T20:31:38.135Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:03:28.671Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/academy/academy-management.test.tsx: Tests 23 passed (23) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       }
     ],
     "limitations": [
-      "La recarga tras decidir o revocar suma una request GET por acción del líder sobre el mismo endpoint que ya usa la paginación; no se midió por separado."
+      "El PR no agrega requests: solo antepone una confirmación a envíos que ya existían; no se midió."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T20:31:40.174Z",
+    "recordedAt": "2026-10-26T15:03:29.721Z",
     "result": "partial",
-    "runId": "20261025T203107Z-6b124f",
+    "runId": "20261026T150328Z-5e8ef7",
     "scope": {
-      "decision": "not-applicable",
+      "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo."
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": []
+      "suggestedScope": [
+        "measure the complete flow /[slug]/academia/gestionar before and after, same build, data and throttling; median of 3 for noisy metrics"
+      ]
     },
     "skill": {
       "definitionFiles": {
@@ -368,7 +378,7 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T203107Z-6b124f.json"
+    "report": "runs/20261026T150328Z-5e8ef7.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

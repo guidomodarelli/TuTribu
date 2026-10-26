@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-single-announcements",
-      "commit": "6bf39166cc4252b49d71cc74c6fedbde63d973ee",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
       "files": {
-        "components/academy/academy-home/index.tsx": "445fcae1bddbac72",
+        "components/academy/academy-home/index.tsx": "ba78725db5c7cd26",
         "app/(platform)/[slug]/academia/page.tsx": "a4c7427e95123588",
         "app/api/tribes/[slug]/subscriptions/current/route.ts": "bbfd0641c3d5c6a6",
         "src/modules/subscriptions/setup.ts": "beab8120b07daf1c",
@@ -22,7 +22,7 @@
         "src/modules/auth/infrastructure/composition/authenticated-account-provider.ts": "750f9fbc68d426b1",
         "lib/auth/sign-in-redirect.ts": "896cfa9806af6656",
         "src/modules/product-access/application/results/academy-dto-mappers.ts": "a40a6cfaf7d3d9c4",
-        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "225eef5ce922c395",
+        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "6cf3cca717bd71e3",
         "app/(platform)/[slug]/tribe-page-access.ts": "31f10502f507d6d7",
         "app/(platform)/[slug]/academia/loading.tsx": "b861ca7d027d3bc0",
         "app/(platform)/[slug]/layout.tsx": "091b3dec28a3139f",
@@ -39,8 +39,8 @@
         "src/constants/routes.ts": "f7766aea8d0ef37e",
         "lib/academy-admissions/admission-routes.ts": "adac74b9727d9a17",
         "lib/academy/academy-format.ts": "c89823377b85f3a9",
-        "components/academy/academy-home/styles.module.scss": "e079b6399536b3a5",
-        "lib/academy/academy-api-client.ts": "298112080df602fd",
+        "components/academy/academy-home/styles.module.scss": "e5f2b43479351fc1",
+        "lib/academy/academy-api-client.ts": "3e35ac9504a0812c",
         "src/modules/product-access/constants/academy-route-copy.ts": "f1751ca472d6a6c1",
         "src/modules/subscriptions/constants/subscriptions.ts": "6ba50c0da5428de7",
         "src/modules/setup.ts": "b7906aa060d53395",
@@ -144,21 +144,19 @@
         "config/deployment-environment.ts": "08bb1a3202ff76f7",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:8ce47c8dcd9da94b9df189668a479442ed6b0e5d709307b2c6299c2314658f27",
+      "fingerprint": "sha256:c164eaee9f2d38664ff5900e53287e6bb191b9e92738e424fe737daa3f30cced",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
         "pkg:react-dom": "d2111d79718dba5f",
         "components/academy/academy-home/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy/academy-home/index.tsx#AcademyHome~shell": "e682a501a4562464",
+        "components/academy/academy-home/index.tsx#AcademyHome~shell": "f697c5705fa5b8e2",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY~frame": "d647271201261ec5",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.accessHeading": "7502394d9b8e691b",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.admissionClosed": "2f1103a338c1ae8e",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.basicCourses": "7a72b6e794a5be07",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelButton": "219bce9507bb3237",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelConfirm": "957f32fd67593896",
-        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelDialogDescription": "ef99608981b64735",
-        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelDialogTitle": "132a1184a50b06f8",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelKeep": "4c14d8227b235578",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelPending": "af6da76a0657c5b9",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.checkoutButton": "6359f5b4455207f3",
@@ -184,9 +182,25 @@
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.verificationLink": "5e1bdc3bb50ba8b7",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.whatsappNote": "35886a1a73790abf",
         "components/academy/academy-home/index.tsx#AcademyHomeProps": "eb157c1a9d1338b6",
+        "components/academy/academy-home/index.tsx#ActionErrors": "7646f732d236f9c4",
+        "components/academy/academy-home/index.tsx#AcademyHomeAction": "840948ad056b5a3d",
         "pkg:lucide-react": "6166c881f2c2dd27",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
-        "components/academy/academy-home/index.tsx#PendingAction": "c200131b42a3cbf7",
+        "components/academy/academy-home/index.tsx#CANCEL_DIALOG_COPY.active": "70e4570365992adc",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelDialogDescription": "ef99608981b64735",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelDialogTitle": "132a1184a50b06f8",
+        "components/academy/academy-home/index.tsx#CANCEL_DIALOG_COPY.pending": "a961c0c38fdfb412",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelPendingSubscriptionDialogDescription": "04c5eb48b747ae3a",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelPendingSubscriptionDialogTitle": "2e4d3be65457c34a",
+        "components/academy/academy-home/index.tsx#CANCEL_DIALOG_COPY~frame": "735c51ff67ea5f12",
+        "components/academy/academy-home/index.tsx#CancelableRenewalStatus": "9dd87decb11950d5",
+        "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.cancel": "4f18148ec304a187",
+        "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.checkout": "1d497dada23f5a99",
+        "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.join": "4c588d954e312fd6",
+        "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.refresh": "5baa26f2324b632b",
+        "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS~frame": "eae0f31806662871",
+        "components/academy/academy-home/index.tsx#PAGE_SHOW_EVENT": "4a9fc6ef3ed16f39",
+        "components/academy/academy-home/index.tsx#PendingAction": "7d5321c0fe436d78",
         "components/academy/academy-home/index.tsx#buildAccessSteps": "0cdefd526fa3ea5b",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.eligibilityPending": "301fbeba85613914",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.eligibilityRequired": "d2e3ef51736f82d5",
@@ -200,6 +214,8 @@
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.stepVerifyTitle": "8f3b796612ac7eb2",
         "components/academy/academy-home/index.tsx#AccessStep": "038714e2227c2ce8",
         "components/academy/academy-home/index.tsx#AccessStepState": "f26b9b074a9cdfd1",
+        "components/academy/academy-home/index.tsx#isCancelableRenewal": "bac002a229cceb7a",
+        "components/academy/academy-home/index.tsx#isPaymentInProgress": "339d7a03a34a011a",
         "components/academy/academy-home/index.tsx#resolveAccessStatus": "a3cd160acb9e6f9e",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.accessUnbounded": "77f4198682b14b04",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.basicLevel": "e16b6c0f9e5d895c",
@@ -226,9 +242,11 @@
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.expired": "f27f3dea3671a602",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.paidAndBonusUntil": "3ad17dbfd4536999",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.paidUntil": "44bd9d501a645c4f",
-        "components/academy/academy-home/index.tsx#AcademyHome/handleCancel": "d21d240646a4714f",
+        "components/academy/academy-home/index.tsx#AcademyHome/handleCancel": "f75cbc441b6bfc93",
         "components/academy/academy-home/index.tsx#AcademyHome/reloadAccess": "1df564b7e327ff0e",
-        "components/academy/academy-home/index.tsx#AcademyHome/runAction": "a6e5e63ed8953d09",
+        "components/academy/academy-home/index.tsx#AcademyHome/runAction": "f8d692ae7a8346f1",
+        "components/academy/academy-home/index.tsx#AcademyHome/setActionError": "623829589c90fca0",
+        "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.canceledPendingSubscription": "b098b3fc0d15a7ee",
         "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.canceledUntil": "4ced9c99d55c523d",
         "app/(platform)/[slug]/academia/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/page.tsx#TribeAcademyPage": "edb97c58c08a366a",
@@ -721,7 +739,7 @@
         "lib/academy/academy-format.ts#THOUSANDS_SEPARATOR": "e2e5a5a294d38d99",
         "lib/academy/academy-format.ts#formatAcademyDate": "cd3616da31f4d74a",
         "lib/academy/academy-format.ts#YEAR_LENGTH": "7c00b71fcbd0e330",
-        "components/academy/academy-home/styles.module.scss#*": "e079b6399536b3a5",
+        "components/academy/academy-home/styles.module.scss#*": "e5f2b43479351fc1",
         "lib/academy/academy-api-client.ts#<module>": "2da3ec2294295eb1",
         "lib/academy/academy-api-client.ts#fetchOwnAcademyAccess": "5e540f3d801617e2",
         "lib/academy/academy-api-client.ts#API_PATH~frame": "ea245786a08b7938",
@@ -1733,6 +1751,10 @@
         "src/constants/browser-request.ts#BROWSER_REQUEST_TIMEOUT_MS": "a92cd6c5a2273d38"
       },
       "signals": {
+        "components/academy/academy-home/index.tsx#AcademyHome~shell": {
+          "effects": 1,
+          "listeners": 1
+        },
         "components/academy/academy-home/index.tsx#AcademyHome/handleCancel": {
           "awaits": 2,
           "projectCalls": 1
@@ -2119,56 +2141,48 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-screen-announcements.test.tsx tests/unit/components/academy-admissions-messaging-lifecycle.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/components/academy/academy-home.test.tsx tests/unit/components/academy/academy-management.test.tsx tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/messaging-usage-container.test.tsx",
-        "durationMs": 49097,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "3d2e87389d169f28b05784e87b328b505de883fb1840c6b99ed8414699266464",
-        "recordedAt": "2026-10-25T14:04:00.271Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:06:22.217Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx: Tests 24 passed (24) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
-        "command": "pnpm run -s typecheck",
-        "durationMs": 2261,
-        "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
-        "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T14:04:02.977Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:06:22.645Z",
+        "source": "attested",
+        "summary": "pnpm run -s typecheck: sin errores sobre el código mergeado"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T14:04:03.405Z",
+        "recordedAt": "2026-10-26T15:06:23.080Z",
         "source": "attested",
-        "summary": "Feedback: cada resultado se anuncia una sola vez, en el lugar de la acción (status o alert inline), sin un toast que repita el mismo texto; el estado incierto no se duplica cuando el alert ya lo dice; suspender la conexión activa usa el tono de peligro. Las mutaciones conservan su clase y su reconciliación."
+        "summary": "Ciclo de vida: cancelar una renovación pending es server-confirmed, reusa el diálogo, la protección de doble envío y el error por acción, y su copy no promete que no se cobra un pago ya hecho."
+      },
+      {
+        "kind": "browser",
+        "outcome": "pass",
+        "recordedAt": "2026-10-26T15:06:23.508Z",
+        "source": "attested",
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: con la renovación pending aparece Cancelar renovación, un 503 queda dentro del diálogo, el reintento envía un solo DELETE y el resultado aparece con la confirmación del servidor (4/4; antes el botón no se ofrecía)."
       }
     ],
     "limitations": [
-      "Solo se revisó el feedback de resultado que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisó la cancelación de una renovación pending que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T14:04:04.758Z",
+    "recordedAt": "2026-10-26T15:06:24.864Z",
     "result": "partial",
-    "runId": "20261025T140310Z-d8026b",
+    "runId": "20261026T150621Z-4728c8",
     "scope": {
       "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "modified",
-          "key": "components/academy/academy-home/index.tsx#AcademyHome/handleCancel",
-          "reason": "interactive handler changed: navigation or server action calls may differ"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.home.renewal-cancel (/[slug]/academia): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
       ]
@@ -2186,7 +2200,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T140310Z-d8026b.json"
+    "report": "runs/20261026T150621Z-4728c8.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

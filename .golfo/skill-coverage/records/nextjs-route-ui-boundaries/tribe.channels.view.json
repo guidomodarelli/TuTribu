@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
       "files": {
         "app/(platform)/[slug]/canales/page.tsx": "6998e6bd4c5763f3",
         "app/(platform)/[slug]/canales/loading.tsx": "8de75f6bd35677bd",
@@ -126,7 +126,7 @@
         "src/modules/tribes/constants/tribe-images.ts": "6ce723523d3aed1e",
         "src/modules/shared/infrastructure/cloudflare/cloudflare-images-config.ts": "6a104ceb8cd33301",
         "src/modules/tribes/domain/repositories/academy-approved-membership-writer.ts": "58591a63c7e78ac6",
-        "src/modules/tribes/constants/tribe-story.ts": "56fbe141834e760e",
+        "src/modules/tribes/constants/tribe-story.ts": "95b0fb552f1928b0",
         "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts": "63777e7a48eb3ea8",
         "src/modules/tribes/domain/errors/tribe-slug-conflict-error.ts": "91b9e31e541176d5",
         "src/modules/tribes/infrastructure/repositories/legacy-tribe-entry-lock.ts": "a33f08014f233c69",
@@ -2834,128 +2834,48 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
-        "durationMs": 29486,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "7e9fd4e72a4101a2fed138319c4829f539a34045521f66d01faebe5c23d23d80",
-        "recordedAt": "2026-10-25T12:40:36.941Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:00:15.223Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx: Tests 122 passed (122) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
-        "command": "pnpm run -s typecheck",
-        "durationMs": 3300,
-        "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
-        "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T12:40:40.784Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:00:15.654Z",
+        "source": "attested",
+        "summary": "pnpm run -s typecheck: sin errores sobre el código mergeado"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T12:40:41.336Z",
+        "recordedAt": "2026-10-26T15:00:16.098Z",
         "source": "attested",
-        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+        "summary": "Estados: Ver más acumula sin duplicados y su carga y error quedan junto al botón; las relecturas y filtros conservan lo mostrado con aria-busy y descartan respuestas viejas; la bandeja y el historial muestran los datos del servidor al hidratar y habilitan las acciones tras el chequeo de cuenta; la importación selecciona todas las válidas sin cambiar el contrato; el doble montaje de desarrollo ya no se toma como restauración."
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T12:40:41.889Z",
+        "recordedAt": "2026-10-26T15:00:16.527Z",
         "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app, capturando el fallback durante una navegación: antes, academia, gestionar, verificación, suscripción y canales mostraban el esqueleto de la ronda («Cargando sección de tribu») y la invitación «Solicitar ingreso»; después, cada ruta anuncia su propia carga con su forma (panel de pasos en Reglas e Invitaciones, filas en Solicitudes, «Tu solicitud de ingreso» e «Invitación personal» en el solicitante) (4/4)."
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Ver más entradas suma 25 a 27 sin duplicados con aria-busy; la importación elige las 55 válidas de 60 filas; la actividad no se oculta al releer ni al filtrar y suma el hecho anterior; la bandeja muestra la solicitud una sola vez al hidratar y el historial carga en next dev (4/4; antes Ver más dejaba 2, no había selección total, la actividad se vaciaba y la bandeja pasaba por vacía)."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron las listas del líder que cambia este PR; el resto de cada unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T12:40:43.962Z",
+    "recordedAt": "2026-10-26T15:00:18.118Z",
     "result": "partial",
-    "runId": "20261025T124006Z-e59e24",
+    "runId": "20261026T150014Z-ff2d1c",
     "scope": {
       "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/canales/loading.module.scss#*",
-          "reason": "styles of a skeleton or loading boundary changed"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/canales/loading.tsx#CHANNELS_LOADING_SHAPE.channelKeys",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/canales/loading.tsx#CHANNELS_LOADING_SHAPE~frame",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/canales/loading.tsx#ChannelsLoading",
-          "reason": "new route file: segment, layout or boundary added"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#<module>",
-          "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#placeholderKeys",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount",
-          "reason": "object member read by the route changed: route configuration impact unknown"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#RouteSkeleton",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlock",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/index.tsx#SkeletonLines",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/loaders/route-skeleton/styles.module.scss#*",
-          "reason": "styles of a skeleton or loading boundary changed"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit tribe.channels.view (/[slug]/canales): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
       ]
@@ -2973,7 +2893,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T124006Z-e59e24.json"
+    "report": "runs/20261026T150014Z-ff2d1c.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

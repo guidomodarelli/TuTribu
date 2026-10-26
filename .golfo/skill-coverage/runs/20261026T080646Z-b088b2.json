@@ -1,0 +1,60 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/admission-leader-lists",
+    "commit": "e6f93720e9a8bbf3820c7764d2dddccaca67ed97",
+    "fingerprint": "sha256:2b05ddc8dc6f96b83ef742e67fed4a255ebe968acd03e37ca853be7590265ad4",
+    "uncommittedFiles": [],
+    "fileCount": 552,
+    "inputCount": 3223
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx tests/unit/pages/tribe-story-page.test.tsx tests/unit/components/tribe-story-about.test.tsx tests/unit/lib/academy/academy-api-client.test.ts",
+      "durationMs": 30072,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "f6447a2328f89f0ee7fe192620f486220b02960607ad07b3d14b0b2951f1a765",
+      "recordedAt": "2026-10-26T08:07:16.968Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    }
+  ],
+  "limitations": [
+    "El PR no agrega requests nuevas: Actualizar estado ya pedía reconcile y la relectura; no se midió."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T08:07:19.853Z",
+  "result": "partial",
+  "runId": "20261026T080646Z-b088b2",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "measure the complete flow /[slug]/academia/admissions/messaging/connections before and after, same build, data and throttling; median of 3 for noisy metrics"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a8d6cde62f2853fa",
+      "references/bundle-lazy-loading.md": "91990bd1796b9884",
+      "references/database-queries-n-plus-one.md": "3064b23acc3e9f7e",
+      "references/images-fonts-scripts.md": "1ab02d4b1a421c87",
+      "references/incremental-sweep-jobs.md": "c5c8e71bdba2e4a9",
+      "references/measurement-tools.md": "e3e96c85be264c0c",
+      "references/requests-caching.md": "981544e05dee2e5c",
+      "references/unnecessary-renders.md": "2d440f22533a2149"
+    },
+    "definitionHash": "sha256:dcb79531d3a56e7765d65880022365639578ed18c69466dbb65f4ce0b59b09d3",
+    "name": "measured-performance-optimization",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T08:06:46.314Z",
+  "unitId": "academy.admissions.messaging.connection.activate"
+}

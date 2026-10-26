@@ -2,11 +2,11 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-management-mutations",
-      "commit": "eb9bbb3133777d61596556f311001d065649fa75",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
       "files": {
-        "components/academy/academy-management/index.tsx": "c9c63144daeb34d0",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
+        "components/academy/academy-management/index.tsx": "30fb9d4e436f90ac",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
         "app/api/tribes/[slug]/academy/members/route.ts": "3cbb25f32868f5ae",
         "src/modules/product-access/setup.ts": "24f5cca748a0f8eb",
         "src/modules/product-access/infrastructure/repositories/postgres-product-access-repository.ts": "b6d068802851a5fa",
@@ -18,7 +18,7 @@
         "src/modules/member-verifications/application/results/member-verification-dto-mappers.ts": "d206542561c4b8d9",
         "src/modules/member-verifications/application/results/member-verification-public-dto-schemas.ts": "c658dcf96affa74b",
         "src/modules/product-access/application/results/academy-dto-mappers.ts": "a40a6cfaf7d3d9c4",
-        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "225eef5ce922c395",
+        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "6cf3cca717bd71e3",
         "app/(platform)/[slug]/tribe-page-access.ts": "31f10502f507d6d7",
         "app/(platform)/[slug]/academia/gestionar/loading.tsx": "efdd51c1e0f631dd",
         "app/(platform)/[slug]/academia/loading.tsx": "b861ca7d027d3bc0",
@@ -33,7 +33,7 @@
         "app/not-found.tsx": "7c2bf7b75ccbcef3",
         "next.config.ts": "499b76937ce73f12",
         "lib/academy/academy-format.ts": "c89823377b85f3a9",
-        "lib/academy/academy-api-client.ts": "298112080df602fd",
+        "lib/academy/academy-api-client.ts": "3e35ac9504a0812c",
         "components/academy/academy-management/styles.module.scss": "01f52ce7ee08aa77",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts": "102e81af136adc5a",
         "src/modules/product-access/infrastructure/api/academy-request-schemas.ts": "153a8ff211e2f807",
@@ -124,10 +124,10 @@
         "src/modules/auth/setup.ts": "37e200547ae950e4",
         "app/not-found.module.scss": "07d324074a6ecb7f",
         "config/deployment-environment.ts": "08bb1a3202ff76f7",
-        "src/constants/time.ts": "98b5459a77a709b0",
+        "src/constants/time.ts": "987c18a571e92d4d",
         "src/constants/date-time.ts": "120f12f7530df5ba"
       },
-      "fingerprint": "sha256:4e54ee0c094efe494cd2e04538ae0aee27235a547ca289183dde83fb043bd46e",
+      "fingerprint": "sha256:99edb737b5eb11d21825c5a321b533461388e54b023d138a56ef2020e1da776e",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
@@ -169,13 +169,13 @@
         "components/academy/academy-management/index.tsx#PAGE_SIZE": "6858738053995650",
         "components/academy/academy-management/index.tsx#RevokeBonusDialog/handleSubmit": "b87e9ea8d5cd5607",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.bonusRevoked": "d7e8c2405c050147",
-        "components/academy/academy-management/index.tsx#RevokeBonusDialog~shell": "a04e045b23a25dd1",
+        "components/academy/academy-management/index.tsx#RevokeBonusDialog~shell": "bae42cea3835b8ab",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusDescription": "736e4abceec956f1",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusPrompt": "a011f4022643b39e",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusSubject": "c1318d22272d5143",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusSubmit": "592e213aced4fb4c",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokeBonusTitle": "fcc403a69ea28b7e",
-        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revokingBonus": "4eec890f60b2a1d8",
+        "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.revoking": "1406d3db841a1080",
         "components/academy/academy-management/index.tsx#describeGrantRange": "1cfc37b867da5dd6",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantRevoked": "947b9dbec763b2f5",
         "components/academy/academy-management/index.tsx#MANAGEMENT_COPY.grantUnbounded": "8062493a3bf01a56",
@@ -287,7 +287,7 @@
         "app/(platform)/[slug]/academia/gestionar/page.tsx#MANAGEMENT_PAGE.pendingStatus": "f879946581980090",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#MANAGEMENT_PAGE~frame": "df600e477132a2b8",
         "app/(platform)/[slug]/academia/gestionar/page.tsx#RequestModules": "69bdc535c7130659",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": "3ebed5c9c877c3bf",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": "2a00c59b13d7afd2",
         "src/modules/member-verifications/application/results/member-verification-dto-mappers.ts#<module>": "2da3ec2294295eb1",
         "src/modules/member-verifications/application/results/member-verification-dto-mappers.ts#toReviewQueueItemDto": "c1339f9555eee868",
         "src/modules/member-verifications/application/results/member-verification-dto-mappers.ts#toMemberVerificationDto": "04e0b70f671e4537",
@@ -1391,7 +1391,7 @@
           "projectCalls": 1
         },
         "app/(platform)/[slug]/academia/gestionar/page.tsx#loadManagementProps": {
-          "awaits": 2
+          "awaits": 1
         },
         "app/(platform)/[slug]/tribe-page-access.ts#resolveVisibleTribePageAccess": {
           "awaits": 1
@@ -1566,50 +1566,42 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
-        "durationMs": 33189,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "c678fc66f8b1b1cd977fc442561b5c839e1d68f171e88ff44603b961ebce7baf",
-        "recordedAt": "2026-10-25T20:48:00.411Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:02:37.422Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/academy/academy-management.test.tsx: Tests 23 passed (23) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
-        "command": "pnpm run -s typecheck",
-        "durationMs": 4954,
-        "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
-        "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T20:48:05.982Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:02:37.844Z",
+        "source": "attested",
+        "summary": "pnpm run -s typecheck: sin errores sobre el código mergeado"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T20:48:06.647Z",
+        "recordedAt": "2026-10-26T15:02:38.287Z",
         "source": "attested",
-        "summary": "Ciclo de vida: revocar es server-confirmed con protección de doble envío y error dentro del diálogo; otorgar y revocar recargan la lista por reloadToken; disponibilidad y conflictos conservan el borrador de la oferta; decidir una solicitud la saca del filtro y vuelve a pedir la página, un conflicto la deja visible con su estado; búsquedas y paginación muestran Consultando…"
+        "summary": "Ciclo de vida: reabrir y revocar una verificación son server-confirmed; la confirmación del correo solo aparece si el email normalizado cambia en una verificación aprobada; revocar usa un diálogo con motivo, pending, protección de doble envío y error dentro del diálogo, y el toast llega con la confirmación del servidor."
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T20:48:07.184Z",
+        "recordedAt": "2026-10-26T15:02:38.712Z",
         "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: la bonificación otorgada aparece sin recargar, revocar usa el diálogo sin window.prompt y el título sin guardar se conserva al cambiar la disponibilidad (4/4)."
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: cambiar el correo de una verificación aprobada pide confirmación, Cancelar no envía y conserva el correo y Cambiar correo envía una vez y la deja En revisión; Revocar abre su diálogo sin enviar y al confirmar hace un solo PATCH (4/4; antes se enviaba sin preguntar y no había diálogo)."
       }
     ],
     "limitations": [
-      "Solo se revisaron las secciones de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron las confirmaciones de verificación que cambia este PR; el resto de cada unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T20:48:08.798Z",
+    "recordedAt": "2026-10-26T15:02:39.979Z",
     "result": "partial",
-    "runId": "20261025T204726Z-5d0008",
+    "runId": "20261026T150236Z-c48652",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -1633,7 +1625,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T204726Z-5d0008.json"
+    "report": "runs/20261026T150236Z-c48652.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-boundaries",
-      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
       "files": {
-        "app/(platform)/[slug]/historia/page.tsx": "2ff1cf20c44bc9a0",
+        "app/(platform)/[slug]/historia/page.tsx": "01e693bd30248791",
         "components/tribes/tribe-story-about/free-join-submit-button/index.tsx": "2cb4bd71406768d8",
         "src/modules/tribes/setup.ts": "71cc96c1b451a171",
         "src/modules/auth/infrastructure/composition/authenticated-account-provider.ts": "750f9fbc68d426b1",
@@ -31,6 +31,7 @@
         "src/modules/auth/setup.ts": "37e200547ae950e4",
         "src/modules/subscriptions/setup.ts": "beab8120b07daf1c",
         "src/modules/setup.ts": "b7906aa060d53395",
+        "src/modules/shared/infrastructure/observability/request-context.ts": "298449d5b583123d",
         "src/modules/tribes/infrastructure/cache/tribe-story-about-cache.ts": "21e770f814aa9d62",
         "lib/auth/sign-in-redirect.ts": "896cfa9806af6656",
         "app/(platform)/[slug]/tribe-page-access.ts": "31f10502f507d6d7",
@@ -47,7 +48,7 @@
         "app/not-found.tsx": "7c2bf7b75ccbcef3",
         "next.config.ts": "499b76937ce73f12",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
-        "src/modules/tribes/constants/tribe-story.ts": "56fbe141834e760e",
+        "src/modules/tribes/constants/tribe-story.ts": "95b0fb552f1928b0",
         "components/tribes/tribe-story-about/free-join-submit-button/styles.module.scss": "c684857662c77970",
         "src/modules/tribes/domain/repositories/academy-admission-entry.ts": "8d44b0d963f9e697",
         "src/modules/tribes/domain/repositories/tribe-academy-admission-repository.ts": "ea14dc2bb4246503",
@@ -214,7 +215,6 @@
         "src/modules/tribes/application/results/tribe-story-result.ts": "af8578ac126aa0e9",
         "src/modules/tribes/constants/tribe-story-cache.ts": "96997fd86e7f047c",
         "src/constants/query-params.ts": "adb538cd11f8e88a",
-        "src/modules/shared/infrastructure/observability/request-context.ts": "298449d5b583123d",
         "components/tribes/tribe-presence-heartbeat/index.tsx": "ff8adcd6cb4701ee",
         "app/(platform)/[slug]/loading.module.scss": "3f6fcdd2e5f79775",
         "components/feedback/error-state/index.tsx": "5090f14a31ac15fc",
@@ -272,13 +272,17 @@
         "app/not-found.module.scss": "07d324074a6ecb7f",
         "config/deployment-environment.ts": "08bb1a3202ff76f7"
       },
-      "fingerprint": "sha256:c8569ccdb0ff78b612a20f30ae17d93a9bf3c7b7428d4df32c85b7eb3079f2a3",
+      "fingerprint": "sha256:2233a6867418ac2f895cbe011166b1fec462290c9eb2afba20a410160c5bb54d",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
         "pkg:react-dom": "d2111d79718dba5f",
         "app/(platform)/[slug]/historia/page.tsx#<module>": "2da3ec2294295eb1",
-        "app/(platform)/[slug]/historia/page.tsx#joinTribeFreeAction": "a4597eb6caead57a",
+        "app/(platform)/[slug]/historia/page.tsx#joinTribeFreeAction": "07f04ab102a76848",
+        "app/(platform)/[slug]/historia/page.tsx#TRIBE_STORY_PAGE~frame": "80a20befedee8a89",
+        "app/(platform)/[slug]/historia/page.tsx#TRIBE_STORY_PAGE.freeJoinFailureMessage": "bf9e38a0e83cfc4a",
+        "app/(platform)/[slug]/historia/page.tsx#TRIBE_STORY_PAGE.freeJoinOperation": "097b3d5fb1abd80b",
+        "app/(platform)/[slug]/historia/page.tsx#TRIBE_STORY_PAGE.logFeature": "36234d47d0da7343",
         "app/(platform)/[slug]/historia/page.tsx#buildStorySignInRedirect": "af7c90b494eb07fa",
         "components/tribes/tribe-story-about/free-join-submit-button/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/tribes/tribe-story-about/free-join-submit-button/index.tsx#FreeJoinSubmitButton": "1162c11e58bd71e1",
@@ -566,7 +570,6 @@
         "app/(platform)/[slug]/historia/page.tsx#TRIBE_STORY_PAGE.operation": "3b6bfbe97baaeb6c",
         "app/(platform)/[slug]/historia/page.tsx#TRIBE_STORY_PAGE.resolveOfferFailureMessage": "88039daa23129179",
         "app/(platform)/[slug]/historia/page.tsx#TRIBE_STORY_PAGE.resolveStoryFailureMessage": "ac07f283e9c54df5",
-        "app/(platform)/[slug]/historia/page.tsx#TRIBE_STORY_PAGE~frame": "80a20befedee8a89",
         "app/(platform)/[slug]/historia/page.tsx#STORY_OFFER_BLOCKED_REASONS": "b3d9e0555faac029",
         "app/(platform)/[slug]/historia/page.tsx#canReadTribeStory": "6eb28ee227ad08a4",
         "app/(platform)/[slug]/historia/page.tsx#generateMetadata": "73ab571523801106",
@@ -574,6 +577,13 @@
         "src/modules/setup.ts#<module>": "2da3ec2294295eb1",
         "src/modules/setup.ts#createRequestModules/executeWithRequestContext": "08675cdc210a33ff",
         "src/modules/setup.ts#createRequestModules~shell": "389ed7be79fc5562",
+        "src/modules/shared/infrastructure/observability/request-context.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/shared/infrastructure/observability/request-context.ts#resolveRequestContext": "e2676e3119582cbe",
+        "src/modules/shared/infrastructure/observability/request-context.ts#REQUEST_ID_HEADER": "f424d3b14aaf34ae",
+        "src/modules/shared/infrastructure/observability/request-context.ts#RequestContext": "3c853e0cdccfd2b4",
+        "src/modules/shared/infrastructure/observability/request-context.ts#TRACE_ID_HEADER": "53521ebe088784f4",
+        "src/modules/shared/infrastructure/observability/request-context.ts#buildRequestId": "264e4321e679f159",
+        "src/modules/shared/infrastructure/observability/request-context.ts#readFirstHeaderValue": "17626511501da534",
         "src/modules/tribes/infrastructure/cache/tribe-story-about-cache.ts#<module>": "f7e3cf85771fe55e",
         "src/modules/tribes/infrastructure/cache/tribe-story-about-cache.ts#getCachedPublicTribeStoryAbout/executeWithAnonymousContext": "88b54e9297513367",
         "src/modules/tribes/infrastructure/cache/tribe-story-about-cache.ts#getCachedPublicTribeStoryAbout~shell": "c147251bbc64578d",
@@ -702,10 +712,14 @@
         "src/constants/routes.ts#TRIBE_ROUTE_SEGMENTS.welcome": "d303eab2a15aa376",
         "src/constants/routes.ts#buildTribeSectionRoute": "832cd9691055927d",
         "src/modules/tribes/constants/tribe-story.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_FORM_STATUS~frame": "4bd7151ddf9cd73a",
+        "src/modules/tribes/constants/tribe-story.ts#TribeFreeJoinFormStatus": "575af53c782fc222",
+        "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_FORM_STATUS.failed": "30b78e1585d30f33",
+        "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_FORM_STATUS.forbidden": "ad1922287d03e2f4",
         "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_STATUS~frame": "e586e07000b18676",
         "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_STATUS.alreadyMember": "46c9c0dc5ed123ef",
-        "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_STATUS.forbidden": "ad1922287d03e2f4",
         "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_STATUS.joined": "12e3add4ac7a8798",
+        "src/modules/tribes/constants/tribe-story.ts#TribeFreeJoinFormState": "c7efd626b446317d",
         "components/tribes/tribe-story-about/free-join-submit-button/styles.module.scss#*": "c684857662c77970",
         "src/modules/tribes/domain/repositories/academy-admission-entry.ts#<module>": "2da3ec2294295eb1",
         "src/modules/tribes/domain/repositories/academy-admission-entry.ts#AcademyAdmissionEntry": "fe1b586f16f7e4da",
@@ -924,6 +938,7 @@
         "src/modules/auth/infrastructure/better-auth/server-auth-context.ts#isConnectionAcquisitionTimeout": "44f403da21a2a4c0",
         "src/modules/auth/infrastructure/better-auth/server-auth-context.ts#isRetryableBetterAuthSessionFailure": "e7483d4bc461c959",
         "src/modules/tribes/domain/repositories/tribe-free-join-repository.ts#JoinTribeFreeCommand": "5a99195d26006c43",
+        "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_STATUS.forbidden": "ad1922287d03e2f4",
         "src/modules/tribes/constants/tribe-page-access.ts#<module>": "2da3ec2294295eb1",
         "src/modules/tribes/constants/tribe-page-access.ts#TRIBE_MEMBERSHIP_STATUS~frame": "0609f6a3493e42ef",
         "src/modules/tribes/constants/tribe-page-access.ts#TRIBE_MEMBERSHIP_STATUS.active": "d999a37e74d137f4",
@@ -1530,13 +1545,6 @@
         "src/constants/query-params.ts#QUERY_PARAMS~frame": "de6c4831e66d2d65",
         "src/constants/query-params.ts#QUERY_PARAMS.auth": "1256fb5f409a695c",
         "src/constants/routes.ts#ROUTES.auth": "2f4afe04c75871a4",
-        "src/modules/shared/infrastructure/observability/request-context.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/shared/infrastructure/observability/request-context.ts#resolveRequestContext": "e2676e3119582cbe",
-        "src/modules/shared/infrastructure/observability/request-context.ts#REQUEST_ID_HEADER": "f424d3b14aaf34ae",
-        "src/modules/shared/infrastructure/observability/request-context.ts#RequestContext": "3c853e0cdccfd2b4",
-        "src/modules/shared/infrastructure/observability/request-context.ts#TRACE_ID_HEADER": "53521ebe088784f4",
-        "src/modules/shared/infrastructure/observability/request-context.ts#buildRequestId": "264e4321e679f159",
-        "src/modules/shared/infrastructure/observability/request-context.ts#readFirstHeaderValue": "17626511501da534",
         "components/tribes/tribe-presence-heartbeat/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/tribes/tribe-presence-heartbeat/index.tsx#TribePresenceHeartbeat": "8590a091864a731e",
         "components/tribes/tribe-presence-heartbeat/index.tsx#PRESENCE_HEARTBEAT~frame": "e3c7aa8cc8b620e3",
@@ -2100,8 +2108,8 @@
       },
       "signals": {
         "app/(platform)/[slug]/historia/page.tsx#joinTribeFreeAction": {
-          "awaits": 3,
-          "projectCalls": 1
+          "awaits": 4,
+          "projectCalls": 2
         },
         "src/modules/tribes/setup.ts#buildTribesModule": {
           "projectCalls": 35
@@ -2781,47 +2789,46 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
-        "durationMs": 38960,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "40739ac5076d14aa63c6431a871ecd30b57f18e4b4ca407dd7b12ecc69ea453e",
-        "recordedAt": "2026-10-25T05:46:39.131Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:00:38.424Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx: Tests 122 passed (122) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
-        "command": "pnpm run -s typecheck",
-        "durationMs": 4218,
-        "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
-        "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T05:46:44.038Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:00:38.864Z",
+        "source": "attested",
+        "summary": "pnpm run -s typecheck: sin errores sobre el código mergeado"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T05:46:44.732Z",
+        "recordedAt": "2026-10-26T15:00:39.294Z",
         "source": "attested",
-        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
+        "summary": "Estados: Ver más acumula sin duplicados y su carga y error quedan junto al botón; las relecturas y filtros conservan lo mostrado con aria-busy y descartan respuestas viejas; la bandeja y el historial muestran los datos del servidor al hidratar y habilitan las acciones tras el chequeo de cuenta; la importación selecciona todas las válidas sin cambiar el contrato; el doble montaje de desarrollo ya no se toma como restauración."
+      },
+      {
+        "kind": "browser",
+        "outcome": "pass",
+        "recordedAt": "2026-10-26T15:00:39.726Z",
+        "source": "attested",
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Ver más entradas suma 25 a 27 sin duplicados con aria-busy; la importación elige las 55 válidas de 60 filas; la actividad no se oculta al releer ni al filtrar y suma el hecho anterior; la bandeja muestra la solicitud una sola vez al hidratar y el historial carga en next dev (4/4; antes Ver más dejaba 2, no había selección total, la actividad se vaciaba y la bandeja pasaba por vacía)."
       }
     ],
     "limitations": [
-      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron las listas del líder que cambia este PR; el resto de cada unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T05:46:47.584Z",
+    "recordedAt": "2026-10-26T15:00:41.314Z",
     "result": "partial",
-    "runId": "20261025T054559Z-c14376",
+    "runId": "20261026T150037Z-ec8123",
     "scope": {
       "decision": "full",
       "reasons": [
-        "no previous coverage: the whole unit is analyzed"
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": [
@@ -2841,7 +2848,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T054559Z-c14376.json"
+    "report": "runs/20261026T150037Z-ec8123.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

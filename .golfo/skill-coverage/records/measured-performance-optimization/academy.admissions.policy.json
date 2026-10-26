@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-leader-recovery-exits",
-      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
       "files": {
         "app/(platform)/[slug]/academia/admissions/settings/policy-container.tsx": "2de4232cdc3f6d25",
         "app/(platform)/[slug]/academia/admissions/settings/page.tsx": "75fa14e540d1439d",
@@ -28,7 +28,7 @@
         "components/academy-admissions/admission-route-error/index.tsx": "f1d403b2508a4b3e",
         "src/modules/academy-admissions/constants/commercial-membership-review.ts": "5026d9c7a413f34e",
         "components/academy-admissions/commercial-membership-review/index.tsx": "dbb0de178fd5db12",
-        "src/modules/messaging/constants/messaging-connections-browser.ts": "6324cc25a232f60b",
+        "src/modules/messaging/constants/messaging-connections-browser.ts": "fc77878f34cf9bcd",
         "src/modules/messaging/constants/messaging-usage.ts": "ba71bbac4e985a5a",
         "src/modules/academy-admissions/application/ports/admission-policy-browser-client.ts": "1999940a70fc8def",
         "src/modules/academy-admissions/application/results/admission-policy-page-state.ts": "a45e31549135dfc9",
@@ -147,7 +147,7 @@
         "src/modules/academy-admissions/constants/admission-contact.ts": "cf90895cb275bdd9",
         "components/academy-admissions/admission-policy-form/policy-rules-steps/index.tsx": "bde59c966cb1539d",
         "components/academy-admissions/admission-policy-form/policy-status-panel/index.tsx": "049f2f7c1acda391",
-        "src/modules/academy-admissions/constants/admission-ui.ts": "a57d7d4286770b34",
+        "src/modules/academy-admissions/constants/admission-ui.ts": "c0ed62cb0dafbbf7",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/modules/academy-admissions/application/ports/admission-browser-client.ts": "e4d882fd3cf5bf02",
@@ -197,7 +197,7 @@
         "src/modules/academy-admissions/application/results/admission-batch-decision-result.ts": "e7b6140dec98efd9",
         "src/modules/academy-admissions/application/results/admission-activity-result.ts": "9a90cb2e8735c2a9",
         "src/modules/academy-admissions/application/results/admission-metrics-result.ts": "08620a4f1a506f0f",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "d0af64144b8cacf3",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "7e28bd61704eb630",
         "src/modules/academy-admissions/constants/admission-activity.ts": "a6c5519798822d7b",
         "src/modules/academy-admissions/constants/admission-activity-page-schemas.ts": "7522ac9ef5450726",
         "src/modules/tribes/constants/academy-membership.ts": "458dd8dd26c19140",
@@ -273,7 +273,7 @@
         "src/modules/academy-admissions/domain/repositories/admission-retry-writer.ts": "c801dc18ec663a3f",
         "src/modules/academy-admissions/domain/repositories/admission-whatsapp-number-writer.ts": "25a448bd954a5e32",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-submission-proof-reader.ts": "931f9ad7a5aa7eac",
-        "src/modules/tribes/constants/tribe-story.ts": "56fbe141834e760e",
+        "src/modules/tribes/constants/tribe-story.ts": "95b0fb552f1928b0",
         "src/modules/academy-admissions/constants/admission-batch-decision-schema.ts": "21d31f0bdcf55085",
         "src/modules/academy-admissions/constants/admission-command-denial-schema.ts": "7da544dec6ac92b3",
         "src/modules/academy-admissions/infrastructure/repositories/assert-unreserved-admission-contact.ts": "dab62a6379fe508d",
@@ -386,7 +386,7 @@
         "src/modules/academy-admissions/domain/entities/admission-metric-dimensions.ts": "6957c9c14dd1d2c2",
         "src/modules/academy-admissions/constants/admission-policy-audit.ts": "fd7df5f729db9e00",
         "src/modules/academy-admissions/domain/entities/admission-policy-audit-snapshot.ts": "e3d29107ee0a96ce",
-        "src/constants/time.ts": "98b5459a77a709b0",
+        "src/constants/time.ts": "987c18a571e92d4d",
         "src/modules/academy-admissions/domain/repositories/admission-audit-repository.ts": "932bd7548c01a6f7",
         "src/modules/messaging/constants/notification-delivery-recovery.ts": "c3be3c9a2985f5e2",
         "src/modules/academy-admissions/constants/admission-leader-guard.ts": "824d12f18d5c4b77",
@@ -4776,21 +4776,32 @@
       },
       "uncommittedFiles": []
     },
-    "evidence": [],
-    "limitations": [],
+    "evidence": [
+      {
+        "kind": "test",
+        "outcome": "pass",
+        "recordedAt": "2026-10-26T14:57:27.479Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx: Tests 122 passed (122) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+      }
+    ],
+    "limitations": [
+      "El PR no agrega requests: Ver más ya pedía la página siguiente y la relectura de actividad no se suma a otra en curso; no se midió."
+    ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T17:55:02.711Z",
-    "result": "not-applicable",
-    "runId": "20261025T175500Z-1b56bf",
+    "recordedAt": "2026-10-26T14:57:29.444Z",
+    "result": "partial",
+    "runId": "20261026T145727Z-af3817",
     "scope": {
-      "decision": "not-applicable",
+      "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo."
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": []
+      "suggestedScope": [
+        "measure the complete flow /[slug]/academia/admissions/settings before and after, same build, data and throttling; median of 3 for noisy metrics"
+      ]
     },
     "skill": {
       "definitionFiles": {
@@ -4807,8 +4818,7 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "Las salidas de recuperación no agregan requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T175500Z-1b56bf.json"
+    "report": "runs/20261026T145727Z-af3817.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

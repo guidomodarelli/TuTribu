@@ -1,0 +1,68 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "chore/academy-audit-coverage",
+    "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+    "fingerprint": "sha256:dc6dcbc27aebe34ee7df5e0e7d66f077b754e61b95a1190509d74506e686dce5",
+    "uncommittedFiles": [],
+    "fileCount": 194,
+    "inputCount": 707
+  },
+  "evidence": [
+    {
+      "kind": "test",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T14:37:00.387Z",
+      "source": "attested",
+      "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx tests/unit/components/academy-admissions-messaging-resources.test.tsx tests/unit/components/academy-admissions-notification-recovery-container.test.tsx tests/unit/components/academy-admissions-notification-recovery.test.tsx: Tests 107 passed (107) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T14:37:00.831Z",
+      "source": "attested",
+      "summary": "Estados: el guardado valida al presionar y muestra qué falta junto a cada campo; las consultas de remitentes y plantillas muestran su carga, evitan la doble consulta y dejan el vacío y el error junto al select; Ver avisos anteriores acumula sin duplicados y una recuperación vencida se muestra como no disponible; solo un conflicto real marca la conexión como cambiada, también en la relectura tras una comprobación rechazada."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T14:37:01.370Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Guardar conexión marca cada campo que falta y lleva el foco al primero, y una lectura fallida de la conexión actual ofrece Reintentar consulta sin el banner de conexión cambiada (4/4; antes el botón estaba deshabilitado sin explicación y la lectura fallida mostraba el banner). Remitentes, plantillas y recuperación de avisos necesitan una conexión de Zavu real y quedaron verificados con tests."
+    }
+  ],
+  "limitations": [
+    "Remitentes, plantillas y recuperación de avisos no se recorrieron en el navegador: necesitan una conexión de Zavu con credencial válida o activa, que la rama efímera no tiene."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T14:37:02.860Z",
+  "result": "partial",
+  "runId": "20261026T143659Z-7e2143",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit academy.admissions.messaging.test.send: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T14:36:59.910Z",
+  "unitId": "academy.admissions.messaging.test.send"
+}

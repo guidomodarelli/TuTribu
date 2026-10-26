@@ -2,17 +2,17 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-management-mutations",
-      "commit": "64b87f83eb45941aa8b2b758ae938221dad4baad",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
       "files": {
-        "components/academy/academy-management/index.tsx": "c9c63144daeb34d0",
-        "app/(platform)/[slug]/academia/gestionar/page.tsx": "1eaf7f037d0a20a9",
+        "components/academy/academy-management/index.tsx": "30fb9d4e436f90ac",
+        "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
         "app/api/tribes/[slug]/verification-providers/route.ts": "20c6fdde30cc0509",
         "app/api/tribes/[slug]/verification-providers/[providerId]/route.ts": "7d432268fbc39135",
         "src/modules/member-verifications/setup.ts": "5a54a376eed39eea",
         "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts": "65c276a71c59ef25",
         "src/modules/product-access/infrastructure/repositories/academy-access-sql.ts": "eba86e37e91970d9",
-        "lib/academy/academy-api-client.ts": "298112080df602fd",
+        "lib/academy/academy-api-client.ts": "3e35ac9504a0812c",
         "src/modules/member-verifications/application/results/member-verification-public-dto-schemas.ts": "c658dcf96affa74b",
         "app/api/tribes/[slug]/verification-providers/save-verification-provider.ts": "8c1fd8dfcf9e6368",
         "src/modules/member-verifications/domain/repositories/member-verification-repository.ts": "3cab2af0e816a286",
@@ -341,33 +341,30 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
-        "durationMs": 23592,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "b14dad55dcc5c8c2a48c2fc6ed8819c6250b17d8176fff6e67401b7596c79c47",
-        "recordedAt": "2026-10-25T20:29:24.239Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T15:03:13.595Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/academy/academy-management.test.tsx: Tests 23 passed (23) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       }
     ],
     "limitations": [
-      "La recarga tras decidir o revocar suma una request GET por acción del líder sobre el mismo endpoint que ya usa la paginación; no se midió por separado."
+      "El PR no agrega requests: solo antepone una confirmación a envíos que ya existían; no se midió."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T20:29:25.867Z",
+    "recordedAt": "2026-10-26T15:03:14.646Z",
     "result": "partial",
-    "runId": "20261025T202900Z-eb11c1",
+    "runId": "20261026T150313Z-bf6c18",
     "scope": {
-      "decision": "not-applicable",
+      "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo."
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": []
+      "suggestedScope": [
+        "measure the complete flow /[slug]/academia/gestionar before and after, same build, data and throttling; median of 3 for noisy metrics"
+      ]
     },
     "skill": {
       "definitionFiles": {
@@ -384,7 +381,7 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T202900Z-eb11c1.json"
+    "report": "runs/20261026T150313Z-bf6c18.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

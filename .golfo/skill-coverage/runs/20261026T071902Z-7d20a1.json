@@ -1,0 +1,60 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/admission-leader-lists",
+    "commit": "e6f93720e9a8bbf3820c7764d2dddccaca67ed97",
+    "fingerprint": "sha256:9357c8440a30a01a11f1466168bf78ae437472999367b3f8df6524e380d9844d",
+    "uncommittedFiles": [],
+    "fileCount": 594,
+    "inputCount": 3632
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx tests/unit/pages/tribe-story-page.test.tsx tests/unit/components/tribe-story-about.test.tsx tests/unit/lib/academy/academy-api-client.test.ts",
+      "durationMs": 32875,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "22060aa91598815342ac47081c87d36046f747d6badab11fb5b557deeb5ef681",
+      "recordedAt": "2026-10-26T07:19:36.271Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    }
+  ],
+  "limitations": [
+    "El PR no agrega requests nuevas: Actualizar estado ya pedía reconcile y la relectura; no se midió."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T07:19:39.300Z",
+  "result": "partial",
+  "runId": "20261026T071902Z-7d20a1",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "measure the complete flow /[slug]/academia/admissions/activity before and after, same build, data and throttling; median of 3 for noisy metrics"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a8d6cde62f2853fa",
+      "references/bundle-lazy-loading.md": "91990bd1796b9884",
+      "references/database-queries-n-plus-one.md": "3064b23acc3e9f7e",
+      "references/images-fonts-scripts.md": "1ab02d4b1a421c87",
+      "references/incremental-sweep-jobs.md": "c5c8e71bdba2e4a9",
+      "references/measurement-tools.md": "e3e96c85be264c0c",
+      "references/requests-caching.md": "981544e05dee2e5c",
+      "references/unnecessary-renders.md": "2d440f22533a2149"
+    },
+    "definitionHash": "sha256:dcb79531d3a56e7765d65880022365639578ed18c69466dbb65f4ce0b59b09d3",
+    "name": "measured-performance-optimization",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T07:19:02.788Z",
+  "unitId": "academy.admissions.activity.view"
+}

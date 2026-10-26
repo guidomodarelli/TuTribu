@@ -1,0 +1,60 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/admission-leader-lists",
+    "commit": "e6f93720e9a8bbf3820c7764d2dddccaca67ed97",
+    "fingerprint": "sha256:c1b7a86d077295238ce987b1cdcf1a1188718fdbebf83b7679cf74e17f93aee8",
+    "uncommittedFiles": [],
+    "fileCount": 289,
+    "inputCount": 1629
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx tests/unit/components/academy-admissions-messaging-resources.test.tsx tests/unit/components/academy-admissions-notification-recovery-container.test.tsx tests/unit/components/academy-admissions-notification-recovery.test.tsx",
+      "durationMs": 153480,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "a72c4aab648e05742694c7c5b223d320f483cf16e5937db00b5e8ba46e441e68",
+      "recordedAt": "2026-10-26T12:20:11.242Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    }
+  ],
+  "limitations": [
+    "El PR no agrega requests: la recuperación acumula páginas que ya se pedían y el reloj del vencimiento usa un único temporizador; no se midió."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T12:20:13.797Z",
+  "result": "partial",
+  "runId": "20261026T121737Z-5f598e",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "measure the complete flow /[slug]/academia/admissions/messaging/connections before and after, same build, data and throttling; median of 3 for noisy metrics"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a8d6cde62f2853fa",
+      "references/bundle-lazy-loading.md": "91990bd1796b9884",
+      "references/database-queries-n-plus-one.md": "3064b23acc3e9f7e",
+      "references/images-fonts-scripts.md": "1ab02d4b1a421c87",
+      "references/incremental-sweep-jobs.md": "c5c8e71bdba2e4a9",
+      "references/measurement-tools.md": "e3e96c85be264c0c",
+      "references/requests-caching.md": "981544e05dee2e5c",
+      "references/unnecessary-renders.md": "2d440f22533a2149"
+    },
+    "definitionHash": "sha256:dcb79531d3a56e7765d65880022365639578ed18c69466dbb65f4ce0b59b09d3",
+    "name": "measured-performance-optimization",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T12:17:37.117Z",
+  "unitId": "academy.admissions.messaging.connections.restore"
+}

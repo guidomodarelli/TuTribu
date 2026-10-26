@@ -1,0 +1,156 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "chore/academy-audit-coverage",
+    "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+    "fingerprint": "sha256:8558ffeeb1ae6f6b7dcfe4a08ea088d241365944173bfa63a6346c53297aa154",
+    "uncommittedFiles": [],
+    "fileCount": 181,
+    "inputCount": 948
+  },
+  "evidence": [
+    {
+      "kind": "test",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T13:53:37.568Z",
+      "source": "attested",
+      "summary": "pnpm exec vitest run tests/unit/components/academy-admission-applicant-recovery.test.tsx tests/unit/components/academy-admissions-manual.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx: Tests 53 passed (53) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T13:53:38.122Z",
+      "source": "attested",
+      "summary": "Estados: unavailable ofrece reintento solo para fallas transitorias; los errores de envío, cancelación y corrección del WhatsApp quedan junto a su origen, una sola vez, y se limpian al corregir; los inciertos siguen en la página junto a Consultar estado; un token heredado mal formado ya no ofrece un reintento que no puede funcionar."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T13:53:38.660Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: una falla temporal de la entrada ofrece Reintentar y recupera la página, una solicitud ajena y un enlace heredado inválido no lo ofrecen y explican qué hacer, y un conflicto al enviar se muestra dentro del paso Enviar solicitud, junto al botón (4/4; antes quedaba al pie de la página)."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T13:53:40.554Z",
+  "result": "verified",
+  "runId": "20261026T135336Z-83a8b8",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "15 relevant change(s) since the verified run"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#DiagnosticPendingIntent",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#isDiagnosticIntent",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/messaging-diagnostic-history/index.tsx#MessagingDiagnosticHistory",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-diagnostic-history/index.tsx#MessagingDiagnosticHistory/confirmClear",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-diagnostic-history/index.tsx#MessagingDiagnosticHistory~shell",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/messaging-diagnostic-history/styles.module.scss#*",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/messaging-original-recovery/index.tsx#MessagingOriginalRecovery",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "lib/messaging/messaging-connections-intent-store.ts#createMessagingConnectionsIntentStore~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/messaging/messaging-connections-intent-store.ts#dispatchedAtSchema",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "lib/messaging/messaging-connections-intent-store.ts#intentSchema",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/ports/messaging-connections-intent-store.ts#MessagingConnectionsIntentStore",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/ports/messaging-connections-intent-store.ts#MessagingConnectionsPendingIntent",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-diagnostic-browser.ts#MESSAGING_DIAGNOSTIC_RECOVERY_UI_COPY.notResumable",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-diagnostic-browser.ts#MESSAGING_DIAGNOSTIC_RECOVERY_UI_COPY~frame",
+        "reason": "new visible or interactive code"
+      }
+    ],
+    "suggestedScope": [
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx › DiagnosticPendingIntent — behavior of this code in every state of the unit that uses it",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx › isDiagnosticIntent — behavior of this code in every state of the unit that uses it",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx › MessagingConnectionsContainer (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
+      "components/academy-admissions/messaging-diagnostic-history/index.tsx › MessagingDiagnosticHistory — behavior of this code in every state of the unit that uses it",
+      "components/academy-admissions/messaging-diagnostic-history/index.tsx › MessagingDiagnosticHistory › confirmClear — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context",
+      "components/academy-admissions/messaging-diagnostic-history/index.tsx › MessagingDiagnosticHistory (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
+      "components/academy-admissions/messaging-diagnostic-history/styles.module.scss (whole file) — visual states that use the changed classes (contrast, focus, loading and error styles)",
+      "components/academy-admissions/messaging-original-recovery/index.tsx › MessagingOriginalRecovery — behavior of this code in every state of the unit that uses it",
+      "lib/messaging/messaging-connections-intent-store.ts › createMessagingConnectionsIntentStore (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
+      "lib/messaging/messaging-connections-intent-store.ts › dispatchedAtSchema — behavior of this code in every state of the unit that uses it",
+      "lib/messaging/messaging-connections-intent-store.ts › intentSchema — behavior of this code in every state of the unit that uses it",
+      "src/modules/messaging/application/ports/messaging-connections-intent-store.ts › MessagingConnectionsIntentStore — behavior of this code in every state of the unit that uses it",
+      "src/modules/messaging/application/ports/messaging-connections-intent-store.ts › MessagingConnectionsPendingIntent — behavior of this code in every state of the unit that uses it",
+      "src/modules/messaging/constants/messaging-diagnostic-browser.ts › MESSAGING_DIAGNOSTIC_RECOVERY_UI_COPY.notResumable — copy or configuration read from this member, in every state that shows it",
+      "src/modules/messaging/constants/messaging-diagnostic-browser.ts › MESSAGING_DIAGNOSTIC_RECOVERY_UI_COPY (object structure) — behavior of this code in every state of the unit that uses it"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T13:53:36.960Z",
+  "unitId": "academy.admissions.messaging.connections.restore"
+}

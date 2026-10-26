@@ -2,10 +2,10 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "perf/academy-messaging-idle-timers",
-      "commit": "cb946c56edfad1cff4bebc3575dbc0d1fd1bb065",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
       "files": {
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts": "fe362e9763b0f0dd",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts": "c207e24f92f177a2",
         "app/api/tribes/[slug]/messaging/connections/[connectionId]/activate/route.ts": "cd6ab6d726572968",
         "src/modules/messaging/setup.ts": "36ebb75d1e9b9914",
         "src/modules/auth/infrastructure/composition/authenticated-account-provider.ts": "750f9fbc68d426b1",
@@ -36,6 +36,7 @@
         "app/layout.tsx": "650f4386e125862f",
         "app/not-found.tsx": "7c2bf7b75ccbcef3",
         "next.config.ts": "499b76937ce73f12",
+        "src/constants/time.ts": "987c18a571e92d4d",
         "src/modules/messaging/application/commands/messaging-activation-requirements.ts": "e20e4f4a47a2f1e6",
         "src/modules/messaging/infrastructure/api/messaging-connection-activation-handler.ts": "01ffa5a80065d558",
         "src/modules/messaging/constants/messaging-connection.ts": "abba3abf6b505594",
@@ -234,7 +235,7 @@
         "src/modules/messaging/domain/errors/messaging-error-code.ts": "347a9bbe72af0c8b",
         "src/modules/messaging/constants/messaging-connections-page-state.ts": "231187ec823ce706",
         "src/modules/tribes/domain/value-objects/tribe-slug.ts": "07196b88770dfa73",
-        "src/modules/academy-admissions/constants/admission-ui.ts": "a57d7d4286770b34",
+        "src/modules/academy-admissions/constants/admission-ui.ts": "c0ed62cb0dafbbf7",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "components/academy-admissions/admission-route-error/styles.module.scss": "06d52f5195bb701e",
         "src/modules/academy-admissions/constants/admission-sections.ts": "31db560723a90ebd",
@@ -274,14 +275,13 @@
         "app/not-found.module.scss": "07d324074a6ecb7f",
         "config/deployment-environment.ts": "08bb1a3202ff76f7"
       },
-      "fingerprint": "sha256:15a2f82adeecf920e917a62ad5b7f5f128af852a5415a5c4cb8aafd660ef4ade",
+      "fingerprint": "sha256:0a86ef1f3511d50e171aebdc951b7e28f958a554b5db971a876dafedcda5896d",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
         "pkg:react-dom": "d2111d79718dba5f",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#useMessagingActivationController": "f22e0a162b5e06c1",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#MAXIMUM_TIMEOUT_MS": "e9cfd06c8dd3e765",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#useMessagingActivationController": "9aa5ec914d0b544d",
         "app/api/tribes/[slug]/messaging/connections/[connectionId]/activate/route.ts#<module>": "2da3ec2294295eb1",
         "app/api/tribes/[slug]/messaging/connections/[connectionId]/activate/route.ts#POST": "79538211007612ee",
         "src/modules/messaging/setup.ts#<module>": "f7e3cf85771fe55e",
@@ -465,6 +465,8 @@
         "next.config.ts#nextConfig.redirects": "4edba01fc7faab03",
         "next.config.ts#nextConfig.images": "ea50c4dc787b7368",
         "next.config.ts#nextConfig~frame": "94bd7f163d17efa5",
+        "src/constants/time.ts#<module>": "2da3ec2294295eb1",
+        "src/constants/time.ts#TIMER_MAXIMUM_DELAY_MS": "05d2cda1114fd800",
         "src/modules/messaging/application/commands/messaging-activation-requirements.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/application/commands/messaging-activation-requirements.ts#assessMessagingActivationRequirements": "7b54e63ede854cd1",
         "src/modules/messaging/application/commands/messaging-activation-requirements.ts#nextMessagingActivationFreshnessChange": "3d7343daa1b2d272",
@@ -2469,83 +2471,48 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx [redacted]-activation-requirements.test.ts",
-        "durationMs": 84296,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "89557702dc069b68b9c4731c2494bb6071a9df3d06a04378f82ef99af945f9d3",
-        "recordedAt": "2026-10-25T19:01:39.884Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T14:53:48.801Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx: Tests 122 passed (122) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
-        "command": "pnpm run -s typecheck",
-        "durationMs": 3053,
-        "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
-        "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-25T19:01:43.408Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T14:53:49.225Z",
+        "source": "attested",
+        "summary": "pnpm run -s typecheck: sin errores sobre el código mergeado"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T19:01:44.194Z",
+        "recordedAt": "2026-10-26T14:53:49.663Z",
         "source": "attested",
-        "summary": "Ciclo de vida: la activación espera con un único timeout el momento en que una prueba de canal cambia de vigencia, y el diagnóstico solo corre su intervalo mientras queda un vencimiento o un reenvío por delante, con un primer tick inmediato; las cuentas regresivas y la elegibilidad muestran lo mismo que antes."
+        "summary": "Estados: Ver más acumula sin duplicados y su carga y error quedan junto al botón; las relecturas y filtros conservan lo mostrado con aria-busy y descartan respuestas viejas; la bandeja y el historial muestran los datos del servidor al hidratar y habilitan las acciones tras el chequeo de cuenta; la importación selecciona todas las válidas sin cambiar el contrato; el doble montaje de desarrollo ya no se toma como restauración."
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T19:01:44.746Z",
+        "recordedAt": "2026-10-26T14:53:50.096Z",
         "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: la página de Conexión carga igual y en reposo pasa de 10-11 a 0-1 commits de React cada 10 s (4/4)."
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Ver más entradas suma 25 a 27 sin duplicados con aria-busy; la importación elige las 55 válidas de 60 filas; la actividad no se oculta al releer ni al filtrar y suma el hecho anterior; la bandeja muestra la solicitud una sola vez al hidratar y el historial carga en next dev (4/4; antes Ver más dejaba 2, no había selección total, la actividad se vaciaba y la bandeja pasaba por vacía)."
       }
     ],
     "limitations": [
-      "Solo se revisaron los relojes de Conexión que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron las listas del líder que cambia este PR; el resto de cada unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T19:01:46.739Z",
+    "recordedAt": "2026-10-26T14:53:51.756Z",
     "result": "partial",
-    "runId": "20261025T190015Z-bcbd4d",
+    "runId": "20261026T145348Z-7b4bfb",
     "scope": {
       "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [
-        {
-          "change": "added",
-          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#MAXIMUM_TIMEOUT_MS",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "modified",
-          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#useMessagingActivationController",
-          "reason": "code rendered by the route changed"
-        },
-        {
-          "change": "removed",
-          "key": "src/constants/time.ts#<module>",
-          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
-        },
-        {
-          "change": "removed",
-          "key": "src/constants/time.ts#MILLISECONDS_PER_SECOND",
-          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
-        },
-        {
-          "change": "added",
-          "key": "src/modules/messaging/application/commands/messaging-activation-requirements.ts#nextMessagingActivationFreshnessChange",
-          "reason": "new code rendered by the route"
-        }
-      ],
+      "relevantChangesAtBegin": [],
       "suggestedScope": [
         "whole unit academy.admissions.messaging.connection.activate (/[slug]/academia/admissions/messaging/connections): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
       ]
@@ -2563,7 +2530,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261025T190015Z-bcbd4d.json"
+    "report": "runs/20261026T145348Z-7b4bfb.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

@@ -1,0 +1,68 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "chore/academy-audit-coverage",
+    "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+    "fingerprint": "sha256:616d263971c1ff3fb22f44ddd208e9a8347191819be4c360dc2ebbda9a822054",
+    "uncommittedFiles": [],
+    "fileCount": 20,
+    "inputCount": 177
+  },
+  "evidence": [
+    {
+      "kind": "test",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T15:03:16.531Z",
+      "source": "attested",
+      "summary": "pnpm exec vitest run tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/academy/academy-management.test.tsx: Tests 23 passed (23) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T15:03:16.964Z",
+      "source": "attested",
+      "summary": "Ciclo de vida: reabrir y revocar una verificación son server-confirmed; la confirmación del correo solo aparece si el email normalizado cambia en una verificación aprobada; revocar usa un diálogo con motivo, pending, protección de doble envío y error dentro del diálogo, y el toast llega con la confirmación del servidor."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T15:03:17.367Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: cambiar el correo de una verificación aprobada pide confirmación, Cancelar no envía y conserva el correo y Cambiar correo envía una vez y la deja En revisión; Revocar abre su diálogo sin enviar y al confirmar hace un solo PATCH (4/4; antes se enviaba sin preguntar y no había diálogo)."
+    }
+  ],
+  "limitations": [
+    "Solo se revisaron las confirmaciones de verificación que cambia este PR; el resto de cada unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T15:03:18.371Z",
+  "result": "partial",
+  "runId": "20261026T150316Z-f58569",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit academy.manage.verifications.decide: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T15:03:16.102Z",
+  "unitId": "academy.manage.verifications.decide"
+}

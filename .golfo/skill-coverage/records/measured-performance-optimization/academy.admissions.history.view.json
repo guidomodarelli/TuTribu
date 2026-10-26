@@ -2,13 +2,13 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-leader-form-inputs",
-      "commit": "03e3a78a65d09197552b6bf28a0c145091755709",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
       "files": {
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/page.tsx": "637ce2d70ca99dc5",
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/loading.tsx": "dc81dcab5563118a",
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/error.tsx": "29df9558bf8e67a2",
-        "app/(platform)/[slug]/academia/admissions/history/[requestId]/history-container.tsx": "3fb74cbcd3725d76",
+        "app/(platform)/[slug]/academia/admissions/history/[requestId]/history-container.tsx": "4aac00de68736a1a",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
         "src/modules/auth/infrastructure/composition/authenticated-account-provider.ts": "750f9fbc68d426b1",
         "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts": "4d37f8e0bc8531b6",
@@ -114,7 +114,7 @@
         "src/modules/shared/infrastructure/database/server-environment.ts": "cb00db6eec131df8",
         "src/modules/academy-admissions/constants/admission-sections.ts": "31db560723a90ebd",
         "components/loaders/route-skeleton/index.tsx": "24ca012df2b27747",
-        "src/modules/academy-admissions/constants/admission-ui.ts": "a57d7d4286770b34",
+        "src/modules/academy-admissions/constants/admission-ui.ts": "c0ed62cb0dafbbf7",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
         "src/modules/academy-admissions/application/results/admission-operation-recovery.ts": "08e3bb7982308b78",
@@ -123,7 +123,7 @@
         "src/modules/academy-admissions/application/results/admission-review-history-result.ts": "978b1b24e5724c92",
         "src/modules/academy-admissions/application/results/admission-review-selection.ts": "57ed7a58771742ac",
         "src/modules/academy-admissions/constants/admission-review-ui.ts": "42d3d87b513edbbb",
-        "components/loaders/skeleton-morph/index.tsx": "364f29380a39b0eb",
+        "components/loaders/skeleton-morph/index.tsx": "90fb6493177b2012",
         "lib/date-time/buenos-aires-format.ts": "12bb5462fe431037",
         "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
         "lib/academy-admissions/admission-review-filters.ts": "10466fd2945f55fe",
@@ -167,7 +167,7 @@
         "src/modules/academy-admissions/application/results/admission-batch-decision-result.ts": "e7b6140dec98efd9",
         "src/modules/academy-admissions/application/results/admission-activity-result.ts": "9a90cb2e8735c2a9",
         "src/modules/academy-admissions/application/results/admission-metrics-result.ts": "08620a4f1a506f0f",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "d0af64144b8cacf3",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "7e28bd61704eb630",
         "src/modules/academy-admissions/constants/admission-activity.ts": "a6c5519798822d7b",
         "src/modules/academy-admissions/constants/admission-activity-page-schemas.ts": "7522ac9ef5450726",
         "src/modules/tribes/constants/academy-membership.ts": "458dd8dd26c19140",
@@ -251,7 +251,7 @@
         "src/modules/academy-admissions/domain/repositories/admission-retry-writer.ts": "c801dc18ec663a3f",
         "src/modules/academy-admissions/domain/repositories/admission-whatsapp-number-writer.ts": "25a448bd954a5e32",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-submission-proof-reader.ts": "931f9ad7a5aa7eac",
-        "src/modules/tribes/constants/tribe-story.ts": "56fbe141834e760e",
+        "src/modules/tribes/constants/tribe-story.ts": "95b0fb552f1928b0",
         "src/modules/academy-admissions/constants/admission-batch-decision-schema.ts": "21d31f0bdcf55085",
         "src/modules/academy-admissions/constants/admission-command-denial-schema.ts": "7da544dec6ac92b3",
         "src/modules/academy-admissions/infrastructure/repositories/assert-unreserved-admission-contact.ts": "dab62a6379fe508d",
@@ -336,7 +336,7 @@
         "src/modules/academy-admissions/constants/allowlist-browser.ts": "b515269f65c7afcf",
         "src/modules/academy-admissions/constants/allowlist-import-browser.ts": "e825df46f40108a0",
         "src/modules/messaging/constants/messaging-usage.ts": "ba71bbac4e985a5a",
-        "src/modules/messaging/constants/messaging-connections-browser.ts": "6324cc25a232f60b",
+        "src/modules/messaging/constants/messaging-connections-browser.ts": "fc77878f34cf9bcd",
         "src/modules/notifications/constants/admission-notification-settings-page.ts": "806d23ea29b33640",
         "src/modules/academy-admissions/constants/admission-operation-recovery-schemas.ts": "04485d588425272a",
         "src/modules/academy-admissions/application/results/admission-contract-fields.ts": "a4913419cef9bbde",
@@ -358,7 +358,7 @@
         "src/modules/academy-admissions/domain/entities/admission-metric-dimensions.ts": "6957c9c14dd1d2c2",
         "src/modules/academy-admissions/constants/admission-policy-audit.ts": "fd7df5f729db9e00",
         "src/modules/academy-admissions/domain/entities/admission-policy-audit-snapshot.ts": "e3d29107ee0a96ce",
-        "src/constants/time.ts": "98b5459a77a709b0",
+        "src/constants/time.ts": "987c18a571e92d4d",
         "src/modules/academy-admissions/domain/repositories/admission-audit-repository.ts": "932bd7548c01a6f7",
         "src/modules/messaging/constants/notification-delivery-recovery.ts": "c3be3c9a2985f5e2",
         "src/modules/academy-admissions/constants/admission-leader-guard.ts": "824d12f18d5c4b77",
@@ -448,7 +448,7 @@
         "src/modules/notifications/domain/entities/admission-notification-group.ts": "444493da2d3bc19d",
         "src/modules/messaging/constants/messaging-dispatch.ts": "4b1a7e4aefaa07b2"
       },
-      "fingerprint": "sha256:0fc887c3b3eaa75de87d7d8b7167097430958caec95f462b8e7ed6163a2c9d4d",
+      "fingerprint": "sha256:911d8f677e25b0617c0138c6d6f9f95490867046678efb85dbc8d040fd44cf23",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/page.tsx#AdmissionReviewHistoryPage": "12f41e89e6da6d86",
@@ -460,7 +460,7 @@
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/history-container.tsx#AdmissionReviewHistoryContainer": "bb75ca94fa333a17",
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/history-container.tsx#CurrentHistory/refresh": "92bd6676fca1349a",
         "pkg:react": "374a4508a198654b",
-        "app/(platform)/[slug]/academia/admissions/history/[requestId]/history-container.tsx#CurrentHistory~shell": "9b43ca1c05c17e6b",
+        "app/(platform)/[slug]/academia/admissions/history/[requestId]/history-container.tsx#CurrentHistory~shell": "ae80b2531404a5a1",
         "app/(platform)/[slug]/academia/admissions/history/[requestId]/history-container.tsx#ReadyHistoryProps": "102f3f2cca70443d",
         "pkg:next": "ef28293b49c7bae1",
         "src/modules/academy-admissions/setup.ts#<module>": "f7e3cf85771fe55e",
@@ -965,7 +965,7 @@
         "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_STATUS_LABEL~frame": "c9becfc27d6513e5",
         "components/loaders/skeleton-morph/index.tsx#<module>": "a9b64565fc2bc2cf",
         "components/loaders/skeleton-morph/index.tsx#MorphContextValue": "b9ead03866462539",
-        "components/loaders/skeleton-morph/index.tsx#MorphBlock": "a9e4a8a0df7a64a5",
+        "components/loaders/skeleton-morph/index.tsx#MorphBlock": "9df4c00f8badea31",
         "components/loaders/skeleton-morph/index.tsx#BLOCK_STATE~frame": "64597e7dc897ac2b",
         "components/loaders/skeleton-morph/index.tsx#BLOCK_STATE.content": "72548e71fe3cc2d9",
         "components/loaders/skeleton-morph/index.tsx#BLOCK_STATE.skeleton": "68b8da258799aa86",
@@ -4190,21 +4190,32 @@
       },
       "uncommittedFiles": []
     },
-    "evidence": [],
-    "limitations": [],
+    "evidence": [
+      {
+        "kind": "test",
+        "outcome": "pass",
+        "recordedAt": "2026-10-26T14:52:57.035Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx: Tests 122 passed (122) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+      }
+    ],
+    "limitations": [
+      "El PR no agrega requests: Ver más ya pedía la página siguiente y la relectura de actividad no se suma a otra en curso; no se midió."
+    ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T18:38:07.180Z",
-    "result": "not-applicable",
-    "runId": "20261025T183805Z-b123d1",
+    "recordedAt": "2026-10-26T14:52:58.888Z",
+    "result": "partial",
+    "runId": "20261026T145256Z-9ff5e3",
     "scope": {
-      "decision": "not-applicable",
+      "decision": "full",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: Las salidas de recuperación no agregan requests, consultas ni pasos al flujo."
+        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": []
+      "suggestedScope": [
+        "measure the complete flow /[slug]/academia/admissions/history/[requestId] before and after, same build, data and throttling; median of 3 for noisy metrics"
+      ]
     },
     "skill": {
       "definitionFiles": {
@@ -4221,8 +4232,7 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "summary": "La validación en el navegador no agrega requests, consultas ni pasos al flujo.",
-    "report": "runs/20261025T183805Z-b123d1.json"
+    "report": "runs/20261026T145256Z-9ff5e3.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

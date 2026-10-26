@@ -1,0 +1,83 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "chore/academy-audit-coverage",
+    "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+    "fingerprint": "sha256:15ef2f1064d3f54fda884b6140c9f4f0f3098e207913193734af4140944f95ae",
+    "uncommittedFiles": [],
+    "fileCount": 241,
+    "inputCount": 1475
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx tests/unit/components/academy-admissions-messaging-resources.test.tsx tests/unit/components/academy-admissions-notification-recovery-container.test.tsx tests/unit/components/academy-admissions-notification-recovery.test.tsx",
+      "durationMs": 150508,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "ad25a87a35608dff05a0ae476f7b0391831c9ba5e3b33f2c59613dab90647df7",
+      "recordedAt": "2026-10-26T13:33:54.203Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "command": "pnpm run -s typecheck",
+      "durationMs": 3715,
+      "exitCode": 0,
+      "kind": "command",
+      "outcome": "pass",
+      "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
+      "recordedAt": "2026-10-26T13:33:58.588Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T13:33:59.510Z",
+      "source": "attested",
+      "summary": "Estados: el guardado valida al presionar y muestra qué falta junto a cada campo; las consultas de remitentes y plantillas muestran su carga, evitan la doble consulta y dejan el vacío y el error junto al select; Ver avisos anteriores acumula sin duplicados y una recuperación vencida se muestra como no disponible; solo un conflicto real marca la conexión como cambiada, también en la relectura tras una comprobación rechazada."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T13:34:00.287Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Guardar conexión marca cada campo que falta y lleva el foco al primero, y una lectura fallida de la conexión actual ofrece Reintentar consulta sin el banner de conexión cambiada (4/4; antes el botón estaba deshabilitado sin explicación y la lectura fallida mostraba el banner). Remitentes, plantillas y recuperación de avisos necesitan una conexión de Zavu real y quedaron verificados con tests."
+    }
+  ],
+  "limitations": [
+    "Remitentes, plantillas y recuperación de avisos no se recorrieron en el navegador: necesitan una conexión de Zavu con credencial válida o activa, que la rama efímera no tiene."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T13:34:03.130Z",
+  "result": "partial",
+  "runId": "20261026T133123Z-37e3c8",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit academy.admissions.review.decide (/[slug]/academia/admissions): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "e456ce5fb1266d0e",
+      "references/decision-rules.md": "5340413b30d4e7a7",
+      "references/nextjs-apis.md": "7d812e101f16defe",
+      "references/server-client-split.md": "7f52ba9f6a13308d",
+      "references/skeleton-patterns.md": "65d4c31f0f8beb93",
+      "references/version-notes.md": "b6f6488947de60f0"
+    },
+    "definitionHash": "sha256:a3b7fb0dda3a877474c7910f4914469c8cb9a94700aa9d750e81067d96406ed1",
+    "name": "nextjs-route-ui-boundaries",
+    "version": "1.3.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T13:31:23.043Z",
+  "unitId": "academy.admissions.review.decide"
+}

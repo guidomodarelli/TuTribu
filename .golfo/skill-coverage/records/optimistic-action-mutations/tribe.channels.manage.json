@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-route-skeletons",
-      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+      "branch": "chore/academy-audit-coverage",
+      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
       "files": {
         "components/tribe-round/tribe-channel-management/index.tsx": "390a2ee3b0d12211",
         "app/api/tribes/[slug]/channels/route.ts": "2854242912c5817b",
@@ -103,7 +103,7 @@
         "src/modules/notifications/infrastructure/database/admission-notification-producer-progress-schema.ts": "b4881309de24badd",
         "src/modules/auth/infrastructure/database/authenticated-account-schema.ts": "8c513f6e9123db53",
         "src/modules/messaging/infrastructure/database/messaging-dispatch-observation-schema.ts": "109cc9dadf4757c7",
-        "src/constants/time.ts": "98b5459a77a709b0",
+        "src/constants/time.ts": "987c18a571e92d4d",
         "src/modules/auth/constants/better-auth-logging.ts": "091ea7af8e595d9a",
         "src/modules/auth/constants/auth-database-diagnostics.ts": "b1badea544f9639c",
         "src/modules/auth/infrastructure/better-auth/auth-database-operation-error.ts": "61acca0dc03a2e9c",
@@ -1990,32 +1990,28 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
-        "durationMs": 29744,
-        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "aafcf8db4c868fc65d985ba136c111d2c94da9add0ea7698229ef49f46df089e",
-        "recordedAt": "2026-10-25T12:38:01.844Z",
-        "source": "witnessed",
-        "summary": "exit code 0"
+        "recordedAt": "2026-10-26T14:44:46.362Z",
+        "source": "attested",
+        "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx tests/unit/components/academy-admissions-messaging-resources.test.tsx tests/unit/components/academy-admissions-notification-recovery-container.test.tsx tests/unit/components/academy-admissions-notification-recovery.test.tsx: Tests 107 passed (107) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T12:38:02.397Z",
+        "recordedAt": "2026-10-26T14:44:46.790Z",
         "source": "attested",
-        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+        "summary": "Estados: el guardado valida al presionar y muestra qué falta junto a cada campo; las consultas de remitentes y plantillas muestran su carga, evitan la doble consulta y dejan el vacío y el error junto al select; Ver avisos anteriores acumula sin duplicados y una recuperación vencida se muestra como no disponible; solo un conflicto real marca la conexión como cambiada, también en la relectura tras una comprobación rechazada."
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Remitentes, plantillas y recuperación de avisos no se recorrieron en el navegador: necesitan una conexión de Zavu con credencial válida o activa, que la rama efímera no tiene."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-25T12:38:04.029Z",
+    "recordedAt": "2026-10-26T14:44:48.087Z",
     "result": "partial",
-    "runId": "20261025T123731Z-dcc896",
+    "runId": "20261026T144445Z-0d0bd1",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -2040,7 +2036,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261025T123731Z-dcc896.json"
+    "report": "runs/20261026T144445Z-0d0bd1.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",
