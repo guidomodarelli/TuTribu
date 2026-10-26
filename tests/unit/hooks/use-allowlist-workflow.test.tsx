@@ -147,7 +147,8 @@ describe("list workflow ownership", () => {
     await act(async () => result.current.save());
     expect(result.current.page).toEqual({ items: [added], nextCursor: cursor });
     await act(async () => result.current.next());
-    expect(result.current.page.items).toEqual([data.entry]);
+    // «Ver más» adds the prior final entry below the new one instead of replacing the page.
+    expect(result.current.page).toEqual({ items: [added, data.entry], nextCursor: null });
     expect(data.client.list).toHaveBeenLastCalledWith(data.initialState.slug, { limit: 1, cursor }, expect.any(AbortSignal));
     expect(data.client.write).toHaveBeenCalledOnce();
   });

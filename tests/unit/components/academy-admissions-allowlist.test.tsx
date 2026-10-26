@@ -132,3 +132,39 @@ describe("allowlist route controls", () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 });
+
+describe("allowlist «Ver más»", () => {
+  it("should add the next page below the shown entries without repeating one, and keep them all when a later page fails", async () => {
+    const data = fixture(), second = { ...data.entry, id: randomUUID(), identity: "second@example.test", displayName: "Segunda" };
+    const failure = "No pudimos consultar más entradas. Volvé a intentarlo.";
+    let finish!: (result: Awaited<ReturnType<AllowlistBrowserClient["list"]>>) => void;
+    vi.mocked(data.client.list)
+      .mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }))
+      .mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: failure, uncertain: false });
+    render(<AllowlistContainer initialState={{ ...data.state, page: { items: [data.entry], nextCursor: "synthetic-cursor-1" } }} client={data.client} />, { wrapper: Providers });
+    const more = screen.getByRole("button", { name: "Ver más entradas" });
+    await waitFor(() => expect(more).toBeEnabled());
+
+    fireEvent.click(more);
+    await waitFor(() => expect(data.client.list).toHaveBeenCalledOnce());
+    expect(data.client.list).toHaveBeenLastCalledWith(data.state.slug, { limit: 25, cursor: "synthetic-cursor-1" }, expect.any(AbortSignal));
+    // While the next page loads, the shown entry stays and only its button reports progress.
+    expect(screen.getByRole("button", { name: `Editar ${data.entry.identity}` })).toBeInTheDocument();
+    expect(more).toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByText(ALLOWLIST_BROWSER_COPY.reading)).not.toBeInTheDocument();
+
+    // The next page repeats the shown entry; it is listed once, followed by the new one.
+    await act(async () => { finish({ status: "ready", value: { items: [data.entry, second], nextCursor: "synthetic-cursor-2" } }); });
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /^Editar / }).map((button) => button.getAttribute("aria-label"))).toEqual([`Editar ${data.entry.identity}`, `Editar ${second.identity}`]));
+
+    fireEvent.click(screen.getByRole("button", { name: "Ver más entradas" }));
+    await waitFor(() => expect(data.client.list).toHaveBeenCalledTimes(2));
+    expect(data.client.list).toHaveBeenLastCalledWith(data.state.slug, { limit: 25, cursor: "synthetic-cursor-2" }, expect.any(AbortSignal));
+    // The failure stays next to the button, which can retry the same page, and the loaded entries remain.
+    const alert = await screen.findByText(failure);
+    expect(alert).toHaveAttribute("role", "alert");
+    expect(alert.parentElement).toContainElement(screen.getByRole("button", { name: "Ver más entradas" }));
+    expect(screen.getAllByRole("button", { name: /^Editar / })).toHaveLength(2);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ver más entradas" })).toBeEnabled());
+  });
+});

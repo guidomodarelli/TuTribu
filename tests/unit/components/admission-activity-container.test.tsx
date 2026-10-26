@@ -135,3 +135,113 @@ describe("private activity browser workflow", () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 });
+
+describe("activity kept on screen while it is reread", () => {
+  /** @returns The pending read and the function that settles it. */
+  function pendingRead(data: ReturnType<typeof fixture>) {
+    let complete!: (result: Awaited<ReturnType<AdmissionActivityBrowserClient["read"]>>) => void;
+    data.client.read.mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; }));
+    return (result: Awaited<ReturnType<AdmissionActivityBrowserClient["read"]>>) => complete(result);
+  }
+  /** @param data - Own fixture. @param version - Current configuration version of the fresh snapshot. @returns A fresh snapshot that differs from the one on screen. */
+  function newerSnapshot(data: ReturnType<typeof fixture>, version: number) {
+    const latest = structuredClone(data.state); latest.metrics.usage.policyVersion = version;
+    if (latest.currentUsage.policy) latest.currentUsage.policy.version = version;
+    return latest;
+  }
+
+  it("should keep the shown consumption and history while returning to the tab rereads them, then show the fresh snapshot", async () => {
+    const data = fixture(); render(data.node, { wrapper: Providers });
+    await currentReadButton();
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    const complete = pendingRead(data);
+    await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
+    await waitFor(() => expect(data.client.read).toHaveBeenCalledOnce());
+    expect(screen.getByText("Cambio de países y cupos")).toBeInTheDocument();
+    expect(screen.getByText(/Configuración actual: versión 6/)).toBeInTheDocument();
+    const status = screen.getByText("Actualizando consumo e historial…");
+    expect(status).toHaveAttribute("role", "status");
+    expect(status.closest("[aria-busy='true']")).not.toBeNull();
+    await act(async () => { complete({ status: "ready", value: newerSnapshot(data, 9) }); });
+    await waitFor(() => expect(screen.getByText(/Configuración actual: versión 9/)).toBeInTheDocument());
+    expect(screen.queryByText("Actualizando consumo e historial…")).not.toBeInTheDocument();
+    expect(screen.getByText("Cambio de países y cupos")).toBeInTheDocument();
+    visibility.mockRestore();
+  });
+
+  it("should keep the previous results while new filters load and keep them with an inline alert when that read fails", async () => {
+    const data = fixture(); render(data.node, { wrapper: Providers });
+    await currentReadButton();
+    const complete = pendingRead(data);
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar filtros" }));
+    await waitFor(() => expect(data.client.read).toHaveBeenCalledOnce());
+    expect(screen.getByText("Cambio de países y cupos")).toBeInTheDocument();
+    expect(screen.getByText("Actualizando consumo e historial…")).toHaveAttribute("role", "status");
+    await act(async () => { complete({ status: "failed", code: "dependency_unavailable", message: "No pudimos consultar el historial filtrado.", uncertain: false }); });
+    expect(await screen.findByRole("alert")).toHaveTextContent("No pudimos consultar el historial filtrado.");
+    expect(screen.getByText("Cambio de países y cupos")).toBeInTheDocument();
+    await currentReadButton();
+  });
+
+  it("should add older activity below the shown facts without repeating one and show its failure next to its button", async () => {
+    const data = fixture(), shown = data.state.activity.items[0];
+    const older = { ...shown, id: "0f5f8d3c-6d4e-4f1a-9a55-1c2b3d4e5f60", createdAt: "2026-10-12T12:00:00.000Z" };
+    data.state.activity.nextCursor = `2026-10-13T12:00:00.000000Z|${shown.id}`;
+    render(data.node, { wrapper: Providers });
+    await currentReadButton();
+    const complete = pendingRead(data);
+    fireEvent.click(screen.getByRole("button", { name: "Ver actividad anterior" }));
+    await waitFor(() => expect(data.client.read).toHaveBeenCalledOnce());
+    // While the older page loads, the shown fact stays and only its button reports progress.
+    expect(screen.getByRole("button", { name: "Ver actividad anterior" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByText("Actualizando consumo e historial…")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Cambio de países y cupos")).toHaveLength(1);
+    const olderPage = structuredClone(data.state);
+    olderPage.selection = { ...data.state.selection, cursor: data.state.activity.nextCursor };
+    olderPage.activity = { ...data.state.activity, items: [shown, older], nextCursor: `2026-10-12T12:00:00.000000Z|${older.id}` };
+    await act(async () => { complete({ status: "ready", value: olderPage }); });
+    await waitFor(() => expect(Array.from(document.querySelectorAll("li time")).map((time) => time.getAttribute("datetime"))).toEqual([shown.createdAt, older.createdAt]));
+
+    data.client.read.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos consultar la actividad anterior.", uncertain: false });
+    fireEvent.click(await currentOlderButton());
+    await waitFor(() => expect(data.client.read).toHaveBeenCalledTimes(2));
+    expect(data.client.read.mock.calls[1][1]).toEqual({ limit: 25, cursor: olderPage.activity.nextCursor });
+    const alert = await screen.findByText("No pudimos consultar la actividad anterior.");
+    expect(alert).toHaveAttribute("role", "alert");
+    expect(alert.parentElement).toContainElement(screen.getByRole("button", { name: "Ver actividad anterior" }));
+    expect(screen.getAllByText("Cambio de países y cupos")).toHaveLength(2);
+  });
+
+  it("should show a reread first page with its own cursor after older pages, so new events never leave a gap", async () => {
+    const data = fixture(), shown = data.state.activity.items[0];
+    const older = { ...shown, id: "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d", createdAt: "2026-10-12T12:00:00.000Z" };
+    const newest = { ...shown, id: "2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e", createdAt: "2026-10-15T12:00:00.000Z" };
+    data.state.activity.nextCursor = `2026-10-13T12:00:00.000000Z|${shown.id}`;
+    render(data.node, { wrapper: Providers });
+    await currentReadButton();
+    const olderPage = structuredClone(data.state);
+    olderPage.selection = { ...data.state.selection, cursor: data.state.activity.nextCursor };
+    olderPage.activity = { ...data.state.activity, items: [older], nextCursor: null };
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: olderPage });
+    fireEvent.click(screen.getByRole("button", { name: "Ver actividad anterior" }));
+    await waitFor(() => expect(Array.from(document.querySelectorAll("li time")).map((time) => time.getAttribute("datetime"))).toEqual([shown.createdAt, older.createdAt]));
+
+    // Two newer events arrived: the fresh first page holds only the newest one, and its own cursor leads to the rest.
+    const freshCursor = `2026-10-15T12:00:00.000000Z|${newest.id}`;
+    const freshPage = structuredClone(data.state);
+    freshPage.activity = { ...data.state.activity, items: [newest], nextCursor: freshCursor };
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: freshPage });
+    fireEvent.click(await currentReadButton());
+    await waitFor(() => expect(Array.from(document.querySelectorAll("li time")).map((time) => time.getAttribute("datetime"))).toEqual([newest.createdAt]));
+    fireEvent.click(await currentOlderButton());
+    await waitFor(() => expect(data.client.read.mock.calls.at(-1)?.[1]).toEqual({ limit: data.state.selection.limit, cursor: freshCursor }));
+  });
+});
+
+/** @returns The enabled older-page control once no read is in flight. */
+async function currentOlderButton() {
+  const button = screen.getByRole("button", { name: "Ver actividad anterior" });
+  await waitFor(() => expect(button).not.toBeDisabled());
+  await waitFor(() => expect(button).not.toHaveAttribute("aria-busy"));
+  return button;
+}

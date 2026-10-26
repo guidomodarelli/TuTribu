@@ -24,7 +24,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Las bandejas y listas vacías de admisión explican qué falta y cómo se completan.
 - La barra lateral de las academias incorpora el grupo Admisiones con sus subsecciones: el líder ve todas y los guardianes, Solicitudes y Avisos; el grupo se abre solo al entrar en una de sus páginas.
 - Todas las páginas de admisión comparten un encabezado con acceso de vuelta, descripción y una fila de secciones que marca la página actual, también en celulares; el encabezado queda fijo al cambiar de sección y el resaltado se desliza hasta la nueva. Si deslizás la fila antes de que la página termine de cargar, queda donde la dejaste y el toque abre la sección elegida.
-- Mientras una página de admisión carga se ve un esqueleto con la forma de su contenido, y el historial de una solicitud transforma sus esqueletos en los eventos al confirmar el acceso.
+- Mientras una página de admisión carga se ve un esqueleto con la forma de su contenido, y al volver al historial de una solicitud desde el navegador sus esqueletos se transforman en los eventos al confirmar el acceso.
 - Gestionar academia ofrece al líder un acceso a Admisiones y mensajería: reglas de admisión, solicitudes, países y cupos, y conexión de mensajería.
 - El piloto de admisión incorpora una plantilla de códigos de WhatsApp en español; todavía no está disponible para enviar porque Meta rechaza su creación.
 - El piloto de WhatsApp cuenta con un negocio propio de TuTribu y su cuenta conectada y activa en Zavu, conservando la cuenta anterior; los códigos siguen pendientes porque Meta rechaza el permiso de creación de la plantilla.
@@ -109,6 +109,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - El mantenimiento interno de admisión incorpora disparadores preparados con activación explícita y fallos visibles; su ejecución automática sigue pendiente.
 - El líder puede pedir el número de WhatsApp del grupo como dato opcional u obligatorio; el equipo lo revisa junto al nombre de Google, sin pedir nuevamente nombre y apellido.
 - Cada aspirante puede corregir su WhatsApp mientras la solicitud siga pendiente y vigente; el formulario conserva el cambio original si se pierde la respuesta y avisa cuando debe revisarse de nuevo.
+- La importación de la lista de habilitados ofrece «Seleccionar todas las válidas» y «Quitar selección», y muestra cuántas filas válidas sin resultado hay, para elegir de una vez filas de archivos de hasta 10.000 filas.
 
 ### Changed
 
@@ -317,6 +318,9 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Cuando la solicitud de ingreso o su enlace no pueden mostrarse por un problema temporal, la página ofrece «Reintentar» además de «Ir al inicio»; si el motivo no cambia al reintentar (falta de permiso, enlace inválido o solicitud inexistente), solo ofrece la salida.
 - Al pedir ingreso, un rechazo del envío aparece en el paso «Enviar solicitud», junto a la confirmación; el de la cancelación, junto a «Cancelar solicitud»; y el de corregir el teléfono, en su formulario. Cada uno se muestra una sola vez y desaparece al cambiar la confirmación o el dato.
 - Un enlace de invitación anterior con un código mal copiado o incompleto explica que el enlace no es válido y sugiere pedirle uno nuevo a la academia, en lugar de ofrecer «Reintentar», que no podía funcionar.
+- «Ver más» en la lista de habilitados, en el historial de invitaciones y en Consumo e historial de admisión suma la página siguiente debajo de lo ya mostrado, sin repetir elementos, en lugar de reemplazarlo; su carga y su error aparecen junto al botón.
+- Consumo e historial de admisión ya no oculta su contenido al volver a la pestaña ni al aplicar filtros: los datos anteriores siguen a la vista con un aviso de actualización hasta que llega la respuesta, y un error de consulta se muestra sin borrarlos.
+- Solicitudes y el historial de una solicitud ya no se vacían por un instante al terminar de cargar: los datos que llegan con la página siguen a la vista mientras se comprueba la cuenta, con sus acciones habilitadas al terminar.
 
 ### Security
 

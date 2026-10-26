@@ -47,6 +47,30 @@ describe("current history visibility and navigation", () => {
     expect(screen.getByRole("heading", { level: 1, name: ADMISSION_REVIEW_HISTORY_COPY.title })).toBeVisible();
     expect(screen.getByRole("alert")).toBeVisible();
   });
+  it("should keep the server history visible while hydrating and checking the current viewer, with refresh and pages waiting for that check", async () => {
+    const data = fixture();
+    let finish!: (result: Awaited<ReturnType<AdmissionBrowserClient["viewer"]>>) => void;
+    data.client.viewer.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    render(data.node, { wrapper: Providers });
+    // No content → skeleton → content: the facts rendered by the server stay as they are, without an entrance.
+    expect(screen.getByRole("heading", { name: "Evento conservado" })).toBeVisible();
+    expect(screen.getByRole("list", { name: "Eventos de la solicitud" }).closest("[aria-busy='true']")).toBeNull();
+    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_HISTORY_COPY.refresh })).toBeDisabled();
+    expect(screen.queryByRole("link", { name: ADMISSION_REVIEW_HISTORY_COPY.older })).not.toBeInTheDocument();
+    await waitFor(() => expect(data.client.viewer).toHaveBeenCalled());
+    await act(async () => { finish({ status: "ready", value: { id: data.state.viewerId } }); });
+    expect(await screen.findByRole("link", { name: ADMISSION_REVIEW_HISTORY_COPY.older })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Evento conservado" })).toBeVisible();
+    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_HISTORY_COPY.refresh })).toBeEnabled();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+  it("should not mistake the development double mount for an Activity restoration and keep refreshing the route", async () => {
+    const data = fixture();
+    render(data.node, { wrapper: Providers, reactStrictMode: true });
+    await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_HISTORY_COPY.refresh })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Evento conservado" })).toBeVisible());
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
   it("should confirm the native viewer once and reuse the authorized server history without an ordinary route refresh", async () => {
     const data = fixture();
     render(data.node, { wrapper: Providers });
@@ -100,7 +124,7 @@ describe("current history visibility and navigation", () => {
     data.client.viewer.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
     const tree = (mode: "visible" | "hidden", state: AdmissionReviewHistoryPageState = data.state) => <Activity mode={mode}><AdmissionReviewHistoryContainer initialState={state} client={data.client} /></Activity>;
     const view = render(tree("visible"), { wrapper: Providers });
-    const signal = data.client.viewer.mock.calls[0][0];
+    await waitFor(() => expect(data.client.viewer).toHaveBeenCalled()); const signal = data.client.viewer.mock.calls[0][0];
     view.rerender(tree("hidden"));
     expect(signal.aborted).toBe(true);
     await act(async () => { finish?.({ status: "ready", value: { id: data.state.viewerId } }); });
@@ -134,7 +158,7 @@ describe("current history visibility and navigation", () => {
     let finish: ((result: Awaited<ReturnType<AdmissionBrowserClient["viewer"]>>) => void) | undefined;
     data.client.viewer.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
     const view = render(data.node, { wrapper: Providers });
-    const signal = data.client.viewer.mock.calls[0][0];
+    await waitFor(() => expect(data.client.viewer).toHaveBeenCalled()); const signal = data.client.viewer.mock.calls[0][0];
     view.unmount();
     expect(signal.aborted).toBe(true);
     await act(async () => { finish?.({ status: "ready", value: { id: data.state.viewerId } }); });
@@ -146,7 +170,7 @@ describe("current history visibility and navigation", () => {
     let finish: ((result: Awaited<ReturnType<AdmissionBrowserClient["viewer"]>>) => void) | undefined;
     data.client.viewer.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
     render(data.node, { wrapper: Providers });
-    const signal = data.client.viewer.mock.calls[0][0];
+    await waitFor(() => expect(data.client.viewer).toHaveBeenCalled()); const signal = data.client.viewer.mock.calls[0][0];
     const restored = new Event("pageshow"); Object.defineProperty(restored, "persisted", { value: true });
     fireEvent(window, restored);
     expect(signal.aborted).toBe(true);

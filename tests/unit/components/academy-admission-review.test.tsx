@@ -333,6 +333,22 @@ describe("native reviewer container", () => {
     expect(data.client.reviewList).not.toHaveBeenCalled();
   });
 
+  it("should keep the SSR requests on screen with disabled actions while the current viewer is checked after hydration", async () => {
+    const data = fixture(false);
+    let finish!: (result: Awaited<ReturnType<AdmissionReviewBrowserClient["viewer"]>>) => void;
+    data.client.viewer.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(data.client.viewer).toHaveBeenCalledOnce());
+    // Content → empty → content is gone: the server snapshot stays while its actions wait for the check.
+    expect(screen.getByText(data.request.applicant.name)).toBeInTheDocument();
+    expect(screen.queryByText(ADMISSION_REVIEW_UI_COPY.empty)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply })).toBeDisabled();
+    await act(async () => { finish({ status: "ready", value: { id: viewerId } }); });
+    await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply })).toBeEnabled());
+    expect(screen.getByText(data.request.applicant.name)).toBeInTheDocument();
+    expect(data.client.reviewList).not.toHaveBeenCalled();
+  });
+
   it("should recheck a consumed SSR snapshot after Activity restores without an original operation", async () => {
     const data = fixture(false);
     const view = render(<Activity mode="visible">{data.node}</Activity>, { wrapper: Providers });
