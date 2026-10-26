@@ -80,7 +80,7 @@ const MANAGEMENT_COPY = {
   cancel: "Cancelar",
   conflict: "Otra persona actualizó este dato. Revisá el estado actual y volvé a intentarlo.",
   decisionReasonLabel: "Motivo",
-  decisionReasonRequired: "Indicá un motivo para rechazar o revocar.",
+  decisionReasonRequired: "Indicá un motivo para rechazar.",
   descriptionLabel: "Explicación del diferencial",
   displayNameLabel: "Nombre visible",
   emptyMembers: "No hay integrantes para mostrar.",
@@ -108,7 +108,7 @@ const MANAGEMENT_COPY = {
   providersDescription: "Son las entidades con las que tus integrantes confirman su vinculación.",
   queueDescription: "Verificá o rechazá las vinculaciones que pidieron tus integrantes.",
   membersDescription: "Revisá quién tiene la academia y bonificá el acceso cuando haga falta.",
-  reasonPlaceholder: "Obligatorio para rechazar o revocar",
+  reasonPlaceholder: "Obligatorio para rechazar",
   salesDescription: "Permite contratar la academia desde su página.",
   newProvider: "Nuevo proveedor",
   next: "Siguiente",
@@ -128,7 +128,13 @@ const MANAGEMENT_COPY = {
   revokeBonusSubject: "Bonificación",
   revokeBonusDescription: "El acceso de la bonificación termina ahora. Contanos el motivo; queda registrado.",
   revokeBonusSubmit: "Revocar bonificación",
-  revokingBonus: "Revocando…",
+  revoking: "Revocando…",
+  revokeVerificationDescription:
+    "La vinculación deja de estar verificada ahora y puede afectar su acceso a la academia. Contanos el motivo: queda registrado y la persona lo ve.",
+  revokeVerificationPrompt: "Motivo de la revocación",
+  revokeVerificationSubmit: "Revocar verificación",
+  revokeVerificationTitle: "Revocar verificación",
+  verificationRevoked: "La verificación quedó revocada.",
   loadingList: "Consultando…",
   offerDraftKept: "Tus cambios de la oferta siguen en el formulario.",
   salesLabel: "Ventas abiertas",
@@ -878,14 +884,15 @@ function ReviewQueueRow({
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [isRevokeDialogOpen, setIsRevokeDialogOpen] = useState(false);
   const isSubmittingRef = useRef(false);
 
-  const decide = async (decision: "rejected" | "revoked" | "verified") => {
+  const decide = async (decision: "rejected" | "verified") => {
     if (isSubmittingRef.current) {
       return;
     }
 
-    if (decision !== "verified" && reason.trim().length < MIN_REASON_LENGTH) {
+    if (decision === "rejected" && reason.trim().length < MIN_REASON_LENGTH) {
       setFeedback(MANAGEMENT_COPY.decisionReasonRequired);
 
       return;
@@ -937,7 +944,7 @@ function ReviewQueueRow({
           <span className={styles.AcademyManagement__hint}>{item.decisionReason}</span>
         ) : null}
       </span>
-      {item.status === "pending" || item.status === "verified" ? (
+      {item.status === "pending" ? (
         <div className={styles.AcademyManagement__decision}>
           <Input
             id={reasonId}
@@ -948,21 +955,20 @@ function ReviewQueueRow({
             value={reason}
           />
           <div className={styles.AcademyManagement__actions}>
-            {item.status === "pending" ? (
-              <>
-                <Button disabled={isSubmitting} onClick={() => decide("verified")} size="sm" type="button">
-                  {MANAGEMENT_COPY.verify}
-                </Button>
-                <Button disabled={isSubmitting} onClick={() => decide("rejected")} size="sm" type="button" variant="secondary">
-                  {MANAGEMENT_COPY.reject}
-                </Button>
-              </>
-            ) : (
-              <Button disabled={isSubmitting} onClick={() => decide("revoked")} size="sm" type="button" variant="secondary">
-                {MANAGEMENT_COPY.revoke}
-              </Button>
-            )}
+            <Button disabled={isSubmitting} onClick={() => decide("verified")} size="sm" type="button">
+              {MANAGEMENT_COPY.verify}
+            </Button>
+            <Button disabled={isSubmitting} onClick={() => decide("rejected")} size="sm" type="button" variant="secondary">
+              {MANAGEMENT_COPY.reject}
+            </Button>
           </div>
+        </div>
+      ) : null}
+      {item.status === "verified" ? (
+        <div className={styles.AcademyManagement__actions}>
+          <Button onClick={() => setIsRevokeDialogOpen(true)} size="sm" type="button" variant="secondary">
+            {MANAGEMENT_COPY.revoke}
+          </Button>
         </div>
       ) : null}
       {feedback ? (
@@ -970,7 +976,126 @@ function ReviewQueueRow({
           {feedback}
         </p>
       ) : null}
+      {isRevokeDialogOpen ? (
+        <RevokeVerificationDialog
+          item={item}
+          onClose={() => setIsRevokeDialogOpen(false)}
+          onItemChange={onItemChange}
+          onRevoked={onItemDecided}
+          tribeSlug={tribeSlug}
+        />
+      ) : null}
     </li>
+  );
+}
+
+/**
+ * Asks for the reason in an accessible dialog and revokes one approved verification exactly once. The row only
+ * changes when the server confirms the revocation; a newer state seen in a conflict replaces the row and the dialog
+ * explains it.
+ *
+ * @param props - The verified request, the route scope and what to do after closing, revoking or seeing a conflict.
+ * @returns A dialog that keeps the reason while it saves, blocks a second submit and shows failures inside it.
+ */
+function RevokeVerificationDialog({
+  item,
+  onClose,
+  onItemChange,
+  onRevoked,
+  tribeSlug,
+}: {
+  item: ReviewQueueItemDto;
+  onClose: () => void;
+  onItemChange: (item: ReviewQueueItemDto) => void;
+  onRevoked: (item: ReviewQueueItemDto) => void;
+  tribeSlug: string;
+}) {
+  const reasonId = useId();
+  const formId = useId();
+  const [reason, setReason] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const isSubmittingRef = useRef(false);
+  const reasonReady = reason.trim().length >= MIN_REASON_LENGTH;
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (isSubmittingRef.current || !reasonReady) {
+      return;
+    }
+
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      const result = await decideMemberVerification(tribeSlug, item.id, {
+        decision: "revoked",
+        expectedVersion: item.version,
+        reason: reason.trim(),
+      });
+
+      if (!result.isSuccess) {
+        if (result.conflictData) {
+          onItemChange(result.conflictData);
+        }
+
+        setErrorMessage(result.status === HTTP_STATUS_CONFLICT ? MANAGEMENT_COPY.conflict : result.message);
+
+        return;
+      }
+
+      toast.success(MANAGEMENT_COPY.verificationRevoked);
+      onClose();
+      onRevoked(result.data);
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog onOpenChange={(open) => (open || isSubmittingRef.current ? undefined : onClose())} open>
+      <DialogContent
+        title={MANAGEMENT_COPY.revokeVerificationTitle}
+        description={`${item.memberDisplayName} · ${item.providerDisplayName}. ${MANAGEMENT_COPY.revokeVerificationDescription}`}
+        footer={
+          <>
+            <Button disabled={isSubmitting} onClick={onClose} type="button" variant="secondary">
+              {MANAGEMENT_COPY.cancel}
+            </Button>
+            <Button
+              aria-busy={isSubmitting || undefined}
+              disabled={isSubmitting || !reasonReady}
+              form={formId}
+              type="submit"
+              variant="danger"
+            >
+              {isSubmitting ? MANAGEMENT_COPY.revoking : MANAGEMENT_COPY.revokeVerificationSubmit}
+            </Button>
+          </>
+        }
+      >
+        <form className={styles.AcademyManagement__form} id={formId} noValidate onSubmit={handleSubmit}>
+          <div className={styles.AcademyManagement__field}>
+            <Input
+              id={reasonId}
+              label={MANAGEMENT_COPY.revokeVerificationPrompt}
+              maxLength={500}
+              onChange={(event) => setReason(event.currentTarget.value)}
+              required
+              value={reason}
+            />
+          </div>
+          {errorMessage ? (
+            <p className={styles.AcademyManagement__error} role="alert">
+              {errorMessage}
+            </p>
+          ) : null}
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1244,7 +1369,7 @@ function RevokeBonusDialog({
               type="submit"
               variant="danger"
             >
-              {isSubmitting ? MANAGEMENT_COPY.revokingBonus : MANAGEMENT_COPY.revokeBonusSubmit}
+              {isSubmitting ? MANAGEMENT_COPY.revoking : MANAGEMENT_COPY.revokeBonusSubmit}
             </Button>
           </>
         }
