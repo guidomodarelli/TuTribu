@@ -271,3 +271,29 @@ El gate local completo sobre `4fd366d2` (lint, tipos, Vitest y build) incluye la
 ## Fase B de reautenticación sobre la punta del PR
 
 `tests/unit/modules/auth/infrastructure/global-identity-evidence-repository.test.ts` aprobó 9/9 (493 s) sobre `eb48cfae`, con una rama Neon propia y el journal completo, que incluye `20261020190000_drop_recent_authentication_evidence.sql`. Incluye el caso con las tablas de recencia ya borradas: la evidencia global de identidad y la sesión siguen resolviendo la cuenta sin esas tablas, y ninguna operación sensible vuelve a pedir autenticarse con Google. Reconfirma la validación de `fdb92832` en Neon efímero. La migración no se aplicó en producción.
+
+## Compuerta final T211 (2026-10-26)
+
+Ejecutada en un worktree limpio en `21aec97a` (rama `docs/academy-spec-closure`: `feature/academy-admissions-spec` @ `49276807` más los enlaces de issues en `tasks.md`), con Node 24.21.0 y pnpm 12.14.0, después de `pnpm install --frozen-lockfile`. Los commits posteriores del PR de cierre (T210 y T212) cambian solo documentación, manuales, `CHANGELOG.md` y archivos de `specs/`; no tocan código, pruebas ni configuración, así que el resultado vale para su head.
+
+| Chequeo | Resultado |
+| --- | --- |
+| `pnpm run lint` | Exit 0. Solo advertencias `no-unused-vars` previas en archivos ajenos a la feature. |
+| `pnpm run typecheck` | Exit 0. |
+| `pnpm run typecheck:tests` | Exit 0. |
+| `pnpm test` | 620 archivos y 6.658 casos aprobados; 359 archivos y 980 casos omitidos por las compuertas `RUN_ADMISSION_*` (SQL, navegador, muestras y carga). |
+| `pnpm run build` | `next build` aprobado con el entorno local de desarrollo, sin secretos de producción. Sin variables de entorno, la recolección de `/_not-found` falla por el secreto de Better Auth: es un requisito de entorno, no un defecto, y el build de GitHub Actions lo cubre con su propio entorno. |
+
+**I1/U1 en suites reales de los tres recursos.** Cada suite creó y borró su propia rama Neon efímera con `tests/support/academy-admission-database.ts`. Las suites SQL necesitan `.env.test.local`, porque Next no carga `.env.local` con `NODE_ENV=test`.
+
+| Recurso | Suites | Resultado |
+| --- | --- | --- |
+| `AllowlistEntry` | `allowlist-persistence` (SQL); `allowlist-browser-ui` (Chromium/WebKit 390/1280) | Aprobadas |
+| `PersonalInvitation` | `personal-invitation-management-persistence`, `personal-invitation-revocation-race` (SQL); `personal-invitation-management-http-flow` (sesión real de líder, CAS y recuperación histórica) | Aprobadas |
+| `MessagingUsagePolicy` y owner único de países | `messaging-usage-policy-configuration` (SQL, HTTP y navegador), `delivery-attempts-and-usage`, `message-delivery-repository` (SQL) | Aprobadas |
+
+- Con `RUN_ADMISSION_SQL_TESTS=1`: 6 archivos, 34 casos aprobados y 5 omitidos (los bloques de navegador y HTTP de `messaging-usage-policy-configuration`), 1.390,90 s.
+- Con `RUN_ADMISSION_SQL_TESTS=1` y `RUN_ADMISSION_BROWSER_TESTS=1`, sin paralelismo entre archivos: 3 archivos y 15 casos aprobados, sin omisiones, 2.189,23 s.
+- Las rutas de esos recursos (`academy-admission-allowlist-routes`, `academy-messaging-usage-policy-routes`, `academy-admission-policy-routes`) y `admission-policy-country-facts` aprobaron dentro de `pnpm test`.
+
+Así quedan confirmados los conflictos por versión vieja, el replay del commit original con su versión histórica y la lectura actual separada en los tres recursos. T211 no ejecuta ningún ensayo operativo: el piloto real (T106), la carga reproducible (T200), OG-03, OG-05 ([#209](https://github.com/guidomodarelli/TuTribu/issues/209)) y OG-06 ([#210](https://github.com/guidomodarelli/TuTribu/issues/210)) siguen pendientes con sus issues. El gate de publicación corre en GitHub Actions sobre el PR de cierre.
