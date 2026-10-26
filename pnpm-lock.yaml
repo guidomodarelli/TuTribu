@@ -185,11 +185,14 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0
       '@golfo/ui':
-        specifier: ^2.1.0
-        version: 2.1.0(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^2.1.2
+        version: 2.1.2(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@next/env':
         specifier: ^16.3.4
         version: 16.3.4
+      '@zavudev/sdk':
+        specifier: 0.57.0
+        version: 0.57.0
       better-auth:
         specifier: ^1.6.11
         version: 1.6.11(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@types/pg@8.20.0)(kysely@0.28.17)(pg@8.21.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(pg@8.21.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(vitest@5.0.0(@types/node@24.13.4)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@3.0.3(@types/node@24.13.4)(supports-color@10.2.2)(typescript@7.0.2)(vite@8.2.2(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.6.1)(sass@1.100.0)(terser@5.16.9)(tsx@4.21.0)(yaml@2.9.0)))(vite@8.2.2(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.6.1)(sass@1.100.0)(terser@5.16.9)(tsx@4.21.0)(yaml@2.9.0)))
@@ -263,6 +266,9 @@ importers:
       '@testing-library/user-event':
         specifier: ^14.6.1
         version: 14.6.1(@testing-library/dom@10.4.1)
+      '@types/jsdom':
+        specifier: ^30.0.0
+        version: 30.0.0
       '@types/node':
         specifier: ^24.13.4
         version: 24.13.4
@@ -1770,8 +1776,8 @@ packages:
     engines: {node: '>=22'}
     hasBin: true
 
-  '@golfo/ui@2.1.0':
-    resolution: {integrity: sha512-K82KKbU4dvbmWzPaMkCTW8gv0z8goOmU5vZJ5GhS4AY8ybXAzuxYxpspTTTMww4ADhmgjoxCzUBUReGxFV1UQQ==}
+  '@golfo/ui@2.1.2':
+    resolution: {integrity: sha512-rGjhZ6bTyYWJQT/U9okNiVjlI15UONBtWh9D6zD8qWi1CCj4MWRZWCfpNxBm8lEvT+/qJM+9+J+r6eqolysqyw==}
     engines: {node: '>=22', pnpm: '>=12 <13'}
     peerDependencies:
       '@tanstack/react-router': ^1.170.33
@@ -3679,6 +3685,9 @@ packages:
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
 
+  '@types/jsdom@30.0.0':
+    resolution: {integrity: sha512-uAHGxujGE0cDaKGdK28zgDotFtNA7MKq5DXl8LrfdxdCI8VHcg15oJz+amHTChPNI5JpgEPQWc2xFdrw3em/nQ==}
+
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
 
@@ -3707,6 +3716,9 @@ packages:
 
   '@types/set-cookie-parser@2.4.10':
     resolution: {integrity: sha512-GGmQVGpQWUe5qglJozEjZV/5dyxbOOZ0LHe/lqyWssB88Y4svNfst0uqBVscdDeIKl5Jy5+aPSvy7mI9tYRguw==}
+
+  '@types/tough-cookie@4.0.5':
+    resolution: {integrity: sha512-/Ad8+nIOV7Rl++6f1BdKxFSMgmoqEoYbHRpPcx3JEfv8VRsQe9Z4mCXeJBzxs7mbHY/XOZZuXlRNfhpVPbs6ZA==}
 
   '@typescript/typescript-aix-ppc64@7.0.2':
     resolution: {integrity: sha512-MTKKkWB7p/0E9xi1d1tHtZ5PiLkGEMIq88pK2CubZjOsLtYTLqhgIgi6zepFa+9GHZ6h05NMCkQxGKiPXMxXtQ==}
@@ -3870,6 +3882,9 @@ packages:
 
   '@vitest/spy@5.0.0':
     resolution: {integrity: sha512-uy+luWBAPw9XfthoHi5AkfHUnuPYEESjl0p/r+meoBnU8bxg5GDQ3Ey8MjcJ6sqahkL4PFyrvfMJJBw7LbU06g==}
+
+  '@zavudev/sdk@0.57.0':
+    resolution: {integrity: sha512-TmFaFhSmiaPNfJ90NUOe6fjWkY7hT5cs3FzWliz+By6w+VUe+1ytHJm0vSe7nja5+Fa3GnFbjAQ6PydZGrZAAg==}
 
   abort-controller@3.0.0:
     resolution: {integrity: sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg==}
@@ -7556,7 +7571,7 @@ snapshots:
 
   '@golfo/rp@2.0.0': {}
 
-  '@golfo/ui@2.1.0(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+  '@golfo/ui@2.1.2(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
       '@base-ui/react': 1.9.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@tanstack/react-table': 8.21.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -9260,6 +9275,13 @@ snapshots:
 
   '@types/estree@1.0.8': {}
 
+  '@types/jsdom@30.0.0':
+    dependencies:
+      '@types/node': 24.13.4
+      '@types/tough-cookie': 4.0.5
+      parse5: 8.0.1
+      undici-types: 8.9.0
+
   '@types/ms@2.1.0': {}
 
   '@types/node-fetch@2.6.13':
@@ -9296,6 +9318,8 @@ snapshots:
   '@types/set-cookie-parser@2.4.10':
     dependencies:
       '@types/node': 24.13.4
+
+  '@types/tough-cookie@4.0.5': {}
 
   '@typescript/typescript-aix-ppc64@7.0.2':
     optional: true
@@ -9387,6 +9411,8 @@ snapshots:
       vite: 8.2.2(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.6.1)(sass@1.100.0)(terser@5.16.9)(tsx@4.21.0)(yaml@2.9.0)
 
   '@vitest/spy@5.0.0': {}
+
+  '@zavudev/sdk@0.57.0': {}
 
   abort-controller@3.0.0:
     dependencies:

@@ -40,7 +40,9 @@ async function loadManagementProps(
   modules: RequestModules,
   tribeSlug: string
 ): Promise<AcademyManagementProps | null> {
-  const [membersResult, queue] = await Promise.all([
+  // One wave instead of two: settings and providers no longer wait for the viewer's role. Neither read fails for a
+  // guardian (settings answers null, providers only the active ones), and only a leader's answers are used below.
+  const [membersResult, queue, leaderSettings, leaderProviders] = await Promise.all([
     modules.productAccess.useCases.listAcademyMembers({
       page: MANAGEMENT_PAGE.firstPage,
       search: null,
@@ -52,6 +54,11 @@ async function loadManagementProps(
       status: MANAGEMENT_PAGE.pendingStatus,
       tribeSlug,
     }),
+    modules.productAccess.useCases.getAcademySettings({ tribeSlug }),
+    modules.memberVerifications.useCases.listVerificationProviders({
+      includeInactive: true,
+      tribeSlug,
+    }),
   ]);
 
   if (membersResult.status !== "ok" || "status" in queue) {
@@ -59,16 +66,7 @@ async function loadManagementProps(
   }
 
   const viewerRole = membersResult.page.viewerRole;
-  const [settings, providers] =
-    viewerRole === "leader"
-      ? await Promise.all([
-          modules.productAccess.useCases.getAcademySettings({ tribeSlug }),
-          modules.memberVerifications.useCases.listVerificationProviders({
-            includeInactive: true,
-            tribeSlug,
-          }),
-        ])
-      : [null, null];
+  const [settings, providers] = viewerRole === "leader" ? [leaderSettings, leaderProviders] : [null, null];
 
   return {
     initialMembers: academyMembersPageDtoSchema.parse(
@@ -113,8 +111,8 @@ export default async function TribeAcademyManagementPage({
         message: MANAGEMENT_PAGE.failureMessage,
         metadata: { slug, viewerId: authenticatedMember.id },
       });
-
-      return null;
+      // A load failure is not a missing page: the segment error boundary offers a retry inside the shell.
+      throw error;
     }
   );
 

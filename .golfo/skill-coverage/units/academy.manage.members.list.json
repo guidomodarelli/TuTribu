@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.manage.members.list",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Gestionar academia",
+    "section": "Accesos de integrantes",
+    "subflow": "Consultar integrantes"
+  },
+  "description": "Consultar los accesos de integrantes: búsqueda, paginación y detalle de pagos, bonos y accesos heredados.",
+  "routes": [
+    "/[slug]/academia/gestionar"
+  ],
+  "entries": [
+    {
+      "path": "components/academy/academy-management/index.tsx",
+      "symbol": "MembersSection"
+    },
+    {
+      "follow": false,
+      "path": "app/(platform)/[slug]/academia/gestionar/page.tsx",
+      "symbol": "default"
+    },
+    {
+      "follow": false,
+      "path": "components/academy/academy-management/index.tsx",
+      "symbol": "AcademyManagement"
+    },
+    {
+      "path": "app/api/tribes/[slug]/academy/members/route.ts",
+      "symbol": "GET"
+    }
+  ],
+  "dependsOn": [
+    {
+      "path": "src/modules/product-access/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildProductAccessModule"
+    },
+    {
+      "path": "src/modules/product-access/infrastructure/repositories/postgres-product-access-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresProductAccessRepository"
+    },
+    {
+      "path": "src/modules/product-access/infrastructure/config/academy-sales-activation.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "isAcademySalesActivationAllowed"
+    },
+    {
+      "path": "src/modules/member-verifications/setup.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "buildMemberVerificationsModule"
+    },
+    {
+      "path": "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresMemberVerificationRepository"
+    },
+    {
+      "path": "src/modules/product-access/infrastructure/repositories/academy-access-sql.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "recordAcademyAuditEvent"
+    },
+    {
+      "path": "src/modules/subscriptions/infrastructure/repositories/postgres-academy-subscription-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresAcademySubscriptionRepository.getOwnRenewalStatus"
+    }
+  ],
+  "origin": "curated"
+}

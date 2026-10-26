@@ -50,6 +50,12 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Los manuales internos complementan la documentación bajo `docs/`; no reemplazan `docs/architecture/` como fuente de decisiones arquitectónicas ni cambian el formato `.htm` exigido allí. `AGENTS.md` sigue siendo un archivo de control Markdown.
 - Un cambio sin efecto en los flujos documentados no exige reescribir manuales ajenos al cambio. No modificar su política de seguimiento, publicar, commitear ni subir los manuales sin instrucciones del usuario.
 
+### Skill coverage registry
+
+- `.golfo/skill-coverage/` registra qué subflujos cubrieron `ui-ux-flow-patterns` y `measured-performance-optimization`, con su evidencia; las skills lo consultan y lo actualizan solas siguiendo su protocolo. Convención: [docs/conventions/skill-coverage.htm](docs/conventions/skill-coverage.htm).
+- Al crear, mover o eliminar un subflujo, actualizar su unidad en `units/` en el mismo trabajo (proponerla con `discover --scope <ruta>` y ajustar nombres y límites). Si una ruta pasa a usar otro módulo de `src/modules`, sumar su builder al `dependsOn` de la unidad junto con los adaptadores concretos que `src/modules/setup.ts` le inyecta (repositorios, gateways y funciones pasadas a sus constructores), y actualizarlos cuando cambie esa inyección: el builder solo recibe puertos y el boundary no se sigue.
+- No editar a mano `records/` ni `runs/` y no registrar ejecuciones que no ocurrieron: sin evidencia, la unidad queda `UNREVIEWED`.
+
 ### Changelog governance
 
 - Every change that alters product behavior, user-facing UI or copy, data handling, permissions, or deployed configuration must update `CHANGELOG.md` in the same work item.
@@ -148,6 +154,11 @@ npx create-next-app@latest . --ts --eslint --tailwind --app --import-alias "@/*"
 - Add new shadcn/ui components through its official CLI in that library, never in this application.
 - Do not reintroduce `components/ui` source copies or a local `components.json`.
 - Prefer composition of existing shared primitives before custom product components.
+- Component sourcing priority for new or redesigned UI, checked in this order before building a custom component:
+  1. Arc Pro components and blocks (uiarc.dev, through the Arc MCP server): adapt them in this application following "Arc Pro license".
+  2. Arc Free components: add them to the `golfo-ui` repository (package `@golfo/ui`, successor of `@astra-kit/ui`, GitHub `guidomodarelli/golfo-ui`) first, release a version, and only then consume them here.
+  3. reui.io Free components only (never reui Pro): migrate them to `golfo-ui` the same way before consuming them.
+  Skip a candidate only when its `whenNotToUse` guidance or the product needs rule it out, and say why.
 - Import browser-ready `@golfo/ui/styles.css` once from the global stylesheet; do not add Tailwind compilation or `@source` in the consumer. It provides the Arc foundation (semantic color roles, concentric radii, control heights, shadows, keyboard-only focus outline, blue accent) in light and dark; product SCSS Modules use those tokens and explicit overrides stay here. Fonts come from `app/fonts` through `next/font/local`: Inter for text and controls, Geist for display headings; use only weights 400 and 500.
 - Use `Button` with Arc's API (`variant` `primary`, `secondary`, `ghost` or `danger`; `size` `sm`, `md` or `lg`; `loading`). It has no `asChild`: in-app navigation that looks like a button is a `ButtonLink` (same `variant` and `size`, plus every `Link` prop) from `@/components/navigation/link`; an external `<a>`, a download or a `<label>` wrapping a file input takes `className={buttonClassName({ variant, size, className: styles.Block__element })}` from `@golfo/ui`, with only layout (margins, width, flex) left in its BEM class. Neither includes the press scale or the spinner of `Button`. Icon-only buttons use `size="sm"` with an accessible name.
 - Use pnpm 12.14.0 and consume published `@golfo/ui` releases from the public npm registry with a caret range; no registry mapping or token is needed. Update package.json and pnpm-lock.yaml together; do not vendor local tarballs.
@@ -219,6 +230,7 @@ components/<scope>/<component>/
 - Animate only `transform` and `opacity` (height only through `AnimatedCollapse`), keep durations between 120 and 320 ms, take timing from the motion tokens exported by `@golfo/ui` (`MOTION_TIMING`, `MOTION_EASE`, springs and distances), and never hide server-rendered HTML behind a Motion `initial` state.
 - Do not re-animate `@golfo/ui` primitives, which already animate. Every animation must respect `prefers-reduced-motion`.
 - Scoped exception: `components/loaders/morph-loader` springs the geometry of its four SVG strokes and runs a continuous idle loop while loading; its durations still come from `MOTION_TIMING` within 120 to 320 ms. See the exception in `docs/conventions/motion.htm`.
+- Scoped exception: `components/loaders/skeleton-morph` (adapted from Arc Pro) springs the width and height of its placeholders and the height of its region so skeletons become the content revealed after a client-side check; it uses `SPRING_PANEL` and `MOTION_TIMING`, and reduced motion only fades. It is not for route `loading.tsx` fallbacks.
 - Follow the motion convention guide at `docs/conventions/motion.htm`.
 
 ### CSS architecture baseline (BEM mandatory)
@@ -369,6 +381,16 @@ WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
   - application use-case tests using domain ports doubles
   - infrastructure adapter or mapper tests for DTO to entity mapping
   - route-level tests to verify entrypoint wiring still renders expected UI output
+- React development warnings fail the test that logs them (`tests/support/react-warning-guard.ts`, installed by `vitest.setup.ts`): controlled/uncontrolled switches, missing or duplicated keys, updates outside `act`, unknown DOM props. Fix the component; never silence the console to get past the guard. Add an entry to `ACCEPTED_REACT_WARNINGS` only when the warning comes from a dependency and cannot be fixed here: each entry names its `pattern`, the one `testFile` where it is accepted and the `reason`, and is ignored in every other file.
+- A controlled input (`value`, `checked`) stays controlled for its whole life: map the "nothing selected" state to the component's empty value (`""`, `false`, or the `null` a shared component accepts), never to `undefined`.
+
+### Environment and local database readiness
+
+- Every environment variable a feature reads is added, in the same change, to `.env.example` and to `SERVER_ENVIRONMENT_REQUIREMENTS` (`src/modules/server-environment-requirements.ts`) with its feature and severity: `blocking` when the feature cannot work without it, `degraded` when the feature turns itself off. Add a `validate` step when a present value can still be unusable (JSON, keys, URLs).
+- The startup check (`instrumentation-node.ts`) logs every unmet requirement; in local development a blocking one stops the server before any flow runs. Production only logs, never stops. Do not paper over a missing variable with a hardcoded fallback.
+- `pnpm run dev` warns when the configured database lacks migrations from `database/migrations/`. Apply them on your own sandbox with `pnpm db:sandbox` before testing a flow manually; a missing function or constraint otherwise surfaces as a 500 mid-flow.
+- `pnpm db:sandbox` generates development-only `MESSAGING_*` keys in `.env.local` when they are missing and enrolls their proofs on the sandbox. Never copy those keys to another environment, and never enroll them on the default branch.
+- Follow `docs/conventions/error-diagnostics.htm` and `docs/conventions/local-database-sandbox.htm`.
 
 ### Neon migration push workflow
 
@@ -432,6 +454,13 @@ pnpm run dev
 - Make critical mutations safe under retries and duplicate submissions through idempotency, transactional protection, optimistic locking, or equivalent server-side controls.
 - Avoid blocking the event loop, overfetching, and repeated expensive work in latency-sensitive paths.
 - For examples and decision guidance, see the concurrency, observability, and performance convention guide at `docs/conventions/concurrency-observability-performance.htm`.
+
+### Error diagnosability (mandatory)
+
+- Every failure that reaches a route boundary keeps its real error as `cause`, and every own error class exposes a closed `code`. The shared boundary (`createOwnJsonRouteBoundary`) logs that chain as class names and codes through `summarizeErrorCauses`; it never logs messages, stacks or values, so codes must say what failed (`invalid_configuration`, `verification_unavailable`, a SQLSTATE).
+- Never let an untyped error escape an operation where it becomes an anonymous `unexpected_failure`: wrap configuration reads, provider calls and SQL in the feature's typed error with `cause` at the place they can fail, as `readFingerprint` does for the messaging keys.
+- An expected business rejection (4xx) that has a domain reason carries that reason as a typed cause with `code` (for example `AdmissionPolicyRequirementError`), so the log names the unmet requirement instead of a bare `admission_ineligible`. The browser keeps reading its own safe requirements; the cause is never serialized.
+- When reproducing a reported 500, read the logged `causes` first; if a failure still logs without them, fix the missing `cause` as part of the work.
 
 ### Pooled connection and render-abort resilience
 

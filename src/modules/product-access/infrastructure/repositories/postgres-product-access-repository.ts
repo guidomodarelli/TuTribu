@@ -322,11 +322,12 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
   async getPublicOffer({ tribeSlug }: TribeSlugQuery): Promise<AcademyPublicOffer | null> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
-        select *
-        from public.tribe_academy_public_offer(${tribeSlug})
+        select offer.*,public.academy_offer_requires_admission_request(${tribeSlug}) as admission_requires_request
+        from public.tribe_academy_public_offer(${tribeSlug}) offer
       `);
       const row = (result.rows?.[0] ?? null) as {
         admission_enabled: boolean;
+        admission_requires_request: boolean;
         benefits: unknown;
         description: string;
         offer_version: number;
@@ -344,6 +345,7 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
 
       return {
         admissionEnabled: row.admission_enabled,
+        admissionRequiresRequest: row.admission_requires_request,
         benefits: readBenefits(row.benefits),
         description: row.description,
         offerVersion: Number(row.offer_version),

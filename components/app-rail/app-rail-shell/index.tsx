@@ -7,11 +7,13 @@
  * TuTribu's tribe navigation, rows navigate through the router, the open state
  * persists in the `sidebar_state` cookie read by the platform layout, the
  * shell fills the viewport with window scrolling, and the copy is in Spanish.
+ * Rows with subsections open as disclosure groups whose children carry the
+ * active highlight; in the icon rail the group row navigates to its first page.
  */
 
 "use client";
 
-import { ChevronDownIcon, XIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronRightIcon, XIcon } from "lucide-react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -40,7 +42,7 @@ import { siteConfig } from "@/lib/site-config";
 import { ROUTES } from "@/src/constants/routes";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
-import { Avatar, SIDEBAR_COOKIE_COLLAPSED_VALUE, SIDEBAR_COOKIE_MAX_AGE, SIDEBAR_COOKIE_NAME, SIDEBAR_COOKIE_OPEN_VALUE } from "@golfo/ui";
+import { AnimatedCollapse, Avatar, SIDEBAR_COOKIE_COLLAPSED_VALUE, SIDEBAR_COOKIE_MAX_AGE, SIDEBAR_COOKIE_NAME, SIDEBAR_COOKIE_OPEN_VALUE } from "@golfo/ui";
 import { APP_RAIL_INSTANT, APP_RAIL_MOTION } from "../app-rail-motion";
 import {
   resolveAppRailNavigation,
@@ -84,6 +86,8 @@ const TOOLTIP_SKIP_DELAY_MS = 300;
 const RAIL_TIP_SIDE_OFFSET_PX = 14;
 const RAIL_TIP_COLLISION_PADDING_PX = 8;
 const ROW_HIGHLIGHT_RADIUS_PX = 8;
+/** Rotation of a group chevron while its subsections are open, in degrees. */
+const CHEVRON_OPEN_DEGREES = 90;
 const TRIBE_LOGO_SIZE_PX = 28;
 const BRAND_MARK_LENGTH = 2;
 /** Fading labels leave quickly and return a beat after the width starts opening, in seconds. */
@@ -177,17 +181,18 @@ const rise: Variants = {
  * text entry, menus and dialogs, and not already handled by someone else.
  */
 function isRailShortcut(event: KeyboardEvent): boolean {
-  // Layouts that type `[` with AltGr (reported as Ctrl+Alt) or Option still produce the key itself;
-  // only Command and a bare Ctrl turn it into another shortcut.
-  const typedWithAltGraph = event.getModifierState(ALT_GRAPH_MODIFIER) || (event.ctrlKey && event.altKey);
   if (
     event.key !== RAIL_SHORTCUT_KEY ||
     event.metaKey ||
-    (event.ctrlKey && !typedWithAltGraph) ||
     event.defaultPrevented
   ) {
     return false;
   }
+
+  // Keyless events are discarded before using KeyboardEvent-only modifier APIs.
+  // Layouts that type `[` with AltGr (reported as Ctrl+Alt) or Option still produce the key itself.
+  const typedWithAltGraph = event.getModifierState(ALT_GRAPH_MODIFIER) || (event.ctrlKey && event.altKey);
+  if (event.ctrlKey && !typedWithAltGraph) return false;
 
   const target = event.target instanceof HTMLElement ? event.target : null;
 
@@ -289,18 +294,120 @@ function NavRow({ collapsed, entry, layoutId, onSelect, reduce, tips }: NavRowPr
   );
 }
 
+type NavGroupProps = NavRowProps & { onExpand?: () => void; onSelectHref: (href: string) => void; panelId: string };
+
+/**
+ * A row with subsections, as in the block's Projects group: it toggles its
+ * children with a turning chevron, keeps the highlight while its open page is
+ * hidden, and in the icon rail widens the sidebar to reveal the group. The
+ * group opens by itself when navigation lands on one of its pages.
+ */
+function NavGroup({ collapsed, entry, layoutId, onExpand, onSelectHref, panelId, reduce, tips }: NavGroupProps) {
+  const Icon = entry.icon;
+  const fade = labelTiming(collapsed, reduce);
+  const children = entry.children ?? [];
+  const holdsActive = children.some((child) => child.isActive);
+  const [open, setOpen] = useState(holdsActive);
+  const [followedActive, setFollowedActive] = useState(holdsActive);
+  if (holdsActive !== followedActive) {
+    setFollowedActive(holdsActive);
+    if (holdsActive) setOpen(true);
+  }
+  const shown = open && !collapsed;
+  const lit = holdsActive && !shown;
+
+  function toggle() {
+    // In the rail a group has nowhere to open, so the sidebar widens to reveal it.
+    if (collapsed && onExpand) {
+      onExpand();
+      setOpen(true);
+      return;
+    }
+    setOpen((current) => !current);
+  }
+
+  return (
+    <>
+      <RailTip enabled={tips} label={entry.label}>
+        <button
+          type={BUTTON_TYPE}
+          className={`${styles.AppRailShell__item} ${lit ? styles["AppRailShell__item--lit"] : ""}`}
+          aria-expanded={shown}
+          aria-controls={panelId}
+          aria-label={collapsed ? entry.label : undefined}
+          onClick={toggle}
+        >
+          {lit ? (
+            <motion.span
+              layoutId={layoutId}
+              className={styles.AppRailShell__highlight}
+              style={{ borderRadius: ROW_HIGHLIGHT_RADIUS_PX }}
+              transition={reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.morph}
+            />
+          ) : null}
+          <Icon className={styles.AppRailShell__icon} aria-hidden="true" />
+          <motion.span
+            className={styles.AppRailShell__label}
+            aria-hidden={collapsed}
+            initial={false}
+            animate={{ opacity: collapsed ? 0 : 1, x: collapsed ? LABEL_DRIFT_PX : 0 }}
+            transition={fade}
+          >
+            {entry.label}
+          </motion.span>
+          <motion.span
+            className={styles.AppRailShell__chevron}
+            aria-hidden="true"
+            initial={false}
+            animate={{ opacity: collapsed ? 0 : 1, rotate: open ? CHEVRON_OPEN_DEGREES : 0 }}
+            transition={{ opacity: fade, rotate: reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.snappy }}
+          >
+            <ChevronRightIcon aria-hidden="true" />
+          </motion.span>
+        </button>
+      </RailTip>
+      <AnimatedCollapse isOpen={shown}>
+        <ul id={panelId} className={styles.AppRailShell__children} role="list" aria-label={entry.label} inert={!shown}>
+          {children.map((child) => (
+            <li key={child.id}>
+              <button
+                type={BUTTON_TYPE}
+                className={`${styles.AppRailShell__item} ${styles["AppRailShell__item--nested"]} ${shown && child.isActive ? styles["AppRailShell__item--lit"] : ""}`}
+                aria-current={child.isActive ? CURRENT_PAGE : undefined}
+                onClick={() => onSelectHref(child.href)}
+              >
+                {shown && child.isActive ? (
+                  <motion.span
+                    layoutId={layoutId}
+                    className={styles.AppRailShell__highlight}
+                    style={{ borderRadius: ROW_HIGHLIGHT_RADIUS_PX }}
+                    transition={reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.morph}
+                  />
+                ) : null}
+                <span className={styles.AppRailShell__label}>{child.label}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </AnimatedCollapse>
+    </>
+  );
+}
+
 type NavigationProps = {
   baseId: string;
   collapsed: boolean;
   /** Note under the sections, such as the empty state of the tribes list; hidden in the rail. */
   footnote?: string;
+  /** Widens the icon rail; only the side variant folds into a rail. */
+  onExpand?: () => void;
   onSelect: (href: string) => void;
   reduce: boolean;
   sections: AppRailSection[];
   variant: NavigationVariant;
 };
 
-function Navigation({ baseId, collapsed, footnote, onSelect, reduce, sections, variant }: NavigationProps) {
+function Navigation({ baseId, collapsed, footnote, onExpand, onSelect, reduce, sections, variant }: NavigationProps) {
   const tips = variant === "side" && collapsed;
   const layoutId = `${variant}-active`;
   const fade = labelTiming(collapsed, reduce);
@@ -348,14 +455,28 @@ function Navigation({ baseId, collapsed, footnote, onSelect, reduce, sections, v
             <ul className={styles.AppRailShell__list} role="list">
               {section.entries.map((entry) => (
                 <li key={entry.id}>
-                  <NavRow
-                    collapsed={collapsed}
-                    entry={entry}
-                    layoutId={layoutId}
-                    onSelect={() => onSelect(entry.href)}
-                    reduce={reduce}
-                    tips={tips}
-                  />
+                  {entry.children?.length ? (
+                    <NavGroup
+                      collapsed={collapsed}
+                      entry={entry}
+                      layoutId={layoutId}
+                      onExpand={onExpand}
+                      onSelect={() => onSelect(entry.href)}
+                      onSelectHref={onSelect}
+                      panelId={`${baseId}-${variant}-${entry.id}-list`}
+                      reduce={reduce}
+                      tips={tips}
+                    />
+                  ) : (
+                    <NavRow
+                      collapsed={collapsed}
+                      entry={entry}
+                      layoutId={layoutId}
+                      onSelect={() => onSelect(entry.href)}
+                      reduce={reduce}
+                      tips={tips}
+                    />
+                  )}
                 </li>
               ))}
             </ul>
@@ -684,6 +805,7 @@ export function AppRailShell({
                 sections={navigation.sections}
                 footnote={footnote}
                 reduce={reduce}
+                onExpand={() => setRail(false)}
                 onSelect={(href) => select(href)}
               />
               {authenticatedMember ? <Profile collapsed={collapsed} member={authenticatedMember} reduce={reduce} /> : null}

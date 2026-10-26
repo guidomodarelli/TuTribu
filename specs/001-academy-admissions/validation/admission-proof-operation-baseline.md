@@ -1,0 +1,11 @@
+# Owner de operación para aplicar prueba local
+
+Incremento en curso de T101, sin cerrar tarea ni cambiar el conteo 97/212 completas y 115 pendientes. El colaborador transaccional de prueba ya dispone de evidencia propia; aquí se integra su operación nativa y el caso de uso antes del endpoint.
+
+TDD local rojo por módulo de aplicación ausente; cuatro casos verdes en 703 ms tras incorporar el port atómico, contrato público y ApplyAdmissionProofUseCase. La identidad nativa y purpose admission se derivan server-side; caller no selecciona contacto ni permisos. started conserva progreso real, denied conserva el original completed y una respuesta cruzada por UUID/proof/request se rechaza. Un fallo de commit conserva la operación original y la causa privada.
+
+86893 terminó rojo 102,78 s por ausencia de operations.apply, después de emisión/validación reales. El owner reutiliza autorización nativa, ledger original, contexto de desafío y el colaborador de attachment existente; no recibe contacto ni recurso del browser. 65922 final pasó un SQL en 168,55 s con cleanup: primera adjunción a pending sin contacto, pérdida después de COMMIT recuperada, replay con versión histórica, vínculo/auditoría únicos y submittedAt/expiresAt intactos. Una versión stale devuelve denegación confirmada y un actor PostgreSQL cruzado cierra sin efecto. No se aprueba ni crea membresía.
+
+Una ampliación local rechazó en rojo un resultado con requestVersion ajena a expectedRequestVersion+1; el guard se corrigió y también rechaza progreso de excepción con otro UUID. Cuatro suites finales pasaron 43/43 en 6,32 s, incluidos recovery/HTTP/contact verification. Tipos de producto/tests y lint focal pasan. createProofApplicationModule y la composición raíz proporcionan una entrada DB-only, sin construir adapters de proveedor; no se acredita un endpoint alcanzable hasta integrarlo.
+
+Revisión Codex independiente final de doce archivos: cero hallazgos accionables, SHA inicial/final 0F2DF7147AD787ED18535F4E4134B9C9D0845E65BF410DEFE45A44EFC3F3A8E5 y doce hashes intactos. QA documental final cuatro renders Chromium/WebKit1280/390 sin overflow/pageerrors; diff-check limpio. T101 sigue parcial: submit con prueba, integración de sources, recuperación comercial y endpoint/UI mantienen trabajo pendiente.

@@ -34,5 +34,19 @@
   // expression to its route.
   "triggers": {
     "crons": ["0 4 * * *", "30 4 * * *", "*/5 * * * *"]
+  },
+  "vars": {
+    "ADMISSION_MESSAGING_MAINTENANCE_ENABLED": "false"
+  },
+  // Deliberate deployment choice for the same Worker. Bindings are repeated
+  // because Wrangler environments do not inherit service bindings or vars.
+  // Building this environment does not deploy it or enable its remote crons.
+  "env": {
+    "admission-maintenance": {
+      "name": "tutribu",
+      "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "tutribu" }],
+      "vars": { "ADMISSION_MESSAGING_MAINTENANCE_ENABLED": "true" },
+      "triggers": { "crons": ["0 4 * * *", "30 4 * * *", "*/5 * * * *", "* * * * *"] }
+    }
   }
 }

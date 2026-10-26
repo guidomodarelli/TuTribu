@@ -275,6 +275,56 @@ $app-rail-touch-target: 40px;
     }
   }
 
+  // Group chevron and nested rows follow the block's Projects group.
+  &__chevron {
+    display: grid;
+    flex: none;
+    place-items: center;
+    color: var(--text-muted);
+
+    & > svg {
+      width: 14px;
+      height: 14px;
+      stroke-width: 1.75;
+    }
+  }
+
+  &__item--nested {
+    width: calc(100% - 28px);
+    height: 30px;
+    margin-left: 28px;
+    padding-left: 10px;
+  }
+
+  // The list animates its height, so it clips only while moving and lets the highlight travel freely once it is open.
+  &__children {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    &::before {
+      position: absolute;
+      top: 4px;
+      bottom: 8px;
+      left: 20px;
+      width: 1px;
+      background: var(--border);
+      content: "";
+    }
+
+    & > li:first-child {
+      margin-top: 2px;
+    }
+
+    & > li:last-child {
+      margin-bottom: 4px;
+    }
+  }
+
   &__highlight {
     position: absolute;
     inset: 0;
@@ -661,7 +711,8 @@ $app-rail-touch-target: 40px;
 // Touch: rows and buttons grow to a 40px target. Icons keep their axis, so the rail still reads as one column.
 @media (pointer: coarse) {
   .AppRailShell {
-    &__item {
+    &__item,
+    &__item--nested {
       height: $app-rail-touch-target;
     }
 

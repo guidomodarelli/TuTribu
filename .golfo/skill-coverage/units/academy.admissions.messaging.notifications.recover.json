@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.admissions.messaging.notifications.recover",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Admisiones",
+    "section": "Conexión de mensajería",
+    "subflow": "Recuperar avisos no entregados"
+  },
+  "description": "Ver avisos anteriores y recuperar un aviso no entregado, con observación cancelable.",
+  "routes": [
+    "/[slug]/academia/admissions/messaging/connections"
+  ],
+  "entries": [
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx",
+      "symbol": "NotificationRecoveryContainer"
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-local-snapshot.ts",
+      "symbol": "useNotificationRecoveryLocalSnapshot"
+    },
+    {
+      "path": "app/api/tribes/[slug]/messaging/notification-deliveries/route.ts",
+      "symbol": "*"
+    },
+    {
+      "path": "app/api/tribes/[slug]/messaging/notification-recovery-operations/[operationId]/route.ts",
+      "symbol": "*"
+    },
+    {
+      "path": "app/api/tribes/[slug]/messaging/deliveries/[deliveryId]/route.ts",
+      "symbol": "*"
+    },
+    {
+      "path": "app/api/tribes/[slug]/messaging/deliveries/[deliveryId]/recover/route.ts",
+      "symbol": "*"
+    }
+  ],
+  "origin": "curated",
+  "dependsOn": [
+    {
+      "path": "src/modules/messaging/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildMessagingRecoveryModule"
+    },
+    {
+      "path": "src/modules/auth/infrastructure/composition/authenticated-account-provider.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "createRequestAuthenticatedAccountProvider"
+    },
+    {
+      "path": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "readMessagingRecoveryLock"
+    },
+    {
+      "path": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "readMessagingHostingSecurityConfig"
+    },
+    {
+      "path": "src/modules/notifications/setup.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "buildAdmissionNotificationRecoveryContent"
+    },
+    {
+      "path": "src/modules/shared/infrastructure/database/server-database-client.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "createServerDatabaseClient"
+    },
+    {
+      "path": "src/modules/academy-admissions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAcademyAdmissionsModule"
+    },
+    {
+      "path": "src/modules/messaging/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildMessagingModule"
+    }
+  ]
+}

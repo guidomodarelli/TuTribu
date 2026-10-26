@@ -22,10 +22,15 @@
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store
+Thumbs.db
 *.pem
+*.tmp
+*.swp
+*.log
 
 # debug
 npm-debug.log*

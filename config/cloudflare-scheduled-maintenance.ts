@@ -17,53 +17,16 @@
  * @module cloudflare-scheduled-maintenance
  */
 
-/** Route that runs one orphan-image cleanup sweep. */
-export const IMAGE_CLEANUP_MAINTENANCE_PATH = "/api/maintenance/image-cleanup";
-
-/** Route that runs one orphan attachment-file (R2) cleanup sweep. */
-export const FILE_CLEANUP_MAINTENANCE_PATH = "/api/maintenance/file-cleanup";
-
-/**
- * Route that enqueues the due event reminders and purges old read
- * notifications (in-app notifications, every 5 minutes).
- */
-export const EVENT_REMINDERS_MAINTENANCE_PATH = "/api/maintenance/event-reminders";
-
-/**
- * Cron expressions installed in `wrangler.jsonc` (`triggers.crons`), keyed by
- * the maintenance route each one re-enters. The daily cleanups must stay in
- * sync with `vercel.json` so both deployment targets sweep at the same time.
- * `eventReminders` has no Vercel cron: on Vercel the GitHub Actions schedule in
- * `.github/workflows/event-reminders-cron.yml` triggers that route instead.
- */
-export const MAINTENANCE_CRON_SCHEDULE = {
-  eventReminders: "*/5 * * * *",
-  fileCleanup: "30 4 * * *",
-  imageCleanup: "0 4 * * *",
-} as const;
-
-/** Authorization scheme the cleanup route expects for the cron bearer token. */
-const CRON_AUTHORIZATION_SCHEME = "Bearer";
-
-/**
- * Synthetic origin for the internal cron request. The cleanup route only
- * validates the bearer token and ignores the host, so this never leaves the
- * worker and never reaches the public network.
- */
-const INTERNAL_WORKER_ORIGIN = "https://worker.internal";
-
-/** The cleanup route is exposed as a `GET` handler. */
-const MAINTENANCE_REQUEST_METHOD = "GET";
-
-const SCHEDULED_MAINTENANCE_ERROR = {
-  missingSecret:
-    "Scheduled maintenance cleanup skipped: CRON_SECRET is not configured on the Cloudflare Worker",
-  requestFailed: "Scheduled maintenance cleanup request failed with status",
-} as const;
+import { ADMISSION_MAINTENANCE_TRIGGER, ADMISSION_MAINTENANCE_TRIGGER_ERROR } from "../src/modules/messaging/constants/admission-maintenance-trigger.mjs";
+import { isAdmissionMaintenanceEnabled } from "../src/modules/messaging/infrastructure/config/admission-maintenance-config.mjs";
+import { AdmissionMaintenanceTriggerError } from "../src/modules/messaging/infrastructure/errors/admission-maintenance-trigger-error.mjs";
+import { IMAGE_CLEANUP_MAINTENANCE_PATH, FILE_CLEANUP_MAINTENANCE_PATH, EVENT_REMINDERS_MAINTENANCE_PATH, MAINTENANCE_CRON_SCHEDULE, CRON_AUTHORIZATION_SCHEME, INTERNAL_WORKER_ORIGIN, MAINTENANCE_REQUEST_METHOD, SCHEDULED_MAINTENANCE_ERROR } from "./constants/cloudflare-scheduled-maintenance";
+export { IMAGE_CLEANUP_MAINTENANCE_PATH, FILE_CLEANUP_MAINTENANCE_PATH, EVENT_REMINDERS_MAINTENANCE_PATH, MAINTENANCE_CRON_SCHEDULE } from "./constants/cloudflare-scheduled-maintenance";
 
 /** Subset of the Cloudflare env the scheduled maintenance trigger reads. */
 interface CronSecretEnvironment {
   CRON_SECRET?: string;
+  ADMISSION_MESSAGING_MAINTENANCE_ENABLED?: string;
 }
 
 /** Subset of the Cloudflare `ExecutionContext` used by the scheduled handler. */
@@ -106,6 +69,7 @@ interface RunScheduledMaintenanceCleanupInput
  * @returns The maintenance route the schedule targets.
  */
 export function resolveMaintenancePathForCron(cron: string): string {
+  if (cron === ADMISSION_MAINTENANCE_TRIGGER.cron) return ADMISSION_MAINTENANCE_TRIGGER.path;
   if (cron === MAINTENANCE_CRON_SCHEDULE.fileCleanup) {
     return FILE_CLEANUP_MAINTENANCE_PATH;
   }
@@ -150,14 +114,24 @@ async function runScheduledCleanupForPath(
   { fetchHandler, env, context }: RunScheduledImageCleanupInput,
   maintenancePath: string
 ): Promise<void> {
+  const admission = maintenancePath === ADMISSION_MAINTENANCE_TRIGGER.path;
+  if (admission && !isAdmissionMaintenanceEnabled(env)) throw new AdmissionMaintenanceTriggerError(ADMISSION_MAINTENANCE_TRIGGER_ERROR.disabled);
   const cronSecret = env.CRON_SECRET;
 
   if (!cronSecret) {
+    if (admission) throw new AdmissionMaintenanceTriggerError(ADMISSION_MAINTENANCE_TRIGGER_ERROR.missingSecret);
     throw new Error(SCHEDULED_MAINTENANCE_ERROR.missingSecret);
   }
 
   const request = buildMaintenanceCronRequest(cronSecret, maintenancePath);
-  const response = await fetchHandler(request, env, context);
+  let response: Response;
+  try { response = await fetchHandler(request, env, context); }
+  catch (error) {
+    if (admission) throw new AdmissionMaintenanceTriggerError(ADMISSION_MAINTENANCE_TRIGGER_ERROR.requestUnconfirmed, { cause: error });
+    throw error;
+  }
+
+  if (admission && response.status !== ADMISSION_MAINTENANCE_TRIGGER.completedHttpStatus) throw new AdmissionMaintenanceTriggerError(response.status === ADMISSION_MAINTENANCE_TRIGGER.busyHttpStatus ? ADMISSION_MAINTENANCE_TRIGGER_ERROR.requestUnconfirmed : ADMISSION_MAINTENANCE_TRIGGER_ERROR.requestFailed, { status: response.status });
 
   if (!response.ok) {
     throw new Error(

@@ -1,0 +1,386 @@
+{
+  "formatVersion": 1,
+  "createdAt": "2026-10-15T12:06:22.210Z",
+  "status": "partial_checkpoint",
+  "testedBaseHead": "390f45e694566ddcdab5d4eec69b08e4b691d8fd",
+  "scope": "Private explicit decision-batch foundation; no batch HTTP/root/recovery/UI integration and no full US8 task completion.",
+  "inventory": {
+    "total": 212,
+    "completed": 174,
+    "pending": 38,
+    "T176": "open",
+    "T183": "open",
+    "T211": "open"
+  },
+  "sourceNormalization": "UTF-8 CRLF normalized to LF; all captured execution inputs remain unchanged",
+  "totals": {
+    "completePassingFiles": 10,
+    "completePassingCases": 159,
+    "nativePassingFiles": 5,
+    "nativePassingCases": 21,
+    "nativeFailedCases": 9,
+    "nativeFilteredCases": 15
+  },
+  "executionGroups": [
+    {
+      "id": "local_complete",
+      "environment": {
+        "RUN_ADMISSION_SQL_TESTS": "0",
+        "RUN_ADMISSION_BROWSER_TESTS": "0"
+      },
+      "files": [
+        {
+          "path": "tests/unit/modules/academy-admissions/application/admission-batch-decisions.test.ts",
+          "sourceSha256": "0e4dfaa2b5b91406633ca96bfcb5d9be6d41ebbb431a93e06fada278937bcdb8",
+          "suiteStatus": "passed",
+          "passed": 9,
+          "failed": 0,
+          "filtered": 0,
+          "passedCaseIds": [
+            "4896541cc8b709b8df90925450c3377f5f09fe878fc570e496777e0c43b3360d",
+            "5374e6993125fbf4fc6cafc2db096cadfb02b565f807310e4ad0b129fd5008bf",
+            "5bb5bf1beda6282fe15ab8b465dcdd16b846b5816c904b7113438a6ea37e831e",
+            "552617555c6b3a8b7fe8eb195a395f7d548475d84c87bbfd7be577175ed31e3a",
+            "5889a2d46dea47a518afb3d20d77d1c215d5aefdf08f9e7867dfc7371df4c263",
+            "d3acd929addc5dfb0b0808d60f6f832e4c1cc637183f675c62a7939a4ec2cd0a",
+            "ac8afdbef739e1405e659a529de130b4bfb0197590a5115db6766295be9659e0",
+            "aa5027dcb410f3ea85516026775461b4fd5251d93e5614f703c157eef2b0399d",
+            "3716292dd12c9c3be992b5aaeeb56c7bb13bc01e06bb5b465a8f54b8dcc2fea8"
+          ],
+          "failedCaseIds": []
+        },
+        {
+          "path": "tests/unit/modules/academy-admissions/application/admission-review-actions.test.ts",
+          "sourceSha256": "b860de5bfaaaf493345d90f59ada470b8a73954bf05d4335af066da5705c6532",
+          "suiteStatus": "passed",
+          "passed": 3,
+          "failed": 0,
+          "filtered": 0,
+          "passedCaseIds": [
+            "39e8d68cf70babab80a0c17b416ee06b2d869216ce1e1a35f78c6c59ecb0d21d",
+            "2ccf19090fcd040ce585070aef0f5f4e9186e06b3f4fce20c9b7507cc3574e4a",
+            "ff5b0dd31a54e07da0cc815933dbfd41ea3b0d735a65588a7efa3db76abc497e"
+          ],
+          "failedCaseIds": []
+        },
+        {
+          "path": "tests/unit/modules/academy-admissions/domain/admission-decision-evidence.test.ts",
+          "sourceSha256": "4ae54ef2a17f2445cf33d6c0bb2a462280fdb08f5ac1e01e8934b60b64efcc57",
+          "suiteStatus": "passed",
+          "passed": 4,
+          "failed": 0,
+          "filtered": 0,
+          "passedCaseIds": [
+            "b27ef3f427dc84665a85ee1127cc4be0b9dbe444709380041ddf4f4faa18298b",
+            "f3014928cf0b24093bec6a0de0e21ed1ae9f058a367a4459515669db5c941363",
+            "024bf672bc2d419dd7e8cf1a3b833b3ed537cda41515bb36abb9910f08937c5c",
+            "eb08c4054343e813aebb01608bd8abb6e8c76b2cb9639e892f550cd02242c313"
+          ],
+          "failedCaseIds": []
+        },
+        {
+          "path": "tests/unit/modules/academy-admissions/domain/admission-eligibility.test.ts",
+          "sourceSha256": "049488cc5e702acd4e43d6ea7b0261e906422f52c9fa7fa79574039e3654bc3f",
+          "suiteStatus": "passed",
+          "passed": 113,
+          "failed": 0,
+          "filtered": 0,
+          "passedCaseIds": [
+            "b30db9744ccf083104c0f2e2e833f9c548dea77c583418d90c2456da4fd6a8b5",
+            "1ea2417d5f75d4bcf3e1973c1b86045ef82859cf52bc03713aa5d36721625bb5",
+            "b1427be8b7d105e6eb1071100d3f7ed1ceb7874b1ed6c5ed6b210893dc53e178",
+            "ac8467f1d2bfeeb8eccb6acd1ec4065781d6b3addc520b61f6ec4a92d6d52466",
+            "079eed992d6d7dfe35614e95db860d455ce6bb8cc9e71b33a439c5392c380ebc",
+            "2de296c1b057b756326a453b9c22a79f49ddc98462ffc4a849cfe287e09e32a0",
+            "c2db3a2b859273db6385e4422daa3aeeaef86186ac1b4c10b01538431099e319",
+            "b97aa2a7b9d7f9941fef0bdf0424f15616e87482da4ffb22de7d63f486f8bc69",
+            "812f4908f1e6f7455b6f5219d4c59688ed52a29be0254bab5f159e23971961d7",
+            "56c94f8c104fbc38748bcfe4b540e71834f3f87d668f690f8bff37df5b7b417f",
+            "86b523f29647109db3cc1768f1ba9e63df466722f5584d50a843a8a35c8cf2f4",
+            "b8fca690a133e466508ed306dd16fa8a1a91a82ccc7bd6e9c073f44cd2bae949",
+            "79fc8955fbc4a7f89f31aa63606f16bffc07d4f5d9abf2b9815f107b0a90ba62",
+            "10a32b82710b59adcee9a746a0ecb0c141131784ccc1595c7f36efe8de31ed37",
+            "7c83925337dc9608a76323b4198812bcaa2206f83d506354e8da6af83616ff1b",
+            "ba78a6387591cbe2e88dc6ed528274711d0b8b8149fd74f7a90ba3c9c307e48d",
+            "4b7f177fd8b38c1fb323300cf71d0da0036eb41e548f99936c08a3b1e3d1ee17",
+            "d8a93b15814c2f250213946b1cce7b7000d4b720a45a8a3dbe4f668b30c5773d",
+            "cf59146b4ca2d1b0906a66682ecd63ba8fdbff7964e226be82108aa4d6a07bc3",
+            "aee6b9b10e8f16e6453dbcef4152edf805354b80f337ce3220f6cab9d4d8e69c",
+            "939ab9d4a52aa57d824c9c17748aedcce874c8dd3634d43be32a201ea5868046",
+            "054a98c8f0e8476c8dae4e74c288dfd230639a9b1e295d27c5d61210b1502994",
+            "4c27b71fe7b9e2c53232ec798bc6fc60c0da9f8026ae5615fd9e8277a830e368",
+            "9d3b87fab0e431e5d1a11ef8ccfa8db733dbfc9d91d38f9f80e4e2a7cb1c3333",
+            "c78ccd7bf7418fd083ce7c511fe9c6b09e53474dcaccf1c581daa86ddaa09727",
+            "51f383b3fd657840ef8c10b4cb62de9104e5251209f8bf57001f7813e23288fe",
+            "49f7fc922cb52714d735b6cc00cc2e3520d810c528da6aa780ebd7a821f01fa4",
+            "2a35902d206d8c9e71a48310d879fdf4d6ba3840559742f7f231db42830be35d",
+            "e524940105af11dd60b6f085cd03ac240fe018f62b86948d1ea176d0b506206b",
+            "0314a7a44b45b9fec335a9c9c080cae58c36a92eb2db57993ea522de146ee6fe",
+            "4bdca0cd2ccb75af36660a694efae8c09f9286f2f88da1c21e17da84ffda6b51",
+            "b0f77f9e50547065c994e65aa6b2e4d29611554cca74c748f6a3a3c12e094c58",
+            "9f901be359a6b7b3acf40fe7ae66806fd925db769ff854a9b4d1efaaa46a84ce",
+            "4fbd597bda463742fc41e21b68abfe622d8ed1ada75f674b614a93359596a6b3",
+            "bec8f2ba4908eaf5defecc5ad30f05304e660a8f967953d1cfc5a04fcdef9589",
+            "dfb15ca7d7ec591784b298db20e12caae3248f87d30dbbc18cd2a2e7478a755f",
+            "e22f2c802f1fbddcfab2801a2562c6c6d5a771176428b7f4b37a42ff3226f74d",
+            "fcc09e71d0a532952dd884f4d8e2a2f8afa4669b23f6178995f9f1dc890a3511",
+            "b1d64dc82f4ada2dade917b69dc56d63f97cfab9dadfc224d2e1b2f080702c98",
+            "890437c71405797ec88a4e0ea7a183d92f7758fc911db188a6da17d5ed82ec6b",
+            "263d012893094d00b83c6226098ac088a528465e4bbc4fcc559094eba67067a3",
+            "b60a00975585a53a9568492db274d9bb96a49fcf9ee90c8ee615c20efe02d727",
+            "2f7bf75f7b5e38bbe376f4e72457d23b307fe99899ac948301bbb2f71c39a7e3",
+            "7543ce326c324f71873cf4b79863b2d218ffa35261375ff6ff287a57b325e7de",
+            "d5fc34a15743a54b3a6fc7f2f4ffc7949bbb571be25230bde41cecb1c608c1d9",
+            "86c7fdab8f11df4e57762f8170a5bcf2be742c9da677d447eb72f0d2898c101a",
+            "92ede28afe2e35973dfa786319d9fa9c48c80c40106bfff5a6401eb375d88787",
+            "01375dbf6cb4cae33672f5e543a7b6f624aab735047bed1f991c6d6b5d1f2391",
+            "4f11f6ac7ac2ccdacf7bbc8d6601e5e64db70ce76b9f4a8a7c24d951859d7ea5",
+            "8969b533d33c082189570880df2898e7435088e8bf361096c8b29706b5450a0a",
+            "3f49fd0870819ed862448bb6839a63b7b94b5e67e101cceb32ab0589a9e1214c",
+            "eee3e94fe9d96135d6f51180e0c45be3f27cc61e36af0aa3054cdf26510b1096",
+            "f345bb802027043fb23f29064290f5ad52e11dd2037f9ac1d6c954edfcfdc05b",
+            "cfda9eb3848264a9e84f8287d5faf45bca61d585dc59cc8f66cd4d18cae56f72",
+            "b569faf654b14b6dfc7d28e76ef41368e9189d71e47640ac6decaf3b92c1e0c1",
+            "5d44659134474cbcaac33df3d15d7c6f639368e0ea7ec676f67c6c60e9e0cb63",
+            "e3c6b9d03ae9fe1c89829c18b7397021c8b0d2c573e40e4ce48985905573daaa",
+            "a36f9f64116ffa4503e14c0819f1c6c156f9a724ae99ee9b9612008582daf08e",
+            "92007b103f66f1d12b524de4670030e6b893acbcdfc294a8911d8f8af54fdd16",
+            "924bd54e78e53e738ce18873fe58cbb7de92e30346cc4efceed23a70b4144505",
+            "a4fb76aa87d1db53bd622a73afca0e93aef9e28d77f530b946dadd73bfe68928",
+            "ed1b251d30a64597b2023e5a35b66e41f547a12ccc6efbe585994fa1cf495fe1",
+            "e0433da02ee880273a0402fd17a73f079e4266e6ee97ab5b6b69971476edede0",
+            "c24daa9d1fa6195c62f88bc17e1fb52e813ac65e6c73056ddaca8be49b153452",
+            "638d947ca886700817864e427b961b5994bfbde8a4a3b730c62c5777886b59d8",
+            "5307323f123648534ef12fa65848f7d64d1297d9bb7e9c5d975d097a8b4d69b9",
+            "dfc03a67c04a342fd27df169447b9d90e8bb19dd1ef688d3ec85373ea2fc68b3",
+            "bee0bd9355d6b9950f0c9a150eabe0291cf4eae1b7fb37ef8c1cf80d2e97f4d5",
+            "8a3abfa1a74e15263eb821289890c3581cfbffd97f052f84696fd86fb38497c7",
+            "5ecdb675bdfda62acd5878258f77135f7e2863c7a6eaa3087b2c35131493a6f5",
+            "5e9cef9fb73a8e0eef7b47c4359378cc2558b556122fc404792e5796727c6296",
+            "71c521d57946b2809e427a1782674031bd0d3e4876532a7030b3939331f1d9c3",
+            "c21c580033a4016771176f6b388bc6ffb9f729e7c6403f7acfb12d717a3721f6",
+            "7557d51a953693956c72ad1985b789fcfd6b47e0eac42af70a56b4582ab07410",
+            "e5f0e769c90d9a5af40fad3a0f6d21a079324691bb20bee6ad523c7817739dcd",
+            "f698e57964f64eba0c7c33762456bc0b43e4006b1bdf4e234eb92fd3e4669f3d",
+            "d3ef2e2e7aef75061366985b916d523c76df37daa1869f5e54adcea9d0e2db1a",
+            "94d2cf3ad0155bdd5a2140b5cd2e0a9020b9395678d8cf1f06c4a6c61bc1e058",
+            "0945a8653c53c938b8d27cce33938c9b4362a377364b1453d1e00a3d48d76504",
+            "9e26b41ceea5b1c8dff800c32722a938a0e788619bfd5348cf84fdcc38a3cf86",
+            "a95f46ce2e32a2aaad1ef71a4467fdd453b51c1f4d88270ead9f6176b3f98e83",
+            "02a667e2b2c22c4d7700b49dd687ab659d64813e2c489add04f5b858bb233bfd",
+            "a442bf3201a05bafe938906d349e80441058d8aa00c7f06b87960b48adef20c2",
+            "c6fe66635a9067bae3eec7db0cdf0fff1f4edc52d20607960e522c695763bd48",
+            "a55872335e35a4610f29bbe97d60ec80984b7f82a7e2f101561f205b6fd287a6",
+            "fd64c8935ce07c9a2f8af3112e5bc445c2c1edd42803feed7dcc5af539bb2898",
+            "2c93373aa7b4deb5dc856a3b5df7dbac2c97afa9a188ffc14a83040fe02ecdc7",
+            "88acd24b737a0f28115a1aefe7f46a0e790de079c35197a4e86815b81a430374",
+            "ac7ba7629e0c50371cfbfeaa1a5cf4f1e7153ac31f14c48630ccd58f2bac2b45",
+            "b579216e7367051120b46d6a3c978a8dd78c398222cf840e522af7fdbecce8c0",
+            "f51f74a61abd011b98e3e00306dbfdeb0f4c8d56504d639c9fd6609bd3ca1571",
+            "a327b37353ac0d610bd48de5c7ee1f16b43315be7ad809911b1c3f4048d2703a",
+            "282f901637136818d1a9de33c3fa1657b40f4bd990293e6e81bef276b1e735a2",
+            "f3d457bc8e2a417eb6a36be171e34440d47c61ed8eda84bbc7a6869be4f21953",
+            "8ebd848507ce85a44be8ad3f82bc22649d820729616c8bf5dfc349da1908628d",
+            "46e2cfe70fc6393f2ba5ec76f8f9c134cbba892791015fe9e7da9f5615c0e849",
+            "853cfabf28908338a4dc1948b9fc3b3dfefb5b29d15d5727ccde4bb437876a8b",
+            "2d9446d1e659c6cbfbd6370665ad76be9fa069d68777cd3d138a09449bd3650e",
+            "ad90d9c9b97ceecc0a10aebc86ac9bca0f8a5bb0a9b235a774633c7c4c0aae0f",
+            "8b59c0e287666b166e1472ab4ed0e5a9934d68e0fdebbc37f1213ef9ba90be7c",
+            "61137dc9330feef5ef2521018a48824ceadc8038ef9b266f1dc481f7e05e030b",
+            "9be5d9e540a541deef1df74cf2ebcc74c4339f7d1c3b905414f48502f327f2f2",
+            "e7d3dea845d7821a5eaad345dccd165eb5700d825ef7a3d357c3e56cd117971e",
+            "48378c450d8edf0d98f7a5f401488a98d392231444902de2eccb4ee349f7be4c",
+            "16cb0076235c28d33f61ea6f46a8df082f7c12302149994fa7b4b99b5d88107e",
+            "9cde3f512149d72dcb8b82d4aefdc3a88f6a396694b944ae846e80cd05c0b878",
+            "7f0b9ffcfc1978e83c16cc960846d887cc72fa6449c6663ed663dfcc444c3c34",
+            "c89ace3ebde7575457f2b3b364a7b95c3ae9067801674c1424864ac6b35da659",
+            "0e668c5c5053df26315e46026e815f905e68c1bcba9fae49bfc321969ca150a4",
+            "88898cb6cef9fd4c894adb76d2ef73de3ced481243d7a14490fe97a77d0819b8",
+            "e4c6aefbd23564ecb4de46f99d0faa6a5e2b5d4fabc352a32cc5179d5356a428",
+            "135c49181712b57a8f518945ee3b08166982c015dd34ea8c4a2ba9bc4c527d75",
+            "fd31d6cab721f79a98a1836a1e28a516e0d6ba786993bd2ce0499a19d3effccf"
+          ],
+          "failedCaseIds": []
+        },
+        {
+          "path": "tests/unit/modules/academy-admissions/infrastructure/admission-flow-contracts.test.ts",
+          "sourceSha256": "93647dca055b7c22204e1b6d8058a6b6ffdf958e9ae76ac6122b2b24907ac259",
+          "suiteStatus": "passed",
+          "passed": 9,
+          "failed": 0,
+          "filtered": 0,
+          "passedCaseIds": [
+            "2b9d761545c28ede8c0023ca5a492717c9240c9fe8d54cde70e68b1570e4093c",
+            "0d9fc482251f3427e1c02304bcc3ab86aea69a7df6246dcdaa9d652357a1cd6d",
+            "9d83c4c1e68d665df1279fa2945952a3311f7417aa45c87cf28f7ece9df106b5",
+            "27672a4dfa4eea7c9d97e5cbea30029bb4a88dad085aac15d596792d91e1eaa5",
+            "449d0342008ffcf876568a7c38d5d4e86976c1b44d84620cc476506006d79fc6",
+            "bffd2340f8dd2265fe2072df7f8b056954e453afa916179c6734b26691b01ff9",
+            "815489459fab03e3878761a41a9e5bfdd16ef6ee3fdf12b768bf925fbb11d9c1",
+            "2d01d0b08566a60f974ceb26272ba7e92675165a049e283f4b34b65b666839fb",
+            "4f2394997e6b4342e0eca3a967de77a4db97a0e244e48abc39b6bf979da7cabe"
+          ],
+          "failedCaseIds": []
+        }
+      ]
+    },
+    {
+      "id": "native_complete",
+      "environment": {
+        "RUN_ADMISSION_SQL_TESTS": "1",
+        "RUN_ADMISSION_BROWSER_TESTS": "0"
+      },
+      "files": [
+        {
+          "path": "tests/unit/modules/academy-admissions/infrastructure/admission-batch-atomicity.test.ts",
+          "sourceSha256": "5e6d05dcf73e9b3c2ef74dcc1c74f1ef6770d840689e76f71938dcf05bd70897",
+          "suiteStatus": "passed",
+          "passed": 5,
+          "failed": 0,
+          "filtered": 0,
+          "passedCaseIds": [
+            "ccdec77ec73c358a01adf02f4830902b8c9a80616b9bfc5a9a3ff5fd2f7e20e7",
+            "cdb77a7098b6fa6fe5fd99f3bf25d5e87b7dc00b81267fc275b07b2234fe8b8f",
+            "ca4e60d50380f180c8fc9dbaec85880cdd6ff7af7c3b15273152855731685bad",
+            "ccdb537d4b463a4fd50a61c73197285d8795cf13e7536b8ce55758c6a5d8bcac",
+            "3db5dc9369b5bba0feffd775cf48761285fdf086431c58c0dea561936e2399ae"
+          ],
+          "failedCaseIds": []
+        },
+        {
+          "path": "tests/unit/modules/academy-admissions/infrastructure/admission-batch-authorization.test.ts",
+          "sourceSha256": "352e38ecc6efb95f02fbade5d164eb259205dfd6f9e1bc56b642f52e6cb333f1",
+          "suiteStatus": "passed",
+          "passed": 1,
+          "failed": 0,
+          "filtered": 0,
+          "passedCaseIds": [
+            "df9d80f85312beb0369f13e09a857999a26a72253145c772a941b4b4424e524c"
+          ],
+          "failedCaseIds": []
+        },
+        {
+          "path": "tests/unit/modules/academy-admissions/infrastructure/personal-invitation-admission-rollback.test.ts",
+          "sourceSha256": "5bde6a72e025dbeb637e5effdc00a2d4a2c70ba8adbdc63431d7c1884b52d8d3",
+          "suiteStatus": "passed",
+          "passed": 1,
+          "failed": 0,
+          "filtered": 0,
+          "passedCaseIds": [
+            "a16e9a943f6209280ed13e0c2377b876bc6328a25ef860ab35fe9eb150de69b3"
+          ],
+          "failedCaseIds": []
+        },
+        {
+          "path": "tests/unit/modules/academy-admissions/infrastructure/personal-invitation-revocation-rollback.test.ts",
+          "sourceSha256": "e5b0629b6ed071b95be066daae21799c56f73bb3cb35338bca4f007c94943447",
+          "suiteStatus": "passed",
+          "passed": 1,
+          "failed": 0,
+          "filtered": 0,
+          "passedCaseIds": [
+            "82d3595eb060612b38b941aa489625fc5f50aaa278b4a6451077bc6b21d48cb1"
+          ],
+          "failedCaseIds": []
+        },
+        {
+          "path": "tests/unit/modules/tribes/infrastructure/academy-membership-writer.test.ts",
+          "sourceSha256": "5b837637ced2955dae3bbe6ec921f24724b6b06de80b89253cf35b6b74c59484",
+          "suiteStatus": "passed",
+          "passed": 13,
+          "failed": 0,
+          "filtered": 0,
+          "passedCaseIds": [
+            "15c60502beba8d925003dba7aaf957bba01e1ffb349e70f832797ed0e9076c7e",
+            "e1f6518694f91bc09423a17cea949f80b603fa763d578acef83b097aa43068b6",
+            "eb740f1236fc44648eb1fdd5032a7f793dc4fd3d89b81a78ec651cd3735a653b",
+            "9709bd1f6764410629627637588e877f53ba9a2e92afb34d0bce78f5ba4800a0",
+            "6a6b51cb4981eee90294d34960b35fc14f1b65a1849e5d3da4cb9c4779d77a8f",
+            "f24da8d7a6797b7b3884daa530773851dbe25eee38aaf2499889108e90282b9d",
+            "0b32ecac6dc920cc6c290135b8a86270298ef49a75053c872c4549feb6687111",
+            "e059428780d6e35694c12654b872d13a71e5b858caba50a24a3f752379d851c9",
+            "aa5ef32c9c0dcdfdf8a7b9c3a2cd8feefe0debf3ba50c463dcbf7487b46555b8",
+            "3c742947082ea5cfaa7e0575a84c48051be5a990b9e4abdc079d7e671057ed4f",
+            "0f85704eecc979df5b1865b0e0f0220d609817d5b63c8e5623d5846bafb5cd8f",
+            "9961d8b52e6a05056b5c4c094057dd0a720429be988e822bac335fb5571d2ab5",
+            "2b41ef1fef1e1e6683a97a41e30b7f095a5fb5f71b82b056ddaf49241700ce1b"
+          ],
+          "failedCaseIds": []
+        }
+      ]
+    }
+  ],
+  "nativeDiagnostics": {
+    "fullRunApproved": false,
+    "testNamePattern": "^(?!manual admission decision atomicity)|should deny an approval whose.*proven native wait|should approve a coherent three-day|should deny approval after a proven native lock wait|should roll back the real writer decision",
+    "files": [
+      {
+        "path": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+        "sourceSha256": "1cec1a1466f03c88030a9ec9c9417a17e76325a1b7e29dea112cea04a9477159",
+        "suiteStatus": "failed",
+        "passed": 0,
+        "failed": 7,
+        "filtered": 15,
+        "passedCaseIds": [],
+        "failedCaseIds": [
+          "4d358586bb75944420077d6fc2d09e2def1255aa550c6db5c11fbc21c6d9fd01",
+          "cb42b3eff69ae9bbc39beda4f78c67a284c8af14ac9e3e082b842d1076b187c0",
+          "ee8ea6f3f216ac5c34377a816463efbab1e22944bdcf5587e13cff9ae6cb38ea",
+          "34787de3d1a314aaa8136394476cf123edfe68bdca819c06b6e2cf866bf9f597",
+          "34cb3585e7d542d3e007f633a1a0803778ad39768361e97e4b77e47d32d9568f",
+          "5c7c083afdf30ea244c95ebaf034b91be17b54b121892457e07dfcc3fb8cc97c",
+          "5f07af3fb469fc2de080afdf99a7a39fcaf4fa422f68073c0d0e8a9d836837a8"
+        ]
+      },
+      {
+        "path": "tests/unit/modules/tribes/infrastructure/academy-membership-current-policy.test.ts",
+        "sourceSha256": "f093d8129f20dff9ce102303ffd26b49f7df1ce64570532eb4f7023b3e58254e",
+        "suiteStatus": "failed",
+        "passed": 0,
+        "failed": 1,
+        "filtered": 0,
+        "passedCaseIds": [],
+        "failedCaseIds": [
+          "4c67305c3ccd146f2204bdef79bca9a4ee6d4e38116843164d8de8fc267d0ea5"
+        ]
+      },
+      {
+        "path": "tests/unit/modules/tribes/infrastructure/academy-membership-rollback.test.ts",
+        "sourceSha256": "6fee78970c82f7e5244a3b527f0ff4eb290b160862c56c49de2a8e618043694d",
+        "suiteStatus": "failed",
+        "passed": 0,
+        "failed": 1,
+        "filtered": 0,
+        "passedCaseIds": [],
+        "failedCaseIds": [
+          "cada633e5019dec5e35aa90fd93644450ca27200be925d193b9b905bfd0f2ab1"
+        ]
+      }
+    ],
+    "baseline": {
+      "head": "390f45e694566ddcdab5d4eec69b08e4b691d8fd",
+      "productUnchanged": true,
+      "testInstrumentation": "Read-only pg catalog and smallest required function SELECT; no business assertion or fixture changed.",
+      "passed": 0,
+      "failed": 1,
+      "functions": {
+        "key_context": false,
+        "authorized_mac": false,
+        "notification_obligation": false
+      },
+      "directPgSqlState": "42883",
+      "missingFunction": "public.messaging_key_material_context_is_current()"
+    },
+    "remainingWork": "Repair the legacy fixture schema/key enrollment and rerun affected full contracts. None of these failed or filtered cases is counted as passing."
+  },
+  "resources": {
+    "confirmedAt": "2026-10-15T12:05:22.549Z",
+    "totalBranches": 2,
+    "ownValidationBranchesAbsent": true,
+    "protectedBranchesPreserved": true
+  },
+  "fullUs8Approved": false,
+  "operationalGatesApproved": false,
+  "newCommitCiApproved": false,
+  "externalMessagesSent": 0
+}

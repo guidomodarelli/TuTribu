@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Error Diagnostics</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fbf3ea;border-color:#d4a15a;color:#7a541a;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">CONVENTION</div>
+  <div class="doc-title">Error Diagnostics</div>
+  <div class="doc-sub">Cómo hacer que un 500, un rechazo de negocio, una variable de entorno faltante o un warning de React digan su causa en el primer log, sin exponer datos privados.</div>
+  <div class="doc-meta"><span>Scope: Server, tests y desarrollo local</span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Overview</div>
+<p>Las boundaries HTTP propias nunca serializan mensajes, stacks ni valores de un error. Eso protege los datos, pero deja el log en un <code>unexpected_failure</code> anónimo cuando la falla no conserva su causa tipada. Esta convención fija cuatro defensas que se complementan:</p>
+<ul>
+  <li><strong>Cadena de causas en el log.</strong> La boundary registra las clases y los códigos cerrados de toda la cadena <code>cause</code>.</li>
+  <li><strong>Rechazos con motivo.</strong> Un 4xx de negocio lleva el requisito incumplido como causa tipada.</li>
+  <li><strong>Entorno verificado al arrancar.</strong> Una variable faltante se informa al iniciar el servidor, no en medio de un flujo.</li>
+  <li><strong>Warnings de React como fallas.</strong> Un warning de desarrollo hace fallar el test que lo produce.</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Cause chain</div>
+<p><code>createOwnJsonRouteBoundary</code> agrega <code>causes</code> al diagnóstico de cada falla que conserva <code>cause</code>. <code>summarizeErrorCauses</code> recorre <code>cause</code> y <code>AggregateError.errors</code>, visita cada error una sola vez y guarda como máximo <code>ERROR_CAUSE_SUMMARY_MAX_ENTRIES</code> eslabones, cada uno con solo dos campos:</p>
+<table>
+  <tr><th>Campo</th><th>Regla</th></tr>
+  <tr><td><code>name</code></td><td>Nombre de la clase si es un identificador; si no, <code>UnnamedError</code>. Un valor que no es <code>Error</code> se registra solo por su tipo.</td></tr>
+  <tr><td><code>code</code></td><td>Solo si es un string cerrado (<code>ERROR_CAUSE_CODE_PATTERN</code>): códigos propios, SQLSTATE o códigos de Node. Un texto libre se descarta.</td></tr>
+</table>
+<div class="code-block"><pre>{"code":"unexpected_failure","status":500,"causes":[
+  {"name":"AdmissionOperationError","code":"unexpected_failure"},
+  {"name":"MessagingCryptographyError","code":"messaging_crypto_configuration_invalid"}]}</pre></div>
+<p>Para que funcione, cada falla llega a la boundary con su error real como <code>cause</code>, y cada clase de error propia expone un <code>code</code> cerrado. Una lectura de configuración, una llamada a un proveedor o un SQL que puede fallar dentro de una operación se envuelve en el error tipado de la feature, con <code>cause</code>, en el lugar donde falla. Por ejemplo, <code>readFingerprint</code> envuelve la lectura de las claves de mensajería.</p>
+<div class="callout c-info">Al reproducir un 500 reportado, leé primero <code>causes</code>. Si una falla sigue saliendo sin causas, agregar la <code>cause</code> faltante es parte del arreglo.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Business rejections</div>
+<p>Un rechazo esperado que tiene un motivo de dominio lleva ese motivo como causa tipada. En admisiones, <code>PostgresAdmissionPolicyRepository</code> lanza <code>admission_ineligible</code> con un <code>AdmissionPolicyRequirementError</code> cuyo <code>code</code> es el requisito incumplido (<code>verification_unavailable</code>, <code>admission_evaluator_unavailable</code>, etc.), y el log de la boundary lo muestra en <code>causes</code>. El navegador no recibe esa causa: sigue leyendo sus propios requisitos seguros (preflight y requisitos de activación) para explicar qué falta.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Environment at startup</div>
+<p><code>instrumentation-node.ts</code> corre <code>checkServerEnvironment</code> con <code>SERVER_ENVIRONMENT_REQUIREMENTS</code> (<code>src/modules/server-environment-requirements.ts</code>) cada vez que arranca un servidor, salvo durante <code>next build</code>.</p>
+<table>
+  <tr><th>Severidad</th><th>Desarrollo local</th><th>Producción</th></tr>
+  <tr><td><code>blocking</code></td><td>Registra el problema y el servidor no arranca.</td><td>Registra el problema; la feature sigue fallando cerrada.</td></tr>
+  <tr><td><code>degraded</code></td><td>Registra una advertencia.</td><td>Registra una advertencia.</td></tr>
+</table>
+<p>El log nombra la feature, las variables faltantes y, si un valor existe pero no sirve, la cadena de causas de su validación (por ejemplo, <code>MESSAGING_KEYRINGS_JSON</code> con JSON inválido). Nunca incluye valores. Toda variable nueva que lea una feature se agrega en el mismo cambio a <code>.env.example</code> y a <code>SERVER_ENVIRONMENT_REQUIREMENTS</code>.</p>
+<p>Además, <code>pnpm run dev</code> avisa si la base configurada tiene migraciones sin aplicar, con el mismo chequeo que el release (<code>scripts/release/pending-migrations.mjs</code>). <code>pnpm db:sandbox</code> genera claves de mensajería de desarrollo cuando faltan y registra sus pruebas en el sandbox (ver <a href="local-database-sandbox.htm">Local Database Sandbox</a>).</p>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">React warnings in tests</div>
+<p><code>vitest.setup.ts</code> instala <code>installReactWarningGuard</code> (<code>tests/support/react-warning-guard.ts</code>). El guard envuelve <code>console.error</code> y <code>console.warn</code>, sigue reenviando cada llamada y hace fallar el test que registró un warning de desarrollo de React:</p>
+<ul>
+  <li>cambios entre controlado y no controlado;</li>
+  <li>keys faltantes o duplicadas en listas;</li>
+  <li>actualizaciones fuera de <code>act</code> o durante el render de otro componente;</li>
+  <li>props desconocidas o atributos no booleanos en el DOM.</li>
+</ul>
+<p>La corrección va en el componente. Un input controlado sigue controlado toda su vida: el estado sin selección se representa con el valor vacío del componente (<code>""</code>, <code>false</code> o el <code>null</code> que acepte), nunca con <code>undefined</code>. <code>ACCEPTED_REACT_WARNINGS</code> solo admite warnings de dependencias que no se pueden corregir acá. Cada entrada declara el texto (<code>pattern</code>), el único archivo de test donde se acepta (<code>testFile</code>, ruta relativa al repositorio) y el motivo (<code>reason</code>); en cualquier otro archivo el mismo warning sigue haciendo fallar el test.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Route error boundaries</div>
+<p>Una falla al cargar una página no es una página inexistente. La carga de datos de una página registra el error con su contexto y lo vuelve a lanzar; <code>notFound()</code> queda para lo que de verdad no existe o no corresponde mostrar (una tribu oculta, un segmento inválido, un rol sin acceso). Así el boundary del segmento ofrece reintentar en lugar de un 404 engañoso.</p>
+<ul>
+  <li><strong>Reintentar con <code>retry</code>.</strong> App Router pasa a cada <code>error.tsx</code> las props <code>error</code>, <code>reset</code> y <code>retry</code>. «Reintentar» usa <code>retry</code>, que vuelve a pedir el segmento al servidor y lo renderiza; <code>reset</code> solo vuelve a renderizar lo que ya falló. Next.js 16.3 ya no pasa <code>unstable_retry</code>.</li>
+  <li><strong>Dentro del shell.</strong> <code>app/(platform)/error.tsx</code> recupera cualquier sección de la plataforma sin su propio boundary, conservando el rail y la navegación de la tribu; <code>app/error.tsx</code> queda para lo que falla fuera del shell. El shell ya renderiza el <code>&lt;main&gt;</code> de la página, así que ni el boundary ni las páginas debajo agregan otro.</li>
+  <li><strong>Una salida que sirva.</strong> Dentro de una página, <code>AdmissionRouteError</code> se usa con <code>embedded</code>, así no anida otro <code>&lt;main&gt;</code> ni un segundo <code>&lt;h1&gt;</code>. Ofrece la salida que puede resolver la falla: «Iniciar sesión», que vuelve a la misma página, cuando falta la sesión; ningún reintento ante un permiso denegado, porque reintentar no lo otorga; y «Reintentar» para lo demás. Cuando cambia la cuenta o se pierde el acceso, la página cierra su vista privada y muestra esa misma salida, no solo una frase. Ese «Reintentar» recarga el documento a propósito: la lectura falló o es de otra cuenta, así que no hay estado del cliente que conservar, y un <code>router.refresh()</code> dejaría los hooks iniciados con la lectura fallida.</li>
+  <li><strong>Acceso a la tribu.</strong> <code>resolveVisibleTribePageAccess</code> deja que un error al resolver el acceso llegue al boundary; una tribu oculta sigue respondiendo 404.</li>
+  <li><strong>Tests.</strong> <code>renderThroughAppRouter</code> (<code>tests/support/app-router-error-boundary.tsx</code>) monta el <code>error.tsx</code> dentro del <code>ErrorBoundary</code> real de Next, así un cambio en las props que pasa el framework hace fallar el test.</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">07</div>
+  <div class="section-title">Implementation</div>
+<ul>
+  <li><code>src/modules/shared/infrastructure/observability/error-cause-summary.ts</code> y <code>src/modules/shared/constants/error-cause-summary.ts</code>: resumen seguro de la cadena de causas.</li>
+  <li><code>src/modules/shared/infrastructure/http/own-json-route-boundary.ts</code>: agrega <code>causes</code> al diagnóstico.</li>
+  <li><code>src/modules/academy-admissions/domain/errors/admission-policy-requirement-error.ts</code>: motivo de <code>admission_ineligible</code> en políticas.</li>
+  <li><code>src/modules/shared/infrastructure/config/server-environment-check.ts</code>, <code>src/modules/server-environment-requirements.ts</code> e <code>instrumentation-node.ts</code>: verificación del entorno al arrancar.</li>
+  <li><code>scripts/dev-portless.mjs</code>: aviso de migraciones pendientes.</li>
+  <li><code>tests/support/react-warning-guard.ts</code>: guard de warnings de React.</li>
+</ul>
+</div>
+</body>
+</html>

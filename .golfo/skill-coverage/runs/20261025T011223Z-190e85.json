@@ -1,0 +1,76 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-pages-ignore-unknown-query",
+    "commit": "59c3cedd91685b065f9e2dcc12e75e5f4d574872",
+    "fingerprint": "sha256:9e4117fd9328f254a2e780f09b9ab43a46ee4986e25f58dec64190e6aa97ca89",
+    "uncommittedFiles": [],
+    "fileCount": 131,
+    "inputCount": 587
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/modules/academy-admissions/application/admission-page.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-page.test.ts [redacted]-connections-page.test.ts [redacted]-usage-page.test.ts",
+      "durationMs": 5970,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "2ab984b40aff0e3fe8979957361204124cf89e6ea47d726f343a27954706f461",
+      "recordedAt": "2026-10-25T01:12:29.816Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "command": "pnpm run -s typecheck",
+      "durationMs": 2721,
+      "exitCode": 0,
+      "kind": "command",
+      "outcome": "pass",
+      "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
+      "recordedAt": "2026-10-25T01:12:33.037Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T01:12:33.542Z",
+      "source": "attested",
+      "summary": "La página ignora las claves de query desconocidas (z.object en lugar de z.strictObject) y sigue validando las que lee; las APIs siguen estrictas, según la decisión del usuario."
+    }
+  ],
+  "limitations": [
+    "Solo se revisó el manejo de la query de la página; el resto de los estados de la unidad queda para su propia auditoría. No se verificó en navegador: la página necesita un enlace o una solicitud reales."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T01:12:35.170Z",
+  "result": "partial",
+  "runId": "20261025T011223Z-190e85",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "no previous coverage: the whole unit is analyzed"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit academy.admissions.applicant.invitation.view: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a27ab40c70e78c90",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:262d130d4e0582dad8bd65e40b350a22b52d1393120ae35689e1bc817203bf14",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.4.1"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T01:12:23.355Z",
+  "unitId": "academy.admissions.applicant.invitation.view"
+}

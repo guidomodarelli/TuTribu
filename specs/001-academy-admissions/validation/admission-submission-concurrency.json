@@ -1,0 +1,224 @@
+{
+  "baseCommit": "1e929c419df66207f3acc9554c652eab16e8e3fd",
+  "worktreeChanges": true,
+  "productionInputs": [
+    {
+      "sha256": "960107a06cf7c3373cc1c6508710103ff657172b62a24273c4ca79d44cc2e3dd",
+      "path": "src/modules/academy-admissions/constants/admission-operation.ts"
+    },
+    {
+      "sha256": "281d92f9efa6d5a8d6d6b5c95ff985ca7a104df1b92a1732d0762f053e7cd406",
+      "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts"
+    },
+    {
+      "sha256": "52602762e73097e87ef0f66e3103e501f1f0a6a6ac3ee5d73957887c463ad7ef",
+      "path": "src/modules/academy-admissions/setup.ts"
+    },
+    {
+      "sha256": "458dd8dd26c1914088adc387554bcb97219faafa4d36fd9bc95d8df39d911e9a",
+      "path": "src/modules/tribes/constants/academy-membership.ts"
+    },
+    {
+      "sha256": "5217aa0308e75ccc1c1d6cf590436bfd3aa993d215295e4b6e5190796855dc1f",
+      "path": "src/modules/tribes/infrastructure/repositories/lock-academy-admission-membership-scope.ts"
+    },
+    {
+      "sha256": "cf877c0349dbc4b0d21dcd5f4965e6b4a0d50f2763026baf871b8bf2a396fd40",
+      "path": "src/modules/tribes/infrastructure/repositories/read-approved-academy-membership-context.ts"
+    }
+  ],
+  "productionInputsStable": true,
+  "producers": [
+    {
+      "path": "tests/unit/modules/academy-admissions/infrastructure/admission-submission-concurrency.test.ts",
+      "sha256": "abd19f684d82cfd1182a587fcc0a73ddc19f1646cc040e156f72391d2febd9e6"
+    },
+    {
+      "path": "tests/unit/modules/tribes/infrastructure/academy-admission-scope-locks.test.ts",
+      "sha256": "1fdc1d27dfe68cd3af9ec024b971fd7f0c0b91f9fad500769a7f598ac410bad1"
+    },
+    {
+      "path": "tests/support/constants/admission-submission-concurrency.ts",
+      "sha256": "cbf4973131c082ec9d408c5d350ca01fcfbf26f0b00dc9f1f19187f44ed354cb"
+    }
+  ],
+  "realMessages": 0,
+  "fullLoadAcceptance": false,
+  "baseline": {
+    "status": "failed",
+    "reason": "independent_applicant_blocked",
+    "durationMs": 219398.83130000002
+  },
+  "initialAfter": {
+    "status": "failed",
+    "reason": "persistence_lookup_used_proposed_id_instead_of_canonical_response"
+  },
+  "integral": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "cases": [
+      {
+        "title": "should commit another applicant while the first applicant's completed effects remain uncommitted",
+        "status": "passed",
+        "durationMs": 264497.36089999997
+      }
+    ]
+  },
+  "scope": {
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0,
+    "cases": [
+      {
+        "title": "should serialize the same applicant and expose a membership inserted during the wait in the next statement",
+        "status": "passed",
+        "durationMs": 53383.8846
+      },
+      {
+        "title": "should block non-key tenant updates under self admission and retain the exclusive fence for another beneficiary",
+        "status": "passed",
+        "durationMs": 52987.8079
+      },
+      {
+        "title": "should keep absent scope closed and release the applicant lock when its transaction rolls back",
+        "status": "passed",
+        "durationMs": 59365.36009999999
+      }
+    ]
+  },
+  "originalReplay": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "cases": [
+      {
+        "title": "should atomically bind a trusted exact contact and approve once as system without editing the entry or notifying reviewers of a pending request",
+        "status": "passed",
+        "durationMs": 97976.62310000001
+      }
+    ]
+  },
+  "regression": {
+    "passed": 23,
+    "failed": 0,
+    "skipped": 0,
+    "cases": [
+      {
+        "title": "should commit one sms contact owner and member, retain the competing proof and preserve binding after disabling the entry",
+        "status": "passed",
+        "durationMs": 254849.43550000002
+      },
+      {
+        "title": "should commit one whatsapp contact owner and member, retain the competing proof and preserve binding after disabling the entry",
+        "status": "passed",
+        "durationMs": 251712.62159999998
+      },
+      {
+        "title": "should atomically consume one email proof into common system approval while preserving the enabled entry and original replay",
+        "status": "passed",
+        "durationMs": 169781.3653
+      },
+      {
+        "title": "should atomically consume one phone proof into common system approval while preserving the enabled entry and original replay",
+        "status": "passed",
+        "durationMs": 169555.6733
+      },
+      {
+        "title": "should atomically consume one email proof into historical system approval while preserving the enabled entry and original replay",
+        "status": "passed",
+        "durationMs": 172268.6346
+      },
+      {
+        "title": "should atomically consume one phone proof into historical system approval while preserving the enabled entry and original replay",
+        "status": "passed",
+        "durationMs": 172671.0011
+      },
+      {
+        "title": "should roll back redemption, binding, decision and membership when the original notice obligation is absent",
+        "status": "passed",
+        "durationMs": 97727.2028
+      },
+      {
+        "title": "should preserve manual review and its original pending before another link, then approve only by the current reviewer",
+        "status": "passed",
+        "durationMs": 147141.5032
+      },
+      {
+        "title": "should atomically withdraw the actually redeemed pending and preserve the consumed resource after a stale active revocation is refused",
+        "status": "passed",
+        "durationMs": 137030.2557
+      },
+      {
+        "title": "should evaluate the current closed and reopened policy after real approval and exit instead of treating an old approval as perpetual authority",
+        "status": "passed",
+        "durationMs": 139177.8247
+      },
+      {
+        "title": "should reject admission when academy mode changes during a membership lock wait",
+        "status": "passed",
+        "durationMs": 28379.1176
+      },
+      {
+        "title": "should reject a mismatched actor and missing decision without granting membership",
+        "status": "passed",
+        "durationMs": 24085.974599999998
+      },
+      {
+        "title": "should keep a staged decision closed after paused without consuming its source",
+        "status": "passed",
+        "durationMs": 25982.036099999998
+      },
+      {
+        "title": "should keep a staged decision closed after missing_policy without consuming its source",
+        "status": "passed",
+        "durationMs": 24482.492
+      },
+      {
+        "title": "should keep a staged decision closed after mode_exit without consuming its source",
+        "status": "passed",
+        "durationMs": 26963.00050000001
+      },
+      {
+        "title": "should keep a staged decision closed after lost_leadership without consuming its source",
+        "status": "passed",
+        "durationMs": 26136.01179999998
+      },
+      {
+        "title": "should commit the approved source and a new basic member atomically without commercial grants",
+        "status": "passed",
+        "durationMs": 23892.1771
+      },
+      {
+        "title": "should return an existing muted guardian before consulting or consuming another decision",
+        "status": "passed",
+        "durationMs": 22151.903699999995
+      },
+      {
+        "title": "should restore the observed muted snapshot and keep the original member identity and date",
+        "status": "passed",
+        "durationMs": 26514.919900000008
+      },
+      {
+        "title": "should deny tribemate/blocked/conduct_blocked without creating a source",
+        "status": "passed",
+        "durationMs": 25103.45139999999
+      },
+      {
+        "title": "should deny tribemate/removed/none without creating a source",
+        "status": "passed",
+        "durationMs": 26538.904299999995
+      },
+      {
+        "title": "should deny guardian/removed/subscription_inactive without creating a source",
+        "status": "passed",
+        "durationMs": 22274.87640000001
+      },
+      {
+        "title": "should deny tribemate/blocked/payment_blocked without creating a source",
+        "status": "passed",
+        "durationMs": 22329.121800000023
+      }
+    ]
+  }
+}

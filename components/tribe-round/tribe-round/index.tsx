@@ -38,6 +38,8 @@ import {
 import { AnimatePresence } from "motion/react";
 import { toast, Button, Avatar, AvatarGroup, Dialog, DialogClose, DialogContent, DialogTrigger, DropdownMenu, type DropdownItem, Input, Tooltip, Pagination, type PaginationClickEvent, Carousel, formatFileSize, AnimatedCount, AnimatedListItem, RichLinkEditor, useRichLinkEditor, RichTextContent, type RichLink, ReactionButton } from "@golfo/ui";
 import { MorphLoader } from "@/components/loaders/morph-loader";
+import { Link } from "@/components/navigation/link";
+import { ROUTES } from "@/src/constants/routes";
 
 import { isInPageLinkClick } from "@/lib/plain-link-click";
 import { usePixelSnappedCentering } from "@/hooks/use-pixel-snapped-centering";
@@ -222,6 +224,9 @@ const TRIBE_ROUND_COPY = {
   likeButtonAriaLabel: "Me gusta",
   commentButtonAriaLabel: "Comentarios",
   commentAuthorsPreviewLabel: "Comentaron",
+  academyParticipationLink: "Suscribirme",
+  academyParticipationNotice:
+    "Podés leer el fogón y los canales. Para publicar, responder y reaccionar, necesitás la suscripción mensual a la academia.",
   mutedNotice: "Podes leer la ronda, pero tu estado actual no permite participar.",
   pinButtonAriaLabel: "Pinear mensaje",
   pinnedBadge: "Pineado",
@@ -335,6 +340,7 @@ const TRIBE_ROUND_COPY = {
   submitReplySuccess: "Respuesta publicada.",
   submitMessageError: "No pudimos crear el mensaje.",
   submitMessageSuccess: "Mensaje creado.",
+  submitMessageReplayed: "El mensaje ya estaba publicado.",
   toggleLikeError: "No pudimos actualizar la reaccion.",
 } as const;
 
@@ -598,7 +604,15 @@ type ApiErrorResponse = {
 
 type CreateMessageResponse = {
   message?: string;
+  /** The server already stored this publication under the same idempotency key. */
+  replayed?: boolean;
   tribeMessage?: TribeRoundMessageResult;
+};
+
+/** Idempotency key of the last submitted draft, reused only when that same draft is sent again. */
+type PendingCreateMessageKey = {
+  fingerprint: string;
+  key: string;
 };
 
 type MessagePollResponse = {
@@ -1759,6 +1773,7 @@ function TribeRoundContent({
 
   const currentTribeSlugRef = useRef(tribeSlug);
   const currentActionTokenRef = useRef(0);
+  const pendingCreateMessageKeyRef = useRef<PendingCreateMessageKey | null>(null);
   const likeDebounceTimersRef = useRef<LikeDebounceTimers>({});
   const pendingLikeIntentsRef = useRef<PendingLikeIntents>({});
   const pinDebounceTimersRef = useRef<PinDebounceTimers>({});
@@ -3659,36 +3674,76 @@ function TribeRoundContent({
       setIsMessageComposerOpen(false);
     }
     setPendingActionId(TRIBE_ROUND_COPY.messageButton);
+    const createMessagePayload = {
+      channelId: selectedChannelId,
+      content,
+      ...(isPollComposerEnabled
+        ? {
+            poll: {
+              allowMultipleVotes: pollAllowsMultipleVotes,
+              options: pollOptions
+                .map((option) => option.trim())
+                .filter(Boolean),
+            },
+          }
+        : {}),
+      ...(filesPayload.length > 0 ? { files: filesPayload } : {}),
+      ...(mediaPayload.length > 0 ? { media: mediaPayload } : {}),
+      title,
+    };
+    // Sending exactly the same publication again reuses its key, so one whose response was lost is not duplicated;
+    // any change to the text, poll or attachments makes it a new publication with a new key.
+    const createMessageFingerprint = JSON.stringify(createMessagePayload);
+    const clientRequestId =
+      pendingCreateMessageKeyRef.current?.fingerprint === createMessageFingerprint
+        ? pendingCreateMessageKeyRef.current.key
+        : crypto.randomUUID();
+    pendingCreateMessageKeyRef.current = { fingerprint: createMessageFingerprint, key: clientRequestId };
 
-    try {
-      const response = await submitJsonRequest<CreateMessageResponse>(
+    const submitCreateMessage = () =>
+      submitJsonRequest<CreateMessageResponse>(
         TRIBE_ROUND_ENDPOINT.message(actionTribeSlug),
-        {
-          channelId: selectedChannelId,
-          content,
-          ...(isPollComposerEnabled
-            ? {
-                poll: {
-                  allowMultipleVotes: pollAllowsMultipleVotes,
-                  options: pollOptions
-                    .map((option) => option.trim())
-                    .filter(Boolean),
-                },
-              }
-            : {}),
-          ...(filesPayload.length > 0 ? { files: filesPayload } : {}),
-          ...(mediaPayload.length > 0 ? { media: mediaPayload } : {}),
-          title,
-        }
+        { ...createMessagePayload, clientRequestId }
       );
 
+    try {
+      // A network failure leaves the outcome unknown: before rolling back (which also cleans transient attachments and
+      // changes the draft), reconcile it once by sending the same publication with the same key. The server either
+      // replays the stored one or creates it for the first time, so this retry can never duplicate it.
+      const response = await submitCreateMessage().catch((error: unknown) => {
+        if (error instanceof TypeError && isCurrentAction(actionToken, actionTribeSlug)) {
+          return submitCreateMessage();
+        }
+
+        throw error;
+      });
+
       if (!isCurrentAction(actionToken, actionTribeSlug)) {
+        return;
+      }
+
+      if (response.replayed) {
+        // The earlier attempt was stored: keep the optimistic copy until the current page reloads in place with the stored
+        // message, so the feed never flashes an empty state and a draft started meanwhile is not lost to a remount. The
+        // action stays pending until that reload settles, so a newer publication cannot be erased by its older snapshot.
+        pendingCreateMessageKeyRef.current = null;
+        clearPersistingMessageImages(persistingImageAssetIds);
+        clearPersistingMessageFiles(persistingFileAssetIds);
+        pendingCreateMessageIntentRef.current = null;
+        if (!shouldShowOptimisticMessageInCurrentView) {
+          resetMessageComposer({ shouldRevokeImagePreviewUrls: false });
+          setIsMessageComposerOpen(false);
+        }
+        toast.success(response.message ?? TRIBE_ROUND_COPY.submitMessageReplayed);
+        await roundNavigation.reloadCurrentPage();
         return;
       }
 
       if (!response.tribeMessage) {
         throw new Error(TRIBE_ROUND_COPY.submitMessageError);
       }
+
+      pendingCreateMessageKeyRef.current = null;
 
       const createdMessage = response.tribeMessage as TribeRoundMessageResult;
 
@@ -3972,8 +4027,10 @@ function TribeRoundContent({
     };
 
     try {
+      // Sending the intended state keeps a retry after a lost response from inverting the reaction.
       const response = await submitJsonRequest<ToggleLikeResponse>(
-        TRIBE_ROUND_ENDPOINT.like(actionTribeSlug, messageId)
+        TRIBE_ROUND_ENDPOINT.like(actionTribeSlug, messageId),
+        { liked: pendingLikeIntent.intendedLikedByViewer }
       );
 
       if (currentTribeSlugRef.current !== actionTribeSlug) {
@@ -5839,9 +5896,21 @@ function TribeRoundContent({
         />
       </Dialog>
       {!round.viewerPermissions.canCreateMessage ? (
-        <p className={styles.TribeRound__notice}>
-          {TRIBE_ROUND_COPY.mutedNotice}
-        </p>
+        round.viewerPermissions.requiresAcademyToParticipate ? (
+          <p className={styles.TribeRound__notice}>
+            {TRIBE_ROUND_COPY.academyParticipationNotice}{" "}
+            <Link
+              className={styles.TribeRound__noticeLink}
+              href={ROUTES.tribes.academy(tribeSlug)}
+            >
+              {TRIBE_ROUND_COPY.academyParticipationLink}
+            </Link>
+          </p>
+        ) : (
+          <p className={styles.TribeRound__notice}>
+            {TRIBE_ROUND_COPY.mutedNotice}
+          </p>
+        )
       ) : null}
 
     {round.viewerPermissions.canCreateMessage ? (

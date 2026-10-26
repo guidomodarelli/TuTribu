@@ -1,0 +1,59 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "perf/academy-page-round-trips",
+    "commit": "ccb559dffef3630f85b470bbd6ca6f3be559b4fe",
+    "fingerprint": "sha256:cd8585aefc759cfc325a1f0bd87fc8ec1204d6da7ae6e0f63e72847ea8ca52df",
+    "uncommittedFiles": [],
+    "fileCount": 23,
+    "inputCount": 219
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx",
+      "durationMs": 37736,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "a81192728d9aaa5813662dc91163d57c5bdbe2c4c47ff8e0af75c0046d27b6c9",
+      "recordedAt": "2026-10-25T20:59:19.593Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    }
+  ],
+  "limitations": [
+    "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T20:59:24.075Z",
+  "result": "partial",
+  "runId": "20261025T205839Z-5441cc",
+  "scope": {
+    "decision": "not-applicable",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "recorded not applicable: Quitar avisos duplicados no agrega requests, consultas ni pasos al flujo."
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": []
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a8d6cde62f2853fa",
+      "references/bundle-lazy-loading.md": "91990bd1796b9884",
+      "references/database-queries-n-plus-one.md": "3064b23acc3e9f7e",
+      "references/images-fonts-scripts.md": "1ab02d4b1a421c87",
+      "references/incremental-sweep-jobs.md": "c5c8e71bdba2e4a9",
+      "references/measurement-tools.md": "e3e96c85be264c0c",
+      "references/requests-caching.md": "981544e05dee2e5c",
+      "references/unnecessary-renders.md": "2d440f22533a2149"
+    },
+    "definitionHash": "sha256:dcb79531d3a56e7765d65880022365639578ed18c69466dbb65f4ce0b59b09d3",
+    "name": "measured-performance-optimization",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T20:58:39.426Z",
+  "unitId": "academy.manage.verifications.decide"
+}

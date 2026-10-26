@@ -1,0 +1,190 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-route-skeletons",
+    "commit": "622fc297a81165d651538448906da0c5f3c44887",
+    "fingerprint": "sha256:bdf3b530106d48bf228d1e51014a9181cf1a4f47dcc3792dfcd77739a5643761",
+    "uncommittedFiles": [],
+    "fileCount": 131,
+    "inputCount": 589
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
+      "durationMs": 23879,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "feba4cbf25ae4cce9f8e0b1da0bcdefc9b74c0aa81c4965433a83c7ec8887165",
+      "recordedAt": "2026-10-25T07:40:50.617Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T07:40:51.044Z",
+      "source": "attested",
+      "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T07:40:51.463Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app, capturando el fallback durante una navegación: antes, academia, gestionar, verificación, suscripción y canales mostraban el esqueleto de la ronda («Cargando sección de tribu») y la invitación «Solicitar ingreso»; después, cada ruta anuncia su propia carga con su forma (panel de pasos en Reglas e Invitaciones, filas en Solicitudes, «Tu solicitud de ingreso» e «Invitación personal» en el solicitante) (4/4)."
+    }
+  ],
+  "limitations": [
+    "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T07:40:52.746Z",
+  "result": "partial",
+  "runId": "20261025T074026Z-f8e83b",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "skill definition changed (1.4.1 → 1.5.0): SKILL.md",
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-screen/index.tsx#ADMISSION_LOADING_SHAPE.entryStepCount",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-screen/index.tsx#ADMISSION_LOADING_SHAPE.requestFactCount",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-screen/index.tsx#ADMISSION_LOADING_SHAPE~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-screen/index.tsx#AdmissionLoading",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-screen/styles.module.scss#*",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#placeholderKeys",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.actionCount",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.factCount",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.fieldCount",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.stepCount",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonActions",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlock",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonFacts",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonField",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonLines",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonStepsPanel",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/styles.module.scss#*",
+        "reason": "new visible or interactive code"
+      }
+    ],
+    "suggestedScope": [
+      "whole unit academy.admissions.applicant.entry.view: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T07:40:26.306Z",
+  "unitId": "academy.admissions.applicant.entry.view"
+}

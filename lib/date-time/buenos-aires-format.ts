@@ -156,6 +156,21 @@ export function formatBuenosAiresShortDate(value: string | Date): string {
 }
 
 /**
+ * "25 oct 2026 · 14:30" for an instant in Buenos Aires: a full date and time for records people read later.
+ */
+export function formatBuenosAiresDateTime(value: string | Date): string {
+  const date = value instanceof Date ? value : new Date(value);
+
+  return (
+    formatBuenosAiresShortDate(date) +
+    " " +
+    readPart(DATE_KEY_FORMATTER, date, DATE_PART.year) +
+    DATE_TIME_SEPARATOR +
+    formatBuenosAiresTime(date)
+  );
+}
+
+/**
  * "Miércoles 6 de mayo" style long date.
  */
 export function formatBuenosAiresLongDate(value: string | Date): string {

@@ -1,0 +1,19 @@
+@use "../../../src/styles/workspace-panel";
+
+.MessagingConnectionLifecycle {
+  @include workspace-panel.section;
+  max-width: 40rem;
+
+  &__title { @include workspace-panel.title; }
+  &__field { @include workspace-panel.field; }
+  &__help { @include workspace-panel.lead; }
+  &__note { @include workspace-panel.note; }
+  &__consent { @include workspace-panel.consent; }
+  &__actions { @include workspace-panel.actions; }
+  &__feedback { @include workspace-panel.lead; }
+  &__impact { @include workspace-panel.feedback; }
+  &__warning {
+    @include workspace-panel.feedback;
+    @include workspace-panel.feedback-alert;
+  }
+}

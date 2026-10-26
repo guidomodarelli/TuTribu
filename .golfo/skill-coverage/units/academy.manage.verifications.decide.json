@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.manage.verifications.decide",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Gestionar academia",
+    "section": "Solicitudes de verificación",
+    "subflow": "Verificar, rechazar o revocar"
+  },
+  "description": "Verificar, rechazar o revocar una vinculación: las tres decisiones comparten el handler decide, el motivo obligatorio y el PATCH con versión esperada.",
+  "routes": [
+    "/[slug]/academia/gestionar"
+  ],
+  "entries": [
+    {
+      "path": "components/academy/academy-management/index.tsx",
+      "symbol": "ReviewQueueRow"
+    },
+    {
+      "follow": false,
+      "path": "components/academy/academy-management/index.tsx",
+      "symbol": "ReviewQueueSection"
+    },
+    {
+      "follow": false,
+      "path": "app/(platform)/[slug]/academia/gestionar/page.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/api/tribes/[slug]/verifications/[verificationId]/route.ts",
+      "symbol": "PATCH"
+    }
+  ],
+  "dependsOn": [
+    {
+      "path": "src/modules/member-verifications/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildMemberVerificationsModule"
+    },
+    {
+      "path": "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "PostgresMemberVerificationRepository"
+    },
+    {
+      "path": "src/modules/product-access/infrastructure/repositories/academy-access-sql.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "recordAcademyAuditEvent"
+    }
+  ],
+  "origin": "curated"
+}

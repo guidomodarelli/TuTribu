@@ -1,0 +1,298 @@
+{
+  "sourceCommit": "24c3ae316bb97f36bf16f83f3bd966e961f3a2b0",
+  "bundleSha256": "947442b13f7ab4be53b4a0c518ca768836c674ff42134d9e43ca02393139b8f4",
+  "databaseCompute": {
+    "minimum": 2,
+    "maximum": 2,
+    "region": "aws-us-east-1"
+  },
+  "databaseStatistics": {
+    "trackingMode": "top",
+    "planningEnabled": false,
+    "serverVersionNum": 170011
+  },
+  "measurement": {
+    "warmupDurationMs": 3884.966931000352,
+    "setupDurationMs": 2975.6032210011035,
+    "networkQueryP95Ms": 2.956464000046253,
+    "networkSamples": 20,
+    "participants": 100,
+    "admitted": 50,
+    "pending": 50,
+    "failures": [],
+    "p95Ms": 6044.763554001227,
+    "targetMs": 3000,
+    "peakInFlight": 100,
+    "pool": {
+      "maximum": 100,
+      "acquisitions": 300,
+      "releases": 300,
+      "errorReleases": 0,
+      "peakWaitingCount": 0,
+      "peakTotalCount": 100,
+      "waitingAfter": 0,
+      "checkedOutAfter": 0
+    },
+    "eventLoopP95Ms": 100.990975,
+    "facts": {
+      "entries": 10000,
+      "requests": 100,
+      "basic_members": 50,
+      "deliveries": 0
+    },
+    "realMessages": 0,
+    "nodeVersion": "24.16.0",
+    "sourceCommit": "24c3ae316bb97f36bf16f83f3bd966e961f3a2b0",
+    "bundleSha256": "947442b13f7ab4be53b4a0c518ca768836c674ff42134d9e43ca02393139b8f4",
+    "databaseConnection": {
+      "sourceVariable": "DATABASE_URL_UNPOOLED",
+      "hostnameHasPoolerMarker": false
+    },
+    "measurementWindow": {
+      "startedAt": "2026-10-18T13:12:56.484Z",
+      "finishedAt": "2026-10-18T13:13:02.539Z"
+    },
+    "diagnostics": {
+      "wallDurationMs": 6053.893374999985,
+      "cpuUserMs": 2048.577,
+      "cpuSystemMs": 441.265,
+      "eventLoopActiveMs": 2323.52865299955,
+      "eventLoopIdleMs": 3730.3675299994648,
+      "eventLoopUtilization": 0.38380715208243077,
+      "accountTransactions": 100,
+      "commandTransactions": 200,
+      "accountTransactionP95Ms": 538.5498259998858,
+      "commandTransactionP95Ms": 4498.251523999497,
+      "admittedP95Ms": 6045.344535999,
+      "pendingP95Ms": 6036.261228000745
+    }
+  },
+  "backendObservations": {
+    "scope": "native_invocation_including_setup_warmup_measurement",
+    "samples": [
+      {
+        "observedAt": "2026-10-18 13:12:51.23911+00",
+        "unmatchedBackends": 4,
+        "backends": 1,
+        "states": {
+          "idle": 1
+        },
+        "waitClasses": {
+          "Client": 1
+        },
+        "waitEvents": {
+          "ClientRead": 1
+        }
+      },
+      {
+        "observedAt": "2026-10-18 13:12:52.178858+00",
+        "unmatchedBackends": 4,
+        "backends": 1,
+        "states": {
+          "idle": 1
+        },
+        "waitClasses": {
+          "Client": 1
+        },
+        "waitEvents": {
+          "ClientRead": 1
+        }
+      },
+      {
+        "observedAt": "2026-10-18 13:12:53.110544+00",
+        "unmatchedBackends": 4,
+        "backends": 1,
+        "states": {
+          "idle in transaction": 1
+        },
+        "waitClasses": {
+          "Client": 1
+        },
+        "waitEvents": {
+          "ClientRead": 1
+        }
+      },
+      {
+        "observedAt": "2026-10-18 13:12:54.043093+00",
+        "unmatchedBackends": 4,
+        "backends": 1,
+        "states": {
+          "idle in transaction": 1
+        },
+        "waitClasses": {
+          "Client": 1
+        },
+        "waitEvents": {
+          "ClientRead": 1
+        }
+      },
+      {
+        "observedAt": "2026-10-18 13:12:54.974498+00",
+        "unmatchedBackends": 4,
+        "backends": 30,
+        "states": {
+          "idle": 26,
+          "idle in transaction": 4
+        },
+        "waitClasses": {
+          "Client": 30
+        },
+        "waitEvents": {
+          "ClientRead": 30
+        }
+      },
+      {
+        "observedAt": "2026-10-18 13:12:55.91315+00",
+        "unmatchedBackends": 4,
+        "backends": 64,
+        "states": {
+          "idle": 47,
+          "idle in transaction": 17
+        },
+        "waitClasses": {
+          "Client": 64
+        },
+        "waitEvents": {
+          "ClientRead": 64
+        }
+      },
+      {
+        "observedAt": "2026-10-18 13:12:56.847416+00",
+        "unmatchedBackends": 4,
+        "backends": 100,
+        "states": {
+          "idle": 25,
+          "idle in transaction": 75
+        },
+        "waitClasses": {
+          "Client": 100
+        },
+        "waitEvents": {
+          "ClientRead": 100
+        }
+      },
+      {
+        "observedAt": "2026-10-18 13:12:57.813263+00",
+        "unmatchedBackends": 4,
+        "backends": 100,
+        "states": {
+          "idle": 6,
+          "idle in transaction": 94
+        },
+        "waitClasses": {
+          "Client": 100
+        },
+        "waitEvents": {
+          "ClientRead": 100
+        }
+      },
+      {
+        "observedAt": "2026-10-18 13:12:58.75774+00",
+        "unmatchedBackends": 3,
+        "backends": 100,
+        "states": {
+          "active": 6,
+          "idle in transaction": 94
+        },
+        "waitClasses": {
+          "LWLock": 2,
+          "Client": 94,
+          "none": 4
+        },
+        "waitEvents": {
+          "BufferContent": 2,
+          "ClientRead": 94,
+          "none": 4
+        }
+      },
+      {
+        "observedAt": "2026-10-18 13:12:59.688692+00",
+        "unmatchedBackends": 3,
+        "backends": 100,
+        "states": {
+          "idle in transaction": 100
+        },
+        "waitClasses": {
+          "Client": 100
+        },
+        "waitEvents": {
+          "ClientRead": 100
+        }
+      },
+      {
+        "observedAt": "2026-10-18 13:13:00.661916+00",
+        "unmatchedBackends": 3,
+        "backends": 100,
+        "states": {
+          "active": 10,
+          "idle in transaction": 90
+        },
+        "waitClasses": {
+          "Extension": 4,
+          "Client": 90,
+          "none": 1,
+          "LWLock": 5
+        },
+        "waitEvents": {
+          "Neon/RelExists": 4,
+          "ClientRead": 90,
+          "none": 1,
+          "LockManager": 5
+        }
+      },
+      {
+        "observedAt": "2026-10-18 13:13:01.602901+00",
+        "unmatchedBackends": 3,
+        "backends": 100,
+        "states": {
+          "active": 13,
+          "idle in transaction": 84,
+          "idle": 3
+        },
+        "waitClasses": {
+          "LWLock": 2,
+          "Client": 87,
+          "none": 11
+        },
+        "waitEvents": {
+          "BufferContent": 2,
+          "ClientRead": 87,
+          "none": 11
+        }
+      },
+      {
+        "observedAt": "2026-10-18 13:13:02.55097+00",
+        "unmatchedBackends": 3,
+        "backends": 100,
+        "states": {
+          "idle": 99,
+          "idle in transaction": 1
+        },
+        "waitClasses": {
+          "Client": 100
+        },
+        "waitEvents": {
+          "ClientRead": 100
+        }
+      }
+    ],
+    "errors": [],
+    "sampleLimitReached": false
+  },
+  "acceptance": {
+    "exitCode": 1,
+    "passed": false,
+    "failedAssertions": [
+      "p95Ms < 3000"
+    ],
+    "inputsStable": true,
+    "toolingStable": true,
+    "observationOnly": true
+  },
+  "cleanup": {
+    "remainingBranches": 3,
+    "originalBranchesPreserved": true,
+    "nonOriginalBranches": 0
+  },
+  "productionSqlExecuted": false
+}

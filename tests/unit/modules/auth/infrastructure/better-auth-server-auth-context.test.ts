@@ -75,6 +75,7 @@ describe("Better Auth server auth context", () => {
       feature: "auth",
       operation: "better_auth_session_lookup",
       requestId: "request-1",
+      traceId: "request-1",
     });
     expect(loggerWarn).toHaveBeenCalledWith({
       message: "Better Auth session lookup failed transiently; retrying once.",
@@ -86,7 +87,6 @@ describe("Better Auth server auth context", () => {
         errorStatusCode: 500,
         operation: "get_session",
       },
-      error: sessionFailure,
     });
   });
 

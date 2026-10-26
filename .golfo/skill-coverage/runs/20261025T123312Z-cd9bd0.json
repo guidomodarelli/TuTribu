@@ -1,0 +1,224 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-route-skeletons",
+    "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+    "fingerprint": "sha256:cc1e903598a221912a742a0a1cc09b2c45e12f4b2f3326a7f8aa5d4f47432bde",
+    "uncommittedFiles": [],
+    "fileCount": 33,
+    "inputCount": 346
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
+      "durationMs": 28928,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "d4b2e51e43a207459f3db0787abe54521b0959833f3ee2b45d4f998b447087cf",
+      "recordedAt": "2026-10-25T12:33:42.525Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T12:33:43.046Z",
+      "source": "attested",
+      "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T12:33:43.580Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app, capturando el fallback durante una navegación: antes, academia, gestionar, verificación, suscripción y canales mostraban el esqueleto de la ronda («Cargando sección de tribu») y la invitación «Solicitar ingreso»; después, cada ruta anuncia su propia carga con su forma (panel de pasos en Reglas e Invitaciones, filas en Solicitudes, «Tu solicitud de ingreso» e «Invitación personal» en el solicitante) (4/4)."
+    }
+  ],
+  "limitations": [
+    "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T12:33:44.926Z",
+  "result": "partial",
+  "runId": "20261025T123312Z-cd9bd0",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/gestionar/loading.module.scss#*",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/gestionar/loading.tsx#ACADEMY_MANAGEMENT_LOADING_SHAPE.rowCount",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/gestionar/loading.tsx#ACADEMY_MANAGEMENT_LOADING_SHAPE.toggleCount",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/gestionar/loading.tsx#ACADEMY_MANAGEMENT_LOADING_SHAPE~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/gestionar/loading.tsx#AcademyManagementLoading",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/loading.tsx#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/loading.module.scss#*",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/loading.tsx#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.filterCount",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.filterKeyPrefix",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.keySeparator",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.roundItemCount",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.roundItemKeyPrefix",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusAriaRole",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON.statusLabel",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/loading.tsx#TRIBE_LOADING_SKELETON~frame",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/loading.tsx#TribeLoadingPage",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#placeholderKeys",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.lineCount",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.rowCount",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#RouteSkeleton",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlock",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonLines",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonRows",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/styles.module.scss#*",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "pkg:react",
+        "reason": "new visible or interactive code"
+      }
+    ],
+    "suggestedScope": [
+      "whole unit academy.manage.view: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T12:33:12.932Z",
+  "unitId": "academy.manage.view"
+}

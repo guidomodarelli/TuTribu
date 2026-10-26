@@ -12,6 +12,9 @@ Estas reglas se aplican a los archivos de `user-guides/` y complementan las inst
 | Archivo | Tema |
 | --- | --- |
 | `academy-mode.html` | Modo academia: activación, verificación, acceso, bonificaciones y renovación |
+| `tenant-messaging.html` | Conexión de mensajería, países, cupos, comprobación y recuperación |
+| `academy-admissions.html` | Solicitud, revisión, configuración e historial de admisión |
+| `academy-admission-notifications.html` | Preferencia personal y correo de admisión, confirmación y recuperación |
 | `classic-mode.html` | Modo clásico y suscripción de membresía |
 | `joining-options.html` | Formas de ingreso: pago, enlace público, gratuito e invitaciones; atribución |
 | `courses.html` | Cursos, módulos, lecciones, progreso y gestión del contenido |
@@ -56,7 +59,7 @@ Estas reglas se aplican a los archivos de `user-guides/` y complementan las inst
 
 - Aplicar la skill `user-manual` para crear o actualizar estos manuales.
 - Los manuales de este directorio usan `.html`, no `.htm`. `AGENTS.md` es un archivo de control y permanece en Markdown. Esta instrucción no modifica el formato exigido a la documentación bajo `docs/`.
-- Usar Heritage Spec desde `~/system-config/configs/.agents/DESIGN.md`, con sus componentes, tokens, HTML semántico y script de navegación vigente.
+- Usar Heritage Spec desde [DESIGN.md](https://github.com/guidomodarelli/astra-marketplace/blob/main/plugins/astra-kit/skills/user-manual/DESIGN.md) de la skill [user-manual](https://github.com/guidomodarelli/astra-marketplace/blob/main/plugins/astra-kit/skills/user-manual/SKILL.md) del plugin `astra-kit`, con sus componentes, tokens, HTML semántico y script de navegación vigente. Su fuente canónica está en `guidomodarelli/astra-marketplace`; el repositorio anterior `ai-assets-marketplace` redirige allí. No usar la ruta anterior de `system-config`, de donde fue retirada.
 - Mantener cada HTML autocontenido: estilos y scripts del documento embebidos y recursos visuales necesarios incorporados cuando corresponda.
 - Seguir el orden estándar: Contenido; ¿Para qué sirve?; Audiencia; Permisos y prerrequisitos; ¿Cómo se accede?; Flujo general del proceso; particularidades; Flujos no felices; secciones de referencia pertinentes; Glosario al final cuando corresponda.
 - Filtrar permisos, mensajes, límites y preguntas frecuentes por tema. No duplicar tablas globales completas en todos los archivos.

@@ -25,6 +25,7 @@ li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
 strong{font-weight:600;color:#1a1a1a;}
 code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;color:#1a1a1a;}
 table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+.table-wrap{max-width:100%;overflow-x:auto;}
 th{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
 td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
 tr:last-child td{border-bottom:none;}
@@ -58,7 +59,7 @@ tr:last-child td{border-bottom:none;}
 <div class="section">
   <div class="section-num">02</div>
   <div class="section-title">Matriz de targets</div>
-  <table>
+  <div class="table-wrap" role="region" tabindex="0" aria-label="Comparación de targets de despliegue"><table>
     <thead>
       <tr>
         <th>Target</th>
@@ -81,7 +82,7 @@ tr:last-child td{border-bottom:none;}
         <td><code>opennextjs-cloudflare deploy</code> o <code>opennextjs-cloudflare upload</code>.</td>
       </tr>
     </tbody>
-  </table>
+  </table></div>
   <div class="divider"></div>
 </div>
 
@@ -113,12 +114,12 @@ tr:last-child td{border-bottom:none;}
   <div class="section-title">Mantenimiento programado (cron)</div>
   <p>El barrido de imagenes huerfanas de Cloudflare corre como tarea programada en <strong>ambos targets</strong> contra el mismo endpoint <code>/api/maintenance/image-cleanup</code>. Sin esta tarea, los drafts abandonados y la cola de huerfanos en cascada se acumulan.</p>
   <p>En Vercel los crons diarios se declaran en <code>vercel.json</code> con <code>crons</code>. En Cloudflare Workers no existe equivalente automatico, por lo que se declaran los mismos schedules en <code>wrangler.jsonc</code> bajo <code>triggers.crons</code>. Los schedules diarios deben mantenerse sincronizados entre ambos archivos.</p>
-  <table>
+  <div class="table-wrap" role="region" tabindex="0" aria-label="Disparadores de mantenimiento por target"><table>
     <tr><th>Ruta</th><th>Schedule</th><th>Disparador en Vercel</th><th>Disparador en Cloudflare</th><th>Trabajo</th></tr>
     <tr><td><code>/api/maintenance/image-cleanup</code></td><td><code>0 4 * * *</code></td><td><code>vercel.json</code></td><td><code>wrangler.jsonc</code></td><td>Imagenes huerfanas de Cloudflare (diario, 04:00 UTC)</td></tr>
     <tr><td><code>/api/maintenance/file-cleanup</code></td><td><code>30 4 * * *</code></td><td><code>vercel.json</code></td><td><code>wrangler.jsonc</code></td><td>Adjuntos huerfanos de R2 (diario, 04:30 UTC)</td></tr>
     <tr><td><code>/api/maintenance/event-reminders</code></td><td><code>*/5 * * * *</code></td><td>GitHub Actions (<code>.github/workflows/event-reminders-cron.yml</code>)</td><td><code>wrangler.jsonc</code></td><td>Recordatorios de eventos y purga de notificaciones leidas (<a href="notifications.htm">Notificaciones in-app</a>)</td></tr>
-  </table>
+  </table></div>
   <p>Con varias expresiones en <code>triggers.crons</code>, el handler <code>scheduled</code> recibe la expresion que disparo y <code>resolveMaintenancePathForCron</code> (<code>MAINTENANCE_CRON_SCHEDULE</code>) la mapea a su ruta. Todas las rutas comparten la verificacion del bearer en <code>src/modules/shared/infrastructure/http/cron-authorization.ts</code>.</p>
   <div class="callout c-warn"><strong>Vercel Hobby:</strong> el plan Hobby solo admite crons diarios y rechaza el deploy si <code>vercel.json</code> declara una expresion mas frecuente. <strong>Decision:</strong> el proyecto sigue en Hobby y el cron de recordatorios (<code>*/5 * * * *</code>) no se declara en <code>vercel.json</code>; lo dispara el workflow de GitHub Actions <code>.github/workflows/event-reminders-cron.yml</code> con <code>curl GET</code> a produccion y <code>Authorization: Bearer &lt;CRON_SECRET&gt;</code>. Requiere el secret de Actions <code>CRON_SECRET</code> (mismo valor que en Vercel) y la variable de Actions <code>EVENT_REMINDERS_BASE_URL</code>; sin ellos el job termina OK con un aviso y no llama a la ruta. Como GitHub puede demorar los schedules, la seleccion de recordatorios es catch-up ("vencido y aun no enviado", ver <a href="notifications.htm">Notificaciones in-app</a>). Cloudflare mantiene su propio trigger <code>*/5</code> en <code>wrangler.jsonc</code>.</div>
   <p>Como OpenNext genera el worker en <code>.open-next/worker.js</code> y ese artefacto solo expone <code>fetch</code>, Cloudflare necesita un entrypoint propio. El campo <code>main</code> de <code>wrangler.jsonc</code> apunta a <code>cloudflare/worker.ts</code>, que reutiliza el <code>fetch</code> generado por OpenNext y agrega un handler <code>scheduled</code>. Ese handler vuelve a entrar a la misma ruta con el token <code>Authorization: Bearer &lt;CRON_SECRET&gt;</code>, de modo que la autorizacion del barrido es identica a la del cron de Vercel.</p>
@@ -138,5 +139,23 @@ tr:last-child td{border-bottom:none;}
   <p>El mantenimiento de ambos targets no debe cambiar el comportamiento de <code>pnpm run build</code>, porque ese comando sigue siendo el contrato compartido por el flujo actual.</p>
   <p>La inicializacion de desarrollo de <code>@opennextjs/cloudflare</code> y el tracing extra de archivos para Workers deben omitirse cuando el entorno define <code>VERCEL=1</code>, para que el build nativo de Vercel no ejecute tooling especifico de Workers ni empaquete archivos de dependencias pensados para Cloudflare.</p>
 </div>
+<section class="section" aria-labelledby="messaging-key-enrollment-step">
+<h2 class="section-title" id="messaging-key-enrollment-step">Inscripción de claves HMAC de mensajería</h2>
+<p>Las operaciones de admisión y mensajería exigen que cada keyId activo y retenido de <code>contact_fingerprint</code> y <code>operation_payload</code> en <code>MESSAGING_KEYRINGS_JSON</code> tenga su prueba en <code>public.messaging_key_material_proofs</code>. Sin ella, el ledger responde <code>resource_unavailable</code> y la UI muestra «El recurso solicitado no está disponible». Ocurrió en el piloto al recrearlo con keyrings nuevos.</p>
+<p><strong>Paso obligatorio:</strong> después de aplicar las migraciones y antes de exponer un deployment que use keyrings nuevos o rotados, un operador ejecuta con los secretos del entorno destino:</p>
+<p><code>pnpm messaging:enroll-keys</code></p>
+<p>Requiere <code>MESSAGING_SECURITY_ENVIRONMENT</code>, <code>MESSAGING_SECURITY_EPOCH</code>, <code>MESSAGING_RECOVERY_LOCK=false</code>, <code>MESSAGING_KEYRINGS_JSON</code> y <code>DATABASE_MAINTENANCE_URL</code> (o <code>DATABASE_MIGRATION_URL</code>). Exit 0 con <code>state: "completed"</code> y los <code>newlyEnrolledKeyIds</code> por propósito; exit 1 con un <code>code</code> estable: <code>messaging_key_enrollment_connection_missing</code>, <code>messaging_crypto_configuration_invalid</code>, <code>messaging_crypto_recovery_locked</code>, <code>messaging_crypto_context_mismatch</code> (la conexión no es el owner), <code>messaging_crypto_key_continuity_unproven</code> (un keyId inscripto cambió de material: no rotar reutilizando ids) o <code>messaging_key_enrollment_failed</code> con su SQLSTATE. Repetirlo es seguro.</p>
+<p><strong>Por qué no es automático:</strong> el build de Vercel corre también para previews y no debe escribir en la base de producción ni recibir el owner; el flujo de <code>golfo-rp</code> aplica migraciones desde la máquina del operador, que no tiene por qué tener los keyrings de producción, y su motor es compartido. Por eso queda como paso explícito del runbook, igual que <code>pnpm run db:migrate</code>. Si se automatiza, el lugar es un job de GitHub Actions manual o post-release con un environment protegido que tenga sólo esos secretos.</p>
+<p><strong>Detección:</strong> si se omite, cada request afectado registra <code>messaging_key_material_unverified</code> (feature <code>messaging</code>) con los propósitos y keyIds; ver <a href="tenant-messaging.htm#messaging-key-enrollment">la arquitectura de mensajería</a>. Conviene configurar una alerta de logs de Vercel sobre ese mensaje.</p>
+</section>
+<section class="section" aria-labelledby="admission-maintenance-entrypoint">
+<h2 class="section-title" id="admission-maintenance-entrypoint">Disparadores de admisión con activación explícita</h2>
+<p><code>GET /api/maintenance/admission-messaging</code> compone el <a href="notifications.htm#admission-messaging-maintenance">mantenimiento privado de admisión</a> con el bearer nativo actual. Conserva un presupuesto total de cuarenta y cinco segundos y resultados parciales explícitos. El host retiene sólo la observación del trabajo original tardío; no lanza otro intento ni confunde aceptación con recepción.</p>
+<p>La configuración base de <code>wrangler.jsonc</code> mantiene <code>ADMISSION_MESSAGING_MAINTENANCE_ENABLED=false</code> y los tres schedules anteriores. El entorno optativo <code>admission-maintenance</code> agrega <code>* * * * *</code> y habilita exclusivamente este disparador. Apunta al mismo Worker <code>tutribu</code>, conserva sus assets y repite el binding de autorreferencia, porque los bindings y las variables no se heredan entre entornos. Compilar con <code>opennextjs-cloudflare build --env admission-maintenance</code> prepara ese artefacto; no lo publica ni activa crons remotos.</p>
+<p>El handler <code>scheduled</code> selecciona la ruta por la expresión del evento, exige la activación exacta <code>true</code> y un <code>CRON_SECRET</code>, y vuelve a entrar una sola vez mediante el <code>fetch</code> real de OpenNext. Sólo 200 confirma el recorrido; 202 conserva un original ocupado y no confirma trabajo completo; los demás estados y fallos de transporte hacen fallar la invocación. El wrapper no reintenta y conserva la causa privada de una respuesta incierta.</p>
+<p>El workflow <code>.github/workflows/admission-messaging-cron.yml</code> prepara un catch-up HTTP cada cinco minutos y una ejecución manual. El schedule queda omitido mientras la variable de Actions <code>ADMISSION_MESSAGING_MAINTENANCE_ENABLED</code> no sea exactamente <code>true</code>. Una ejecución manual incompletamente configurada termina con error antes de enviar. Requiere además el origen <code>ADMISSION_MESSAGING_MAINTENANCE_BASE_URL</code> y el secret <code>CRON_SECRET</code>; la concurrencia evita solapamientos del mismo workflow.</p>
+<p><code>node scripts/run-admission-maintenance.mjs</code> realiza una única petición GET autorizada, sin seguir redirects ni repetirla. Admite HTTPS y HTTP sólo para loopback, rechaza credenciales, paths adicionales, query y fragmentos en el origen y aplica un plazo exterior de sesenta segundos. Descarta el cuerpo y registra únicamente operación, código propio y estado HTTP; nunca serializa el bearer, contenido ni causas internas. Los fallos y el estado 202 dejan exit code 1.</p>
+<div class="callout c-warn"><strong>Límite operativo:</strong> no se modifica <code>vercel.json</code>, no se despliega este entorno ni se configura el hosting o Actions. Vercel Hobby conserva pendiente un driver frecuente aprobado y medido. La cadencia declarada de Actions no garantiza puntualidad; ni el build ni la ejecución local acreditan el p95 de SC-015 o el gate OG-05. T187 y su dependencia T186 conservan sus criterios completos hasta la auditoría de cierre. La <a href="../../specs/001-academy-admissions/validation/admission-maintenance-trigger.md">evidencia del disparador</a> distingue configuración, ejecución local y validación operativa.</div>
+</section>
 </body>
 </html>

@@ -7,6 +7,9 @@ import { join } from "node:path";
 import { loadEnvConfig, resetEnv } from "@next/env";
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
+import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
+
 type SandboxMode = "ensure" | "reset" | "delete";
 type SandboxStep =
   | "createBranch"
@@ -14,6 +17,8 @@ type SandboxStep =
   | "resetBranch"
   | "deleteBranch"
   | "migrate"
+  | "generateMessagingKeys"
+  | "enrollMessagingKeys"
   | "writeEnvironment"
   | "removeEnvironment";
 type NeonBranchSummary = {
@@ -36,6 +41,7 @@ type DevDatabaseSandboxScript = {
   planSandboxSteps: (input: {
     mode: SandboxMode;
     existingBranch: NeonBranchSummary | undefined;
+    hasMessagingKeyrings?: boolean;
   }) => SandboxStep[];
   selectSandboxDatabase: (
     databases: { name: string; owner_name: string }[]
@@ -46,6 +52,8 @@ type DevDatabaseSandboxScript = {
   ) => string;
   removeSandboxEnvironment: (environmentFileText: string) => string;
   redactConnectionString: (connectionString: string) => string;
+  buildDevelopmentMessagingEnvironment: (generateBytes?: (size: number) => Buffer) => Record<string, string>;
+  appendDevelopmentMessagingEnvironment: (environmentFileText: string, messagingEnvironment: Record<string, string>) => string;
 };
 
 const DIRECT_URL =
@@ -190,13 +198,13 @@ describe("dev database sandbox script", () => {
   describe("planSandboxSteps", () => {
     const sandboxBranch = { id: "br-sandbox", name: "dev-sandbox-guido" };
 
-    it("should create and migrate a missing sandbox", () => {
+    it("should create and migrate a missing sandbox, generating development messaging keys when none are configured", () => {
       expect(
         sandboxScript.planSandboxSteps({
           existingBranch: undefined,
           mode: "ensure",
         })
-      ).toEqual(["createBranch", "migrate", "writeEnvironment"]);
+      ).toEqual(["createBranch", "migrate", "generateMessagingKeys", "enrollMessagingKeys", "writeEnvironment"]);
     });
 
     it("should reuse an existing sandbox and only apply pending migrations", () => {
@@ -205,7 +213,7 @@ describe("dev database sandbox script", () => {
           existingBranch: sandboxBranch,
           mode: "ensure",
         })
-      ).toEqual(["reuseBranch", "migrate", "writeEnvironment"]);
+      ).toEqual(["reuseBranch", "migrate", "generateMessagingKeys", "enrollMessagingKeys", "writeEnvironment"]);
     });
 
     it("should reset an existing sandbox from its parent, or create it when missing", () => {
@@ -214,13 +222,13 @@ describe("dev database sandbox script", () => {
           existingBranch: sandboxBranch,
           mode: "reset",
         })
-      ).toEqual(["resetBranch", "migrate", "writeEnvironment"]);
+      ).toEqual(["resetBranch", "migrate", "generateMessagingKeys", "enrollMessagingKeys", "writeEnvironment"]);
       expect(
         sandboxScript.planSandboxSteps({
           existingBranch: undefined,
           mode: "reset",
         })
-      ).toEqual(["createBranch", "migrate", "writeEnvironment"]);
+      ).toEqual(["createBranch", "migrate", "generateMessagingKeys", "enrollMessagingKeys", "writeEnvironment"]);
     });
 
     it("should still clean .env.local when deleting a sandbox that no longer exists", () => {
@@ -238,6 +246,32 @@ describe("dev database sandbox script", () => {
       ).toEqual(["removeEnvironment"]);
     });
 
+    it("should only enroll configured messaging keys after migrating and before pointing .env.local at the sandbox", () => {
+      for (const [existingBranch, mode, branchStep] of [
+        [undefined, "ensure", "createBranch"],
+        [sandboxBranch, "ensure", "reuseBranch"],
+        [sandboxBranch, "reset", "resetBranch"],
+      ] as const) {
+        expect(
+          sandboxScript.planSandboxSteps({
+            existingBranch,
+            hasMessagingKeyrings: true,
+            mode,
+          })
+        ).toEqual([branchStep, "migrate", "enrollMessagingKeys", "writeEnvironment"]);
+      }
+    });
+
+    it("should never enroll keys when deleting the sandbox", () => {
+      expect(
+        sandboxScript.planSandboxSteps({
+          existingBranch: sandboxBranch,
+          hasMessagingKeyrings: true,
+          mode: "delete",
+        })
+      ).toEqual(["deleteBranch", "removeEnvironment"]);
+    });
+
     it("should refuse to touch the default, primary or protected branch in any mode", () => {
       const forbiddenBranches = [
         { ...sandboxBranch, default: true },
@@ -252,6 +286,25 @@ describe("dev database sandbox script", () => {
           ).toThrow(/br-sandbox/);
         }
       }
+    });
+  });
+
+  describe("development messaging keys", () => {
+    it("should generate keyrings the real messaging security parser accepts, with independent material per purpose", async () => {
+      const environment = sandboxScript.buildDevelopmentMessagingEnvironment();
+      const config = await readMessagingHostingSecurityConfig(environment);
+      expect(config.recoveryLocked).toBe(false);
+      expect(Object.keys(config.keyrings).sort()).toEqual(Object.values(MESSAGING_KEY_PURPOSE).sort());
+      const materials = Object.values(JSON.parse(environment.MESSAGING_KEYRINGS_JSON) as Record<string, { keys: { materialBase64: string }[] }>).map((keyring) => keyring.keys[0].materialBase64);
+      expect(new Set(materials).size).toBe(materials.length);
+    });
+
+    it("should append the block once and keep existing keys, since enrolled proofs are bound to them", () => {
+      const first = sandboxScript.appendDevelopmentMessagingEnvironment(FILE_WITH_PREVIOUS_ASSIGNMENTS, sandboxScript.buildDevelopmentMessagingEnvironment());
+      const second = sandboxScript.appendDevelopmentMessagingEnvironment(first, sandboxScript.buildDevelopmentMessagingEnvironment());
+      expect(second).toBe(first);
+      expect(first.startsWith(FILE_WITH_PREVIOUS_ASSIGNMENTS)).toBe(true);
+      expect(loadEffectiveEnvironment(first)).toMatchObject({ MESSAGING_RECOVERY_LOCK: "false", MESSAGING_SECURITY_ENVIRONMENT: "development", BETTER_AUTH_URL: "https://dev.tutribu.app" });
     });
   });
 

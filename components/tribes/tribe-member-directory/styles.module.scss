@@ -5,7 +5,7 @@
 .TribeMemberDirectory {
   display: grid;
   gap: 1.5rem;
-  width: min(100%, 42rem);
+  width: 100%;
 
   &__header {
     @include motion.enter;

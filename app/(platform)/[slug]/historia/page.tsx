@@ -1,14 +1,21 @@
+import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
 import { TribeStoryAbout } from "@/components/tribes/tribe-story-about";
 import { TribeStoryManagement } from "@/components/tribes/tribe-story-management";
 import { buildRichMarkdownExcerpt } from "@golfo/ui";
 import { createRequestModules } from "@/src/modules/setup";
+import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
+import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import { getCachedPublicTribeStoryAbout } from "@/src/modules/tribes/infrastructure/cache/tribe-story-about-cache";
 import { buildSignInRedirectUrl } from "@/lib/auth/sign-in-redirect";
 import { ROUTES } from "@/src/constants/routes";
 import { TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
-import { TRIBE_FREE_JOIN_STATUS } from "@/src/modules/tribes/constants/tribe-story";
+import {
+  TRIBE_FREE_JOIN_FORM_STATUS,
+  TRIBE_FREE_JOIN_STATUS,
+  type TribeFreeJoinFormState,
+} from "@/src/modules/tribes/constants/tribe-story";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import {
   TRIBE_MEMBERSHIP_STATUS,
@@ -21,6 +28,9 @@ import { resolveTribePageAccess } from "../tribe-page-access";
 import styles from "./page.module.scss";
 
 const TRIBE_STORY_PAGE = {
+  freeJoinFailureMessage: "Failed to join tribe for free from its story",
+  freeJoinOperation: "tribe-story-free-join",
+  logFeature: "tribes",
   metadataDescriptionMaxLength: 160,
   metadataTitleSuffix: "Historia",
   operation: "tribe-story-page",
@@ -100,10 +110,28 @@ export async function generateMetadata({
   }
 }
 
-async function joinTribeFreeAction({ slug }: { slug: string }) {
+/**
+ * Free join from the story. A joined (or already member) visitor goes to the
+ * tribe; otherwise the form stays on the story with the reason, so a failure
+ * is never a silent reload.
+ *
+ * @param input - Slug of the tribe being joined.
+ * @returns Failure state for the form; success redirects instead.
+ */
+async function joinTribeFreeAction({
+  slug,
+}: {
+  slug: string;
+}): Promise<TribeFreeJoinFormState> {
   "use server";
 
-  const modules = await createRequestModules();
+  const { requestId } = resolveRequestContext(await headers());
+  const logger = createServerLogger({
+    feature: TRIBE_STORY_PAGE.logFeature,
+    operation: TRIBE_STORY_PAGE.freeJoinOperation,
+    requestId,
+  });
+  const modules = await createRequestModules({ requestId });
   const authenticatedMember =
     await modules.auth.useCases.getAuthenticatedMember();
 
@@ -113,7 +141,19 @@ async function joinTribeFreeAction({ slug }: { slug: string }) {
 
   const result = await modules.tribes.useCases
     .joinTribeFree({ tribeSlug: slug })
-    .catch(() => ({ status: TRIBE_FREE_JOIN_STATUS.forbidden }));
+    .catch((error: unknown) => {
+      logger.error({
+        error,
+        message: TRIBE_STORY_PAGE.freeJoinFailureMessage,
+        metadata: { slug, viewerId: authenticatedMember.id },
+      });
+
+      return null;
+    });
+
+  if (!result) {
+    return { status: TRIBE_FREE_JOIN_FORM_STATUS.failed };
+  }
 
   if (
     result.status === TRIBE_FREE_JOIN_STATUS.joined ||
@@ -122,7 +162,7 @@ async function joinTribeFreeAction({ slug }: { slug: string }) {
     redirect(ROUTES.tribes.bySlug(slug));
   }
 
-  redirect(ROUTES.tribes.history(slug));
+  return { status: TRIBE_FREE_JOIN_FORM_STATUS.forbidden };
 }
 
 export default async function TribeHistoryPage({

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   addDaysToBuenosAiresDateKey,
   buildBuenosAiresInstant,
+  formatBuenosAiresDateTime,
   formatBuenosAiresDateTimeRange,
   formatBuenosAiresLongDate,
   formatBuenosAiresMonthTitle,
@@ -52,5 +53,10 @@ describe("Buenos Aires date formatting", () => {
     expect(addDaysToBuenosAiresDateKey("2026-05-31", 1)).toBe("2026-06-01");
     expect(addDaysToBuenosAiresDateKey("2026-12-31", 2)).toBe("2027-01-02");
     expect(addDaysToBuenosAiresDateKey("", 1)).toBe("");
+  });
+
+  it("formats a full date and time in Buenos Aires, also across the UTC day change", () => {
+    expect(formatBuenosAiresDateTime("2026-10-25T17:30:00.000Z")).toBe("25 oct 2026 · 14:30");
+    expect(formatBuenosAiresDateTime(new Date("2026-10-26T01:05:00.000Z"))).toBe("25 oct 2026 · 22:05");
   });
 });

@@ -194,16 +194,18 @@ export class R2MessageFileRepository implements MessageFileRepository {
   async createDownloadUrl(
     command: CreateMessageFileDownloadUrlCommand
   ): Promise<MessageFileDownloadUrlResult> {
-    const storage = this.resolveStorage();
-
-    if (!storage) {
-      return { status: MESSAGE_MUTATION_STATUS.invalidFile };
-    }
-
+    // Visibility is decided before storage is required, so a missing or
+    // hidden file answers `notFound` even when R2 is not configured.
     const file = await this.findDownloadableFile(command);
 
     if (!file) {
       return { status: MESSAGE_MUTATION_STATUS.notFound };
+    }
+
+    const storage = this.resolveStorage();
+
+    if (!storage) {
+      return { status: MESSAGE_MUTATION_STATUS.invalidFile };
     }
 
     return {
@@ -218,12 +220,8 @@ export class R2MessageFileRepository implements MessageFileRepository {
   async deleteFile(
     command: DeleteMessageFileCommand
   ): Promise<MessageFileDeletionResult> {
-    const storage = this.resolveStorage();
-
-    if (!storage) {
-      return { status: MESSAGE_MUTATION_STATUS.invalidFile };
-    }
-
+    // Existence and permission are read-only checks, so they run before
+    // storage is required; nothing is marked until R2 is available.
     const file = await this.findDeletableFile(command);
 
     if (!file) {
@@ -232,6 +230,12 @@ export class R2MessageFileRepository implements MessageFileRepository {
 
     if (!file.can_delete) {
       return { status: MESSAGE_MUTATION_STATUS.forbidden };
+    }
+
+    const storage = this.resolveStorage();
+
+    if (!storage) {
+      return { status: MESSAGE_MUTATION_STATUS.invalidFile };
     }
 
     if (!(await this.markFilePendingDelete(file.id))) {
@@ -616,14 +620,18 @@ export class R2MessageFileRepository implements MessageFileRepository {
           on tribes.id = message_files.tribe_id
         where message_files.id = ${command.assetId}
           and tribes.slug = ${command.tribeSlug}
-          -- The runtime role bypasses RLS: repeat the read rule (membership
-          -- plus the academy community boundary) before signing a URL.
-          and public.can_read_tribe_content(tribes.id)
+          -- The runtime role bypasses RLS: repeat the read rule before
+          -- signing a URL. An attached file follows its message's channel; a
+          -- draft belongs to its uploader while they can still write.
           and (
-            message_files.status = ${MESSAGE_FILE_STATUS.attached}
+            (
+              message_files.status = ${MESSAGE_FILE_STATUS.attached}
+              and public.can_read_tribe_message(message_files.message_id)
+            )
             or (
               message_files.status = ${MESSAGE_FILE_STATUS.draft}
               and message_files.uploaded_by = ${command.userId}
+              and public.is_active_tribe_member(tribes.id)
             )
           )
         limit 1

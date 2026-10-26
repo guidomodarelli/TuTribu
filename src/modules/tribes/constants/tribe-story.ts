@@ -21,5 +21,22 @@ export const TRIBE_FREE_JOIN_STATUS = {
   joined: "joined",
 } as const;
 
+/** State the story free-join form keeps after a submit; a successful join redirects instead. */
+export type TribeFreeJoinFormStatus = "failed" | "forbidden" | "idle";
+
+export const TRIBE_FREE_JOIN_FORM_STATUS = {
+  /** The join could not be completed (unexpected failure): the visitor can retry. */
+  failed: "failed",
+  /** The tribe no longer admits this account through the free join. */
+  forbidden: "forbidden",
+  idle: "idle",
+} as const satisfies Record<string, TribeFreeJoinFormStatus>;
+
+export type TribeFreeJoinFormState = { status: TribeFreeJoinFormStatus };
+
+export const TRIBE_FREE_JOIN_FORM_INITIAL_STATE: TribeFreeJoinFormState = {
+  status: TRIBE_FREE_JOIN_FORM_STATUS.idle,
+};
+
 /** `tribe_members.joined_via` of the basic academy admission. */
 export const TRIBE_MEMBER_ACADEMY_ADMISSION_SOURCE = "academy_admission";

@@ -1,0 +1,67 @@
+/** Captures actual rendered reviewer DOM for the local manual with private fixture identities excluded. @module admission-review-capture */
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import type { Page } from "@playwright/test";
+import { ADMISSION_CONTACT_MASK } from "@/src/modules/academy-admissions/constants/admission-contact-presentation";
+
+/** Upper bound for finite animations to settle before a capture; looping indicators are ignored. */
+const CAPTURE_SETTLE_TIMEOUT_MS = 5_000;
+/** Lets presence components unmount their exited copies after the last frame. */
+const CAPTURE_SETTLE_DELAY_MS = 300;
+/** @param page - Actual owned browser page. @param name - Stable manual capture name. @param forbidden - Fixture identity/session/token/secret strings never allowed in the export. @param outputFile - Trusted test-owned export filename within the admission manual assets. @param options - Optional visible app fragment and descendants omitted from that fragment. @returns Nothing when capture tooling is not explicitly selected; otherwise an actual sanitized DOM capture. */
+export async function captureAdmissionReview(page: Page, name: string, forbidden: string[], outputFile = "review-captures.json", options: { selector?: string; omit?: string } = {}): Promise<void> {
+  if (!process.env.ADMISSION_CAPTURE_SNIPPET) return;
+  // Exiting copies of a swapped label stay in the DOM until their animation ends; a capture taken mid-swap would show both.
+  await page.waitForFunction(() => document.getAnimations().every((animation) => animation.playState !== "running" || animation.effect?.getComputedTiming().iterations === Infinity), undefined, { timeout: CAPTURE_SETTLE_TIMEOUT_MS }).catch(() => undefined);
+  await page.waitForTimeout(CAPTURE_SETTLE_DELAY_MS);
+  await page.evaluate(await readFile(process.env.ADMISSION_CAPTURE_SNIPPET, "utf8"));
+  await page.evaluate(({ captureName, selector, omit, privateValues, contactMask }) => {
+    const helpers = window as unknown as { __umCap: (name: string, element: Element, options?: { transform?: (clone: Element) => void }) => { blockedSheets: string[] } };
+    const root = Array.from(document.querySelectorAll(selector ?? "main")).find((element) => element.getClientRects().length > 0);
+    if (!root) throw new Error("Visible reviewer capture root was unavailable");
+    if (helpers.__umCap(captureName, root, { transform: (clone) => {
+      // WAAPI can leave initial inline values under a finished, visible composed animation.
+      // Copy only its rendered motion properties onto the clone; never mutate the live page.
+      const liveNodes = [root, ...root.querySelectorAll("*")], cloneNodes = [clone, ...clone.querySelectorAll("*")];
+      liveNodes.forEach((node, index) => {
+        const target = cloneNodes[index];
+        if (!(target instanceof HTMLElement) && !(target instanceof SVGElement)) return;
+        const keyframes = node.getAnimations().flatMap((animation) => animation.effect instanceof KeyframeEffect ? animation.effect.getKeyframes() : []);
+        if (!keyframes.length) return;
+        const style = getComputedStyle(node);
+        for (const property of ["opacity", "transform", "filter"]) if (keyframes.some((keyframe) => property in keyframe)) target.style.setProperty(property, style.getPropertyValue(property));
+      });
+      if (omit) clone.querySelectorAll(omit).forEach((element) => element.remove());
+      // Generated ids can embed record identifiers (a row checkbox named after its request); redact them in every attribute, consistently, so labels still match.
+      [clone, ...clone.querySelectorAll("*")].forEach((element) => { for (const attribute of Array.from(element.attributes)) { if (attribute.name === "href" || attribute.name === "value") continue; let value = attribute.value; for (const privateValue of privateValues) if (privateValue && value.includes(privateValue)) value = value.split(privateValue).join("redacted"); if (value !== attribute.value) element.setAttribute(attribute.name, value); } });
+      // Keep real labels while preventing a captured navigation target from retaining private route material.
+      clone.querySelectorAll("a[href]").forEach((element) => { const href = element.getAttribute("href") ?? ""; if (privateValues.some((value) => value && (href.includes(value) || href.includes(encodeURIComponent(value))))) element.setAttribute("href", "#"); });
+      // Preserve real controls while excluding a one-view link or private phone from the export.
+      clone.querySelectorAll('input[readonly], input[type="tel"]').forEach((element) => { const value = element.getAttribute("value") ?? ""; if (privateValues.some((privateValue) => privateValue && value.includes(privateValue))) element.setAttribute("value", element.getAttribute("type") === "tel" ? contactMask : "[Enlace privado]"); });
+    } }).blockedSheets.length) throw new Error("Reviewer capture stylesheet was unavailable");
+  }, { captureName: name, privateValues: forbidden, contactMask: ADMISSION_CONTACT_MASK, ...options });
+  const payload = await page.evaluate((values) => {
+    const helpers = window as unknown as { __umCheck: (forbidden: string[]) => unknown[] };
+    if (helpers.__umCheck(values).length) throw new Error("Reviewer capture contained a private fixture identity");
+    return { meta: { capturedAt: new Date().toISOString().slice(0, 10) }, rules: JSON.parse(sessionStorage.getItem("__umRules")!), caps: JSON.parse(sessionStorage.getItem("__umCaps")!) };
+  }, forbidden);
+  const origin = new URL(page.url()).origin;
+  for (let ruleIndex = 0; ruleIndex < payload.rules.length; ruleIndex += 1) {
+    const rule: string = payload.rules[ruleIndex];
+    if (!rule.startsWith("@font-face")) continue;
+    for (const font of rule.matchAll(/url\(["']?([^"')]+)["']?\)/g)) {
+      if (font[1].startsWith("data:")) continue;
+      const url = new URL(font[1], origin);
+      if (url.origin !== origin) throw new Error("Reviewer capture tried to embed an unrelated font origin");
+      try {
+        const response = await page.context().request.get(url.href);
+        if (!response.ok()) throw new Error("Reviewer capture local font was unavailable");
+        payload.rules[ruleIndex] = payload.rules[ruleIndex].replace(font[1], `data:font/woff2;base64,${(await response.body()).toString("base64")}`);
+      } catch {
+        // Context request errors can contain cookies; discard those private call logs at this export boundary.
+        throw new Error("Reviewer capture local font download failed");
+      }
+    }
+  }
+  await writeFile(join(process.cwd(), "user-guides", "assets", "academy-admissions", outputFile), JSON.stringify(payload), "utf8");
+}

@@ -7,7 +7,7 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;overflow-wrap:break-word;overflow-wrap:anywhere;}
 .doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
 .doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
 .doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
@@ -31,6 +31,7 @@ td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-hei
 tr:last-child td{border-bottom:none;}
 code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
 .divider{height:1px;background:#e0ddd6;margin:28px 0;}
+.table-wrap{width:100%;overflow-x:auto;}
 </style>
 </head>
 <body>
@@ -50,11 +51,24 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="callout c-ok">Este diseño solo trackea conversiones. No registra clicks anónimos ni introduce <code>tribe_invitation_visits</code>.</div>
 </div>
 
+<div class="section" id="personal-admission-boundary">
+  <div class="section-title">Referidos históricos e invitaciones personales de admisión</div>
+  <p>Los enlaces de este documento pertenecen a <code>tribe_invitations</code> y conservan sus reglas de atribución y cobro. Las invitaciones personales de admisión pertenecen a <code>academy_personal_invitations</code>: el líder fija un destinatario, nombre interno, exigencia de lista y vencimiento opcional. Sus contratos y recorridos se describen en <a href="academy-admissions.htm">la arquitectura de admisión</a> y en <a href="../../user-guides/academy-admissions.html#personal-invitation-management">el manual de invitaciones personales</a>.</p>
+<h3 id="protected-historical-arrival">Llegada histórica a una academia protegida</h3>
+<p>El enlace de <code>tribe_invitations</code> conserva atribución y efectos comerciales legítimos. En una academia con marcador de admisión, <code>PostgresLegacyAdmissionInvitationReader</code> solo aporta la referencia histórica y el arrival <code>legacy</code> se evalúa con la política común: evidencia vigente, lista o revisión y código cuando corresponda. Un nombre, un token impersonal, <code>paid</code> o un plan asociado no dispensan esa política ni crean una membresía por el writer antiguo.</p>
+<p>El contrato previo de alta/recuperación de modo clásico y academias sin corte sigue acotado a ese modo. En el scope protegido, login y preview no mutan pertenencia ni pagos; una pendiente no produce ingreso y la aprobación legítima conserva su origen. Las invitaciones <code>academy_personal_invitations</code> son otro recurso: destinatario fijo, canje único y permisos nominativos explícitos; el pago externo o la salida no libera su token ni el vínculo con la cuenta.</p>
+<p>La pérdida de política/settings, el regreso de modo o un flag después del marcador no recupera el contrato de alta gratuita anterior. Salida de academia/eliminación retiran autorizaciones conforme a su owner y no resucitan un canje, una prueba o una entrega. Ver <a href="academy-admissions.htm#activation-preflight-gates">las guardas actuales</a> y <a href="subscriptions.htm#protected-paid-membership">los efectos comerciales separados</a>.</p>
+
+  <p>La invitación personal tiene un único canje y su enlace completo se muestra una sola vez en la emisión inicial. Historial, detalle y recuperación de una operación conservan metadata, nunca una copia recuperable del token. Abrir el enlace, iniciar sesión o comprobar un código no concede ingreso; el destinatario confirma el canje con evidencia vigente. Si exige lista, debe existir coincidencia habilitada; dispensarla conserva la prueba del destinatario y, en modo manual, la revisión. El vencimiento del enlace no reemplaza el plazo de una solicitud ya canjeada.</p>
+  <p>Cambiar destinatario, requisito de lista o vigencia requiere revocar y emitir otro enlace; sólo el nombre interno se edita. Retirar una autorización canjeada cancela su solicitud todavía pendiente, conserva el canje y no expulsa por sí solo a un miembro ya admitido. Una respuesta incierta se consulta mediante la operación original, sin repetir el POST ni reconstruir el enlace.</p>
+  <div class="callout c-warn">Estas reglas no transforman automáticamente los enlaces históricos en nominativos. La frontera protegida exige el marcador de activación de la academia y el runtime correspondiente; antes de activarla, el ingreso histórico conserva su alcance instalado. En una academia protegida, el enlace antiguo no crea ni recupera una membresía ni dispensa login, evidencia, cierre o revisión. La activación general y la resolución de históricos conservan sus tareas y gates.</div>
+</div>
+
 <div class="section">
   <div class="section-num">02</div>
   <div class="section-title">Modelo de datos — extensiones a <code>tribe_invitations</code></div>
   <p>Las invitaciones existentes deben seguir funcionando sin backfill obligatorio. Por eso todos los metadatos nuevos son opcionales.</p>
-  <table>
+  <div class="table-wrap"><table>
     <thead>
       <tr><th>Columna</th><th>Tipo</th><th>Regla</th><th>Uso</th></tr>
     </thead>
@@ -63,7 +77,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
       <tr><td><code>campaign_name</code></td><td><code>text NULL</code></td><td>Máximo recomendado de 80 caracteres en dominio.</td><td>Distinguir campañas dentro de un canal.</td></tr>
       <tr><td><code>referrer_handle</code></td><td><code>text NULL</code></td><td>Texto libre validado en dominio.</td><td>Guardar un handle externo opcional, por ejemplo <code>@partner_ig</code>.</td></tr>
     </tbody>
-  </table>
+  </table></div>
   <p>No debe existir un constraint que cruce <code>channel</code> con <code>subscription_association_type</code>. Un link puede ser <code>current</code>, <code>free</code> o <code>specific</code> en cualquier canal.</p>
   <p>El índice secundario recomendado para reportes es <code>(tribe_id, channel)</code>. El índice optimiza los listados y agregados por tenant sin cambiar la semántica de seguridad.</p>
 </div>
@@ -137,7 +151,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-num">08</div>
   <div class="section-title">Métricas — qué se puede responder</div>
   <p>Con este modelo se pueden responder métricas de conversión, no métricas de tráfico anónimo.</p>
-  <table>
+  <div class="table-wrap"><table>
     <thead>
       <tr><th>Pregunta</th><th>Respuesta disponible</th><th>Fuente</th></tr>
     </thead>
@@ -149,7 +163,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
       <tr><td>Tiempo desde click hasta signup</td><td>No</td><td>No hay timestamp de visita</td></tr>
       <tr><td>Drop-off pre-login</td><td>No</td><td>No hay tracking anónimo</td></tr>
     </tbody>
-  </table>
+  </table></div>
   <p>El revenue mensual es un estimado basado en precios activos atribuidos, no el dinero real cobrado. El revenue real requiere cruzar eventos de cobro confirmados por webhooks de Mercado Pago y queda fuera de este alcance.</p>
   <p>Si más adelante se necesita medir clicks, la opción de agregar <code>tribe_invitation_visits</code> queda abierta sin romper este diseño.</p>
 </div>

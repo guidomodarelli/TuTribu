@@ -1,0 +1,90 @@
+{
+  "kind": "actual_node_host_restore_failed_before_second_phase",
+  "sourceCommit": "ef12b1d1413bc034375f48dc8ebfc984c8b91a99",
+  "startedAt": "2026-10-18T22:33:45.104Z",
+  "passed": false,
+  "testsPassed": 0,
+  "testsFailed": 1,
+  "testsSkipped": 0,
+  "durationMs": 877260.380859375,
+  "failedStage": "deploy_locked",
+  "completedPhases": [
+    {
+      "phase": "baseline",
+      "operationId": "fd9f6222-2307-4258-8fcd-106b25fa3601",
+      "slug": "msgrestorebaaa49180",
+      "sourceCommit": "ef12b1d1413bc034375f48dc8ebfc984c8b91a99",
+      "bundleSha256": "9f15306d98731d2239f82e22858b79c2f668c1f164eea21e2ebe9549390912f8",
+      "observation": {
+        "state": "completed",
+        "work_runs": 1,
+        "cipher_operations": 1,
+        "checked_rejections": 1,
+        "provider_requests": 0,
+        "invitation_round_trip": true,
+        "runtime_version": "24.16.0",
+        "source_commit": "ef12b1d1413bc034375f48dc8ebfc984c8b91a99",
+        "bundle_sha256": "9f15306d98731d2239f82e22858b79c2f668c1f164eea21e2ebe9549390912f8"
+      }
+    }
+  ],
+  "requests": [
+    {
+      "phase": "baseline",
+      "method": "GET",
+      "stage": "prepared",
+      "status": 202
+    },
+    {
+      "phase": "baseline",
+      "method": "POST",
+      "stage": "run",
+      "status": 200
+    },
+    {
+      "phase": "baseline",
+      "method": "GET",
+      "stage": "original_after_run",
+      "status": 200
+    },
+    {
+      "phase": "baseline",
+      "method": "POST",
+      "stage": "known_completed_replay",
+      "status": 200
+    }
+  ],
+  "failure": {
+    "stage": "deploy_locked",
+    "name": "AcademyAdmissionRestoreError",
+    "code": null,
+    "causes": [
+      {
+        "name": "AcademyAdmissionRestoreError",
+        "code": null
+      },
+      {
+        "name": "Error",
+        "code": null
+      },
+      {
+        "name": "Error",
+        "code": null
+      }
+    ]
+  },
+  "parentBranchId": "br-withered-dust-anx9r6w9",
+  "copyBranchId": "br-snowy-queen-anypdnki",
+  "independentCleanup": {
+    "parentAbsent": true,
+    "persistentBranchesPreserved": 4,
+    "copyAbsent": true
+  },
+  "auditCoverage": {
+    "globalInputOrPrivateMaterialAttestation": false,
+    "failedDeploymentIncludedInControllerAudit": false,
+    "returnedDeployments": 1
+  },
+  "realMessages": 0,
+  "operationalGatesClosed": []
+}

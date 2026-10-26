@@ -193,6 +193,7 @@ export const MESSAGE_MUTATION_STATUS = {
   pollHasVotes: "poll_has_votes",
   pollMissing: "poll_missing",
   reopened: "reopened",
+  replayed: "replayed",
   unliked: "unliked",
   unpinned: "unpinned",
   updated: "updated",

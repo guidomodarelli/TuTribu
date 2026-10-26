@@ -1,0 +1,78 @@
+name: Preflight del lector en Linux
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/admission-reader-probe.yml"
+      - "scripts/ci/run-admission-reader-probe.*"
+      - "scripts/ci/run-admission-reader-session.sh"
+      - "tests/support/admission-reader-observation.*"
+      - "tests/support/admission-native-events.*"
+      - "tests/support/admission-reader-events.py"
+      - "tests/support/constants/admission-reader-events.mjs"
+      - "tests/support/admission-reader-probe-page.*"
+      - "tests/support/admission-reader-probe-browser.mjs"
+      - "tests/support/admission-reader-webdriver.mjs"
+      - "tests/support/constants/admission-reader-webdriver.mjs"
+      - "tests/support/admission-reader-atspi.py"
+      - "tests/support/admission-browser-native-focus.mjs"
+      - "tests/support/config/admission-native-reader-*.json"
+      - "tests/support/constants/admission-reader-probe.mjs"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admission-reader-probe-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  HUSKY: "0"
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  reader-probe:
+    name: Comprobar voz nativa con Orca
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Obtener las fuentes
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Preparar herramientas aisladas
+        uses: ./.github/actions/setup-quality-gate
+
+      - name: Compartir la caché de navegadores del runner
+        run: printf '%s\n' "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/admission-reader-browsers" >> "$GITHUB_ENV"
+
+      - name: Instalar el lector y su infraestructura nativa
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y locales orca dbus-x11 at-spi2-core gsettings-desktop-schemas openbox xvfb xauth xdotool pulseaudio pulseaudio-utils speech-dispatcher speech-dispatcher-espeak-ng meson ninja-build pkg-config libatspi2.0-dev libatk-bridge2.0-dev python-gi-dev gettext itstool yelp-tools
+          pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Preparar Orca con soporte web de WebKitGTK
+        run: |
+          git -c advice.detachedHead=false clone --depth 1 --branch 48.9 https://github.com/GNOME/orca.git "$RUNNER_TEMP/admission-orca-source"
+          test "$(git -C "$RUNNER_TEMP/admission-orca-source" rev-parse HEAD)" = "4b964097f586446b3c74a98d0d309fb4b87ceb70"
+          PATH="/usr/bin:$PATH" meson setup "$RUNNER_TEMP/admission-orca-build" "$RUNNER_TEMP/admission-orca-source" --prefix="$RUNNER_TEMP/admission-orca-install"
+          meson compile -C "$RUNNER_TEMP/admission-orca-build"
+          meson install -C "$RUNNER_TEMP/admission-orca-build"
+          printf '%s\n' "ORCA_BINARY_PATH=$RUNNER_TEMP/admission-orca-install/bin/orca" >> "$GITHUB_ENV"
+          printf '%s\n' 'ORCA_SOURCE_COMMIT=4b964097f586446b3c74a98d0d309fb4b87ceb70' >> "$GITHUB_ENV"
+          printf '%s\n' 'ORCA_EXPECTED_VERSION=48.9' >> "$GITHUB_ENV"
+
+      - name: Probar teclado, voz y audio reales
+        run: dbus-run-session -- xvfb-run -a --server-args="-screen 0 1600x1200x24" bash scripts/ci/run-admission-reader-probe.sh
+
+      - name: Conservar sólo el resultado y las capturas sintéticas
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: admission-reader-probe
+          path: ${{ runner.temp }}/admission-reader-probe/
+          if-no-files-found: warn
+          retention-days: 7

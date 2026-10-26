@@ -1,0 +1,159 @@
+{
+  "workflowRun": 39142425756,
+  "url": "https://github.com/guidomodarelli/TuTribu/actions/runs/39142425756",
+  "sourceCommit": "ac590b832e2fa80095ab40cfa73c51c8535f2e62",
+  "kind": "platform_preflight",
+  "passed": false,
+  "orcaVersion": "48.9",
+  "orcaSourceCommit": "4b964097f586446b3c74a98d0d309fb4b87ceb70",
+  "productJourneysValidated": false,
+  "realMessages": 0,
+  "cases": [
+    {
+      "engine": "chromium",
+      "width": 390,
+      "passed": true,
+      "failureCode": null,
+      "speechPhase": "live",
+      "initialInterruptCount": 3,
+      "automaticReadingDisabledObserved": false,
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": true,
+      "focusAudioPeak": 32768,
+      "liveAudioPeak": 32768,
+      "speechDiagnostics": null,
+      "nativeAccessibility": null
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "passed": true,
+      "failureCode": null,
+      "speechPhase": "live",
+      "initialInterruptCount": 1,
+      "automaticReadingDisabledObserved": false,
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": true,
+      "focusAudioPeak": 32768,
+      "liveAudioPeak": 32768,
+      "speechDiagnostics": null,
+      "nativeAccessibility": null
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "initialInterruptCount": 2,
+      "automaticReadingDisabledObserved": false,
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": null,
+      "focusAudioPeak": 32767,
+      "liveAudioPeak": null,
+      "speechDiagnostics": {
+        "backendLogEntries": 0,
+        "fallbackOutputs": 0,
+        "labelInDebug": false,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 0,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 23,
+          "handledEntries": 0,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 0,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "nativeAccessibility": {
+        "scanned": 41,
+        "unavailable": 8,
+        "matches": [],
+        "liveRegions": [
+          {
+            "role": "status bar",
+            "attributes": {
+              "tag": "p",
+              "atomic": "true",
+              "live": "polite",
+              "xml-roles": "status",
+              "id": "status",
+              "container-live": "polite",
+              "toolkit": "WebKitGTK",
+              "container-atomic": "true",
+              "container-relevant": "additions text",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          }
+        ]
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "initialInterruptCount": 1,
+      "automaticReadingDisabledObserved": false,
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": null,
+      "focusAudioPeak": 32748,
+      "liveAudioPeak": null,
+      "speechDiagnostics": {
+        "backendLogEntries": 0,
+        "fallbackOutputs": 0,
+        "labelInDebug": false,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 0,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 17,
+          "handledEntries": 0,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 0,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "nativeAccessibility": {
+        "scanned": 41,
+        "unavailable": 8,
+        "matches": [],
+        "liveRegions": [
+          {
+            "role": "status bar",
+            "attributes": {
+              "tag": "p",
+              "atomic": "true",
+              "live": "polite",
+              "xml-roles": "status",
+              "id": "status",
+              "container-live": "polite",
+              "toolkit": "WebKitGTK",
+              "container-atomic": "true",
+              "container-relevant": "additions text",
+              "relevant": "additions text"
+            },
+            "nameMatchesExpected": false,
+            "textMatchesExpected": false,
+            "textInterfaceAvailable": false
+          }
+        ]
+      }
+    }
+  ]
+}

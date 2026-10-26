@@ -1,0 +1,170 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-leader-form-inputs",
+    "commit": "03e3a78a65d09197552b6bf28a0c145091755709",
+    "fingerprint": "sha256:5054642520d312232f4fed9df6de3acce3fae54f936c58c39fd0aaaaa331fe7f",
+    "uncommittedFiles": [],
+    "fileCount": 417,
+    "inputCount": 2435
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admission-review.test.tsx tests/unit/modules/academy-admissions/infrastructure/admission-review-filters.test.ts tests/unit/components/academy-admission-notification-settings.test.tsx tests/unit/lib/time-zone.test.ts",
+      "durationMs": 28784,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "c5e120aadcb8b4b36e3869a6ab71c7dae4a3c43dd5da21f1f196a753045ad18a",
+      "recordedAt": "2026-10-25T18:41:49.290Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "command": "pnpm run -s typecheck",
+      "durationMs": 2089,
+      "exitCode": 0,
+      "kind": "command",
+      "outcome": "pass",
+      "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
+      "recordedAt": "2026-10-25T18:41:51.809Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T18:41:52.257Z",
+      "source": "attested",
+      "summary": "Validación: los filtros de fecha se leen en hora de Argentina con la zona fija del producto y rechazan fechas o segundos imposibles en lugar de corregirlas; una zona horaria desconocida se marca junto al campo y bloquea el paso, con un solo anuncio. El contrato HTTP sigue con instantes UTC."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T18:41:52.668Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: antes, «Desde (UTC)», 10:00 enviado como 10:00 UTC y una zona mal escrita no bloqueaba; después, «Desde (hora de Argentina)», 10:00 enviado como 13:00 UTC, «Continuar» bloqueado y un único aviso junto al campo (4/4)."
+    }
+  ],
+  "limitations": [
+    "Solo se revisaron los campos de fecha y zona horaria que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T18:41:54.540Z",
+  "result": "partial",
+  "runId": "20261025T184120Z-36b414",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-review-filters.ts#argentinaInstant",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "lib/academy-admissions/admission-review-filters.ts#createAdmissionReviewFilterDraft",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-review-filters.ts#SECONDS_CUT_PATTERN",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "lib/academy-admissions/admission-review-filters.ts#selectedInstant",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "removed",
+        "key": "lib/academy-admissions/admission-review-filters.ts#utcInstant",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-review-filters.ts#WHOLE_SECOND_FRACTION",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/date-time.ts#BUENOS_AIRES_UTC_OFFSET",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/time.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/time.ts#MILLISECONDS_PER_SECOND",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_DATES",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_MINUTE_PATTERN",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#BUENOS_AIRES_MINUTE_KEY_PATTERN",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#fromBuenosAiresMinuteKey",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#MINUTE_KEY_FORMATTER",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#SECONDS_SUFFIX",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#toBuenosAiresMinuteKey",
+        "reason": "new code rendered by the route"
+      }
+    ],
+    "suggestedScope": [
+      "whole unit academy.admissions.review.view (/[slug]/academia/admissions): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "e456ce5fb1266d0e",
+      "references/decision-rules.md": "5340413b30d4e7a7",
+      "references/nextjs-apis.md": "7d812e101f16defe",
+      "references/server-client-split.md": "7f52ba9f6a13308d",
+      "references/skeleton-patterns.md": "65d4c31f0f8beb93",
+      "references/version-notes.md": "b6f6488947de60f0"
+    },
+    "definitionHash": "sha256:a3b7fb0dda3a877474c7910f4914469c8cb9a94700aa9d750e81067d96406ed1",
+    "name": "nextjs-route-ui-boundaries",
+    "version": "1.3.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T18:41:20.036Z",
+  "unitId": "academy.admissions.review.view"
+}

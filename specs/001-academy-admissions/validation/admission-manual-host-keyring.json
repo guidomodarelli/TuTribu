@@ -1,0 +1,37 @@
+{
+  "database": "owned_ephemeral_branch",
+  "directPg": true,
+  "transaction": "rolled_back",
+  "scopeMetadata": {
+    "visibility": {
+      "visible": true,
+      "lockable": 1
+    },
+    "scope": {
+      "scope_locked": true,
+      "actor_available": true
+    },
+    "role": {
+      "owns_table": true,
+      "rls_enabled": true,
+      "force_rls": true,
+      "rls_active": false
+    }
+  },
+  "results": [
+    {
+      "purpose": "operation_payload",
+      "fixtureRegistered": true,
+      "unrelatedServerRegistered": false
+    },
+    {
+      "purpose": "contact_fingerprint",
+      "fixtureRegistered": true,
+      "unrelatedServerRegistered": false
+    }
+  ],
+  "keyMaterialPrinted": false,
+  "realMessages": 0,
+  "scope": "diagnosis_of_the_manual_browser_fixture",
+  "limitation": "The branch owner role was used; this does not certify RLS for a non-bypass role."
+}

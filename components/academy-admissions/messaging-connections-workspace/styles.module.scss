@@ -1,0 +1,161 @@
+.MessagingConnectionsWorkspace {
+  display: grid;
+  // WebKit sizes an auto track to the scrolling tab list's min-content; pin every track to the available width.
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: 1.5rem;
+
+
+  &__overview {
+    display: grid;
+    min-width: 0;
+    gap: 1rem;
+    padding-block: 1rem 1.25rem;
+    border-block: 1px solid var(--border);
+  }
+
+  &__overviewHeader {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+  }
+
+  &__overviewTitle {
+    margin: 0;
+    color: var(--text-secondary, var(--muted-foreground));
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  &__connections {
+    display: grid;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    gap: 1rem;
+    list-style: none;
+  }
+
+  &__connection {
+    display: grid;
+    min-width: 0;
+    gap: 0.375rem;
+  }
+
+  &__role {
+    margin: 0;
+    color: var(--text-secondary, var(--muted-foreground));
+    font-size: 0.8125rem;
+    font-weight: 400;
+    line-height: 1.4;
+  }
+
+  &__name {
+    margin: 0;
+    color: var(--foreground);
+    font-size: 1.125rem;
+    font-weight: 500;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  &__badges {
+    display: flex;
+    flex-wrap: wrap;
+    min-width: 0;
+    margin: 0.25rem 0 0;
+    padding: 0;
+    gap: 0.375rem;
+    list-style: none;
+  }
+
+  &__usageRequired {
+    display: grid;
+    min-width: 0;
+    gap: 0.75rem;
+  }
+
+  &__empty {
+    margin: 0;
+    max-width: 60ch;
+    color: var(--text-secondary, var(--muted-foreground));
+    line-height: 1.55;
+  }
+
+  // The single highlighted action sits between the summary and the steps, full width on every screen.
+  &__nextAction {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  // The guided flow and its collapsed recovery share the page width on every screen.
+  &__flow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    gap: 1.5rem;
+  }
+
+  &__stepActions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    min-width: 0;
+    gap: 0.5rem;
+  }
+
+  &__panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    gap: 2rem;
+  }
+
+  &__attention {
+    display: grid;
+    justify-items: start;
+    min-width: 0;
+    gap: 1rem;
+    padding-inline-start: 0.875rem;
+    border-inline-start: 2px solid var(--warning, var(--border-strong, var(--border)));
+  }
+
+  &__attentionNotice {
+    margin: 0;
+    max-width: 65ch;
+    color: var(--foreground);
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+  }
+
+  &__preserved {
+    display: grid;
+    min-width: 0;
+    gap: 0.75rem;
+    padding-block-start: 1.25rem;
+    border-block-start: 1px solid var(--border);
+  }
+
+  &__preservedTitle {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  &__preservedActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  &__blocked {
+    display: grid;
+    justify-items: start;
+    gap: 0.75rem;
+  }
+}

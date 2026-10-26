@@ -1,0 +1,69 @@
+@use "../../../src/styles/workspace-panel";
+
+.AdmissionPolicyForm {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: 2rem;
+
+  &__summary {
+    @include workspace-panel.summary;
+
+    gap: 0.75rem;
+  }
+
+  &__badges {
+    display: flex;
+    flex-wrap: wrap;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    gap: 0.375rem;
+    list-style: none;
+  }
+
+  &__lead {
+    @include workspace-panel.lead;
+  }
+
+  &__feedback {
+    @include workspace-panel.feedback;
+
+    &--alert {
+      @include workspace-panel.feedback-alert;
+    }
+  }
+
+  &__recovery {
+    @include workspace-panel.callout;
+  }
+
+  // Saved rules that were never activated: one callout with the action that opens the final step.
+  &__draft {
+    @include workspace-panel.callout;
+
+    gap: 0.5rem;
+    border-inline-start-color: var(--warning, var(--accent));
+  }
+
+  &__draftTitle {
+    @include workspace-panel.subtitle;
+  }
+
+  &__editor {
+    @include workspace-panel.section;
+  }
+
+  &__editorHeading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 0;
+    gap: 0.75rem;
+  }
+
+  &__title {
+    @include workspace-panel.title;
+  }
+}

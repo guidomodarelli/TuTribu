@@ -1,4 +1,13 @@
 import { createTribe } from "@/src/modules/tribes/application/use-cases/create-tribe-use-case";
+import { TransferTribeLeadershipUseCase } from "./application/use-cases/transfer-tribe-leadership-use-case";
+import { PostgresTribeLeadershipRepository, type TribeLeadershipDatabaseExecutor } from "./infrastructure/repositories/postgres-tribe-leadership-repository";
+import type { AuthenticatedAccountProvider } from "@/src/modules/auth/domain/repositories/authenticated-account-provider";
+import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
+import { ManageTribeMembershipUseCases } from "./application/use-cases/manage-tribe-membership-use-cases";
+import { ManageTribeLifecycleUseCases } from "./application/use-cases/manage-tribe-lifecycle-use-cases";
+import { PostgresTribeLifecycleRepository, type TribeLifecycleDatabaseExecutor, type AdmissionScopeClosureFactory } from "./infrastructure/repositories/postgres-tribe-lifecycle-repository";
+import { PostgresTribeMembershipLifecycleRepository, type TribeMembershipLifecycleDatabaseExecutor, type AdmissionMembershipLifecycleFactory } from "./infrastructure/repositories/postgres-tribe-membership-lifecycle-repository";
+
 import { getCurrentTribeMembershipStatus } from "@/src/modules/tribes/application/use-cases/get-current-tribe-membership-status-use-case";
 import { getTribeBySlug } from "@/src/modules/tribes/application/use-cases/get-tribe-by-slug-use-case";
 import { getTribeCreationEligibility } from "@/src/modules/tribes/application/use-cases/get-tribe-creation-eligibility-use-case";
@@ -64,7 +73,10 @@ import type { TribeSupportRepository } from "@/src/modules/tribes/domain/reposit
 import type { TribeWelcomeRepository } from "@/src/modules/tribes/domain/repositories/tribe-welcome-repository";
 import type { TribeWelcomeSelectionRepository } from "@/src/modules/tribes/domain/repositories/tribe-welcome-selection-repository";
 
-type TribesModuleDependencies = {
+import type { AcademyAdmissionEntry } from "./domain/repositories/academy-admission-entry";
+
+type TribesModuleDependencies<AdmissionResult> = {
+  academyAdmissionEntry: AcademyAdmissionEntry<AdmissionResult>;
   tribeAcademyAdmissionRepository: TribeAcademyAdmissionRepository;
   tribeReadRepository: TribeReadRepository;
   tribeCreationRepository: TribeCreationRepository;
@@ -80,7 +92,8 @@ type TribesModuleDependencies = {
   tribeWelcomeSelectionRepository: TribeWelcomeSelectionRepository;
 };
 
-export function buildTribesModule({
+export function buildTribesModule<AdmissionResult>({
+  academyAdmissionEntry,
   tribeAcademyAdmissionRepository,
   tribeReadRepository,
   tribeCreationRepository,
@@ -94,11 +107,12 @@ export function buildTribesModule({
   tribeSupportRepository,
   tribeWelcomeRepository,
   tribeWelcomeSelectionRepository,
-}: TribesModuleDependencies) {
+}: TribesModuleDependencies<AdmissionResult>) {
   return {
     useCases: {
       joinTribeAcademyAdmission: joinTribeAcademyAdmission({
         tribeAcademyAdmissionRepository,
+        academyAdmissionEntry,
       }),
       createTribe: createTribe({
         tribeCreatorWhitelistRepository,
@@ -218,4 +232,20 @@ export function buildTribesModule({
       }),
     },
   };
+}
+
+/** @param dependencies - Native identity, guarded executor, operation configuration and admission owner on the same transaction. @returns Explicit membership actions and original recovery without loading a messaging credential. */
+export function buildTribeMembershipLifecycleModule(dependencies: { accounts: AuthenticatedAccountProvider; execute: TribeMembershipLifecycleDatabaseExecutor; readSecurityConfig: () => Promise<MessagingSecurityConfig>; admission: AdmissionMembershipLifecycleFactory; clock?: () => Date }) {
+  return { useCases: new ManageTribeMembershipUseCases(dependencies.accounts, new PostgresTribeMembershipLifecycleRepository(dependencies.execute, dependencies.readSecurityConfig, dependencies.admission), dependencies.clock) };
+}
+
+/** @param dependencies - Native account, owner transaction, retained MAC keys and admission closure on the same transaction. @returns Explicit mode exit/deletion and original read-only recovery. */
+export function buildTribeLifecycleModule(dependencies: { accounts: AuthenticatedAccountProvider; execute: TribeLifecycleDatabaseExecutor; readSecurityConfig: () => Promise<MessagingSecurityConfig>; admission: AdmissionScopeClosureFactory; clock?: () => Date }) {
+  return { useCases: new ManageTribeLifecycleUseCases(dependencies.accounts, new PostgresTribeLifecycleRepository(dependencies.execute, dependencies.readSecurityConfig, dependencies.admission), dependencies.clock) };
+}
+
+/** @param dependencies - Native account, fixed actor executor and independent operation MAC snapshot. @returns An explicit tribal owner without provider, SecretStore, public route or general transfer UI. */
+export function buildTribeLeadershipModule(dependencies:{accounts:AuthenticatedAccountProvider;execute:TribeLeadershipDatabaseExecutor;readSecurityConfig:()=>Promise<MessagingSecurityConfig>;clock?:()=>Date}){
+  const writer=new PostgresTribeLeadershipRepository(dependencies.execute,dependencies.readSecurityConfig);
+  return{useCases:{transferLeadership:new TransferTribeLeadershipUseCase(dependencies.accounts,writer,dependencies.clock)}};
 }

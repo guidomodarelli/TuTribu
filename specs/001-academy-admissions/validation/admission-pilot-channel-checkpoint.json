@@ -1,0 +1,40 @@
+{
+  "kind": "controlled_real_channel_checkpoint",
+  "observedAt": "2026-10-19T02:03:44.114Z",
+  "sourceCommit": "6d3b04de40044eb11164cc6634afbe2457735270",
+  "environment": "isolated_private_pilot",
+  "configurationVersion": 3,
+  "credentialState": "valid",
+  "credentialMode": "production",
+  "diagnosticIssues": 2,
+  "authorizedMaximumIssues": 10,
+  "authorizedConsumptionLimitUsd": 20,
+  "email": {
+    "issued": true,
+    "receivedAtControlledMailbox": true,
+    "codeConfirmedThroughPrivateForm": true,
+    "capabilityState": "prepared",
+    "testedAt": "2026-10-19T01:34:52.200Z"
+  },
+  "sms": {
+    "issued": true,
+    "applicationDeliveryState": "accepted",
+    "providerStatus": "queued",
+    "providerReportedCost": 0,
+    "userLastReportedReceipt": false,
+    "localDiagnosticOutcome": "verified",
+    "externalReceiptProven": false,
+    "ownedSmsVoiceNumberActive": true,
+    "ownedNumberAssignedToAnySender": false,
+    "ownedNumberMatchesSelectedSmsSenderPhone": false,
+    "queueCauseEstablished": false
+  },
+  "whatsapp": {
+    "issued": false,
+    "approvedAuthenticationTemplateProven": false
+  },
+  "candidateSelected": false,
+  "productionActivated": false,
+  "operationalGateClosed": false,
+  "containsRecipientsSecretsOrCodes": false
+}

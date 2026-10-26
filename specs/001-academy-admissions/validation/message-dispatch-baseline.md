@@ -1,0 +1,51 @@
+# Dispatcher portable y sender de códigos
+
+**Feature**: `001-academy-admissions`. **Base**: `dc9479db759481455349aef936573967b2b14a0a`, branch `feature/academy-admissions-spec`. Avance de T043/T082: worker, preparación privada y SDK real con transporte controlado; factories de hosting/endpoints, integración operativa y gates siguen pendientes.
+
+## Fronteras y límites
+
+`DispatchMessageDeliveriesUseCase` usa exclusivamente puertos propios de cola y sender. Las settings de servidor usan timeout 15.000 ms, presupuesto de run 45.000 ms, lease 90 s y concurrencia 2; la lease debe superar el plazo del run. Cada claim/marker/receipt se confirma fuera de la llamada al proveedor. Los contadores describen outcomes confirmados y trabajo unresolved; no existe un éxito global que esconda resultados mixtos.
+
+Las observaciones de claim, autorización, sender y persistencia/lectura tienen deadline. Un timeout no prueba que el efecto no ocurrió. Se conserva unknown/cupo y se detienen nuevas llamadas si el sender no coopera con abort. Una autorización o claim pendientes deben respetar ese stop cuando regresan. El runtime propio conserva trabajo tardío del intento original mediante su lifecycle, sin import de APIs de hosting desde application ni otro POST. Una respuesta tardía no altera el resumen ya publicado; si no puede confirmarse su persistencia, se reportan identidad original y causa segura al owner.
+
+`PostgresVerificationDeliveryPreparation` revalida SQL actor/líder/marker/reserva/lease/recurso y estado externo antes de leer bytes. Verifica HMAC del frozen intent original, abre únicamente el envelope OTP aún vigente y usa el SecretStore worker real en otra transacción breve para la credencial. Luego vuelve a comprobar que el mismo código sobrevivió a ese intervalo antes de permitir RPC. Material existe sólo en el backend del sender; resultado/counters/DTOs no contienen código o key.
+
+La extracción `verification-delivery-payload-mac.ts` conserva la tupla formato 1 y reconstruye el orden original de los nueve campos del frozen intent después del reorder de jsonb. No se aplica un schema a filas o respuestas upstream. Se estrechan únicamente campos usados para control y se verifica el MAC real. El producer y el reader comparten ese contrato.
+
+`ZavuMessageDeliverySender` crea una instancia SDK 0.57.0 por intento con API key/base URL explícitos, timeout, retries 0 y log off. Usa canal/sender propio, fallback false e idempotency key fija. El fetch propio impone origin/path/método y headers autorizados, sin heredar Cookie o un override global. WhatsApp usa template y parámetro de código; no inventa un campo de idioma que el SDK no soporta. Respuestas queued/sending/sent son accepted; delivered/read son transporte entregado; ninguna crea proof o verificación global. HTTP 4xx definitivo se diferencia de 409/5xx ambiguos, sin retry ni message raw.
+
+## Evidencia ejecutada
+
+La primera suite del worker tuvo dos rojos: una excepción después de marker dejaba in_flight sin finalizar y persistencia que no terminaba excedía el budget. Los fixes registran unknown y acotan complete/read. La revisión aceptó dos P2 adicionales; los tests reprodujeron segundo POST tras stop y finalización tardía stale sin diagnóstico. Se comprueba stop también antes del sender/después del claim y se reporta late unresolved cuando no hay evidencia confirmada.
+
+Pasaron dieciocho casos de driver/SDK real en 1,38 segundos: concurrencia dos, marker anterior a send, timeout no cooperativo y late receipt original, excepción posterior, deadline de persistencia, supresión/cuota sin RPC, límites de configuración, tres canales, cinco HTTP outcomes, headers/global override y dos cuentas intercaladas. Los timers son reales con settings pequeñas; mocks sólo de puertos propios, nunca SDK/SQL/crypto/plataforma interna. El transporte HTTP cerrado no permite requests fuera de endpoints sintéticos declarados y no envía mensajes reales.
+
+Pasaron once SQL en 409,04 segundos: tres casos del pipeline real y ocho regresiones del producer, sobre ramas propias con cleanup verificado. El pipeline comprobó MAC después del ordenamiento jsonb, código real descifrado, marker/reserva confirmados antes del SDK y ausencia de una transacción abierta durante RPC. El resultado accepted conserva el desafío issued y no crea proof: sólo el código correcto validado después produce la prueba. Los otros casos cerraron el acceso por rol cruzado, key retirada, lease vencida o código consumido durante la lectura de la credencial.
+
+Lint y ambos typechecks pasaron. La build normal Node 24.21.0/Next 16.3.4, con configuración original y variables sintéticas de proceso hacia loopback inaccesible, compiló en 18,8 segundos, terminó tipos y generó las 40 páginas estáticas. La build posterior al owner de uso y diagnóstico por fase compiló en 8,3 segundos y terminó tipos y las 40 páginas. No se certifica producción, entrega externa, Workers ni un driver programado por estos tests.
+
+La revisión posterior detectó retiro de la clave de credencial durante el intervalo del SecretStore. El caso real reprodujo un accepted/POST pese al retiro; el guard final comprueba también la clave credential correspondiente al envelope autorizado. La regresión completa del pipeline corregido y driver/SDK pasó veintidós casos en 163,95 segundos: cuatro SQL y dieciocho locales, sin skips. El caso añadido rechaza antes del SDK y conserva el intento ya reservado. Los ocho issuer SQL anteriores se reutilizan porque ese productor no cambió por esta corrección.
+
+El wrapper de SQL también se ejerció después de un COMMIT de marker cuya respuesta se pierde. El dispatcher devuelve unresolved y no entra al sender; la reserva ya consumida permanece y la misma lease se reconcilia unknown sin nuevo claim. El caso detectó un stage send que correspondía a authorize; el catch propio corrige ese diagnóstico. Pasaron ese SQL y los ocho del driver en 35,69 segundos, con exclusión explícita de los siete SQL previamente verdes del mismo archivo. La regresión de ambos owners pasó 349 locales en 13,42 segundos, manteniendo sus SQL opt-in en ejecuciones separadas.
+
+La revisión nativa final del bloque dispatcher/preparación/SDK y uso cerró con cero hallazgos accionables y 21 hashes estables; inventarió además el test complementario de marker perdido. Las dos primeras correcciones P2 del driver y la retirada de credential key quedan cerradas. La ampliación posterior de eliminación de material temporal tiene su propia validación/revisión; no se atribuye a este cierre. La página arquitectónica pasó Chromium/WebKit a 390/1280, sin desbordes ni enlaces locales rotos y con cierre confirmado de navegadores.
+
+## Reconciliación posterior al deadline de T043
+
+La regresión previa pasó 31 casos sin skips/fallos en 327,26 segundos: trece SQL de repositorio/pipeline y dieciocho de driver/SDK. La revisión posterior encontró un P2: después del deadline se descartaba el resultado de complete/readAttempt retenido. Dos pruebas lo reprodujeron: una finalización tardía stale no consultaba el intento y una lectura tardía null no reportaba su identidad. Un tercer rojo reprodujo que el rechazo tardío propagaba por spread todo el contexto privado al diagnóstico, incluyendo leaseToken/secretRef, aunque el tipo decía Pick.
+
+El driver retiene la misma promesa de finalización o lectura mediante record/reconcileReceipt. No repite escrituras, lecturas ya iniciadas ni el sender. Un resultado tardío sin evidencia confirmada genera late/operation_unresolved con deliveryId/attemptId originales; una confirmación tardía puede completar su trabajo sin modificar los contadores publicados. retain proyecta únicamente esos dos identificadores, preservando el cause real privado sin propagar otros campos del contexto. Los 22 casos de driver/SDK pasaron en 3,02 segundos, incluidos los cuatro nuevos. La suite final tras el rename de bindings catch a error pasó de nuevo en 1,50 segundos. Tipos de producto/tests y lint pasaron.
+
+Los cinco SQL finales del pipeline real pasaron sin skips/fallos en 237,28 segundos, con el driver corregido: crypto/SecretStore/SDK reales, commit antes del sender, cuota cero en cola sin reserva/envío ni invalidación, scope/clave retirada/TTL cerrados y código consumido durante la preparación sin RPC. Los ocho SQL del repositorio de la ejecución de 31 casos se reutilizan porque su código no cambió. La revisión del mismo proveedor cerró el P2 y la proyección de contexto: cero hallazgos, dos hashes del fix estables y nueve referencias previas sin cambios. La revisión adicional del rename confirmó equivalencia exacta al revertirlo en memoria y hash inicial/final estable, sin ejecutar ni editar. Build normal final Node 24.21.0/Next 16.3.4, configuración original y variables sintéticas: compilación 9,5 s, tipos 3 s y cuarenta páginas. Docs: doce renders Chromium/WebKit a 390/1280 sin overflow, enlaces rotos o errores JavaScript, con browsers cerrados.
+
+T041/T042/T035/T028 están completas y T043 cierra el dispatcher portable privado, preparación y límites. No se certifican por ese cierre un endpoint/cron instalado, Workers, proveedor real o gates operativos.
+
+## Pendientes
+
+Completar factories/hosting y mantenimiento autorizado, ampliar canales/rotación/contexto de las historias y ejecutar Node/Workers cuando todo esté conectado. Las preferencias/notificaciones, API/UI y gates operativos mantienen su alcance. Las reservas/contadores privados de T041 están completos; la integración con sus endpoints y SDK de validación sigue en tareas posteriores. No se publicó configuración ni se alteró default/producción.
+
+Decisión propietaria: [tenant-messaging.htm](../../../docs/architecture/tenant-messaging.htm). Los manuales de recorridos disponibles no cambian por estos componentes aún privados.
+
+## Regresión de T013
+
+La repetición del driver/SDK pasó dieciocho casos locales en 0,85 s. El grupo final de storage/repositorio/pipeline pasó veinte SQL reales sin skips/fallos en 451,37 s. La reducción de cuota a cero con código en cola evita SDK, attempt/reserva e invalidación del código. SDK/SecretStore/crypto no se mockean; el HTTP propio permanece cerrado. T013 queda completada como matriz de pruebas, sin acreditar la composición operativa de T043 ni los gates.

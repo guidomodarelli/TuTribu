@@ -4,7 +4,7 @@ import { ArrowUpRightIcon } from "lucide-react";
 import { ButtonLink } from "@/components/navigation/link";
 import { RichMarkdownContent } from "@golfo/ui";
 import { TribeStoryGallery } from "@/components/tribes/tribe-story-gallery";
-import { FreeJoinSubmitButton } from "@/components/tribes/tribe-story-about/free-join-submit-button";
+import { FreeJoinForm, type FreeJoinFormAction } from "@/components/tribes/tribe-story-about/free-join-form";
 import type {
   TribeStoryResult,
   TribeStoryStatsResult,
@@ -61,7 +61,7 @@ const ABOUT_TITLE_HEADING_TAG = {
 } as const;
 
 type TribeStoryAboutProps = {
-  freeJoinAction?: () => Promise<void>;
+  freeJoinAction?: FreeJoinFormAction;
   /**
    * Heading level of the "Historia" title. The public page uses the primary
    * (`h1`) level; an embedded preview inside another page passes `secondary`
@@ -281,15 +281,13 @@ export function TribeStoryAbout({
             </a>
           ) : null}
           {freeJoinAction ? (
-            <form
-              action={freeJoinAction}
-              className={styles.TribeStoryAbout__joinAction}
-            >
-              <FreeJoinSubmitButton
+            <div className={styles.TribeStoryAbout__joinAction}>
+              <FreeJoinForm
+                action={freeJoinAction}
                 label={TRIBE_STORY_ABOUT_COPY.freeJoinButton}
                 pendingLabel={TRIBE_STORY_ABOUT_COPY.freeJoinPendingButton}
               />
-            </form>
+            </div>
           ) : joinHref ? (
             <div className={styles.TribeStoryAbout__joinAction}>
               <ButtonLink className={styles.TribeStoryAbout__joinButton} href={joinHref}>

@@ -165,6 +165,125 @@ spacing, tokens, interaction patterns and SCSS Module conventions.
   that text, never next to an external `<label>` for the same trigger, which
   would announce the name twice.
 
+## Section workspaces
+
+Use this pattern for a family of related pages that share one subject (for
+example the academy admission pages: requests, rules, allowlist, invitations,
+messaging, notices and activity).
+
+- Put the shared frame in the family's `layout.tsx`: a quiet return link, the
+  page `h1` with a one-line description, and a row of sibling sections where
+  the current page carries `aria-current="page"` and a raised highlight that
+  glides to the new section. The frame stays mounted across sibling pages, so
+  only the content shows its loading skeleton. Layouts never read route params
+  on the server: the frame resolves the page on the client. Filter the row by
+  the member's role, as the app rail does; the server authorizes each page.
+- Content revealed after a client-side check uses the skeleton morph, so the
+  placeholders become the content instead of swapping for it.
+- Mirror the same family in the app rail as one disclosure group under its
+  heading; the group opens by itself on any of its pages.
+- Inside a page, separate blocks with a hairline and a 20px `h2`; start with a
+  compact summary of the current state (badges or labeled facts) before forms.
+- Lists use hairline rows: a medium-weight title, status badges and one quiet
+  meta line, with the row action on the trailing edge.
+- Group consent and actions at the end of the block they confirm, primary
+  first; recovery goes in a callout with a colored rule.
+- Share rhythm through `src/styles/_workspace-panel.scss` instead of local copies.
+- When a family needs setup before it works, the landing page shows a setup
+  guide (`components/academy-admissions/admission-setup-guide`): ordered steps
+  derived from server state, required versus optional, a quiet progress bar and
+  one primary link to the next step. Hide it once nothing is left.
+
+## Guided settings and write feedback
+
+- Settings that take several decisions use `components/forms/guided-steps`:
+  one decision per step, a numbered progress list, Back and Continue, and a
+  review step with a readable summary, a single confirmation and one final
+  action. Explain why Continue is blocked instead of disabling it silently.
+- A step that must write before the flow moves on (create a preview, send a
+  code, check it) passes its write as the step `action`: its button replaces
+  Continue, uses `loading`, and the container advances the step only after the
+  server confirms the write. Resuming opens the first step that is still
+  pending.
+- Optional reads and recoveries of a step go in its `secondary` slot, or in a
+  `GuidedStepsDisclosure` under the flow, collapsed behind one summary, so the
+  main path always shows a single next action.
+- A final action that needs several writes (create, save, check, activate)
+  runs them in sequence, names the current stage in a `role="status"` line and,
+  on failure, says what was already saved and retries only what is left.
+- Every button that writes uses `Button` `loading` while its request is in
+  flight: it keeps its label and keyboard focus, and the other write buttons of
+  the screen are disabled. Reads never change a write button's label.
+- Confirm each action with its own success message; never announce as saved
+  what the server did not confirm. In guided write flows (allowlist, CSV
+  import, personal invitations, the applicant request) each write runs one
+  `toast.promise` through `startWriteToast` (`lib/toasts/write-toast.ts`) and
+  is announced only there. What must persist (form errors, version conflicts,
+  unconfirmed originals, one-time links, blocks) stays on the page with its
+  accessible role and is not repeated in the toast.
+- Default to the recommended choice (for example grouped notices) and warn in
+  place when a choice silently disables the feature (a zero quota, omitted
+  notices, closed admissions).
+- Unpublished drafts: when settings are saved but not published (rules saved
+  but never activated, a candidate connection that is not active), show one
+  callout at the top ("Tenés reglas guardadas sin publicar", "Tenés una
+  conexión guardada sin activar") with a single action that opens the exact
+  publication point (the final step, or the pending step). The setup guide
+  marks those steps "Borrador sin publicar" and links to the same point.
+- When publishing is blocked, group the reasons by who resolves them. Reasons
+  the leader resolves elsewhere link to that page with an allowlisted return
+  (`?return=policy-review`, never a free URL), and that page offers "Volver a
+  Reglas para activar". A decision the flow needs (for example memberships
+  blocked by payment) becomes its own guided step just before the final one,
+  and the flow returns to the final step when it is done. Reasons only the
+  TuTribu team resolves go in a "Depende del equipo de TuTribu" group: plain
+  language, a copyable diagnostic code, "Volver a comprobar" and "Reportar el
+  problema"; never offer to publish while one is known.
+
+## Multi-step workspaces
+
+Use this pattern for a tool page where one record moves through several steps
+(for example the messaging connection: key, credential, channels, one test per
+channel, activation).
+
+- Keep the page `h1` in the route; the workspace never repeats it.
+- Start with a compact status summary: the record name once, then one `Badge`
+  per independent fact (lifecycle, credential, account, each channel), each
+  with a tone that keeps "ready" visibly different from "active".
+- Highlight a single advisory next action under the summary: an `Alert` with a
+  title that names what is missing ("Falta probar SMS"), a reason that says
+  what is already done and why the rest is missing, and one button that opens
+  exactly the step that resolves it. Drop the button while that step is open.
+  It guides; the server still checks every requirement.
+- Move through the steps with `components/forms/guided-steps`, the same linear
+  flow as guided settings: small steps, one decision each, Atrás, Siguiente and
+  a final action. Siguiente stays disabled, with its reason shown, until the
+  step's own write has finished; repeat a step per item when each one needs its
+  own write (one test step per channel). Resuming opens the first pending step.
+- The guided flow is the only `form`: steps group their fields and run their
+  writes from explicit buttons, never a nested `form`.
+- Show one `primary` action per step; secondary reads are `secondary` and
+  optional actions are `ghost` `sm` buttons grouped in one quiet row.
+  Sensitive actions rely on the active session and their explicit
+  confirmation; never add a step that asks to sign in with Google again.
+- Keep drafts in the container, not in the step, so moving between steps never
+  loses input. Moving between steps must never save, send or activate anything.
+- Blocking states (a pending original, a continuation link) go above the flow
+  so no step hides them. Sections outside the flow (security and retirement)
+  open from their own toggle and stay mounted while hidden.
+- Show field errors only after the person edits that field or tries to submit.
+- When an action reaches a terminal success, replace its inputs, countdowns and
+  retries with the confirmed state, bound to the exact record it confirms. A
+  pending item that is already resolved by newer state (a code test whose
+  channel was confirmed afterwards) shows as confirmed, never as waiting.
+- Operation results are toasts (`toast.promise` for writes), never loose text
+  under the step. What must persist (field errors, blocked or unconfirmed
+  operations, a stale view) stays in the page with its accessible role, and
+  its toast does not repeat that text.
+- Secondary recovery lists (preserved attempts or tests) stay off the main path,
+  collapsed under a disclosure with their count; a limit that blocks new work
+  stays outside it.
+
 ## Notifications
 
 - Notifications use `toast` and `ThemedToaster` from @golfo/ui, mounted once in

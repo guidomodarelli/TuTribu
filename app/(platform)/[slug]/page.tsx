@@ -152,12 +152,12 @@ function renderSubscriptionReturnStatus(
   mercadoPagoPreapprovalId: string
 ) {
   return (
-    <main className={styles.TribePage}>
+    <div className={styles.TribePage}>
       <SubscriptionReturnStatusContainer
         providerSubscriptionId={mercadoPagoPreapprovalId}
         tribeSlug={slug}
       />
-    </main>
+    </div>
   );
 }
 
@@ -203,12 +203,12 @@ function renderOpenInExternalBrowserHandoff(
   fallbackSignInUrl: string
 ) {
   return (
-    <main className={styles.TribePage}>
+    <div className={styles.TribePage}>
       <OpenInExternalBrowser
         externalBrowserUrl={externalBrowserUrl}
         fallbackSignInUrl={fallbackSignInUrl}
       />
-    </main>
+    </div>
   );
 }
 
@@ -328,7 +328,7 @@ async function startOpenJoinSubscriptionAction({ slug }: { slug: string }) {
 function renderOpenJoinStatusScreen(joinStatus: string | null, slug: string) {
   if (joinStatus === OPEN_JOIN_STATUS.alreadySubscribed) {
     return (
-      <main className={styles.TribePage}>
+      <div className={styles.TribePage}>
         <TribeOpenJoinStatus
           cta={{
             href: ROUTES.tribes.bySlug(slug),
@@ -337,29 +337,29 @@ function renderOpenJoinStatusScreen(joinStatus: string | null, slug: string) {
           description={OPEN_JOIN_COPY.alreadySubscribedDescription}
           title={OPEN_JOIN_COPY.alreadySubscribedTitle}
         />
-      </main>
+      </div>
     );
   }
 
   if (joinStatus === OPEN_JOIN_STATUS.blocked) {
     return (
-      <main className={styles.TribePage}>
+      <div className={styles.TribePage}>
         <TribeOpenJoinStatus
           description={OPEN_JOIN_COPY.blockedDescription}
           title={OPEN_JOIN_COPY.blockedTitle}
         />
-      </main>
+      </div>
     );
   }
 
   if (joinStatus === OPEN_JOIN_STATUS.paymentUnavailable) {
     return (
-      <main className={styles.TribePage}>
+      <div className={styles.TribePage}>
         <TribeOpenJoinStatus
           description={OPEN_JOIN_COPY.paymentUnavailableDescription}
           title={OPEN_JOIN_COPY.paymentUnavailableTitle}
         />
-      </main>
+      </div>
     );
   }
 
@@ -383,16 +383,13 @@ export async function TribePageContent({
   const page = readPositiveIntegerSearchParam(
     resolvedSearchParams[TRIBE_PAGE_QUERY.page]
   );
+  // The campfire is a channel: the channel access rule decides who reads it,
+  // so a free academy member reads it without community access.
   const access = await resolveTribePageAccess({
+    allowWithChannelReadAccess: true,
     operation: TRIBE_PAGE_LOG.operation,
     slug,
-  }).catch(() => {
-    notFound();
   });
-
-  if (!access) {
-    notFound();
-  }
 
   const {
     authenticatedMember,
@@ -490,8 +487,8 @@ export async function TribePageContent({
       redirect(buildJoinSignInRedirect(slug));
     }
 
-    // Academy mode: a basic member lands on the academy offer and personal
-    // steps, never on the private feed (RF-09).
+    // Academy mode: a basic member who reads no channel lands on the academy
+    // offer and personal steps instead of the campfire.
     if (accessResult.reason === TRIBE_PAGE_ACCESS_REASON.academyAccessRequired) {
       redirect(ROUTES.tribes.academy(slug));
     }
@@ -544,9 +541,9 @@ export async function TribePageContent({
         });
 
         return (
-          <main className={styles.TribePage}>
+          <div className={styles.TribePage}>
             <TribeOpenJoin offer={offer.price} startAction={startOpenJoin} />
-          </main>
+          </div>
         );
       }
 
@@ -594,21 +591,24 @@ export async function TribePageContent({
     }),
     // The agenda is a secondary block: a failure to load it must never take
     // the feed down, so it degrades to an empty list after logging the cause.
-    modules.events.useCases
-      .listUpcomingTribeEvents({ tribeSlug: accessResult.tribe.slug })
-      .catch((error: unknown) => {
-        logger.error({
-          message: TRIBE_PAGE_LOG.resolveUpcomingEventsFailureMessage,
-          error,
-          metadata: {
-            reason: TRIBE_PAGE_LOG_REASON.unexpectedEventRepositoryError,
-            slug,
-            viewerId: authenticatedMember.id,
-          },
-        });
+    // Events keep the academy boundary, so free members skip the read.
+    accessResult.communityAccess
+      ? modules.events.useCases
+          .listUpcomingTribeEvents({ tribeSlug: accessResult.tribe.slug })
+          .catch((error: unknown) => {
+            logger.error({
+              message: TRIBE_PAGE_LOG.resolveUpcomingEventsFailureMessage,
+              error,
+              metadata: {
+                reason: TRIBE_PAGE_LOG_REASON.unexpectedEventRepositoryError,
+                slug,
+                viewerId: authenticatedMember.id,
+              },
+            });
 
-        return { events: [] };
-      }),
+            return { events: [] };
+          })
+      : { events: [] },
   ]);
 
   scheduleMissingVideoThumbnailBackfill({
@@ -618,7 +618,7 @@ export async function TribePageContent({
   });
 
   return (
-    <main className={styles.TribePage}>
+    <div className={styles.TribePage}>
       <UpcomingTribeEvents
         events={upcomingEvents.events}
         tribeSlug={accessResult.tribe.slug}
@@ -628,7 +628,7 @@ export async function TribePageContent({
         tribeSlug={accessResult.tribe.slug}
         round={round}
       />
-    </main>
+    </div>
   );
 }
 

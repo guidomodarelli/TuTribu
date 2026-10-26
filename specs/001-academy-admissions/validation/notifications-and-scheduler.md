@@ -1,0 +1,466 @@
+# Verificación integral de avisos, lotes y mantenimiento
+
+## Estado y procedencia
+
+La auditoría conserva los seis escenarios de US8 y el alcance completo de T176–T191. El inventario actual es **196 tareas completas, 16 pendientes y 212 totales**, con **71 temáticas aprobadas**. Este documento registra los cierres de implementación y pruebas de T176–T191, incluida la [verificación funcional final](us8-functional-completion.md); las dieciséis tareas restantes y los gates operativos conservan sus requisitos.
+
+El código de producto de esta cohorte corresponde a `ff227a521f3d9bcf16b24799459aa87f643bdae8`. El checkpoint `2d688865f8d6606bbd4642dadd900ee6f80a1b2d` agrega el ensayo de caída y su evidencia. La corrección del oráculo de refresco de navegador tiene su repetición funcional completa, detallada abajo.
+
+El checkpoint `b49dcf1c43eb79084bbc80d5232b649161cc5992` guarda esa corrección y catorce ajustes de estado en las dos arquitecturas. Su revisión del checkpoint y de T185–T187 terminó con cero hallazgos accionables y 72 inputs estables; distingue integración alcanzable de los ensayos operativos pendientes. SHA256 del dictamen: `a18dd55b413f32cc11049d71a4a096872f16816171bf45165912fedd1fcc8d09`.
+
+El [CI exacto de `2d688865`](https://github.com/guidomodarelli/TuTribu/actions/runs/39018974323) terminó aprobado: 551 archivos y 5.934 casos aprobados, con 316 archivos y 880 casos omitidos, además de lint, tipos de producto y tests, y build de 56 páginas. El ensayo Native agregado conserva su ejecución independiente; las omisiones de CI no lo acreditan ni sustituyen las cohortes funcionales.
+
+El [CI exacto de `b49dcf1c`](https://github.com/guidomodarelli/TuTribu/actions/runs/39021410830) también terminó aprobado, con los mismos 551 archivos y 5.934 casos aprobados, 316 archivos y 880 casos omitidos, lint, ambos controles de tipos y build de 56 páginas. Las dos ejecuciones se conservan como checkpoints independientes y no se suman como casos distintos.
+
+## Matriz de los seis escenarios
+
+| Criterio íntegro | Recorrido y owners | Pruebas y estado actual |
+| --- | --- | --- |
+| US-08-AC-01: bandeja y avisos internos disponibles con correo externo apagado | El writer de obligaciones se ejecuta en la transacción de admisión; el inbox y la consulta propia mantienen su autorización independiente del proveedor. | [Obligaciones internas](admission-notification-obligation-writer.md), [almacenamiento de grupos](admission-notification-group-storage.md) y [refresco contextual](admission-contextual-refresh.md). Las pruebas locales actuales, los cuatro recorridos Native de navegador y la repetición SQL de obligaciones y almacenamiento aprobaron. |
+| US-08-AC-02: resumen según preferencia, sin correo adicional por reintentos | Preferencia propia y habilitación separadas; selección de fuentes, checkpoint, preparación del grupo completo y dispatcher con el original durable. | [Preparación de grupos](admission-notification-group-preparation.md) y [productor compuesto](admission-notification-producer.md). Las políticas y casos de uso actuales aprobaron, junto con los Native de preferencias, preparación, autoridad y productor. Las cohortes no sustituyen la matriz integral de variantes ni los gates operativos. |
+| US-08-AC-03: una caída del proveedor conserva presentación o resolución y la obligación con reintentos acotados | El evento y la obligación se confirman antes del transporte; la persistencia de entrega conserva el original, marker, consumo e incertidumbre. | El [ensayo de solicitud pendiente y recomposición](admission-notification-outage-restart.md) y la [variante de rechazo confirmado](admission-outcomes-and-notifications.md) aprobaron por separado. Cada uno conserva su original incierto y un único POST controlado; las demás variantes y gates mantienen sus evidencias propias. |
+| US-08-AC-04: lote explícito de hasta cincuenta con revalidación y resultados por fila | Caso de uso de lote, writer DB-only, ledger y ruta de decisiones; la UI conserva selección, confirmación y progreso. | [Contrato HTTP](batch-decisions-http.md), [elegibilidad](batch-decisions-eligibility.md) y [bandeja documentada](batch-decisions-manual.md). Los nueve casos actuales del caso de uso y dieciocho del componente aprobaron. Los cinco Native de atomicidad aprobaron en la cohorte SQL; el caso HTTP aprobó por separado con el servidor real. |
+| US-08-AC-05: abrir un enlace no decide y el rol se comprueba nuevamente | El contenido externo proyecta un enlace autenticado de consulta; los guards de grupo y los writers consultan la autoridad vigente. | Los trece casos actuales de contenido externo y veintitrés de la política de autoridad aprobaron. Los cuatro Native de autoridad y disponibilidad del grupo actual también aprobaron en la cohorte SQL. |
+| US-08-AC-06: ingreso automático visible en actividad y métricas, sin revisión manual por defecto | El writer automático registra aprobación; el audience de revisión corresponde a pendiente o recordatorio. La consulta de actividad conserva su recorrido autorizado. | [Actividad y uso](admission-activity-usage-baseline.md), seis casos actuales de audience y el [nuevo Native de admisión automática](admission-outcomes-and-notifications.md): submit, aprobación de sistema, actividad y métricas reales, sin revisión ni entrega, y replay sin duplicados. Esta prueba de owners no se presenta como un recorrido nuevo de interfaz. |
+
+Cada fila conserva las variantes, límites y requisitos normativos del spec. La composición de varios owners no convierte una prueba parcial en el recorrido integral de esa fila.
+
+## Cohortes actuales
+
+### Dominio, aplicación, componentes y hooks
+
+La ejecución local sobre `2d688865` terminó con **22 archivos completos, 296 casos aprobados, cero fallidos y cero omitidos o sin ejecutar**. Los **3.603 inputs** conservaron sus hashes durante la ejecución. Incluye dominio y aplicación de notificaciones, caso de uso de lote, mantenimiento, preferencias, componentes de lotes y refresco visible.
+
+Recibos privados: `.git/codex-us8-local-core-target.json`, `.git/codex-us8-local-core-outcome.json`, `.git/codex-us8-local-core-results.json` y su log. Esta ejecución usa entorno sintético cerrado, sin reenviar las credenciales de la conexión original.
+
+La revisión de alcance de T180/T181 inspeccionó sus dieciocho cláusulas y las cadenas actuales, con **337 inputs estables** y **cero brechas de código verificadas**. Contrastó también los 2.087 inputs de runtime del Native de caída y de la cohorte local con sus fuentes actuales, sin diferencias. El dictamen no cierra tareas ni certifica operaciones; conserva separadas las pruebas históricas cuando cambiaron dependencias transitivas. SHA256 del dictamen privado: `028b7e31a95d7b6dd334b0daefff504fb942b6579ee207f6a28701b39d94f265`.
+
+### Cierre del modelo T180
+
+El cierre conserva íntegra su descripción, incluidas ambas restricciones. Los tipos y políticas privados están conectados al writer transaccional y a los owners de preparación, autorización y consulta; no se infiere implementación de tipos aislados. La cobertura actual del modelo se contrasta así:
+
+| Contrato del modelo | Código y recorrido alcanzable | Evidencia actual |
+| --- | --- | --- |
+| Evento, cuenta, recurso, audience, dedupe y metadata mínima; obligación con el hecho e interno independiente de correo y membresía | `domain/entities/admission-notification.ts`, política de audience, writer de obligaciones dentro de la transacción de admisión y consultas autorizadas del inbox/solicitud propia. | Seis casos locales de audience, siete Native de almacenamiento del inbox y cuatro recorridos Native con presentación y resolución reales sin driver externo. La conservación posterior al fallo tiene el Native de caída independiente. |
+| Defaults y preferencias individual/agrupado/diario/omitido; cinco minutos, 09:00 y zona; cortes que excluyen el pasado | Entidad y política de preferencias, política de grupos y port de calendario nativo. La capacidad y habilitación permanecen independientes de la elección personal. | Diecinueve casos locales de preferencia, veintisiete de grupos, ocho de sus casos de uso, tres Native de habilitación y el Native de calendario con sus límites de zona. La persistencia está acreditada en el cierre de T181. |
+| Correo actual confiable, capacidad probada, manifest e intent completos, revalidación y detención por rol/preferencia/recurso; plazo original de hasta 24 h | Políticas de candidato, manifest, contenido y autoridad; readers privados, preparación y guard del grupo completo en el marker y antes de abrir el recurso. | Cuarenta y un casos locales de confianza, veintitrés de autoridad, trece de contenido, tres Native del correo actual y el Native de caída que conserva identidad, grupo, plazo e incertidumbre sin rePOST. |
+| Recordatorio lógico único a tres días; contenido sin notas internas; consulta autenticada pasiva; diseño visible de quince segundos e invalidación propia | Política de recordatorio y primitiva única; proyección del contenido; hooks de contexto/centro y contenedores autorizados. | Tres Native de recordatorios, los trece casos de contenido, veintitrés casos locales de los dos hooks y la matriz Native completa de ambos motores a 390/1280. |
+
+Los casos locales de esta tabla pertenecen a la cohorte de 296 y los Native de almacenamiento/calendario/correo/recordatorios a la de diecisiete; no se suman de nuevo ni se presentan todos los 296 como exclusivos de T180. El modelo mantiene las restricciones de transacción, contenido mínimo, clocks y ausencia de autoridad durable de envío. La medición de p95 y el scheduler saludable se exigen antes de activar; su falta no se convierte en una supuesta carencia del modelo ni se certifica con estas pruebas.
+
+Este apartado corresponde al cierre de T180. Los owners de persistencia, lote, preferencias, productor, mantenimiento y disparadores tienen sus cierres propios a continuación; la verificación funcional tiene su cierre propio más abajo y los gates conservan sus criterios completos. El driver operativo no se sustituye por el cierre del modelo.
+
+### Cierre de persistencia, lote y preferencias
+
+La [auditoría de T181/T183/T184](storage-batch-settings-completion.md) acredita sus siete, nueve y ocho cláusulas originales, sin brechas ni hallazgos accionables y con 126 inputs estables. Identifica las migraciones reales y el modelo Drizzle, los owners compartidos del lote y el original durable, y la separación entre ajustes de correo, preferencias y política de admisión. Conserva las excepciones históricas de elegibilidad y HTTP; no atribuye estas tres casillas a un cronfile, un import o una entrega externa simulada.
+
+### Cierre del productor, mantenimiento y disparadores
+
+La [auditoría de T185/T186/T187](producer-maintenance-trigger-completion.md) acredita sus ocho, siete y cuatro cláusulas originales, sin hallazgos accionables y con 131 inputs estables. Vincula obligación/grupo/outbox, sender por propósito, siete fases privadas y disparadores portables con sus pruebas actuales y equivalencias verificadas. El build y la ejecución real de Workers conservan su configuración cerrada; no se presentan como operación saludable, activación ni mediciones de OG-05. La nueva cohorte de interfaz estaba en ejecución al registrar esa auditoría y queda fuera de su cierre.
+
+### Cierre de pruebas de lotes, avisos y refresco
+
+La [auditoría de T176/T177/T188](batch-notification-refresh-completion.md) acredita sus nueve, trece y nueve cláusulas originales con 315 inputs estables. Esa primera revisión dejó T178 pendiente de una repetición focal de cuota, sin identificar un defecto de producto. Ambas cohortes posteriores y el cierre de las cinco tareas restantes se registran a continuación; el dictamen inicial conserva su estado histórico y los gates mantienen sus requisitos.
+
+### Cierre funcional de interfaz y seis AC
+
+La [auditoría final de T178/T179/T189/T190/T191](us8-functional-completion.md) acredita sus 48 cláusulas originales y los seis AC con 387 inputs estables y cero hallazgos accionables. ui-current terminó con dos archivos completos y ocho casos aprobados, cero fallidos u omitidos, en Chromium/WebKit a 390/1280. quota-current aprobó el único caso seleccionado y conservó seis fuera del filtro: política real reducida a cero, sin llamadas SDK, intentos ni reservas y con el código/original intactos. Ambas cohortes conservaron 3.603 inputs y equivalencia de 3.081 inputs de runtime.
+
+El [CI de 144dd842](https://github.com/guidomodarelli/TuTribu/actions/runs/39026272441) terminó aprobado: 551 archivos y 5.934 casos, con 317 archivos y 882 casos omitidos, lint, ambos chequeos de tipos y build real. Los Native conservan su evidencia independiente. La corrección del contador privado distingue un archivo de cuota de sus dos suites; no motivó otra ejecución. Los tres cierres anteriores y los cinco manuales también quedaron revalidados. SC-015/RG-08/OG-05 siguen pendientes de operación saludable.
+
+### PostgreSQL real
+
+La primera cohorte de catorce archivos se detuvo en elegibilidad: dos casos aprobados y uno fallido al no poder confirmar la retirada de su rama. Los trece archivos restantes no se ejecutaron por el límite de detención del runner. No se cuentan como aprobados ni como omisiones elegidas.
+
+Después de consumir ese productor, se verificaron la identidad exacta, el parent y el estado de su única rama propia; su retirada posterior quedó confirmada. El tercer caso de elegibilidad aprobó en una cohorte independiente, con los otros dos fuera del filtro y **3.601 inputs estables**. Los dos primeros casos conservan sus recibos originales; el fallo de limpieza también permanece registrado.
+
+La cohorte de los trece archivos restantes terminó con **doce archivos completos, veinticinco casos aprobados, cero fallidos y un caso omitido**, con **3.601 inputs estables**. El único archivo omitido fue `admission-batch-http.test.ts`: requiere además la bandera de navegador porque arranca el servidor real. Su omisión permanece registrada en `sql-remaining-results.json`; no se cuenta entre los doce archivos completos.
+
+Ese caso HTTP se ejecutó después en la cohorte independiente `native-http-recovery`, con ambas banderas habilitadas y keyrings sintéticos generados en memoria para su propio servidor. Terminó con **un archivo completo y un caso aprobado, cero fallidos y cero omitidos o sin ejecutar**, con **3.601 inputs estables**. Comprueba POST y GET originales, recuperación sin otra decisión y revalidación de roles y sesiones a través del servidor real. No se reescribe la omisión anterior ni se suma como una repetición aprobada de aquella cohorte.
+
+Los targets, outcomes, resultados y logs de `sql-remaining` y `native-http-recovery` se conservan separados bajo `.git/us8-fd20dd9d/`. El ensayo de caída tiene su Native independiente, descrito en el documento enlazado.
+
+La revisión de los recibos históricos identificó cambios transitivos de actor, schema/journal y fixtures frente a las pruebas originales. Se añadió por ello una cohorte independiente `model-storage-current`, con los cinco archivos no incluidos en la anterior: recordatorios, calendario, correo confiable actual, almacenamiento privado del inbox y habilitación de correo. Terminó con **cinco archivos completos y diecisiete casos aprobados, cero fallidos y cero omitidos o sin ejecutar**, con **3.601 inputs estables**. No repite los trece archivos ni atribuye un resultado actual a los recibos históricos. Los recibos `model-storage-current-target.json`, `model-storage-current-outcome.json`, `model-storage-current-results.json` y su log están bajo `.git/us8-fd20dd9d/`.
+
+### Navegador con build real
+
+El build aislado de Next.js terminó con 56 páginas y **3.601 inputs estables**. La primera ejecución aprobó Chromium390 y falló en Chromium1280 al elegir un GET periódico posteriormente sustituido por la revisión de la acción propia; los otros dos casos no se ejecutaron. La corrección selecciona la última lectura de la misma ventana original de tres segundos y sigue exigiendo que finalice sin cancelación y con respuesta correcta.
+
+La segunda ejecución se detuvo preparando el solicitante, antes de abrir la página; no entregó SQLSTATE o constraint utilizables. Se conservaron ese fallo y sus artefactos. Una consulta mínima posterior con `pg` ejecutó las mismas inserciones de usuario y sesión, revirtió la transacción y eliminó su rama propia. La preparación completa y la misma inserción también terminaron después en un diagnóstico separado, con retirada confirmada de su rama. Ambos diagnósticos pasaron y no identifican por sí solos la causa original ni acreditan un escenario de US8.
+
+La tercera ejecución completa de Chromium/WebKit a 390/1280 terminó con **cuatro casos aprobados, cero fallidos y cero omitidos o sin ejecutar**, con **3.601 inputs estables** y sus cuatro ramas retiradas por la fixture. Usa el mismo build de producto: el único cambio respecto a sus inputs de build es el oráculo del ensayo. Cada recorrido verifica aparición interna, conservación de datos ante un fallo recuperable, foco nativo, pausa y reanudación, selección vigente, decisión propia y conciliación inmediata sin recarga completa. La solicitud propia termina su consulta periódica al llegar a un estado final. No se atribuye este resultado a las cohortes anteriores ni se suman sus repeticiones.
+
+Los recibos actuales son `browser-target.json`, `browser-outcome.json`, `browser-results.json`, su log y los cuatro `*-result.json` de `browser-artifacts/`, bajo `.git/us8-fd20dd9d/`. Los artefactos describen foco real de navegador; no acreditan la visibilidad física de una pestaña ni un percentil operativo. La política de visibilidad conserva además sus casos locales actuales.
+
+### Admisión automática y resolución ante caída
+
+La [cohorte adicional de resultados y avisos](admission-outcomes-and-notifications.md) terminó con un archivo completo y **dos casos aprobados, cero fallidos y cero omitidos**, con **3.603 inputs estables**. Comprueba admisión automática con actividad/métricas y replay, y rechazo real con caída posterior del correo y recomposición del procesador sin otro POST. Sus dos fuentes nuevas coinciden con el checkout principal; 3.081 inputs seleccionados de runtime, migraciones y pruebas son equivalentes, incluidas 190 diferencias sólo de saltos de línea. Las dos ejecuciones previas y el diagnóstico de tipos corregido permanecen registrados por separado; las repeticiones no se suman de nuevo ni se usan como cierre automático de T176/T177/T191.
+
+## Documentos y navegación
+
+Las dos arquitecturas corrigen catorce descripciones que aún presentaban productores, preparación, recuperación o mantenimiento integrados como trabajo sin implementar. El manual interno corrige cinco frases del mismo alcance y aclara la cadencia especial de admisión. La activación por entorno, el monitoreo operativo y las mediciones permanecen pendientes.
+
+En aquel checkpoint, la trazabilidad del manual interno y de sus dos índices apuntaba a `b49dcf1c`, conservando sus 278, 209 y 197 paths, contenido y LF. La QA de ese momento terminó con **veinte vistas, cuatro recorridos y 220 destinos locales comprobados**, en Chromium/WebKit a 390/1280, sin errores JavaScript ni desbordes. Los cinco inputs permanecieron estables. El verificador usa los IDs reales del documento abierto para incluir las referencias que el glosario genera en runtime; no exige que esas referencias existan literalmente en el archivo HTML.
+
+`check-manual.mjs` termina con cero errores en el manual interno y el índice detallado. Conserva dos advertencias conocidas: documento local sin URL de publicación y ausencia de catálogo central de traducciones para contrastar textos citados. Las frases modificadas son explicación del estado y de límites; no añaden textos citados de la UI. Los únicos hosts adicionales admitidos son las atribuciones existentes de las fuentes (`scripts.sil.org` y `www.github.com`). El diseño canónico está en CRLF y los manuales en LF: una copia con sólo esa normalización evita el aviso falso de navegación distinta; el código de navegación coincide completo después de normalizar y permanece sin cambios.
+
+Recibos privados: `.git/codex-us8-doc-copy-updates-result.json`, `.git/codex-us8-manual-source-proof.json`, `.git/codex-us8-manual-final-static-result.json` y `.git/codex-us8-final-docs-qa-result.json`. Los ensayos anteriores de encabezado/glosario se conservan separados de esta QA aprobada; no se modificó producto para satisfacer esos supuestos del verificador temporal. Las capturas y esquemas existentes conservan su procedencia.
+
+El cierre posterior actualiza las fuentes de cuatro manuales/índices y corrige un párrafo del manual específico de avisos. Las capturas, fechas y navegación permanecen intactas. La nueva QA del manual específico y los índices terminó con doce vistas, cuatro recorridos y 127 destinos locales, sin errores en ambos motores y tamaños. Los otros dos manuales conservan ocho vistas reutilizables por sus bytes originales y equivalencia de metadatos; tres documentos propietarios mantienen sus inputs ya comprobados. La [verificación final](us8-functional-completion.md) distingue estos recibos del snapshot anterior, sin sumar repeticiones.
+
+## Driver, latencias y gates
+
+La [integración de disparadores](admission-maintenance-trigger.md) conserva su build OpenNext real, ejecuciones de Worker con configuración cerrada y los 48 casos distintos aprobados en Windows y Linux. La variante optativa permite el scheduled por minuto al activar ese target; la configuración base continúa apagada. El catch-up HTTP requiere configuración completa y distingue una ejecución ocupada o fallida de un recorrido confirmado.
+
+No se ha activado ni medido aquí un driver frecuente saludable. **SC-015, RG-08 y OG-05 siguen pendientes** de infraestructura, capacidad y mediciones reales: disponibilidad hacia inbox/lista/avisos p95 menor a treinta segundos y cierre de ventana hacia aceptación del agrupado dentro de cinco minutos. Un cronfile, el workflow, un 200 aislado o el transporte controlado no acreditan esos objetivos.
+
+OG-03 y OG-04 conservan los ensayos reales expresamente autorizados y los límites originales del piloto. No hubo nuevos mensajes reales, despliegue ni migración productiva en estas cohortes. Después de terminar la cohorte adicional de resultados y avisos y las anteriores, Neon confirmó a las 10:04 UTC la conservación de las tres ramas originales o ajenas, cero temporales propias y ninguna sin clasificar. El recibo `.git/codex-us8-notification-scenarios-neon-final.json` conserva ese momento histórico. Después de terminar ui-current y quota-current, una nueva consulta a las 11:10:32 UTC confirmó las mismas tres ramas originales o ajenas, cero temporales propias y cero desconocidas; el cierre es `.git/codex-us8-ui-and-quota-neon-final.json`. No se eliminaron ramas adicionales.
+
+## Driver activo en el piloto local (T206)
+
+El 2026-10-19, con autorización expresa del usuario para desplegar el scheduler, se instaló el driver en el piloto local aislado (`https://dev.tutribu.app`, rama privada propia): un proceso privado ejecuta `scripts/run-admission-maintenance.mjs` una vez por minuto contra `GET /api/maintenance/admission-messaging`, sin reintentos. `CRON_SECRET` se generó al azar y vive sólo en la configuración DPAPI del piloto; el registro privado guarda únicamente hora, código de salida y duración. No se modificó `vercel.json`, Actions ni producción.
+
+La primera invocación devolvió 200 en 44.078 ms y el driver continuó con 200 en 42.659 ms. Una consulta manual simultánea recibió 202 «Ya existe una ejecución de mantenimiento en curso», sin iniciar otra corrida. Con carga vacía (cero recordatorios, grupos y entregas), cada fase tomó entre 3,6 y 5,4 s: la duración refleja la latencia entre este host local y la base remota, sumada sobre consultas secuenciales, y no una medición de host cercano.
+
+Esto acredita un driver autorizado en funcionamiento sobre el piloto. No mide SC-015: falta generar solicitudes y avisos reales en el piloto y medir aparición en bandeja (p95 < 30 s) y presentación de correos agrupados (≤ 5 min), lo que requiere activar la candidata, subir el cupo de avisos y crear solicitantes sintéticos, todavía sin autorizar. T206, T200/T209 y OG-05 siguen pendientes.
+
+### Caída silenciosa y recuperación
+
+El proceso del driver dejó de existir después de la corrida de las 12:48:27 UTC (47 corridas, todas `status:200`, entre 42 y 44 s cada una) y no volvió a escribir hasta que se relanzó a las 18:13:00 UTC; la primera corrida tras el relanzamiento completó el catch-up con 200 en 42.315 ms. El proceso no dejó ningún error: la caída no fue visible desde el driver, sólo por la ausencia de líneas nuevas. Para OG-05 esto confirma que el piloto necesita una alerta de staleness del driver (por ejemplo, la última ejecución exitosa que ya publica la vista de actividad) antes de acreditar fallo visible; el hueco de unas cinco horas y media queda registrado como ventana sin ejecuciones.
+
+### Driver sobre el piloto en Vercel (2026-10-22)
+
+Con autorización del usuario se rotó `CRON_SECRET` del proyecto `tutribu-pilot`: el valor anterior estaba guardado como variable sensible y Vercel no permite leerlo. El nuevo se generó al azar, se cargó como sensible en producción y se redesplegó el piloto; el proceso del driver lo conservó solo en memoria y no se imprimió ni se guardó. El driver corrió desde la máquina del operador con `runAdmissionMaintenanceCatchUp` real, una llamada por minuto a `https://pilot.tutribu.app/api/maintenance/admission-messaging`, entre las 18:58Z y las 19:58Z: 60 corridas, las 60 completas (200), sin 202, 503 ni fallos de transporte. Cada corrida tardó 0,63 s en p50, 0,83 s en p95 y 2,1 s como máximo, y el intervalo máximo entre corridas fue de 60,2 s, sin minutos omitidos. Durante la ventana no hubo ráfaga de solicitudes, así que esto acredita el driver sano y frecuente, no las latencias de SC-015: la medición de bandeja y correo agrupado sigue esperando que la conexión de Correo quede activa. T206 sigue abierta.
+
+## Medición de SC-015 en el piloto local (2026-10-20)
+
+**Resultado: SC-015 no queda acreditado.** El driver de mantenimiento no estuvo sano durante la medición: terminó incompleto en casi todas las corridas desde las 13:30Z y seguía así al cierre. Por eso ninguna observación de esta sección cumple la condición «con infraestructura sana». Además, la lista de la bandeja no garantiza el objetivo en este entorno, y ningún correo agrupado tuvo aceptación confirmada del proveedor dentro de cinco minutos del cierre de su ventana. T206, la parte SC-015 de T209 y OG-05 siguen pendientes.
+
+### Condiciones
+
+- **Entorno.** Es el piloto local, no el target de producción. Corre un `next start` del build del piloto, con código de producto idéntico a `6cd0b6c0`, servido por portless en `https://dev.tutribu.app` y conectado a la rama Neon privada del piloto. Las 2.411 consultas del observador, de una sentencia cada una, midieron un RTT local→Neon de 158 ms mínimo, 167 ms p50 y 187 ms p95. El desfase entre el reloj de PostgreSQL y el local fue de 22 ms.
+- **Configuración.** No se tocaron la política, la conexión de Zavu ni los cupos (20 avisos y 10 códigos por día, país AR). Tampoco cambiaron la preferencia agrupada del líder ni el correo de admisión de la tribu. No se aplicaron migraciones.
+- **Solicitantes.** Se crearon dieciocho cuentas sintéticas del dominio reservado `.test`, igual que en T207: con el plugin de acceso de desarrollo y el adapter real de Better Auth y Drizzle, sin fabricar filas de sesión ni cookies. Cada cuenta presentó su solicitud desde la interfaz real, con un número de WhatsApp ficticio de AR que nunca se contactó. La interfaz la sirvió un `next dev` en loopback dentro del worktree propio `sc015-pilot-measurement` (`6cd0b6c0`), con el entorno del piloto inyectado sólo en memoria y sin `CRON_SECRET`.
+- **Cohortes.** Se armaron tres cohortes de seis solicitudes, una por cada ventana UTC de cinco minutos (13:30, 13:35 y 13:40). En cada ventana hubo una presentación cada 20 s a partir del segundo 10. Las dieciocho respondieron 201 con la solicitud pendiente. Entre el clic y la respuesta pasaron 9,2–21,5 s (p50 de 10,8 s), con `next dev` contra la base remota; este tramo no forma parte de SC-015.
+- **Observación.** Hubo tres fuentes de datos:
+  - Un observador de sólo lectura consultó PostgreSQL cada segundo para registrar la primera vez que la solicitud y el aviso interno del líder eran visibles desde otra conexión, junto con el estado de grupos y entregas.
+  - En la sesión real del líder en Chrome sobre el piloto, la página de solicitudes registró cuándo aparecía cada fila, la etiqueta de la campana y la duración de cada lectura periódica.
+  - El driver existente ejecutó el mantenimiento una vez por minuto, sin llamadas manuales.
+- **Instante de disponibilidad.** La medición conservadora parte de `submitted_at`, que precede a la respuesta en 2,5–2,9 s (p50 de 2,6 s). También se informa la medición desde la respuesta HTTP, que es posterior al commit.
+
+### Aparición en bandeja y avisos internos (driver no sano)
+
+| Medición | n | p50 | p95 | Máx. | Comentario |
+| --- | --- | --- | --- | --- | --- |
+| Fila de la solicitud y fila del aviso interno del líder visibles desde otra conexión, desde `submitted_at` | 18 | 3,1 s | 3,7 s | 3,7 s | Se escriben en la misma transacción y aparecieron en la misma observación. Desde la respuesta: p50 0,46 s y p95 0,98 s, con un observador que consulta cada 1 s y suma el RTT. |
+| Campana del líder en la UI (contador de avisos), desde `submitted_at` | 9 | 9,1 s | 14,3 s | 14,3 s | Cubre S01–S09. Desde la respuesta: p50 6,6 s y p95 11,7 s. A partir de la décima solicitud la etiqueta muestra «9+» y ya no distingue avisos nuevos. |
+| Fila en la lista de la bandeja (UI), desde `submitted_at` | 4 | — | — | 31,4 s | Cubre S01–S04: 29,0, 31,4, 19,5 y 12,6 s, y desde la respuesta 26,4, 28,8, 17,0 y 10,1 s. El líder abrió un detalle entre las 13:31:31 y las 13:32:12 y volvió a la lista a las 13:43:25, así que S05–S18 no tienen una medición válida en la lista. |
+
+Las lecturas periódicas medidas en Chrome sobre el piloto entre las 13:30 y las 13:43 fueron:
+
+- **Lista de la bandeja** (`/admissions/requests`, 46 lecturas): cada lectura tardó 11,0 s en p50, 17,2 s en p95 y 27,2 s como máximo. Entre refrescos completados pasaron 15,0 s en p50, 25,8 s en p95 y 35,2 s como máximo.
+- **Contador de avisos** (50 lecturas): cada lectura tardó 2,7 s en p50 y 4,1 s en p95, con un intervalo de 16,3 s en p95.
+
+Con el poll de 15 s de T188, la lista tarda como máximo el intervalo más la lectura: unos 32 s con la lectura p95 y 42 s con la máxima. Con esa cota, el p95 de la lista no baja de 30 s en este entorno, y la única observación de lista que superó 30 s (S02) es coherente con ella. La demora viene de la latencia del entorno: cada consulta secuencial suma unos 163 ms y una lectura hace varias transacciones de autorización, lectura y registro de exposición. En cambio, las filas confirmadas quedan disponibles en menos de 1 s, y la campana cumple con margen. Estos tramos no dependen del driver, porque la solicitud y el aviso se confirman en la misma transacción. Aun así se registraron con el driver no sano y no acreditan el objetivo.
+
+### Correos agrupados
+
+El mantenimiento materializa los grupos al recolectar las fuentes, así que cada hecho cae en la ventana vigente en el momento de la recolección. Las tres cohortes formaron tres grupos del líder (`reviewer`/`grouped`) con seis miembros cada uno.
+
+| Grupo | Ventana UTC | Cierre→congelado | Cierre→envío autorizado | Cierre→resultado | Resultado |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 13:30–13:35 | 2 min 42,7 s | 5 min 33,5 s | 5 min 52,5 s | `unknown` (`dispatch_result_unknown`), sin id del proveedor |
+| 2 | 13:35–13:40 | 4 min 42,0 s | 9 min 42,3 s | 9 min 57,6 s | `unknown` (`dispatch_result_unknown`), sin id del proveedor |
+| 3 | 13:40–13:45 | 1 min 32,6 s | — | — | Quedó `queued` con el turno diferido a las 13:59:07 y pasó a `suppressed` hacia las 14:06, después de cancelar las solicitudes |
+
+**No se cumple el plazo de cinco minutos desde el cierre:** ningún correo agrupado tuvo aceptación confirmada. En total:
+
+- dos llamadas reales al proveedor con resultado incierto, sin reenvío: cada entrega conserva una sola fila de intento, como exige OG-04;
+- ninguna aceptación confirmada;
+- una entrega suprimida sin envío.
+
+El cupo diario consumió 2 de los 20 avisos; los códigos no se usaron.
+
+### Salud del driver, cola y pool
+
+Entre las 13:29 y las 14:11 hubo 42 corridas del driver:
+
+- **Completas (200):** 3, a las 13:29, 13:36 y 13:41.
+- **Incompletas (503):** 36. El mantenimiento agotó su presupuesto de 45 s y conservó el avance para la corrida siguiente.
+- **Omitidas por ocupado (202):** 3, a las 13:58, 14:00 y 14:08, porque la corrida anterior seguía en curso.
+
+La última corrida completa terminó a las 13:41:41. Antes de la medición había una sola falla aislada, a las 13:23. Los períodos afectados son de 13:30 a 13:35, de 13:37 a 13:40 y desde las 13:42 en adelante, sin recuperación al cierre de este registro.
+
+Al terminar la medición no quedaba carga propia: a las 14:10 `pg_stat_activity` mostraba una sola conexión, la del mantenimiento, sin candados en espera. El servidor de desarrollo y el ensayo terminaron a las 14:05:31 y la pestaña del líder se cerró a las 14:07. Las causas observadas son estas:
+
+1. **El presupuesto no deja margen.** Sin carga, cada una de las siete fases tarda 3,6–4,3 s por la latencia hacia Neon, y una corrida vacía ocupa unos 42 de los 45 s. Con trabajo real, la preparación de avisos tardó 15,9 s y 36,4 s, y el despacho 17,1 s. Las corridas quedan incompletas, y la rotación de fases demora la preparación y el envío durante minutos.
+2. **La selección de tribu compite con la bandeja abierta.** El productor selecciona la tribu con `FOR UPDATE ... SKIP LOCKED`, mientras cada lectura de la bandeja mantiene `FOR SHARE` sobre esa misma fila durante 9–27 s, cada 15 s. La corrida completa de las 13:36 seleccionó cero tribus aunque la ventana 1 ya estaba cerrada y la bandeja del líder estaba abierta y enfocada. Esta causa se infiere del código y de esa corrida; el candado no se midió por separado.
+3. **El despacho deja de observar el envío antes de que responda el proveedor.** Entre la autorización y el `unknown` pasaron 19,0 s y 15,2 s. El despacho usa un `requestTimeoutMs` de 15 s, acotado además por el presupuesto restante. El diagnóstico de correo del piloto del 19/10 tardó 16,9 s entre la autorización y la aceptación.
+4. **La recolección no avanza desde las 14:05.** La limpieza (17 cancelaciones entre las 13:54 y las 14:03) y la aprobación del líder agregaron 18 obligaciones de solicitante, y la ventana de 24 h quedó con 36 fuentes. Desde las 14:06, cada corrida dedica 34–36 s a `prepare_notifications`, que termina `unresolved` porque alcanza el plazo. El checkpoint de recolección no cambia: sigue en la versión 18, con el último barrido completo a las 14:05:42. Las demás fases avanzan por rotación. Si la página de recolección no entra en el presupuesto, el atraso puede seguir hasta que esas obligaciones salgan de la ventana de 24 h; queda pendiente confirmarlo en las corridas siguientes.
+5. **El pool y la cola no se saturaron.** Durante la medición hubo 17 conexiones en p50, 28 en p95 y 37 como máximo, frente a un `max_connections` de 901. La cola terminó sin pendientes.
+6. **La vista de actividad no avisa este fallo.** «Última ejecución exitosa» se actualiza con cualquier fase completada (`academy_admission_worker_runs`, despachos y materializaciones). Por eso las corridas incompletas que completan alguna fase no disparan el aviso de diez minutos. El fallo de presupuesto sólo se ve en el registro del driver y en `admission_messaging_maintenance_progress`.
+
+### Limpieza y estado final
+
+- **Solicitudes.** Diecisiete quedaron `cancelled` mediante el flujo de cancelación de cada solicitante en la interfaz. PostgreSQL lo confirma, aunque la última aserción del script falló por un selector de texto ambiguo. S01 fue **aprobada por el líder** desde su sesión en Chrome durante la medición, sin intervención del script. Esa cuenta sintética es ahora integrante activa de `test`, y retirarla le corresponde al líder desde la aplicación.
+- **Avisos al solicitante.** Las 17 obligaciones de cancelación y la de aprobación no generaron correo, porque las cuentas `.test` no tienen correo confiable.
+- **Entregas.** Quedaron dos `unknown`, una `suppressed` y las dos de diagnóstico anteriores.
+- **Cuentas.** Las dieciocho cuentas sintéticas y sus sesiones permanecen en la base del piloto.
+- **Driver.** El driver sigue activo, pero incompleto.
+
+### Conclusión
+
+El producto confirma la solicitud y el aviso interno en la misma transacción, y ambos quedan disponibles en menos de un segundo después de la respuesta. Con la sesión real del líder, la campana aparece dentro de los 30 s.
+
+En este piloto local, en cambio, no cumplen ni la lista de la bandeja ni el agrupado. La latencia local→Neon convierte la lectura de la bandeja y cada fase del mantenimiento en operaciones de varios segundos, y eso agota el presupuesto de 45 s. A eso se suman tres factores: el posible bloqueo de la selección por las lecturas de la bandeja, una observación del envío más corta que la respuesta del proveedor, y una página de recolección que no entra en el presupuesto.
+
+Para cerrar SC-015 hace falta medir en un host cercano a la base y con el driver sano. Además hay que revisar, con autorización:
+
+- el presupuesto o la rotación del mantenimiento y el tamaño de la página de recolección;
+- la convivencia de `SKIP LOCKED` con el `FOR SHARE` de los lectores;
+- el `requestTimeoutMs` del despacho de correo.
+
+El resumen sanitizado del ensayo, con horarios y alias pero sin credenciales ni identificadores, quedó en el directorio temporal de la sesión. Ni ese resumen ni el script temporal se versionan.
+
+## Medición de SC-015 en el piloto cercano a la base (2026-10-21, primera corrida)
+
+**Resultado parcial: SC-015 todavía no queda acreditado.** La disponibilidad hacia la bandeja y los avisos internos cumple con margen. La aceptación del correo agrupado no pudo medirse porque la conexión de mensajería del piloto no estaba activa: la anterior quedó suspendida (`security_stop`) al recrear los keyrings y la nueva seguía como candidata.
+
+### Condiciones
+
+- **Entorno.** El piloto ahora corre como producción del proyecto Vercel `tutribu-pilot`, con funciones en `iad1`, la misma región que la rama Neon del piloto (`aws-us-east-1`). Se sirve en `https://pilot.tutribu.app` con el código de `494bbf63`. Las migraciones del PR quedaron aplicadas hasta `20261020190000`. La configuración privada se recreó con keyrings nuevos, cargados por el usuario y guardados cifrados con DPAPI fuera del repositorio, y las claves MAC nuevas se inscribieron con `registerMessagingPrivateMacKeyMaterial`.
+- **Driver.** Llama al endpoint protegido una vez por minuto desde la máquina del operador. Entre las 22:38Z del 20/10 y las 03:23Z del 21/10 hizo 283 corridas: 260 completas (200) y 23 incompletas (503). Las corridas duraron 1,1 s en p50, 1,6 s en p95 y 3,9 s como máximo; en el piloto local eran unos 42 s. Las incompletas empiezan con la ráfaga y duran alrededor de 1 s: el mantenimiento no tiene una conexión activa para preparar los avisos por correo y lo informa como incompleto, sin fingir éxito.
+- **Solicitantes.** 18 cuentas `.test` creadas con el acceso de desarrollo y el adapter real de Better Auth, en un `next dev` local que usaba los mismos secretos del piloto. Las cookies quedaron solo en memoria. Cada cuenta presentó su solicitud desde la interfaz real del piloto, con un número de WhatsApp ficticio de AR que nunca se contactó. Fueron tres cohortes de seis, una cada 20 s desde el segundo 10 de las ventanas UTC de las 02:45, 02:50 y 02:55. Las 18 respondieron 201.
+- **Observación.** Un observador de solo lectura consultó PostgreSQL cada segundo desde la máquina del operador (RTT de unos 165 ms). La observación de la UI en el Chrome del líder no es válida: la pestaña quedó en segundo plano y Chrome congeló sus timers. Igual registró, antes de la ráfaga, lecturas de la bandeja de 0,30 a 0,36 s y del contador de avisos de 0,40 a 0,86 s.
+
+### Resultados
+
+| Medición | n | p50 | p95 | Máx. |
+| --- | --- | --- | --- | --- |
+| Clic → respuesta 201 del envío (no forma parte de SC-015) | 18 | 0,78 s | 2,56 s | 2,56 s |
+| Solicitud visible desde otra conexión, desde `submitted_at` | 18 | 0,91 s | 1,57 s | 1,57 s |
+| Aviso interno del líder visible, desde su creación | 18 | 0,94 s | 1,61 s | 1,61 s |
+
+Estas cifras incluyen el intervalo de 1 s del observador y el RTT. Con el refresco de 15 s de la bandeja y lecturas de 0,4 s, la cota de la lista queda en unos 16 s, contra los 30 s del objetivo, pero falta confirmarla con la UI observada en primer plano.
+
+### Pendiente para acreditar SC-015
+
+1. Activar la conexión de Zavu del piloto, que necesita la prueba de SMS y la activación del líder.
+2. Repetir la ráfaga con la pestaña del líder en primer plano y la campana leída, para medir la lista, la campana y la aceptación del correo agrupado dentro de los 5 minutos del cierre de la ventana.
+
+## Medición de SC-015 en el piloto cercano a la base (2026-10-22, segunda corrida)
+
+**Resultado: con infraestructura sana se cumplen los dos objetivos medidos desde la base.** La solicitud y el aviso interno del líder quedan disponibles con p95 de 1,8 s, y cada correo agrupado fue aceptado por el proveedor 73 s después del cierre de su ventana. La lista de la bandeja vista en la UI tuvo una sola observación válida, porque la pestaña del líder quedó en segundo plano durante casi toda la ráfaga; su cumplimiento se apoya en la cota de refresco medida.
+
+### Condiciones
+
+- **Entorno.** Producción del proyecto Vercel `tutribu-pilot` (`iad1`), en la misma región que la rama Neon del piloto (`aws-us-east-1`), servida en `https://pilot.tutribu.app`. La conexión de Zavu del piloto quedó activa ese día, después de confirmar las pruebas de Correo y SMS con destinos controlados.
+- **Driver.** Con autorización del usuario se volvió a rotar `CRON_SECRET` (sensible en Vercel, retenido solo en memoria del proceso) y se redesplegó. Entre las 20:23Z y las 20:48Z el driver hizo 26 llamadas, una por minuto: 25 completas (200) y una 401, la primera, segundos después del redespliegue, antes de que el dominio apuntara al despliegue nuevo. Cada corrida tardó 0,91 s en p50 y 3,0 s en p95 (máximo 3,5 s, en los minutos que materializaron y enviaron los grupos); el intervalo máximo fue de 62,8 s, sin minutos omitidos.
+- **Solicitantes.** 18 cuentas `.test` creadas con el acceso de desarrollo y el adapter real de Better Auth en un `next dev` local, con cookies solo en memoria. Cada una presentó su solicitud desde la interfaz real del piloto (paso «Teléfono» con un número ficticio de AR que nunca se contactó, y paso de confirmación; el piloto no pide código). Fueron tres cohortes de seis, una cada 20 s desde el segundo 10 de las ventanas UTC de las 20:30, 20:35 y 20:40. Las 18 respondieron 201, con 0,78 s en p50 y 0,98 s en p95 entre el clic y la respuesta (fuera de SC-015).
+- **Observación.** Un observador de solo lectura consultó PostgreSQL cada segundo desde la máquina del operador (RTT de unos 165 ms). En el Chrome del líder, un registrador anotó la aparición de cada solicitud nueva en la lista y la duración de cada refresco; la pestaña estuvo visible solo entre 20:31:26 y 20:32:06 y unos segundos a las 20:42 y 20:48, así que Chrome pausó el refresco el resto del tiempo.
+
+### Resultados
+
+| Medición | n | p50 | p95 | Máx. |
+| --- | --- | --- | --- | --- |
+| Solicitud visible desde otra conexión, desde `submitted_at` | 18 | 0,80 s | 1,82 s | 1,82 s |
+| Aviso interno del líder visible, desde su creación | 18 | 0,58 s | 1,65 s | 1,65 s |
+| Lectura de la lista de la bandeja en la UI (`/api/tribes/test/admissions/requests`) | 10 | 0,33 s | 0,46 s | 0,46 s |
+| Lectura del contador de avisos en la UI | 10 | 0,30 s | 1,29 s | 1,29 s |
+| Solicitud S06 en la lista de la UI, con la pestaña visible | 1 | — | — | unos 7 s desde su envío |
+
+| Grupo | Ventana UTC | Cierre → congelado | Cierre → aceptado por el proveedor | Resultado |
+| --- | --- | --- | --- | --- |
+| 1 | 20:30–20:35 | 71,2 s | 73,2 s | `accepted` |
+| 2 | 20:35–20:40 | 70,6 s | 72,8 s | `accepted` |
+| 3 | 20:40–20:45 | 70,6 s | 72,8 s | `accepted` |
+
+Las cifras de la base incluyen el intervalo de 1 s del observador y el RTT. Con el refresco de 15 s de la bandeja y lecturas de 0,46 s en p95, la lista de una pestaña visible queda acotada en unos 17 s desde el envío, contra los 30 s del objetivo; la única observación directa válida (S06) quedó en unos 7 s. Los correos agrupados se aceptan en el primer minuto de mantenimiento después del cierre, con margen frente a los 5 minutos. La campana del líder no se pudo leer como medición porque ya mostraba «9+» antes de la ráfaga.
+
+### Pendiente
+
+- Repetir la observación directa de la lista y la campana con la pestaña del líder visible toda la ráfaga y la campana leída antes de empezar.
+- Medir stock y capacidad del pool durante la ráfaga, que T206 también exige. T206, la parte SC-015 de T209 y OG-05 siguen abiertos hasta entonces.
+
+## Medición de SC-015 en el piloto cercano a la base (2026-10-22, tercera corrida)
+
+Misma configuración que la segunda corrida, con 18 cuentas `.test` nuevas (T01–T18) en las ventanas UTC de las 21:00, 21:05 y 21:10, y el observador ampliado con una muestra por segundo de `pg_stat_activity` (conexiones de cliente de la base del piloto, incluida la del propio observador).
+
+| Medición | n | p50 | p95 | Máx. |
+| --- | --- | --- | --- | --- |
+| Clic → respuesta 201 (fuera de SC-015) | 18 | 0,87 s | 1,48 s | 1,48 s |
+| Solicitud visible desde otra conexión, desde `submitted_at` | 18 | 1,20 s | 2,01 s | 2,01 s |
+| Aviso interno del líder visible, desde su creación | 18 | 0,73 s | 1,72 s | 1,72 s |
+
+| Grupo | Ventana UTC | Congelado | Aceptado por el proveedor | Cierre → aceptado |
+| --- | --- | --- | --- | --- |
+| 1 | cierra 21:05 | 21:06:10 | 21:07:13 | 133 s |
+| 2 | cierra 21:10 | 21:12:10 | 21:12:13 | 133 s |
+| 3 | cierra 21:15 | 21:18:10 | 21:18:13 | 193 s |
+
+- **Driver.** Entre las 20:55Z y las 22:31Z hizo 97 corridas, las 97 completas (200), con 0,82 s en p50, 1,6 s en p95 y 3,9 s como máximo; intervalo máximo de 63,2 s, sin minutos omitidos.
+- **Conexiones de la base.** En 477 muestras hubo como máximo 10 conexiones de cliente abiertas y 2 activas a la vez, y nunca más de una `idle in transaction`; durante la ráfaga la base no se acercó a un límite de conexiones.
+- **Lista de la bandeja en la UI.** No fue medible: la bandeja muestra las 25 solicitudes pendientes más antiguas y el piloto ya tenía 36 pendientes sintéticas de las corridas anteriores, así que ninguna de las 18 nuevas entró en la primera página. La pestaña del líder también quedó en segundo plano entre las 21:00:46 y las 21:06:27. Para medir la lista hace falta resolver antes las solicitudes sintéticas pendientes.
+
+Con las tres corridas, la disponibilidad desde la base y la aceptación de los correos agrupados cumplen SC-015 con infraestructura sana (p95 ≤ 2,0 s contra 30 s; aceptación ≤ 193 s contra 5 min). Siguen pendientes la observación directa de la lista y la campana en la UI y, para T206, la capacidad del pool de la aplicación (adquisiciones y espera), que esta muestra de conexiones de la base no reemplaza. T206, la parte SC-015 de T209 y OG-05 siguen abiertos.
+
+## Capacidad del pool de la aplicación durante una ráfaga en el piloto (2026-10-22)
+
+**Resultado: el pool de la aplicación no se acercó a su capacidad durante la ráfaga.** No hubo checkouts con el pool lleno, fallos de checkout ni conexiones retenidas: cada adquisición tuvo su liberación. Cada instancia de función usó como máximo 2 de sus 100 conexiones.
+
+### Instrumentación y condiciones
+
+- **Métricas del pool.** `createPostgresPool` registra ventanas de uso cuando `POSTGRES_POOL_METRICS_LOG_INTERVAL_MS` está definida ([convención](../../../docs/conventions/concurrency-observability-performance.htm)). Cada ventana trae checkouts, checkouts con el pool lleno, fallos, adquisiciones, liberaciones, tiempos de checkout, picos y conexiones retenidas al cierre. Se separa por pool (`runtime`, Better Auth y mantenimiento) y por instancia. Solo guarda contadores, tiempos y medidores. En producción la variable queda sin definir.
+- **Despliegue.** Con autorización del usuario se definió la variable en 5000 ms (no sensible) en el proyecto `tutribu-pilot`, se rotó `CRON_SECRET` y se redesplegó producción desde el commit `0f0d5ccb` (despliegue `dpl_Ae5bbnmWMfVwtdKjjedJgBjVZBfk`, funciones en `iad1`). El campo `region` de los logs dice `gru1`, que parece ser el borde de entrada y no la región de ejecución. Los checkouts que abren conexión tardaron 40–250 ms, compatibles con una función cerca de la base.
+- **Driver.** Entre las 22:50Z y las 23:29Z hizo 40 corridas, las 40 completas (200): 0,88 s en p50, 2,97 s en p95 y 3,44 s como máximo, sin minutos omitidos (intervalo máximo de 62,7 s).
+- **Ráfaga.** 18 cuentas `.test` nuevas (prefijo U), una ráfaga compartida con la observación de la UI del líder. Las 18 solicitudes quedaron registradas entre las 23:05:10Z y las 23:16:50Z, en las ventanas de las 23:05, 23:10 y 23:15. Los tres grupos de correo quedaron congelados.
+- **Lectura.** Los logs se leyeron con `vercel logs --json` cada 90 s, con 4 min de solapamiento, y se descartaron los duplicados. El [resumen saneado](admission-pool-pilot-burst.json) conserva los agregados.
+
+### Resultados durante la ráfaga (23:04:30Z–23:23Z)
+
+| Pool | Instancias | Checkouts | Con pool lleno | Fallos | Adquisiciones / liberaciones | Liberaciones con error | Checkout medio | Checkout máx. | Pico en uso por instancia |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `runtime` | 4 | 237 | 0 | 0 | 237 / 237 | 0 | 4,5 ms | 41,6 ms | 2 de 100 |
+| Better Auth | 4 | 274 | 0 | 0 | 274 / 274 | 0 | 7,5 ms | 250,1 ms | 2 de 100 |
+| Mantenimiento | 3 | 482 | 0 | 0 | 482 / 482 | 0 | 2,4 ms | 112,1 ms | 2 de 100 |
+
+- **Espera.** Ningún checkout esperó a que se liberara una conexión, así que la espera máxima con el pool lleno fue 0 ms. El pool de mantenimiento tuvo como pico un pedido en la cola interna de `pg-pool`, mientras se entregaba una conexión libre; su checkout más lento en esas ventanas tardó 37 ms. Los máximos de 112 ms y 250 ms corresponden a checkouts que abrieron una conexión nueva (TLS y guard de `idle_in_transaction_session_timeout`).
+- **Conexiones retenidas.** Ninguna ventana terminó con checkouts en cola. Solo una ventana de Better Auth terminó con una conexión en uso, porque una solicitud estaba en curso al cerrarse; las adquisiciones y liberaciones coinciden en todos los pools.
+- **Rotación.** Durante la ráfaga se abrieron 128 conexiones y se cerraron 121, por el idle de 5 s y el lifetime de 60 s del pool. Es churn esperado de funciones con tráfico intermitente, no presión.
+
+En toda la observación (22:50Z–23:27Z) los tres pools sumaron 2.012 checkouts, con los mismos ceros. El máximo anterior de 10 conexiones en `pg_stat_activity`, medido en la tercera corrida, es consistente con estos picos: a lo sumo 2 conexiones por pool e instancia, con 3 o 4 instancias por pool.
+
+### Observaciones aparte
+
+- Algo externo llamó a `/api/maintenance/admission-messaging` una vez por minuto, cerca del segundo :50, con un secreto que no es el vigente: 38 rechazos `maintenance_unauthorized` durante la observación, 18 de ellos en la ráfaga. No es el driver ni un proceso de la máquina del operador. El rechazo no afectó al driver, pero ese llamador debería identificarse y apagarse.
+- Las ventanas se emiten desde un temporizador de la instancia. Si Vercel suspende la instancia, la ventana puede abarcar el tiempo suspendido y aparecer en el log de la solicitud siguiente (mediana de 15 s, máximo de 593 s). Por eso la atribución por ruta del log no es la ruta que usó el pool.
+
+Con esto queda medida la capacidad del pool de la aplicación que T206 exige, con margen amplio. T206 sigue abierta por la observación directa de la lista y la campana del líder en la UI, y por la demora del correo agrupado que registró la cuarta corrida de SC-015.
+
+## Medición de SC-015 en el piloto cercano a la base (2026-10-22, cuarta corrida)
+
+**Resultado: SC-015 no queda acreditado.** Con el driver y el pool sanos, la disponibilidad desde la base vuelve a cumplir con margen. En cambio, un correo agrupado superó los 5 minutos, y la causa es estructural: el barrido que certifica las ventanas crece con las fuentes de avisos de la tribu. La lista de la bandeja en la UI tampoco pudo observarse con la pestaña visible durante una ráfaga. Solo quedó medida la reconciliación al recuperar el foco.
+
+### Condiciones
+
+- **Entorno y driver.** Producción de `tutribu-pilot` en `https://pilot.tutribu.app`, despliegue `dpl_Ae5bbnmWMfVwtdKjjedJgBjVZBfk` (commit `0f0d5ccb`, con la instrumentación del pool de T206). Una sola sesión rotó `CRON_SECRET`, redesplegó y manejó el único driver, una llamada por minuto desde las 22:50:24Z. Entre las 23:00 y las 23:30Z hubo 31 corridas, todas completas (200), sin 202, 503 ni minutos omitidos. La mayoría tardó entre 0,56 y 1,1 s; las cuatro más lentas (1,99–3,41 s) coinciden con los congelamientos y envíos. El pool de la aplicación no tuvo checkouts con el pool lleno ni fallos.
+- **Ráfaga U.** 18 cuentas `.test` nuevas (U01–U18), con el mismo método que las corridas anteriores, en las ventanas UTC de las 23:05, 23:10 y 23:15. Las 18 respondieron 201: 0,77 s en p50 y 1,15 s en p95 entre el clic y la respuesta (fuera de SC-015).
+- **Ráfagas cortas V, W y X.** Seis cuentas `.test` en cada una, a las 23:50Z, 00:00Z y 01:12Z, solo para intentar la observación de la UI. Las 18 respondieron 201, con p95 de 0,83 s, 0,90 s y 1,58 s. No se rotó el secreto ni se redesplegó para ellas.
+- **Observación.** El mismo observador de solo lectura, cada segundo, sobre la rama Neon del piloto, más un registrador en la pestaña del líder en Chrome. El registrador usa `MutationObserver`, `PerformanceObserver`, `visibilitychange`/`focus`/`blur` y una muestra por segundo de `document.visibilityState` y `document.hasFocus()`.
+
+### Disponibilidad desde la base
+
+| Medición | n | p50 | p95 | Máx. |
+| --- | --- | --- | --- | --- |
+| Solicitud visible desde otra conexión, desde `submitted_at` (U) | 18 | 0,42 s | 1,78 s | 1,78 s |
+| Aviso interno del líder visible, desde su creación (U) | 18 | 0,38 s | 1,58 s | 1,58 s |
+| Solicitud visible, ráfagas V/W/X | 18 | 1,15–1,35 s | 1,68–2,01 s | 2,01 s |
+| Aviso interno del líder visible, ráfagas V/W/X | 18 | 0,93–1,18 s | 1,51–1,71 s | 1,71 s |
+
+### Correos agrupados
+
+| Grupo | Ventana UTC | Creado | Congelado | Aceptado por el proveedor | Cierre → aceptado |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 23:05–23:10 | 23:07:25 | 23:12:25 | 23:12:28 | 148 s |
+| 2 | 23:10–23:15 | 23:11:25 | 23:19:25 | 23:19:26 | 266 s |
+| 3 | 23:15–23:20 | 23:17:25 | 23:25:25 | 23:25:26 | **326 s** |
+| 4 | 23:20–23:25 | 23:21:25 | 23:28:25 | 23:29:27 | 267 s |
+| V | 23:50–23:55 | — | — | 23:58:27 | 207 s |
+
+El grupo 4 recibió los avisos de U17 y U18, creados a las 23:16:30 y 23:16:50: esos dos correos salieron unos 13 minutos después de su aviso. Los grupos de W y X quedaron abiertos al terminar la observación, porque el driver se detuvo a las 24:00Z; se enviarán en la próxima corrida de mantenimiento.
+
+**Causa.** `readReadyGroups` congela un grupo solo cuando su ventana cerró antes de `last_certified_through_at`. Ese corte avanza únicamente al terminar un barrido completo de las fuentes (obligación × aviso) de las últimas 24 horas, y toma la hora en que ese barrido arrancó. Cada corrida avanza una página de `ADMISSION_NOTIFICATION_SOURCE_PAGE_SIZE` = 25 fuentes por tribu, y `readReadyGroups` corre antes de `collectPage`. Con S páginas, la demora va de S + 1 a 2S corridas, y una fuente nueva espera además al barrido siguiente para entrar en un grupo. En las cuatro corridas, 1 página dio 71 s, 2 páginas dieron entre 131 y 266 s, y 3 páginas dieron 206 y 326 s. A las 23:36:18Z, con 108 obligaciones en la ventana de reintento, el corte certificado iba casi 5 minutos atrás del reloj. Con más de unas 50 fuentes en 24 horas por tribu, el peor caso supera los 5 minutos aunque el driver esté sano. La corrección quedó integrada en `feature/academy-admissions-spec` con guidomodarelli/TuTribu#160, que certifica el barrido de forma incremental. El despliegue medido no la incluía.
+
+### Lista y campana en la UI
+
+El refresco de 15 s de la bandeja relee exactamente las páginas que el líder ya cargó (`loadedPageCount`). Se comprobó antes de la ráfaga con «Ver más solicitudes» y 3 páginas (54 pendientes): cada 15 s hubo una lectura sin cursor y dos con cursor de `/api/tribes/test/admissions/requests`, de 259 a 331 ms cada una, más `/api/notifications/unread-count`. Por eso se eligió cargar las páginas siguientes en lugar de vaciar la pendiente. El refresco exige además foco (`requireFocus`): con la ventana visible pero sin foco, también se pausa.
+
+Ninguna de las cuatro ráfagas tuvo la pestaña visible y con foco mientras llegaban las solicitudes:
+
+- **U.** A las 23:17Z, la extensión de Chrome se reconectó como otro navegador y la pestaña quedó fuera del grupo controlado. Más tarde la página se recargó y el registrador, que entonces vivía solo en memoria, se perdió. Desde ahí el registrador guarda su estado en `localStorage` cada segundo.
+- **V, W y X.** La pestaña de medición quedó oculta de 23:47:30 a 23:51:54, de 23:53:00 a 00:02:30 y de 01:06:28 a 01:17:40. Solo se volvía visible cuando el operador o la extensión la activaban. La persona que mantenía el foco también seguía las instrucciones en otra aplicación.
+
+Lo que sí quedó observado es la reconciliación al recuperar la visibilidad, que forma parte del mismo contrato de refresco:
+
+| Ráfaga | Pestaña visible y con foco | Solicitudes nuevas en la lista | Campana actualizada |
+| --- | --- | --- | --- |
+| V (V01–V03) | 23:51:54,9 | 23:51:56,5 (1,6 s) | — (ya mostraba «9+») |
+| W (W01–W06) | 00:02:30,9 | 00:02:32,9 (2,0 s) | — (ya mostraba «9+») |
+| X (X01–X06) | 01:17:40,0 | 01:17:42,2 (2,2 s) | 01:17:41,2, «6 sin leer» (1,2 s) |
+
+Antes de X, la campana estaba leída: «Notificaciones», sin contador, desde las 01:06:11Z. Al recuperar el foco mostró los 6 avisos nuevos en 1,2 s. Con la pestaña visible, la cota del camino periódico sigue siendo 15 s más una lectura por página cargada (cuatro lecturas de 0,26–0,44 s en serie, unos 17 s en total), contra los 30 s del objetivo. Esta corrida no agrega una observación directa de ese camino.
+
+### Pendiente
+
+- Desplegar en el piloto la certificación incremental del barrido (guidomodarelli/TuTribu#160) y volver a medir el cierre de ventana → aceptación con más de 50 fuentes en 24 horas.
+- Observar la lista y la campana por el camino periódico con la pestaña visible y con foco durante toda la ráfaga, en un equipo cuya ventana de Chrome no comparta el foco con la persona que coordina la medición.
+- T206, la parte SC-015 de T209 y OG-05 siguen abiertos.
+
+## Medición de SC-015 con la certificación incremental en el piloto (2026-10-23, quinta corrida)
+
+**Resultado: con la certificación incremental, la demora de los correos agrupados ya no crece con las fuentes.** Los tres grupos de la ráfaga se congelaron 120 s después del cierre de su ventana y el proveedor los aceptó a los 122 s. Había 78, 84 y 90 fuentes en las 24 horas previas. En la ráfaga U, con 42, 48 y 54 fuentes, la demora había sido de 145, 266 y 326 s. La disponibilidad desde la base y el pool siguen con margen amplio. Esta corrida no observó la lista ni la campana en la UI.
+
+### Condiciones
+
+- **Despliegue.** El checkout del piloto pasó a la punta de `origin/feature/academy-admissions-spec` (`d36525a7`). Esa punta incluye la certificación incremental (guidomodarelli/TuTribu#160) y las métricas del pool (guidomodarelli/TuTribu#158). Se conservaron solo los cambios locales de `vercel.json` (`regions: ["iad1"]` y `framework: nextjs`). Con autorización del usuario se rotó `CRON_SECRET` y se redesplegó producción de `tutribu-pilot`: despliegue `dpl_7hmbnjMHj3iDY2cxaomanhFeCJE5`, a las 01:33:59Z.
+- **Migraciones de la rama del piloto.** Antes de desplegar se aplicaron a `br-plain-recipe-ancx40v3` (y a ninguna otra rama) las tres migraciones pendientes: `20261022120000_read_own_admission_allowlist_facts`, `20261022210000_incremental_admission_notification_source_sweeps` y la vinculación de políticas a la mensajería seleccionada, hoy `20261022220000_bind_admission_policies_to_selected_messaging` en el journal ([#163](https://github.com/guidomodarelli/TuTribu/pull/163)). Esa última vinculó la única política sin conexión que había en el piloto.
+- **Barrido de reinicio.** La migración incremental borra el progreso de recolección, así que el primer barrido después del despliegue recorrió completas las 24 horas, con 72 fuentes en tres páginas. Terminó a las 01:36:00Z, sin fuentes no disponibles ni reintentos. En ese barrido entraron 12 avisos de las ráfagas W y X de la cuarta corrida (00:00–01:13Z), que nunca se habían recolectado porque el driver estaba detenido. Fueron a un solo grupo de la ventana 01:35–01:40, que se congeló y se aceptó a los 120 y 122 s de su cierre. Desde ahí cada corrida examina solo las fuentes nuevas.
+- **Driver.** Llamó una vez por minuto a `/api/maintenance/admission-messaging`, con el secreto solo en memoria. Entre las 01:34:02Z y las 02:02:01Z hizo 29 corridas, las 29 completas (200), con 0,82 s en p50, 3,05 s en p95 y 3,25 s como máximo. El intervalo máximo fue de 62,2 s, sin minutos omitidos. Se detuvo después de la aceptación del tercer grupo.
+- **Ráfaga.** 18 cuentas `.test` nuevas con el mismo método de las corridas anteriores, en las ventanas UTC de las 01:45, 01:50 y 01:55. Sus etiquetas internas repitieron el prefijo V, pero son cuentas distintas de la ráfaga corta V de la cuarta corrida. Las 18 respondieron 201, con 0,80 s en p50 y 1,28 s en p95 entre el clic y la respuesta (fuera de SC-015).
+- **Observación.** El mismo observador de solo lectura sobre la rama Neon del piloto, cada segundo. Los logs se leyeron con `vercel logs --json` cada 90 s, con 4 min de solapamiento, y se guardaron solo las ventanas del pool y los rechazos del mantenimiento, sin duplicados.
+
+### Correos agrupados
+
+| Grupo | Ventana UTC | Fuentes en 24 h al cierre | Cierre → congelado | Cierre → aceptado por el proveedor | Resultado |
+| --- | --- | ---: | ---: | ---: | --- |
+| 1 | 01:45–01:50 | 78 | 119,9 s | 121,9 s | `accepted` |
+| 2 | 01:50–01:55 | 84 | 120,2 s | 122,4 s | `accepted` |
+| 3 | 01:55–02:00 | 90 | 120,0 s | 121,6 s | `accepted` |
+
+Comparación con la ráfaga U de la cuarta corrida, con el barrido completo:
+
+| Ráfaga | Fuentes en 24 h | Cierre → congelado |
+| --- | --- | --- |
+| U (barrido completo, 25 fuentes por corrida) | 42 / 48 / 54 | 145 / 266 / 326 s |
+| Quinta corrida (barrido incremental) | 78 / 84 / 90 | 120 / 120 / 120 s |
+
+Cada grupo tuvo sus seis solicitudes, y cada aviso entró en su grupo en la corrida siguiente a su creación, a menos de un minuto. Con un 75 % más de fuentes que el peor caso de U, la demora fue la misma en los tres grupos. El congelamiento cae dos corridas después del cierre: el driver llamaba cerca del segundo :00 y una corrida coincidía con el cierre. La aceptación quedó a 2 s del congelamiento. La cota ya no depende del volumen de la tribu, sino del intervalo del driver: unas dos corridas más el envío, con margen frente a los 5 minutos.
+
+### Disponibilidad, driver y pool
+
+| Medición | n | p50 | p95 | Máx. |
+| --- | --- | --- | --- | --- |
+| Solicitud visible desde otra conexión, desde `submitted_at` | 18 | 0,66 s | 1,58 s | 1,58 s |
+| Aviso interno del líder visible, desde su creación | 18 | 0,69 s | 1,62 s | 1,62 s |
+
+Ventanas del pool de la aplicación durante la ráfaga (01:44:30Z–02:03Z), todas del despliegue nuevo:
+
+| Pool | Instancias | Checkouts | Con pool lleno | Fallos | Adquisiciones / liberaciones | Liberaciones con error | Checkout medio | Checkout máx. | Pico en uso por instancia |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `runtime` | 4 | 98 | 0 | 0 | 98 / 98 | 0 | 6,5 ms | 53 ms | 1 de 100 |
+| Better Auth | 4 | 142 | 0 | 0 | 142 / 142 | 0 | 7,2 ms | 139 ms | 1 de 100 |
+| Mantenimiento | 4 | 443 | 0 | 0 | 443 / 444 | 0 | 2,8 ms | 139,5 ms | 2 de 100 |
+
+- **Espera.** Ningún checkout esperó a que se liberara una conexión: la espera máxima con el pool lleno fue de 0 ms. El pool de mantenimiento llegó a tener un pedido en la cola interna de `pg-pool` mientras se entregaba una conexión libre. La liberación de más corresponde a un checkout adquirido en la ventana anterior al recorte. Los máximos de 139 ms corresponden a checkouts que abrieron una conexión nueva.
+- **Conexiones de la base.** En 473 muestras de `pg_stat_activity` hubo como máximo 5 conexiones de cliente abiertas, incluida la del observador, y nunca más de una `idle in transaction`.
+
+### Llamador externo del mantenimiento
+
+El llamador no identificado sigue activo. Desde las 01:30Z llamó a `/api/maintenance/admission-messaging` una vez por minuto, con un secreto que no es el vigente. Lo hizo tanto antes del redespliegue como después. Hubo 29 rechazos `maintenance_unauthorized` entre las 01:35:51Z y las 02:00:01Z, 17 de ellos durante la ráfaga. Su segundo de llegada se desplazó de :48 a :01 en esos 25 minutos, como un ciclo de 60 s más la duración de cada llamada. En la máquina del operador, el único proceso que llamaba a la ruta era el driver de esta corrida. El rechazo no afectó al driver, pero el llamador todavía tiene que identificarse y apagarse.
+
+### Pendiente
+
+- Observar la lista y la campana por el camino periódico con la pestaña del líder visible y con foco durante toda una ráfaga. Es la única parte de T206 y de SC-015 que sigue sin medición directa.
+- Identificar y apagar el llamador externo del mantenimiento.
+- T206, la parte SC-015 de T209 y OG-05 siguen abiertos solo por la observación de la UI. Ver el cierre siguiente.
+
+## Cierre de SC-015 y T206 (2026-10-23)
+
+**Resultado: SC-015 queda acreditado y T206 se cierra.** El usuario aceptó la cota medida de la lista y la campana en lugar de la observación directa del camino periódico, que no se logró en cuatro ráfagas porque la pestaña del líder no tuvo foco continuo (ver la cuarta corrida).
+
+| Objetivo de SC-015 | Evidencia con infraestructura sana | Resultado |
+| --- | --- | --- |
+| Aparición en bandeja y avisos internos p95 < 30 s | Desde la base: p95 ≤ 2,0 s en cinco corridas. Lista y campana en la UI: refresco cada 15 s de todas las páginas cargadas, con lecturas de 0,26–0,44 s por página (cota ≈ 17 s con cuatro páginas); al recuperar el foco, lista en 1,6–2,2 s y campana en 1,2 s. | Cumple por cota aceptada |
+| Correo agrupado aceptado ≤ 5 min desde el cierre de la ventana | Con la certificación incremental (guidomodarelli/TuTribu#160): 122 s en los tres grupos, con 78–90 fuentes en 24 h. | Cumple |
+
+T206 también reúne el driver frecuente autorizado y sano (29 de 29 y 31 de 31 corridas en 200, sin minutos omitidos) y la capacidad del pool de la aplicación (sin checkouts con el pool lleno ni fallos). OG-05 y RG-08 conservan sus propios criterios y no se cierran en este documento. Queda fuera de SC-015 identificar y apagar el llamador externo del mantenimiento, que usa un secreto anterior y recibe `maintenance_unauthorized`.

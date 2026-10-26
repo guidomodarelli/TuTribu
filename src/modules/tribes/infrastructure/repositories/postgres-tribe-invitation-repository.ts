@@ -1,7 +1,12 @@
-import { createHash } from "crypto";
+/** Persists and evaluates reusable invitations within their current tenant and admission scope. @module postgres-tribe-invitation-repository */
+import { hashTribeInvitationToken } from "../encryption/hash-tribe-invitation-token";
+import { TRIBE_INVITATION_DATABASE_CONTEXT } from "../../constants/tribe-invitation-database-context";
 import { sql } from "drizzle-orm";
 
 import { TRIBE_SUBSCRIPTION_PRODUCT_KEY } from "@/src/modules/subscriptions/constants/subscriptions";
+import { lockLegacyTribeEntry } from "./legacy-tribe-entry-lock";
+import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
+import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 
 import {
   TRIBE_INVITATION_STATUS,
@@ -111,10 +116,6 @@ const INVITATION_ROUTE = {
   inviteSegment: "/invitar/",
 } as const;
 
-const INVITATION_DATABASE_CONTEXT_SETTING = {
-  currentInvitationHash: "app.current_invitation_hash",
-} as const;
-
 const POSTGRES_ERROR_CODE = {
   undefinedColumn: "42703",
   undefinedFunction: "42883",
@@ -128,10 +129,6 @@ const POSTGRES_INTEGRITY_ERROR_CODE = {
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function hashInvitationToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
 
 function isValidInvitationId(invitationId: string): boolean {
   return UUID_PATTERN.test(invitationId);
@@ -328,6 +325,7 @@ function mapRevocationResult(row: InvitationStatusRow | null): TribeInvitationRe
 
 function mapAcceptanceResult(row: InvitationStatusRow | null): TribeInvitationAcceptanceResult {
   if (
+    row?.status === TRIBE_INVITATION_STATUS.admissionRequired ||
     row?.status === TRIBE_INVITATION_STATUS.accepted ||
     row?.status === TRIBE_INVITATION_STATUS.blocked ||
     row?.status === TRIBE_INVITATION_STATUS.invalid ||
@@ -571,7 +569,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
     command: CreateTribeInvitationCommand
   ): Promise<TribeInvitationCreationResult> {
     return this.executeWithDatabase(async (database) => {
-      const tokenHash = hashInvitationToken(command.token);
+      const tokenHash = hashTribeInvitationToken(command.token);
       const tokenEncrypted = encryptInvitationToken(command.token);
       const invitationUrl = createInvitationUrl(
         command.baseUrl,
@@ -977,16 +975,28 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
     });
   }
 
+  /**
+   * Preserves readable membership and delegates every new academy arrival to common admission.
+   * @param command - Server-normalized slug and opaque invitation token; token is never logged.
+   * @returns A stable acceptance/revocation/rejection or payment-required outcome.
+   */
   async accept(
     command: AcceptTribeInvitationCommand
   ): Promise<TribeInvitationAcceptanceResult> {
     return this.executeWithDatabase(async (database) => {
-      const tokenHash = hashInvitationToken(command.token);
+      await lockLegacyTribeEntry(database,command.tribeSlug);
+      const membership = (await database.execute<{ status: string }>(sql`
+        select member.status from public.tribe_members member
+        join public.tribes tribe on tribe.id=member.tribe_id
+        where tribe.slug=${command.tribeSlug} and member.user_id=public.current_app_user_id()
+      `)).rows[0];
+      if (membership?.status === TRIBE_MEMBERSHIP_STATUS.active || membership?.status === TRIBE_MEMBERSHIP_STATUS.muted) return { status: TRIBE_INVITATION_STATUS.accepted };
+      const tokenHash = hashTribeInvitationToken(command.token);
       const result = await database.execute(sql`
         with invitation_acceptance_context as (
           select
             set_config(
-              ${INVITATION_DATABASE_CONTEXT_SETTING.currentInvitationHash},
+              ${TRIBE_INVITATION_DATABASE_CONTEXT.currentInvitationHash},
               ${tokenHash},
               true
             )
@@ -1007,6 +1017,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           select
             tribes.id,
             tribes.free_join_is_current,
+            tribes.admissions_control_activated_at,
             public.tribe_uses_academy_access(tribes.id) as uses_academy_access,
             coalesce(
               (
@@ -1042,6 +1053,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           where tribe_subscription_prices.status = 'active'
             and tribe_subscription_prices.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             and target_tribe.uses_academy_access = false
+            and target_tribe.admissions_control_activated_at is null
             and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
             and (
               (
@@ -1059,11 +1071,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         invitation_grants_free_access as (
           select 1
           from target_invitation, target_tribe
-          where (
-            target_tribe.uses_academy_access = true
-            and target_tribe.academy_admission_enabled = true
-          )
-          or (
+          where target_tribe.admissions_control_activated_at is null and (
             target_tribe.uses_academy_access = false
             and (
               target_invitation.subscription_association_type = ${TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.free}
@@ -1105,7 +1113,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         reactivated_membership as (
           update public.tribe_members
           set
-            status = 'active',
+            status = tribe_members.commercial_recovery_status,
             status_reason = 'none',
             joined_via_invitation_id = target_invitation.id,
             joined_via = 'free_invitation'
@@ -1117,6 +1125,8 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             and target_invitation.status = ${TRIBE_INVITATION_STATUS.active}
             and public.current_app_user_id() <> ''
             and exists (select 1 from invitation_grants_free_access)
+            and tribe_members.role=${TRIBE_MEMBER_ROLE.tribemate}
+            and tribe_members.commercial_recovery_status in (${TRIBE_MEMBERSHIP_STATUS.active},${TRIBE_MEMBERSHIP_STATUS.muted})
             and exists (
               select 1 from existing_membership
               where (
@@ -1155,6 +1165,8 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             when exists (
               select 1 from existing_membership where status in ('active', 'muted')
             ) then ${TRIBE_INVITATION_STATUS.accepted}
+            when exists (select 1 from target_tribe where uses_academy_access=true)
+              and exists (select 1 from target_invitation where status=${TRIBE_INVITATION_STATUS.active}) then ${TRIBE_INVITATION_STATUS.admissionRequired}
             when exists (select 1 from inserted_membership) then ${TRIBE_INVITATION_STATUS.accepted}
             when exists (select 1 from reactivated_membership) then ${TRIBE_INVITATION_STATUS.accepted}
             when exists (
@@ -1177,12 +1189,12 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
     tribeSlug: string;
   }): Promise<TribeInvitationSubscriptionOfferResult> {
     return this.executeWithDatabase(async (database) => {
-      const tokenHash = hashInvitationToken(command.token);
+      const tokenHash = hashTribeInvitationToken(command.token);
       const result = await database.execute(sql`
         with invitation_offer_context as (
           select
             set_config(
-              ${INVITATION_DATABASE_CONTEXT_SETTING.currentInvitationHash},
+              ${TRIBE_INVITATION_DATABASE_CONTEXT.currentInvitationHash},
               ${tokenHash},
               true
             )

@@ -1,0 +1,199 @@
+{
+  "date": "2026-10-18",
+  "kind": "actual_node_host_restore_failed_diagnostic_trial",
+  "sourceCommit": "247cb4f8f30a59683918163c63575936f0ae1069",
+  "passed": false,
+  "passedTests": 0,
+  "failedTests": 1,
+  "skippedTests": 0,
+  "durationMs": 968293,
+  "completedPhases": [
+    {
+      "phase": "baseline",
+      "operationId": "e3ede920-a902-42ad-af72-8480e16a1094",
+      "slug": "msgrestoreba052a1f0",
+      "sourceCommit": "247cb4f8f30a59683918163c63575936f0ae1069",
+      "bundleSha256": "20a73e4795800e9372b6c2d3c4b786ae55b396e29de1101260531e2a8886538c",
+      "observation": {
+        "state": "completed",
+        "work_runs": 1,
+        "cipher_operations": 1,
+        "checked_rejections": 1,
+        "provider_requests": 0,
+        "invitation_round_trip": true,
+        "runtime_version": "24.16.0",
+        "source_commit": "247cb4f8f30a59683918163c63575936f0ae1069",
+        "bundle_sha256": "20a73e4795800e9372b6c2d3c4b786ae55b396e29de1101260531e2a8886538c"
+      }
+    },
+    {
+      "phase": "locked",
+      "operationId": "2df0c590-b5cb-472e-89f0-233e980ae53a",
+      "slug": "msgrestore49720da70",
+      "sourceCommit": "247cb4f8f30a59683918163c63575936f0ae1069",
+      "bundleSha256": "20a73e4795800e9372b6c2d3c4b786ae55b396e29de1101260531e2a8886538c",
+      "observation": {
+        "state": "completed",
+        "work_runs": 1,
+        "cipher_operations": 0,
+        "checked_rejections": 5,
+        "provider_requests": 0,
+        "invitation_round_trip": false,
+        "runtime_version": "24.16.0",
+        "source_commit": "247cb4f8f30a59683918163c63575936f0ae1069",
+        "bundle_sha256": "20a73e4795800e9372b6c2d3c4b786ae55b396e29de1101260531e2a8886538c"
+      }
+    },
+    {
+      "phase": "locked_original",
+      "operationId": "ef77c70c-11ad-4c34-b2b9-e3ce8b853093",
+      "slug": "msgrestore7334b4d60",
+      "sourceCommit": "247cb4f8f30a59683918163c63575936f0ae1069",
+      "bundleSha256": "20a73e4795800e9372b6c2d3c4b786ae55b396e29de1101260531e2a8886538c",
+      "observation": {
+        "state": "completed",
+        "work_runs": 1,
+        "cipher_operations": 0,
+        "checked_rejections": 5,
+        "provider_requests": 0,
+        "invitation_round_trip": false,
+        "runtime_version": "24.16.0",
+        "source_commit": "247cb4f8f30a59683918163c63575936f0ae1069",
+        "bundle_sha256": "20a73e4795800e9372b6c2d3c4b786ae55b396e29de1101260531e2a8886538c"
+      }
+    }
+  ],
+  "requests": [
+    {
+      "phase": "baseline",
+      "method": "GET",
+      "stage": "prepared",
+      "status": 202
+    },
+    {
+      "phase": "baseline",
+      "method": "POST",
+      "stage": "run",
+      "status": 200
+    },
+    {
+      "phase": "baseline",
+      "method": "GET",
+      "stage": "original_after_run",
+      "status": 200
+    },
+    {
+      "phase": "baseline",
+      "method": "POST",
+      "stage": "known_completed_replay",
+      "status": 200
+    },
+    {
+      "phase": "locked",
+      "method": "GET",
+      "stage": "prepared",
+      "status": 202
+    },
+    {
+      "phase": "locked",
+      "method": "GET",
+      "stage": "external_profile_after_restore",
+      "status": 202
+    },
+    {
+      "phase": "locked",
+      "method": "POST",
+      "stage": "run",
+      "status": 200
+    },
+    {
+      "phase": "locked",
+      "method": "GET",
+      "stage": "original_after_run",
+      "status": 200
+    },
+    {
+      "phase": "locked",
+      "method": "POST",
+      "stage": "known_completed_replay",
+      "status": 200
+    },
+    {
+      "phase": "locked_original",
+      "method": "GET",
+      "stage": "prepared",
+      "status": 202
+    },
+    {
+      "phase": "locked_original",
+      "method": "POST",
+      "stage": "run",
+      "status": 200
+    },
+    {
+      "phase": "locked_original",
+      "method": "GET",
+      "stage": "original_after_run",
+      "status": 200
+    },
+    {
+      "phase": "locked_original",
+      "method": "POST",
+      "stage": "known_completed_replay",
+      "status": 200
+    },
+    {
+      "phase": "epoch",
+      "method": "GET",
+      "stage": "prepared",
+      "status": 202
+    },
+    {
+      "phase": "epoch",
+      "method": "POST",
+      "stage": "run",
+      "status": 500,
+      "code": "restored_policy_not_closed"
+    },
+    {
+      "phase": "epoch",
+      "method": "GET",
+      "stage": "original_after_run",
+      "status": 500
+    }
+  ],
+  "profileOutsideSqlSurvivedRestore": true,
+  "failure": {
+    "stage": "run_epoch",
+    "name": "AcademyAdmissionRestoreError",
+    "code": "restored_policy_not_closed",
+    "causes": [
+      {
+        "name": "AcademyAdmissionRestoreError",
+        "code": null
+      },
+      {
+        "name": "MessagingNodeHostFailure",
+        "code": "restored_policy_not_closed"
+      }
+    ]
+  },
+  "specificFailureCodePreserved": true,
+  "diagnosis": "harness_confused_informational_inventory_preflight_with_connection_readiness",
+  "productRulesChanged": false,
+  "inputsStable": true,
+  "privateMaterialAbsent": true,
+  "cleanup": {
+    "functionsRemoved": true,
+    "ownTemporaryBranchesAbsent": true,
+    "originalBranches": 4,
+    "currentBranches": 4,
+    "originalBranchesPreserved": true,
+    "confirmationSource": "independent_neon_api_inventory_after_terminal_trial"
+  },
+  "completeRestoreAndReopeningScenarioPassed": false,
+  "hostedWorkersRestoreValidated": false,
+  "realMessages": 0,
+  "privateMaterialIncluded": false,
+  "operationalGatesClosed": []
+}

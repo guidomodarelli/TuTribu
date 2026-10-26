@@ -165,6 +165,8 @@ describe("GET /api/tribes/[slug]/messages", () => {
     const response = await GET(new Request(`${BASE_URL}?channel=ronda`), routeContext());
 
     expect(getTribePageAccess).toHaveBeenCalledWith({
+      // The round is a channel surface: the channel access rule decides it.
+      allowWithChannelReadAccess: true,
       isAuthenticated: true,
       slug: "matematica-pro",
     });

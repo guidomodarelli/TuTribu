@@ -1,0 +1,322 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-readable-dates",
+    "commit": "fa7cb142183cf6b7cfab79a8ad7ab7095384e455",
+    "fingerprint": "sha256:3e5a5d6eab517bb5fc3c3adfa4b639986685d0abca3de86a76a86fdf161d2302",
+    "uncommittedFiles": [],
+    "fileCount": 293,
+    "inputCount": 1827
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admissions-verification.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx tests/unit/components/academy-admissions-usage.test.tsx tests/unit/components/academy-admissions-usage-configuration.test.tsx tests/unit/lib/buenos-aires-format.test.ts tests/unit/modules/shared/application/buenos-aires-minute.test.ts tests/unit/modules/academy-admissions/application/personal-invitation-management-intent.test.ts",
+      "durationMs": 67160,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "72449d5ac855dbbaa4c9010c6b52d56385f60de2b609e45ae49e9986d4e71a1f",
+      "recordedAt": "2026-10-25T05:58:55.276Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "command": "pnpm run -s typecheck",
+      "durationMs": 3034,
+      "exitCode": 0,
+      "kind": "command",
+      "outcome": "pass",
+      "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
+      "recordedAt": "2026-10-25T05:58:58.880Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T05:58:59.468Z",
+      "source": "attested",
+      "summary": "Copy de fechas: las cuentas regresivas se leen en minutos, las fechas se muestran en hora de Argentina con el formato corto del producto, el vencimiento de la invitación se propone y se valida en hora de Argentina y rechaza minutos inexistentes; sin cambios de operaciones, estados ni boundaries."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T05:59:00.086Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: antes, «Vencimiento del enlace (fecha y hora UTC)», vigencia «2026-11-01T04:48:00.000Z (UTC)», «día UTC» y «2026-10-25 04:47:57.580 UTC»; después, «(hora de Argentina)», «01 nov 2026 · 01:54», «de 21:00 a 21:00 (hora de Argentina)», «Consumo del día» y «Período iniciado el 24 oct 2026 · 21:00» (4/4)."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T05:59:02.438Z",
+  "result": "verified",
+  "runId": "20261025T055747Z-c6ebf4",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "40 relevant change(s) since the verified run"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "components/academy-admissions/invitation-management/index.tsx#formatInvitationExpiry",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/invitation-management/index.tsx#InvitationManagement~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#DATE_KEY_FORMATTER",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#DATE_PART.day",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#DATE_PART.month",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#DATE_PART.year",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#DATE_PART~frame",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#DATE_TIME_SEPARATOR",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.hourCycle",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.numeric",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.short",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION.twoDigit",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#FORMAT_OPTION~frame",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#formatBuenosAiresDateTime",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#formatBuenosAiresShortDate",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#formatBuenosAiresTime",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#LOCALE.machine",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#LOCALE.spanish",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#LOCALE~frame",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#readPart",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#SHORT_DATE_FORMATTER",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#stripTrailingPeriod",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#TIME_FORMATTER",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/date-time/buenos-aires-format.ts#TRAILING_PERIOD_PATTERN",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/date-time.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/date-time.ts#BUENOS_AIRES_TIME_ZONE",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/date-time.ts#BUENOS_AIRES_UTC_OFFSET",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts#emptyPersonalInvitationManagementDraft",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts#preparePersonalInvitationManagementIntent~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_DATE.minuteCharacters",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_DATE.minutePattern",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_DATE.utcSuffix",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts#PERSONAL_INVITATION_MANAGEMENT_DATE~frame",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#BUENOS_AIRES_MINUTE_KEY_PATTERN",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#fromBuenosAiresMinuteKey",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#MINUTE_KEY_FORMATTER",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#SECONDS_SUFFIX",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/application/date-time/buenos-aires-minute.ts#toBuenosAiresMinuteKey",
+        "reason": "new code rendered by the route"
+      }
+    ],
+    "suggestedScope": [
+      "components/academy-admissions/invitation-management/index.tsx › formatInvitationExpiry — server/client split and awaited work of this code in every route of the unit",
+      "components/academy-admissions/invitation-management/index.tsx › InvitationManagement (component body outside its handlers) — what this component renders: hooks that force a client island, awaited data, Suspense and the client components it imports",
+      "lib/date-time/buenos-aires-format.ts (module directives and side effects) — where the server/client boundary falls (\"use client\", \"use server\") and what the client bundle imports through it",
+      "lib/date-time/buenos-aires-format.ts › DATE_KEY_FORMATTER — server/client split and awaited work of this code in every route of the unit",
+      "lib/date-time/buenos-aires-format.ts › DATE_PART.day — route configuration read from this member, in every segment that uses it",
+      "lib/date-time/buenos-aires-format.ts › DATE_PART.month — route configuration read from this member, in every segment that uses it",
+      "lib/date-time/buenos-aires-format.ts › DATE_PART.year — route configuration read from this member, in every segment that uses it",
+      "lib/date-time/buenos-aires-format.ts › DATE_PART (object structure) — server/client split and awaited work of this code in every route of the unit",
+      "lib/date-time/buenos-aires-format.ts › DATE_TIME_SEPARATOR — server/client split and awaited work of this code in every route of the unit",
+      "lib/date-time/buenos-aires-format.ts › FORMAT_OPTION.hourCycle — route configuration read from this member, in every segment that uses it",
+      "lib/date-time/buenos-aires-format.ts › FORMAT_OPTION.numeric — route configuration read from this member, in every segment that uses it",
+      "lib/date-time/buenos-aires-format.ts › FORMAT_OPTION.short — route configuration read from this member, in every segment that uses it",
+      "lib/date-time/buenos-aires-format.ts › FORMAT_OPTION.twoDigit — route configuration read from this member, in every segment that uses it",
+      "lib/date-time/buenos-aires-format.ts › FORMAT_OPTION (object structure) — server/client split and awaited work of this code in every route of the unit",
+      "lib/date-time/buenos-aires-format.ts › formatBuenosAiresDateTime — server/client split and awaited work of this code in every route of the unit",
+      "lib/date-time/buenos-aires-format.ts › formatBuenosAiresShortDate — server/client split and awaited work of this code in every route of the unit",
+      "lib/date-time/buenos-aires-format.ts › formatBuenosAiresTime — server/client split and awaited work of this code in every route of the unit",
+      "lib/date-time/buenos-aires-format.ts › LOCALE.machine — route configuration read from this member, in every segment that uses it",
+      "lib/date-time/buenos-aires-format.ts › LOCALE.spanish — route configuration read from this member, in every segment that uses it",
+      "lib/date-time/buenos-aires-format.ts › LOCALE (object structure) — server/client split and awaited work of this code in every route of the unit",
+      "lib/date-time/buenos-aires-format.ts › readPart — server/client split and awaited work of this code in every route of the unit",
+      "lib/date-time/buenos-aires-format.ts › SHORT_DATE_FORMATTER — server/client split and awaited work of this code in every route of the unit",
+      "lib/date-time/buenos-aires-format.ts › stripTrailingPeriod — server/client split and awaited work of this code in every route of the unit",
+      "lib/date-time/buenos-aires-format.ts › TIME_FORMATTER — server/client split and awaited work of this code in every route of the unit",
+      "lib/date-time/buenos-aires-format.ts › TRAILING_PERIOD_PATTERN — server/client split and awaited work of this code in every route of the unit",
+      "src/constants/date-time.ts (module directives and side effects) — where the server/client boundary falls (\"use client\", \"use server\") and what the client bundle imports through it",
+      "src/constants/date-time.ts › BUENOS_AIRES_TIME_ZONE — server/client split and awaited work of this code in every route of the unit",
+      "src/constants/date-time.ts › BUENOS_AIRES_UTC_OFFSET — server/client split and awaited work of this code in every route of the unit",
+      "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts › emptyPersonalInvitationManagementDraft — server/client split and awaited work of this code in every route of the unit",
+      "src/modules/academy-admissions/application/commands/prepare-personal-invitation-management-intent.ts › preparePersonalInvitationManagementIntent (component body outside its handlers) — what this component renders: hooks that force a client island, awaited data, Suspense and the client components it imports",
+      "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts › PERSONAL_INVITATION_MANAGEMENT_DATE.minuteCharacters — what the route lost: a layout, a boundary, a Suspense fallback or a client island; check that each state still has its boundary",
+      "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts › PERSONAL_INVITATION_MANAGEMENT_DATE.minutePattern — what the route lost: a layout, a boundary, a Suspense fallback or a client island; check that each state still has its boundary",
+      "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts › PERSONAL_INVITATION_MANAGEMENT_DATE.utcSuffix — what the route lost: a layout, a boundary, a Suspense fallback or a client island; check that each state still has its boundary",
+      "src/modules/academy-admissions/constants/personal-invitation-management-browser.ts › PERSONAL_INVITATION_MANAGEMENT_DATE (object structure) — what the route lost: a layout, a boundary, a Suspense fallback or a client island; check that each state still has its boundary",
+      "src/modules/shared/application/date-time/buenos-aires-minute.ts (module directives and side effects) — where the server/client boundary falls (\"use client\", \"use server\") and what the client bundle imports through it",
+      "src/modules/shared/application/date-time/buenos-aires-minute.ts › BUENOS_AIRES_MINUTE_KEY_PATTERN — server/client split and awaited work of this code in every route of the unit",
+      "src/modules/shared/application/date-time/buenos-aires-minute.ts › fromBuenosAiresMinuteKey — server/client split and awaited work of this code in every route of the unit",
+      "src/modules/shared/application/date-time/buenos-aires-minute.ts › MINUTE_KEY_FORMATTER — server/client split and awaited work of this code in every route of the unit",
+      "src/modules/shared/application/date-time/buenos-aires-minute.ts › SECONDS_SUFFIX — server/client split and awaited work of this code in every route of the unit",
+      "src/modules/shared/application/date-time/buenos-aires-minute.ts › toBuenosAiresMinuteKey — server/client split and awaited work of this code in every route of the unit"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "e456ce5fb1266d0e",
+      "references/decision-rules.md": "5340413b30d4e7a7",
+      "references/nextjs-apis.md": "7d812e101f16defe",
+      "references/server-client-split.md": "7f52ba9f6a13308d",
+      "references/skeleton-patterns.md": "65d4c31f0f8beb93",
+      "references/version-notes.md": "b6f6488947de60f0"
+    },
+    "definitionHash": "sha256:a3b7fb0dda3a877474c7910f4914469c8cb9a94700aa9d750e81067d96406ed1",
+    "name": "nextjs-route-ui-boundaries",
+    "version": "1.3.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T05:57:47.505Z",
+  "unitId": "academy.admissions.invitations.manage"
+}

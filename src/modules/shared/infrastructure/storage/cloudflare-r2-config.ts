@@ -1,4 +1,4 @@
-const CLOUDFLARE_R2_ENV = {
+export const CLOUDFLARE_R2_ENV = {
   accessKeyId: "CLOUDFLARE_R2_ACCESS_KEY_ID",
   accountId: "CLOUDFLARE_ACCOUNT_ID",
   bucketName: "CLOUDFLARE_R2_BUCKET_NAME",

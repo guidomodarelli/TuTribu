@@ -11,6 +11,7 @@ import type {
 import type {
   CreateTribeMessageRepositoryCommand,
   MessageCreationRepository,
+  MessagePublicationKeyQuery,
 } from "@/src/modules/messages/domain/repositories/message-creation-repository";
 import type {
   MessageContentUpdateRepository,
@@ -117,6 +118,7 @@ type CreatedMessageRow = MutationStatusRow & {
   poll_allow_multiple_votes: boolean | null;
   poll_id: string | null;
   poll_options: CreatedPollOptionRow[] | null;
+  replayed_message_id?: string | null;
 };
 
 type CreatedPollOptionRow = {
@@ -404,13 +406,30 @@ export class PostgresMessageMutationRepository
     return this.createMessage(command);
   }
 
+  async findPublicationByClientRequestId(query: MessagePublicationKeyQuery): Promise<string | null> {
+    return this.executeWithDatabase(async (database) => {
+      const storedResult = await database.execute(sql`
+        select messages.id
+        from public.messages
+        inner join public.tribes
+          on tribes.id = messages.tribe_id
+        where tribes.slug = ${query.tribeSlug}
+          and messages.author_id = ${query.authorId}
+          and messages.client_request_id = ${query.clientRequestId}::uuid
+        limit 1
+      `);
+
+      return ((storedResult.rows?.[0] ?? null) as { id: string } | null)?.id ?? null;
+    });
+  }
+
   async toggle(command: ToggleMessageLikeCommand): Promise<MessageLikeToggleResult> {
     return this.executeWithDatabase(async (database) => {
       const targetMessageResult = await database.execute(sql`
         select
           messages.id as message_id,
           messages.tribe_id,
-          public.is_active_tribe_member(messages.tribe_id) as can_write
+          public.can_write_tribe_channel(messages.channel_id) as can_write
         from public.messages
         inner join public.tribes
           on tribes.id = messages.tribe_id
@@ -432,19 +451,20 @@ export class PostgresMessageMutationRepository
         };
       }
 
-      const deletedReactionResult = await database.execute(sql`
-        delete from public.message_reactions
-        where message_reactions.message_id = ${targetMessage.message_id}
-          and message_reactions.user_id = ${command.userId}
-          and message_reactions.type = ${MESSAGE_REACTION_TYPE.like}
-        returning message_reactions.id
-      `);
-      const deletedReaction = (deletedReactionResult.rows?.[0] ?? null) as
-        | DeletedReactionRow
-        | null;
       let status: typeof MESSAGE_MUTATION_STATUS.liked | typeof MESSAGE_MUTATION_STATUS.unliked;
+      // A desired "liked" never deletes, so repeating it after a lost response keeps the like.
+      const deletedReaction = command.liked === true
+        ? null
+        : ((await database.execute(sql`
+          delete from public.message_reactions
+          where message_reactions.message_id = ${targetMessage.message_id}
+            and message_reactions.user_id = ${command.userId}
+            and message_reactions.type = ${MESSAGE_REACTION_TYPE.like}
+          returning message_reactions.id
+        `)).rows?.[0] ?? null) as DeletedReactionRow | null;
 
-      if (deletedReaction) {
+      // A desired "not liked" never inserts, whether or not a like existed.
+      if (deletedReaction || command.liked === false) {
         status = MESSAGE_MUTATION_STATUS.unliked;
       } else {
         await database.execute(sql`
@@ -684,7 +704,7 @@ export class PostgresMessageMutationRepository
             (
               (
                 messages.author_id = ${command.userId}
-                and public.is_active_tribe_member(messages.tribe_id)
+                and public.can_write_tribe_channel(messages.channel_id)
               )
               or public.can_pin_tribe_messages(messages.tribe_id)
             ) as can_delete
@@ -793,7 +813,7 @@ export class PostgresMessageMutationRepository
             messages.tribe_id,
             (
               messages.author_id = ${command.userId}
-              and public.is_active_tribe_member(messages.tribe_id)
+              and public.can_write_tribe_channel(messages.channel_id)
             ) as can_edit,
             existing_poll.id as poll_id,
             existing_poll.allow_multiple_votes as poll_allow_multiple_votes,
@@ -992,6 +1012,8 @@ export class PostgresMessageMutationRepository
   private async createMessage(
     command: CreateTribeMessageRepositoryCommand
   ): Promise<MessageCreationResult> {
+    const clientRequestId = command.clientRequestId ?? null;
+
     try {
       return await this.executeWithDatabase(async (database) => {
         const messageResult = await database.execute(sql`
@@ -1015,13 +1037,24 @@ export class PostgresMessageMutationRepository
           where tribe_channels.id = ${command.channelId}
           limit 1
         ),
+        replayed_message as (
+          select messages.id
+          from public.messages
+          inner join target_tribe
+            on target_tribe.id = messages.tribe_id
+          where ${clientRequestId}::uuid is not null
+            and messages.author_id = ${command.authorId}
+            and messages.client_request_id = ${clientRequestId}::uuid
+          limit 1
+        ),
         inserted_message as (
-          insert into public.messages (tribe_id, channel_id, author_id, title, content, created_at, updated_at)
-          select target_tribe.id, target_channel.id, ${command.authorId}, ${command.title}, ${command.content}, timezone('utc', now()), timezone('utc', now())
+          insert into public.messages (tribe_id, channel_id, author_id, title, content, client_request_id, created_at, updated_at)
+          select target_tribe.id, target_channel.id, ${command.authorId}, ${command.title}, ${command.content}, ${clientRequestId}::uuid, timezone('utc', now()), timezone('utc', now())
           from target_tribe
           inner join target_channel
             on true
-          where public.is_active_tribe_member(target_tribe.id)
+          where public.can_write_tribe_channel(target_channel.id)
+          on conflict (author_id, client_request_id) where client_request_id is not null do nothing
           returning id, tribe_id, channel_id, author_id, title, content, created_at
         ),
         created_message as (
@@ -1053,6 +1086,11 @@ export class PostgresMessageMutationRepository
         select
           case
             when exists (select 1 from inserted_message) then ${MESSAGE_MUTATION_STATUS.created}
+            when exists (select 1 from replayed_message) then ${MESSAGE_MUTATION_STATUS.replayed}
+            -- The key conflicted with a publication committed concurrently, outside this statement's snapshot.
+            when ${clientRequestId}::uuid is not null
+              and exists (select 1 from target_channel where public.can_write_tribe_channel(target_channel.id))
+              then ${MESSAGE_MUTATION_STATUS.replayed}
             when not exists (select 1 from target_tribe) then ${MESSAGE_MUTATION_STATUS.notFound}
             when not exists (select 1 from target_channel) then ${MESSAGE_MUTATION_STATUS.invalidChannel}
             else ${MESSAGE_MUTATION_STATUS.forbidden}
@@ -1071,7 +1109,8 @@ export class PostgresMessageMutationRepository
           created_message.author_id,
           created_message.author_name,
           created_message.author_image,
-          created_message.author_role
+          created_message.author_role,
+          (select replayed_message.id from replayed_message) as replayed_message_id
         from (select 1) result
         left join created_message
           on true
@@ -1079,6 +1118,10 @@ export class PostgresMessageMutationRepository
         const createdMessage = (messageResult.rows?.[0] ?? null) as
           | CreatedMessageRow
           | null;
+
+      if (createdMessage?.status === MESSAGE_MUTATION_STATUS.replayed) {
+        return { messageId: createdMessage.replayed_message_id ?? null, status: MESSAGE_MUTATION_STATUS.replayed };
+      }
 
       if (
         createdMessage?.status !== MESSAGE_MUTATION_STATUS.created ||
@@ -1502,7 +1545,7 @@ export class PostgresMessageMutationRepository
         message_polls.id as poll_id,
         message_polls.tribe_id,
         message_polls.allow_multiple_votes,
-        public.is_active_tribe_member(message_polls.tribe_id) as can_write
+        public.can_write_tribe_channel(messages.channel_id) as can_write
       from public.message_polls
       inner join public.messages
         on messages.id = message_polls.message_id
@@ -1647,7 +1690,7 @@ export class PostgresMessageMutationRepository
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         with target_message as (
-          select messages.id, messages.tribe_id
+          select messages.id, messages.tribe_id, messages.channel_id
           from public.messages
           inner join public.tribes
             on tribes.id = messages.tribe_id
@@ -1659,7 +1702,7 @@ export class PostgresMessageMutationRepository
           insert into public.message_replies (message_id, tribe_id, author_id, content, created_at)
           select target_message.id, target_message.tribe_id, ${command.authorId}, ${command.content}, timezone('utc', now())
           from target_message
-          where public.is_active_tribe_member(target_message.tribe_id)
+          where public.can_write_tribe_channel(target_message.channel_id)
           returning id, tribe_id, author_id, content, created_at
         ),
         created_reply as (

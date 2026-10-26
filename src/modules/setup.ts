@@ -1,6 +1,14 @@
 import { buildAuthModule } from "./auth/setup";
 import { BetterAuthSessionRepository } from "./auth/infrastructure/repositories/better-auth-session-repository";
-import { buildTribesModule } from "./tribes/setup";
+import {createRequestAuthenticatedAccountProvider} from "./auth/infrastructure/composition/authenticated-account-provider";
+import { readMessagingRecoveryLock, readMessagingHostingSecurityConfig,readMessagingHostingSecurityFacts } from "./messaging/infrastructure/config/messaging-hosting-security";
+import { buildTribesModule, buildTribeLeadershipModule, buildTribeMembershipLifecycleModule, buildTribeLifecycleModule } from "./tribes/setup";
+import { TribeLifecycleError } from "./tribes/domain/errors/tribe-lifecycle-error";
+import { TRIBE_LIFECYCLE_ERROR } from "./tribes/constants/tribe-lifecycle";
+import { AdmissionOperationError } from "./academy-admissions/domain/errors/admission-operation-error";
+import { ADMISSION_ERROR_CODE } from "./academy-admissions/constants/admission-errors";
+import { ADMISSION_VERIFICATION_DISPATCH_LOG } from "./academy-admissions/constants/admission-verification-dispatch";
+import { ScopedAdmissionVerificationDispatcher } from "./academy-admissions/infrastructure/verification/admission-verification-message-sender";
 import { PostgresTribeCreationRepository } from "./tribes/infrastructure/repositories/postgres-tribe-creation-repository";
 import { PostgresTribeCreatorWhitelistRepository } from "./tribes/infrastructure/repositories/postgres-tribe-creator-whitelist-repository";
 import { PostgresTribeInvitationRepository } from "./tribes/infrastructure/repositories/postgres-tribe-invitation-repository";
@@ -14,6 +22,31 @@ import { PostgresTribeSupportRepository } from "./tribes/infrastructure/reposito
 import { PostgresTribeWelcomeRepository } from "./tribes/infrastructure/repositories/postgres-tribe-welcome-repository";
 import { PostgresTribeWelcomeSelectionRepository } from "./tribes/infrastructure/repositories/postgres-tribe-welcome-selection-repository";
 import { PostgresTribeAcademyAdmissionRepository } from "./tribes/infrastructure/repositories/postgres-tribe-academy-admission-repository";
+import { buildAcademyAdmissionsModule, createPaidAdmissionResolutionWriter, createAdmissionMembershipLifecycleWriter, createAdmissionScopeClosureWriter } from "./academy-admissions/setup";
+import { PostgresAdmissionActivationRepository } from "./academy-admissions/infrastructure/repositories/postgres-admission-activation-repository";
+import {PostgresMessagingSelectionDependencies} from "./academy-admissions/infrastructure/repositories/postgres-messaging-selection-dependencies";
+import { buildMessagingModule, buildMessagingWorkModule, buildAdmissionMessagingMaintenanceModule, type MessagingWorkDependencies } from "./messaging/setup";
+import { AdmissionMessagingMaintenanceError } from "./messaging/domain/errors/admission-messaging-maintenance-error";
+import type { AdmissionMessagingMaintenanceRuntime } from "./messaging/domain/repositories/admission-messaging-maintenance";
+import { ADMISSION_MESSAGING_MAINTENANCE_LOG, ADMISSION_MESSAGING_MAINTENANCE_REASON } from "./messaging/constants/admission-messaging-maintenance";
+import { MessagingCryptographyError } from "./messaging/infrastructure/encryption/messaging-cryptography-error";
+import {createRegisteredMessagingAdapters} from "./messaging/infrastructure/composition/messaging-provider-adapters";
+import {createAdmissionNotificationResourceAuthority} from "./notifications/infrastructure/messaging/admission-notification-resource-authority";
+import {MESSAGING_AUTHORIZATION_PURPOSE} from "./messaging/constants/messaging-connection";
+import {ScopedConnectionDiagnosticDispatcher} from "./messaging/infrastructure/composition/connection-diagnostic-dispatcher";
+import {CONNECTION_DIAGNOSTIC_DISPATCH_LOG} from "./messaging/constants/connection-diagnostic";
+import {PostgresMessagingLifecycleDependencies} from "./academy-admissions/infrastructure/repositories/postgres-messaging-lifecycle-dependencies";
+import {readAdmissionEmailLifecycleDependency} from "./notifications/infrastructure/repositories/admission-email-lifecycle-reader";
+import {REAUTHENTICATION_OPERATION} from "./auth/constants/reauthentication-resources";
+import {after} from "next/server";
+import type {RequestContext} from "./shared/infrastructure/observability/request-context";
+import { getMessagingUsageCountryChoices } from "./messaging/infrastructure/composition/messaging-usage-country-choices";
+import { createRequestMessagingMaintenanceAuthorizer } from "./messaging/infrastructure/auth/request-maintenance-authorizer";
+import { MessagingSecretAccessError } from "./messaging/domain/errors/messaging-secret-access-error";
+import { createMessagingDispatchReporter } from "./messaging/infrastructure/messaging-observability";
+import { MESSAGING_ERROR_CODE } from "./messaging/constants/messaging-errors";
+import type { AuthenticatedFeatureDependencies } from "./auth/infrastructure/composition/transaction-account-provider";
+import { resolvePublicAppBaseUrl } from "./shared/infrastructure/backend/public-app-base-url";
 import { buildProductAccessModule } from "./product-access/setup";
 import { PostgresProductAccessRepository } from "./product-access/infrastructure/repositories/postgres-product-access-repository";
 import {
@@ -49,7 +82,8 @@ import { PostgresTribeEventReminderRepository } from "./events/infrastructure/re
 import { PostgresTribeEventRepository } from "./events/infrastructure/repositories/postgres-tribe-event-repository";
 import { lockTribeEventOccurrenceRecordingForShare } from "./events/infrastructure/repositories/tribe-event-occurrence-recording-lock";
 import { PostgresNotificationRepository } from "./notifications/infrastructure/repositories/postgres-notification-repository";
-import { buildNotificationsModule } from "./notifications/setup";
+import { buildNotificationsModule, buildAdmissionNotificationSettingsModule, buildAdmissionNotificationRecoveryContent, buildAdmissionNotificationProducerModule } from "./notifications/setup";
+import type { AdmissionNotificationProducerRuntime } from "./notifications/domain/repositories/admission-notification-producer";
 import { buildSubscriptionsModule } from "./subscriptions/setup";
 import { buildSitepingModule } from "./siteping/setup";
 import { PostgresTribeMemberSubscriptionRepository } from "./subscriptions/infrastructure/repositories/postgres-tribe-member-subscription-repository";
@@ -137,6 +171,7 @@ export async function createRequestModules(
       refreshMercadoPagoAccessToken,
       getMercadoPagoPreapprovalPlanStatus,
       getMercadoPagoPreapprovalStatus,
+      createPaidAdmissionResolutionWriter,
       requestId
     );
   const messageImageRepository = new CloudflareImagesMessageImageRepository(
@@ -181,7 +216,18 @@ export async function createRequestModules(
     }
   );
 
+  const academyAdmissions = buildAcademyAdmissionsModule({
+      accounts: createRequestAuthenticatedAccountProvider(),
+      execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+      clock: () => new Date(),
+    } satisfies AuthenticatedFeatureDependencies);
   return {
+    academyAdmissions,
+    messaging: buildMessagingModule({
+      accounts: createRequestAuthenticatedAccountProvider(),
+      execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+      clock: () => new Date(),
+    } satisfies AuthenticatedFeatureDependencies),
     memberVerifications,
     productAccess: buildProductAccessModule({
       isAcademySalesActivationAllowed,
@@ -197,8 +243,10 @@ export async function createRequestModules(
     }),
     auth: buildAuthModule({
       authSessionRepository: new BetterAuthSessionRepository(),
+      authenticatedAccountProvider:createRequestAuthenticatedAccountProvider(),
     }),
     tribes: buildTribesModule({
+      academyAdmissionEntry: academyAdmissions.createAcademyEntryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock(), readSecurityConfig: () => readMessagingHostingSecurityConfig() }),
       tribeAcademyAdmissionRepository: new PostgresTribeAcademyAdmissionRepository(
         executeWithRequestContext
       ),
@@ -357,6 +405,7 @@ export async function createRequestModules(
           updateMercadoPagoPreapprovalSubscriptionStatus,
           updateMercadoPagoPreapprovalBackUrl,
           refreshMercadoPagoAccessToken,
+          createPaidAdmissionResolutionWriter,
           requestId
         ),
       tribePaymentIntegrationRepository:
@@ -414,4 +463,414 @@ export async function createCalendarFeedModules() {
       tribeEventCalendarFeedTokenCodec: calendarFeedTokenCodec,
     }),
   };
+}
+
+/**
+ * Creates a distinct backend root from a live native bearer and explicit runtime/security/sender dependencies.
+ * @param options - Server-owned job configuration, without a browser principal, global key or SDK fallback.
+ * @returns Private implemented messaging worker capabilities; it installs no cron or public endpoint.
+ * @throws MessagingSecretAccessError before database composition when current bearer authority is absent.
+ */
+export async function createAdmissionMessagingWorkModules(options: Omit<MessagingWorkDependencies, "execute" | "authorize"> & { request: Request; readCurrentCronSecret: () => string | undefined }) {
+  const authorize = createRequestMessagingMaintenanceAuthorizer(options.request, options.readCurrentCronSecret);
+  if (!await authorize()) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  return buildMessagingWorkModule({
+    ...options, authorize,
+    execute: (actorUserId, run) => databaseClient.withRequestContext({ userId: actorUserId, email: null }, run),
+  });
+}
+
+/** @param options - Native maintenance request, live server secret and the original host-run clock/reporting context. @returns The complete bounded reminder/source/group/outbox producer, without sender execution or a scheduler. @throws MessagingSecretAccessError before database composition unless the native bearer is currently authorized. */
+export async function createAdmissionNotificationProducerWorkModules(options: { request: Request; readCurrentCronSecret: () => string | undefined; runtime: AdmissionNotificationProducerRuntime }) {
+  const authorize = createRequestMessagingMaintenanceAuthorizer(options.request, options.readCurrentCronSecret);
+  if (!await authorize()) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  return buildAdmissionNotificationProducerModule({
+    execute: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run),
+    authorize, readRecoveryLock: async () => readMessagingRecoveryLock(), readSecurityConfig: () => readMessagingHostingSecurityConfig(),
+    publicAppBaseUrl: resolvePublicAppBaseUrl(), runtime: options.runtime,
+  });
+}
+
+/**
+ * Composes preadmission outside the membership scope with real native account and explicit database selection.
+ * @param usage - Server-selected connection purpose; write entrypoints choose maintenance and still enforce actual human authority.
+ * @returns Read-only public/own queries and implemented manual writers without a provider client or default key.
+ */
+export async function createAdmissionRequestModules(usage: DatabaseConnectionUsage = DATABASE_CONNECTION_USAGE.request) {
+  const databaseClient = await createServerDatabaseClient(usage);
+  const admissionModule = buildAcademyAdmissionsModule({
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  });
+  const manualModule = admissionModule.createManualRequestModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
+  const policyModule = admissionModule.createPolicyModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig(), composePreflight: (database, context) => new PostgresAdmissionActivationRepository(database, context, manualModule.runtime, async () => readMessagingHostingSecurityFacts().recoveryLocked) });
+  const queryModule = admissionModule.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  // The rules page evaluates the same preparation as the activation, so a denied activation can name what is missing.
+  const policyQueryModule = admissionModule.createPolicyQueryModule({ composePreparation: policyModule.composePreparation });
+  return {
+    queries: queryModule,
+    policyQuery: policyQueryModule.useCases,
+    policyPage: policyQueryModule.createPage(queryModule.resolveTribe),
+    policyCommands: policyModule.useCases,
+    policyPreflight: admissionModule.createPreflightModule({ runtime: manualModule.runtime, readRecoveryLock: async () => readMessagingHostingSecurityFacts().recoveryLocked }).useCases,
+    reviews: admissionModule.createReviewQueryModule({ readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases,
+    observations: admissionModule.createActivityQueryModule().useCases,
+    manual: manualModule.useCases,
+    commercialReviews: admissionModule.createCommercialMembershipReviewModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() }).useCases,
+  };
+}
+
+/** @returns Current leader-only list reads and commands over the backend owner connection, with native account checks and no provider dependency. */
+export async function createAllowlistRequestModule() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const admissionModule = buildAcademyAdmissionsModule(dependencies);
+  const resolveTribe = admissionModule.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases.resolveTribe;
+  const allowlist = admissionModule.createAllowlistModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
+  const policyQuery = admissionModule.createPolicyQueryModule({ composePreparation: null });
+  return { resolveTribe, allowlist: allowlist.useCases, imports: allowlist.imports, page: allowlist.createPage(resolveTribe, policyQuery.useCases), policyPage: policyQuery.createPage(resolveTribe) };
+}
+/** @returns Only personal preview over the guarded backend connection, without provider calls or caller-selected identity. */
+export async function createPersonalInvitationRequestModule() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const admissionModule = buildAcademyAdmissionsModule(dependencies);
+  const personal = admissionModule.createPersonalInvitationQueryModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
+  return { preview: personal.useCases.overview, page: personal.page };
+}
+/** @returns Leader-only metadata and explicit original personal commands, with configured public links and native account checks on each checkout. */
+export async function createPersonalInvitationManagementRequestModule() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const admissionModule = buildAcademyAdmissionsModule(dependencies);
+  const resolveTribe = admissionModule.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases.resolveTribe;
+  const personal = admissionModule.createPersonalInvitationModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
+  const policy = admissionModule.createPolicyQueryModule({ composePreparation: null });
+  return { resolveTribe, invitations: personal.useCases, publicOrigin: resolvePublicAppBaseUrl, page: personal.createPage(resolveTribe, policy.useCases) };
+}
+/** @param usage - Native connection purpose; writes select maintenance and still require exact human authority. @returns Early usage configuration and canonical academy routing, without a connection, admission policy writer or provider adapter. */
+export async function createMessagingUsageRequestModule(usage: DatabaseConnectionUsage = DATABASE_CONNECTION_USAGE.request) {
+  const databaseClient = await createServerDatabaseClient(usage);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const routing = buildAcademyAdmissionsModule(dependencies).createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  const usageModule = buildMessagingModule(dependencies).createUsageModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
+  return { usage: usageModule.useCases, operation: usageModule.operation, createPage: () => usageModule.createPage(routing.resolveTribe, getMessagingUsageCountryChoices()), resolveTribe: routing.resolveTribe };
+}
+
+/**
+ * Shares one native account projection and database selection across the existing private observation and usage owners.
+ * @param usage - Server-selected read connection purpose, never browser authority.
+ * @returns One page/snapshot composition without an Inspector, Sender, secret read or implicit configuration write.
+ */
+export async function createAdmissionActivityRequestModule(usage: DatabaseConnectionUsage = DATABASE_CONNECTION_USAGE.request) {
+  const databaseClient = await createServerDatabaseClient(usage);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const admission = buildAcademyAdmissionsModule(dependencies);
+  const routing = admission.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  const observations = admission.createActivityQueryModule();
+  const currentUsage = buildMessagingModule(dependencies).createUsageModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
+  return { createPage: () => observations.createPage(routing.resolveTribe, currentUsage.useCases) };
+}
+
+/** @returns Only native request-history and canonical routing over the request connection, without a sender, keyring or general audit capability. */
+export async function createAdmissionReviewHistoryRequestModule() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.request);
+  const admission = buildAcademyAdmissionsModule({
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  });
+  const routing = admission.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  return { page: admission.createReviewHistoryQueryModule().createPage(routing.resolveTribe) };
+}
+
+/** @param usage - Native guarded connection purpose; creation uses maintenance with exact human authority. @returns Protected candidate creation and canonical routing without Inspector/Sender execution. */
+export async function createMessagingConnectionManagementRequestModule(usage: DatabaseConnectionUsage = DATABASE_CONNECTION_USAGE.maintenance) {
+  const databaseClient = await createServerDatabaseClient(usage);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const routing = buildAcademyAdmissionsModule(dependencies).createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  const connections = buildMessagingModule(dependencies).createConnectionManagementModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
+  return { connections: connections.useCases, resolveTribe: routing.resolveTribe };
+}
+
+/** @param databaseClient - Native guarded checkout selected by this composition root. @returns Explicit implemented provider ports with current actor/purpose/resource reads and no credential cache. */
+function createRequestMessagingProviderAdapters(databaseClient:Awaited<ReturnType<typeof createServerDatabaseClient>>){
+  return createRegisteredMessagingAdapters({execute:(context,run)=>databaseClient.withRequestContext({userId:context.authorizationPurpose===MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader?context.actorUserId:context.contributingLeaderUserId,email:null},run),readSecurityFacts:async()=>readMessagingHostingSecurityFacts(),fetch:globalThis.fetch,authorizeDeliveryResource:createAdmissionNotificationResourceAuthority(()=>readMessagingHostingSecurityConfig()).marked});
+}
+
+/** @param usage - Native guarded connection purpose; the mutation retains exact current human authority. @returns Only staged credential inspection and canonical routing, without message or activation capabilities. */
+export async function createMessagingCredentialValidationRequestModule(usage: DatabaseConnectionUsage = DATABASE_CONNECTION_USAGE.maintenance) {
+  const databaseClient = await createServerDatabaseClient(usage);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const routing = buildAcademyAdmissionsModule(dependencies).createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  const request = buildMessagingModule(dependencies).createRequestModule({ selection: "management", readSecurityConfig: () => readMessagingHostingSecurityConfig() });
+  return { validation: request.createCredentialValidation(createRequestMessagingProviderAdapters(databaseClient).inspectors), resolveTribe: routing.resolveTribe };
+}
+
+/** @param usage - Native read connection purpose; this path does not load keyrings or contact a provider. @returns Current leader/guardian configuration and canonical tenant routing. */
+export async function createMessagingConfigurationRequestModule(usage:DatabaseConnectionUsage=DATABASE_CONNECTION_USAGE.request){
+  const databaseClient=await createServerDatabaseClient(usage);
+  const dependencies:AuthenticatedFeatureDependencies={accounts:createRequestAuthenticatedAccountProvider(),clock:()=>new Date(),execute:(account,run)=>databaseClient.withRequestContext({userId:account.userId,email:account.normalizedEmail},run)};
+  const routing=buildAcademyAdmissionsModule(dependencies).createQueryModule({executePublic:(run)=>databaseClient.withRequestContext({userId:null,email:null},run),readRecoveryLock:async()=>readMessagingRecoveryLock()}).useCases;
+  const configuration=buildMessagingModule(dependencies).createConfigurationModule({readSecurityFacts:async()=>readMessagingHostingSecurityFacts()});
+  const providerAdapters=createRequestMessagingProviderAdapters(databaseClient);
+  return{configuration:configuration.useCases,resolveTribe:routing.resolveTribe,createPage:()=>configuration.createPage(routing.resolveTribe,{read:()=>providerAdapters.catalog.map((provider)=>({id:provider.id,channels:[...provider.channels]}))}),createSummaryPage:()=>configuration.createSummaryPage(routing.resolveTribe,{read:()=>providerAdapters.catalog.map((provider)=>({id:provider.id,channels:[...provider.channels]}))})};
+}
+
+/** @returns Own preference and independent leader email settings with native owner transactions, current session authority and canonical routing; no provider adapters or sends are composed. */
+export async function createAdmissionNotificationSettingsRequestModule() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies: AuthenticatedFeatureDependencies = { accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(), execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run) };
+  const admissions = buildAcademyAdmissionsModule(dependencies);
+  const routing = admissions.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  const notifications = buildAdmissionNotificationSettingsModule(dependencies, { resolver: admissions.useCases.resolveContext, readSecurityConfig: () => readMessagingHostingSecurityConfig() });
+  return { resolveTribe: routing.resolveTribe, ...notifications.useCases, page: notifications.createPage(routing.resolveTribe) };
+}
+
+/** @param usage - Native guarded read purpose. @returns Sensitive current leader resource enumeration and tenant routing, without a dispatcher. */
+export async function createMessagingResourceRequestModule(usage:DatabaseConnectionUsage=DATABASE_CONNECTION_USAGE.request){
+  const databaseClient=await createServerDatabaseClient(usage);
+  const dependencies:AuthenticatedFeatureDependencies={accounts:createRequestAuthenticatedAccountProvider(),clock:()=>new Date(),execute:(account,run)=>databaseClient.withRequestContext({userId:account.userId,email:account.normalizedEmail},run)};
+  const routing=buildAcademyAdmissionsModule(dependencies).createQueryModule({executePublic:(run)=>databaseClient.withRequestContext({userId:null,email:null},run),readRecoveryLock:async()=>readMessagingRecoveryLock()}).useCases;
+  const request=buildMessagingModule(dependencies).createRequestModule({selection:"management",readSecurityConfig:()=>readMessagingHostingSecurityConfig()});
+  return{resources:request.createResourceListing(createRequestMessagingProviderAdapters(databaseClient).inspectors),resolveTribe:routing.resolveTribe};
+}
+
+/** @param usage - Native protected write purpose. @returns Only versioned configuration and canonical routing with explicitly scoped inspectors. */
+export async function createMessagingConnectionConfigurationRequestModule(usage:DatabaseConnectionUsage=DATABASE_CONNECTION_USAGE.maintenance){
+  const databaseClient=await createServerDatabaseClient(usage);
+  const dependencies:AuthenticatedFeatureDependencies={accounts:createRequestAuthenticatedAccountProvider(),clock:()=>new Date(),execute:(account,run)=>databaseClient.withRequestContext({userId:account.userId,email:account.normalizedEmail},run)};
+  const routing=buildAcademyAdmissionsModule(dependencies).createQueryModule({executePublic:(run)=>databaseClient.withRequestContext({userId:null,email:null},run),readRecoveryLock:async()=>readMessagingRecoveryLock()}).useCases;
+  const request=buildMessagingModule(dependencies).createRequestModule({selection:"management",readSecurityConfig:()=>readMessagingHostingSecurityConfig()});
+  return{configuration:request.createConnectionConfiguration(createRequestMessagingProviderAdapters(databaseClient).inspectors),resolveTribe:routing.resolveTribe};
+}
+
+/** @param requestContext - Native boundary correlation, with no client permission facts. @returns Exact diagnostic issuance/verification with focal original dispatch and canonical routing. */
+export async function createMessagingDiagnosticRequestModule(requestContext:RequestContext){
+  const databaseClient=await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies:AuthenticatedFeatureDependencies={accounts:createRequestAuthenticatedAccountProvider(),clock:()=>new Date(),execute:(account,run)=>databaseClient.withRequestContext({userId:account.userId,email:account.normalizedEmail},run)};
+  const routing=buildAcademyAdmissionsModule(dependencies).createQueryModule({executePublic:(run)=>databaseClient.withRequestContext({userId:null,email:null},run),readRecoveryLock:async()=>readMessagingRecoveryLock()}).useCases;
+  const request=buildMessagingModule(dependencies).createRequestModule({selection:"management",readSecurityConfig:()=>readMessagingHostingSecurityConfig()});
+  const logger=createServerLogger({feature:CONNECTION_DIAGNOSTIC_DISPATCH_LOG.feature,operation:REAUTHENTICATION_OPERATION.diagnoseMessagingConnection,...requestContext});
+  const adapters=createRequestMessagingProviderAdapters(databaseClient);
+  const dispatcher=new ScopedConnectionDiagnosticDispatcher({readSecurityFacts:async()=>readMessagingHostingSecurityFacts(),createDispatcher:(diagnosticScope,authorize)=>buildMessagingWorkModule({diagnosticScope,authorize,execute:(actorUserId,run)=>databaseClient.withRequestContext({userId:actorUserId,email:null},run),readSecurityConfig:()=>readMessagingHostingSecurityConfig(),createSender:adapters.createSender,runtime:{now:Date.now,createId:()=>crypto.randomUUID(),defer:(work)=>{after(()=>work);},report:createMessagingDispatchReporter(logger,CONNECTION_DIAGNOSTIC_DISPATCH_LOG.message)}}).useCases.dispatch});
+  return{issue:request.createDiagnosticIssuance(dispatcher),verify:request.useCases.verifyDiagnostic,resolveTribe:routing.resolveTribe};
+}
+
+/** @param requestContext - Safe correlation owned by the current request boundary. @returns Applicant code use cases and canonical routing with exact post-commit worker authority derived from the original challenge. */
+export async function createAdmissionContactVerificationRequestModule(requestContext: RequestContext) {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const admissionModule = buildAcademyAdmissionsModule(dependencies);
+  const routing = admissionModule.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  const logger = createServerLogger({ feature: ADMISSION_VERIFICATION_DISPATCH_LOG.feature, operation: ADMISSION_VERIFICATION_DISPATCH_LOG.operation, ...requestContext });
+  const adapters = createRequestMessagingProviderAdapters(databaseClient);
+  const verification = admissionModule.createContactVerificationModule({
+    readSecurityConfig: () => readMessagingHostingSecurityConfig(),
+    createDispatcher: (resolve) => new ScopedAdmissionVerificationDispatcher({
+      resolve, readSecurityFacts: async () => readMessagingHostingSecurityFacts(),
+      createDispatcher: (focalScope, authorize) => buildMessagingWorkModule({
+        focalScope, authorize,
+        execute: (actorUserId, run) => databaseClient.withRequestContext({ userId: actorUserId, email: null }, run),
+        readSecurityConfig: () => readMessagingHostingSecurityConfig(), createSender: adapters.createSender,
+        runtime: { now: Date.now, createId: () => crypto.randomUUID(), defer: (work) => { after(() => work); }, report: createMessagingDispatchReporter(logger, ADMISSION_VERIFICATION_DISPATCH_LOG.message) },
+      }).useCases.dispatch,
+    }),
+  }).useCases;
+  return { verification, resolveTribe: routing.resolveTribe };
+}
+
+/** @returns DB-only current-contact selection and canonical routing without provider adapters. */
+export async function createAdmissionCurrentChallengeRequestModule() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies: AuthenticatedFeatureDependencies = { accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(), execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run) };
+  const admissionModule = buildAcademyAdmissionsModule(dependencies);
+  const routing = admissionModule.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  return { currentChallenge: admissionModule.createCurrentChallengeModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() }).useCase, resolveTribe: routing.resolveTribe };
+}
+
+/** @returns Own pending proof attachment and canonical routing through native session authority, without creating provider or dispatch adapters. */
+export async function createAdmissionProofApplicationRequestModule() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const admissionModule = buildAcademyAdmissionsModule(dependencies);
+  const routing = admissionModule.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  return { applyProof: admissionModule.createProofApplicationModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() }).useCases, resolveTribe: routing.resolveTribe };
+}
+
+/** @returns Native request composition for an explicit canonical leadership operation, without creating a general transfer route or loading a BYOK. */
+export async function createTribeLeadershipRequestModule(){
+  const accounts=createRequestAuthenticatedAccountProvider(),databaseClient=await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  return buildTribeLeadershipModule({accounts,clock:()=>new Date(),readSecurityConfig:async()=>readMessagingHostingSecurityConfig(),execute:async(context,run)=>{
+    const account=await accounts.getAuthenticatedAccount();if(!account||account.userId!==context.actorUserId||account.session.id!==context.sessionId)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+    return databaseClient.withRequestContext({userId:account.userId,email:account.normalizedEmail},run);
+  }});
+}
+
+/** @returns Native membership command/recovery composition with an owner transaction; no HTTP input selects the actor, role or database connection. */
+export async function createTribeMembershipRequestModule() {
+  const accounts = createRequestAuthenticatedAccountProvider(), databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies: AuthenticatedFeatureDependencies = { accounts, clock: () => new Date(), execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run) };
+  const routing = buildAcademyAdmissionsModule(dependencies).createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  const membership = buildTribeMembershipLifecycleModule({ accounts, clock: dependencies.clock, readSecurityConfig: async () => readMessagingHostingSecurityConfig(), admission: createAdmissionMembershipLifecycleWriter, execute: async (context, run) => {
+    const account = await accounts.getAuthenticatedAccount();
+    if (!account || account.userId !== context.actorUserId || account.session.id !== context.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+    return databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run);
+  } }).useCases;
+  return { membership, resolveTribe: routing.resolveTribe };
+}
+
+/** @returns Native lifecycle composition whose fixed UUID supports original recovery after physical tribe deletion. */
+export async function createTribeLifecycleRequestModule() {
+  const accounts = createRequestAuthenticatedAccountProvider(), databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  return { lifecycle: buildTribeLifecycleModule({ accounts, readSecurityConfig: async () => readMessagingHostingSecurityConfig(), admission: createAdmissionScopeClosureWriter, execute: async (context, run) => {
+    const account = await accounts.getAuthenticatedAccount();
+    if (!account || account.userId !== context.actorUserId || account.session.id !== context.sessionId) throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.authenticationRequired);
+    return databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run);
+  } }).useCases };
+}
+
+/** @returns Local safety/retirement use cases with native authority and current admission/notification owners, without provider wiring. */
+export async function createMessagingConnectionLifecycleRequestModule(){
+  const databaseClient=await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies:AuthenticatedFeatureDependencies={accounts:createRequestAuthenticatedAccountProvider(),clock:()=>new Date(),execute:(account,run)=>databaseClient.withRequestContext({userId:account.userId,email:account.normalizedEmail},run)};
+  const routing=buildAcademyAdmissionsModule(dependencies).createQueryModule({executePublic:(run)=>databaseClient.withRequestContext({userId:null,email:null},run),readRecoveryLock:async()=>readMessagingRecoveryLock()}).useCases;
+  const lifecycle=buildMessagingModule(dependencies).createConnectionLifecycleModule({readSecurityConfig:()=>readMessagingHostingSecurityConfig(),composeDependencies:(database)=>new PostgresMessagingLifecycleDependencies(database,readAdmissionEmailLifecycleDependency)}).useCases;
+  return{lifecycle,resolveTribe:routing.resolveTribe};
+}
+
+/** @returns Minimal current leader/challenge-owner transport and routing, without loading keyrings or contacting the provider. */
+export async function createMessageDeliveryReadRequestModule(){
+  const databaseClient=await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.request);
+  const dependencies:AuthenticatedFeatureDependencies={accounts:createRequestAuthenticatedAccountProvider(),clock:()=>new Date(),execute:(account,run)=>databaseClient.withRequestContext({userId:account.userId,email:account.normalizedEmail},run)};
+  const routing=buildAcademyAdmissionsModule(dependencies).createQueryModule({executePublic:(run)=>databaseClient.withRequestContext({userId:null,email:null},run),readRecoveryLock:async()=>readMessagingRecoveryLock()}).useCases;
+  return{delivery:buildMessagingModule(dependencies).createDeliveryReadModule().useCases,resolveTribe:routing.resolveTribe};
+}
+
+/** @returns Original owned-message SDK lookup and monotonic transport persistence with the live session and explicit hosting transport. */
+export async function createMessageDeliveryReconciliationRequestModule() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const routing = buildAcademyAdmissionsModule(dependencies).createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  const reconciliation = buildMessagingModule(dependencies).createDeliveryReconciliationModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig(), fetch: globalThis.fetch });
+  return { delivery: reconciliation.useCases, resolveTribe: routing.resolveTribe };
+}
+
+/** @returns Explicit original-notification recovery and canonical routing, with no provider call or automatic dispatch. */
+export async function createNotificationDeliveryRecoveryRequestModule() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const routing = buildAcademyAdmissionsModule(dependencies).createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  const readSecurityConfig = () => readMessagingHostingSecurityConfig();
+  const recovery = buildMessagingModule(dependencies).createNotificationRecoveryModule({ readSecurityConfig, groupContent: buildAdmissionNotificationRecoveryContent(readSecurityConfig) });
+  return { recovery: recovery.useCases, resolveTribe: routing.resolveTribe };
+}
+
+/** @returns Original actor/tribe-owned recovery metadata and canonical routing without loading platform keys or creating work. */
+export async function createNotificationRecoveryOperationRequestModule() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const routing = buildAcademyAdmissionsModule(dependencies).createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  const operation = buildMessagingModule(dependencies).createNotificationRecoveryOperationReadModule();
+  return { operation: operation.useCases, resolveTribe: routing.resolveTribe };
+}
+
+/** @returns Bounded current leader notification metadata and canonical routing, without keys or writes. */
+export async function createNotificationDeliveryCatalogRequestModule() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.request);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const routing = buildAcademyAdmissionsModule(dependencies).createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  const catalog = buildMessagingModule(dependencies).createNotificationDeliveryCatalogModule();
+  return { catalog: catalog.useCases, resolveTribe: routing.resolveTribe };
+}
+
+/** @returns Current native candidate activation with feature-owned metadata/evidence changes in one protected transaction, without provider calls. */
+export async function createMessagingConnectionActivationRequestModule(){
+  const databaseClient=await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies:AuthenticatedFeatureDependencies={accounts:createRequestAuthenticatedAccountProvider(),clock:()=>new Date(),execute:(account,run)=>databaseClient.withRequestContext({userId:account.userId,email:account.normalizedEmail},run)};
+  const routing=buildAcademyAdmissionsModule(dependencies).createQueryModule({executePublic:(run)=>databaseClient.withRequestContext({userId:null,email:null},run),readRecoveryLock:async()=>readMessagingRecoveryLock()}).useCases;
+  const request=buildMessagingModule(dependencies).createRequestModule({selection:"management",readSecurityConfig:()=>readMessagingHostingSecurityConfig()});
+  return{activation:request.createConnectionActivation((database)=>new PostgresMessagingSelectionDependencies(database,readAdmissionEmailLifecycleDependency)),resolveTribe:routing.resolveTribe};
+}
+
+/** @returns Readonly original connection operations under native actor/session/tribe authority, without a keyring or provider. */
+export async function createMessagingConnectionOperationRequestModule(){
+  const databaseClient=await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies:AuthenticatedFeatureDependencies={accounts:createRequestAuthenticatedAccountProvider(),clock:()=>new Date(),execute:(account,run)=>databaseClient.withRequestContext({userId:account.userId,email:account.normalizedEmail},run)};
+  const routing=buildAcademyAdmissionsModule(dependencies).createQueryModule({executePublic:(run)=>databaseClient.withRequestContext({userId:null,email:null},run),readRecoveryLock:async()=>readMessagingRecoveryLock()}).useCases;
+  return{operation:buildMessagingModule(dependencies).createConnectionOperationReadModule().useCases,resolveTribe:routing.resolveTribe};
+}
+
+/** @param request - Actual native request, never a browser principal or authority flag. @param context - Bounded private correlation selected by the HTTP boundary. @returns The complete workflow after current bearer authorization, with no global provider credential or pre-composition database read. */
+export async function createAdmissionMessagingMaintenanceRequestModule(request: Request, context: RequestContext) {
+  const authorize = createRequestMessagingMaintenanceAuthorizer(request);
+  if (!await authorize()) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.authorityUnavailable);
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const logger = createServerLogger({ feature: ADMISSION_MESSAGING_MAINTENANCE_LOG.feature, operation: ADMISSION_MESSAGING_MAINTENANCE_LOG.operation, ...context });
+  const runtime: AdmissionMessagingMaintenanceRuntime = {
+    now: Date.now,
+    createId: () => crypto.randomUUID(),
+    defer: (work) => { after(() => work); },
+    report: (error, diagnostic) => {
+      const reason = error instanceof AdmissionMessagingMaintenanceError ? error.reason : error instanceof MessagingCryptographyError ? ADMISSION_MESSAGING_MAINTENANCE_REASON.configurationUnavailable : ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved;
+      logger.error({ message: ADMISSION_MESSAGING_MAINTENANCE_LOG.failureMessage, metadata: { operation: diagnostic.operation, reason, ...(diagnostic.runId ? { runId: diagnostic.runId } : {}), ...(diagnostic.phase ? { phase: diagnostic.phase } : {}) } });
+    },
+  };
+  return buildAdmissionMessagingMaintenanceModule({
+    execute: (actorUserId, work) => databaseClient.withRequestContext({ userId: actorUserId, email: null }, work),
+    authorize,
+    readRecoveryLock: async () => readMessagingRecoveryLock(),
+    readExternalScope: async () => { const facts = readMessagingHostingSecurityFacts(); return facts.environment && facts.securityEpoch ? { environment: facts.environment, securityEpoch: facts.securityEpoch } : null; },
+    readSecurityConfig: () => readMessagingHostingSecurityConfig(),
+    publicAppBaseUrl: () => { try { return resolvePublicAppBaseUrl(); } catch (error) { throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.configurationUnavailable, { cause: error }); } },
+    runtime,
+    dispatchRuntime: { now: runtime.now, createId: runtime.createId, defer: (work) => runtime.defer(work), report: createMessagingDispatchReporter(logger, ADMISSION_MESSAGING_MAINTENANCE_LOG.failureMessage) },
+    createSenders: (execute) => {
+      const adapters = createRegisteredMessagingAdapters({ execute: (scope, work) => {
+        if (scope.authorizationPurpose !== MESSAGING_AUTHORIZATION_PURPOSE.authorizedDelivery) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.authorityUnavailable);
+        return execute(scope.contributingLeaderUserId, work);
+      }, readSecurityFacts: async () => readMessagingHostingSecurityFacts(), fetch: globalThis.fetch, authorizeDeliveryResource: createAdmissionNotificationResourceAuthority(() => readMessagingHostingSecurityConfig()).marked });
+      return { createSender: adapters.createSender, createNotificationSender: adapters.createNotificationSender };
+    },
+  });
 }

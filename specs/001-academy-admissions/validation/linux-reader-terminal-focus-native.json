@@ -1,0 +1,130 @@
+{
+  "runUrl": "https://github.com/guidomodarelli/TuTribu/actions/runs/39177006418",
+  "commit": "1e32976d50902d59a45065f7a4755b88610669fc",
+  "productJourneysValidated": true,
+  "passed": 1,
+  "failed": 0,
+  "skipped": 0,
+  "failureCodes": [],
+  "readerRuntime": {
+    "orcaVersion": "51.1",
+    "orcaSourceCommit": "244bdadd98f07fe9bfda9326fab621d686c70d2d"
+  },
+  "sayAllOnLoadDisabledObserved": false,
+  "realMessages": 0,
+  "nativePlatform": {
+    "atspiVersion": "2.58.6",
+    "atspiSourceCommit": "1e883ff1739ad584571d38d63735e1cc67a18b0b",
+    "orcaSourceCommit": "244bdadd98f07fe9bfda9326fab621d686c70d2d",
+    "configuredProfileBackend": "gsettings"
+  },
+  "observations": [
+    {
+      "engine": "chromium",
+      "width": 390,
+      "surface": "public",
+      "speechObserved": true,
+      "audioPeak": 32768,
+      "focusEmulationDisabled": true
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "surface": "administrative",
+      "speechObserved": true,
+      "audioPeak": 32767,
+      "focusEmulationDisabled": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "surface": "public",
+      "speechObserved": true,
+      "audioPeak": 32768,
+      "focusEmulationDisabled": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "surface": "administrative",
+      "speechObserved": true,
+      "audioPeak": 32768,
+      "focusEmulationDisabled": true
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "surface": "public",
+      "speechObserved": true,
+      "audioPeak": 7094,
+      "focusEmulationDisabled": false
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "surface": "administrative",
+      "speechObserved": true,
+      "audioPeak": 17150,
+      "focusEmulationDisabled": false
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "surface": "public",
+      "speechObserved": true,
+      "audioPeak": 32367,
+      "focusEmulationDisabled": false
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "surface": "administrative",
+      "speechObserved": true,
+      "audioPeak": 9545,
+      "focusEmulationDisabled": false
+    }
+  ],
+  "profileConfiguration": {
+    "evidenceSource": "job_log",
+    "observedAt": "2026-10-18T23:36:52.3496657Z",
+    "phase": "native_reader_profile_configured",
+    "backend": "gsettings",
+    "sayAllOnLoad": false,
+    "keyEcho": false,
+    "speech": true,
+    "braille": false,
+    "liveRegions": true,
+    "artifactProjectionLimitation": "The legacy result field reads a separate absent log file; its false value is retained."
+  },
+  "effectsConfirmed": [
+    {
+      "engine": "chromium",
+      "width": 390
+    },
+    {
+      "engine": "chromium",
+      "width": 1280
+    },
+    {
+      "engine": "webkit",
+      "width": 390
+    },
+    {
+      "engine": "webkit",
+      "width": 1280
+    }
+  ],
+  "cleanup": {
+    "keyRevoked": true,
+    "secretRemoved": true,
+    "variablesRemoved": true,
+    "ownedBranchAbsent": true,
+    "originalsPreserved": true,
+    "failures": 0
+  },
+  "ownerToolingStable": true,
+  "limitations": [
+    "Reduced viewports are desktop OS windows, not physical mobile devices.",
+    "The eight surfaces cover cancellation and individual approval, not every feature state."
+  ]
+}

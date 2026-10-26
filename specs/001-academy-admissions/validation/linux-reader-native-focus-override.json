@@ -1,0 +1,141 @@
+{
+  "commit": "06f40cfffee899c2ae099950142b4b4b02c1a925",
+  "productJourneysValidated": false,
+  "passed": 0,
+  "failed": 1,
+  "skipped": 0,
+  "failureCodes": [
+    "native_reader_speech_missing"
+  ],
+  "readerRuntime": {
+    "orcaVersion": "48.9",
+    "orcaSourceCommit": "4b964097f586446b3c74a98d0d309fb4b87ceb70"
+  },
+  "sayAllOnLoadDisabledObserved": false,
+  "realMessages": 0,
+  "runId": 39125966977,
+  "runConclusion": "failure",
+  "fullyValidatedPairs": 0,
+  "combinationFailures": [
+    {
+      "stage": "public_confirmation_focus",
+      "engine": "chromium",
+      "width": 390,
+      "code": "native_reader_speech_missing",
+      "interfaces": [
+        {
+          "cancellationMessages": 0,
+          "ownedCancellationMessages": 0,
+          "approvalMessages": 0,
+          "busyMainRegions": 0,
+          "documentFocused": true
+        }
+      ],
+      "interfaceObservationUnavailable": false
+    },
+    {
+      "stage": "public_cancel_focus",
+      "engine": "chromium",
+      "width": 1280,
+      "code": "native_reader_speech_missing",
+      "interfaces": [
+        {
+          "cancellationMessages": 0,
+          "ownedCancellationMessages": 0,
+          "approvalMessages": 0,
+          "busyMainRegions": 0,
+          "documentFocused": true
+        }
+      ],
+      "interfaceObservationUnavailable": false
+    },
+    {
+      "stage": "public_cancel_announcement",
+      "engine": "webkit",
+      "width": 390,
+      "code": "native_reader_speech_missing",
+      "interfaces": [
+        {
+          "cancellationMessages": 2,
+          "ownedCancellationMessages": 1,
+          "approvalMessages": 0,
+          "busyMainRegions": 0,
+          "documentFocused": true
+        }
+      ],
+      "interfaceObservationUnavailable": false
+    },
+    {
+      "stage": "public_cancel_announcement",
+      "engine": "webkit",
+      "width": 1280,
+      "code": "native_reader_speech_missing",
+      "interfaces": [
+        {
+          "cancellationMessages": 2,
+          "ownedCancellationMessages": 1,
+          "approvalMessages": 0,
+          "busyMainRegions": 0,
+          "documentFocused": true
+        }
+      ],
+      "interfaceObservationUnavailable": false
+    }
+  ],
+  "diagnostics": [
+    {
+      "stage": "public_confirmation_focus",
+      "engine": "chromium",
+      "width": 390,
+      "focusEmulationDisabled": true,
+      "backendLogEntries": 6,
+      "exactMatch": false,
+      "observedWords": 0,
+      "audioPeak": 32768,
+      "nativeFocusedExpected": 1
+    },
+    {
+      "stage": "public_cancel_focus",
+      "engine": "chromium",
+      "width": 1280,
+      "focusEmulationDisabled": true,
+      "backendLogEntries": 3,
+      "exactMatch": false,
+      "observedWords": 0,
+      "audioPeak": 32768,
+      "nativeFocusedExpected": 1
+    },
+    {
+      "stage": "public_cancel_announcement",
+      "engine": "webkit",
+      "width": 390,
+      "focusEmulationDisabled": false,
+      "backendLogEntries": 3,
+      "exactMatch": false,
+      "observedWords": 0,
+      "audioPeak": 32767,
+      "nativeFocusedExpected": 0
+    },
+    {
+      "stage": "public_cancel_announcement",
+      "engine": "webkit",
+      "width": 1280,
+      "focusEmulationDisabled": false,
+      "backendLogEntries": 3,
+      "exactMatch": false,
+      "observedWords": 0,
+      "audioPeak": 32697,
+      "nativeFocusedExpected": 0
+    }
+  ],
+  "cleanup": {
+    "keyRevoked": true,
+    "secretRemoved": true,
+    "variablesRemoved": 2,
+    "ownedBranchAbsent": true,
+    "originalBranchesPreserved": true,
+    "remainingBranches": 3,
+    "independentInventoryConfirmed": true,
+    "ownerSourceStable": true
+  }
+}

@@ -1,5 +1,6 @@
 import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
@@ -15,6 +16,7 @@ const getTribeStory = vi.fn();
 const getTribeStoryStats = vi.fn();
 const getTribeStoryOnlineMembers = vi.fn();
 const getTribeCurrentSubscriptionOffer = vi.fn();
+const joinTribeFree = vi.fn();
 
 vi.mock("next/navigation", () => ({
   notFound: vi.fn(),
@@ -109,6 +111,7 @@ describe("TribeHistoryPage", () => {
           getTribeStory,
           getTribeStoryOnlineMembers,
           getTribeStoryStats,
+          joinTribeFree,
         },
       },
     });
@@ -239,6 +242,71 @@ describe("TribeHistoryPage", () => {
     expect(
       screen.queryByRole("link", { name: "Unirse a la tribu" })
     ).not.toBeInTheDocument();
+  });
+
+  it("tells the visitor why the free join was rejected instead of reloading the story in silence", async () => {
+    const user = userEvent.setup();
+    getTribePageAccess.mockResolvedValue({
+      reason: "not_found_or_not_visible",
+      status: "hidden" as const,
+    });
+    getTribeStoryStats.mockResolvedValue({
+      ...storyStats,
+      openFreeJoinAvailable: true,
+      openFreeJoinEnabled: true,
+    });
+    joinTribeFree.mockResolvedValue({ status: "forbidden" });
+
+    render(await TribeHistoryPage(buildPageProps()));
+    await user.click(screen.getByRole("button", { name: "Unirse gratis" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "El ingreso gratis a esta tribu ya no está disponible para tu cuenta. Recargá la página para ver las opciones vigentes o escribile a quien administra la tribu."
+    );
+    expect(joinTribeFree).toHaveBeenCalledWith({ tribeSlug: "matematica-pro" });
+  });
+
+  it("logs a failed free join, explains it and clears the reason while the visitor retries", async () => {
+    const user = userEvent.setup();
+    const logError = vi.fn();
+    (createServerLogger as Mock).mockReturnValue({ error: logError, info: vi.fn() });
+    getTribePageAccess.mockResolvedValue({
+      reason: "not_found_or_not_visible",
+      status: "hidden" as const,
+    });
+    getTribeStoryStats.mockResolvedValue({
+      ...storyStats,
+      openFreeJoinAvailable: true,
+      openFreeJoinEnabled: true,
+    });
+    let resolveRetry: (result: { status: string }) => void = () => {};
+    joinTribeFree
+      .mockRejectedValueOnce(new Error("synthetic free join failure"))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveRetry = resolve; }));
+
+    render(await TribeHistoryPage(buildPageProps()));
+    await user.click(screen.getByRole("button", { name: "Unirse gratis" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "No pudimos sumarte a la tribu por un problema temporal. Intentá de nuevo en unos segundos."
+    );
+    expect(logError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "Failed to join tribe for free from its story",
+        metadata: { slug: "matematica-pro", viewerId: "member-1" },
+      })
+    );
+
+    await user.click(screen.getByRole("button", { name: "Unirse gratis" }));
+
+    expect(await screen.findByRole("button", { name: "Uniéndote..." })).toBeDisabled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    resolveRetry({ status: "forbidden" });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "El ingreso gratis a esta tribu ya no está disponible para tu cuenta."
+    );
   });
 
   it("renders the visitor view for an anonymous viewer linking the join to sign in", async () => {

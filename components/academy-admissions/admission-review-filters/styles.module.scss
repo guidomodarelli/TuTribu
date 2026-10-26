@@ -1,0 +1,47 @@
+@use "../../../src/styles/workspace-panel";
+
+.AdmissionReviewFilters {
+  @include workspace-panel.section;
+
+  gap: 1rem;
+  padding-block-end: 1.5rem;
+  border-block-end: 1px solid var(--border);
+
+  &__heading {
+    @include workspace-panel.heading;
+  }
+
+  &__title {
+    @include workspace-panel.title;
+  }
+
+  &__fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+    min-width: 0;
+    gap: 1rem;
+  }
+
+  &__field {
+    @include workspace-panel.field;
+
+    align-content: start;
+  }
+
+  &__control {
+    width: 100%;
+    min-width: 0;
+  }
+
+  &__help {
+    @include workspace-panel.note;
+  }
+
+  &__error {
+    @include workspace-panel.error;
+  }
+
+  &__actions {
+    @include workspace-panel.actions;
+  }
+}

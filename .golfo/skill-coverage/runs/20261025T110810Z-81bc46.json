@@ -1,0 +1,227 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-route-skeletons",
+    "commit": "e00332beaa61e553b38110e5570298aa61d94390",
+    "fingerprint": "sha256:fb8aa5542e2086b745bff65480f92fa3fb4bbab456dd0fdf38f6012b08aeaa9d",
+    "uncommittedFiles": [],
+    "fileCount": 474,
+    "inputCount": 3110
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
+      "durationMs": 39808,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "f15a6f02a5b93b862eb914dacd2ef20c63ca1ad0fcfbd45944aab66311ef1f92",
+      "recordedAt": "2026-10-25T11:08:51.275Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T11:08:51.844Z",
+      "source": "attested",
+      "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
+    }
+  ],
+  "limitations": [
+    "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T11:08:54.803Z",
+  "result": "partial",
+  "runId": "20261025T110810Z-81bc46",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.activity",
+        "reason": "unclassified object member: lifecycle impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.allowlist",
+        "reason": "unclassified object member: lifecycle impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.allowlistImport",
+        "reason": "unclassified object member: lifecycle impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.connections",
+        "reason": "unclassified object member: lifecycle impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.history",
+        "reason": "unclassified object member: lifecycle impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.invitations",
+        "reason": "unclassified object member: lifecycle impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.notifications",
+        "reason": "unclassified object member: lifecycle impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.policy",
+        "reason": "unclassified object member: lifecycle impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.review",
+        "reason": "unclassified object member: lifecycle impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.usage",
+        "reason": "unclassified object member: lifecycle impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS~frame",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_SKELETON_SHAPE.factCount",
+        "reason": "code no longer reached by the unit: an operation may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_SKELETON_SHAPE.rowCount",
+        "reason": "code no longer reached by the unit: an operation may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_SKELETON_SHAPE~frame",
+        "reason": "code no longer reached by the unit: an operation may have been removed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionPageSkeleton",
+        "reason": "code reached by the unit changed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionSkeletonPart",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionSkeletonPartPlaceholder",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.actionCount",
+        "reason": "unclassified object member: lifecycle impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.factCount",
+        "reason": "unclassified object member: lifecycle impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.fieldCount",
+        "reason": "unclassified object member: lifecycle impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.rowCount",
+        "reason": "unclassified object member: lifecycle impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT.stepCount",
+        "reason": "unclassified object member: lifecycle impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#ROUTE_SKELETON_DEFAULT~frame",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#RouteSkeleton",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonActions",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlock",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockKind",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonBlockWidth",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonFacts",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonField",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonRows",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "components/loaders/route-skeleton/index.tsx#SkeletonStepsPanel",
+        "reason": "new code reached by the unit"
+      }
+    ],
+    "suggestedScope": [
+      "whole unit academy.admissions.allowlist.import: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "96d98d49220f2894",
+      "references/action-catalog.md": "3011dc2f28c2e91c",
+      "references/concurrency-reconciliation.md": "1bb4d0816b1a483d",
+      "references/framework-primitives.md": "16fc928cc9cc1f3c",
+      "references/interaction-state-machine.md": "c09f8f0c506bdd54",
+      "references/optimistic-decision.md": "62c41b62a67ed97a"
+    },
+    "definitionHash": "sha256:e7f9e58f5862e859cec90782e0920de1b6583e9e1904af2e8818f971aeb3448f",
+    "name": "optimistic-action-mutations",
+    "version": "1.2.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T11:08:10.721Z",
+  "unitId": "academy.admissions.allowlist.import"
+}

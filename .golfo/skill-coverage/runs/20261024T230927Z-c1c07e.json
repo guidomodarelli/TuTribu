@@ -1,0 +1,70 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-messaging-recovery-dead-ends",
+    "commit": "966f3707e2c7d3b7890ddbbe0ce7d0d129c8feb6",
+    "fingerprint": "sha256:9843aeed90f3e8c0c82be81b8a27e92ba48a7094a1ecd34d63c0e1805c14cbd3",
+    "uncommittedFiles": [],
+    "fileCount": 174,
+    "inputCount": 912
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run [redacted]-connections-intent-store.test.ts",
+      "durationMs": 3375,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "f2f475d0a1ce16c12dfcb8abfdf99d47a8e7d45d7886a9f742dda718483ad329",
+      "recordedAt": "2026-10-24T23:09:30.901Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-24T23:09:31.319Z",
+      "source": "attested",
+      "summary": "Revisión completa de la unidad: carga, historial ilegible (se descarta y la página sigue usable), storage que falla (error explícito) y diagnósticos; el aviso de historial lleno y la recuperación de prueba incierta quedan en el issue #179 por arquitectura."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-24T23:09:31.732Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: con el historial de conexiones ilegible en localStorage la página de conexiones carga y queda usable (4/4 targets), sin el error de restauración."
+    }
+  ],
+  "limitations": [],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-24T23:09:33.090Z",
+  "result": "verified",
+  "runId": "20261024T230927Z-c1c07e",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "no previous coverage: the whole unit is analyzed"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "whole unit academy.admissions.messaging.connections.restore: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a27ab40c70e78c90",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:262d130d4e0582dad8bd65e40b350a22b52d1393120ae35689e1bc817203bf14",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.4.1"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-24T23:09:27.084Z",
+  "unitId": "academy.admissions.messaging.connections.restore"
+}

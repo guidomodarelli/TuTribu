@@ -2,6 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "@golfo/ui";
+import { useAdmissionNotificationContext } from "./use-admission-notification-context";
+import { readAdmissionNotificationRefreshSnapshot } from "@/lib/notifications/admission-notification-refresh-store";
+import { useVisibleNotificationRefresh } from "./use-visible-notification-refresh";
+import { sameNotificationInboxRows } from "@/lib/notifications/notification-inbox-equality";
+import { linkNotificationRefreshCancellation } from "@/lib/notifications/notification-refresh-cancellation";
+import { ADMISSION_NOTIFICATION_REFRESH_INTERVAL_MS, NOTIFICATION_CENTER_REFRESH_SCOPE, NOTIFICATION_REFRESH_OUTCOME, ORDINARY_NOTIFICATION_REFRESH_INTERVAL_MS } from "@/src/modules/notifications/constants/admission-notification-refresh";
+import { NOTIFICATION_LIST_STATUS } from "@/src/modules/notifications/constants/notification-center";
+import type { AdmissionNotificationRefreshOutcome, NotificationListStatus } from "@/src/modules/notifications/application/results/notification-refresh-state";
 
 import {
   fetchNotificationInboxRequest,
@@ -18,19 +26,12 @@ import type { NotificationInboxResponse } from "@/src/modules/notifications/appl
  * notifications arrive asynchronously (the reminder cron, other members'
  * actions), so the bell refreshes the count (an indexed, capped count) every
  * minute while the tab is visible and when it becomes visible again. The
- * list itself is only fetched when the bell opens. No websockets.
+ * open list also refreshes during focused admission context and after a
+ * confirmed own admission action. Ordinary context retains badge-only polling.
  */
-export const NOTIFICATION_UNREAD_POLL_INTERVAL_MS = 60_000;
-
-export const NOTIFICATION_LIST_STATUS = {
-  error: "error",
-  idle: "idle",
-  loaded: "loaded",
-  loading: "loading",
-} as const;
-
-export type NotificationListStatus =
-  (typeof NOTIFICATION_LIST_STATUS)[keyof typeof NOTIFICATION_LIST_STATUS];
+export { ORDINARY_NOTIFICATION_REFRESH_INTERVAL_MS as NOTIFICATION_UNREAD_POLL_INTERVAL_MS } from "@/src/modules/notifications/constants/admission-notification-refresh";
+export { NOTIFICATION_LIST_STATUS } from "@/src/modules/notifications/constants/notification-center";
+export type { NotificationListStatus } from "@/src/modules/notifications/application/results/notification-refresh-state";
 
 export type NotificationCenter = {
   isMarkingAll: boolean;
@@ -40,6 +41,8 @@ export type NotificationCenter = {
   notifications: NotificationItemResult[];
   /** Loads the fresh list (called when the bell opens). */
   refreshList: () => void;
+  /** Explicit stale feedback preserves cached rows after a contextual read failure. */
+  refreshUnavailable: boolean;
   unreadCount: number;
 };
 
@@ -51,8 +54,6 @@ const COPY = {
 } as const;
 
 const ABORT_ERROR_NAME = "AbortError";
-const VISIBLE_DOCUMENT_STATE = "visible";
-const VISIBILITY_CHANGE_EVENT = "visibilitychange";
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === ABORT_ERROR_NAME;
@@ -99,8 +100,10 @@ function markItemRead(
  * @returns State and callbacks for the presentational bell.
  */
 export function useNotificationCenter(
-  initialInbox: NotificationInboxResponse | null
+  initialInbox: NotificationInboxResponse | null,
+  { isOpen = false }: { readonly isOpen?: boolean } = {},
 ): NotificationCenter {
+  const admission = useAdmissionNotificationContext();
   const [notifications, setNotifications] = useState<NotificationItemResult[]>(
     initialInbox?.notifications ?? []
   );
@@ -109,6 +112,8 @@ export function useNotificationCenter(
     initialInbox ? NOTIFICATION_LIST_STATUS.loaded : NOTIFICATION_LIST_STATUS.idle
   );
   const [isMarkingAll, setIsMarkingAll] = useState(false);
+  const [refreshUnavailable, setRefreshUnavailable] = useState(false);
+  const [reconciledOwnRevision, setReconciledOwnRevision] = useState(admission.revision);
   const isMarkingAllRef = useRef(false);
   const listControllerRef = useRef<AbortController | null>(null);
   const mutationVersionRef = useRef(0);
@@ -118,6 +123,16 @@ export function useNotificationCenter(
   const reconcileCountControllerRef = useRef<AbortController | null>(null);
   const readGenerationRef = useRef(0);
   const appliedCountReadGenerationRef = useRef(0);
+  const feedbackGenerationRef = useRef(0);
+  const listWorkRef = useRef<Promise<AdmissionNotificationRefreshOutcome> | null>(null);
+  const inboxAdmissionRevisionRef = useRef<number | null>(null);
+  const ownRevisionRef = useRef(admission.revision);
+  /** @param generation - Actual read order. @param unavailable - Safe outcome; an older failed read cannot replace newer successful feedback. */
+  const recordRefreshFeedback = useCallback((generation: number, unavailable: boolean) => {
+    if (generation < feedbackGenerationRef.current) return;
+    feedbackGenerationRef.current = generation;
+    setRefreshUnavailable(unavailable);
+  }, []);
 
   /**
    * Starts a server read (poll or list refresh).
@@ -143,53 +158,29 @@ export function useNotificationCenter(
     setUnreadCount(readUnreadCount);
   }, []);
 
-  const refreshUnreadCount = useCallback((signal: AbortSignal) => {
+  const refreshUnreadCount = useCallback(async (signal: AbortSignal): Promise<AdmissionNotificationRefreshOutcome> => {
     if (pendingMutationCountRef.current > 0) {
       // A pending mark will adopt the server count from its own response; a
       // poll issued now could read the pre-commit count and resolve later.
-      return;
+      return NOTIFICATION_REFRESH_OUTCOME.skipped;
     }
 
     const versionAtStart = mutationVersionRef.current;
     const readGeneration = beginRead();
 
-    fetchUnreadNotificationCountRequest({ signal })
-      .then((result) => {
-        if (signal.aborted || !result.isSuccess || versionAtStart !== mutationVersionRef.current) {
-          return;
-        }
-
-        adoptReadUnreadCount(readGeneration, result.unreadCount);
-      })
-      .catch(() => {
-        // Deliberate fallback: an aborted poll was superseded (or the bell
-        // unmounted) and a network failure keeps the last known count; the
-        // next tick retries. The badge is advisory, so no toast interrupts.
-      });
-  }, [adoptReadUnreadCount, beginRead]);
-
-  useEffect(() => {
-    let pollController: AbortController | null = null;
-
-    const poll = () => {
-      if (document.visibilityState !== VISIBLE_DOCUMENT_STATE) {
-        return;
-      }
-
-      pollController?.abort();
-      pollController = new AbortController();
-      refreshUnreadCount(pollController.signal);
-    };
-    const intervalId = window.setInterval(poll, NOTIFICATION_UNREAD_POLL_INTERVAL_MS);
-
-    document.addEventListener(VISIBILITY_CHANGE_EVENT, poll);
-
-    return () => {
-      window.clearInterval(intervalId);
-      document.removeEventListener(VISIBILITY_CHANGE_EVENT, poll);
-      pollController?.abort();
-    };
-  }, [refreshUnreadCount]);
+    try {
+      const result = await fetchUnreadNotificationCountRequest({ signal });
+      if (signal.aborted || versionAtStart !== mutationVersionRef.current) return NOTIFICATION_REFRESH_OUTCOME.skipped;
+      if (!result.isSuccess) { recordRefreshFeedback(readGeneration, true); return NOTIFICATION_REFRESH_OUTCOME.failed; }
+      adoptReadUnreadCount(readGeneration, result.unreadCount);
+      recordRefreshFeedback(readGeneration, false);
+      return NOTIFICATION_REFRESH_OUTCOME.refreshed;
+    } catch {
+      if (signal.aborted || versionAtStart !== mutationVersionRef.current) return NOTIFICATION_REFRESH_OUTCOME.skipped;
+      recordRefreshFeedback(readGeneration, true);
+      return NOTIFICATION_REFRESH_OUTCOME.failed;
+    }
+  }, [adoptReadUnreadCount, beginRead, recordRefreshFeedback]);
 
   useEffect(
     () => () => {
@@ -209,53 +200,69 @@ export function useNotificationCenter(
     refreshUnreadCount(controller.signal);
   }, [refreshUnreadCount]);
 
-  const refreshList = useCallback(() => {
+  const loadInbox = useCallback(async (signal?: AbortSignal): Promise<AdmissionNotificationRefreshOutcome> => {
+    if (pendingMutationCountRef.current > 0) {
+      // A pre-mutation read cannot satisfy a refresh requested during the mark.
+      // Preserve that intent for the last settling mutation instead of joining it.
+      listControllerRef.current?.abort();
+      hasDeferredListRefreshRef.current = true;
+      setListStatus(NOTIFICATION_LIST_STATUS.loading);
+      return NOTIFICATION_REFRESH_OUTCOME.skipped;
+    }
+    const admissionRevisionAtStart = readAdmissionNotificationRefreshSnapshot().revision;
+    if (listWorkRef.current && listControllerRef.current && !listControllerRef.current.signal.aborted && inboxAdmissionRevisionRef.current === admissionRevisionAtStart) {
+      const unlink = linkNotificationRefreshCancellation(listControllerRef.current, signal);
+      try { return await listWorkRef.current; } finally { unlink(); }
+    }
     listControllerRef.current?.abort();
     // The panel renders cached rows whatever the status, so the status only
     // shows when there are none: it must never claim a definitive empty inbox
     // while a refresh is in flight or after it failed.
     setListStatus(NOTIFICATION_LIST_STATUS.loading);
 
-    if (pendingMutationCountRef.current > 0) {
-      // Deferred: a list read now could observe the server before the pending
-      // mark commits and overwrite it once resolved. The last settling mark
-      // issues it.
-      hasDeferredListRefreshRef.current = true;
-      return;
-    }
-
     const controller = new AbortController();
     const versionAtStart = mutationVersionRef.current;
     const readGeneration = beginRead();
+    const unlink = linkNotificationRefreshCancellation(controller, signal);
 
     listControllerRef.current = controller;
+    inboxAdmissionRevisionRef.current = admissionRevisionAtStart;
 
-    fetchNotificationInboxRequest({ signal: controller.signal })
-      .then((result) => {
-        if (controller.signal.aborted) {
-          return;
-        }
+    const work = (async (): Promise<AdmissionNotificationRefreshOutcome> => {
+      try {
+        if (controller.signal.aborted) return NOTIFICATION_REFRESH_OUTCOME.skipped;
+        const result = await fetchNotificationInboxRequest({ signal: controller.signal });
+        if (controller.signal.aborted || admissionRevisionAtStart !== readAdmissionNotificationRefreshSnapshot().revision) return NOTIFICATION_REFRESH_OUTCOME.skipped;
+        if (!result.isSuccess) { setListStatus(NOTIFICATION_LIST_STATUS.error); recordRefreshFeedback(readGeneration, true); return NOTIFICATION_REFRESH_OUTCOME.failed; }
+        if (versionAtStart !== mutationVersionRef.current) { setListStatus(NOTIFICATION_LIST_STATUS.loaded); return NOTIFICATION_REFRESH_OUTCOME.skipped; }
+        setNotifications((current) => sameNotificationInboxRows(current, result.inbox.notifications) ? current : result.inbox.notifications);
+        adoptReadUnreadCount(readGeneration, result.inbox.unreadCount);
+        setListStatus(NOTIFICATION_LIST_STATUS.loaded); recordRefreshFeedback(readGeneration, false);
+        return NOTIFICATION_REFRESH_OUTCOME.refreshed;
+      } catch (error) {
+        if (isAbortError(error) || controller.signal.aborted) return NOTIFICATION_REFRESH_OUTCOME.skipped;
+        setListStatus(NOTIFICATION_LIST_STATUS.error); recordRefreshFeedback(readGeneration, true);
+        return NOTIFICATION_REFRESH_OUTCOME.failed;
+      } finally { unlink(); }
+    })();
+    listWorkRef.current = work;
+    try { return await work; } finally { if (listWorkRef.current === work) listWorkRef.current = null; }
+  }, [adoptReadUnreadCount, beginRead, recordRefreshFeedback]);
 
-        if (!result.isSuccess) {
-          setListStatus(NOTIFICATION_LIST_STATUS.error);
-          return;
-        }
-
-        if (versionAtStart === mutationVersionRef.current) {
-          setNotifications(result.inbox.notifications);
-          adoptReadUnreadCount(readGeneration, result.inbox.unreadCount);
-        }
-
-        setListStatus(NOTIFICATION_LIST_STATUS.loaded);
-      })
-      .catch((error: unknown) => {
-        if (isAbortError(error) || controller.signal.aborted) {
-          return;
-        }
-
-        setListStatus(NOTIFICATION_LIST_STATUS.error);
-      });
-  }, [adoptReadUnreadCount, beginRead]);
+  const refreshList = useCallback(() => { void loadInbox(); }, [loadInbox]);
+  const ownActionPending = reconciledOwnRevision !== admission.revision;
+  /** A confirmed original remains pending until its current inbox/count read succeeds, independently of hidden route data. */
+  const refreshVisible = useCallback(async (signal: AbortSignal): Promise<AdmissionNotificationRefreshOutcome> => {
+    const outcome = await (isOpen && (admission.active || ownActionPending) ? loadInbox(signal) : refreshUnreadCount(signal));
+    if (ownActionPending && outcome === NOTIFICATION_REFRESH_OUTCOME.refreshed) setReconciledOwnRevision((current) => Math.max(current, admission.revision));
+    return outcome;
+  }, [admission.active, admission.revision, ownActionPending, isOpen, loadInbox, refreshUnreadCount]);
+  const { refreshNow } = useVisibleNotificationRefresh({ enabled: true, scopeKey: NOTIFICATION_CENTER_REFRESH_SCOPE, intervalMilliseconds: admission.active || ownActionPending ? ADMISSION_NOTIFICATION_REFRESH_INTERVAL_MS : ORDINARY_NOTIFICATION_REFRESH_INTERVAL_MS, requireFocus: admission.active || ownActionPending, refresh: refreshVisible });
+  useEffect(() => {
+    if (ownRevisionRef.current === admission.revision) return;
+    ownRevisionRef.current = admission.revision;
+    refreshNow();
+  }, [admission.revision, refreshNow]);
 
   /**
    * Starts a local mutation: bumps the version (so in-flight reads discard
@@ -409,6 +416,7 @@ export function useNotificationCenter(
     markRead,
     notifications,
     refreshList,
+    refreshUnavailable: admission.active && refreshUnavailable,
     unreadCount,
   };
 }

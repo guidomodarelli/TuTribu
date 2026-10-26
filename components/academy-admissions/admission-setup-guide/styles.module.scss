@@ -1,0 +1,183 @@
+// Contains code adapted from Arc Pro (https://uiarc.dev), licensed under the
+// Arc Pro license (https://uiarc.dev/license). Not covered by this project's
+// license; do not redistribute it on its own.
+
+.AdmissionSetupGuide {
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  color: var(--foreground);
+
+  &__header {
+    display: grid;
+    gap: 0.25rem;
+    padding: 1rem 1.25rem 0.75rem;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: var(--text-base, 1rem);
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  &__description {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: var(--text-sm, 0.875rem);
+  }
+
+  // One quiet bar; it turns green only when every required step is done.
+  &__progress {
+    display: grid;
+    gap: 0.5rem;
+    padding: 0 1.25rem 1rem;
+  }
+
+  &__progressMeta {
+    color: var(--text-secondary);
+    font-size: var(--text-sm, 0.875rem);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__track {
+    height: 0.25rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--surface-muted);
+  }
+
+  // The fill slides in from the left instead of scaling, so its rounded end never squashes.
+  &__fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--accent);
+    transition:
+      transform var(--duration-standard, 0.2s) var(--ease-standard, ease),
+      background-color var(--duration-standard, 0.2s) var(--ease-standard, ease);
+
+    &--complete {
+      background: var(--success);
+    }
+  }
+
+  &__steps {
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--border);
+    list-style: none;
+  }
+
+  &__step {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.25rem;
+
+    & + & {
+      border-top: 1px solid var(--border-subtle, var(--border));
+    }
+
+    &--next {
+      background: color-mix(in oklab, var(--accent) 6%, var(--surface));
+    }
+  }
+
+  &__marker {
+    display: grid;
+    width: 1.5rem;
+    height: 1.5rem;
+    place-items: center;
+    border: 1px solid var(--border-strong, var(--border));
+    border-radius: 999px;
+    color: var(--text-muted);
+    font-size: var(--text-xs, 0.75rem);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__check {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+
+  &__step--next &__marker {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-foreground, #fff);
+  }
+
+  &__step--done &__marker {
+    border-color: var(--success);
+    color: var(--success);
+  }
+
+  &__copy {
+    display: grid;
+    min-width: 0;
+    gap: 0.125rem;
+  }
+
+  &__stepTitle {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: var(--text-sm, 0.875rem);
+    font-weight: 500;
+  }
+
+  &__step--done &__stepTitle {
+    color: var(--text-secondary);
+  }
+
+  &__badge {
+    border-radius: 999px;
+    padding: 0.0625rem 0.5rem;
+    background: var(--surface-muted);
+    color: var(--text-muted);
+    font-size: var(--text-xs, 0.75rem);
+    font-weight: 400;
+
+    &--warning {
+      background: color-mix(in oklab, var(--warning) 12%, var(--surface));
+      color: var(--warning);
+    }
+  }
+
+  &__detail {
+    color: var(--text-muted);
+    font-size: var(--text-xs, 0.75rem);
+  }
+
+  &__action {
+    justify-self: end;
+  }
+
+  @media (max-width: 32.5rem) {
+    &__header,
+    &__progress,
+    &__step {
+      padding-inline: 1rem;
+    }
+
+    &__step {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    &__action {
+      grid-column: 2;
+      justify-self: start;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &__fill {
+      transition: none;
+    }
+  }
+}

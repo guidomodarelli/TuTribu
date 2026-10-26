@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.admissions.allowlist.import",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Admisiones",
+    "section": "Importación CSV",
+    "subflow": "Importar habilitados desde un CSV"
+  },
+  "description": "Importar habilitados: subir el CSV, vista previa, selección, confirmación, reanudación y reporte.",
+  "routes": [
+    "/[slug]/academia/admissions/allowlist/imports"
+  ],
+  "entries": [
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/allowlist/imports/page.tsx",
+      "symbol": "default",
+      "follow": false
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/allowlist/imports/loading.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/allowlist/imports/error.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/allowlist/allowlist-import-container.tsx",
+      "symbol": "AllowlistImportContainer"
+    },
+    {
+      "path": "hooks/use-allowlist-import-workflow.ts",
+      "symbol": "useAllowlistImportWorkflow"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/allowlist/imports/route.ts",
+      "symbol": "*"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/allowlist/imports/[importId]/route.ts",
+      "symbol": "*"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/allowlist/imports/[importId]/confirm/route.ts",
+      "symbol": "*"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/allowlist/imports/[importId]/report/route.ts",
+      "symbol": "*"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/allowlist/imports/template/route.ts",
+      "symbol": "*"
+    }
+  ],
+  "origin": "curated",
+  "dependsOn": [
+    {
+      "path": "src/modules/academy-admissions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAcademyAdmissionsModule"
+    },
+    {
+      "path": "src/modules/auth/infrastructure/composition/authenticated-account-provider.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "createRequestAuthenticatedAccountProvider"
+    },
+    {
+      "path": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "readMessagingRecoveryLock"
+    },
+    {
+      "path": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "readMessagingHostingSecurityConfig"
+    },
+    {
+      "path": "src/modules/shared/infrastructure/database/server-database-client.ts",
+      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "createServerDatabaseClient"
+    }
+  ]
+}

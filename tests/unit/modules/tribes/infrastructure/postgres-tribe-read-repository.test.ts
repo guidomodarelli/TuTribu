@@ -42,7 +42,8 @@ describe("PostgresTribeReadRepository", () => {
     await expect(
       repository.findCurrentMembershipAccessBySlug("matematica-pro")
     ).resolves.toEqual({
-      // A blocked member never has community access.
+      // A blocked member never has community or channel access.
+      channelReadAccess: false,
       communityAccess: false,
       status: "blocked" as const,
       statusReason: "payment_blocked",
@@ -55,6 +56,7 @@ describe("PostgresTribeReadRepository", () => {
         {
           id: "tribe-1",
           name: "Matematica Pro",
+          channel_read_access: true,
           community_access: true,
           slug: "matematica-pro",
           status: "active" as const,
@@ -74,6 +76,7 @@ describe("PostgresTribeReadRepository", () => {
       repository.findCurrentMembershipAccessWithTribeBySlug("matematica-pro")
     ).resolves.toEqual({
       membershipAccess: {
+        channelReadAccess: true,
         communityAccess: true,
         status: "active" as const,
         statusReason: "none",
@@ -112,6 +115,7 @@ describe("PostgresTribeReadRepository", () => {
     ).resolves.toEqual({
       membershipAccess: {
         // Without a readable tribe row the boundary cannot be evaluated: closed.
+        channelReadAccess: false,
         communityAccess: false,
         status: "active" as const,
         statusReason: "none",
@@ -138,6 +142,8 @@ describe("PostgresTribeReadRepository", () => {
           name: "Beta Club",
           role: "tribemate",
           slug: "beta-club",
+          // A free academy member reads the channels without community access.
+          has_channel_read_access: true,
           has_community_access: false,
           uses_academy_access: true,
         },
@@ -154,6 +160,7 @@ describe("PostgresTribeReadRepository", () => {
       {
         // Rows without the academy columns behave as classic tribes.
         accessModel: "legacy",
+        hasChannelReadAccess: true,
         hasCommunityAccess: true,
         tribeId: "tribe-1",
         logoUrl: null,
@@ -164,6 +171,7 @@ describe("PostgresTribeReadRepository", () => {
       },
       {
         accessModel: "academy",
+        hasChannelReadAccess: true,
         hasCommunityAccess: false,
         tribeId: "tribe-2",
         logoUrl: null,

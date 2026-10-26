@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.admissions.applicant.request.view",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Estado de la solicitud",
+    "section": null,
+    "subflow": "Consultar el estado de la solicitud"
+  },
+  "description": "Carga de la página del estado de la propia solicitud (`?tribe=`); la query conserva `tribe` y descarta claves desconocidas.",
+  "routes": [
+    "/admissions/requests/[requestId]"
+  ],
+  "entries": [
+    {
+      "follow": false,
+      "path": "app/(admission)/admissions/requests/[requestId]/page.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(admission)/admissions/requests/[requestId]/loading.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(admission)/admissions/requests/[requestId]/error.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "src/modules/academy-admissions/infrastructure/composition/admission-page.ts",
+      "symbol": "loadAdmissionPageState"
+    }
+  ],
+  "dependsOn": [
+    {
+      "path": "src/modules/academy-admissions/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAcademyAdmissionsModule"
+    },
+    {
+      "path": "src/modules/auth/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAuthModule"
+    }
+  ],
+  "origin": "curated"
+}

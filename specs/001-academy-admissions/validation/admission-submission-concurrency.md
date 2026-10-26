@@ -1,0 +1,25 @@
+# Concurrencia de las presentaciones
+
+T200 y T209 permanecen abiertas: permitir transacciones independientes no acredita por sí solo el objetivo de cien confirmaciones con p95 inferior a 3.000 ms. La base de este trabajo es `1e929c419df66207f3acc9554c652eab16e8e3fd`, cuyo quality gate completo pasó, más los seis inputs propios de producto de esta mejora.
+
+## Coordinación implementada
+
+El writer de solicitudes recibe `lockSubmissionScope` desde `setup.ts`. La primitiva de tribus elige su coordinación usando el actor SQL: presentación propia con `FOR SHARE` sobre la tribu y `pg_advisory_xact_lock` por tribu/beneficiario; otro beneficiario con `FOR UPDATE` sobre la tribu. El owner de membresía consume la misma coordinación antes de leer política, miembros, solicitud/decisión, configuración y reloj en la consulta siguiente. Esa separación conserva una fotografía nueva después de esperar. La autorización de negocio continúa en sus owners.
+
+La prueba estructural nativa acredita serialización de una misma persona, visibilidad de una membresía insertada durante la espera, exclusión de un UPDATE de tribu sin cambio de clave, conservación del fence administrativo y ausencia de advisory locks retenidos después de rollback. No se cambiaron estructura, grants, RLS, límites, timeouts, leases ni tamaño del pool.
+
+## Reproducción y prueba integral
+
+La reproducción previa retuvo la transacción real de efectos del primer solicitante antes de COMMIT. La segunda persona quedó bloqueada por ese backend y la aserción de independencia falló; no fue un timeout de observación. El primer ingreso terminó admitido y el harness confirmó su limpieza antes de propagar el fallo. Registro privado: `.git/admission-submission-concurrency-baseline.json`, duración total del caso 219.398,83 ms, incluyendo preparación.
+
+La primera repetición modificada superó la observación de independencia y confirmó el segundo ingreso, pero falló al consultar persistencia con el UUID propuesto en el input. El writer genera el identificador canónico de la solicitud y lo publica en su respuesta. Se corrigió el test para correlacionar ese identificador con las filas de las dos cuentas; no se cambió el comportamiento del producto para satisfacerlo. Ese resultado completo sigue conservado como fallido en `.git/admission-submission-concurrency-after.json`, con su productor original en `.git/admission-submission-concurrency-visibility.test.ts`.
+
+La repetición corregida pasó: el segundo ingreso se confirmó y fue visible desde otra transacción mientras el primero permanecía invisible antes de COMMIT. Tras liberar la primera transacción quedaron dos solicitudes aprobadas, dos miembros básicos, dos decisiones y dos efectos aplicados. Cuatro operaciones simultáneas nuevas de una tercera persona produjeron una admisión y tres resultados de miembro existente, con una sola solicitud, membresía, decisión y efecto. Registro privado: `.git/admission-submission-concurrency-after2.json`; un caso integral aprobado sin omisiones, 264.497,36 ms incluyendo dataset y verificaciones, no una latencia de confirmación.
+
+Las tres pruebas estructurales pasaron sin omisiones, en `.git/academy-admission-scope-locks-after.json`. El dataset integral conserva las 10.000 entradas y cien cuentas sintéticas, aunque esta prueba coordina sólo tres personas y seis operaciones. Los seis inputs modificados de producto conservaron sus huellas entre las ejecuciones; la corrección y ampliación del test se registra por separado. El [resumen saneado de concurrencia y regresión](admission-submission-concurrency.json) conserva los controles fallidos y los casos terminados. No se hicieron envíos reales ni consultas SQL a producción.
+
+## Validaciones restantes del trabajo
+
+El lint completo, los tipos de producto y tests y el build real de Next.js 16.3.4 pasaron. El checkpoint `6d89c40d8c4dc1bd58dd3d19b7e1bb9418c528e9` tiene su [quality gate completo aprobado](https://github.com/guidomodarelli/TuTribu/actions/runs/39098641774). También pasó la regresión de presentación común y replay original, sin duplicar solicitud, decisión, vínculo ni membresía. Las 23 regresiones nativas adicionales pasaron sin fallos ni omisiones: membresía, restricciones, política cerrada/reabierta, vínculo competido por SMS/WhatsApp, prueba local por correo/teléfono, invitaciones comunes e históricas y rollback ante falta de la obligación original. Registro privado: `.git/admission-submission-scope-regression.json`. Junto al caso integral, las tres pruebas estructurales y el replay suman 28 casos SQL aprobados; esta suma no incluye ni reinterpreta la carga fallida.
+
+La carga completa y el abandono terminaron: la [evidencia saneada](admission-submission-scope-performance.json) conserva el fallo de cien llamadas con pool diez y el guard de abandono aprobado con SQLSTATE `25P03`. Hubo nueve admisiones, una pendiente y noventa timeouts de checkout, con p95 de 66.807,05 ms. No se certifica el objetivo; el siguiente ajuste requiere atender esa capacidad y repetir la carga. El límite de tres segundos y todos los fallos permanecen en el criterio.

@@ -55,6 +55,7 @@ describe("Better Auth configuration", () => {
         getServerDatabaseEnvironment: () => ({
           connectionString: "postgres://tutribu.example.com/db",
         }),
+        getPostgresPoolMetricsEnvironment: () => ({ logIntervalMilliseconds: null }),
       })
     );
     vi.doMock(
@@ -120,6 +121,7 @@ describe("Better Auth configuration", () => {
         getServerDatabaseEnvironment: () => ({
           connectionString: "postgres://tutribu.example.com/db",
         }),
+        getPostgresPoolMetricsEnvironment: () => ({ logIntervalMilliseconds: null }),
       })
     );
     vi.doMock(
@@ -177,6 +179,7 @@ describe("Better Auth configuration", () => {
         getServerDatabaseEnvironment: () => ({
           connectionString: "postgres://tutribu.example.com/db",
         }),
+        getPostgresPoolMetricsEnvironment: () => ({ logIntervalMilliseconds: null }),
       })
     );
     vi.doMock(

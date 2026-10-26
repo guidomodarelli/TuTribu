@@ -1,0 +1,328 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "chore/academy-audit-coverage",
+    "commit": "2718f53c946a536caa7a065feab104de23414063",
+    "fingerprint": "sha256:ede276df124a96295ec2e87cd5c0a3ec6f7bf056b532759f650bf6b17566be35",
+    "uncommittedFiles": [],
+    "fileCount": 657,
+    "inputCount": 4115
+  },
+  "evidence": [
+    {
+      "kind": "test",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T15:36:11.740Z",
+      "source": "attested",
+      "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx tests/unit/components/academy-admissions-messaging-resources.test.tsx tests/unit/components/academy-admissions-notification-recovery-container.test.tsx tests/unit/components/academy-admissions-notification-recovery.test.tsx: Tests 107 passed (107) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T15:36:12.177Z",
+      "source": "attested",
+      "summary": "Estados: el guardado valida al presionar y muestra qué falta junto a cada campo; las consultas de remitentes y plantillas muestran su carga, evitan la doble consulta y dejan el vacío y el error junto al select; Ver avisos anteriores acumula sin duplicados y una recuperación vencida se muestra como no disponible; solo un conflicto real marca la conexión como cambiada, también en la relectura tras una comprobación rechazada."
+    }
+  ],
+  "limitations": [
+    "Remitentes, plantillas y recuperación de avisos no se recorrieron en el navegador: necesitan una conexión de Zavu con credencial válida o activa, que la rama efímera no tiene."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T15:36:14.474Z",
+  "result": "partial",
+  "runId": "20261026T153611Z-05f8b3",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#MAXIMUM_TIMEOUT_MS",
+        "reason": "code no longer reached by the unit: an operation may have been removed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#useMessagingActivationController",
+        "reason": "code reached by the unit changed"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#diagnosticAbsenceSince",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#DiagnosticPendingIntent",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#isDiagnosticIntent",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/applyConfiguration",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/archiveOriginal",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/clearEarlierDiagnostics",
+        "reason": "new action handler"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/issueDiagnostic",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/readCurrent",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/recover",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/save",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/stepContent",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/validate",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer/verifyDiagnostic",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell",
+        "reason": "component state or render changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/initialScope",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/read",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/setSenders",
+        "reason": "code no longer reached by the unit: an operation may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/setTemplates",
+        "reason": "code no longer reached by the unit: an operation may have been removed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController~shell",
+        "reason": "component state or render changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/readCatalog",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/recover",
+        "reason": "action handler changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer~shell",
+        "reason": "component state or render changed"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/messaging-connection-resources/index.tsx#MessagingConnectionResources",
+        "reason": "code no longer reached by the unit: an operation may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-connection-resources/index.tsx#MessagingConnectionResources/readControl",
+        "reason": "new action handler"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-connection-resources/index.tsx#MessagingConnectionResources~shell",
+        "reason": "component state or render changed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-connection-resources/index.tsx#MessagingResourceListState",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-connection-resources/index.tsx#MessagingResourceReading",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-connection-resources/index.tsx#UNREAD_LIST.status",
+        "reason": "lifecycle configuration member (status)"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-connection-resources/index.tsx#UNREAD_LIST~frame",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/messaging-connections-workspace/index.tsx#MessagingConnectionsWorkspace",
+        "reason": "code reached by the unit changed"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/messaging-connections/index.tsx#MessagingConnections",
+        "reason": "code no longer reached by the unit: an operation may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-connections/index.tsx#MessagingConnections/focusFirstInvalid",
+        "reason": "new action handler"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-connections/index.tsx#MessagingConnections~shell",
+        "reason": "component state or render changed"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/messaging-diagnostic-history/index.tsx#MessagingDiagnosticHistory",
+        "reason": "code no longer reached by the unit: an operation may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-diagnostic-history/index.tsx#MessagingDiagnosticHistory/confirmClear",
+        "reason": "new action handler"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-diagnostic-history/index.tsx#MessagingDiagnosticHistory~shell",
+        "reason": "component state or render changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/messaging-notification-recovery/index.tsx#MessagingNotificationRecovery",
+        "reason": "code reached by the unit changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/messaging-original-recovery/index.tsx#MessagingOriginalRecovery",
+        "reason": "code reached by the unit changed"
+      },
+      {
+        "change": "modified",
+        "key": "lib/messaging/messaging-connections-intent-store.ts#createMessagingConnectionsIntentStore~shell",
+        "reason": "component state or render changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/messaging/messaging-connections-intent-store.ts#dispatchedAtSchema",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "modified",
+        "key": "lib/messaging/messaging-connections-intent-store.ts#intentSchema",
+        "reason": "code reached by the unit changed"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/time.ts#TIMER_MAXIMUM_DELAY_MS",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-contact-browser.ts#<module>",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-contact-browser.ts#ADMISSION_CONTACT_ABSENT_DISCARD_AFTER_MS",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/ports/messaging-connections-intent-store.ts#MessagingConnectionsIntentStore",
+        "reason": "code reached by the unit changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/ports/messaging-connections-intent-store.ts#MessagingConnectionsPendingIntent",
+        "reason": "code reached by the unit changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-connections-browser.ts#MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadRetry",
+        "reason": "lifecycle configuration member (currentReadRetry)"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-diagnostic-browser.ts#ABSENT_ARCHIVE_AFTER_MINUTES",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-diagnostic-browser.ts#MESSAGING_DIAGNOSTIC_ABSENT_ARCHIVE_AFTER_MS",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-diagnostic-browser.ts#MESSAGING_DIAGNOSTIC_RECOVERY_UI_COPY~frame",
+        "reason": "new code reached by the unit"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/notification-recovery-ui.ts#NOTIFICATION_RECOVERY_UI_COPY.expired",
+        "reason": "lifecycle configuration member (expired)"
+      }
+    ],
+    "suggestedScope": [
+      "whole unit academy.admissions.messaging.connection.save: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "96d98d49220f2894",
+      "references/action-catalog.md": "3011dc2f28c2e91c",
+      "references/concurrency-reconciliation.md": "1bb4d0816b1a483d",
+      "references/framework-primitives.md": "16fc928cc9cc1f3c",
+      "references/interaction-state-machine.md": "c09f8f0c506bdd54",
+      "references/optimistic-decision.md": "62c41b62a67ed97a"
+    },
+    "definitionHash": "sha256:e7f9e58f5862e859cec90782e0920de1b6583e9e1904af2e8818f971aeb3448f",
+    "name": "optimistic-action-mutations",
+    "version": "1.2.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T15:36:11.273Z",
+  "unitId": "academy.admissions.messaging.connection.save"
+}

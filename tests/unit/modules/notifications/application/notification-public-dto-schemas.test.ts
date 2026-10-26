@@ -23,6 +23,14 @@ const eventNotification = {
 };
 
 describe("notification public DTO schemas", () => {
+  it("should expose only the owned admission reference and reject a fabricated audience or unusable subject", () => {
+    const admission = { createdAt: eventNotification.createdAt, id: NOTIFICATION_ID, readAt: null, tribe: eventNotification.tribe, type: "admission_pending_created", admission: { requestId: EVENT_ID, audience: "applicant", internalReason: "Private reason", contact: "private@example.test" }, secretReference: "private-reference" };
+    const parsed = notificationInboxSchema.parse({ notifications: [admission], unreadCount: 1 });
+    expect(parsed.notifications[0]).toEqual({ createdAt: admission.createdAt, id: NOTIFICATION_ID, readAt: null, tribe: admission.tribe, type: admission.type, admission: { requestId: EVENT_ID, audience: "applicant" } });
+    expect(notificationInboxSchema.safeParse({ notifications: [{ ...admission, admission: { requestId: EVENT_ID, audience: "leader" } }], unreadCount: 1 }).success).toBe(false);
+    expect(notificationInboxSchema.safeParse({ notifications: [{ ...eventNotification, type: "admission_approved" }], unreadCount: 1 }).success).toBe(false);
+  });
+
   it("accepts a usable inbox and strips fields outside the allowlist", () => {
     const parsed = notificationInboxSchema.safeParse({
       notifications: [{ ...eventNotification, dedupeKey: "secret", recipientUserId: "user-1" }],

@@ -1,0 +1,28 @@
+/** Own loopback WebDriver transport limits for the additional stock WebKitGTK reader probe. */
+export const ADMISSION_READER_WEBDRIVER = {
+  backendEnvironment: "ADMISSION_READER_WEBKIT_BACKEND",
+  backends: { playwright: "playwright", webkitgtk: "webkitgtk" },
+  host: "127.0.0.1",
+  binary: "WebKitWebDriver",
+  browserName: "MiniBrowser",
+  requestTimeoutMs: 15_000,
+  startTimeoutMs: 10_000,
+  stopTimeoutMs: 2_000,
+  pollMs: 100,
+  maximumScreenshotCharacters: 24_000_000,
+  viewportScript: "return {width:innerWidth,height:innerHeight,outerWidth,outerHeight};",
+  controlFocusScript: "return document.hasFocus() && document.getElementById('control') === document.activeElement;",
+  statusScript: "return document.getElementById('status')?.textContent ?? null;",
+  failures: {
+    origin: "reader_webdriver_loopback_required",
+    transport: "reader_webdriver_transport_failed",
+    response: "reader_webdriver_response_invalid",
+    command: "reader_webdriver_command_failed",
+    session: "reader_webdriver_session_invalid",
+    viewport: "reader_webdriver_viewport_mismatch",
+    screenshot: "reader_webdriver_screenshot_invalid",
+    startup: "reader_webdriver_start_failed",
+    platform: "reader_webdriver_disposable_display_required",
+    backend: "reader_webdriver_backend_invalid",
+  },
+};

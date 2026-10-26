@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.admissions.messaging.connections.view",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Admisiones",
+    "section": "Conexión de mensajería",
+    "subflow": "Abrir la conexión de mensajería"
+  },
+  "description": "Carga de la conexión de mensajería para líder y guardián; la query descarta claves desconocidas.",
+  "routes": [
+    "/[slug]/academia/admissions/messaging/connections"
+  ],
+  "entries": [
+    {
+      "follow": false,
+      "path": "app/(platform)/[slug]/academia/admissions/messaging/connections/page.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/messaging/connections/loading.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/messaging/connections/error.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts",
+      "symbol": "loadMessagingConnectionsPageState"
+    }
+  ],
+  "dependsOn": [
+    {
+      "path": "src/modules/messaging/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildMessagingModule"
+    },
+    {
+      "path": "src/modules/auth/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAuthModule"
+    }
+  ],
+  "origin": "curated"
+}

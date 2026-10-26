@@ -1,0 +1,25 @@
+@use "../../../src/styles/workspace-panel";
+
+.MessagingConnectionResources {
+  @include workspace-panel.section;
+
+  &__title { @include workspace-panel.title; }
+  &__subtitle { @include workspace-panel.subtitle; padding: 0; }
+  &__lead { @include workspace-panel.lead; }
+  &__note { @include workspace-panel.note; }
+  &__form { @include workspace-panel.form; }
+  &__field { @include workspace-panel.field; }
+  &__group {
+    @include workspace-panel.form;
+    @include workspace-panel.divider;
+    margin: 0;
+    padding-inline: 0;
+    padding-block-end: 0;
+    border-inline: 0;
+    border-block-end: 0;
+  }
+  &__actions { @include workspace-panel.actions; }
+  &__action { @include workspace-panel.action; }
+  &__error { @include workspace-panel.error; }
+  &__feedback { @include workspace-panel.lead; }
+}

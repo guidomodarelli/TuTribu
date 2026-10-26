@@ -1,0 +1,20 @@
+@use "../../../../../../src/styles/workspace-panel";
+
+.AdmissionActivityContainer {
+  display: grid;
+  gap: 2rem;
+  width: 100%;
+  min-width: 0;
+
+  &__toolbar {
+    @include workspace-panel.actions;
+  }
+
+  &__status {
+    @include workspace-panel.note;
+  }
+
+  &__error {
+    @include workspace-panel.error;
+  }
+}

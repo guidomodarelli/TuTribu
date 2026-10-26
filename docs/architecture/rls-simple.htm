@@ -34,6 +34,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 .code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
 .code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
 .divider{height:1px;background:#e0ddd6;margin:28px 0;}
+.table-wrap{width:100%;overflow-x:auto;}
 </style>
 </head>
 <body>
@@ -116,8 +117,8 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-num">06</div>
   <div class="section-title">Ejemplos</div>
 <ul>
-  <li>un usuario solo ve tribus a las que pertenece</li>
-  <li>un miembro solo ve datos de tribus donde tiene membresia</li>
+  <li>la pertenencia delimita la lectura de datos privados de una tribu; las proyecciones públicas o propias previas al ingreso tienen un owner y alcance explícitos</li>
+  <li>un miembro solo ve los datos privados que su pertenencia y permisos habilitan; consultar una oferta o solicitud propia no concede ese acceso</li>
   <li>un usuario solo puede insertar la membership inicial de leader de la tribu que acaba de crear</li>
 </ul>
 <div class="divider"></div>
@@ -141,6 +142,11 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <li>la app responde: <strong>&quot;tiene sentido permitir esta accion ahora?&quot;</strong></li>
 </ul>
 <p><strong>Escrituras con invariantes fuera de RLS.</strong> Si una escritura depende de algo que una policy no puede ver (un tope contado entre filas, un fin evaluado con <code>clock_timestamp()</code>, un candado o una segunda escritura en la misma transaccion), una policy de escritura para roles de request no alcanza: el rol podria escribir directo y saltearse esas reglas. En ese caso los roles de request quedan solo con <code>SELECT</code> (se revocan <code>INSERT</code>/<code>UPDATE</code>/<code>DELETE</code> con el grant guardado por <code>IF EXISTS</code>), no hay policies de escritura para ellos y el unico escritor es el repositorio o una funcion <code>SECURITY DEFINER</code> que aplica la regla de forma atomica. Una policy de owner (<code>current_user</code> = dueño de la tabla) mantiene esas escrituras operativas bajo <code>FORCE ROW LEVEL SECURITY</code> aunque el owner no tenga <code>BYPASSRLS</code>. Ejemplos: <code>event_attendances</code>, <code>event_proposals</code> y <code>event_occurrence_exceptions</code> (ver <code>tribe-events.htm</code>).</p>
+<h3 id="admission-before-membership">Preadmisión y writers con invariantes</h3>
+<p>Una cuenta autenticada puede consultar su solicitud, evidencia o canje propios antes de pertenecer. La oferta pública usa un DTO limitado del owner de admisión. Estas excepciones no dan acceso a miembros, notas internas, cursos privados ni filas completas de la tribu. <code>RLS</code> conserva cuenta, owner y tenant; el servidor revalida sesión, actor actual, propósito y recurso antes de proyectar el resultado.</p>
+<p>Admisión, decisión, fundamento, aviso y auditoría se guardan juntos por el writer autorizado. Las políticas simples no sustituyen los locks, la comprobación de sesión y liderazgo, el CAS ni los constraint triggers de commit. El rol de request no adquiere escrituras directas por haber leído el preflight. El inventario comprueba RLS forzada, grants/ACL, search path y triggers habilitados, incluido <code>admission_decision_commit_guard</code>; conserva historial <code>NULL</code> y roles privilegiados sin backfill. El marcador durable cierra los writers antiguos después del corte incluso si se borra configuración.</p>
+<p>El bootstrap inicial solo crea al líder de la tribu nueva. La recuperación de una restricción comercial básica, la procedencia paga, las concesiones de academia y la moderación pertenecen a owners diferentes; un resultado histórico de operación no es permiso perpetuo. Ver <a href="academy-access.htm#protected-membership-access">pertenencia y beneficios</a> y <a href="academy-admissions.htm#activation-preflight-gates">preflight y activación</a>.</p>
+
 <div class="divider"></div>
 </div>
 

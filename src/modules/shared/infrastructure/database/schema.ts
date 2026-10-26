@@ -1,20 +1,43 @@
 import { sql } from "drizzle-orm";
+import {createAuthenticatedAccountSchema} from "@/src/modules/auth/infrastructure/database/authenticated-account-schema";
+import { createAdmissionSchema, type AdmissionMessagingSchemaReferences, type AdmissionMembershipSchemaReferences } from "@/src/modules/academy-admissions/infrastructure/database/admission-schema";
+import { createMessagingSchema } from "@/src/modules/messaging/infrastructure/database/messaging-schema";
+import { createMessagingDispatchObservationSchema } from "@/src/modules/messaging/infrastructure/database/messaging-dispatch-observation-schema";
+import { createAdmissionMessagingMaintenanceProgressSchema } from "@/src/modules/messaging/infrastructure/database/admission-messaging-maintenance-schema";
+import { createAdmissionMembershipEffectsSchema } from "@/src/modules/tribes/infrastructure/database/admission-membership-schema";
+import { createSubscriptionMembershipEffectsSchema } from "@/src/modules/subscriptions/infrastructure/database/subscription-membership-schema";
+import { ADMISSION_NOTIFICATION_AUDIENCE, ADMISSION_NOTIFICATION_TYPES } from "@/src/modules/notifications/constants/admission-notifications";
+import { ADMISSION_NOTIFICATION_PREFERENCE_MODE } from "@/src/modules/notifications/constants/admission-notification-preference";
+import { createAdmissionNotificationGroupSchema } from "@/src/modules/notifications/infrastructure/database/admission-notification-group-schema";
+import { createAdmissionNotificationCollectionProgressSchema, createAdmissionNotificationCollectionRetrySchema } from "@/src/modules/notifications/infrastructure/database/admission-notification-collection-progress-schema";
+import { createAdmissionNotificationProducerProgressSchema } from "@/src/modules/notifications/infrastructure/database/admission-notification-producer-progress-schema";
+import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
 import {
   bigint,
   boolean,
+  customType,
+  check,
   doublePrecision,
   foreignKey,
   index,
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
 const UTC_NOW_SQL = sql`timezone('utc', now())`;
+/** Maps the driver's binary value without schema-validating PostgreSQL rows. */
+const binaryData = customType<{ data: Uint8Array; driverData: Buffer }>({
+  dataType: () => "bytea",
+  toDriver: (value) => Buffer.from(value),
+  fromDriver: (value) => new Uint8Array(value),
+});
 
 export const users = pgTable("user", {
   id: text("id").primaryKey(),
@@ -42,6 +65,7 @@ export const sessions = pgTable("session", {
 }, (table) => ({
   tokenKey: uniqueIndex("session_token_key").on(table.token),
   userIdIndex: index("idx_session_user_id").on(table.userId),
+  userScopeKey: uniqueIndex("session_user_scope_key").on(table.id, table.userId),
 }));
 
 export const accounts = pgTable("account", {
@@ -62,6 +86,8 @@ export const accounts = pgTable("account", {
   updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull(),
 }, (table) => ({
   userIdIndex: index("idx_account_user_id").on(table.userId),
+  identityScopeKey: uniqueIndex("account_identity_scope_key").on(table.id, table.userId, table.providerId, table.accountId),
+  subjectUserKey: uniqueIndex("account_subject_user_key").on(table.id, table.userId, table.accountId),
 }));
 
 export const verifications = pgTable("verification", {
@@ -73,6 +99,33 @@ export const verifications = pgTable("verification", {
   updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull(),
 }, (table) => ({
   identifierIndex: index("idx_verification_identifier").on(table.identifier),
+}));
+
+/** Private verified captures; no additional OAuth token or full provider profile is persisted. */
+export const {globalSessionIdentityBindings}=createAuthenticatedAccountSchema({sessions,accounts});
+
+export const globalIdentityEvidence = pgTable("global_identity_evidence", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id").notNull(),
+  accountId: text("account_id").notNull(), providerId: text("provider_id").notNull(), providerSubject: text("provider_subject").notNull(),
+  normalizedEmail: text("normalized_email").notNull(), emailVerifiedClaim: boolean("email_verified_claim").notNull(), hostedDomain: text("hosted_domain"),
+  classification: text("classification").notNull(), issuer: text("issuer").notNull(), audience: text("audience").notNull(),
+  tokenIssuedAt: timestamp("token_issued_at", { withTimezone: true }).notNull(), tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }).notNull(),
+  verifiedAt: timestamp("verified_at", { withTimezone: true }).notNull(), version: integer("version").notNull().default(1),
+  invalidatedAt: timestamp("invalidated_at", { withTimezone: true }), invalidationReason: text("invalidation_reason"),
+}, (table) => ({
+  userForeignKey: foreignKey({ columns: [table.userId], foreignColumns: [users.id], name: "global_identity_user_fkey" }).onDelete("cascade"),
+  accountScopeForeignKey: foreignKey({ columns: [table.accountId,table.userId,table.providerId,table.providerSubject], foreignColumns: [accounts.id,accounts.userId,accounts.providerId,accounts.accountId], name: "global_identity_account_scope_fkey" }).onDelete("cascade"),
+  currentAccountKey: uniqueIndex("global_identity_current_account_key").on(table.accountId,table.providerId).where(sql`${table.invalidatedAt} is null`),
+  historyIndex: index("global_identity_user_history_idx").on(table.userId,table.verifiedAt.desc()),
+  userScopeKey: uniqueIndex("global_identity_evidence_user_key").on(table.id,table.userId),
+  versionCheck: check("global_identity_version_check", sql`${table.version}>0`),
+  providerCheck: check("global_identity_provider_check", sql`${table.providerId}='google'`),
+  emailCheck: check("global_identity_email_check", sql`${table.normalizedEmail}<>'' and ${table.normalizedEmail}=lower(btrim(${table.normalizedEmail}))`),
+  classificationCheck: check("global_identity_classification_check", sql`${table.classification} in ('gmail','workspace','insufficient')`),
+  timeCheck: check("global_identity_time_check", sql`${table.tokenExpiresAt}>${table.tokenIssuedAt}`),
+  authorityCheck: check("global_identity_authority_check", sql`${table.classification}='insufficient' or (${table.emailVerifiedClaim} and ((${table.classification}='gmail' and ${table.normalizedEmail} like '%@gmail.com') or (${table.classification}='workspace' and ${table.hostedDomain} is not null and btrim(${table.hostedDomain})<>'')))`),
+  invalidationCheck: check("global_identity_invalidation_check", sql`(${table.invalidatedAt} is null)=(${table.invalidationReason} is null)`),
 }));
 
 export const tribeCreatorWhitelist = pgTable("tribe_creator_whitelist", {
@@ -98,6 +151,7 @@ export const tribes = pgTable("tribes", {
     .default(false),
   logoUrl: text("logo_url"),
   coverUrl: text("cover_url"),
+  admissionsControlActivatedAt: timestamp("admissions_control_activated_at",{withTimezone:true}),
   createdBy: text("created_by")
     .notNull()
     .references(() => users.id),
@@ -119,6 +173,9 @@ export const tribeMembers = pgTable("tribe_members", {
   role: text("role").notNull(),
   status: text("status").notNull(),
   statusReason: text("status_reason").notNull().default("none"),
+  commercialRecoveryStatus: text("commercial_recovery_status"),
+  admissionMembershipEffectId: uuid("admission_membership_effect_id"),
+  subscriptionMembershipEffectId: uuid("subscription_membership_effect_id"),
   joinedVia: text("joined_via").notNull().default("unknown"),
   joinedViaInvitationId: uuid("joined_via_invitation_id").references(
     () => tribeInvitations.id,
@@ -133,6 +190,10 @@ export const tribeMembers = pgTable("tribe_members", {
     table.tribeId,
     table.userId
   ),
+  admissionScopeKey: uniqueIndex("tribe_member_admission_scope_key").on(table.id,table.tribeId,table.userId),
+  commercialRecoveryCheck: check("tribe_member_commercial_recovery_check",sql`${table.commercialRecoveryStatus} in ('active','muted')`),
+  admissionEffectForeignKey: foreignKey({name:"tribe_member_admission_effect_fkey",columns:[table.admissionMembershipEffectId,table.tribeId,table.userId,table.id],foreignColumns:[academyAdmissionMembershipEffects.id,academyAdmissionMembershipEffects.tribeId,academyAdmissionMembershipEffects.userId,academyAdmissionMembershipEffects.memberId]}),
+  subscriptionEffectForeignKey: foreignKey({name:"tribe_member_subscription_effect_fkey",columns:[table.subscriptionMembershipEffectId,table.tribeId,table.userId,table.id],foreignColumns:[subscriptionMembershipEffects.id,subscriptionMembershipEffects.tribeId,subscriptionMembershipEffects.userId,subscriptionMembershipEffects.memberId]}),
   joinedViaInvitationIndex: index("idx_tribe_members_joined_via_invitation").on(
     table.joinedViaInvitationId
   ),
@@ -162,6 +223,7 @@ export const tribeInvitations = pgTable("tribe_invitations", {
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
 }, (table) => ({
   tokenHashKey: uniqueIndex("tribe_invitations_token_hash_key").on(table.tokenHash),
+  admissionScopeKey: uniqueIndex("admission_legacy_invitation_scope_key").on(table.id,table.tribeId),
   tribeStatusIndex: index("idx_tribe_invitations_tribe_status").on(
     table.tribeId,
     table.status
@@ -407,9 +469,13 @@ export const messages = pgTable("messages", {
     .references(() => users.id, { onDelete: "cascade" }),
   title: text("title"),
   content: text("content").notNull(),
+  clientRequestId: uuid("client_request_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 }, (table) => ({
+  authorClientRequestIdKey: uniqueIndex("messages_author_client_request_id_key")
+    .on(table.authorId, table.clientRequestId)
+    .where(sql`${table.clientRequestId} IS NOT NULL`),
   tribeCreatedAtIndex: index("idx_messages_tribe_created_at").on(
     table.tribeId,
     table.createdAt
@@ -1233,6 +1299,35 @@ export const eventOccurrenceComments = pgTable("event_occurrence_comments", {
   ),
 }));
 
+/** Independent admission email capability; SQL owns its version and RLS guards. */
+export const admissionEmailSettings=pgTable("admission_email_settings",{
+  tribeId:uuid("tribe_id").primaryKey().references(()=>tribes.id,{onDelete:"cascade"}),
+  enabled:boolean("enabled").notNull().default(false),
+  enabledAt:timestamp("enabled_at",{withTimezone:true,mode:"string"}),
+  timeZone:text("time_zone").notNull().default(BUENOS_AIRES_TIME_ZONE),
+  version:integer("version").notNull().default(1),
+  changedByUserId:text("changed_by_user_id").references(()=>users.id,{onDelete:"set null"}),
+  createdAt:timestamp("created_at",{withTimezone:true}).notNull().default(UTC_NOW_SQL),
+  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().default(UTC_NOW_SQL),
+},(table)=>({
+  versionCheck:check("admission_email_settings_version_check",sql`${table.version}>0`),
+  enabledTimeCheck:check("admission_email_enabled_time_check",sql`not ${table.enabled} or ${table.enabledAt} is not null`),
+}));
+
+/** Explicit own preference epochs remain precise; SQL owns CAS guards and forced RLS. */
+export const admissionNotificationPreferences = pgTable("admission_notification_preferences", {
+  tribeId: uuid("tribe_id").notNull().references(() => tribes.id, { onDelete: "cascade" }),
+  recipientUserId: text("recipient_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  mode: text("mode").notNull(),
+  version: integer("version").notNull().default(1),
+  effectiveFrom: timestamp("effective_from", { withTimezone: true, mode: "string" }).notNull().default(sql`clock_timestamp()`),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().default(sql`clock_timestamp()`),
+}, (table) => ({
+  key: primaryKey({ name: "admission_notification_preferences_pkey", columns: [table.tribeId, table.recipientUserId] }),
+  versionCheck: check("admission_notification_preferences_version_check", sql`${table.version}>0`),
+  modeCheck: check("admission_notification_preferences_mode_check", sql`${table.mode} in (${ADMISSION_NOTIFICATION_PREFERENCE_MODE.individual},${ADMISSION_NOTIFICATION_PREFERENCE_MODE.grouped},${ADMISSION_NOTIFICATION_PREFERENCE_MODE.daily},${ADMISSION_NOTIFICATION_PREFERENCE_MODE.omitted})`),
+}));
+
 // In-app notification inbox. CHECKs, RLS, the recipient update guard, and the
 // SECURITY DEFINER producer triggers live in
 // 20260926120000_create_notifications.sql.
@@ -1247,11 +1342,29 @@ export const notifications = pgTable("notifications", {
   type: text("type").notNull(),
   payload: jsonb("payload").notNull().default(sql`'{}'::jsonb`),
   dedupeKey: text("dedupe_key").notNull(),
+  admissionObligationId: uuid("admission_obligation_id"),
+  admissionAudience: text("admission_audience"),
   readAt: timestamp("read_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
 }, (table) => ({
+  admissionObligationForeignKey: foreignKey({
+    name: "notifications_admission_obligation_fkey",
+    columns: [table.admissionObligationId, table.tribeId],
+    foreignColumns: [academyAdmissionNotificationObligations.id, academyAdmissionNotificationObligations.tribeId],
+  }).onDelete("cascade"),
+  admissionAudienceCheck: check("notifications_admission_scope_check", sql`
+    (${table.type} in (${sql.join(ADMISSION_NOTIFICATION_TYPES.map((type) => sql`${type}`), sql`, `)})
+      and ${table.admissionObligationId} is not null and ${table.admissionAudience} is not null
+      and ${table.admissionAudience} in (${ADMISSION_NOTIFICATION_AUDIENCE.applicant},${ADMISSION_NOTIFICATION_AUDIENCE.reviewer})
+      and ${table.payload}='{}'::jsonb)
+    or (${table.type} not in (${sql.join(ADMISSION_NOTIFICATION_TYPES.map((type) => sql`${type}`), sql`, `)})
+      and ${table.admissionObligationId} is null and ${table.admissionAudience} is null)
+  `.inlineParams()),
+  admissionRecipientKey: uniqueIndex("notifications_admission_recipient_key")
+    .on(table.admissionObligationId, table.recipientUserId)
+    .where(sql`${table.admissionObligationId} is not null`),
   recipientDedupeKey: uniqueIndex("notifications_recipient_dedupe_key").on(
     table.recipientUserId,
     table.dedupeKey
@@ -1383,6 +1496,7 @@ export const tribeMemberSubscriptions = pgTable("tribe_member_subscriptions", {
     .default(UTC_NOW_SQL),
 }, (table) => ({
   priceIndex: index("idx_tribe_member_subscriptions_price").on(table.priceId),
+  membershipOriginScopeKey: unique("subscription_membership_origin_scope_key").on(table.id,table.tribeId,table.userId),
   paymentIntegrationIndex: index("idx_tribe_member_subscriptions_payment_integration").on(
     table.paymentIntegrationId
   ),
@@ -1678,3 +1792,58 @@ export const subscriptionPaymentPeriods = pgTable("subscription_payment_periods"
     name: "subscription_payment_periods_integration_tribe_fkey",
   }),
 }));
+
+/** Composes admission-owned projections after all existing parent tables exist. */
+export const {
+  tribeNamespaces: academyAdmissionTribeNamespaces,
+  retiredBindings: academyAdmissionRetiredBindings,
+  retiredOperations: academyAdmissionRetiredOperations,
+  retiredAuditEvents: academyAdmissionRetiredAuditEvents,
+  policies: academyAdmissionPolicies,
+  allowlistEntries: academyAllowlistEntries,
+  personalInvitations: academyPersonalInvitations,
+  challenges: contactVerificationChallenges,
+  proofs: academyAdmissionVerificationProofs,
+  requests: academyAdmissionRequests,
+  bindings: academyAdmissionContactBindings,
+  decisions: academyAdmissionDecisions,
+  operations: academyAdmissionOperations,
+  imports: academyAllowlistImports,
+  importRows: academyAllowlistImportRows,
+  auditEvents: academyAdmissionAuditEvents,
+  workerRuns: academyAdmissionWorkerRuns,
+  notificationObligations: academyAdmissionNotificationObligations,
+} = createAdmissionSchema({ users, tribes, globalIdentityEvidence, tribeInvitations,
+  messaging: (): AdmissionMessagingSchemaReferences => ({versions:messagingConnectionVersions,deliveries:messageDeliveries,codeEnvelopes:verificationCodeEnvelopes}),
+  membershipEffects: (): AdmissionMembershipSchemaReferences => academyAdmissionMembershipEffects,
+});
+
+/** Composes private group storage after its immutable original obligation parent exists. */
+export const { groups: admissionNotificationGroups, members: admissionNotificationGroupMembers } = createAdmissionNotificationGroupSchema({ users, tribes, obligations: academyAdmissionNotificationObligations });
+
+/** Composes the private bounded source checkpoint after its live-tribe parent exists. */
+export const admissionNotificationCollectionProgress = createAdmissionNotificationCollectionProgressSchema(tribes.id);
+
+/** Composes pending retries of unavailable sources after their notice and live-tribe parents exist. */
+export const admissionNotificationCollectionRetries = createAdmissionNotificationCollectionRetrySchema(tribes.id, notifications.id);
+
+/** Keeps one fair, key-independent private producer turn per live tribe. */
+export const admissionNotificationProducerProgress = createAdmissionNotificationProducerProgressSchema(tribes.id);
+
+/** Composes private messaging models after the admission challenge parent exists. */
+export const {
+  messagingUsagePolicies, tenantMessagingConnections, messagingConnectionVersions,
+  messagingSecretEnvelopes, messagingConnectionCapabilities, messagingConnectionDiagnostics,
+  messagingContactBudgetSubjects, messagingContactFingerprintAliases, messagingNotificationRecoveryOrigins, messagingNotificationGroupOrigins, messageDeliveries,
+  verificationCodeEnvelopes, messageDeliveryAttempts, messagingUsageReservations, messagingUsageEvents,
+} = createMessagingSchema({ tribeNamespaces: academyAdmissionTribeNamespaces, user: users, contactVerificationChallenges });
+
+/** Preserves selected worker observations independently of temporary business rows. */
+export const { runs: messagingDispatchRuns, phases: messagingDispatchPhaseSamples } = createMessagingDispatchObservationSchema();
+
+/** Keeps private maintenance phase observations independent of provider credentials and human sessions. */
+export const admissionMessagingMaintenanceProgress = createAdmissionMessagingMaintenanceProgressSchema();
+
+/** Composes the private membership source after both owners' tables exist. */
+export const academyAdmissionMembershipEffects=createAdmissionMembershipEffectsSchema({tribes,users,members:tribeMembers,decisions:academyAdmissionDecisions});
+export const subscriptionMembershipEffects=createSubscriptionMembershipEffectsSchema({tribes,users,members:tribeMembers,subscriptions:tribeMemberSubscriptions});

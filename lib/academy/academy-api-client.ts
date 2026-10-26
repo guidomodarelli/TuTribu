@@ -8,15 +8,24 @@
  */
 
 import type { z } from "zod";
+import { admissionApiClient } from "@/lib/academy-admissions/admission-api-client";
+import { legacyAcademyJoinSchema, type LegacyAcademyJoinDto } from "@/src/modules/academy-admissions/application/results/academy-entry-result";
+import type { AdmissionBrowserSubmission, AdmissionBrowserResult, AdmissionStartedResponse } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
+import type { AdmissionOutcomeDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
+import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { startBrowserRequestDeadline } from "@/lib/browser-request-deadline";
+import { BROWSER_REQUEST_TIMEOUT_MESSAGE } from "@/src/constants/browser-request";
 
 import {
   academyAccessStatusDtoSchema,
   academyBonusResultDtoSchema,
   academyCheckoutDtoSchema,
   academyMembersPageDtoSchema,
+  academyReconcileDtoSchema,
   academySettingsDtoSchema,
   type AcademyAccessStatusDto,
   type AcademyMembersPageDto,
+  type AcademyReconcileDto,
   type AcademySettingsDto,
 } from "@/src/modules/product-access/application/results/academy-public-dto-schemas";
 import {
@@ -97,6 +106,28 @@ async function requestAcademyApi<TData>(input: {
   schema: z.ZodType<TData> | null;
   signal?: AbortSignal;
 }): Promise<AcademyApiResult<TData>> {
+  // A hung response ends at the deadline with its own copy instead of leaving the action in progress forever.
+  const deadline = startBrowserRequestDeadline(input.signal);
+
+  try {
+    const result = await sendAcademyApiRequest({ ...input, signal: deadline.signal });
+
+    return !result.isSuccess && deadline.expired() && !input.signal?.aborted
+      ? { isSuccess: false, message: BROWSER_REQUEST_TIMEOUT_MESSAGE, status: 0 }
+      : result;
+  } finally {
+    deadline.dispose();
+  }
+}
+
+/** Sends one academy request under a signal that already follows the caller and the deadline. */
+async function sendAcademyApiRequest<TData>(input: {
+  body?: unknown;
+  method: (typeof HTTP_METHOD)[keyof typeof HTTP_METHOD];
+  path: string;
+  schema: z.ZodType<TData> | null;
+  signal: AbortSignal;
+}): Promise<AcademyApiResult<TData>> {
   let response: Response;
 
   try {
@@ -113,6 +144,11 @@ async function requestAcademyApi<TData>(input: {
   }
 
   const body: unknown = await response.json().catch(() => null);
+
+  // A body read cut by the caller or the deadline never completed: without this, a null-schema call would read as success.
+  if (input.signal.aborted) {
+    return { isSuccess: false, message: ACADEMY_API_FALLBACK_MESSAGE, status: 0 };
+  }
 
   if (!response.ok) {
     const conflict =
@@ -141,11 +177,19 @@ async function requestAcademyApi<TData>(input: {
 
 type MessageBody = { message?: string | null; status?: string };
 
-export function joinAcademy(tribeSlug: string) {
-  return requestAcademyApi<MessageBody>({
+/** Explicit confirmed entry returns the real admission contract and requires the caller's lifecycle signal. */
+export function joinAcademy(tribeSlug: string, input: AdmissionBrowserSubmission, signal: AbortSignal): Promise<AdmissionBrowserResult<AdmissionOutcomeDto | AdmissionStartedResponse>>;
+/** Historical unprotected entry cannot consume a new pending response as successful membership. */
+export function joinAcademy(tribeSlug: string): Promise<AcademyApiResult<LegacyAcademyJoinDto>>;
+export function joinAcademy(tribeSlug: string, input?: AdmissionBrowserSubmission, signal?: AbortSignal) {
+  if (input) {
+    if (!signal) return Promise.resolve({ status: "failed" as const, code: ADMISSION_ERROR_CODE.invalidInput, message: ADMISSION_ERROR_MESSAGE.invalid_input, uncertain: false });
+    return admissionApiClient.submitAcademyEntry(tribeSlug, input, signal);
+  }
+  return requestAcademyApi<LegacyAcademyJoinDto>({
     method: HTTP_METHOD.post,
     path: tribePath(tribeSlug, API_PATH.academy + API_PATH.join),
-    schema: null,
+    schema: legacyAcademyJoinSchema,
   });
 }
 
@@ -168,10 +212,10 @@ export function startAcademyCheckout(tribeSlug: string, acceptedOfferVersion: nu
 }
 
 export function reconcileAcademyCoverage(tribeSlug: string) {
-  return requestAcademyApi<MessageBody>({
+  return requestAcademyApi<AcademyReconcileDto>({
     method: HTTP_METHOD.post,
     path: tribePath(tribeSlug, API_PATH.academy + API_PATH.reconcile),
-    schema: null,
+    schema: academyReconcileDtoSchema,
   });
 }
 

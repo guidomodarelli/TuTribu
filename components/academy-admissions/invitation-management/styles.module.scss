@@ -1,0 +1,92 @@
+@use "../../../src/styles/workspace-panel";
+
+.InvitationManagement {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: 2rem;
+  overflow-wrap: anywhere;
+
+  &__editor,
+  &__history {
+    @include workspace-panel.section;
+
+    & > h2 {
+      @include workspace-panel.title;
+    }
+  }
+
+  &__callout {
+    @include workspace-panel.callout;
+  }
+
+  &__facts {
+    @include workspace-panel.facts;
+  }
+
+  &__fact {
+    display: grid;
+    min-width: 0;
+    gap: 0.25rem;
+  }
+
+  &__term {
+    @include workspace-panel.fact-term;
+  }
+
+  &__value {
+    @include workspace-panel.fact-value;
+  }
+
+  &__help {
+    @include workspace-panel.note;
+  }
+
+  &__link {
+    @include workspace-panel.callout;
+
+    & > h2 {
+      @include workspace-panel.title;
+    }
+
+    & > p {
+      @include workspace-panel.lead;
+    }
+  }
+
+  &__list {
+    @include workspace-panel.rows;
+  }
+
+  &__row {
+    @include workspace-panel.row;
+
+    align-items: start;
+  }
+
+  &__identity {
+    @include workspace-panel.row-main;
+
+    & > strong {
+      @include workspace-panel.row-title;
+    }
+
+    & > span {
+      font-size: 0.9375rem;
+      line-height: 1.45;
+    }
+  }
+
+  &__actions {
+    @include workspace-panel.actions;
+  }
+
+  &__field {
+    @include workspace-panel.field;
+  }
+
+  &__error {
+    @include workspace-panel.feedback;
+    @include workspace-panel.feedback-alert;
+  }
+}

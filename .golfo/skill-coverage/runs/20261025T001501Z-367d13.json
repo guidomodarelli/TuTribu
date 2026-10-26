@@ -1,0 +1,126 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-invitation-link-focus",
+    "commit": "0a4edbf24ec78923ec9e2397f84a630d11c29cac",
+    "fingerprint": "sha256:bd6e9600071d32433e0af04c3bbab9f3609a84adcd9a55aaa72a57307d242172",
+    "uncommittedFiles": [],
+    "fileCount": 158,
+    "inputCount": 1762
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/tribe-round/tribe-round-navigation.test.tsx tests/unit/components/tribe-round.test.tsx tests/unit/modules/messages tests/unit/pages/tribe-message-routes.test.ts",
+      "durationMs": 158323,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "74a87d7e005be0bf6da0815c0d6328d89e1f9633271811407b880816c9443647",
+      "recordedAt": "2026-10-25T00:17:40.143Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "command": "pnpm run -s typecheck",
+      "durationMs": 2562,
+      "exitCode": 0,
+      "kind": "command",
+      "outcome": "pass",
+      "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
+      "recordedAt": "2026-10-25T00:17:43.261Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T00:17:43.720Z",
+      "source": "attested",
+      "summary": "Medido en la rama efímera: publicación de texto y Me gusta sin cambio de carga; la búsqueda previa agrega 1 consulta solo a publicaciones con adjuntos y clave (0,06 ms en Postgres); tras una reproducción la página hace 1 GET a la ronda en lugar de 1 refresh RSC."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T00:17:44.135Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app con la respuesta de la publicación y del Me gusta perdidas: 1 publicación guardada, aviso «El mensaje ya estaba publicado.», la página se recarga en el lugar (1 GET a la ronda, 0 refresh RSC), el feed nunca queda vacío, el compositor vuelve a aceptar un borrador y el Me gusta se conserva (4/4)."
+    },
+    {
+      "kind": "measurement",
+      "outcome": "measured",
+      "recordedAt": "2026-10-25T00:17:44.548Z",
+      "source": "attested",
+      "summary": "La búsqueda previa agrega 1 consulta (0,06 ms de ejecución en Postgres) solo a publicaciones con adjuntos y clave.",
+      "tool": "pg sobre la rama efímera (int15-lookup-perf)",
+      "metric": "consultas de la búsqueda previa por publicación con adjuntos",
+      "before": "0",
+      "after": "1",
+      "conditions": "rama efímera claude-academy-ux-audit-dev, 9 muestras, mediana"
+    },
+    {
+      "kind": "measurement",
+      "outcome": "measured",
+      "recordedAt": "2026-10-25T00:17:44.988Z",
+      "source": "attested",
+      "summary": "La recarga en el lugar reemplaza el refresh RSC por una lectura de la ronda, sin remount.",
+      "tool": "Playwright int15.verify",
+      "metric": "requests de recarga tras una reproducción",
+      "before": "1 refresh RSC",
+      "after": "1 GET a la ronda",
+      "conditions": "Chromium y WebKit a 390 y 1280, respuesta de publicación perdida"
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T00:17:46.851Z",
+  "result": "verified",
+  "runId": "20261025T001501Z-367d13",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "3 relevant change(s) since the verified run"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "modified",
+        "key": "components/tribe-round/tribe-round/index.tsx#TribeRoundContent/handleCreateMessage",
+        "reason": "adds load: +1 awaited steps"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts#createTribeMessage",
+        "reason": "adds load: +1 awaited steps"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts#PostgresMessageMutationRepository",
+        "reason": "adds load: +1 awaited steps, +2 database queries"
+      }
+    ],
+    "suggestedScope": [
+      "measure the complete flow /[slug]: before = revision 0569c8d0c20e (last measured), after = working tree",
+      "components/tribe-round/tribe-round/index.tsx › TribeRoundContent › handleCreateMessage — adds load: +1 awaited steps",
+      "src/modules/messages/application/use-cases/create-tribe-message-use-case.ts › createTribeMessage — adds load: +1 awaited steps",
+      "src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository.ts › PostgresMessageMutationRepository — adds load: +1 awaited steps, +2 database queries"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "d10c4cd971fd4967",
+      "references/bundle-lazy-loading.md": "91990bd1796b9884",
+      "references/database-queries-n-plus-one.md": "3064b23acc3e9f7e",
+      "references/images-fonts-scripts.md": "1ab02d4b1a421c87",
+      "references/incremental-sweep-jobs.md": "c5c8e71bdba2e4a9",
+      "references/measurement-tools.md": "e3e96c85be264c0c",
+      "references/requests-caching.md": "981544e05dee2e5c",
+      "references/unnecessary-renders.md": "2d440f22533a2149"
+    },
+    "definitionHash": "sha256:d161fd46a024c0e9f2698edae2bf21fa465a82b6584c335aaee66a26db4be4c0",
+    "name": "measured-performance-optimization",
+    "version": "1.4.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T00:15:01.380Z",
+  "unitId": "tribe.campfire.publish"
+}

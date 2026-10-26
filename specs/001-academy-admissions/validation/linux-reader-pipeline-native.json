@@ -1,0 +1,146 @@
+{
+  "workflowRun": 39140242865,
+  "url": "https://github.com/guidomodarelli/TuTribu/actions/runs/39140242865",
+  "sourceCommit": "a2b10605f33b655ddacb6033d4815384676d6816",
+  "kind": "platform_preflight",
+  "passed": false,
+  "orcaVersion": "48.9",
+  "orcaSourceCommit": "4b964097f586446b3c74a98d0d309fb4b87ceb70",
+  "speechDispatcherVersion": "speech-dispatcher 0.12.0-rc2",
+  "productJourneysValidated": false,
+  "realMessages": 0,
+  "cases": [
+    {
+      "engine": "chromium",
+      "width": 390,
+      "browserVersion": "148.0.7778.96",
+      "passed": false,
+      "failureCode": "native_audio_did_not_settle",
+      "speechPhase": "setup",
+      "focusSpeechObserved": null,
+      "liveSpeechObserved": null,
+      "speechDiagnostics": {
+        "backendLogEntries": 20,
+        "fallbackOutputs": 10,
+        "labelInDebug": true,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 2,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 12,
+          "handledEntries": 0,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 0,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "translateDialogObserved": true,
+      "gtkTypingObserved": false,
+      "nativeExpectedStatusMatches": 0
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "browserVersion": "148.0.7778.96",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "focus",
+      "focusSpeechObserved": null,
+      "liveSpeechObserved": null,
+      "speechDiagnostics": {
+        "backendLogEntries": 2,
+        "fallbackOutputs": 1,
+        "labelInDebug": true,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 1,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 0,
+          "handledEntries": 0,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 0,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "translateDialogObserved": true,
+      "gtkTypingObserved": false,
+      "nativeExpectedStatusMatches": 0
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "browserVersion": "26.4",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": null,
+      "speechDiagnostics": {
+        "backendLogEntries": 0,
+        "fallbackOutputs": 0,
+        "labelInDebug": false,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 0,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 26,
+          "handledEntries": 0,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 0,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "translateDialogObserved": false,
+      "gtkTypingObserved": true,
+      "nativeExpectedStatusMatches": 0
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "browserVersion": "26.4",
+      "passed": false,
+      "failureCode": "native_reader_speech_missing",
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": null,
+      "speechDiagnostics": {
+        "backendLogEntries": 0,
+        "fallbackOutputs": 0,
+        "labelInDebug": false,
+        "exactMatch": false,
+        "normalizedMatch": false,
+        "expectedWords": 4,
+        "observedWords": 0,
+        "actionKeyEchoOutputs": 0,
+        "liveRegionPipeline": {
+          "textInsertionEntries": 0,
+          "handledEntries": 0,
+          "rejectedEntries": 0,
+          "inactiveDocumentEntries": 0,
+          "focusedAlertEntries": 0,
+          "queuePresentationEntries": 0,
+          "monitoringDisabledEntries": 0,
+          "pageSwitchInsertionEntries": 0
+        }
+      },
+      "translateDialogObserved": false,
+      "gtkTypingObserved": false,
+      "nativeExpectedStatusMatches": 0
+    }
+  ]
+}

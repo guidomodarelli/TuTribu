@@ -1,0 +1,89 @@
+{
+  "kind": "real_terminal_action_focus",
+  "sourceCommit": "673d895a4686658fa8369d82cf6a533830126b98",
+  "tests": {
+    "skipped": 0,
+    "passed": 1,
+    "durationMs": 492133,
+    "failed": 0
+  },
+  "observations": [
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "surface": "public",
+      "focused": true,
+      "layoutFits": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "surface": "administrative",
+      "focused": true,
+      "layoutFits": true
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "surface": "public",
+      "focused": true,
+      "layoutFits": true
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "surface": "administrative",
+      "focused": true,
+      "layoutFits": true
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "surface": "public",
+      "focused": true,
+      "layoutFits": true
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "surface": "administrative",
+      "focused": true,
+      "layoutFits": true
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "surface": "public",
+      "focused": true,
+      "layoutFits": true
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "surface": "administrative",
+      "focused": true,
+      "layoutFits": true
+    }
+  ],
+  "inputAudit": {
+    "stable": true,
+    "count": 3283
+  },
+  "cleanup": {
+    "branchCount": 4,
+    "ownedBranchId": "br-lucky-shadow-angves48",
+    "ownedBranchAbsent": true,
+    "persistentBranchesPreserved": true
+  },
+  "firstAttempt": {
+    "skipped": 0,
+    "observation": "result_not_observed_with_initial_default_assertion_deadline",
+    "fullMatrixValidated": false,
+    "passed": 0,
+    "scope": "first Chromium desktop public surface",
+    "failed": 1
+  },
+  "operatingSystemReaderValidated": false,
+  "realMessages": 0,
+  "operationalGatesClosed": []
+}

@@ -1,0 +1,46 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-route-skeletons",
+    "commit": "622fc297a81165d651538448906da0c5f3c44887",
+    "fingerprint": "sha256:668b4694c3b0e63a953c2c6cd15affc68e22d8864011e299dd4b78af38567ac0",
+    "uncommittedFiles": [],
+    "fileCount": 25,
+    "inputCount": 232
+  },
+  "evidence": [],
+  "limitations": [],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T08:36:15.134Z",
+  "result": "not-applicable",
+  "runId": "20261025T083614Z-bbd6f1",
+  "scope": {
+    "decision": "not-applicable",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "recorded not applicable: El deadline no agrega requests, consultas ni pasos al flujo: solo un timer por request ya existente."
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": []
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a8d6cde62f2853fa",
+      "references/bundle-lazy-loading.md": "91990bd1796b9884",
+      "references/database-queries-n-plus-one.md": "3064b23acc3e9f7e",
+      "references/images-fonts-scripts.md": "1ab02d4b1a421c87",
+      "references/incremental-sweep-jobs.md": "c5c8e71bdba2e4a9",
+      "references/measurement-tools.md": "e3e96c85be264c0c",
+      "references/requests-caching.md": "981544e05dee2e5c",
+      "references/unnecessary-renders.md": "2d440f22533a2149"
+    },
+    "definitionHash": "sha256:dcb79531d3a56e7765d65880022365639578ed18c69466dbb65f4ce0b59b09d3",
+    "name": "measured-performance-optimization",
+    "version": "1.5.0"
+  },
+  "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T08:36:14.051Z",
+  "unitId": "academy.manage.providers.save"
+}

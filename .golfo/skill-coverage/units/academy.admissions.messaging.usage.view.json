@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "academy.admissions.messaging.usage.view",
+  "kind": "ui-flow",
+  "hierarchy": {
+    "module": "Academia",
+    "page": "Admisiones",
+    "section": "Países y cupos",
+    "subflow": "Consultar el uso de mensajería"
+  },
+  "description": "Carga de Países y cupos (uso de mensajería) para el líder; la query descarta claves desconocidas.",
+  "routes": [
+    "/[slug]/academia/admissions/messaging"
+  ],
+  "entries": [
+    {
+      "follow": false,
+      "path": "app/(platform)/[slug]/academia/admissions/messaging/page.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/messaging/loading.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "app/(platform)/[slug]/academia/admissions/messaging/error.tsx",
+      "symbol": "default"
+    },
+    {
+      "path": "src/modules/messaging/infrastructure/composition/messaging-usage-page.ts",
+      "symbol": "loadMessagingUsagePageState"
+    }
+  ],
+  "dependsOn": [
+    {
+      "path": "src/modules/messaging/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildMessagingModule"
+    },
+    {
+      "path": "src/modules/auth/setup.ts",
+      "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
+      "role": "server",
+      "symbol": "buildAuthModule"
+    }
+  ],
+  "origin": "curated"
+}

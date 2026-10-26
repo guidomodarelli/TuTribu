@@ -1,0 +1,99 @@
+/** Creates private audit facts independently of commands, metric dimensions and storage. @module admission-audit-event */
+import { ADMISSION_POLICY_AUDIT } from "../../constants/admission-policy";
+import { ADMISSION_RESOURCE_KIND } from "../../constants/admission-authorization";
+import { ADMISSION_PROOF_AUDIT_EVENT, ADMISSION_PROOF_AUDIT_RULE } from "../../constants/admission-proof";
+import { ADMISSION_MESSAGING_SELECTION_CHANGE } from "../../constants/messaging-selection";
+import type {AdmissionResourceAuditEvent} from "./admission-resource-audit-event";
+import type { AdmissionPolicy } from "./admission-policy";
+import { MESSAGING_RECOVERY } from "@/src/modules/messaging/constants/messaging-recovery";
+import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
+import { selectAdmissionPolicyAuditSnapshot, type AdmissionPolicyAuditSnapshot } from "./admission-policy-audit-snapshot";
+
+/** Describes the native actor, original ledger and authoritative owner clock. */
+type AdmissionAuditScope = { tribeId: string; actorUserId: string; operationId: string; createdAt: Date };
+/** Contains only implemented policy command names, never an exception or metric label. */
+type AdmissionPolicyAuditOperation = "initialize_admission_policy" | "update_admission_policy" | "activate_admission_policy" | "pause_admission_policy";
+/** Allows policy identity, effective version and the owner's bounded internal reason. */
+export type AdmissionPolicyAuditInput = AdmissionAuditScope & { operation: AdmissionPolicyAuditOperation; previousPolicy: AdmissionPolicy | null; policy: AdmissionPolicy; rule: string | null };
+/** Records the exact applied proof and the request version preceding its application. */
+export type AdmissionProofAuditInput = AdmissionAuditScope & { requestId: string; proofId: string; previousRequestVersion: number };
+/** Keeps policy-reference lineage independent of its flags, country policy and connection lifecycle counters; a first binding has no previous reference. */
+export type AdmissionMessagingSelectionAuditInput = AdmissionAuditScope & { resourceVersion: number; previousVersion: number; previousConnectionId: string | null; previousConnectionVersion: number | null; connectionId: string; connectionVersion: number; verificationEpoch: number };
+/** Records the existing reference-only transition with its exact closed semantic cause and selected metadata. */
+type AdmissionMessagingSelectionAuditEvent = AdmissionAuditScope & { resourceType: "admission_policy"; resourceId: string; eventType: "messaging_selection_replaced"; rule: "messaging_connection_replaced"; cause: "messaging_connection_replaced"; resourceVersion: number; metadata: { previousVersion: number; previousConnectionId: string | null; previousConnectionVersion: number | null; connectionId: string; connectionVersion: number; verificationEpoch: number } };
+/** Keeps private reconstructible resource references separate from public aggregate dimensions. */
+type AdmissionOwnerAuditEvent = AdmissionAuditScope & { resourceId: string; rule: string | null; cause: null; resourceVersion: number } & (
+  { resourceType: "admission_policy"; eventType: AdmissionPolicyAuditOperation; metadata: { previousVersion: number | null; fromPolicy: AdmissionPolicyAuditSnapshot | null; toPolicy: AdmissionPolicyAuditSnapshot } }
+  | { resourceType: "admission_request"; eventType: "proof_attached"; metadata: { proofId: string; previousRequestVersion: number } }
+);
+/** Includes historical owner snapshots and the complete closed private resource vocabulary. */
+export type AdmissionAuditEvent=AdmissionOwnerAuditEvent|AdmissionMessagingSelectionAuditEvent|AdmissionResourceAuditEvent|AdmissionRecoveryPolicyAuditEvent;
+
+/** Attributes an actual private recovery closure to the backend without fabricating a human or ledger. */
+type AdmissionRecoveryPolicyAuditEvent = {
+  tribeId: string; actorUserId: null; operationId: null; resourceId: string; resourceVersion: number;
+  resourceType: "admission_policy"; eventType: "pause_admission_policy";
+  rule: "security_context_changed"; cause: "security_context_changed"; createdAt: Date;
+  metadata: { previousVersion: number; fromPolicy: AdmissionPolicyAuditSnapshot; toPolicy: AdmissionPolicyAuditSnapshot };
+};
+
+/** @param input - Locked actual predecessor and confirmed closed policy under private recovery authority. @returns Reconstructible policy snapshots with explicitly absent human/ledger attribution. */
+export function createAdmissionRecoveryPolicyAuditEvent(input: { tribeId: string; previousPolicy: AdmissionPolicy; policy: AdmissionPolicy; createdAt: Date }): AdmissionRecoveryPolicyAuditEvent {
+  return {
+    tribeId: input.tribeId, actorUserId: null, operationId: null,
+    resourceType: ADMISSION_POLICY_AUDIT.resourceType, resourceId: input.policy.id, resourceVersion: input.policy.version,
+    eventType: REAUTHENTICATION_OPERATION.pauseAdmissionPolicy, rule: MESSAGING_RECOVERY.cause, cause: MESSAGING_RECOVERY.cause,
+    metadata: { previousVersion: input.previousPolicy.version, fromPolicy: selectAdmissionPolicyAuditSnapshot(input.previousPolicy), toPolicy: selectAdmissionPolicyAuditSnapshot(input.policy) },
+    createdAt: new Date(input.createdAt),
+  };
+}
+
+/**
+ * Selects the previous and confirmed connection references of an effective policy transition.
+ * @param input - Locked policy facts, current actor, original activation ledger and persisted effect clock.
+ * @returns The fixed reference-change event without policy payloads, contacts or provider objects.
+ */
+export function createAdmissionMessagingSelectionAuditEvent(input: AdmissionMessagingSelectionAuditInput): AdmissionAuditEvent {
+  return {
+    tribeId: input.tribeId, actorUserId: input.actorUserId, operationId: input.operationId,
+    resourceType: ADMISSION_POLICY_AUDIT.resourceType, resourceId: input.tribeId,
+    eventType: ADMISSION_MESSAGING_SELECTION_CHANGE.event,
+    rule: ADMISSION_MESSAGING_SELECTION_CHANGE.reason, cause: ADMISSION_MESSAGING_SELECTION_CHANGE.reason,
+    resourceVersion: input.resourceVersion,
+    metadata: { previousVersion: input.previousVersion, previousConnectionId: input.previousConnectionId, previousConnectionVersion: input.previousConnectionVersion, connectionId: input.connectionId, connectionVersion: input.connectionVersion, verificationEpoch: input.verificationEpoch },
+    createdAt: new Date(input.createdAt),
+  };
+}
+
+/**
+ * Selects the owner-derived fields of an effective policy change.
+ * @param input - Current actor and committed policy proposal; never a provider row.
+ * @returns A fixed audit snapshot without command payloads or arbitrary labels.
+ */
+export function createAdmissionPolicyAuditEvent(input: AdmissionPolicyAuditInput): AdmissionAuditEvent {
+  return {
+    tribeId: input.tribeId, actorUserId: input.actorUserId, operationId: input.operationId,
+    resourceType: ADMISSION_POLICY_AUDIT.resourceType, resourceId: input.policy.id,
+    eventType: input.operation, rule: input.rule, cause: null,
+    resourceVersion: input.policy.version,
+    metadata: { previousVersion: input.previousPolicy?.version ?? null,
+      fromPolicy: input.previousPolicy ? selectAdmissionPolicyAuditSnapshot(input.previousPolicy) : null,
+      toPolicy: selectAdmissionPolicyAuditSnapshot(input.policy) }, createdAt: new Date(input.createdAt),
+  };
+}
+
+/**
+ * Captures applied local proof provenance without its code or contact.
+ * @param input - Original proof/request references and the authoritative application clock.
+ * @returns Only actor, operation, applied version and explicit proof references.
+ */
+export function createAdmissionProofAuditEvent(input: AdmissionProofAuditInput): AdmissionAuditEvent {
+  return {
+    tribeId: input.tribeId, actorUserId: input.actorUserId, operationId: input.operationId,
+    resourceType: ADMISSION_RESOURCE_KIND.request, resourceId: input.requestId,
+    eventType: ADMISSION_PROOF_AUDIT_EVENT, rule: ADMISSION_PROOF_AUDIT_RULE, cause: null,
+    resourceVersion: input.previousRequestVersion + 1,
+    metadata: { proofId: input.proofId, previousRequestVersion: input.previousRequestVersion },
+    createdAt: new Date(input.createdAt),
+  };
+}

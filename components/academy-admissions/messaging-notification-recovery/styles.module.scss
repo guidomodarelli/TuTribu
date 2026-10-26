@@ -1,0 +1,14 @@
+@use "../../../src/styles/workspace-panel";
+
+.MessagingNotificationRecovery {
+  @include workspace-panel.section;
+  @include workspace-panel.divider;
+  max-width: 40rem;
+
+  &__title { @include workspace-panel.title; }
+  &__help { @include workspace-panel.lead; }
+  &__field { @include workspace-panel.field; }
+  &__consent { @include workspace-panel.consent; }
+  &__actions { @include workspace-panel.actions; }
+  &__feedback { @include workspace-panel.lead; }
+}

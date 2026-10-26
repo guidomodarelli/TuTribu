@@ -46,7 +46,7 @@ describe("tribe member subscription use cases", () => {
       execute({
         idempotencyKey: " retry-payment-1 ",
         invitationToken: " invitation-token-1 ",
-        tribeSlug: " matematica-pro ",
+        tribeSlug: " Matematica-Pro ",
       })
     ).resolves.toEqual({
       checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",
@@ -115,7 +115,7 @@ describe("tribe member subscription use cases", () => {
     await expect(
       execute({
         idempotencyKey: " open-join-1 ",
-        tribeSlug: " matematica-pro ",
+        tribeSlug: " Matematica-Pro ",
       })
     ).resolves.toEqual({
       checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",
@@ -251,7 +251,7 @@ describe("tribe member subscription use cases", () => {
     await expect(
       execute({
         idempotencyKey: " retry-payment-1 ",
-        tribeSlug: " matematica-pro ",
+        tribeSlug: " Matematica-Pro ",
       })
     ).resolves.toEqual({
       checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",

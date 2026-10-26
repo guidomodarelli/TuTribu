@@ -1,4 +1,6 @@
 import { sql } from "drizzle-orm";
+import { ADMISSION_NOTIFICATION_TYPES, ADMISSION_NOTIFICATION_AUDIENCE } from "@/src/modules/notifications/constants/admission-notifications";
+import type { AdmissionNotificationType } from "@/src/modules/notifications/domain/entities/notification";
 
 import {
   NOTIFICATION_MUTATION_STATUS,
@@ -49,6 +51,8 @@ const INVALID_PAYLOAD_ID_LOG_MESSAGE =
   "PostgresNotificationRepository:getInbox found an invalid id in a notification payload";
 
 type NotificationInboxRow = {
+  admission_request_id: string | null;
+  admission_audience: string | null;
   created_at: Date | string;
   event_starts_at: Date | string | null;
   event_title: string | null;
@@ -134,6 +138,11 @@ function isNotificationType(value: string): value is NotificationType {
   return (NOTIFICATION_TYPES as readonly string[]).includes(value);
 }
 
+/** Narrows the original admission type before the event mapper, without validating upstream rows. */
+function isAdmissionNotificationType(value: NotificationType): value is AdmissionNotificationType {
+  return (ADMISSION_NOTIFICATION_TYPES as readonly string[]).includes(value);
+}
+
 function isProposalDecision(value: unknown): value is NotificationProposalDecision {
   return (
     value === NOTIFICATION_PROPOSAL_DECISION.approved ||
@@ -203,6 +212,11 @@ function mapInboxNotification(
     readAt: mapNullableInstant(row.read_at),
     tribe: { name: row.tribe_name, slug: row.tribe_slug },
   };
+
+  if (isAdmissionNotificationType(row.type)) {
+    if (!row.admission_request_id || !isPublicUuid(row.admission_request_id) || row.admission_audience !== ADMISSION_NOTIFICATION_AUDIENCE.applicant && row.admission_audience !== ADMISSION_NOTIFICATION_AUDIENCE.reviewer) return null;
+    return { ...base, type: row.type, admission: { requestId: row.admission_request_id, audience: row.admission_audience } };
+  }
 
   if (row.type === NOTIFICATION_TYPE.eventProposalReviewed) {
     const proposalId = readPayloadString(row.payload, PAYLOAD_KEY.proposalId);
@@ -297,11 +311,13 @@ function mapInboxNotification(
  */
 const VISIBLE_NOTIFICATION_PREDICATE = sql`
   notifications.recipient_user_id = public.current_app_user_id()
-  and public.can_read_tribe_content(notifications.tribe_id)
+  and case when notifications.admission_obligation_id is not null
+    then public.can_read_admission_notification(notifications.admission_obligation_id,notifications.admission_audience)
+    else public.can_read_tribe_content(notifications.tribe_id) end
 `;
 
 const EVENT_NOTIFICATION_TYPES = NOTIFICATION_TYPES.filter(
-  (type) => type !== NOTIFICATION_TYPE.eventProposalReviewed
+  (type) => type !== NOTIFICATION_TYPE.eventProposalReviewed && !(ADMISSION_NOTIFICATION_TYPES as readonly string[]).includes(type)
 );
 
 /**
@@ -329,6 +345,10 @@ function castablePayloadInstant(key: InvalidPayloadInstantField) {
  */
 const DISPLAYABLE_NOTIFICATION_PREDICATE = sql`
   (
+    notifications.type=any(${sql.param(ADMISSION_NOTIFICATION_TYPES)}::text[])
+    and notifications.admission_obligation_id is not null
+    and notifications.admission_audience in (${ADMISSION_NOTIFICATION_AUDIENCE.applicant},${ADMISSION_NOTIFICATION_AUDIENCE.reviewer})
+    or
     (
       notifications.type = ${NOTIFICATION_TYPE.eventProposalReviewed}
       and notifications.payload ->> 'proposalId' ~ ${PUBLIC_UUID_PATTERN}
@@ -400,16 +420,19 @@ export class PostgresNotificationRepository implements NotificationRepository {
           notifications.payload,
           notifications.created_at,
           notifications.read_at,
-          tribes.slug as tribe_slug,
-          tribes.name as tribe_name,
+          coalesce(admission_subject.tribe_slug,tribes.slug) as tribe_slug,
+          coalesce(admission_subject.tribe_name,tribes.name) as tribe_name,
+          admission_subject.request_id as admission_request_id,
+          admission_subject.audience as admission_audience,
           events.title as event_title,
           events.starts_at as event_starts_at,
           moved_exceptions.new_starts_at as moved_starts_at,
           event_proposals.title as proposal_title,
           event_proposals.review_note as proposal_review_note
         from public.notifications
-        inner join public.tribes
+        left join public.tribes
           on tribes.id = notifications.tribe_id
+        left join lateral public.read_admission_notification_subject(notifications.id) admission_subject on true
         cross join lateral (
           select
             case
@@ -481,7 +504,7 @@ export class PostgresNotificationRepository implements NotificationRepository {
           select notifications.id
           from public.notifications
           where notifications.id = ${notificationId}
-            and notifications.recipient_user_id = public.current_app_user_id()
+            and ${VISIBLE_NOTIFICATION_PREDICATE}
         ),
         marked_notification as (
           update public.notifications
@@ -514,7 +537,7 @@ export class PostgresNotificationRepository implements NotificationRepository {
         with marked_notifications as (
           update public.notifications
           set read_at = clock_timestamp()
-          where notifications.recipient_user_id = public.current_app_user_id()
+          where ${VISIBLE_NOTIFICATION_PREDICATE}
             and notifications.read_at is null
           returning notifications.id
         )

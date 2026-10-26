@@ -1,0 +1,60 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/academy-management-mutations",
+    "commit": "eb9bbb3133777d61596556f311001d065649fa75",
+    "fingerprint": "sha256:f3e623ecca73b2439f63a54248298e57126a9b362d57962558aca346e8b4d26a",
+    "uncommittedFiles": [],
+    "fileCount": 45,
+    "inputCount": 598
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy/academy-management.test.tsx",
+      "durationMs": 38546,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "a12f7534ae43c4ba997d8a1fb885c6ef1dd909c1a93d4bc2b9417e2c587304a4",
+      "recordedAt": "2026-10-25T20:45:52.826Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    }
+  ],
+  "limitations": [
+    "La recarga tras decidir o revocar suma una request GET por acción del líder sobre el mismo endpoint que ya usa la paginación; no se midió por separado."
+  ],
+  "mode": "full",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T20:45:55.195Z",
+  "result": "partial",
+  "runId": "20261025T204513Z-37e2a2",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [],
+    "suggestedScope": [
+      "measure the complete flow /[slug]/academia/gestionar before and after, same build, data and throttling; median of 3 for noisy metrics"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a8d6cde62f2853fa",
+      "references/bundle-lazy-loading.md": "91990bd1796b9884",
+      "references/database-queries-n-plus-one.md": "3064b23acc3e9f7e",
+      "references/images-fonts-scripts.md": "1ab02d4b1a421c87",
+      "references/incremental-sweep-jobs.md": "c5c8e71bdba2e4a9",
+      "references/measurement-tools.md": "e3e96c85be264c0c",
+      "references/requests-caching.md": "981544e05dee2e5c",
+      "references/unnecessary-renders.md": "2d440f22533a2149"
+    },
+    "definitionHash": "sha256:dcb79531d3a56e7765d65880022365639578ed18c69466dbb65f4ce0b59b09d3",
+    "name": "measured-performance-optimization",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T20:45:13.367Z",
+  "unitId": "academy.manage.bonuses.revoke"
+}

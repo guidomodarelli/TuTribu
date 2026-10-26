@@ -1,0 +1,81 @@
+@use "../../../src/styles/workspace-panel";
+
+.AllowlistImport {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: 2rem;
+  overflow-wrap: anywhere;
+
+  &__field {
+    @include workspace-panel.field;
+  }
+
+  &__actions {
+    @include workspace-panel.actions;
+  }
+
+  &__callout {
+    @include workspace-panel.callout;
+  }
+
+  &__summary {
+    @include workspace-panel.lead;
+
+    color: var(--foreground);
+    font-weight: 500;
+  }
+
+  &__counts {
+    @include workspace-panel.summary;
+    @include workspace-panel.facts;
+
+    & dt {
+      @include workspace-panel.fact-term;
+    }
+
+    & dd {
+      @include workspace-panel.fact-value;
+
+      font-size: 1.25rem;
+    }
+  }
+
+  &__count {
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  &__rows {
+    @include workspace-panel.rows;
+  }
+
+  &__row {
+    @include workspace-panel.row;
+
+    align-items: start;
+  }
+
+  &__selection {
+    display: flex;
+    flex: 0 1 12rem;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  &__identity {
+    @include workspace-panel.row-main;
+
+    & > strong {
+      @include workspace-panel.row-title;
+    }
+  }
+
+  &__help {
+    @include workspace-panel.note;
+  }
+
+  &__error {
+    @include workspace-panel.error;
+  }
+}

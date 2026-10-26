@@ -1,0 +1,783 @@
+{
+  "capturedAt": "2026-10-15T18:46:50.592Z",
+  "status": "private_email_settings_and_existing_activity_verified",
+  "baseHead": "c670194e9916fe5fd7c9fc6ff84d636ca8371175",
+  "scope": "Modelo, writer y casos de uso privados de configuración independiente; categoría propia en el historial existente. Sin endpoint ni formulario de configuración.",
+  "sourceFiles": [
+    {
+      "path": "database/migrations/meta/_journal.json",
+      "sha256": "1d46c51dfb6c2e62e6ab61187d29d45e6cce57d78fe9b0c7021aa1b97e75664f"
+    },
+    {
+      "path": "src/modules/academy-admissions/constants/admission-activity-labels.ts",
+      "sha256": "38b44a13768f5a98bf3877553cece72d8e6516d02d801408760a072686caf6d2"
+    },
+    {
+      "path": "src/modules/academy-admissions/constants/admission-activity-schemas.ts",
+      "sha256": "b09ab62c1354ceee9177598491bd0d85064ae1ada5c4ec7d3afc091a38eac7b2"
+    },
+    {
+      "path": "src/modules/academy-admissions/constants/admission-activity.ts",
+      "sha256": "1483cb9ff71b3630e875942b7faab3905d7126d51b6ac5a85e40d2e2fdeda2b3"
+    },
+    {
+      "path": "src/modules/academy-admissions/constants/admission-audit.ts",
+      "sha256": "4d5aca09685610b7cef797f3ff6176b66f9335b36be5bc29ac8f5c698e3743bd"
+    },
+    {
+      "path": "src/modules/academy-admissions/constants/admission-authorization.ts",
+      "sha256": "eece610a7196c1651e4da4397a65bbadf3f809dac9964fbe239fead9314d614c"
+    },
+    {
+      "path": "src/modules/academy-admissions/domain/entities/admission-resource-audit-event.ts",
+      "sha256": "277efbca7bc0d3ad1d354549f134e7df5ee861ebb24926d405f11b2330570a59"
+    },
+    {
+      "path": "src/modules/auth/constants/reauthentication-resources.ts",
+      "sha256": "35b1c255a98944a638eb1649f5c2626f1932d8c2d0a5438fcbb0270191dc9d8a"
+    },
+    {
+      "path": "src/modules/shared/infrastructure/database/schema.ts",
+      "sha256": "c93af6a444df277ce864a31ea559e3529aca7c79c97403030f2f8f3623384d06"
+    },
+    {
+      "path": "database/migrations/20261015172500_manage_admission_email_settings.sql",
+      "sha256": "c5849b26f3f98abf299b9cf7f8d1d771f55cc8af5ebcdcf6deccc00f7bc6fef1"
+    },
+    {
+      "path": "src/modules/notifications/application/results/admission-email-settings-result-schemas.ts",
+      "sha256": "7021ee62c3743ea6d66d8a405be6983ec1a12dfd65257e05acc6c55c715a5aef"
+    },
+    {
+      "path": "src/modules/notifications/application/use-cases/admission-notification-email-settings-use-cases.ts",
+      "sha256": "e4f7d69c8fe28d328e272aa5f33db7feddad8444ad28cd3733c66fb9f01a257d"
+    },
+    {
+      "path": "src/modules/notifications/constants/admission-notification-email-settings.ts",
+      "sha256": "df73e3f71fbdba97e5c5119f5adef6b2276f12fd0413898a8a8cadbe13acdbc2"
+    },
+    {
+      "path": "src/modules/notifications/domain/entities/admission-notification-email-settings.ts",
+      "sha256": "e702bf2146cc568fde5a2aaff7a66f856810cd355e22bf0d7c1a05f974ba8516"
+    },
+    {
+      "path": "src/modules/notifications/domain/policies/admission-notification-email-settings.ts",
+      "sha256": "594b2ab2db79e3fab202c08595511470ae2cc22705b13d6ddc9d89c058dce910"
+    },
+    {
+      "path": "src/modules/notifications/domain/repositories/admission-notification-email-settings-repository.ts",
+      "sha256": "f867cde5a3294e37bf872a396ce98d29174c58d14104182d2d6de4097fd5d4de"
+    },
+    {
+      "path": "src/modules/notifications/infrastructure/repositories/postgres-admission-notification-email-settings-repository.ts",
+      "sha256": "12996f35f1c1bac93b72ef45fdc6e116e5edfcb32bc791948b46fdd58aa489c8"
+    },
+    {
+      "path": "tests/support/admission-notification-email-settings-fixture.ts",
+      "sha256": "27339c6d498e4b37100313406e8e1af36dbfd1a98b5e08ec9d53fa832c607569"
+    },
+    {
+      "path": "tests/unit/modules/notifications/application/admission-email-settings-use-cases.test.ts",
+      "sha256": "7179ee037da2d6839b4878ca48b032a5e89b229d42714eb431110f79b7e35731"
+    },
+    {
+      "path": "tests/unit/modules/notifications/domain/admission-notification-email-audit.test.ts",
+      "sha256": "634cf6f60e672e0aefc0bbfb472e87596e52e1932a9b2005617851debe8477af"
+    },
+    {
+      "path": "tests/unit/modules/notifications/domain/admission-notification-email-settings.test.ts",
+      "sha256": "823857f7e14d471c723751b5dddb0c5a0fd2a98abb942aef2f7a57068afc9ad5"
+    },
+    {
+      "path": "tests/unit/modules/notifications/infrastructure/admission-email-settings-activity-browser.test.ts",
+      "sha256": "304ecc5a9e6e9e539e9ca556d00dd763680f145c07817ca1ec294cb6ebd2c4d7"
+    },
+    {
+      "path": "tests/unit/modules/notifications/infrastructure/admission-notification-email-settings.test.ts",
+      "sha256": "fdd2c51c752c03f426f4774d9f09bf9ec0f22cbcd158c2be515912a6e76aae1c"
+    }
+  ],
+  "local": {
+    "completeFiles": 8,
+    "passed": 68,
+    "failed": 0,
+    "filtered": 0,
+    "newCases": 21,
+    "existingRegressionCases": 47,
+    "sourceInputsStable": true,
+    "cases": [
+      {
+        "title": "complete private resource audit facts should select only the original lineage and extent for notification_obligation_created without recipient or content",
+        "status": "passed",
+        "durationMs": 1.5913999999999078
+      },
+      {
+        "title": "complete private resource audit facts should select only the original lineage and extent for notification_materialized without recipient or content",
+        "status": "passed",
+        "durationMs": 0.18259999999997945
+      },
+      {
+        "title": "complete private resource audit facts should retain the owned delivery cause quota_exceeded without copying private transport fields",
+        "status": "passed",
+        "durationMs": 0.48539999999991323
+      },
+      {
+        "title": "complete private resource audit facts should retain the owned delivery cause worker_lease_expired without copying private transport fields",
+        "status": "passed",
+        "durationMs": 0.1811999999999898
+      },
+      {
+        "title": "complete private resource audit facts should retain the owned delivery cause candidate_expired without copying private transport fields",
+        "status": "passed",
+        "durationMs": 0.14979999999991378
+      },
+      {
+        "title": "complete private resource audit facts should retain the owned proof invalidation cause policy_verification_context_changed and exclude private challenge material",
+        "status": "passed",
+        "durationMs": 0.15850000000000364
+      },
+      {
+        "title": "complete private resource audit facts should retain the owned proof invalidation cause explicit_resend and exclude private challenge material",
+        "status": "passed",
+        "durationMs": 0.10069999999996071
+      },
+      {
+        "title": "complete private resource audit facts should reconstruct the request transition and its proof without copying applicant content",
+        "status": "passed",
+        "durationMs": 0.2317000000000462
+      },
+      {
+        "title": "complete private resource audit facts should keep a list entry status and import lineage without copying its contact or name",
+        "status": "passed",
+        "durationMs": 0.2416000000000622
+      },
+      {
+        "title": "complete private resource audit facts should preserve single-use invitation lineage without copying a token or recipient",
+        "status": "passed",
+        "durationMs": 0.23669999999992797
+      },
+      {
+        "title": "complete private resource audit facts should snapshot current quota and country changes independently of mutable usage counters",
+        "status": "passed",
+        "durationMs": 0.4189999999999827
+      },
+      {
+        "title": "complete private resource audit facts should record connection and version changes without copying operational credential material",
+        "status": "passed",
+        "durationMs": 0.2139999999999418
+      },
+      {
+        "title": "complete private resource audit facts should distinguish an authorized resource exposure from publishing resource or secret payloads",
+        "status": "passed",
+        "durationMs": 0.1450000000000955
+      },
+      {
+        "title": "complete private resource audit facts should preserve the worker delivery transition without copying a message or recipient",
+        "status": "passed",
+        "durationMs": 0.49920000000008713
+      },
+      {
+        "title": "complete private resource audit facts should retain protection rotation references without copying keys or ciphertext",
+        "status": "passed",
+        "durationMs": 0.41430000000002565
+      },
+      {
+        "title": "complete private resource audit facts should retain both recovery lineages when the original moves from suppressed to cancelled without copying frozen content",
+        "status": "passed",
+        "durationMs": 0.24889999999993506
+      },
+      {
+        "title": "complete private resource audit facts should retain both recovery lineages when the original moves from failed to failed without copying frozen content",
+        "status": "passed",
+        "durationMs": 0.15049999999996544
+      },
+      {
+        "title": "complete private resource audit facts should detach the authoritative audit timestamp from later caller clock changes",
+        "status": "passed",
+        "durationMs": 0.1170999999999367
+      },
+      {
+        "title": "complete private resource audit facts should retain the exact local proof references without treating an external receipt as verification",
+        "status": "passed",
+        "durationMs": 0.1329000000000633
+      },
+      {
+        "title": "complete private resource audit facts should preserve role and membership instance changes without copying global account or payment data",
+        "status": "passed",
+        "durationMs": 0.15009999999995216
+      },
+      {
+        "title": "complete private resource audit facts should record only the bounded maintenance result without retaining deleted resources",
+        "status": "passed",
+        "durationMs": 0.11290000000008149
+      },
+      {
+        "title": "complete private resource audit facts should preserve an observed retention duration of 0 milliseconds without copying private extras",
+        "status": "passed",
+        "durationMs": 0.16430000000002565
+      },
+      {
+        "title": "complete private resource audit facts should preserve an observed retention duration of 17 milliseconds without copying private extras",
+        "status": "passed",
+        "durationMs": 0.059799999999995634
+      },
+      {
+        "title": "complete private resource audit facts should close an unusable internal resource kind without reflecting its private content",
+        "status": "passed",
+        "durationMs": 0.3432999999999993
+      },
+      {
+        "title": "complete private resource audit facts should distinguish withdrawn redeemed authorization while preserving its consumed status and request",
+        "status": "passed",
+        "durationMs": 0.15689999999995052
+      },
+      {
+        "title": "complete private resource audit facts should derive creation provenance from the effective invitation without copying its private recipient",
+        "status": "passed",
+        "durationMs": 0.4434000000001106
+      },
+      {
+        "title": "complete private resource audit facts should reconstruct an effective redeemed withdrawal independently of terminal request or membership outcomes",
+        "status": "passed",
+        "durationMs": 0.376700000000028
+      },
+      {
+        "title": "independent email settings audit should preserve the absent predecessor and select only the changed email configuration",
+        "status": "passed",
+        "durationMs": 1.6440999999999804
+      },
+      {
+        "title": "independent email settings audit should publish the owned configuration change without exposing contact or credential fields",
+        "status": "passed",
+        "durationMs": 3.592200000000048
+      },
+      {
+        "title": "independent admission email settings should resolve absent settings as OFF without inventing a persisted version or enablement",
+        "status": "passed",
+        "durationMs": 1.1476000000000113
+      },
+      {
+        "title": "independent admission email settings should preserve precise current settings while projecting only owned fields",
+        "status": "passed",
+        "durationMs": 0.14580000000000837
+      },
+      {
+        "title": "independent admission email settings should reject settings from another tribe before projecting them",
+        "status": "passed",
+        "durationMs": 0.10099999999999909
+      },
+      {
+        "title": "independent admission email settings should enable a first configuration at the authoritative current cut",
+        "status": "passed",
+        "durationMs": 0.21920000000000073
+      },
+      {
+        "title": "independent admission email settings should leave an untouched implicit OFF default unpersisted",
+        "status": "passed",
+        "durationMs": 0.12639999999998963
+      },
+      {
+        "title": "independent admission email settings should reject a stale version before treating enabled=false as a no-op",
+        "status": "passed",
+        "durationMs": 0.1170999999999367
+      },
+      {
+        "title": "independent admission email settings should reject a stale version before treating enabled=true as a no-op",
+        "status": "passed",
+        "durationMs": 0.07320000000004256
+      },
+      {
+        "title": "independent admission email settings should reject a new enablement when tested email is unavailable",
+        "status": "passed",
+        "durationMs": 0.09229999999990923
+      },
+      {
+        "title": "independent admission email settings should reject a new enablement when tested email is foreign",
+        "status": "passed",
+        "durationMs": 0.09070000000008349
+      },
+      {
+        "title": "independent admission email settings should preserve the original version and cut for a true no-op even if capability has since closed",
+        "status": "passed",
+        "durationMs": 0.12760000000002947
+      },
+      {
+        "title": "independent admission email settings should disable email without requiring a working connection and clear the active cut",
+        "status": "passed",
+        "durationMs": 0.0990999999999076
+      },
+      {
+        "title": "independent admission email settings should renew the cut when enabling again instead of replaying the previous enabled period",
+        "status": "passed",
+        "durationMs": 0.06729999999993197
+      },
+      {
+        "title": "independent admission email settings should begin a new enabled epoch when changing the daily zone",
+        "status": "passed",
+        "durationMs": 0.05340000000001055
+      },
+      {
+        "title": "independent admission email settings should store a disabled zone choice without enabling email or requiring a connection",
+        "status": "passed",
+        "durationMs": 0.05899999999996908
+      },
+      {
+        "title": "independent admission email settings should reject crossed stored settings instead of overwriting another tribe",
+        "status": "passed",
+        "durationMs": 0.04280000000005657
+      },
+      {
+        "title": "independent admission email authority should resolve read-only OFF settings without requiring recency or writing configuration",
+        "status": "passed",
+        "durationMs": 2.171899999999937
+      },
+      {
+        "title": "independent admission email authority should deny guardian metadata and configuration before touching email storage",
+        "status": "passed",
+        "durationMs": 0.476099999999974
+      },
+      {
+        "title": "independent admission email authority should require its exact email purpose and preserve the original confirmed intent",
+        "status": "passed",
+        "durationMs": 0.8502000000000862
+      },
+      {
+        "title": "independent admission email authority should distinguish registered uncertain completion from an unrelated private storage failure",
+        "status": "passed",
+        "durationMs": 0.578899999999976
+      },
+      {
+        "title": "private activity browser workflow should use SSR data once and reject invalid filters before any snapshot request, clearing feedback on edit",
+        "status": "passed",
+        "durationMs": 400.045100000003
+      },
+      {
+        "title": "private activity browser workflow should cancel an older read and ignore its late result after a newer configuration and consumption are shown",
+        "status": "passed",
+        "durationMs": 275.6828000000023
+      },
+      {
+        "title": "private activity browser workflow should keep private content withheld when another read starts between viewer completion and result installation",
+        "status": "passed",
+        "durationMs": 266.98219999999856
+      },
+      {
+        "title": "private activity browser workflow should hide the prior account's private data when native identity changes after an outstanding response",
+        "status": "passed",
+        "durationMs": 195.3877999999968
+      },
+      {
+        "title": "private activity browser workflow should clear a failed read's alert during retry and restore data only after current authorization succeeds",
+        "status": "passed",
+        "durationMs": 260.9498999999996
+      },
+      {
+        "title": "private activity browser workflow should preserve exact pagination and abort the active private read when unmounted",
+        "status": "passed",
+        "durationMs": 186.48769999999786
+      },
+      {
+        "title": "private admission activity page should retain current settings and historical versions as separate facts without inventing a write",
+        "status": "passed",
+        "durationMs": 7.786400000000015
+      },
+      {
+        "title": "private admission activity page should preserve a legitimately different observed usage version rather than replace current configuration",
+        "status": "passed",
+        "durationMs": 0.7124999999999773
+      },
+      {
+        "title": "private admission activity page should return no private partial snapshot when the native session changes after the reads",
+        "status": "passed",
+        "durationMs": 0.9372000000000185
+      },
+      {
+        "title": "private admission activity page should stop on the current usage owner's denial without exposing aggregates or history",
+        "status": "passed",
+        "durationMs": 0.4269999999999641
+      },
+      {
+        "title": "private admission activity page should remove all partial private facts when authorization is lost during the final history read",
+        "status": "passed",
+        "durationMs": 0.3294999999999959
+      },
+      {
+        "title": "private admission activity page should reject foreign-tribe metrics and history in the own composite result",
+        "status": "passed",
+        "durationMs": 1.272799999999961
+      },
+      {
+        "title": "private admission activity page should retain microsecond pagination and bind resource selection to the native tribe",
+        "status": "passed",
+        "durationMs": 0.7880000000000109
+      },
+      {
+        "title": "private activity browser client should use one cancellable same-origin own read and preserve the exact microsecond cursor",
+        "status": "passed",
+        "durationMs": 9.843899999999962
+      },
+      {
+        "title": "private activity browser client should reject a mismatched own route/selection and an incoherent same-page tribe binding",
+        "status": "passed",
+        "durationMs": 2.1510000000000673
+      },
+      {
+        "title": "private activity browser client should avoid transport for invalid input or prior cancellation and keep network failures distinct",
+        "status": "passed",
+        "durationMs": 0.9269999999999072
+      },
+      {
+        "title": "private activity page boundaries should reject browser authority and malformed filters before opening HTTP or SSR composition",
+        "status": "passed",
+        "durationMs": 18.37110000000007
+      },
+      {
+        "title": "private activity page boundaries should publish the own safe composite with private headers and normalized bounded selection",
+        "status": "passed",
+        "durationMs": 6.166100000000142
+      },
+      {
+        "title": "private activity page boundaries should keep a current permission denial separate from a successful or partial private result",
+        "status": "passed",
+        "durationMs": 0.9099999999998545
+      },
+      {
+        "title": "private activity page boundaries should close an unusable own composite and contain unexpected causes without publishing private facts",
+        "status": "passed",
+        "durationMs": 1.414700000000039
+      }
+    ]
+  },
+  "native": {
+    "completedAt": "2026-10-15T17:57:09.291Z",
+    "completeFiles": 1,
+    "passed": 3,
+    "failed": 0,
+    "filtered": 0,
+    "sourceInputsStable": true,
+    "registeredSourceFiles": [
+      {
+        "path": "tests/unit/modules/notifications/infrastructure/admission-notification-email-settings.test.ts",
+        "sha256": "fdd2c51c752c03f426f4774d9f09bf9ec0f22cbcd158c2be515912a6e76aae1c"
+      },
+      {
+        "path": "tests/support/messaging-activation-fixture.ts",
+        "sha256": "5fa2192f12d87dbc44fe3b62220cff279b0314c004ab44e87cf5190f8e7f4a66"
+      },
+      {
+        "path": "tests/support/messaging-connection-fixture.ts",
+        "sha256": "b6750cdd008c4ee8af80fefc5f6261f59b1d8af3df31f9d178eacdbff8e824f2"
+      },
+      {
+        "path": "tests/support/contact-verification-database-fixture.ts",
+        "sha256": "8b15ac8aa00103bcc49f2226bb4fa97b9b6d1fd2de5294cb089e0f4247a3caa1"
+      },
+      {
+        "path": "database/migrations/20261015172500_manage_admission_email_settings.sql",
+        "sha256": "c5849b26f3f98abf299b9cf7f8d1d771f55cc8af5ebcdcf6deccc00f7bc6fef1"
+      },
+      {
+        "path": "src/modules/shared/infrastructure/database/schema.ts",
+        "sha256": "c93af6a444df277ce864a31ea559e3529aca7c79c97403030f2f8f3623384d06"
+      },
+      {
+        "path": "src/modules/auth/constants/reauthentication-resources.ts",
+        "sha256": "35b1c255a98944a638eb1649f5c2626f1932d8c2d0a5438fcbb0270191dc9d8a"
+      },
+      {
+        "path": "src/modules/notifications/constants/admission-notification-email-settings.ts",
+        "sha256": "df73e3f71fbdba97e5c5119f5adef6b2276f12fd0413898a8a8cadbe13acdbc2"
+      },
+      {
+        "path": "src/modules/notifications/application/results/admission-email-settings-result-schemas.ts",
+        "sha256": "7021ee62c3743ea6d66d8a405be6983ec1a12dfd65257e05acc6c55c715a5aef"
+      },
+      {
+        "path": "src/modules/notifications/domain/entities/admission-notification-email-settings.ts",
+        "sha256": "e702bf2146cc568fde5a2aaff7a66f856810cd355e22bf0d7c1a05f974ba8516"
+      },
+      {
+        "path": "src/modules/notifications/domain/policies/admission-notification-email-settings.ts",
+        "sha256": "594b2ab2db79e3fab202c08595511470ae2cc22705b13d6ddc9d89c058dce910"
+      },
+      {
+        "path": "src/modules/notifications/domain/repositories/admission-notification-email-settings-repository.ts",
+        "sha256": "f867cde5a3294e37bf872a396ce98d29174c58d14104182d2d6de4097fd5d4de"
+      },
+      {
+        "path": "src/modules/notifications/infrastructure/repositories/postgres-admission-notification-email-settings-repository.ts",
+        "sha256": "12996f35f1c1bac93b72ef45fdc6e116e5edfcb32bc791948b46fdd58aa489c8"
+      },
+      {
+        "path": "tests/support/admission-notification-email-settings-fixture.ts",
+        "sha256": "27339c6d498e4b37100313406e8e1af36dbfd1a98b5e08ec9d53fa832c607569"
+      },
+      {
+        "path": "src/modules/academy-admissions/constants/admission-authorization.ts",
+        "sha256": "eece610a7196c1651e4da4397a65bbadf3f809dac9964fbe239fead9314d614c"
+      },
+      {
+        "path": "src/modules/academy-admissions/constants/admission-audit.ts",
+        "sha256": "4d5aca09685610b7cef797f3ff6176b66f9335b36be5bc29ac8f5c698e3743bd"
+      },
+      {
+        "path": "src/modules/academy-admissions/domain/entities/admission-resource-audit-event.ts",
+        "sha256": "277efbca7bc0d3ad1d354549f134e7df5ee861ebb24926d405f11b2330570a59"
+      },
+      {
+        "path": "src/modules/academy-admissions/constants/admission-activity.ts",
+        "sha256": "1483cb9ff71b3630e875942b7faab3905d7126d51b6ac5a85e40d2e2fdeda2b3"
+      },
+      {
+        "path": "src/modules/academy-admissions/constants/admission-activity-schemas.ts",
+        "sha256": "b09ab62c1354ceee9177598491bd0d85064ae1ada5c4ec7d3afc091a38eac7b2"
+      },
+      {
+        "path": "src/modules/academy-admissions/constants/admission-activity-labels.ts",
+        "sha256": "38b44a13768f5a98bf3877553cece72d8e6516d02d801408760a072686caf6d2"
+      },
+      {
+        "path": "tests/support/constants/admission-notification-validation.ts",
+        "sha256": "a6386e3b3a7cb458f824ab65a7911ace548de64a05ac0a2efb168f92055c0ec5"
+      },
+      {
+        "path": "tests/support/admission-evidence-historical-fixture.ts",
+        "sha256": "d9b2545483ae6d9da6d3f39e91f35195467bf0bb2803a779f60ef9450ef0661c"
+      },
+      {
+        "path": "tests/support/admission-retention-migration-prefix.ts",
+        "sha256": "a2600f085113677ac574bd0fa65f6538ad572dc4b67e7b3c22ae85e8f5242cbb"
+      },
+      {
+        "path": "tests/support/admission-transition-contention.ts",
+        "sha256": "1440a7916061c76d261dbef70504ca6c135a487448e4633749f4448dbfd14640"
+      },
+      {
+        "path": "database/migrations/meta/_journal.json",
+        "sha256": "1d46c51dfb6c2e62e6ab61187d29d45e6cce57d78fe9b0c7021aa1b97e75664f"
+      },
+      {
+        "path": "tests/support/academy-admission-database.ts",
+        "sha256": "0a5c298742290d16bfa4663b539352e4d40246be616e41bd254659fc0b343482"
+      },
+      {
+        "path": "tests/support/admission-migration-command.ts",
+        "sha256": "7914b750b7077fcc3828097d8a928a64427765fd8964885fd8c5ed5813034630"
+      }
+    ],
+    "cases": [
+      {
+        "title": "native independent admission email settings should enable only tested selected email, retain precise cuts and never enable OTP or send a message",
+        "status": "passed",
+        "durationMs": 205490.4052
+      },
+      {
+        "title": "native independent admission email settings should reconcile a lost reply and preserve original replay, CAS, audit and owner isolation",
+        "status": "passed",
+        "durationMs": 137757.8298
+      },
+      {
+        "title": "native independent admission email settings should roll back staged settings and audit when the final native session guard fails",
+        "status": "passed",
+        "durationMs": 89570.40430000002
+      }
+    ],
+    "prerequisites": "Metadata sintética coherente, cifrado y journal completos reales; no acredita otro OAuth, diagnóstico de entrega, activación de conexión o envío externo."
+  },
+  "browser": {
+    "completedAt": "2026-10-15T18:23:19.924Z",
+    "completeFiles": 1,
+    "passed": 1,
+    "failed": 0,
+    "filtered": 0,
+    "sourceInputsStable": true,
+    "cases": [
+      {
+        "title": "native email settings activity UI should show and filter the native email configuration audit in Chromium and WebKit at desktop and mobile widths",
+        "status": "passed",
+        "durationMs": 430064.48049999995
+      }
+    ],
+    "views": [
+      {
+        "engine": "chromium",
+        "width": 1280,
+        "horizontalOverflow": false,
+        "pageErrors": 0
+      },
+      {
+        "engine": "chromium",
+        "width": 390,
+        "horizontalOverflow": false,
+        "pageErrors": 0
+      },
+      {
+        "engine": "webkit",
+        "width": 1280,
+        "horizontalOverflow": false,
+        "pageErrors": 0
+      },
+      {
+        "engine": "webkit",
+        "width": 390,
+        "horizontalOverflow": false,
+        "pageErrors": 0
+      }
+    ],
+    "capture": "user-guides/assets/academy-admissions/email-settings-history-captures.json",
+    "timeoutMs": 90000,
+    "performanceGatePassed": false
+  },
+  "uniqueCurrentCases": 72,
+  "build": {
+    "completedAt": "2026-10-15T18:04:38.777Z",
+    "exitCode": 0,
+    "productFilesEquivalent": 1740,
+    "pages": 53,
+    "sourceInputsStable": true
+  },
+  "codeReview": {
+    "targetSha256": "36d9d618d4d8c813b01572dc169e945b7fd0f97ff330ea56257c8ad38380d751",
+    "actionableFindings": 0,
+    "sourceHashesStable": true,
+    "browserWasPendingDuringCodeReview": true
+  },
+  "documentation": {
+    "existingCapturesRetained": 51,
+    "captures": 52,
+    "checkedLocalLinks": 177,
+    "sourceTrace": {
+      "codeCommit": "620b1c54366a2defcbb10e1fdd76122addd3f8c4",
+      "files": [
+        "user-guides/academy-admissions.html",
+        "user-guides/index.html",
+        "user-guides/application-flows.html"
+      ],
+      "recordedWithCanonicalHelper": true
+    },
+    "expectedStaticWarnings": [
+      "Manual local sin URL de visor publicada.",
+      "Copy en español sin catálogo central de traducciones; contrastado con la UI real."
+    ],
+    "manualRenderedAt": "2026-10-15T18:55:07.661Z",
+    "manualViews": [
+      {
+        "engine": "chromium",
+        "width": 1280,
+        "captures": 52,
+        "fit": [],
+        "pins": [],
+        "order": [],
+        "passed": true,
+        "sectionSheet": true,
+        "pinNavigation": true,
+        "backToTop": true,
+        "directAnchor": true,
+        "returnedToMenu": true,
+        "enteredFromMenu": true,
+        "detailedAnchor": true,
+        "pageErrors": []
+      },
+      {
+        "engine": "chromium",
+        "width": 390,
+        "captures": 52,
+        "fit": [],
+        "pins": [],
+        "order": [],
+        "passed": true,
+        "sectionSheet": true,
+        "pinNavigation": true,
+        "backToTop": true,
+        "directAnchor": true,
+        "returnedToMenu": true,
+        "enteredFromMenu": true,
+        "detailedAnchor": true,
+        "pageErrors": []
+      },
+      {
+        "engine": "webkit",
+        "width": 1280,
+        "captures": 52,
+        "fit": [],
+        "pins": [],
+        "order": [],
+        "passed": true,
+        "sectionSheet": true,
+        "pinNavigation": true,
+        "backToTop": true,
+        "directAnchor": true,
+        "returnedToMenu": true,
+        "enteredFromMenu": true,
+        "detailedAnchor": true,
+        "pageErrors": []
+      },
+      {
+        "engine": "webkit",
+        "width": 390,
+        "captures": 52,
+        "fit": [],
+        "pins": [],
+        "order": [],
+        "passed": true,
+        "sectionSheet": true,
+        "pinNavigation": true,
+        "backToTop": true,
+        "directAnchor": true,
+        "returnedToMenu": true,
+        "enteredFromMenu": true,
+        "detailedAnchor": true,
+        "pageErrors": []
+      }
+    ],
+    "manualSourceFiles": [
+      {
+        "path": "user-guides/academy-admissions.html",
+        "sha256": "28d1c873f7b2042ff776940d8a1018adeb1b89cdb2005ae8473c3a0832c24798"
+      },
+      {
+        "path": "user-guides/index.html",
+        "sha256": "671cbb08eee351f02529d17d016c2046393a3545faa23988a7bd08796c82337e"
+      },
+      {
+        "path": "user-guides/application-flows.html",
+        "sha256": "cdf646e2e9757dfea87b402820f144f50bb2ee70178253fcd04909f364ff9a58"
+      }
+    ]
+  },
+  "diagnostics": {
+    "priorFullOnboarding": {
+      "passed": 0,
+      "failed": 3,
+      "acceptedAsCurrentEvidence": false
+    },
+    "priorBrowserTimeouts": {
+      "timeoutMs": 30000,
+      "acceptedAsCurrentEvidence": false
+    },
+    "runtimePreserved": "Se conservó el runtime previo del manual y su corrección WebKit; no se alteró el comportamiento del producto para corregir el documento.",
+    "latencyClaimed": false
+  },
+  "resources": {
+    "temporaryBranchesOwnedByTask": 0,
+    "productionPreserved": true,
+    "originalPilotPreserved": true,
+    "unrelatedDevSandboxPreserved": true,
+    "externalMessagesSent": 0
+  },
+  "tasks": {
+    "total": 212,
+    "completed": 174,
+    "pending": 38,
+    "stateChanged": false,
+    "completeT184": false,
+    "completeUS8": false,
+    "completeT211": false
+  },
+  "remaining": [
+    "Composición pública de preferencias y configuración independiente.",
+    "Controles de habilitación y zona, recuperación e interacción real de la configuración.",
+    "Productor de grupos, intent completo de outbox, dispatcher y mantenimiento.",
+    "Driver operativo y aceptación integral, métricas y gates originales."
+  ]
+}

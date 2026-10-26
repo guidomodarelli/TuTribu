@@ -1,0 +1,442 @@
+{
+  "workflowRun": 39160285479,
+  "url": "https://github.com/guidomodarelli/TuTribu/actions/runs/39160285479",
+  "sourceCommit": "9ccbcb9dbbb401889caf3e4015c94f7f26a5f51b",
+  "kind": "platform_preflight",
+  "collectorScope": "application_name_MiniBrowser_only",
+  "collectorProtocolVersion": 1,
+  "platform": {
+    "atspiVersion": "2.58.6",
+    "atspiSourceCommit": "1e883ff1739ad584571d38d63735e1cc67a18b0b",
+    "orcaSourceCommit": "244bdadd98f07fe9bfda9326fab621d686c70d2d",
+    "configuredProfileBackend": "gsettings"
+  },
+  "nativeEventObservationValidated": true,
+  "passedVariants": 8,
+  "failedVariants": 8,
+  "cases": [
+    {
+      "engine": "chromium",
+      "width": 390,
+      "markupVariant": "empty",
+      "passed": true,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": true,
+      "failureCode": null,
+      "nativeStatusTextObserved": true
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "markupVariant": "seeded_text",
+      "passed": true,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": true,
+      "failureCode": null,
+      "nativeStatusTextObserved": true
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "markupVariant": "seeded_marker",
+      "passed": true,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": true,
+      "failureCode": null,
+      "nativeStatusTextObserved": true
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "markupVariant": "polite_paragraph",
+      "passed": true,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": true,
+      "failureCode": null,
+      "nativeStatusTextObserved": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "markupVariant": "empty",
+      "passed": true,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": true,
+      "failureCode": null,
+      "nativeStatusTextObserved": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "markupVariant": "seeded_text",
+      "passed": true,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": true,
+      "failureCode": null,
+      "nativeStatusTextObserved": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "markupVariant": "seeded_marker",
+      "passed": true,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": true,
+      "failureCode": null,
+      "nativeStatusTextObserved": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "markupVariant": "polite_paragraph",
+      "passed": true,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": true,
+      "failureCode": null,
+      "nativeStatusTextObserved": true
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "markupVariant": "empty",
+      "passed": false,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": false,
+      "failureCode": "native_reader_speech_missing",
+      "nativeStatusTextObserved": true,
+      "nativeEventObservation": {
+        "available": true,
+        "registeredEvents": [
+          "object:text-changed:insert",
+          "object:announcement",
+          "object:children-changed:add",
+          "object:property-change:accessible-name",
+          "object:state-changed:busy"
+        ],
+        "completion": "stopped",
+        "observedEvents": 2,
+        "readFailures": 0,
+        "droppedEvents": 0,
+        "groups": [
+          {
+            "eventType": "object:text-changed:insert",
+            "toolkit": "gtk",
+            "roleId": 61,
+            "liveRegion": false,
+            "payloadIsText": true,
+            "expectedTextInPayload": false,
+            "maximumDataLength": 1,
+            "count": 2
+          }
+        ],
+        "expectedTextSignals": 0,
+        "complete": true
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "markupVariant": "seeded_text",
+      "passed": false,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": false,
+      "failureCode": "native_reader_speech_missing",
+      "nativeStatusTextObserved": true,
+      "nativeEventObservation": {
+        "available": true,
+        "registeredEvents": [
+          "object:text-changed:insert",
+          "object:announcement",
+          "object:children-changed:add",
+          "object:property-change:accessible-name",
+          "object:state-changed:busy"
+        ],
+        "completion": "stopped",
+        "observedEvents": 2,
+        "readFailures": 0,
+        "droppedEvents": 0,
+        "groups": [
+          {
+            "eventType": "object:text-changed:insert",
+            "toolkit": "gtk",
+            "roleId": 61,
+            "liveRegion": false,
+            "payloadIsText": true,
+            "expectedTextInPayload": false,
+            "maximumDataLength": 1,
+            "count": 2
+          }
+        ],
+        "expectedTextSignals": 0,
+        "complete": true
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "markupVariant": "seeded_marker",
+      "passed": false,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": false,
+      "failureCode": "native_reader_speech_missing",
+      "nativeStatusTextObserved": true,
+      "nativeEventObservation": {
+        "available": true,
+        "registeredEvents": [
+          "object:text-changed:insert",
+          "object:announcement",
+          "object:children-changed:add",
+          "object:property-change:accessible-name",
+          "object:state-changed:busy"
+        ],
+        "completion": "stopped",
+        "observedEvents": 3,
+        "readFailures": 0,
+        "droppedEvents": 0,
+        "groups": [
+          {
+            "eventType": "object:text-changed:insert",
+            "toolkit": "gtk",
+            "roleId": 61,
+            "liveRegion": false,
+            "payloadIsText": true,
+            "expectedTextInPayload": false,
+            "maximumDataLength": 1,
+            "count": 2
+          },
+          {
+            "eventType": "object:children-changed:add",
+            "toolkit": "webkit",
+            "roleId": 95,
+            "liveRegion": false,
+            "payloadIsText": false,
+            "expectedTextInPayload": false,
+            "maximumDataLength": 0,
+            "count": 1
+          }
+        ],
+        "expectedTextSignals": 0,
+        "complete": true
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "markupVariant": "polite_paragraph",
+      "passed": false,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": false,
+      "failureCode": "native_reader_speech_missing",
+      "nativeStatusTextObserved": true,
+      "nativeEventObservation": {
+        "available": true,
+        "registeredEvents": [
+          "object:text-changed:insert",
+          "object:announcement",
+          "object:children-changed:add",
+          "object:property-change:accessible-name",
+          "object:state-changed:busy"
+        ],
+        "completion": "stopped",
+        "observedEvents": 2,
+        "readFailures": 0,
+        "droppedEvents": 0,
+        "groups": [
+          {
+            "eventType": "object:text-changed:insert",
+            "toolkit": "gtk",
+            "roleId": 61,
+            "liveRegion": false,
+            "payloadIsText": true,
+            "expectedTextInPayload": false,
+            "maximumDataLength": 1,
+            "count": 2
+          }
+        ],
+        "expectedTextSignals": 0,
+        "complete": true
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "markupVariant": "empty",
+      "passed": false,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": false,
+      "failureCode": "native_reader_speech_missing",
+      "nativeStatusTextObserved": true,
+      "nativeEventObservation": {
+        "available": true,
+        "registeredEvents": [
+          "object:text-changed:insert",
+          "object:announcement",
+          "object:children-changed:add",
+          "object:property-change:accessible-name",
+          "object:state-changed:busy"
+        ],
+        "completion": "stopped",
+        "observedEvents": 2,
+        "readFailures": 0,
+        "droppedEvents": 0,
+        "groups": [
+          {
+            "eventType": "object:text-changed:insert",
+            "toolkit": "gtk",
+            "roleId": 61,
+            "liveRegion": false,
+            "payloadIsText": true,
+            "expectedTextInPayload": false,
+            "maximumDataLength": 1,
+            "count": 2
+          }
+        ],
+        "expectedTextSignals": 0,
+        "complete": true
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "markupVariant": "seeded_text",
+      "passed": false,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": false,
+      "failureCode": "native_reader_speech_missing",
+      "nativeStatusTextObserved": true,
+      "nativeEventObservation": {
+        "available": true,
+        "registeredEvents": [
+          "object:text-changed:insert",
+          "object:announcement",
+          "object:children-changed:add",
+          "object:property-change:accessible-name",
+          "object:state-changed:busy"
+        ],
+        "completion": "stopped",
+        "observedEvents": 2,
+        "readFailures": 0,
+        "droppedEvents": 0,
+        "groups": [
+          {
+            "eventType": "object:text-changed:insert",
+            "toolkit": "gtk",
+            "roleId": 61,
+            "liveRegion": false,
+            "payloadIsText": true,
+            "expectedTextInPayload": false,
+            "maximumDataLength": 1,
+            "count": 2
+          }
+        ],
+        "expectedTextSignals": 0,
+        "complete": true
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "markupVariant": "seeded_marker",
+      "passed": false,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": false,
+      "failureCode": "native_reader_speech_missing",
+      "nativeStatusTextObserved": true,
+      "nativeEventObservation": {
+        "available": true,
+        "registeredEvents": [
+          "object:text-changed:insert",
+          "object:announcement",
+          "object:children-changed:add",
+          "object:property-change:accessible-name",
+          "object:state-changed:busy"
+        ],
+        "completion": "stopped",
+        "observedEvents": 3,
+        "readFailures": 0,
+        "droppedEvents": 0,
+        "groups": [
+          {
+            "eventType": "object:text-changed:insert",
+            "toolkit": "gtk",
+            "roleId": 61,
+            "liveRegion": false,
+            "payloadIsText": true,
+            "expectedTextInPayload": false,
+            "maximumDataLength": 1,
+            "count": 2
+          },
+          {
+            "eventType": "object:children-changed:add",
+            "toolkit": "webkit",
+            "roleId": 95,
+            "liveRegion": false,
+            "payloadIsText": false,
+            "expectedTextInPayload": false,
+            "maximumDataLength": 0,
+            "count": 1
+          }
+        ],
+        "expectedTextSignals": 0,
+        "complete": true
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "markupVariant": "polite_paragraph",
+      "passed": false,
+      "speechPhase": "live",
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": false,
+      "failureCode": "native_reader_speech_missing",
+      "nativeStatusTextObserved": true,
+      "nativeEventObservation": {
+        "available": true,
+        "registeredEvents": [
+          "object:text-changed:insert",
+          "object:announcement",
+          "object:children-changed:add",
+          "object:property-change:accessible-name",
+          "object:state-changed:busy"
+        ],
+        "completion": "stopped",
+        "observedEvents": 2,
+        "readFailures": 0,
+        "droppedEvents": 0,
+        "groups": [
+          {
+            "eventType": "object:text-changed:insert",
+            "toolkit": "gtk",
+            "roleId": 61,
+            "liveRegion": false,
+            "payloadIsText": true,
+            "expectedTextInPayload": false,
+            "maximumDataLength": 1,
+            "count": 2
+          }
+        ],
+        "expectedTextSignals": 0,
+        "complete": true
+      }
+    }
+  ],
+  "productJourneysValidated": false,
+  "realMessages": 0,
+  "operationalGatesClosed": []
+}

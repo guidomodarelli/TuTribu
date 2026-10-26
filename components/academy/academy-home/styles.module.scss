@@ -10,7 +10,7 @@ $academy-home-wide: 48rem;
   display: grid;
   gap: clamp(1.5rem, 4vw, 2.25rem);
   margin: 0 auto;
-  width: min(100%, 48rem);
+  width: 100%;
   min-width: 0;
   padding-block: 0.25rem 2rem;
 
@@ -302,6 +302,11 @@ $academy-home-wide: 48rem;
     flex-wrap: wrap;
     gap: 0.75rem;
     align-items: center;
+  }
+
+  // An action's error takes its own row under the buttons it belongs to.
+  &__actionError {
+    flex-basis: 100%;
   }
 
   &__primaryLink,

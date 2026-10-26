@@ -1,0 +1,164 @@
+{
+  "scope": "isolated-technical-configuration-comparison",
+  "experiments": [
+    {
+      "configuration": {
+        "planCacheMode": "force_generic_plan",
+        "poolMaximum": 100,
+        "hostModeEnforcedByCheckConstraint": true
+      },
+      "sourceCommit": "ac590b832e2fa80095ab40cfa73c51c8535f2e62",
+      "bundleSha256": "76921bff9fa4cfd0b712074265f6ba78690c1600300b961e944c04d359c2e09b",
+      "compute": {
+        "minimum": 2,
+        "maximum": 2,
+        "region": "aws-us-east-1"
+      },
+      "measurement": {
+        "warmupDurationMs": 2986.793507000082,
+        "setupDurationMs": 2470.2530589998933,
+        "networkQueryP95Ms": 2.8220939999446273,
+        "networkSamples": 20,
+        "participants": 100,
+        "admitted": 50,
+        "pending": 50,
+        "failures": [],
+        "p95Ms": 5311.064339000033,
+        "targetMs": 3000,
+        "peakInFlight": 100,
+        "pool": {
+          "maximum": 100,
+          "acquisitions": 300,
+          "releases": 300,
+          "errorReleases": 0,
+          "peakWaitingCount": 0,
+          "peakTotalCount": 100,
+          "waitingAfter": 0,
+          "checkedOutAfter": 0
+        },
+        "eventLoopP95Ms": 101.056511,
+        "facts": {
+          "entries": 10000,
+          "requests": 100,
+          "basic_members": 50,
+          "deliveries": 0
+        },
+        "realMessages": 0,
+        "nodeVersion": "24.16.0",
+        "sourceCommit": "ac590b832e2fa80095ab40cfa73c51c8535f2e62",
+        "bundleSha256": "76921bff9fa4cfd0b712074265f6ba78690c1600300b961e944c04d359c2e09b",
+        "databaseConnection": {
+          "sourceVariable": "DATABASE_URL_UNPOOLED",
+          "hostnameHasPoolerMarker": false
+        },
+        "measurementWindow": {
+          "startedAt": "2026-10-18T15:55:47.220Z",
+          "finishedAt": "2026-10-18T15:55:52.532Z"
+        },
+        "diagnostics": {
+          "wallDurationMs": 5311.814467999968,
+          "cpuUserMs": 1717.935,
+          "cpuSystemMs": 420.689,
+          "eventLoopActiveMs": 1843.9998990000458,
+          "eventLoopIdleMs": 3467.820716999937,
+          "eventLoopUtilization": 0.34715025832115787,
+          "accountTransactions": 100,
+          "commandTransactions": 200,
+          "accountTransactionP95Ms": 612.8638379999902,
+          "commandTransactionP95Ms": 3898.2518189999973,
+          "admittedP95Ms": 5311.255337999901,
+          "pendingP95Ms": 5310.258685000008
+        }
+      },
+      "exit": 1,
+      "inputsStable": true,
+      "toolingStable": true,
+      "toolingSha256": "680fa2c4013c7201228316304b265fbf17bdacabbdeb808369b2c26a44461e92"
+    },
+    {
+      "configuration": {
+        "planCacheMode": "database_default",
+        "poolMaximum": 20,
+        "hostModeEnforcedByCheckConstraint": false
+      },
+      "sourceCommit": "ac590b832e2fa80095ab40cfa73c51c8535f2e62",
+      "bundleSha256": "76921bff9fa4cfd0b712074265f6ba78690c1600300b961e944c04d359c2e09b",
+      "compute": {
+        "minimum": 2,
+        "maximum": 2,
+        "region": "aws-us-east-1"
+      },
+      "measurement": {
+        "warmupDurationMs": 1164.9532430004328,
+        "setupDurationMs": 2384.3459899993613,
+        "networkQueryP95Ms": 2.292020999826491,
+        "networkSamples": 20,
+        "participants": 100,
+        "admitted": 50,
+        "pending": 50,
+        "failures": [],
+        "p95Ms": 8132.252973999828,
+        "targetMs": 3000,
+        "peakInFlight": 100,
+        "pool": {
+          "maximum": 20,
+          "acquisitions": 300,
+          "releases": 300,
+          "errorReleases": 0,
+          "peakWaitingCount": 80,
+          "peakTotalCount": 20,
+          "waitingAfter": 0,
+          "checkedOutAfter": 0
+        },
+        "eventLoopP95Ms": 100.925439,
+        "facts": {
+          "entries": 10000,
+          "requests": 100,
+          "basic_members": 50,
+          "deliveries": 0
+        },
+        "realMessages": 0,
+        "nodeVersion": "24.16.0",
+        "sourceCommit": "ac590b832e2fa80095ab40cfa73c51c8535f2e62",
+        "bundleSha256": "76921bff9fa4cfd0b712074265f6ba78690c1600300b961e944c04d359c2e09b",
+        "databaseConnection": {
+          "sourceVariable": "DATABASE_URL_UNPOOLED",
+          "hostnameHasPoolerMarker": false
+        },
+        "measurementWindow": {
+          "startedAt": "2026-10-18T15:59:35.863Z",
+          "finishedAt": "2026-10-18T15:59:44.103Z"
+        },
+        "diagnostics": {
+          "wallDurationMs": 8239.901479000226,
+          "cpuUserMs": 875.998,
+          "cpuSystemMs": 178.575,
+          "eventLoopActiveMs": 924.2863720003515,
+          "eventLoopIdleMs": 7315.619086999446,
+          "eventLoopUtilization": 0.11217196320994516,
+          "accountTransactions": 100,
+          "commandTransactions": 200,
+          "accountTransactionP95Ms": 538.2172459997237,
+          "commandTransactionP95Ms": 6206.822294999845,
+          "admittedP95Ms": 5930.63937299978,
+          "pendingP95Ms": 8178.750758999959
+        }
+      },
+      "exit": 1,
+      "inputsStable": true,
+      "toolingStable": true,
+      "toolingSha256": "2519911cbf2464ec8bc9b4348d0068f25a39ff44837f5b5a1a5442376d60117e"
+    }
+  ],
+  "acceptanceP95StrictlyBelowMs": 3000,
+  "accepted": false,
+  "productConfigurationChanged": false,
+  "cleanup": {
+    "ownedResourcesRetired": true,
+    "independentBranches": 4,
+    "originalBranchesPreserved": 3,
+    "authorizedFreshPilotPreserved": true
+  },
+  "productionSqlExecuted": false,
+  "realMessages": 0
+}

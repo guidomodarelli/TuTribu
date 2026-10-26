@@ -1,0 +1,59 @@
+{
+  "migration": "20261018123401_read_locked_admission_facts",
+  "journalIndex": 188,
+  "nativeRed": {
+    "passed": 0,
+    "failed": 1,
+    "observedSqlStates": [
+      "42883"
+    ]
+  },
+  "nativeInitial": {
+    "passed": 1,
+    "failed": 0
+  },
+  "nativeIntegrated": {
+    "passed": 2,
+    "failed": 0
+  },
+  "checked": {
+    "freshSnapshotsAfterLockWait": true,
+    "settingsLockRetained": true,
+    "policyLockRetained": true,
+    "membershipLockRetained": true,
+    "accountLockRetained": true,
+    "domainTimestampMapping": true,
+    "invokerPrivileges": true,
+    "restrictedCallerSqlState": "42501",
+    "volatileFunction": true,
+    "existingSessionAndReplayRegression": true
+  },
+  "nodeHostBundle": {
+    "compiled": true,
+    "inputs": 635
+  },
+  "fullPerformanceCohortMeasured": true,
+  "performanceAccepted": false,
+  "productionSqlExecuted": false,
+  "realMessages": 0,
+  "selectedDecisions": {
+    "passed": 2,
+    "failed": 0,
+    "unselected": 20
+  },
+  "nextBuild": {
+    "success": true,
+    "version": "16.3.4",
+    "staticPages": 56,
+    "syntheticEnvironment": true
+  },
+  "typesPassed": true,
+  "testTypesPassed": true,
+  "lintPassed": true,
+  "cleanup": {
+    "remainingBranches": 3,
+    "originalBranchesPreserved": true,
+    "nonOriginalBranches": 0
+  },
+  "performanceP95Ms": 6327.19142999989
+}

@@ -1,0 +1,10 @@
+.AdmissionWhatsappNumberField {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+
+  &__label { font-weight: 500; }
+  &__input { width: 100%; min-width: 0; }
+  &__help { color: var(--muted-foreground); font-size: 0.875rem; line-height: 1.6; overflow-wrap: anywhere; }
+  &__error { color: var(--destructive); line-height: 1.5; }
+}

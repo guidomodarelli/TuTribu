@@ -1,0 +1,56 @@
+{
+  "date": "2026-10-18",
+  "kind": "official_function_environment_canary",
+  "sourceCommit": "77f95e5e0765948bba3fc905a1a111c9e51382df",
+  "controllerSourceSha256": "b6aeb371e2cae158b0446c2caf7d64d95c7abce4d0b13503f49c053e29b7ab2b",
+  "executedControllerSha256": "019b9b739abf1e0b05e15b9c9e8c0e68ca7c709e080ce011417137dd11938535",
+  "cliVersion": "8.0.10",
+  "configPackageVersion": "1.8.4",
+  "localNodeVersion": "24.21.0",
+  "remoteNodeVersion": "24.16.0",
+  "passed": true,
+  "isolatedOwnBranch": true,
+  "planRestrictedToOwnFunction": true,
+  "branchIdentityVariable": "NEON_BRANCH",
+  "anonymousStatus": 401,
+  "authenticatedStatus": 200,
+  "environmentDigestMatched": true,
+  "valuesAbsentFromCommandArguments": true,
+  "noEnvironmentPullRequested": true,
+  "canaryLiteralFilesWithinOwnerDirectory": 0,
+  "filesystemObservationScope": "own_temporary_deployment_directory_only",
+  "canaryWasNonSecret": true,
+  "keyringsInstalled": false,
+  "applicationWorkload": false,
+  "restoredStateTested": false,
+  "concurrentApplicantsMeasured": 0,
+  "realMessages": 0,
+  "preparationFailuresRetained": [
+    {
+      "kind": "local_controller_module_format",
+      "resourceCreated": false
+    },
+    {
+      "kind": "function_slug_length_validation",
+      "functionCreated": false,
+      "branchRemoved": true
+    },
+    {
+      "kind": "plan_review_input_ended_before_deploy",
+      "functionCreated": false,
+      "branchRemovedByVerifiedRecovery": true
+    },
+    {
+      "kind": "incorrect_branch_identity_variable_in_canary",
+      "anonymousStatus": 401,
+      "authenticatedStatus": 403,
+      "functionRemoved": true,
+      "branchRemoved": true
+    }
+  ],
+  "functionRemoved": true,
+  "branchRemoved": true,
+  "originalBranchesPreserved": true,
+  "persistentBranchesAfterCleanup": 4,
+  "operationalGatesClosed": []
+}

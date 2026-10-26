@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowRightIcon,
   CheckIcon,
@@ -16,10 +16,10 @@ import {
   cn,
   Dialog,
   DialogContent,
-  toast,
 } from "@golfo/ui";
 
 import { Link } from "@/components/navigation/link";
+import { buildAdmissionEntryRoute } from "@/lib/academy-admissions/admission-routes";
 import {
   cancelAcademyRenewal,
   fetchOwnAcademyAccess,
@@ -33,6 +33,7 @@ import { ROUTES } from "@/src/constants/routes";
 import type {
   AcademyAccessStatusDto,
   AcademyOfferDto,
+  AcademyReconcileDto,
 } from "@/src/modules/product-access/application/results/academy-public-dto-schemas";
 import styles from "./styles.module.scss";
 
@@ -69,6 +70,11 @@ const ACADEMY_HOME_COPY = {
   cancelDialogTitle: "¿Cancelar la renovación de la academia?",
   cancelKeep: "Mantener renovación",
   cancelPending: "Cancelando…",
+  cancelPendingSubscriptionDialogDescription:
+    "Se cancela la suscripción que está esperando la confirmación del pago y no se generan cobros nuevos. Tu cuenta y tu progreso siguen guardados.",
+  cancelPendingSubscriptionDialogTitle: "¿Cancelar la suscripción a la academia?",
+  canceledPendingSubscription:
+    "Cancelaste la suscripción que estaba esperando la confirmación del pago. No se generan cobros nuevos.",
   canceledUntil: (date: string) => `Cancelaste la renovación. Conservás el acceso hasta el ${date}.`,
   checkoutButton: "Contratar academia",
   checkoutPending: "Abriendo el pago…",
@@ -89,8 +95,15 @@ const ACADEMY_HOME_COPY = {
   paidUntil: (date: string) => `Tenés acceso a la academia hasta el ${date}.`,
   bonusUntil: (date: string) => `Tenés acceso bonificado hasta el ${date}.`,
   priceLabel: "Precio",
+  paymentNotFound:
+    "No encontramos un pago confirmado. Si no terminaste de pagar, podés contratar la academia de nuevo.",
+  paymentStillPending:
+    "Todavía no recibimos la confirmación del pago. Volvé a comprobar en unos minutos; no hace falta que pagues de nuevo.",
   refreshButton: "Actualizar estado",
+  refreshDone: "Actualizamos tu estado.",
   refreshPending: "Actualizando…",
+  refreshReadFailed: "No pudimos leer tu estado actualizado. Intentá de nuevo en unos segundos.",
+  refreshThrottled: "Ya revisamos tu estado hace instantes. Probá de nuevo en un minuto.",
   renewalActive: "Tu renovación mensual está activa.",
   renewalCanceled: "La renovación está cancelada.",
   renewalCanceling: "La cancelación de tu renovación está pendiente de confirmación.",
@@ -103,6 +116,12 @@ const ACADEMY_HOME_COPY = {
 /** The member has no academy subscription yet: nothing to reconcile. */
 const HTTP_STATUS_NOT_FOUND = 404;
 
+/** The provider was checked moments ago: the reconciliation did not ask it again. */
+const RECONCILE_THROTTLED_STATUS: AcademyReconcileDto["status"] = "throttled";
+
+/** Fired when the browser restores the page from its back-forward cache. */
+const PAGE_SHOW_EVENT = "pageshow";
+
 type AcademyHomeProps = {
   access: AcademyAccessStatusDto | null;
   canManage: boolean;
@@ -111,7 +130,87 @@ type AcademyHomeProps = {
   tribeSlug: string;
 };
 
-type PendingAction = "cancel" | "checkout" | "join" | "refresh" | null;
+type AcademyHomeAction = "cancel" | "checkout" | "join" | "refresh";
+
+type PendingAction = AcademyHomeAction | null;
+
+/** Each action keeps its own error, shown next to the control that failed. */
+type ActionErrors = Record<AcademyHomeAction, string | null>;
+
+const NO_ACTION_ERRORS: ActionErrors = { cancel: null, checkout: null, join: null, refresh: null };
+
+/**
+ * Renewals the member can cancel: a confirmed one, or one whose subscription
+ * still waits for the provider to confirm its payment.
+ */
+type CancelableRenewalStatus = "active" | "pending";
+
+/**
+ * Whether the member can cancel this renewal from the academy home.
+ *
+ * @param renewalStatus - Renewal status confirmed by the server.
+ * @returns True for an active renewal or a subscription waiting for its payment.
+ */
+function isCancelableRenewal(
+  renewalStatus: AcademyAccessStatusDto["renewalStatus"]
+): renewalStatus is CancelableRenewalStatus {
+  return renewalStatus === "active" || renewalStatus === "pending";
+}
+
+/** A pending subscription has no paid access to keep: its dialog never promises an end date. */
+const CANCEL_DIALOG_COPY: Record<CancelableRenewalStatus, { description: string; title: string }> = {
+  active: {
+    description: ACADEMY_HOME_COPY.cancelDialogDescription,
+    title: ACADEMY_HOME_COPY.cancelDialogTitle,
+  },
+  pending: {
+    description: ACADEMY_HOME_COPY.cancelPendingSubscriptionDialogDescription,
+    title: ACADEMY_HOME_COPY.cancelPendingSubscriptionDialogTitle,
+  },
+};
+
+/**
+ * Whether a subscription payment may still be confirmed: a renewal that is
+ * pending, or one already active whose first period is not covered yet (the
+ * provider authorized the subscription before approving its invoice).
+ *
+ * @param access - Confirmed access status.
+ * @returns True while the member should keep waiting instead of contracting again.
+ */
+function isPaymentInProgress(access: AcademyAccessStatusDto): boolean {
+  return access.renewalStatus === "pending" || (access.renewalStatus === "active" && access.level === "basic");
+}
+
+/**
+ * Picks the outcome of a confirmed status refresh. A payment is only shown as
+ * confirmed by the status itself; this message never anticipates it.
+ *
+ * @param input - Reconciliation status, reread access and whether a checkout return was waiting.
+ * @returns Spanish status message.
+ */
+function describeRefreshOutcome({
+  access,
+  reconcileStatus,
+  wasAwaitingCheckoutReturn,
+}: {
+  access: AcademyAccessStatusDto;
+  reconcileStatus: AcademyReconcileDto["status"] | null;
+  wasAwaitingCheckoutReturn: boolean;
+}): string {
+  if (reconcileStatus === RECONCILE_THROTTLED_STATUS) {
+    return ACADEMY_HOME_COPY.refreshThrottled;
+  }
+
+  if (isPaymentInProgress(access)) {
+    return ACADEMY_HOME_COPY.paymentStillPending;
+  }
+
+  if (wasAwaitingCheckoutReturn && access.level === "basic") {
+    return ACADEMY_HOME_COPY.paymentNotFound;
+  }
+
+  return ACADEMY_HOME_COPY.refreshDone;
+}
 
 /**
  * Builds the persistent coverage message of the member.
@@ -283,27 +382,58 @@ export function AcademyHome({
   const [access, setAccess] = useState(initialAccess);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
+  const [actionErrors, setActionErrors] = useState<ActionErrors>(NO_ACTION_ERRORS);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  // Frozen when the dialog opens: its copy and the outcome describe what the member chose to cancel.
+  const [cancelingRenewalStatus, setCancelingRenewalStatus] =
+    useState<CancelableRenewalStatus>("active");
+  // A checkout return waits for the payment only until a server read says otherwise.
+  const [isAwaitingCheckoutReturn, setIsAwaitingCheckoutReturn] = useState(isCheckoutReturn);
   // Blocks a second submit before the disabled state renders (double click).
   const isBusyRef = useRef(false);
   // Once the provider checkout opens the page is leaving: keep actions locked.
   const isLeavingRef = useRef(false);
 
-  const runAction = async (action: Exclude<PendingAction, null>, work: () => Promise<void>) => {
+  useEffect(() => {
+    // Coming back from the provider with the browser's Back restores this page as it was left:
+    // release the checkout so the member is not stuck on «Abriendo el pago…».
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted || !isLeavingRef.current) {
+        return;
+      }
+
+      isLeavingRef.current = false;
+      setPendingAction(null);
+    };
+
+    window.addEventListener(PAGE_SHOW_EVENT, handlePageShow);
+
+    return () => window.removeEventListener(PAGE_SHOW_EVENT, handlePageShow);
+  }, []);
+
+  const setActionError = (action: AcademyHomeAction, message: string | null) =>
+    setActionErrors((currentErrors) => ({ ...currentErrors, [action]: message }));
+
+  const runAction = async (action: AcademyHomeAction, work: () => Promise<void>) => {
     if (isBusyRef.current || isLeavingRef.current) {
       return;
     }
 
     isBusyRef.current = true;
     setPendingAction(action);
-    setErrorMessage(null);
+    // A retry starts clean: only this action's previous error is cleared.
+    setActionError(action, null);
 
     try {
       await work();
     } finally {
       isBusyRef.current = false;
-      setPendingAction(null);
+
+      // The provider checkout is opening: the button stays pending until the page leaves.
+      if (!isLeavingRef.current) {
+        setPendingAction(null);
+      }
     }
   };
 
@@ -324,8 +454,7 @@ export function AcademyHome({
       const result = await joinAcademy(tribeSlug);
 
       if (!result.isSuccess) {
-        setErrorMessage(result.message);
-        toast.error(result.message);
+        setActionError("join", result.message);
 
         return;
       }
@@ -344,8 +473,7 @@ export function AcademyHome({
       const result = await startAcademyCheckout(tribeSlug, offer.offerVersion);
 
       if (!result.isSuccess) {
-        setErrorMessage(result.message);
-        toast.error(result.message);
+        setActionError("checkout", result.message);
 
         return;
       }
@@ -356,13 +484,35 @@ export function AcademyHome({
 
   const handleRefresh = () =>
     runAction("refresh", async () => {
+      setRefreshNotice(null);
       const reconciliation = await reconcileAcademyCoverage(tribeSlug);
+      // Without a subscription there is nothing to reconcile: the reread alone answers.
+      const reconcileError =
+        !reconciliation.isSuccess && reconciliation.status !== HTTP_STATUS_NOT_FOUND
+          ? reconciliation.message
+          : null;
+      const updated = await reloadAccess();
 
-      if (!reconciliation.isSuccess && reconciliation.status !== HTTP_STATUS_NOT_FOUND) {
-        setErrorMessage(reconciliation.message);
+      if (reconcileError || !updated) {
+        setActionError("refresh", reconcileError ?? ACADEMY_HOME_COPY.refreshReadFailed);
+
+        return;
       }
 
-      await reloadAccess();
+      const reconcileStatus = reconciliation.isSuccess ? reconciliation.data.status : null;
+
+      setRefreshNotice(
+        describeRefreshOutcome({
+          access: updated,
+          reconcileStatus,
+          wasAwaitingCheckoutReturn: isAwaitingCheckoutReturn,
+        })
+      );
+
+      // A throttled check did not ask the provider, and a payment still in progress may yet be confirmed: both keep waiting.
+      if (reconcileStatus !== RECONCILE_THROTTLED_STATUS && !isPaymentInProgress(updated)) {
+        setIsAwaitingCheckoutReturn(false);
+      }
     });
 
   const handleCancel = () =>
@@ -370,26 +520,41 @@ export function AcademyHome({
       const result = await cancelAcademyRenewal(tribeSlug);
 
       if (!result.isSuccess) {
-        setErrorMessage(result.message);
-        toast.error(result.message);
+        setActionError("cancel", result.message);
 
         return;
       }
 
       setIsCancelDialogOpen(false);
+      // The canceled subscription leaves no payment to wait for, and an earlier refresh outcome is stale.
+      setIsAwaitingCheckoutReturn(false);
+      setRefreshNotice(null);
       const updated = await reloadAccess();
       const endsAt = updated?.accessEndsAt ?? access?.accessEndsAt ?? null;
-      const message = endsAt
-        ? ACADEMY_HOME_COPY.canceledUntil(formatAcademyDate(endsAt))
-        : ACADEMY_HOME_COPY.renewalCanceled;
+      const message =
+        cancelingRenewalStatus === "pending"
+          ? ACADEMY_HOME_COPY.canceledPendingSubscription
+          : endsAt
+            ? ACADEMY_HOME_COPY.canceledUntil(formatAcademyDate(endsAt))
+            : ACADEMY_HOME_COPY.renewalCanceled;
 
       setNotice(message);
-      toast.success(message);
     });
+
+  const openCancelDialog = (renewalStatus: CancelableRenewalStatus) => {
+    // The dialog never inherits an error from an earlier attempt or another action.
+    setActionError("cancel", null);
+    setCancelingRenewalStatus(renewalStatus);
+    setIsCancelDialogOpen(true);
+  };
 
   const title = offer?.title || ACADEMY_HOME_COPY.defaultTitle;
   const showConfirming =
-    access !== null && (access.renewalStatus === "pending" || (isCheckoutReturn && access.level === "basic"));
+    access !== null &&
+    (isPaymentInProgress(access) || (isAwaitingCheckoutReturn && access.level === "basic"));
+  const cancelableRenewalStatus =
+    access && isCancelableRenewal(access.renewalStatus) ? access.renewalStatus : null;
+  const cancelDialogCopy = CANCEL_DIALOG_COPY[cancelingRenewalStatus];
   const isAcademyMode = access?.accessModel === "academy";
   const status = access && isAcademyMode ? resolveAccessStatus(access) : null;
   const steps = access && isAcademyMode && status?.showSteps ? buildAccessSteps(access) : [];
@@ -398,7 +563,7 @@ export function AcademyHome({
   );
 
   return (
-    <main className={styles.AcademyHome}>
+    <div className={styles.AcademyHome}>
       <header className={styles.AcademyHome__header}>
         <div className={styles.AcademyHome__heading}>
           <p className={styles.AcademyHome__eyebrow}>{ACADEMY_HOME_COPY.eyebrow}</p>
@@ -426,12 +591,6 @@ export function AcademyHome({
         <p className={styles.AcademyHome__notice} role="status">
           <CheckIcon aria-hidden className={styles.AcademyHome__icon} />
           {notice}
-        </p>
-      ) : null}
-
-      {errorMessage && !isCancelDialogOpen ? (
-        <p className={styles.AcademyHome__error} role="alert">
-          {errorMessage}
         </p>
       ) : null}
 
@@ -496,7 +655,7 @@ export function AcademyHome({
                         <ArrowRightIcon aria-hidden className={styles.AcademyHome__icon} />
                       </Link>
                     ) : null}
-                    {step.key === "access" && access.canStartCheckout ? (
+                    {step.key === "access" && access.canStartCheckout && !showConfirming ? (
                       <Button
                         aria-busy={pendingAction === "checkout" || undefined}
                         className={styles.AcademyHome__actionButton}
@@ -508,6 +667,11 @@ export function AcademyHome({
                           ? ACADEMY_HOME_COPY.checkoutPending
                           : ACADEMY_HOME_COPY.checkoutButton}
                       </Button>
+                    ) : null}
+                    {step.key === "access" && actionErrors.checkout ? (
+                      <p className={styles.AcademyHome__error} role="alert">
+                        {actionErrors.checkout}
+                      </p>
                     ) : null}
                   </div>
                 </li>
@@ -539,11 +703,11 @@ export function AcademyHome({
                   : ACADEMY_HOME_COPY.refreshButton}
               </Button>
             ) : null}
-            {access.renewalStatus === "active" ? (
+            {cancelableRenewalStatus ? (
               <Button
                 className={styles.AcademyHome__actionButton}
                 disabled={pendingAction !== null}
-                onClick={() => setIsCancelDialogOpen(true)}
+                onClick={() => openCancelDialog(cancelableRenewalStatus)}
                 type="button"
                 variant="secondary"
               >
@@ -551,6 +715,16 @@ export function AcademyHome({
               </Button>
             ) : null}
           </div>
+
+          {actionErrors.refresh ? (
+            <p className={styles.AcademyHome__error} role="alert">
+              {actionErrors.refresh}
+            </p>
+          ) : refreshNotice ? (
+            <p className={styles.AcademyHome__muted} role="status">
+              {refreshNotice}
+            </p>
+          ) : null}
         </section>
       ) : null}
 
@@ -597,6 +771,7 @@ export function AcademyHome({
           {access === null ? (
             offer.admissionEnabled ? (
               <div className={styles.AcademyHome__actions}>
+                {offer.admissionRequiresRequest ? <Link className={styles.AcademyHome__secondaryLink} href={buildAdmissionEntryRoute(tribeSlug)}>Solicitar ingreso</Link> :
                 <Button
                   aria-busy={pendingAction === "join" || undefined}
                   disabled={pendingAction !== null}
@@ -605,6 +780,12 @@ export function AcademyHome({
                 >
                   {pendingAction === "join" ? ACADEMY_HOME_COPY.joinPending : ACADEMY_HOME_COPY.joinButton}
                 </Button>
+                }
+                {actionErrors.join ? (
+                  <p className={cn(styles.AcademyHome__error, styles.AcademyHome__actionError)} role="alert">
+                    {actionErrors.join}
+                  </p>
+                ) : null}
               </div>
             ) : (
               <p className={styles.AcademyHome__text}>{ACADEMY_HOME_COPY.admissionClosed}</p>
@@ -628,8 +809,8 @@ export function AcademyHome({
 
       <Dialog onOpenChange={setIsCancelDialogOpen} open={isCancelDialogOpen}>
         <DialogContent
-          title={ACADEMY_HOME_COPY.cancelDialogTitle}
-          description={ACADEMY_HOME_COPY.cancelDialogDescription}
+          title={cancelDialogCopy.title}
+          description={cancelDialogCopy.description}
           footer={
             <>
               <Button
@@ -652,13 +833,13 @@ export function AcademyHome({
             </>
           }
         >
-          {errorMessage ? (
+          {actionErrors.cancel ? (
             <p className={styles.AcademyHome__error} role="alert">
-              {errorMessage}
+              {actionErrors.cancel}
             </p>
           ) : null}
         </DialogContent>
       </Dialog>
-    </main>
+    </div>
   );
 }

@@ -1,0 +1,96 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "perf/academy-messaging-idle-timers",
+    "commit": "cb946c56edfad1cff4bebc3575dbc0d1fd1bb065",
+    "fingerprint": "sha256:55b0c9f629de48066253a18805919258b2b06fc52b7aa2df1467342bd544d948",
+    "uncommittedFiles": [],
+    "fileCount": 180,
+    "inputCount": 938
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx [redacted]-activation-requirements.test.ts",
+      "durationMs": 189715,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "56feb6ac9f039ee1c13e4bcd2ab2da0f37f56a115d6b002b6e5bc22d8adb72d8",
+      "recordedAt": "2026-10-25T19:15:52.400Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T19:15:53.348Z",
+      "source": "attested",
+      "summary": "Ciclo de vida: la activación espera con un único timeout el momento en que una prueba de canal cambia de vigencia, y el diagnóstico solo corre su intervalo mientras queda un vencimiento o un reenvío por delante, con un primer tick inmediato; las cuentas regresivas y la elegibilidad muestran lo mismo que antes."
+    },
+    {
+      "kind": "browser",
+      "outcome": "pass",
+      "recordedAt": "2026-10-25T19:15:54.247Z",
+      "source": "attested",
+      "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: la página de Conexión carga igual y en reposo pasa de 10-11 a 0-1 commits de React cada 10 s (4/4)."
+    }
+  ],
+  "limitations": [],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-25T19:15:57.300Z",
+  "result": "verified",
+  "runId": "20261025T191241Z-a0d01a",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#MAXIMUM_TIMEOUT_MS",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#useMessagingActivationController",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/commands/messaging-activation-requirements.ts#nextMessagingActivationFreshnessChange",
+        "reason": "new visible or interactive code"
+      }
+    ],
+    "suggestedScope": [
+      "pending from the previous run: missing passing evidence of kind browser or accessibility",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts › MAXIMUM_TIMEOUT_MS — behavior of this code in every state of the unit that uses it",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts › useMessagingActivationController — behavior of this code in every state of the unit that uses it",
+      "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts › useMessagingDiagnosticController (component body outside its handlers) — the states this component renders (loading, empty, data, error, partial, no permission) and their copy",
+      "src/modules/messaging/application/commands/messaging-activation-requirements.ts › nextMessagingActivationFreshnessChange — behavior of this code in every state of the unit that uses it"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T19:12:41.924Z",
+  "unitId": "academy.admissions.messaging.connections.restore"
+}
