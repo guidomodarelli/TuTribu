@@ -258,7 +258,7 @@ describe("AcademyHome", () => {
     const dialog = await screen.findByRole("dialog");
     expect(
       within(dialog).getByText(
-        "Se cancela la suscripción que está esperando la confirmación del pago y no se te va a cobrar. Tu cuenta y tu progreso siguen guardados."
+        "Se cancela la suscripción que está esperando la confirmación del pago y no se generan cobros nuevos. Tu cuenta y tu progreso siguen guardados."
       )
     ).toBeInTheDocument();
     expect(within(dialog).queryByText(/acceso ya pagado/)).not.toBeInTheDocument();
@@ -268,7 +268,7 @@ describe("AcademyHome", () => {
 
     expect(
       await screen.findByText(
-        "Cancelaste la suscripción que estaba esperando la confirmación del pago. No se te va a cobrar.",
+        "Cancelaste la suscripción que estaba esperando la confirmación del pago. No se generan cobros nuevos.",
         { selector: "p" }
       )
     ).toHaveAttribute("role", "status");

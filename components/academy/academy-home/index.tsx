@@ -71,10 +71,10 @@ const ACADEMY_HOME_COPY = {
   cancelKeep: "Mantener renovación",
   cancelPending: "Cancelando…",
   cancelPendingSubscriptionDialogDescription:
-    "Se cancela la suscripción que está esperando la confirmación del pago y no se te va a cobrar. Tu cuenta y tu progreso siguen guardados.",
+    "Se cancela la suscripción que está esperando la confirmación del pago y no se generan cobros nuevos. Tu cuenta y tu progreso siguen guardados.",
   cancelPendingSubscriptionDialogTitle: "¿Cancelar la suscripción a la academia?",
   canceledPendingSubscription:
-    "Cancelaste la suscripción que estaba esperando la confirmación del pago. No se te va a cobrar.",
+    "Cancelaste la suscripción que estaba esperando la confirmación del pago. No se generan cobros nuevos.",
   canceledUntil: (date: string) => `Cancelaste la renovación. Conservás el acceso hasta el ${date}.`,
   checkoutButton: "Contratar academia",
   checkoutPending: "Abriendo el pago…",
