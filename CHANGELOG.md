@@ -113,6 +113,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
+- En Verificación, cambiar el email de una vinculación ya verificada pide confirmar antes con «Cambiar correo» o «Cancelar», porque vuelve a revisión y puede afectar el acceso a la academia; si la vinculación no está verificada, se envía sin preguntar.
+- En Gestionar academia, revocar una verificación se confirma en el diálogo «Revocar verificación» con el motivo, que muestra el progreso, no se envía dos veces, conserva el error dentro del diálogo y se cierra al confirmarse.
 - En Gestionar academia, revocar una bonificación se hace en un diálogo con el motivo, que muestra el progreso, no se envía dos veces y actualiza la lista al terminar.
 - Gestionar academia muestra «Consultando…» al buscar o paginar, saca de la lista de pendientes la solicitud que acabás de decidir y ya no borra los cambios sin guardar de la oferta al cambiar la disponibilidad o ante un conflicto.
 - Gestionar academia abre más rápido: la página pide de una sola vez los integrantes, las solicitudes, la oferta y los proveedores.
