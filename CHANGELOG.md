@@ -323,6 +323,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - «Ver más» en la lista de habilitados, en el historial de invitaciones y en Consumo e historial de admisión suma la página siguiente debajo de lo ya mostrado, sin repetir elementos, en lugar de reemplazarlo; su carga y su error aparecen junto al botón.
 - Consumo e historial de admisión ya no oculta su contenido al volver a la pestaña ni al aplicar filtros: los datos anteriores siguen a la vista con un aviso de actualización hasta que llega la respuesta, y un error de consulta se muestra sin borrarlos.
 - Solicitudes y el historial de una solicitud ya no se vacían por un instante al terminar de cargar: los datos que llegan con la página siguen a la vista mientras se comprueba la cuenta, con sus acciones habilitadas al terminar.
+- Conexión de mensajería ya no queda trabada cuando una prueba de canal o su confirmación de código nunca llegó a registrarse: pasados diez minutos con la ausencia confirmada, el líder puede conservarla en el historial y continuar sin reenviarla; una prueba que sigue en proceso todavía bloquea hasta leer su resultado.
+- Con el historial de pruebas lleno, Conexión de mensajería ofrece «Vaciar pruebas anteriores», que pide confirmación y conserva solo la última, para poder pedir otra prueba sin cancelar ni reenviar las ya enviadas.
 
 ### Security
 
