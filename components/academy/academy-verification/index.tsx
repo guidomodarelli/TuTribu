@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState, type FormEvent } from "react";
-import { Button, Input } from "@golfo/ui";
+import { Button, Dialog, DialogClose, DialogContent, Input } from "@golfo/ui";
 
 import { Link } from "@/components/navigation/link";
 import { requestMemberVerification } from "@/lib/academy/academy-api-client";
@@ -14,6 +14,12 @@ import styles from "./styles.module.scss";
 
 const VERIFICATION_COPY = {
   backLink: "Volver a la academia",
+  cancelEmailChange: "Cancelar",
+  confirmEmailChange: "Cambiar correo",
+  emailChangeDescriptionPrefix: "Tu verificación con ",
+  emailChangeDescriptionSuffix:
+    " vuelve a revisión y, hasta que la aprueben de nuevo, puede afectar tu acceso a la academia.",
+  emailChangeTitle: "¿Cambiar el correo de tu verificación?",
   declaredEmailHelp:
     "Solo si abriste la cuenta con otro email. Nunca pedimos claves, documentos ni saldos.",
   declaredEmailLabel: "Email de la cuenta (opcional)",
@@ -38,6 +44,7 @@ const STATUS_LABEL: Record<MemberVerificationDto["status"], string> = {
 };
 
 const NOT_REQUESTED_LABEL = "Sin solicitar";
+const VERIFIED_STATUS: MemberVerificationDto["status"] = "verified";
 const REASON_SEPARATOR = ": ";
 
 type AcademyVerificationProps = {
@@ -62,6 +69,37 @@ function describeStatus(verification: MemberVerificationDto | undefined): string
   return verification.decisionReason
     ? label + REASON_SEPARATOR + verification.decisionReason
     : label;
+}
+
+/**
+ * Normalizes the declared email the same way the server compares it, so a
+ * change in spaces or letter case is not treated as a new identity.
+ *
+ * @param value - Email typed by the member.
+ * @returns The normalized email, or null when the field is empty.
+ */
+function normalizeDeclaredEmail(value: string): string | null {
+  const normalizedEmail = value.trim().toLowerCase();
+
+  return normalizedEmail.length > 0 ? normalizedEmail : null;
+}
+
+/**
+ * Whether sending the typed email reopens an approved verification, which
+ * the member must confirm first.
+ *
+ * @param verification - Own relation or undefined.
+ * @param declaredEmail - Email currently typed in the form.
+ * @returns True only for a verified relation whose declared email changes.
+ */
+function reopensApprovedVerification(
+  verification: MemberVerificationDto | undefined,
+  declaredEmail: string
+): boolean {
+  return (
+    verification?.status === VERIFIED_STATUS &&
+    normalizeDeclaredEmail(declaredEmail) !== (verification.declaredEmail ?? null)
+  );
 }
 
 /**
@@ -128,6 +166,7 @@ function ProviderRequest({
   const [declaredEmail, setDeclaredEmail] = useState(verification?.declaredEmail ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ isError: boolean; message: string } | null>(null);
+  const [isEmailChangeConfirmationOpen, setIsEmailChangeConfirmationOpen] = useState(false);
   const isSubmittingRef = useRef(false);
   const buttonLabel = !verification
     ? VERIFICATION_COPY.requestButton
@@ -135,9 +174,7 @@ function ProviderRequest({
       ? VERIFICATION_COPY.updateDataButton
       : VERIFICATION_COPY.requestAgainButton;
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
+  const sendRequest = async () => {
     if (isSubmittingRef.current) {
       return;
     }
@@ -164,6 +201,28 @@ function ProviderRequest({
       isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (isSubmittingRef.current) {
+      return;
+    }
+
+    // Replacing the email of an approved verification sends it back to review: ask first.
+    if (reopensApprovedVerification(verification, declaredEmail)) {
+      setIsEmailChangeConfirmationOpen(true);
+
+      return;
+    }
+
+    void sendRequest();
+  };
+
+  const confirmEmailChange = () => {
+    setIsEmailChangeConfirmationOpen(false);
+    void sendRequest();
   };
 
   return (
@@ -214,6 +273,28 @@ function ProviderRequest({
           </p>
         ) : null}
       </form>
+      <Dialog alert onOpenChange={setIsEmailChangeConfirmationOpen} open={isEmailChangeConfirmationOpen}>
+        <DialogContent
+          title={VERIFICATION_COPY.emailChangeTitle}
+          description={
+            VERIFICATION_COPY.emailChangeDescriptionPrefix +
+            provider.displayName +
+            VERIFICATION_COPY.emailChangeDescriptionSuffix
+          }
+          footer={
+            <>
+              <DialogClose asChild>
+                <Button type="button" variant="secondary">
+                  {VERIFICATION_COPY.cancelEmailChange}
+                </Button>
+              </DialogClose>
+              <Button onClick={confirmEmailChange} type="button" variant="danger">
+                {VERIFICATION_COPY.confirmEmailChange}
+              </Button>
+            </>
+          }
+        />
+      </Dialog>
     </li>
   );
 }

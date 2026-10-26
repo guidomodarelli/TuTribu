@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { ThemedToaster } from "@golfo/ui";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import userEvent from "@testing-library/user-event";
@@ -100,5 +100,89 @@ describe("AcademyVerification", () => {
     expect(await screen.findByText("En revisión")).toBeInTheDocument();
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 100)); });
     expect(screen.getAllByText("Tu solicitud está en revisión.")).toHaveLength(1);
+  });
+  const verifiedVerification = {
+    declaredEmail: "ana@broker.example",
+    decisionReason: null,
+    id: "5d3f4b1a-8a6e-4c1d-9f2e-3b4a5c6d7e8f",
+    providerDisplayName: "Broker A",
+    providerId: provider.id,
+    status: "verified" as const,
+    updatedAt: "2026-06-02T12:00:00.000Z",
+    version: 2,
+  };
+
+  it("asks before a new email sends an approved verification back to review, and sends nothing on cancel", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ ...verifiedVerification, declaredEmail: "ana@otro.example", status: "pending", version: 3 }),
+        { headers: { "Content-Type": "application/json" }, status: 200 }
+      )
+    );
+
+    render(<AcademyVerification providers={[provider]} tribeSlug="tribu" verifications={[verifiedVerification]} />);
+    const emailField = screen.getByRole("textbox", { name: "Email de la cuenta (opcional)" });
+    await user.clear(emailField);
+    await user.type(emailField, "ana@otro.example");
+    await user.click(screen.getByRole("button", { name: "Actualizar datos" }));
+
+    const confirmation = await screen.findByRole("alertdialog", { name: "¿Cambiar el correo de tu verificación?" });
+    expect(confirmation).toHaveAccessibleDescription(
+      "Tu verificación con Broker A vuelve a revisión y, hasta que la aprueben de nuevo, puede afectar tu acceso a la academia."
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await user.click(within(confirmation).getByRole("button", { name: "Cancelar" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByText("Verificada")).toBeInTheDocument();
+    expect(emailField).toHaveValue("ana@otro.example");
+
+    await user.click(screen.getByRole("button", { name: "Actualizar datos" }));
+    await user.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Cambiar correo" })
+    );
+
+    expect(await screen.findByText("En revisión")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+      declaredEmail: "ana@otro.example",
+      providerId: provider.id,
+    });
+  });
+
+  it("sends without asking when the email does not reopen an approved verification", async () => {
+    const user = userEvent.setup();
+    const pendingVerification = { ...verifiedVerification, status: "pending" as const, version: 1 };
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(pendingVerification), {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        })
+      )
+    );
+
+    const { unmount } = render(
+      <AcademyVerification providers={[provider]} tribeSlug="tribu" verifications={[verifiedVerification]} />
+    );
+    const verifiedEmailField = screen.getByRole("textbox", { name: "Email de la cuenta (opcional)" });
+    await user.clear(verifiedEmailField);
+    await user.type(verifiedEmailField, " ANA@broker.example ");
+    await user.click(screen.getByRole("button", { name: "Actualizar datos" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    unmount();
+
+    render(<AcademyVerification providers={[provider]} tribeSlug="tribu" verifications={[pendingVerification]} />);
+    const pendingEmailField = screen.getByRole("textbox", { name: "Email de la cuenta (opcional)" });
+    await user.clear(pendingEmailField);
+    await user.type(pendingEmailField, "ana@otro.example");
+    await user.click(screen.getByRole("button", { name: "Actualizar datos" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 });

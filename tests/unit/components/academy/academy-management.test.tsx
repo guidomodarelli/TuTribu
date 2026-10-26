@@ -135,7 +135,7 @@ describe("AcademyManagement", () => {
 
     await user.click(screen.getByRole("button", { name: "Rechazar" }));
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Indicá un motivo para rechazar o revocar.");
+    expect(screen.getByRole("alert")).toHaveTextContent("Indicá un motivo para rechazar.");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -309,5 +309,76 @@ describe("AcademyManagement", () => {
 
     await act(async () => { finishSearch(new Response(JSON.stringify({ members: [member], page: 1, total: 1, viewerRole: "leader" }), { headers: { "Content-Type": "application/json" }, status: 200 })); });
     await waitFor(() => expect(within(membersSection).queryByRole("status")).not.toBeInTheDocument());
+  });
+  const verifiedItem = {
+    ...pendingItem,
+    declaredEmail: "ana@broker.example",
+    reviewedAt: "2026-06-02T13:00:00.000Z",
+    status: "verified" as const,
+    version: 2,
+  };
+
+  it("revokes a verification only after a confirmation that sends once and is confirmed by the server", async () => {
+    const user = userEvent.setup();
+    let finishRevoke!: (response: Response) => void;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((resolve) => { finishRevoke = resolve; }));
+    respondWithJson({ items: [], page: 1, scope: "review", total: 0 }, 200);
+    render(<AcademyManagement {...props({ initialQueue: { items: [verifiedItem], page: 1, total: 1 } })} />);
+
+    const row = screen.getByText("Ana").closest("li") as HTMLElement;
+    await user.click(within(row).getByRole("button", { name: "Revocar" }));
+    const dialog = await screen.findByRole("dialog", { name: "Revocar verificación" });
+    expect(dialog).toHaveAccessibleDescription(/Ana · Broker A\. La vinculación deja de estar verificada ahora y puede afectar su acceso a la academia\./);
+    expect(fetchMock).not.toHaveBeenCalled();
+    const submit = within(dialog).getByRole("button", { name: "Revocar verificación" });
+    expect(submit).toBeDisabled();
+
+    await user.type(within(dialog).getByLabelText("Motivo de la revocación"), "La cuenta ya no existe");
+    await user.click(submit);
+    await user.click(submit);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(within(dialog).getByRole("button", { name: "Revocando…" })).toBeDisabled();
+    expect(within(row).getByText("Verificada")).toBeInTheDocument();
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+      decision: "revoked",
+      expectedVersion: 2,
+      reason: "La cuenta ya no existe",
+    });
+
+    await act(async () => {
+      finishRevoke(new Response(JSON.stringify({ ...verifiedItem, decisionReason: "La cuenta ya no existe", status: "revoked", version: 3 }), { headers: { "Content-Type": "application/json" }, status: 200 }));
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.queryByText("Ana")).not.toBeInTheDocument();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("closes the revocation confirmation without sending anything when the leader cancels", async () => {
+    const user = userEvent.setup();
+    render(<AcademyManagement {...props({ initialQueue: { items: [verifiedItem], page: 1, total: 1 } })} />);
+
+    await user.click(screen.getByRole("button", { name: "Revocar" }));
+    const dialog = await screen.findByRole("dialog", { name: "Revocar verificación" });
+    await user.type(within(dialog).getByLabelText("Motivo de la revocación"), "Duda");
+    await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(within(screen.getByText("Ana").closest("li") as HTMLElement).getByText("Verificada")).toBeInTheDocument();
+  });
+
+  it("keeps the failure of a verification revocation inside its dialog, with the reason still written", async () => {
+    const user = userEvent.setup();
+    respondWithJson({ message: "No pudimos revocar la verificación." }, 503);
+    render(<AcademyManagement {...props({ initialQueue: { items: [verifiedItem], page: 1, total: 1 } })} />);
+
+    await user.click(screen.getByRole("button", { name: "Revocar" }));
+    const dialog = await screen.findByRole("dialog", { name: "Revocar verificación" });
+    await user.type(within(dialog).getByLabelText("Motivo de la revocación"), "La cuenta ya no existe");
+    await user.click(within(dialog).getByRole("button", { name: "Revocar verificación" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("No pudimos revocar la verificación.");
+    expect(within(dialog).getByLabelText("Motivo de la revocación")).toHaveValue("La cuenta ya no existe");
+    expect(within(screen.getByText("Ana").closest("li") as HTMLElement).getByText("Verificada")).toBeInTheDocument();
   });
 });

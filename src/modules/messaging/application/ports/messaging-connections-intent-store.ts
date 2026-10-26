@@ -7,8 +7,8 @@ export type MessagingConnectionsPendingIntent=
   |{type:"activate_messaging_connection";operationId:string;original:{connectionId:string;configurationVersion:number;expectedVersion:number}}
   |{type:"suspend_messaging_connection";operationId:string;original:{connectionId:string;expectedVersion:number;reason:"security_stop"|"suspected_compromise"}}
   |{type:"disconnect_messaging_connection";operationId:string;original:{connectionId:string;expectedVersion:number}}
-  |{type:"diagnose_messaging_connection";operationId:string;original:{connectionId:string;configurationVersion:number;expectedVersion:number;channel:"email"|"sms"|"whatsapp"}}
-  |{type:"verify_messaging_diagnostic";operationId:string;original:{connectionId:string;configurationVersion:number;diagnosticId:string;channel:"email"|"sms"|"whatsapp"}};
+  |{type:"diagnose_messaging_connection";operationId:string;original:{connectionId:string;configurationVersion:number;expectedVersion:number;channel:"email"|"sms"|"whatsapp"};/** Browser dispatch instant (ISO): the wait before a confirmed-absent test can stop being followed counts from it. Older references lack it. */startedAt?:string}
+  |{type:"verify_messaging_diagnostic";operationId:string;original:{connectionId:string;configurationVersion:number;diagnosticId:string;channel:"email"|"sms"|"whatsapp"};/** Browser dispatch instant (ISO), as for a test. */startedAt?:string};
 /** An issued diagnostic is recovered through its original ledger result; no destination/code belongs here. */
 export type MessagingDiagnosticObservationReference={operationId:string;connectionId:string;configurationVersion:number;channel:"email"|"sms"|"whatsapp"};
 export interface MessagingConnectionsIntentStore{
@@ -26,4 +26,6 @@ export interface MessagingConnectionsIntentStore{
   diagnostics(viewerId:string,slug:string):MessagingDiagnosticObservationReference[];
   /** @param viewerId - Current own viewer. @param slug - Current route. @param reference - Issuance reference only, or null to clear it. @returns Whether it was safely retained for original lookup. */
   writeDiagnostic(viewerId:string,slug:string,reference:MessagingDiagnosticObservationReference|null):boolean;
+  /** @param viewerId - Current own viewer. @param slug - Current route. @returns Whether the issued references were reduced to the latest one; earlier sends are neither cancelled nor repeated. */
+  keepLatestDiagnostic(viewerId:string,slug:string):boolean;
 }
