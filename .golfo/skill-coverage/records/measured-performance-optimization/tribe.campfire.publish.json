@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
         "components/tribe-round/tribe-round/index.tsx": "b1c88af3c07fca82",
         "app/api/tribes/[slug]/messages/route.ts": "932448e76027dccc",
@@ -105,7 +105,7 @@
         "src/modules/notifications/infrastructure/database/admission-notification-producer-progress-schema.ts": "b4881309de24badd",
         "src/modules/auth/infrastructure/database/authenticated-account-schema.ts": "8c513f6e9123db53",
         "src/modules/messaging/infrastructure/database/messaging-dispatch-observation-schema.ts": "109cc9dadf4757c7",
-        "src/constants/time.ts": "987c18a571e92d4d",
+        "src/constants/time.ts": "98b5459a77a709b0",
         "src/modules/auth/constants/better-auth-logging.ts": "091ea7af8e595d9a",
         "src/modules/auth/constants/auth-database-diagnostics.ts": "b1badea544f9639c",
         "src/modules/auth/infrastructure/better-auth/auth-database-operation-error.ts": "61acca0dc03a2e9c",
@@ -2342,31 +2342,23 @@
       },
       "uncommittedFiles": []
     },
-    "evidence": [
-      {
-        "kind": "test",
-        "outcome": "pass",
-        "recordedAt": "2026-10-26T14:43:59.253Z",
-        "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx tests/unit/components/academy-admissions-messaging-resources.test.tsx tests/unit/components/academy-admissions-notification-recovery-container.test.tsx tests/unit/components/academy-admissions-notification-recovery.test.tsx: Tests 107 passed (107) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
-      }
-    ],
-    "limitations": [
-      "El PR no agrega requests: la recuperación acumula páginas que ya se pedían y el reloj del vencimiento usa un único temporizador; no se midió."
-    ],
-    "mode": "full",
+    "evidence": [],
+    "limitations": [],
+    "mode": "incremental",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T14:44:00.762Z",
-    "result": "partial",
-    "runId": "20261026T144358Z-86b687",
+    "recordedAt": "2026-10-25T05:34:19.075Z",
+    "result": "not-applicable",
+    "runId": "20261025T053417Z-d7aabf",
     "scope": {
-      "decision": "not-applicable",
+      "decision": "incremental",
       "reasons": [
-        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: El cambio de boundaries no agrega requests, consultas ni pasos al flujo."
+        "skill definition changed (1.4.0 → 1.5.0): SKILL.md",
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints"
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": []
+      "suggestedScope": [
+        "re-check the unit against the rules changed in measured-performance-optimization/SKILL.md"
+      ]
     },
     "skill": {
       "definitionFiles": {
@@ -2383,7 +2375,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "report": "runs/20261026T144358Z-86b687.json"
+    "summary": "El cambio de boundaries no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T053417Z-d7aabf.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "components/academy/academy-home/index.tsx": "ba78725db5c7cd26",
         "app/(platform)/[slug]/academia/page.tsx": "a4c7427e95123588",
@@ -5507,27 +5507,35 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:06:08.424Z",
+        "recordedAt": "2026-10-26T15:34:24.312Z",
         "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx: Tests 24 passed (24) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+        "summary": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx tests/unit/pages/tribe-story-page.test.tsx tests/unit/components/tribe-story-about.test.tsx tests/unit/lib/academy/academy-api-client.test.ts: Tests 47 passed (47) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       }
     ],
     "limitations": [
-      "El PR no agrega requests: ofrece en pending la cancelación que ya existía; no se midió."
+      "El PR no agrega requests nuevas: Actualizar estado ya pedía reconcile y la relectura; no se midió."
     ],
-    "mode": "full",
+    "mode": "incremental",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:06:10.500Z",
+    "recordedAt": "2026-10-26T15:34:26.371Z",
     "result": "partial",
-    "runId": "20261026T150607Z-9ed24b",
+    "runId": "20261026T153423Z-af9d8d",
     "scope": {
-      "decision": "full",
+      "decision": "incremental",
       "reasons": [
-        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "relevant changes since the skill was recorded not applicable: re-evaluate applicability"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "components/academy/academy-home/index.tsx#AcademyHome~shell",
+          "reason": "adds load: +1 effects, +1 listeners or subscriptions"
+        }
+      ],
       "suggestedScope": [
-        "measure the complete flow /[slug]/academia before and after, same build, data and throttling; median of 3 for noisy metrics"
+        "measure the complete flow /[slug]/academia: before = revision 6bf39166cc42 (last measured), after = working tree",
+        "components/academy/academy-home/index.tsx › AcademyHome (component body outside its handlers) — adds load: +1 effects, +1 listeners or subscriptions"
       ]
     },
     "skill": {
@@ -5545,7 +5553,7 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "report": "runs/20261026T150607Z-9ed24b.json"
+    "report": "runs/20261026T153423Z-af9d8d.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

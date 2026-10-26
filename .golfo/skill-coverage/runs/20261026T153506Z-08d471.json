@@ -1,0 +1,64 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "chore/academy-audit-coverage",
+    "commit": "2718f53c946a536caa7a065feab104de23414063",
+    "fingerprint": "sha256:c30263c86d140b5f296737bed60d705f540e1406e8dcb2966a631983c1133e60",
+    "uncommittedFiles": [],
+    "fileCount": 508,
+    "inputCount": 3506
+  },
+  "evidence": [
+    {
+      "kind": "test",
+      "outcome": "pass",
+      "recordedAt": "2026-10-26T15:35:07.115Z",
+      "source": "attested",
+      "summary": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx tests/unit/pages/tribe-story-page.test.tsx tests/unit/components/tribe-story-about.test.tsx tests/unit/lib/academy/academy-api-client.test.ts: Tests 47 passed (47) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+    }
+  ],
+  "limitations": [
+    "El PR no agrega requests nuevas: Actualizar estado ya pedía reconcile y la relectura; no se midió."
+  ],
+  "mode": "incremental",
+  "pendingChecks": [],
+  "recordedAt": "2026-10-26T15:35:09.049Z",
+  "result": "partial",
+  "runId": "20261026T153506Z-08d471",
+  "scope": {
+    "decision": "incremental",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "relevant changes since the skill was recorded not applicable: re-evaluate applicability"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/historia/page.tsx#joinTribeFreeAction",
+        "reason": "adds load: +1 awaited steps, +1 calls to I/O helpers"
+      }
+    ],
+    "suggestedScope": [
+      "measure the complete flow /[slug]/historia: before = revision 04d180795c89 (last measured), after = working tree",
+      "app/(platform)/[slug]/historia/page.tsx › joinTribeFreeAction — adds load: +1 awaited steps, +1 calls to I/O helpers"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "a8d6cde62f2853fa",
+      "references/bundle-lazy-loading.md": "91990bd1796b9884",
+      "references/database-queries-n-plus-one.md": "3064b23acc3e9f7e",
+      "references/images-fonts-scripts.md": "1ab02d4b1a421c87",
+      "references/incremental-sweep-jobs.md": "c5c8e71bdba2e4a9",
+      "references/measurement-tools.md": "e3e96c85be264c0c",
+      "references/requests-caching.md": "981544e05dee2e5c",
+      "references/unnecessary-renders.md": "2d440f22533a2149"
+    },
+    "definitionHash": "sha256:dcb79531d3a56e7765d65880022365639578ed18c69466dbb65f4ce0b59b09d3",
+    "name": "measured-performance-optimization",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-26T15:35:06.657Z",
+  "unitId": "tribe.story.free-join"
+}

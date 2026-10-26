@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
         "components/subscriptions/tribe-subscription-price-management/index.tsx": "ff966cd7bd6df19c",
         "app/(platform)/[slug]/precios/page.tsx": "7db5efde2d74d3af",
@@ -182,7 +182,7 @@
         "src/modules/messaging/infrastructure/config/messaging-security-config.ts": "292dd0c72e179540",
         "src/modules/tribes/domain/repositories/academy-approved-membership-writer.ts": "58591a63c7e78ac6",
         "src/modules/tribes/constants/tribe-page-access.ts": "18091d5392ed8b45",
-        "src/modules/tribes/constants/tribe-story.ts": "95b0fb552f1928b0",
+        "src/modules/tribes/constants/tribe-story.ts": "56fbe141834e760e",
         "src/modules/tribes/constants/tribe-member-role.ts": "bcd5a756222224ce",
         "src/modules/tribes/application/results/member-tribe-list-item-result.ts": "5e52a6283e6f4bbb",
         "src/modules/tribes/domain/entities/tribe.ts": "897de135c451521b",
@@ -1977,39 +1977,36 @@
     },
     "evidence": [
       {
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 31091,
+        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T14:59:11.267Z",
-        "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx: Tests 122 passed (122) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+        "outputSha256": "22ddfc26c41841eeb506fe7fbe406813d8ee5e7100e5d8ee37c39affa80bc316",
+        "recordedAt": "2026-10-25T05:30:43.178Z",
+        "source": "witnessed",
+        "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T14:59:11.693Z",
+        "recordedAt": "2026-10-25T05:30:43.678Z",
         "source": "attested",
-        "summary": "Estados: Ver más acumula sin duplicados y su carga y error quedan junto al botón; las relecturas y filtros conservan lo mostrado con aria-busy y descartan respuestas viejas; la bandeja y el historial muestran los datos del servidor al hidratar y habilitan las acciones tras el chequeo de cuenta; la importación selecciona todas las válidas sin cambiar el contrato; el doble montaje de desarrollo ya no se toma como restauración."
-      },
-      {
-        "kind": "browser",
-        "outcome": "pass",
-        "recordedAt": "2026-10-26T14:59:12.134Z",
-        "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Ver más entradas suma 25 a 27 sin duplicados con aria-busy; la importación elige las 55 válidas de 60 filas; la actividad no se oculta al releer ni al filtrar y suma el hecho anterior; la bandeja muestra la solicitud una sola vez al hidratar y el historial carga en next dev (4/4; antes Ver más dejaba 2, no había selección total, la actividad se vaciaba y la bandeja pasaba por vacía)."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [
-      "Solo se revisaron las listas del líder que cambia este PR; el resto de cada unidad queda para su propia auditoría."
+      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T14:59:13.768Z",
+    "recordedAt": "2026-10-25T05:30:45.808Z",
     "result": "partial",
-    "runId": "20261026T145910Z-74ae97",
+    "runId": "20261025T053011Z-de84c2",
     "scope": {
       "decision": "full",
       "reasons": [
-        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+        "no previous coverage: the whole unit is analyzed"
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": [
@@ -2029,7 +2026,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261026T145910Z-74ae97.json"
+    "report": "runs/20261025T053011Z-de84c2.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "components/academy/academy-verification/index.tsx": "d093813d476f7d37",
         "app/(platform)/[slug]/academia/verificacion/page.tsx": "78e36c8d189424cc",
@@ -348,7 +348,7 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:04:14.235Z",
+        "recordedAt": "2026-10-26T15:40:55.428Z",
         "source": "attested",
         "summary": "pnpm exec vitest run tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/academy/academy-management.test.tsx: Tests 23 passed (23) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       }
@@ -356,19 +356,27 @@
     "limitations": [
       "El PR no agrega requests: solo antepone una confirmación a envíos que ya existían; no se midió."
     ],
-    "mode": "full",
+    "mode": "incremental",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:04:15.253Z",
+    "recordedAt": "2026-10-26T15:40:56.421Z",
     "result": "partial",
-    "runId": "20261026T150413Z-338eb9",
+    "runId": "20261026T154054Z-c366bc",
     "scope": {
-      "decision": "full",
+      "decision": "incremental",
       "reasons": [
-        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "relevant changes since the skill was recorded not applicable: re-evaluate applicability"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "added",
+          "key": "components/academy/academy-verification/index.tsx#ProviderRequest/sendRequest",
+          "reason": "adds load: +1 awaited steps, +1 calls to I/O helpers"
+        }
+      ],
       "suggestedScope": [
-        "measure the complete flow /[slug]/academia/verificacion before and after, same build, data and throttling; median of 3 for noisy metrics"
+        "measure the complete flow /[slug]/academia/verificacion: before = revision 6bf39166cc42 (last measured), after = working tree",
+        "components/academy/academy-verification/index.tsx › ProviderRequest › sendRequest — adds load: +1 awaited steps, +1 calls to I/O helpers"
       ]
     },
     "skill": {
@@ -386,7 +394,7 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "report": "runs/20261026T150413Z-338eb9.json"
+    "report": "runs/20261026T154054Z-c366bc.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

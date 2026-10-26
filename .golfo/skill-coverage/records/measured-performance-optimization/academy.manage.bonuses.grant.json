@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "components/academy/academy-management/index.tsx": "30fb9d4e436f90ac",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
@@ -727,22 +727,23 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:02:09.628Z",
+        "recordedAt": "2026-10-26T15:27:51.810Z",
         "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/academy/academy-management.test.tsx: Tests 23 passed (23) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+        "summary": "pnpm exec vitest run tests/unit/pages/academy-management-page.test.tsx tests/unit/components/academy/academy-management.test.tsx: Tests 21 passed (21) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       }
     ],
     "limitations": [
-      "El PR no agrega requests: solo antepone una confirmación a envíos que ya existían; no se midió."
+      "Solo se revisó la carga del servidor de Gestionar academia que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:02:10.753Z",
+    "recordedAt": "2026-10-26T15:27:54.568Z",
     "result": "partial",
-    "runId": "20261026T150209Z-6dbf21",
+    "runId": "20261026T152751Z-92b16c",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [],
@@ -765,7 +766,7 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "report": "runs/20261026T150209Z-6dbf21.json"
+    "report": "runs/20261026T152751Z-92b16c.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

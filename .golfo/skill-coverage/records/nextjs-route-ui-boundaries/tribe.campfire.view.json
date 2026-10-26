@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
         "app/(platform)/[slug]/page.tsx": "21d44f35274141e2",
         "app/(platform)/[slug]/loading.tsx": "7bca37b96a4432ce",
@@ -187,7 +187,7 @@
         "src/modules/tribes/constants/tribe-images.ts": "6ce723523d3aed1e",
         "src/modules/shared/infrastructure/cloudflare/cloudflare-images-config.ts": "6a104ceb8cd33301",
         "src/modules/tribes/domain/repositories/academy-approved-membership-writer.ts": "58591a63c7e78ac6",
-        "src/modules/tribes/constants/tribe-story.ts": "95b0fb552f1928b0",
+        "src/modules/tribes/constants/tribe-story.ts": "56fbe141834e760e",
         "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts": "63777e7a48eb3ea8",
         "src/modules/tribes/domain/errors/tribe-slug-conflict-error.ts": "91b9e31e541176d5",
         "src/modules/tribes/infrastructure/repositories/legacy-tribe-entry-lock.ts": "a33f08014f233c69",
@@ -4809,46 +4809,47 @@
     },
     "evidence": [
       {
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 38327,
+        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T14:59:50.103Z",
-        "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx: Tests 122 passed (122) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+        "outputSha256": "22ee79712eca740999dcabe8c8186d6c8021406b0d40b67608835f4a397ddd43",
+        "recordedAt": "2026-10-25T05:38:51.864Z",
+        "source": "witnessed",
+        "summary": "exit code 0"
       },
       {
+        "command": "pnpm run -s typecheck",
+        "durationMs": 4559,
+        "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T14:59:50.535Z",
-        "source": "attested",
-        "summary": "pnpm run -s typecheck: sin errores sobre el código mergeado"
+        "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
+        "recordedAt": "2026-10-25T05:38:57.168Z",
+        "source": "witnessed",
+        "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T14:59:50.977Z",
+        "recordedAt": "2026-10-25T05:38:57.879Z",
         "source": "attested",
-        "summary": "Estados: Ver más acumula sin duplicados y su carga y error quedan junto al botón; las relecturas y filtros conservan lo mostrado con aria-busy y descartan respuestas viejas; la bandeja y el historial muestran los datos del servidor al hidratar y habilitan las acciones tras el chequeo de cuenta; la importación selecciona todas las válidas sin cambiar el contrato; el doble montaje de desarrollo ya no se toma como restauración."
-      },
-      {
-        "kind": "browser",
-        "outcome": "pass",
-        "recordedAt": "2026-10-26T14:59:51.431Z",
-        "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Ver más entradas suma 25 a 27 sin duplicados con aria-busy; la importación elige las 55 válidas de 60 filas; la actividad no se oculta al releer ni al filtrar y suma el hecho anterior; la bandeja muestra la solicitud una sola vez al hidratar y el historial carga en next dev (4/4; antes Ver más dejaba 2, no había selección total, la actividad se vaciaba y la bandeja pasaba por vacía)."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [
-      "Solo se revisaron las listas del líder que cambia este PR; el resto de cada unidad queda para su propia auditoría."
+      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T14:59:53.328Z",
+    "recordedAt": "2026-10-25T05:39:01.232Z",
     "result": "partial",
-    "runId": "20261026T145949Z-8062cc",
+    "runId": "20261025T053812Z-04753a",
     "scope": {
       "decision": "full",
       "reasons": [
-        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+        "no previous coverage: the whole unit is analyzed"
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": [
@@ -4868,7 +4869,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261026T145949Z-8062cc.json"
+    "report": "runs/20261025T053812Z-04753a.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

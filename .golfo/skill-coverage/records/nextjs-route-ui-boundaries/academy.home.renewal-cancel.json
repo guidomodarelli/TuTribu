@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "components/academy/academy-home/index.tsx": "ba78725db5c7cd26",
         "app/(platform)/[slug]/academia/page.tsx": "a4c7427e95123588",
@@ -2143,28 +2143,28 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:06:22.217Z",
+        "recordedAt": "2026-10-26T15:41:10.431Z",
         "source": "attested",
         "summary": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx: Tests 24 passed (24) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "command",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:06:22.645Z",
+        "recordedAt": "2026-10-26T15:41:10.856Z",
         "source": "attested",
         "summary": "pnpm run -s typecheck: sin errores sobre el código mergeado"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:06:23.080Z",
+        "recordedAt": "2026-10-26T15:41:11.278Z",
         "source": "attested",
         "summary": "Ciclo de vida: cancelar una renovación pending es server-confirmed, reusa el diálogo, la protección de doble envío y el error por acción, y su copy no promete que no se cobra un pago ya hecho."
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:06:23.508Z",
+        "recordedAt": "2026-10-26T15:41:11.698Z",
         "source": "attested",
         "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: con la renovación pending aparece Cancelar renovación, un 503 queda dentro del diálogo, el reintento envía un solo DELETE y el resultado aparece con la confirmación del servidor (4/4; antes el botón no se ofrecía)."
       }
@@ -2174,9 +2174,9 @@
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:06:24.864Z",
+    "recordedAt": "2026-10-26T15:41:13.065Z",
     "result": "partial",
-    "runId": "20261026T150621Z-4728c8",
+    "runId": "20261026T154109Z-6c9a13",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -2200,7 +2200,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261026T150621Z-4728c8.json"
+    "report": "runs/20261026T154109Z-6c9a13.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

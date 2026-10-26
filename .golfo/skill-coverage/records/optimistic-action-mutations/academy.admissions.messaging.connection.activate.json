@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts": "c207e24f92f177a2",
         "app/api/tribes/[slug]/messaging/connections/[connectionId]/activate/route.ts": "cd6ab6d726572968",
@@ -4920,32 +4920,49 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T14:53:43.049Z",
+        "recordedAt": "2026-10-26T15:35:45.624Z",
         "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx: Tests 122 passed (122) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+        "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx tests/unit/components/academy-admissions-messaging-resources.test.tsx tests/unit/components/academy-admissions-notification-recovery-container.test.tsx tests/unit/components/academy-admissions-notification-recovery.test.tsx: Tests 107 passed (107) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T14:53:43.489Z",
+        "recordedAt": "2026-10-26T15:35:46.058Z",
         "source": "attested",
-        "summary": "Estados: Ver más acumula sin duplicados y su carga y error quedan junto al botón; las relecturas y filtros conservan lo mostrado con aria-busy y descartan respuestas viejas; la bandeja y el historial muestran los datos del servidor al hidratar y habilitan las acciones tras el chequeo de cuenta; la importación selecciona todas las válidas sin cambiar el contrato; el doble montaje de desarrollo ya no se toma como restauración."
+        "summary": "Estados: el guardado valida al presionar y muestra qué falta junto a cada campo; las consultas de remitentes y plantillas muestran su carga, evitan la doble consulta y dejan el vacío y el error junto al select; Ver avisos anteriores acumula sin duplicados y una recuperación vencida se muestra como no disponible; solo un conflicto real marca la conexión como cambiada, también en la relectura tras una comprobación rechazada."
       }
     ],
     "limitations": [
-      "Solo se revisaron las listas del líder que cambia este PR; el resto de cada unidad queda para su propia auditoría."
+      "Remitentes, plantillas y recuperación de avisos no se recorrieron en el navegador: necesitan una conexión de Zavu con credencial válida o activa, que la rama efímera no tiene."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T14:53:45.548Z",
+    "recordedAt": "2026-10-26T15:35:48.099Z",
     "result": "partial",
-    "runId": "20261026T145342Z-69fb30",
+    "runId": "20261026T153545Z-ad83a0",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#MAXIMUM_TIMEOUT_MS",
+          "reason": "code no longer reached by the unit: an operation may have been removed"
+        },
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#useMessagingActivationController",
+          "reason": "code reached by the unit changed"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/time.ts#TIMER_MAXIMUM_DELAY_MS",
+          "reason": "new code reached by the unit"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.admissions.messaging.connection.activate: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -4963,7 +4980,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261026T145342Z-69fb30.json"
+    "report": "runs/20261026T153545Z-ad83a0.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

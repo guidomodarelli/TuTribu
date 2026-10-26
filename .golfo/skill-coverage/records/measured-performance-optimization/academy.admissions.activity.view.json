@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "app/(platform)/[slug]/academia/admissions/activity/page.tsx": "0ce9c474d7fcd444",
         "app/(platform)/[slug]/academia/admissions/activity/loading.tsx": "0637d05028ddbfcd",
@@ -5422,7 +5422,7 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T14:47:34.293Z",
+        "recordedAt": "2026-10-26T15:37:42.807Z",
         "source": "attested",
         "summary": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx: Tests 122 passed (122) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       }
@@ -5432,18 +5432,17 @@
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T14:47:36.410Z",
+    "recordedAt": "2026-10-26T15:37:44.926Z",
     "result": "partial",
-    "runId": "20261026T144733Z-151ada",
+    "runId": "20261026T153742Z-eb18d4",
     "scope": {
-      "decision": "full",
+      "decision": "not-applicable",
       "reasons": [
-        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "recorded not applicable: Las salidas de recuperación no agregan requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": [
-        "measure the complete flow /[slug]/academia/admissions/activity before and after, same build, data and throttling; median of 3 for noisy metrics"
-      ]
+      "suggestedScope": []
     },
     "skill": {
       "definitionFiles": {
@@ -5460,7 +5459,7 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "report": "runs/20261026T144733Z-151ada.json"
+    "report": "runs/20261026T153742Z-eb18d4.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

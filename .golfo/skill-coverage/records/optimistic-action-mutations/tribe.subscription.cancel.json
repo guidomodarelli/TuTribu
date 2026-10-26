@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
       "files": {
         "components/subscriptions/tribe-subscription-self-management/index.tsx": "ed77b7c3abed4821",
         "app/api/tribes/[slug]/subscriptions/current/route.ts": "bbfd0641c3d5c6a6",
@@ -58,7 +58,7 @@
         "src/modules/tribes/constants/tribe-member-role.ts": "bcd5a756222224ce",
         "src/modules/tribes/constants/academy-membership.ts": "458dd8dd26c19140",
         "src/modules/tribes/domain/value-objects/academy-membership-eligibility.ts": "55e6d38c698718e0",
-        "src/constants/time.ts": "987c18a571e92d4d",
+        "src/constants/time.ts": "98b5459a77a709b0",
         "src/modules/auth/domain/entities/authenticated-account.ts": "b69eceb452ae2698",
         "src/modules/auth/constants/google-identity-evidence.ts": "ff30d4a1f61f0c65",
         "src/modules/auth/infrastructure/composition/request-account-provider.ts": "4d6cbc6d77e89815",
@@ -1867,28 +1867,32 @@
     },
     "evidence": [
       {
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/pages/academy-route-loading.test.tsx tests/unit/pages/tribe-loading-page.test.tsx tests/unit/components/academy-personal-invitation.test.tsx tests/unit/modules/academy-admissions/infrastructure/allowlist-email-admission-browser-ui.test.ts",
+        "durationMs": 30232,
+        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T14:45:50.603Z",
-        "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx tests/unit/components/academy-admissions-messaging-resources.test.tsx tests/unit/components/academy-admissions-notification-recovery-container.test.tsx tests/unit/components/academy-admissions-notification-recovery.test.tsx: Tests 107 passed (107) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+        "outputSha256": "962f438ce5312bef847bbe0331f9d6298646ca21b0ddab9f76297fdd6fd610c9",
+        "recordedAt": "2026-10-25T12:41:59.876Z",
+        "source": "witnessed",
+        "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T14:45:51.027Z",
+        "recordedAt": "2026-10-25T12:42:00.422Z",
         "source": "attested",
-        "summary": "Estados: el guardado valida al presionar y muestra qué falta junto a cada campo; las consultas de remitentes y plantillas muestran su carga, evitan la doble consulta y dejan el vacío y el error junto al select; Ver avisos anteriores acumula sin duplicados y una recuperación vencida se muestra como no disponible; solo un conflicto real marca la conexión como cambiada, también en la relectura tras una comprobación rechazada."
+        "summary": "Boundaries de carga: cada loading.tsx dibuja la forma de su página con primitivas de servidor (components/loaders/route-skeleton), con una sola región aria-busy y un solo status, sin sesión, almacenamiento ni reloj, y sin controles que envíen estado viejo; las páginas del líder eligen resumen, pasos o filas según su forma; el solicitante conserva el título de la pantalla que va a ver."
       }
     ],
     "limitations": [
-      "Remitentes, plantillas y recuperación de avisos no se recorrieron en el navegador: necesitan una conexión de Zavu con credencial válida o activa, que la rama efímera no tiene."
+      "Solo se revisaron los estados de carga que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T14:45:52.345Z",
+    "recordedAt": "2026-10-25T12:42:02.117Z",
     "result": "partial",
-    "runId": "20261026T144550Z-f01b8c",
+    "runId": "20261025T124129Z-69a90c",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -1913,7 +1917,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261026T144550Z-f01b8c.json"
+    "report": "runs/20261025T124129Z-69a90c.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

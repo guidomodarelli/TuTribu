@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "components/academy/academy-verification/index.tsx": "d093813d476f7d37",
         "app/(platform)/[slug]/academia/verificacion/page.tsx": "78e36c8d189424cc",
@@ -232,21 +232,21 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:04:02.285Z",
+        "recordedAt": "2026-10-26T15:40:43.358Z",
         "source": "attested",
         "summary": "pnpm exec vitest run tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/academy/academy-management.test.tsx: Tests 23 passed (23) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:04:02.703Z",
+        "recordedAt": "2026-10-26T15:40:43.781Z",
         "source": "attested",
         "summary": "Ciclo de vida: reabrir y revocar una verificación son server-confirmed; la confirmación del correo solo aparece si el email normalizado cambia en una verificación aprobada; revocar usa un diálogo con motivo, pending, protección de doble envío y error dentro del diálogo, y el toast llega con la confirmación del servidor."
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:04:03.132Z",
+        "recordedAt": "2026-10-26T15:40:44.194Z",
         "source": "attested",
         "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: cambiar el correo de una verificación aprobada pide confirmación, Cancelar no envía y conserva el correo y Cambiar correo envía una vez y la deja En revisión; Revocar abre su diálogo sin enviar y al confirmar hace un solo PATCH (4/4; antes se enviaba sin preguntar y no había diálogo)."
       }
@@ -256,15 +256,77 @@
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:04:04.157Z",
+    "recordedAt": "2026-10-26T15:40:45.142Z",
     "result": "partial",
-    "runId": "20261026T150401Z-008c4f",
+    "runId": "20261026T154042Z-30459f",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "added",
+          "key": "components/academy/academy-verification/index.tsx#normalizeDeclaredEmail",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-verification/index.tsx#ProviderRequest/confirmEmailChange",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-verification/index.tsx#ProviderRequest/handleSubmit",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-verification/index.tsx#ProviderRequest/sendRequest",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-verification/index.tsx#ProviderRequest~shell",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-verification/index.tsx#reopensApprovedVerification",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-verification/index.tsx#VERIFICATION_COPY.cancelEmailChange",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-verification/index.tsx#VERIFICATION_COPY.confirmEmailChange",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-verification/index.tsx#VERIFICATION_COPY.emailChangeDescriptionPrefix",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-verification/index.tsx#VERIFICATION_COPY.emailChangeDescriptionSuffix",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-verification/index.tsx#VERIFICATION_COPY.emailChangeTitle",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-verification/index.tsx#VERIFIED_STATUS",
+          "reason": "new visible or interactive code"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.verification.request: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
       ]
@@ -282,7 +344,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261026T150401Z-008c4f.json"
+    "report": "runs/20261026T154042Z-30459f.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

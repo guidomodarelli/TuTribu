@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "303d49cd94416023",
         "lib/messaging/messaging-connections-intent-store.ts": "7d048c209b41fd20",
@@ -2519,53 +2519,47 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:09:55.325Z",
+        "recordedAt": "2026-10-26T15:42:25.261Z",
         "source": "attested",
         "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-diagnostic-history.test.tsx [redacted]-connections-intent-store.test.ts: Tests 91 passed (91) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "command",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:09:55.754Z",
+        "recordedAt": "2026-10-26T15:42:25.681Z",
         "source": "attested",
         "summary": "pnpm run -s typecheck: sin errores sobre el código mergeado"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:09:56.178Z",
+        "recordedAt": "2026-10-26T15:42:26.105Z",
         "source": "attested",
         "summary": "Estados: una prueba o verificación incierta solo se archiva con la ausencia del original confirmada durante 10 minutos y se vuelve a leer antes de archivar; started sigue bloqueando; vaciar el historial lleno pide confirmación, conserva la última y no cancela ni reenvía nada."
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:09:56.605Z",
+        "recordedAt": "2026-10-26T15:42:26.516Z",
         "source": "attested",
         "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: una prueba incierta pedida hace 2 minutos sigue bloqueada con su aviso, una con el original ausente hace 15 minutos se conserva en el historial y libera la página, y con 20 pruebas Vaciar pruebas anteriores pide confirmación y deja solo la última (4/4; antes no había ninguna salida)."
       }
     ],
-    "limitations": [],
-    "mode": "incremental",
-    "pendingChecks": [
-      "test evidence (build, lint, typecheck or tests) must be run with evidence --exec, not declared",
-      "command evidence (build, lint, typecheck or tests) must be run with evidence --exec, not declared",
-      "missing passing evidence of kind command"
+    "limitations": [
+      "Solo se revisó la recuperación de pruebas inciertas y el historial lleno que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
-    "recordedAt": "2026-10-26T15:09:58.194Z",
+    "mode": "incremental",
+    "pendingChecks": [],
+    "recordedAt": "2026-10-26T15:42:28.105Z",
     "result": "partial",
-    "runId": "20261026T150954Z-3176e8",
+    "runId": "20261026T154224Z-49e546",
     "scope": {
       "decision": "incremental",
       "reasons": [
         "previous run was partial"
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": [
-        "pending from the previous run: test evidence (build, lint, typecheck or tests) must be run with evidence --exec, not declared",
-        "pending from the previous run: command evidence (build, lint, typecheck or tests) must be run with evidence --exec, not declared",
-        "pending from the previous run: missing passing evidence of kind command"
-      ]
+      "suggestedScope": []
     },
     "skill": {
       "definitionFiles": {
@@ -2580,7 +2574,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261026T150954Z-3176e8.json"
+    "report": "runs/20261026T154224Z-49e546.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",
@@ -2588,10 +2582,10 @@
   "verified": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/admission-leader-lists",
-      "commit": "e6f93720e9a8bbf3820c7764d2dddccaca67ed97",
+      "branch": "perf/academy-messaging-idle-timers",
+      "commit": "cb946c56edfad1cff4bebc3575dbc0d1fd1bb065",
       "files": {
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "bc28a78e79291142",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "9f70561aa07c33cb",
         "lib/messaging/messaging-connections-intent-store.ts": "7dbed3748a05812b",
         "src/modules/messaging/setup.ts": "36ebb75d1e9b9914",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/page.tsx": "7f44e5f42fe7d6ec",
@@ -2617,7 +2611,7 @@
         "app/not-found.tsx": "7c2bf7b75ccbcef3",
         "next.config.ts": "499b76937ce73f12",
         "components/academy-admissions/admission-route-error/index.tsx": "f1d403b2508a4b3e",
-        "src/modules/messaging/constants/messaging-connections-browser.ts": "fc77878f34cf9bcd",
+        "src/modules/messaging/constants/messaging-connections-browser.ts": "6324cc25a232f60b",
         "src/modules/messaging/application/ports/messaging-activation-browser-client.ts": "1c4aefbdb29c8cc8",
         "src/modules/messaging/application/ports/messaging-connections-browser-client.ts": "0ed8eda234a11a70",
         "src/modules/messaging/application/ports/messaging-connections-intent-store.ts": "d58d46d8187b36c6",
@@ -2632,12 +2626,12 @@
         "src/modules/messaging/constants/messaging-usage.ts": "ba71bbac4e985a5a",
         "src/modules/messaging/application/results/messaging-configuration-result.ts": "006db510fe714df8",
         "components/academy-admissions/messaging-connection-lifecycle/index.tsx": "86f803a5f94a422a",
-        "components/academy-admissions/messaging-connections/index.tsx": "6006fb06f7a1d13d",
-        "components/academy-admissions/messaging-connections-workspace/index.tsx": "e1faf825f6884feb",
+        "components/academy-admissions/messaging-connections/index.tsx": "7ca72a5ebda6bf91",
+        "components/academy-admissions/messaging-connections-workspace/index.tsx": "2a65a6a8e1fbfcce",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-feedback.ts": "7ad5879ac6d1fc43",
         "components/academy-admissions/messaging-diagnostic-history/index.tsx": "d87dfccdef33c81d",
         "components/academy-admissions/messaging-original-recovery/index.tsx": "9db12cef6bcaa3b3",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx": "f6c3b98b5b822d1f",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx": "8318b9343ef315b2",
         "src/constants/operation-state.ts": "8658825f51feae9a",
         "src/modules/auth/constants/reauthentication-resources.ts": "73b5e0d97c9862f7",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
@@ -2651,10 +2645,10 @@
         "lib/messaging/messaging-lifecycle-api-client.ts": "e4f9fba74a07442e",
         "lib/messaging/messaging-resources-api-client.ts": "aac9732195a7a043",
         "lib/messaging/messaging-route-recovery.ts": "798ea6aaf2345c96",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts": "c207e24f92f177a2",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts": "fe362e9763b0f0dd",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts": "ac108ef7daec8f51",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-lifecycle-controller.ts": "8028dcf181ee8a1b",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts": "c78a3525567badcf",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts": "31d749926479a4ac",
         "src/modules/academy-admissions/constants/admission-limits.ts": "2d7d087ec36ae67b",
         "src/modules/messaging/constants/messaging-connection-security.ts": "0f5a571c358deeb9",
         "src/modules/messaging/constants/messaging-errors.ts": "82843c943e77b48b",
@@ -2743,7 +2737,7 @@
         "config/cloudflare-output-tracing.ts": "43fa9999704d5e4b",
         "config/legacy-redirects.ts": "6e723edb2bbdd69f",
         "config/cloudflare-dev-runtime.ts": "5c9b3670ad614400",
-        "src/modules/academy-admissions/constants/admission-ui.ts": "c0ed62cb0dafbbf7",
+        "src/modules/academy-admissions/constants/admission-ui.ts": "a57d7d4286770b34",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "components/academy-admissions/admission-route-error/styles.module.scss": "06d52f5195bb701e",
         "src/modules/academy-admissions/domain/entities/admission-operation.ts": "3cefd00867036cfe",
@@ -2771,13 +2765,12 @@
         "components/academy-admissions/messaging-diagnostic-history/styles.module.scss": "3ad2732e18828b88",
         "components/academy-admissions/messaging-original-recovery/styles.module.scss": "e6d099a44666caf6",
         "src/modules/messaging/constants/message-delivery.ts": "45811d35a492678f",
-        "src/modules/messaging/constants/notification-recovery-ui.ts": "b274826933e66cee",
-        "components/academy-admissions/messaging-notification-recovery/index.tsx": "7fc2a7643106fa86",
+        "src/modules/messaging/constants/notification-recovery-ui.ts": "a2866972f4b31b93",
+        "components/academy-admissions/messaging-notification-recovery/index.tsx": "0a54083a747df3dd",
         "src/modules/messaging/constants/notification-recovery-intent.ts": "c44f3183eafc6d4c",
         "src/modules/messaging/application/results/notification-delivery-catalog-result.ts": "21f01383ba581954",
         "src/modules/messaging/application/ports/notification-recovery-browser-client.ts": "60198882abbf7ec0",
         "src/modules/messaging/application/ports/notification-recovery-intent-store.ts": "7518927b6bfaa873",
-        "src/constants/time.ts": "987c18a571e92d4d",
         "lib/messaging/notification-recovery-api-client.ts": "fc4f767b15a76ff5",
         "lib/messaging/notification-recovery-intent-store.ts": "4104ff8b27688543",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-local-snapshot.ts": "d45c6cf5cba2628b",
@@ -2793,7 +2786,7 @@
         "src/modules/messaging/constants/connection-diagnostic.ts": "060331e28aefe862",
         "src/modules/messaging/application/results/connection-diagnostic-issuance-result.ts": "4662660631f59d21",
         "src/modules/academy-admissions/constants/admission-public-contract.ts": "f9491ce66f74206d",
-        "src/modules/messaging/constants/messaging-resources-browser.ts": "7f4d57dd083f047f",
+        "src/modules/messaging/constants/messaging-resources-browser.ts": "0e4d8ddf9f8d67a2",
         "src/modules/messaging/application/results/messaging-connection-configuration-result.ts": "96f7d72f278d4685",
         "src/modules/messaging/constants/messaging-limits.ts": "a882fb155e9d559f",
         "src/modules/messaging/constants/messaging-connection-lifecycle.ts": "ed2f2eec167a6a73",
@@ -2801,9 +2794,9 @@
         "lib/browser-navigation.ts": "f01888198bf9f346",
         "src/modules/messaging/application/commands/messaging-activation-requirements.ts": "e20e4f4a47a2f1e6",
         "src/modules/messaging/application/commands/messaging-diagnostic-draft.ts": "f76a9730fd4db503",
+        "src/constants/time.ts": "98b5459a77a709b0",
         "src/modules/messaging/domain/repositories/messaging-connection-lifecycle.ts": "105d8e038c49e2df",
         "src/modules/messaging/application/commands/messaging-channel-draft.ts": "2e7df60fa1f72154",
-        "components/academy-admissions/messaging-connection-resources/index.tsx": "7e6fcebd41a4c732",
         "src/modules/messaging/constants/messaging-resources.ts": "f084ccedae57cdcb",
         "src/modules/messaging/domain/errors/messaging-error-code.ts": "347a9bbe72af0c8b",
         "src/modules/tribes/domain/value-objects/tribe-slug.ts": "07196b88770dfa73",
@@ -2868,13 +2861,13 @@
         "src/modules/auth/constants/message-delivery-reauthentication.ts": "f485fe7a77de3464",
         "src/constants/browser-request.ts": "38ed6a1428c6e81f"
       },
-      "fingerprint": "sha256:56a454d9ce6dec64ae848c387183ebd13fdd77001ef1ad4ab597db7473d05f50",
+      "fingerprint": "sha256:aa91e871fa4934ee8514f78c074e56b9b9f64d6c992c4e8f9e699014006dec2e",
       "inputs": {
         "pkg:next": "ef28293b49c7bae1",
         "pkg:react": "374a4508a198654b",
         "pkg:react-dom": "d2111d79718dba5f",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell": "217f4d62a73ded07",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell": "48395c7cc22fd6db",
         "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#ContainerProps": "54c55af7fe2f98e9",
         "lib/messaging/messaging-connections-intent-store.ts#<module>": "d414f6d3ee71f10d",
@@ -3075,14 +3068,13 @@
         "components/academy-admissions/messaging-connection-lifecycle/index.tsx#<module>": "2da3ec2294295eb1",
         "components/academy-admissions/messaging-connection-lifecycle/index.tsx#MessagingConnectionLifecycle": "cc0e32a31a49e214",
         "components/academy-admissions/messaging-connections/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/messaging-connections/index.tsx#MessagingConnections/focusFirstInvalid": "4daec9c6d13301df",
-        "components/academy-admissions/messaging-connections/index.tsx#MessagingConnections~shell": "8fb3b9da81a973a6",
+        "components/academy-admissions/messaging-connections/index.tsx#MessagingConnections": "414f8eff41cae121",
         "components/academy-admissions/messaging-connections-workspace/index.tsx#<module>": "d414f6d3ee71f10d",
         "components/academy-admissions/messaging-connections-workspace/index.tsx#MessagingConnectionsAttention": "28d1a76a8bd18215",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-feedback.ts#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-feedback.ts#MessagingConnectionsFeedback": "9fca6239e52b3101",
         "components/academy-admissions/messaging-connections-workspace/index.tsx#MessagingConnectionsPreservedAttempts": "c156d783b3bd973e",
-        "components/academy-admissions/messaging-connections-workspace/index.tsx#MessagingConnectionsWorkspace": "5c1f612855b4c80e",
+        "components/academy-admissions/messaging-connections-workspace/index.tsx#MessagingConnectionsWorkspace": "1f8ce7b533a4e6e1",
         "components/academy-admissions/messaging-connections-workspace/index.tsx#ConnectionRow": "4c9270c82958be16",
         "components/academy-admissions/messaging-connections-workspace/index.tsx#CAPABILITY_STATE_TONE.unprepared": "b581e400bde1554b",
         "components/academy-admissions/messaging-connections-workspace/index.tsx#CAPABILITY_STATE_TONE.prepared": "4811ea8b2b74ac33",
@@ -3116,13 +3108,13 @@
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/eligible": "c58c842b40c7cd4f",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/bound": "774f3605a6544c68",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/preserve": "c81f96d1ae44b5e0",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer~shell": "3eb705c9a1a77847",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer~shell": "45de1c290bfbf10a",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainerProps": "63b7d38bc7af8db0",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/observe": "fe4600ff0f290b22",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/current": "b92af9cb28abc575",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/readCatalog": "77cddd46d58d418a",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/readCatalog": "cc9fac7104bae7a4",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/submit": "bd700d5345dbf9fc",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/recover": "aa9088ecb1484bd5",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/recover": "f13bbf20ae11dafe",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/readOriginal": "7b320339261143b8",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/stopObserving": "c64d7ba01d1c6ad0",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/archiveOriginal": "1fda0d8f22eb84df",
@@ -3210,7 +3202,8 @@
         "lib/messaging/messaging-route-recovery.ts#MessagingRouteRecovery": "ae20ab1a49edbe57",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-feedback.ts#toastMessagingRead": "ee8ebc0f003f0530",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#useMessagingActivationController": "9aa5ec914d0b544d",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#useMessagingActivationController": "f22e0a162b5e06c1",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#MAXIMUM_TIMEOUT_MS": "e9cfd06c8dd3e765",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#<module>": "d414f6d3ee71f10d",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController/initial": "14478f8cc182bb90",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController/update": "ea79ecdab2b01f45",
@@ -3222,13 +3215,15 @@
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-lifecycle-controller.ts#useMessagingLifecycleController/connections": "6bf688652556b25c",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-lifecycle-controller.ts#useMessagingLifecycleController~shell": "88db616ac8f45560",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/initialScope": "10d1c48e60ad4440",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/initialScope": "7f2baa227a22a0f6",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/update": "ea79ecdab2b01f45",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/setDraft": "419e1be5d610f702",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController~shell": "49563f8515496e0a",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController~shell": "8b3d8b4a29ec8e73",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/setConfirmed": "60baa2a9dcc16c4c",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/setSenders": "e166905a5b5cd584",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/setTemplates": "33a9c39c3d5e6c9c",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/change": "26f6b527d2d3b522",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/read": "3d839928620c492b",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/read": "8b618b0c9b6e9661",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/save": "8ebbd66dc9275436",
         "src/modules/messaging/constants/messaging-connections-browser.ts#MESSAGING_CONNECTIONS_INTENT_STORAGE_PREFIX": "e8ac35c48b54c892",
         "src/modules/messaging/constants/messaging-connections-browser.ts#MESSAGING_CONNECTION_HISTORY_LIMIT": "63c190d37a0846c1",
@@ -3949,9 +3944,6 @@
         "src/modules/messaging/constants/messaging-connections-workspace.ts#MESSAGING_CONNECTIONS_FLOW_COPY.steps": "79bc68593dbb8a44",
         "src/modules/messaging/constants/messaging-connections-workspace.ts#MESSAGING_CONNECTIONS_NEXT_ACTION_COPY~frame": "7fc1c7ca83756c49",
         "src/modules/messaging/constants/messaging-connections-workspace.ts#MESSAGING_CONNECTIONS_NEXT_ACTION_COPY.region": "1b1c844858323b08",
-        "src/modules/messaging/constants/messaging-connections-browser.ts#MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedDetail": "d7e8e2c49fda7382",
-        "src/modules/messaging/constants/messaging-connections-browser.ts#MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedTitle": "ba853525cd2ab378",
-        "src/modules/messaging/constants/messaging-connections-browser.ts#MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadRetry": "098b51decce12a4c",
         "components/academy-admissions/messaging-diagnostic-history/styles.module.scss#*": "3ad2732e18828b88",
         "src/modules/messaging/constants/messaging-connections-browser.ts#MESSAGING_CONNECTION_RECOVERY_UI_COPY~frame": "016184adde95bbca",
         "src/modules/messaging/constants/messaging-connections-browser.ts#MESSAGING_CONNECTION_RECOVERY_UI_COPY.archiveExplanation": "870a20c34711d281",
@@ -3970,7 +3962,7 @@
         "src/modules/messaging/constants/notification-recovery-ui.ts#NOTIFICATION_RECOVERY_UI_COPY.currentRequired": "ccd86f16964dbbbe",
         "src/modules/messaging/constants/notification-recovery-ui.ts#NOTIFICATION_RECOVERY_UI_COPY.storageUnavailable": "b04dbbc9436c29df",
         "components/academy-admissions/messaging-notification-recovery/index.tsx#<module>": "2da3ec2294295eb1",
-        "components/academy-admissions/messaging-notification-recovery/index.tsx#MessagingNotificationRecovery": "6f5d4c2ff33ff40a",
+        "components/academy-admissions/messaging-notification-recovery/index.tsx#MessagingNotificationRecovery": "5d857d658a76c32e",
         "src/modules/messaging/constants/notification-recovery-intent.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/constants/notification-recovery-intent.ts#NOTIFICATION_RECOVERY_HISTORY_LIMIT": "0819bcc3b3c824bf",
         "src/modules/messaging/application/results/notification-delivery-catalog-result.ts#<module>": "2da3ec2294295eb1",
@@ -3985,8 +3977,6 @@
         "src/modules/messaging/application/ports/notification-recovery-intent-store.ts#NotificationRecoveryDraft": "cf450632865189b2",
         "src/modules/messaging/application/ports/notification-recovery-intent-store.ts#NotificationRecoveryReference": "48bede7f6268df55",
         "src/modules/messaging/constants/notification-recovery-ui.ts#NotificationRecoveryWriteAction": "c811ddc426cf5e7f",
-        "src/constants/time.ts#<module>": "2da3ec2294295eb1",
-        "src/constants/time.ts#TIMER_MAXIMUM_DELAY_MS": "05d2cda1114fd800",
         "lib/messaging/notification-recovery-api-client.ts#<module>": "d414f6d3ee71f10d",
         "lib/messaging/notification-recovery-api-client.ts#notificationRecoveryBrowserClient": "ddded59ea2d0be45",
         "lib/messaging/notification-recovery-api-client.ts#createNotificationRecoveryBrowserClient": "1b960a245c182df1",
@@ -4150,6 +4140,7 @@
         "src/modules/messaging/constants/messaging-diagnostic-browser.ts#MESSAGING_DIAGNOSTIC_RESEND_BLOCK.destination": "98e1d87b297cb6a2",
         "src/modules/messaging/constants/messaging-diagnostic-browser.ts#MESSAGING_DIAGNOSTIC_RESEND_BLOCK.wait": "e39be66e641cc6a7",
         "src/modules/messaging/constants/messaging-diagnostic-browser.ts#MESSAGING_DIAGNOSTIC_UI_COPY.verified": "94035e6c20a0b711",
+        "src/constants/time.ts#<module>": "2da3ec2294295eb1",
         "src/constants/time.ts#MILLISECONDS_PER_SECOND": "cfac244fa1960be9",
         "src/modules/messaging/application/commands/messaging-diagnostic-draft.ts#validateMessagingDiagnosticCode": "18533a71662c9714",
         "src/modules/messaging/application/commands/messaging-diagnostic-draft.ts#validateMessagingDiagnosticDraft": "87a29a3a74b73160",
@@ -4161,18 +4152,17 @@
         "src/modules/messaging/application/commands/messaging-channel-draft.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/application/commands/messaging-channel-draft.ts#MessagingChannelDraft": "2ba410417f82af45",
         "src/modules/messaging/application/commands/messaging-channel-draft.ts#MessagingChannelFieldErrors": "71cf864fa4dc9ef5",
-        "components/academy-admissions/messaging-connection-resources/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/messaging-connection-resources/index.tsx#MessagingResourceListState": "760eb7b3519c81ac",
         "src/modules/messaging/constants/messaging-resources.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/constants/messaging-resources.ts#MESSAGING_RESOURCE_KIND~frame": "04ad544b6c36a6b6",
         "src/modules/messaging/constants/messaging-resources.ts#MESSAGING_RESOURCE_KIND.senders": "37c9d7545ffeff0c",
         "src/modules/messaging/constants/messaging-resources.ts#MESSAGING_RESOURCE_KIND.templates": "4c332877a4d2e03b",
-        "components/academy-admissions/messaging-connection-resources/index.tsx#MessagingResourceReading": "24b446cf57ef9e4b",
         "src/modules/messaging/application/commands/messaging-channel-draft.ts#validateMessagingChannelDraft": "5881fba6590bbebe",
         "src/modules/messaging/application/commands/messaging-channel-draft.ts#MessagingChannelReferences": "1afde6951200c411",
         "src/modules/messaging/constants/messaging-resources-browser.ts#MESSAGING_RESOURCE_UI_COPY~frame": "abcfed135c0bb622",
         "src/modules/messaging/constants/messaging-resources-browser.ts#MESSAGING_RESOURCE_UI_COPY.channelUnavailable": "91174a47e01980d8",
         "src/modules/messaging/constants/messaging-resources-browser.ts#MESSAGING_RESOURCE_UI_COPY.readingFailed": "3cf6b82d473f6e96",
+        "src/modules/messaging/constants/messaging-resources-browser.ts#MESSAGING_RESOURCE_UI_COPY.sendersEmpty": "1683edc4ca8b790b",
+        "src/modules/messaging/constants/messaging-resources-browser.ts#MESSAGING_RESOURCE_UI_COPY.templatesEmpty": "065a2e981dd2b33b",
         "src/modules/messaging/domain/errors/messaging-error-code.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/domain/errors/messaging-error-code.ts#MessagingErrorCode": "86386dfd6a97f4e1",
         "src/modules/tribes/domain/value-objects/tribe-slug.ts#<module>": "2da3ec2294295eb1",
@@ -4507,7 +4497,6 @@
         "src/modules/messaging/constants/messaging-diagnostic-browser.ts#MESSAGING_DELIVERY_STATE_LABEL.cancelled": "3c95c31ad696f0a4",
         "src/modules/messaging/constants/messaging-diagnostic-browser.ts#MESSAGING_DELIVERY_STATE_LABEL~frame": "daba69347a1eb15e",
         "src/modules/messaging/constants/notification-recovery-ui.ts#NOTIFICATION_RECOVERY_DATE_LABEL_CHARACTERS": "78e64d1ca8f59db7",
-        "src/modules/messaging/constants/notification-recovery-ui.ts#NOTIFICATION_RECOVERY_UI_COPY.expired": "dce1bce6a97732ef",
         "components/academy-admissions/messaging-notification-recovery/styles.module.scss#*": "5bb8b50cf9b5fd63",
         "src/modules/messaging/application/results/notification-delivery-recovery-result.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/application/results/notification-delivery-recovery-result.ts#NotificationDeliveryRecoveryResult": "7c8b939bf1e750e0",
@@ -4688,11 +4677,8 @@
         "next.config.ts#nextConfig.outputFileTracingIncludes": {
           "projectCalls": 1
         },
-        "components/academy-admissions/messaging-connections/index.tsx#MessagingConnections~shell": {
-          "effects": 1
-        },
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer~shell": {
-          "effects": 2
+          "effects": 1
         },
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/observe": {
           "awaits": 2
@@ -5097,59 +5083,59 @@
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admission-applicant-recovery.test.tsx tests/unit/components/academy-admissions-manual.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx",
-        "durationMs": 44921,
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx [redacted]-activation-requirements.test.ts",
+        "durationMs": 206210,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "858147782cc183c7d4e5af6e7897b8b49edb6f9b696d6ff5fcc918117404a5f1",
-        "recordedAt": "2026-10-26T06:35:22.998Z",
+        "outputSha256": "7865999b056fcc99dac921603fb32a09c7943239fefd62b6f9932636ef5adaf6",
+        "recordedAt": "2026-10-25T19:23:38.575Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "command": "pnpm run -s typecheck",
-        "durationMs": 4958,
+        "durationMs": 9143,
         "exitCode": 0,
         "kind": "command",
         "outcome": "pass",
         "outputSha256": "1e7364545b505adc6ef70012ce70f69a90a7eb05ebb0a0886a63cceb701bcb27",
-        "recordedAt": "2026-10-26T06:35:28.631Z",
+        "recordedAt": "2026-10-25T19:23:49.740Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T06:35:29.297Z",
+        "recordedAt": "2026-10-25T19:23:50.852Z",
         "source": "attested",
-        "summary": "Estados: unavailable ofrece reintento solo para fallas transitorias; los errores de envío, cancelación y corrección del WhatsApp quedan junto a su origen, una sola vez, y se limpian al corregir; los inciertos siguen en la página junto a Consultar estado; un token heredado mal formado ya no ofrece un reintento que no puede funcionar."
+        "summary": "Ciclo de vida: la activación espera con un único timeout el momento en que una prueba de canal cambia de vigencia, y el diagnóstico solo corre su intervalo mientras queda un vencimiento o un reenvío por delante, con un primer tick inmediato; las cuentas regresivas y la elegibilidad muestran lo mismo que antes."
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T06:35:29.954Z",
+        "recordedAt": "2026-10-25T19:23:52.073Z",
         "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: una falla temporal de la entrada ofrece Reintentar y recupera la página, una solicitud ajena y un enlace heredado inválido no lo ofrecen y explican qué hacer, y un conflicto al enviar se muestra dentro del paso Enviar solicitud, junto al botón (4/4; antes quedaba al pie de la página)."
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: la página de Conexión carga igual y en reposo pasa de 10-11 a 0-1 commits de React cada 10 s (4/4)."
       }
     ],
     "limitations": [],
     "mode": "incremental",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T06:35:32.643Z",
+    "recordedAt": "2026-10-25T19:23:56.586Z",
     "result": "verified",
-    "runId": "20261026T063437Z-2585cf",
+    "runId": "20261025T192011Z-a6ff64",
     "scope": {
       "decision": "incremental",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "22 relevant change(s) since the verified run"
+        "4 relevant change(s) since the verified run"
       ],
       "relevantChangesAtBegin": [
         {
-          "change": "removed",
+          "change": "added",
           "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts#MAXIMUM_TIMEOUT_MS",
-          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+          "reason": "new code rendered by the route"
         },
         {
           "change": "modified",
@@ -5158,128 +5144,20 @@
         },
         {
           "change": "modified",
-          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx#MessagingConnectionsContainer~shell",
-          "reason": "component render changed: hooks, Suspense or client imports may differ"
-        },
-        {
-          "change": "modified",
-          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/initialScope",
-          "reason": "interactive handler changed: navigation or server action calls may differ"
-        },
-        {
-          "change": "modified",
-          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/read",
-          "reason": "interactive handler changed: navigation or server action calls may differ"
-        },
-        {
-          "change": "removed",
-          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/setSenders",
-          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
-        },
-        {
-          "change": "removed",
-          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController/setTemplates",
-          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
-        },
-        {
-          "change": "modified",
-          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts#useMessagingResourceController~shell",
-          "reason": "component render changed: hooks, Suspense or client imports may differ"
-        },
-        {
-          "change": "modified",
-          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/readCatalog",
-          "reason": "interactive handler changed: navigation or server action calls may differ"
-        },
-        {
-          "change": "modified",
-          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/recover",
-          "reason": "interactive handler changed: navigation or server action calls may differ"
-        },
-        {
-          "change": "modified",
-          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer~shell",
+          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController~shell",
           "reason": "component render changed: hooks, Suspense or client imports may differ"
         },
         {
           "change": "added",
-          "key": "components/academy-admissions/messaging-connection-resources/index.tsx#<module>",
-          "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/messaging-connection-resources/index.tsx#MessagingResourceListState",
+          "key": "src/modules/messaging/application/commands/messaging-activation-requirements.ts#nextMessagingActivationFreshnessChange",
           "reason": "new code rendered by the route"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/messaging-connection-resources/index.tsx#MessagingResourceReading",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "modified",
-          "key": "components/academy-admissions/messaging-connections-workspace/index.tsx#MessagingConnectionsWorkspace",
-          "reason": "code rendered by the route changed"
-        },
-        {
-          "change": "removed",
-          "key": "components/academy-admissions/messaging-connections/index.tsx#MessagingConnections",
-          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/messaging-connections/index.tsx#MessagingConnections/focusFirstInvalid",
-          "reason": "new interactive handler in the route"
-        },
-        {
-          "change": "added",
-          "key": "components/academy-admissions/messaging-connections/index.tsx#MessagingConnections~shell",
-          "reason": "component render changed: hooks, Suspense or client imports may differ"
-        },
-        {
-          "change": "modified",
-          "key": "components/academy-admissions/messaging-notification-recovery/index.tsx#MessagingNotificationRecovery",
-          "reason": "code rendered by the route changed"
-        },
-        {
-          "change": "added",
-          "key": "src/constants/time.ts#TIMER_MAXIMUM_DELAY_MS",
-          "reason": "new code rendered by the route"
-        },
-        {
-          "change": "removed",
-          "key": "src/modules/messaging/constants/messaging-resources-browser.ts#MESSAGING_RESOURCE_UI_COPY.sendersEmpty",
-          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
-        },
-        {
-          "change": "removed",
-          "key": "src/modules/messaging/constants/messaging-resources-browser.ts#MESSAGING_RESOURCE_UI_COPY.templatesEmpty",
-          "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
         }
       ],
       "suggestedScope": [
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts › MAXIMUM_TIMEOUT_MS — what the route lost: a layout, a boundary, a Suspense fallback or a client island; check that each state still has its boundary",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts › MAXIMUM_TIMEOUT_MS — server/client split and awaited work of this code in every route of the unit",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-activation-controller.ts › useMessagingActivationController — server/client split and awaited work of this code in every route of the unit",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx › MessagingConnectionsContainer (component body outside its handlers) — what this component renders: hooks that force a client island, awaited data, Suspense and the client components it imports",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts › useMessagingResourceController › initialScope — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts › useMessagingResourceController › read — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts › useMessagingResourceController › setSenders — what the route lost: a layout, a boundary, a Suspense fallback or a client island; check that each state still has its boundary",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts › useMessagingResourceController › setTemplates — what the route lost: a layout, a boundary, a Suspense fallback or a client island; check that each state still has its boundary",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-resource-controller.ts › useMessagingResourceController (component body outside its handlers) — what this component renders: hooks that force a client island, awaited data, Suspense and the client components it imports",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx › NotificationRecoveryContainer › readCatalog — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx › NotificationRecoveryContainer › recover — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx › NotificationRecoveryContainer (component body outside its handlers) — what this component renders: hooks that force a client island, awaited data, Suspense and the client components it imports",
-        "components/academy-admissions/messaging-connection-resources/index.tsx (module directives and side effects) — where the server/client boundary falls (\"use client\", \"use server\") and what the client bundle imports through it",
-        "components/academy-admissions/messaging-connection-resources/index.tsx › MessagingResourceListState — server/client split and awaited work of this code in every route of the unit",
-        "components/academy-admissions/messaging-connection-resources/index.tsx › MessagingResourceReading — server/client split and awaited work of this code in every route of the unit",
-        "components/academy-admissions/messaging-connections-workspace/index.tsx › MessagingConnectionsWorkspace — server/client split and awaited work of this code in every route of the unit",
-        "components/academy-admissions/messaging-connections/index.tsx › MessagingConnections — what the route lost: a layout, a boundary, a Suspense fallback or a client island; check that each state still has its boundary",
-        "components/academy-admissions/messaging-connections/index.tsx › MessagingConnections › focusFirstInvalid — this handler: client leaf, Next.js navigation (Link, Form, router), server action calls and revalidation",
-        "components/academy-admissions/messaging-connections/index.tsx › MessagingConnections (component body outside its handlers) — what this component renders: hooks that force a client island, awaited data, Suspense and the client components it imports",
-        "components/academy-admissions/messaging-notification-recovery/index.tsx › MessagingNotificationRecovery — server/client split and awaited work of this code in every route of the unit",
-        "src/constants/time.ts › TIMER_MAXIMUM_DELAY_MS — server/client split and awaited work of this code in every route of the unit",
-        "src/modules/messaging/constants/messaging-resources-browser.ts › MESSAGING_RESOURCE_UI_COPY.sendersEmpty — what the route lost: a layout, a boundary, a Suspense fallback or a client island; check that each state still has its boundary",
-        "src/modules/messaging/constants/messaging-resources-browser.ts › MESSAGING_RESOURCE_UI_COPY.templatesEmpty — what the route lost: a layout, a boundary, a Suspense fallback or a client island; check that each state still has its boundary"
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts › useMessagingDiagnosticController (component body outside its handlers) — what this component renders: hooks that force a client island, awaited data, Suspense and the client components it imports",
+        "src/modules/messaging/application/commands/messaging-activation-requirements.ts › nextMessagingActivationFreshnessChange — server/client split and awaited work of this code in every route of the unit"
       ]
     },
     "skill": {
@@ -5295,6 +5173,6 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261026T063437Z-2585cf.json"
+    "report": "runs/20261025T192011Z-a6ff64.json"
   }
 }

@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
       "files": {
         "components/subscriptions/tribe-subscription-self-management/index.tsx": "ed77b7c3abed4821",
         "app/api/tribes/[slug]/subscriptions/current/route.ts": "bbfd0641c3d5c6a6",
@@ -58,7 +58,7 @@
         "src/modules/tribes/constants/tribe-member-role.ts": "bcd5a756222224ce",
         "src/modules/tribes/constants/academy-membership.ts": "458dd8dd26c19140",
         "src/modules/tribes/domain/value-objects/academy-membership-eligibility.ts": "55e6d38c698718e0",
-        "src/constants/time.ts": "987c18a571e92d4d",
+        "src/constants/time.ts": "98b5459a77a709b0",
         "src/modules/auth/domain/entities/authenticated-account.ts": "b69eceb452ae2698",
         "src/modules/auth/constants/google-identity-evidence.ts": "ff30d4a1f61f0c65",
         "src/modules/auth/infrastructure/composition/request-account-provider.ts": "4d6cbc6d77e89815",
@@ -1865,28 +1865,18 @@
       },
       "uncommittedFiles": []
     },
-    "evidence": [
-      {
-        "kind": "test",
-        "outcome": "pass",
-        "recordedAt": "2026-10-26T14:46:00.046Z",
-        "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx tests/unit/components/academy-admissions-messaging-resources.test.tsx tests/unit/components/academy-admissions-notification-recovery-container.test.tsx tests/unit/components/academy-admissions-notification-recovery.test.tsx: Tests 107 passed (107) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
-      }
-    ],
-    "limitations": [
-      "El PR no agrega requests: la recuperación acumula páginas que ya se pedían y el reloj del vencimiento usa un único temporizador; no se midió."
-    ],
+    "evidence": [],
+    "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T14:46:01.418Z",
-    "result": "partial",
-    "runId": "20261026T144559Z-4bb5f3",
+    "recordedAt": "2026-10-25T12:42:45.395Z",
+    "result": "not-applicable",
+    "runId": "20261025T124243Z-128dd2",
     "scope": {
       "decision": "not-applicable",
       "reasons": [
         "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
-        "recorded not applicable: Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo."
+        "recorded not applicable: El cambio de boundaries no agrega requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": []
@@ -1906,7 +1896,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "report": "runs/20261026T144559Z-4bb5f3.json"
+    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T124243Z-128dd2.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

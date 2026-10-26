@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "components/academy/academy-management/index.tsx": "30fb9d4e436f90ac",
         "app/(platform)/[slug]/academia/gestionar/page.tsx": "82fbf371849ec9ec",
@@ -222,21 +222,21 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:03:31.593Z",
+        "recordedAt": "2026-10-26T15:40:28.407Z",
         "source": "attested",
         "summary": "pnpm exec vitest run tests/unit/components/academy/academy-verification.test.tsx tests/unit/components/academy/academy-management.test.tsx: Tests 23 passed (23) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:03:32.024Z",
+        "recordedAt": "2026-10-26T15:40:28.835Z",
         "source": "attested",
         "summary": "Ciclo de vida: reabrir y revocar una verificación son server-confirmed; la confirmación del correo solo aparece si el email normalizado cambia en una verificación aprobada; revocar usa un diálogo con motivo, pending, protección de doble envío y error dentro del diálogo, y el toast llega con la confirmación del servidor."
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:03:32.455Z",
+        "recordedAt": "2026-10-26T15:40:29.255Z",
         "source": "attested",
         "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: cambiar el correo de una verificación aprobada pide confirmación, Cancelar no envía y conserva el correo y Cambiar correo envía una vez y la deja En revisión; Revocar abre su diálogo sin enviar y al confirmar hace un solo PATCH (4/4; antes se enviaba sin preguntar y no había diálogo)."
       }
@@ -246,9 +246,9 @@
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:03:33.426Z",
+    "recordedAt": "2026-10-26T15:40:30.230Z",
     "result": "partial",
-    "runId": "20261026T150331Z-ec71cb",
+    "runId": "20261026T154027Z-1cc1a3",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -272,7 +272,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261026T150331Z-ec71cb.json"
+    "report": "runs/20261026T154027Z-1cc1a3.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "components/academy/academy-home/index.tsx": "ba78725db5c7cd26",
         "app/(platform)/[slug]/academia/page.tsx": "a4c7427e95123588",
@@ -5507,32 +5507,119 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:05:54.491Z",
+        "recordedAt": "2026-10-26T15:34:11.041Z",
         "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx: Tests 24 passed (24) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+        "summary": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx tests/unit/pages/tribe-story-page.test.tsx tests/unit/components/tribe-story-about.test.tsx tests/unit/lib/academy/academy-api-client.test.ts: Tests 47 passed (47) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:05:54.926Z",
+        "recordedAt": "2026-10-26T15:34:11.467Z",
         "source": "attested",
-        "summary": "Ciclo de vida: cancelar una renovación pending es server-confirmed, reusa el diálogo, la protección de doble envío y el error por acción, y su copy no promete que no se cobra un pago ya hecho."
+        "summary": "Ciclo de vida: contratar y cancelar son server-confirmed y la confirmación del pago es pending-first, terminada solo por una relectura confirmada; cada acción tiene su propio error junto a su control y se limpia al reintentar; el checkout queda bloqueado mientras se abre el proveedor y se libera al restaurar la página; la server action del ingreso gratis devuelve forbidden o failed y registra el error inesperado."
       }
     ],
     "limitations": [
-      "Solo se revisó la cancelación de una renovación pending que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados y mutaciones de la página de academia y del ingreso gratis que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:05:57.619Z",
+    "recordedAt": "2026-10-26T15:34:13.475Z",
     "result": "partial",
-    "runId": "20261026T150554Z-76fa6d",
+    "runId": "20261026T153410Z-55ee7a",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "components/academy/academy-home/index.tsx#AcademyHome/handleJoin",
+          "reason": "action handler changed"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-home/index.tsx#AcademyHome/runAction",
+          "reason": "action handler changed"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#AcademyHome/setActionError",
+          "reason": "new action handler"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-home/index.tsx#AcademyHome~shell",
+          "reason": "component state or render changed"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#AcademyHomeAction",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#ActionErrors",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#CANCEL_DIALOG_COPY~frame",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#CancelableRenewalStatus",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#isCancelableRenewal",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#isPaymentInProgress",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.cancel",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.checkout",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.join",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.refresh",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS~frame",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#PAGE_SHOW_EVENT",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-home/index.tsx#PendingAction",
+          "reason": "code reached by the unit changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.home.join: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -5550,7 +5637,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261026T150554Z-76fa6d.json"
+    "report": "runs/20261026T153410Z-55ee7a.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

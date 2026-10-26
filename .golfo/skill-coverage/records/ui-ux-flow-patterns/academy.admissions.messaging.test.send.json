@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "branch": "perf/academy-messaging-idle-timers",
+      "commit": "cb946c56edfad1cff4bebc3575dbc0d1fd1bb065",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts": "ac108ef7daec8f51",
         "app/api/tribes/[slug]/messaging/connections/[connectionId]/diagnostics/route.ts": "2be99d8cf8511d89",
@@ -23,8 +23,8 @@
         "src/modules/messaging/application/commands/messaging-diagnostic-draft.ts": "f76a9730fd4db503",
         "src/modules/messaging/application/results/messaging-flow-result-schemas.ts": "a994709cbdac8618",
         "src/modules/messaging/constants/connection-diagnostic.ts": "060331e28aefe862",
-        "src/modules/messaging/constants/messaging-diagnostic-browser.ts": "dc9ecb8bff01ab74",
-        "src/constants/time.ts": "987c18a571e92d4d",
+        "src/modules/messaging/constants/messaging-diagnostic-browser.ts": "ed8ca8f52e2b7e72",
+        "src/constants/time.ts": "98b5459a77a709b0",
         "src/modules/academy-admissions/constants/verification-issuance.ts": "05c4beb516c6c286",
         "src/modules/messaging/application/commands/messaging-connections-next-action.ts": "630cec3c60b015d4",
         "src/modules/messaging/infrastructure/api/messaging-diagnostic-handlers.ts": "3b6af6820ac82999",
@@ -914,41 +914,52 @@
     },
     "evidence": [
       {
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx [redacted]-activation-requirements.test.ts",
+        "durationMs": 224200,
+        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:10:31.209Z",
-        "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-diagnostic-history.test.tsx [redacted]-connections-intent-store.test.ts: Tests 91 passed (91) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+        "outputSha256": "7cf0604a1e94db5d6ab8a87c4d0be94b8c2226274ae21d390e2f710c47ef1088",
+        "recordedAt": "2026-10-25T19:31:52.405Z",
+        "source": "witnessed",
+        "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:10:31.631Z",
+        "recordedAt": "2026-10-25T19:31:53.858Z",
         "source": "attested",
-        "summary": "Estados: una prueba o verificación incierta solo se archiva con la ausencia del original confirmada durante 10 minutos y se vuelve a leer antes de archivar; started sigue bloqueando; vaciar el historial lleno pide confirmación, conserva la última y no cancela ni reenvía nada."
+        "summary": "Ciclo de vida: la activación espera con un único timeout el momento en que una prueba de canal cambia de vigencia, y el diagnóstico solo corre su intervalo mientras queda un vencimiento o un reenvío por delante, con un primer tick inmediato; las cuentas regresivas y la elegibilidad muestran lo mismo que antes."
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:10:32.057Z",
+        "recordedAt": "2026-10-25T19:31:55.361Z",
         "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: una prueba incierta pedida hace 2 minutos sigue bloqueada con su aviso, una con el original ausente hace 15 minutos se conserva en el historial y libera la página, y con 20 pruebas Vaciar pruebas anteriores pide confirmación y deja solo la última (4/4; antes no había ninguna salida)."
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: la página de Conexión carga igual y en reposo pasa de 10-11 a 0-1 commits de React cada 10 s (4/4)."
       }
     ],
     "limitations": [
-      "Solo se revisó la recuperación de pruebas inciertas y el historial lleno que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los relojes de Conexión que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:10:33.556Z",
+    "recordedAt": "2026-10-25T19:31:59.434Z",
     "result": "partial",
-    "runId": "20261026T151030Z-8c2951",
+    "runId": "20261025T192806Z-e6a1fb",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-diagnostic-controller.ts#useMessagingDiagnosticController~shell",
+          "reason": "visible or interactive code changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.admissions.messaging.test.send: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
       ]
@@ -966,7 +977,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261026T151030Z-8c2951.json"
+    "report": "runs/20261025T192806Z-e6a1fb.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
         "components/subscriptions/tribe-subscription-price-management/index.tsx": "ff966cd7bd6df19c",
         "app/(platform)/[slug]/precios/page.tsx": "7db5efde2d74d3af",
@@ -181,7 +181,7 @@
         "src/modules/messaging/infrastructure/config/messaging-security-config.ts": "292dd0c72e179540",
         "src/modules/tribes/domain/repositories/academy-approved-membership-writer.ts": "58591a63c7e78ac6",
         "src/modules/tribes/constants/tribe-page-access.ts": "18091d5392ed8b45",
-        "src/modules/tribes/constants/tribe-story.ts": "95b0fb552f1928b0",
+        "src/modules/tribes/constants/tribe-story.ts": "56fbe141834e760e",
         "src/modules/tribes/constants/tribe-member-role.ts": "bcd5a756222224ce",
         "src/modules/tribes/application/results/member-tribe-list-item-result.ts": "5e52a6283e6f4bbb",
         "src/modules/tribes/domain/entities/tribe.ts": "897de135c451521b",
@@ -246,7 +246,7 @@
         "src/modules/academy-admissions/application/results/admission-batch-decision-result.ts": "e7b6140dec98efd9",
         "src/modules/academy-admissions/application/results/admission-activity-result.ts": "9a90cb2e8735c2a9",
         "src/modules/academy-admissions/application/results/admission-metrics-result.ts": "08620a4f1a506f0f",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "7e28bd61704eb630",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "d0af64144b8cacf3",
         "src/modules/academy-admissions/constants/admission-activity.ts": "a6c5519798822d7b",
         "src/modules/academy-admissions/constants/admission-activity-page-schemas.ts": "7522ac9ef5450726",
         "src/modules/tribes/constants/academy-membership.ts": "458dd8dd26c19140",
@@ -418,7 +418,7 @@
         "src/modules/auth/infrastructure/better-auth/better-auth-logger.ts": "050b2723a52c8565",
         "src/modules/messaging/domain/value-objects/messaging-key-purpose.ts": "3cb73fd082b826f2",
         "src/modules/subscriptions/domain/services/monthly-billing-cycle.ts": "1e253b01e98f41b8",
-        "src/constants/time.ts": "987c18a571e92d4d",
+        "src/constants/time.ts": "98b5459a77a709b0",
         "src/modules/auth/application/results/authenticated-member-result.ts": "821affd1573bd802",
         "src/modules/tribes/constants/create-tribe.ts": "3714923187e7d491",
         "src/modules/messaging/domain/errors/messaging-error-code.ts": "347a9bbe72af0c8b",
@@ -5759,27 +5759,17 @@
       },
       "uncommittedFiles": []
     },
-    "evidence": [
-      {
-        "kind": "test",
-        "outcome": "pass",
-        "recordedAt": "2026-10-26T14:59:31.279Z",
-        "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx: Tests 122 passed (122) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
-      }
-    ],
-    "limitations": [
-      "El PR no agrega requests: Ver más ya pedía la página siguiente y la relectura de actividad no se suma a otra en curso; no se midió."
-    ],
+    "evidence": [],
+    "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T14:59:33.428Z",
-    "result": "partial",
-    "runId": "20261026T145930Z-7f74d6",
+    "recordedAt": "2026-10-25T05:32:15.943Z",
+    "result": "not-applicable",
+    "runId": "20261025T053212Z-722560",
     "scope": {
       "decision": "full",
       "reasons": [
-        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+        "no previous coverage: the whole unit is analyzed"
       ],
       "relevantChangesAtBegin": [],
       "suggestedScope": [
@@ -5801,7 +5791,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "report": "runs/20261026T145930Z-7f74d6.json"
+    "summary": "El cambio de boundaries no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T053212Z-722560.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

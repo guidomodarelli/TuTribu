@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "branch": "fix/academy-leader-recovery-exits",
+      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
       "files": {
         "app/(admission)/admissions/invitations/[token]/personal-invitation-container.tsx": "a456bf4f01d5e9ae",
         "hooks/use-personal-invitation.ts": "85c13c71c9b0b188",
@@ -141,14 +141,14 @@
         "src/modules/messaging/domain/repositories/messaging-repositories.ts": "294df4f38b9230a6",
         "src/modules/shared/infrastructure/database/postgres-pool.ts": "25ae1f2dc4f0ad51",
         "src/modules/shared/infrastructure/database/server-environment.ts": "cb00db6eec131df8",
-        "src/modules/academy-admissions/constants/admission-ui.ts": "c0ed62cb0dafbbf7",
+        "src/modules/academy-admissions/constants/admission-ui.ts": "a57d7d4286770b34",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "src/modules/academy-admissions/constants/admission-whatsapp-number.ts": "521a60307c6b8fca",
         "src/modules/academy-admissions/application/commands/admission-whatsapp-number-draft.ts": "597b4b4aa5c674db",
         "src/modules/academy-admissions/constants/admission-limits.ts": "2d7d087ec36ae67b",
         "src/modules/messaging/constants/messaging-connection-presentation.ts": "76f07b7016bbdfe0",
-        "src/modules/messaging/constants/messaging-diagnostic-browser.ts": "dc9ecb8bff01ab74",
-        "src/constants/time.ts": "987c18a571e92d4d",
+        "src/modules/messaging/constants/messaging-diagnostic-browser.ts": "ed8ca8f52e2b7e72",
+        "src/constants/time.ts": "98b5459a77a709b0",
         "src/modules/academy-admissions/domain/repositories/admission-contact-verification.ts": "09431249162ed73d",
         "src/modules/academy-admissions/domain/repositories/admission-current-challenge-reader.ts": "9487b018731561e4",
         "src/modules/academy-admissions/domain/entities/admission-operation.ts": "3cefd00867036cfe",
@@ -194,7 +194,7 @@
         "src/modules/academy-admissions/application/results/admission-batch-decision-result.ts": "e7b6140dec98efd9",
         "src/modules/academy-admissions/application/results/admission-activity-result.ts": "9a90cb2e8735c2a9",
         "src/modules/academy-admissions/application/results/admission-metrics-result.ts": "08620a4f1a506f0f",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "7e28bd61704eb630",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "d0af64144b8cacf3",
         "src/modules/academy-admissions/constants/admission-activity.ts": "a6c5519798822d7b",
         "src/modules/academy-admissions/constants/admission-activity-page-schemas.ts": "7522ac9ef5450726",
         "src/modules/tribes/constants/academy-membership.ts": "458dd8dd26c19140",
@@ -267,7 +267,7 @@
         "src/modules/academy-admissions/domain/repositories/admission-retry-writer.ts": "c801dc18ec663a3f",
         "src/modules/academy-admissions/domain/repositories/admission-whatsapp-number-writer.ts": "25a448bd954a5e32",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-submission-proof-reader.ts": "931f9ad7a5aa7eac",
-        "src/modules/tribes/constants/tribe-story.ts": "95b0fb552f1928b0",
+        "src/modules/tribes/constants/tribe-story.ts": "56fbe141834e760e",
         "src/modules/academy-admissions/constants/admission-batch-decision-schema.ts": "21d31f0bdcf55085",
         "src/modules/academy-admissions/constants/admission-command-denial-schema.ts": "7da544dec6ac92b3",
         "src/modules/academy-admissions/infrastructure/repositories/assert-unreserved-admission-contact.ts": "dab62a6379fe508d",
@@ -413,7 +413,7 @@
         "src/modules/auth/infrastructure/better-auth/provider-account-errors.ts": "f81d9b9a6f9ebf84",
         "src/modules/shared/constants/private-http.ts": "d0c330157a6a4fec",
         "src/modules/shared/infrastructure/observability/request-context.ts": "298449d5b583123d",
-        "src/modules/academy-admissions/constants/legacy-admission-arrival.ts": "896653d2d29a8cde",
+        "src/modules/academy-admissions/constants/legacy-admission-arrival.ts": "3b70a5d41f0d9afe",
         "src/modules/messaging/application/results/messaging-errors.ts": "b595f26ba1b1f309",
         "src/modules/notifications/constants/admission-notification-settings-http.ts": "37af4ac78d810579",
         "src/modules/shared/infrastructure/observability/error-cause-summary.ts": "05b7b58e66a26dde",
@@ -4572,34 +4572,45 @@
     },
     "evidence": [
       {
+        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
+        "durationMs": 119658,
+        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:07:30.326Z",
-        "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-diagnostic-history.test.tsx [redacted]-connections-intent-store.test.ts: Tests 91 passed (91) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+        "outputSha256": "ab3bba3b17bd628d6b1d9b68007969a11f57ecced1b0243393be541d906acb5e",
+        "recordedAt": "2026-10-25T15:29:02.941Z",
+        "source": "witnessed",
+        "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:07:30.790Z",
+        "recordedAt": "2026-10-25T15:29:03.386Z",
         "source": "attested",
-        "summary": "Estados: una prueba o verificación incierta solo se archiva con la ausencia del original confirmada durante 10 minutos y se vuelve a leer antes de archivar; started sigue bloqueando; vaciar el historial lleno pide confirmación, conserva la última y no cancela ni reenvía nada."
+        "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
       }
     ],
     "limitations": [
-      "Solo se revisó la recuperación de pruebas inciertas y el historial lleno que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados de recuperación que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:07:32.780Z",
+    "recordedAt": "2026-10-25T15:29:05.405Z",
     "result": "partial",
-    "runId": "20261026T150729Z-588eb4",
+    "runId": "20261025T152702Z-b2540e",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
+          "reason": "code reached by the unit changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.admissions.applicant.invitation.accept: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -4617,7 +4628,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261026T150729Z-588eb4.json"
+    "report": "runs/20261025T152702Z-b2540e.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

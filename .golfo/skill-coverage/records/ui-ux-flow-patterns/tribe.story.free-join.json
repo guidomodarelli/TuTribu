@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "app/(platform)/[slug]/historia/page.tsx": "01e693bd30248791",
         "components/tribes/tribe-story-about/free-join-submit-button/index.tsx": "2cb4bd71406768d8",
@@ -1362,39 +1362,126 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:00:26.780Z",
+        "recordedAt": "2026-10-26T15:34:48.393Z",
         "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx: Tests 122 passed (122) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+        "summary": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx tests/unit/pages/tribe-story-page.test.tsx tests/unit/components/tribe-story-about.test.tsx tests/unit/lib/academy/academy-api-client.test.ts: Tests 47 passed (47) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:00:27.206Z",
+        "recordedAt": "2026-10-26T15:34:48.808Z",
         "source": "attested",
-        "summary": "Estados: Ver más acumula sin duplicados y su carga y error quedan junto al botón; las relecturas y filtros conservan lo mostrado con aria-busy y descartan respuestas viejas; la bandeja y el historial muestran los datos del servidor al hidratar y habilitan las acciones tras el chequeo de cuenta; la importación selecciona todas las válidas sin cambiar el contrato; el doble montaje de desarrollo ya no se toma como restauración."
+        "summary": "Ciclo de vida: contratar y cancelar son server-confirmed y la confirmación del pago es pending-first, terminada solo por una relectura confirmada; cada acción tiene su propio error junto a su control y se limpia al reintentar; el checkout queda bloqueado mientras se abre el proveedor y se libera al restaurar la página; la server action del ingreso gratis devuelve forbidden o failed y registra el error inesperado."
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:00:27.645Z",
+        "recordedAt": "2026-10-26T15:34:49.219Z",
         "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Ver más entradas suma 25 a 27 sin duplicados con aria-busy; la importación elige las 55 válidas de 60 filas; la actividad no se oculta al releer ni al filtrar y suma el hecho anterior; la bandeja muestra la solicitud una sola vez al hidratar y el historial carga en next dev (4/4; antes Ver más dejaba 2, no había selección total, la actividad se vaciaba y la bandeja pasaba por vacía)."
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: mientras se confirma el pago no se ofrece Contratar academia y vuelve cuando no hay pago; throttled y la relectura fallida se informan junto a Actualizar estado; el error de cancelar queda solo en el diálogo y se limpia al reabrirlo; el rechazo del ingreso gratis desde la historia muestra su motivo (4/4; antes, los cuatro casos fallaban)."
       }
     ],
     "limitations": [
-      "Solo se revisaron las listas del líder que cambia este PR; el resto de cada unidad queda para su propia auditoría."
+      "Solo se revisaron los estados y mutaciones de la página de academia y del ingreso gratis que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:00:29.076Z",
+    "recordedAt": "2026-10-26T15:34:50.656Z",
     "result": "partial",
-    "runId": "20261026T150026Z-cfa813",
+    "runId": "20261026T153447Z-d88ca7",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/historia/page.tsx#joinTribeFreeAction",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/historia/page.tsx#TRIBE_STORY_PAGE.freeJoinFailureMessage",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/historia/page.tsx#TRIBE_STORY_PAGE.freeJoinOperation",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/historia/page.tsx#TRIBE_STORY_PAGE.logFeature",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/historia/page.tsx#TRIBE_STORY_PAGE~frame",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/request-context.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/request-context.ts#buildRequestId",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/request-context.ts#readFirstHeaderValue",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/request-context.ts#REQUEST_ID_HEADER",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/request-context.ts#RequestContext",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/request-context.ts#resolveRequestContext",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/request-context.ts#TRACE_ID_HEADER",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_FORM_STATUS.failed",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_FORM_STATUS.forbidden",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/tribes/constants/tribe-story.ts#TRIBE_FREE_JOIN_FORM_STATUS~frame",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/tribes/constants/tribe-story.ts#TribeFreeJoinFormState",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/tribes/constants/tribe-story.ts#TribeFreeJoinFormStatus",
+          "reason": "new visible or interactive code"
+        }
+      ],
       "suggestedScope": [
         "whole unit tribe.story.free-join: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
       ]
@@ -1412,7 +1499,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261026T150026Z-cfa813.json"
+    "report": "runs/20261026T153447Z-d88ca7.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

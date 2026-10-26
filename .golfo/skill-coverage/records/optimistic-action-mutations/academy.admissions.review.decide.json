@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx": "c1fed6d0160c63d3",
         "hooks/use-admission-review-batch-selection.ts": "daf741308d49c7a7",
@@ -4093,14 +4093,14 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T14:57:37.896Z",
+        "recordedAt": "2026-10-26T15:39:28.083Z",
         "source": "attested",
         "summary": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx: Tests 122 passed (122) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T14:57:38.335Z",
+        "recordedAt": "2026-10-26T15:39:28.511Z",
         "source": "attested",
         "summary": "Estados: Ver más acumula sin duplicados y su carga y error quedan junto al botón; las relecturas y filtros conservan lo mostrado con aria-busy y descartan respuestas viejas; la bandeja y el historial muestran los datos del servidor al hidratar y habilitan las acciones tras el chequeo de cuenta; la importación selecciona todas las válidas sin cambiar el contrato; el doble montaje de desarrollo ya no se toma como restauración."
       }
@@ -4110,15 +4110,22 @@
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T14:57:40.203Z",
+    "recordedAt": "2026-10-26T15:39:30.327Z",
     "result": "partial",
-    "runId": "20261026T145737Z-b85fa3",
+    "runId": "20261026T153927Z-79406b",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer~shell",
+          "reason": "component state or render changed"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.admissions.review.decide: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -4136,7 +4143,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261026T145737Z-b85fa3.json"
+    "report": "runs/20261026T153927Z-79406b.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

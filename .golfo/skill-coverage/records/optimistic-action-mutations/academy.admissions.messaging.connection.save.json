@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "303d49cd94416023",
         "app/api/tribes/[slug]/messaging/connections/route.ts": "78b3317283264385",
@@ -6196,14 +6196,14 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:09:32.589Z",
+        "recordedAt": "2026-10-26T15:41:54.277Z",
         "source": "attested",
         "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-diagnostic-history.test.tsx [redacted]-connections-intent-store.test.ts: Tests 91 passed (91) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:09:33.034Z",
+        "recordedAt": "2026-10-26T15:41:54.695Z",
         "source": "attested",
         "summary": "Estados: una prueba o verificación incierta solo se archiva con la ausencia del original confirmada durante 10 minutos y se vuelve a leer antes de archivar; started sigue bloqueando; vaciar el historial lleno pide confirmación, conserva la última y no cancela ni reenvía nada."
       }
@@ -6213,9 +6213,9 @@
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:09:35.453Z",
+    "recordedAt": "2026-10-26T15:41:57.566Z",
     "result": "partial",
-    "runId": "20261026T150932Z-d4df4a",
+    "runId": "20261026T154153Z-c55cf9",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -6239,7 +6239,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261026T150932Z-d4df4a.json"
+    "report": "runs/20261026T154153Z-c55cf9.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

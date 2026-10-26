@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
         "components/academy/academy-activation/index.tsx": "b61bab2bd9b2d741",
         "app/(platform)/[slug]/ajustes/page.tsx": "a8819f486d75eefd",
@@ -15,8 +15,8 @@
         "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts": "65c276a71c59ef25",
         "src/modules/product-access/infrastructure/repositories/academy-access-sql.ts": "eba86e37e91970d9",
         "src/modules/subscriptions/infrastructure/repositories/postgres-academy-subscription-repository.ts": "f627f9da8ad78a3d",
-        "lib/academy/academy-api-client.ts": "3e35ac9504a0812c",
-        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "6cf3cca717bd71e3",
+        "lib/academy/academy-api-client.ts": "298112080df602fd",
+        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "225eef5ce922c395",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
         "components/academy/academy-activation/styles.module.scss": "d0634bc1debe9a3c",
@@ -439,38 +439,36 @@
     },
     "evidence": [
       {
+        "command": "pnpm exec vitest run tests/unit/pages/error-page.test.tsx tests/unit/components/academy-admissions.test.tsx tests/unit/pages/tribe-channels-page.test.tsx tests/unit/pages/tribe-slug-page.test.tsx",
+        "durationMs": 28368,
+        "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T14:28:03.846Z",
-        "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx tests/unit/components/academy-admissions-messaging-resources.test.tsx tests/unit/components/academy-admissions-notification-recovery-container.test.tsx tests/unit/components/academy-admissions-notification-recovery.test.tsx: Tests 107 passed (107) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+        "outputSha256": "3ad92f1909794a36c0c2e6d1d1a4fc5c0a7f812fb1dd9044f2e9a52c949004c6",
+        "recordedAt": "2026-10-25T03:52:23.652Z",
+        "source": "witnessed",
+        "summary": "exit code 0"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T14:28:04.330Z",
+        "recordedAt": "2026-10-25T03:52:24.095Z",
         "source": "attested",
-        "summary": "Estados: el guardado valida al presionar y muestra qué falta junto a cada campo; las consultas de remitentes y plantillas muestran su carga, evitan la doble consulta y dejan el vacío y el error junto al select; Ver avisos anteriores acumula sin duplicados y una recuperación vencida se muestra como no disponible; solo un conflicto real marca la conexión como cambiada, también en la relectura tras una comprobación rechazada."
-      },
-      {
-        "kind": "browser",
-        "outcome": "pass",
-        "recordedAt": "2026-10-26T14:28:04.767Z",
-        "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Guardar conexión marca cada campo que falta y lleva el foco al primero, y una lectura fallida de la conexión actual ofrece Reintentar consulta sin el banner de conexión cambiada (4/4; antes el botón estaba deshabilitado sin explicación y la lectura fallida mostraba el banner). Remitentes, plantillas y recuperación de avisos necesitan una conexión de Zavu real y quedaron verificados con tests."
+        "summary": "Boundaries: «Reintentar» usa el retry de App Router, que vuelve a pedir el segmento; una falla al cargar llega al boundary de app/(platform) dentro del shell en lugar de un 404; las páginas debajo del shell no anidan otro <main>; la entrada y la solicitud propia de admisión no se indexan ni envían referrer."
       }
     ],
     "limitations": [
-      "Remitentes, plantillas y recuperación de avisos no se recorrieron en el navegador: necesitan una conexión de Zavu con credencial válida o activa, que la rama efímera no tiene."
+      "Solo se revisaron los boundaries, el reintento y la metadata que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T14:28:05.802Z",
+    "recordedAt": "2026-10-25T03:52:25.263Z",
     "result": "partial",
-    "runId": "20261026T142803Z-17d932",
+    "runId": "20261025T035154Z-9ffd82",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
       "relevantChangesAtBegin": [],
@@ -491,7 +489,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261026T142803Z-17d932.json"
+    "report": "runs/20261025T035154Z-9ffd82.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

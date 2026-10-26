@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "components/academy/academy-home/index.tsx": "ba78725db5c7cd26",
         "app/(platform)/[slug]/academia/page.tsx": "a4c7427e95123588",
@@ -1087,39 +1087,206 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:04:46.872Z",
+        "recordedAt": "2026-10-26T15:33:03.295Z",
         "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx: Tests 24 passed (24) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+        "summary": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx tests/unit/pages/tribe-story-page.test.tsx tests/unit/components/tribe-story-about.test.tsx tests/unit/lib/academy/academy-api-client.test.ts: Tests 47 passed (47) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:04:47.307Z",
+        "recordedAt": "2026-10-26T15:33:03.705Z",
         "source": "attested",
-        "summary": "Ciclo de vida: cancelar una renovación pending es server-confirmed, reusa el diálogo, la protección de doble envío y el error por acción, y su copy no promete que no se cobra un pago ya hecho."
+        "summary": "Ciclo de vida: contratar y cancelar son server-confirmed y la confirmación del pago es pending-first, terminada solo por una relectura confirmada; cada acción tiene su propio error junto a su control y se limpia al reintentar; el checkout queda bloqueado mientras se abre el proveedor y se libera al restaurar la página; la server action del ingreso gratis devuelve forbidden o failed y registra el error inesperado."
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:04:47.796Z",
+        "recordedAt": "2026-10-26T15:33:04.153Z",
         "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: con la renovación pending aparece Cancelar renovación, un 503 queda dentro del diálogo, el reintento envía un solo DELETE y el resultado aparece con la confirmación del servidor (4/4; antes el botón no se ofrecía)."
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: mientras se confirma el pago no se ofrece Contratar academia y vuelve cuando no hay pago; throttled y la relectura fallida se informan junto a Actualizar estado; el error de cancelar queda solo en el diálogo y se limpia al reabrirlo; el rechazo del ingreso gratis desde la historia muestra su motivo (4/4; antes, los cuatro casos fallaban)."
       }
     ],
     "limitations": [
-      "Solo se revisó la cancelación de una renovación pending que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados y mutaciones de la página de academia y del ingreso gratis que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:04:49.208Z",
+    "recordedAt": "2026-10-26T15:33:05.348Z",
     "result": "partial",
-    "runId": "20261026T150446Z-ecda93",
+    "runId": "20261026T153302Z-004880",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelPendingSubscriptionDialogDescription",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.cancelPendingSubscriptionDialogTitle",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.paymentNotFound",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.paymentStillPending",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.refreshDone",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.refreshReadFailed",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#ACADEMY_HOME_COPY.refreshThrottled",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-home/index.tsx#AcademyHome/handleRefresh",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-home/index.tsx#AcademyHome/runAction",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#AcademyHome/setActionError",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-home/index.tsx#AcademyHome~shell",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#AcademyHomeAction",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#ActionErrors",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#CANCEL_DIALOG_COPY.active",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#CANCEL_DIALOG_COPY.pending",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#CANCEL_DIALOG_COPY~frame",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#CancelableRenewalStatus",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#describeRefreshOutcome",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#isCancelableRenewal",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#isPaymentInProgress",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.cancel",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.checkout",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.join",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS.refresh",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#NO_ACTION_ERRORS~frame",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#PAGE_SHOW_EVENT",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-home/index.tsx#PendingAction",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "components/academy/academy-home/index.tsx#RECONCILE_THROTTLED_STATUS",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy/academy-home/styles.module.scss#*",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "removed",
+          "key": "lib/academy/academy-api-client.ts#MessageBody",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "modified",
+          "key": "lib/academy/academy-api-client.ts#reconcileAcademyCoverage",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/product-access/application/results/academy-public-dto-schemas.ts#AcademyReconcileDto",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/product-access/application/results/academy-public-dto-schemas.ts#academyReconcileDtoSchema",
+          "reason": "new visible or interactive code"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.home.access-refresh: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
       ]
@@ -1137,7 +1304,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261026T150446Z-ecda93.json"
+    "report": "runs/20261026T153302Z-004880.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

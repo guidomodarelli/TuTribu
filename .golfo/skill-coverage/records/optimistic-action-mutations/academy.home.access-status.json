@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "app/(platform)/[slug]/academia/page.tsx": "a4c7427e95123588",
         "app/(platform)/[slug]/academia/loading.tsx": "b861ca7d027d3bc0",
@@ -5261,14 +5261,14 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:05:12.382Z",
+        "recordedAt": "2026-10-26T15:41:26.421Z",
         "source": "attested",
         "summary": "pnpm exec vitest run tests/unit/components/academy/academy-home.test.tsx: Tests 24 passed (24) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:05:12.814Z",
+        "recordedAt": "2026-10-26T15:41:26.840Z",
         "source": "attested",
         "summary": "Ciclo de vida: cancelar una renovación pending es server-confirmed, reusa el diálogo, la protección de doble envío y el error por acción, y su copy no promete que no se cobra un pago ya hecho."
       }
@@ -5278,9 +5278,9 @@
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:05:14.972Z",
+    "recordedAt": "2026-10-26T15:41:28.839Z",
     "result": "partial",
-    "runId": "20261026T150511Z-1d6c99",
+    "runId": "20261026T154125Z-7024de",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -5304,7 +5304,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261026T150511Z-1d6c99.json"
+    "report": "runs/20261026T154125Z-7024de.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

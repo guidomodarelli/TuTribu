@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "303d49cd94416023",
         "app/api/tribes/[slug]/messaging/connections/route.ts": "78b3317283264385",
@@ -3657,28 +3657,28 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:09:39.264Z",
+        "recordedAt": "2026-10-26T15:42:01.334Z",
         "source": "attested",
         "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-diagnostic-history.test.tsx [redacted]-connections-intent-store.test.ts: Tests 91 passed (91) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "command",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:09:39.717Z",
+        "recordedAt": "2026-10-26T15:42:01.767Z",
         "source": "attested",
         "summary": "pnpm run -s typecheck: sin errores sobre el código mergeado"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:09:40.154Z",
+        "recordedAt": "2026-10-26T15:42:02.187Z",
         "source": "attested",
         "summary": "Estados: una prueba o verificación incierta solo se archiva con la ausencia del original confirmada durante 10 minutos y se vuelve a leer antes de archivar; started sigue bloqueando; vaciar el historial lleno pide confirmación, conserva la última y no cancela ni reenvía nada."
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:09:40.595Z",
+        "recordedAt": "2026-10-26T15:42:02.604Z",
         "source": "attested",
         "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: una prueba incierta pedida hace 2 minutos sigue bloqueada con su aviso, una con el original ausente hace 15 minutos se conserva en el historial y libera la página, y con 20 pruebas Vaciar pruebas anteriores pide confirmación y deja solo la última (4/4; antes no había ninguna salida)."
       }
@@ -3688,9 +3688,9 @@
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:09:42.556Z",
+    "recordedAt": "2026-10-26T15:42:04.587Z",
     "result": "partial",
-    "runId": "20261026T150938Z-7766d7",
+    "runId": "20261026T154200Z-7c114d",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -3714,7 +3714,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261026T150938Z-7766d7.json"
+    "report": "runs/20261026T154200Z-7c114d.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

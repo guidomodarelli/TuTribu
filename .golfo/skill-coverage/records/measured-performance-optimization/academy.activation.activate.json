@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "branch": "fix/academy-route-boundaries",
+      "commit": "04d180795c8908547d6ab20c0b97fc003c9fcd63",
       "files": {
         "components/academy/academy-activation/index.tsx": "b61bab2bd9b2d741",
         "app/(platform)/[slug]/ajustes/page.tsx": "a8819f486d75eefd",
@@ -15,8 +15,8 @@
         "src/modules/member-verifications/infrastructure/repositories/postgres-member-verification-repository.ts": "65c276a71c59ef25",
         "src/modules/product-access/infrastructure/repositories/academy-access-sql.ts": "eba86e37e91970d9",
         "src/modules/subscriptions/infrastructure/repositories/postgres-academy-subscription-repository.ts": "f627f9da8ad78a3d",
-        "lib/academy/academy-api-client.ts": "3e35ac9504a0812c",
-        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "6cf3cca717bd71e3",
+        "lib/academy/academy-api-client.ts": "298112080df602fd",
+        "src/modules/product-access/application/results/academy-public-dto-schemas.ts": "225eef5ce922c395",
         "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
         "src/modules/product-access/infrastructure/api/academy-route-http.ts": "102e81af136adc5a",
@@ -47,7 +47,7 @@
         "src/modules/product-access/domain/services/academy-access-status.ts": "a29877b6da702662",
         "src/modules/product-access/domain/services/academy-access-policy.ts": "d04a7ffb4ed6f2da",
         "src/modules/subscriptions/domain/services/monthly-billing-cycle.ts": "1e253b01e98f41b8",
-        "src/constants/time.ts": "987c18a571e92d4d"
+        "src/constants/time.ts": "98b5459a77a709b0"
       },
       "fingerprint": "sha256:60eae63bfc2d8ca05b78016ad911946fcb15d863b855c79decaf467852f228aa",
       "inputs": {
@@ -667,32 +667,21 @@
       },
       "uncommittedFiles": []
     },
-    "evidence": [
-      {
-        "kind": "test",
-        "outcome": "pass",
-        "recordedAt": "2026-10-26T14:28:16.431Z",
-        "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx tests/unit/components/academy-admissions-messaging-resources.test.tsx tests/unit/components/academy-admissions-notification-recovery-container.test.tsx tests/unit/components/academy-admissions-notification-recovery.test.tsx: Tests 107 passed (107) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
-      }
-    ],
-    "limitations": [
-      "El PR no agrega requests: la recuperación acumula páginas que ya se pedían y el reloj del vencimiento usa un único temporizador; no se midió."
-    ],
+    "evidence": [],
+    "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T14:28:17.498Z",
-    "result": "partial",
-    "runId": "20261026T142815Z-da87fa",
+    "recordedAt": "2026-10-25T03:53:31.647Z",
+    "result": "not-applicable",
+    "runId": "20261025T035330Z-4c4139",
     "scope": {
-      "decision": "full",
+      "decision": "not-applicable",
       "reasons": [
-        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "recorded not applicable: El deadline no agrega requests, consultas ni pasos al flujo: solo un timer por request ya existente."
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": [
-        "measure the complete flow /[slug]/ajustes before and after, same build, data and throttling; median of 3 for noisy metrics"
-      ]
+      "suggestedScope": []
     },
     "skill": {
       "definitionFiles": {
@@ -709,7 +698,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "report": "runs/20261026T142815Z-da87fa.json"
+    "summary": "El cambio de boundaries no agrega requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T035330Z-4c4139.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

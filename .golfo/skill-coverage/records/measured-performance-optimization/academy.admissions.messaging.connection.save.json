@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container.tsx": "303d49cd94416023",
         "app/api/tribes/[slug]/messaging/connections/route.ts": "78b3317283264385",
@@ -6196,7 +6196,7 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:09:47.191Z",
+        "recordedAt": "2026-10-26T15:42:09.177Z",
         "source": "attested",
         "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-diagnostic-history.test.tsx [redacted]-connections-intent-store.test.ts: Tests 91 passed (91) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       }
@@ -6206,9 +6206,9 @@
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:09:49.525Z",
+    "recordedAt": "2026-10-26T15:42:11.454Z",
     "result": "partial",
-    "runId": "20261026T150946Z-ca3016",
+    "runId": "20261026T154208Z-3c929c",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -6234,7 +6234,7 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "report": "runs/20261026T150946Z-ca3016.json"
+    "report": "runs/20261026T154208Z-3c929c.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

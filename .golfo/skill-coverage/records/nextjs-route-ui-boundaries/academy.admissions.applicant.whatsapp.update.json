@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "app/(admission)/admissions/[slug]/admission-container.tsx": "a46591b86832278a",
         "app/api/tribes/[slug]/admissions/requests/[requestId]/whatsapp/route.ts": "6f148fddb56eeab6",
@@ -2504,46 +2504,148 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:09:12.947Z",
+        "recordedAt": "2026-10-26T15:32:49.670Z",
         "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-diagnostic-history.test.tsx [redacted]-connections-intent-store.test.ts: Tests 91 passed (91) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+        "summary": "pnpm exec vitest run tests/unit/components/academy-admission-applicant-recovery.test.tsx tests/unit/components/academy-admissions-manual.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx: Tests 53 passed (53) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "command",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:09:13.370Z",
+        "recordedAt": "2026-10-26T15:32:50.100Z",
         "source": "attested",
         "summary": "pnpm run -s typecheck: sin errores sobre el código mergeado"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:09:13.794Z",
+        "recordedAt": "2026-10-26T15:32:50.521Z",
         "source": "attested",
-        "summary": "Estados: una prueba o verificación incierta solo se archiva con la ausencia del original confirmada durante 10 minutos y se vuelve a leer antes de archivar; started sigue bloqueando; vaciar el historial lleno pide confirmación, conserva la última y no cancela ni reenvía nada."
+        "summary": "Estados: unavailable ofrece reintento solo para fallas transitorias; los errores de envío, cancelación y corrección del WhatsApp quedan junto a su origen, una sola vez, y se limpian al corregir; los inciertos siguen en la página junto a Consultar estado; un token heredado mal formado ya no ofrece un reintento que no puede funcionar."
       },
       {
         "kind": "browser",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:09:14.228Z",
+        "recordedAt": "2026-10-26T15:32:50.936Z",
         "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: una prueba incierta pedida hace 2 minutos sigue bloqueada con su aviso, una con el original ausente hace 15 minutos se conserva en el historial y libera la página, y con 20 pruebas Vaciar pruebas anteriores pide confirmación y deja solo la última (4/4; antes no había ninguna salida)."
+        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: una falla temporal de la entrada ofrece Reintentar y recupera la página, una solicitud ajena y un enlace heredado inválido no lo ofrecen y explican qué hacer, y un conflicto al enviar se muestra dentro del paso Enviar solicitud, junto al botón (4/4; antes quedaba al pie de la página)."
       }
     ],
     "limitations": [
-      "Solo se revisó la recuperación de pruebas inciertas y el historial lleno que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados de error y de no disponible de la página del aspirante que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:09:15.866Z",
+    "recordedAt": "2026-10-26T15:32:52.554Z",
     "result": "partial",
-    "runId": "20261026T150912Z-1d9616",
+    "runId": "20261026T153249Z-f3b53a",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "app/(admission)/admissions/[slug]/admission-container.tsx#AdmissionContainer/completeWrite",
+          "reason": "interactive handler changed: navigation or server action calls may differ"
+        },
+        {
+          "change": "modified",
+          "key": "app/(admission)/admissions/[slug]/admission-container.tsx#AdmissionContainer/persist",
+          "reason": "interactive handler changed: navigation or server action calls may differ"
+        },
+        {
+          "change": "modified",
+          "key": "app/(admission)/admissions/[slug]/admission-container.tsx#AdmissionContainer~shell",
+          "reason": "component render changed: hooks, Suspense or client imports may differ"
+        },
+        {
+          "change": "added",
+          "key": "app/(admission)/admissions/[slug]/admission-container.tsx#feedbackOriginOf",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen",
+          "reason": "code rendered by the route changed"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy-admissions/admission-screen/index.tsx#AdmissionScreenProps",
+          "reason": "code rendered by the route changed"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy-admissions/admission-whatsapp-number-form/index.tsx#AdmissionWhatsappNumberForm",
+          "reason": "code rendered by the route changed"
+        },
+        {
+          "change": "modified",
+          "key": "hooks/use-admission-view-feedback.ts#AdmissionViewFeedback",
+          "reason": "code rendered by the route changed"
+        },
+        {
+          "change": "modified",
+          "key": "hooks/use-admission-view-feedback.ts#useAdmissionViewFeedback/setErrorMessage",
+          "reason": "interactive handler changed: navigation or server action calls may differ"
+        },
+        {
+          "change": "modified",
+          "key": "hooks/use-admission-view-feedback.ts#useAdmissionViewFeedback/setReadErrorMessage",
+          "reason": "interactive handler changed: navigation or server action calls may differ"
+        },
+        {
+          "change": "modified",
+          "key": "hooks/use-admission-view-feedback.ts#useAdmissionViewFeedback~shell",
+          "reason": "component render changed: hooks, Suspense or client imports may differ"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-navigation.ts#<module>",
+          "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-navigation.ts#reloadCurrentPage",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_FEEDBACK_ORIGIN.cancel",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_FEEDBACK_ORIGIN.page",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_FEEDBACK_ORIGIN.submit",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_FEEDBACK_ORIGIN.whatsapp",
+          "reason": "object member read by the route changed: route configuration impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_FEEDBACK_ORIGIN~frame",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_TRANSIENT_PAGE_ERROR_CODES",
+          "reason": "new code rendered by the route"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#AdmissionFeedbackOrigin",
+          "reason": "new code rendered by the route"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.admissions.applicant.whatsapp.update (/admissions/requests/[requestId]): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
       ]
@@ -2561,7 +2663,7 @@
       "name": "nextjs-route-ui-boundaries",
       "version": "1.3.0"
     },
-    "report": "runs/20261026T150912Z-1d9616.json"
+    "report": "runs/20261026T153249Z-f3b53a.json"
   },
   "schemaVersion": 1,
   "skill": "nextjs-route-ui-boundaries",

@@ -2,8 +2,8 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "branch": "fix/academy-route-skeletons",
+      "commit": "e00332beaa61e553b38110e5570298aa61d94390",
       "files": {
         "app/(platform)/[slug]/canales/page.tsx": "6998e6bd4c5763f3",
         "app/(platform)/[slug]/canales/loading.tsx": "8de75f6bd35677bd",
@@ -115,7 +115,7 @@
         "src/modules/tribes/constants/tribe-images.ts": "6ce723523d3aed1e",
         "src/modules/shared/infrastructure/cloudflare/cloudflare-images-config.ts": "6a104ceb8cd33301",
         "src/modules/tribes/domain/repositories/academy-approved-membership-writer.ts": "58591a63c7e78ac6",
-        "src/modules/tribes/constants/tribe-story.ts": "95b0fb552f1928b0",
+        "src/modules/tribes/constants/tribe-story.ts": "56fbe141834e760e",
         "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts": "63777e7a48eb3ea8",
         "src/modules/tribes/domain/errors/tribe-slug-conflict-error.ts": "91b9e31e541176d5",
         "src/modules/tribes/infrastructure/repositories/legacy-tribe-entry-lock.ts": "a33f08014f233c69",
@@ -258,7 +258,7 @@
         "src/modules/academy-admissions/application/results/admission-batch-decision-result.ts": "e7b6140dec98efd9",
         "src/modules/academy-admissions/application/results/admission-activity-result.ts": "9a90cb2e8735c2a9",
         "src/modules/academy-admissions/application/results/admission-metrics-result.ts": "08620a4f1a506f0f",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "7e28bd61704eb630",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "d0af64144b8cacf3",
         "src/modules/academy-admissions/constants/admission-activity.ts": "a6c5519798822d7b",
         "src/modules/academy-admissions/constants/admission-activity-page-schemas.ts": "7522ac9ef5450726",
         "src/modules/academy-admissions/constants/admission-overview.ts": "2789bf3e166578b3",
@@ -451,7 +451,7 @@
         "src/modules/academy-admissions/domain/entities/admission-metric-dimensions.ts": "6957c9c14dd1d2c2",
         "src/modules/academy-admissions/constants/admission-policy-audit.ts": "fd7df5f729db9e00",
         "src/modules/academy-admissions/domain/entities/admission-policy-audit-snapshot.ts": "e3d29107ee0a96ce",
-        "src/constants/time.ts": "987c18a571e92d4d",
+        "src/constants/time.ts": "98b5459a77a709b0",
         "src/modules/academy-admissions/domain/repositories/admission-audit-repository.ts": "932bd7548c01a6f7",
         "src/modules/messaging/constants/notification-delivery-recovery.ts": "c3be3c9a2985f5e2",
         "src/modules/academy-admissions/constants/admission-leader-guard.ts": "824d12f18d5c4b77",
@@ -5185,32 +5185,21 @@
       },
       "uncommittedFiles": []
     },
-    "evidence": [
-      {
-        "kind": "test",
-        "outcome": "pass",
-        "recordedAt": "2026-10-26T15:00:21.947Z",
-        "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx: Tests 122 passed (122) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
-      }
-    ],
-    "limitations": [
-      "El PR no agrega requests: Ver más ya pedía la página siguiente y la relectura de actividad no se suma a otra en curso; no se midió."
-    ],
+    "evidence": [],
+    "limitations": [],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:00:23.957Z",
-    "result": "partial",
-    "runId": "20261026T150021Z-9bbaca",
+    "recordedAt": "2026-10-25T12:40:51.190Z",
+    "result": "not-applicable",
+    "runId": "20261025T124048Z-b0c3bc",
     "scope": {
-      "decision": "full",
+      "decision": "not-applicable",
       "reasons": [
-        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "recorded not applicable: El cambio de boundaries no agrega requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": [
-        "measure the complete flow /[slug]/canales before and after, same build, data and throttling; median of 3 for noisy metrics"
-      ]
+      "suggestedScope": []
     },
     "skill": {
       "definitionFiles": {
@@ -5227,7 +5216,8 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "report": "runs/20261026T150021Z-9bbaca.json"
+    "summary": "Los esqueletos de carga son estáticos: no agregan requests, consultas ni pasos al flujo.",
+    "report": "runs/20261025T124048Z-b0c3bc.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

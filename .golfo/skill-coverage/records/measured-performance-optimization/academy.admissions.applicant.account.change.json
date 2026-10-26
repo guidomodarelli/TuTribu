@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "app/(admission)/admissions/[slug]/admission-container.tsx": "a46591b86832278a",
         "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
@@ -4501,28 +4501,27 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:07:18.847Z",
+        "recordedAt": "2026-10-26T15:31:17.188Z",
         "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-diagnostic-history.test.tsx [redacted]-connections-intent-store.test.ts: Tests 91 passed (91) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+        "summary": "pnpm exec vitest run tests/unit/components/academy-admission-applicant-recovery.test.tsx tests/unit/components/academy-admissions-manual.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx: Tests 53 passed (53) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       }
     ],
     "limitations": [
-      "El PR no agrega requests: archivar vuelve a leer el original una vez antes de soltarlo; no se midió."
+      "El PR no agrega requests: el reintento recarga la misma página que ya se pedía; no se midió."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:07:20.767Z",
+    "recordedAt": "2026-10-26T15:31:19.240Z",
     "result": "partial",
-    "runId": "20261026T150718Z-a29a24",
+    "runId": "20261026T153116Z-5767df",
     "scope": {
-      "decision": "full",
+      "decision": "not-applicable",
       "reasons": [
-        "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+        "recorded not applicable: Las salidas de recuperación no agregan requests, consultas ni pasos al flujo."
       ],
       "relevantChangesAtBegin": [],
-      "suggestedScope": [
-        "measure the complete flow /admissions/[slug] before and after, same build, data and throttling; median of 3 for noisy metrics"
-      ]
+      "suggestedScope": []
     },
     "skill": {
       "definitionFiles": {
@@ -4539,7 +4538,7 @@
       "name": "measured-performance-optimization",
       "version": "1.5.0"
     },
-    "report": "runs/20261026T150718Z-a29a24.json"
+    "report": "runs/20261026T153116Z-5767df.json"
   },
   "schemaVersion": 1,
   "skill": "measured-performance-optimization",

@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "app/(admission)/admissions/[slug]/legacy/[token]/legacy-admission-container.tsx": "f78b47343ed5ca69",
         "app/(admission)/admissions/[slug]/legacy/[token]/page.tsx": "1f9a8bc3a26f005c",
@@ -4624,32 +4624,164 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:07:54.140Z",
+        "recordedAt": "2026-10-26T15:31:28.884Z",
         "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-diagnostic-history.test.tsx [redacted]-connections-intent-store.test.ts: Tests 91 passed (91) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+        "summary": "pnpm exec vitest run tests/unit/components/academy-admission-applicant-recovery.test.tsx tests/unit/components/academy-admissions-manual.test.tsx tests/unit/components/academy-admission-expired-code.test.tsx: Tests 53 passed (53) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:07:54.569Z",
+        "recordedAt": "2026-10-26T15:31:29.335Z",
         "source": "attested",
-        "summary": "Estados: una prueba o verificación incierta solo se archiva con la ausencia del original confirmada durante 10 minutos y se vuelve a leer antes de archivar; started sigue bloqueando; vaciar el historial lleno pide confirmación, conserva la última y no cancela ni reenvía nada."
+        "summary": "Estados: unavailable ofrece reintento solo para fallas transitorias; los errores de envío, cancelación y corrección del WhatsApp quedan junto a su origen, una sola vez, y se limpian al corregir; los inciertos siguen en la página junto a Consultar estado; un token heredado mal formado ya no ofrece un reintento que no puede funcionar."
       }
     ],
     "limitations": [
-      "Solo se revisó la recuperación de pruebas inciertas y el historial lleno que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Solo se revisaron los estados de error y de no disponible de la página del aspirante que cambia este PR; el resto de la unidad queda para su propia auditoría."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:07:56.519Z",
+    "recordedAt": "2026-10-26T15:31:31.419Z",
     "result": "partial",
-    "runId": "20261026T150753Z-c3893b",
+    "runId": "20261026T153128Z-540172",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "app/(admission)/admissions/[slug]/admission-container.tsx#AdmissionContainer/cancel",
+          "reason": "action handler changed"
+        },
+        {
+          "change": "modified",
+          "key": "app/(admission)/admissions/[slug]/admission-container.tsx#AdmissionContainer/completeWrite",
+          "reason": "action handler changed"
+        },
+        {
+          "change": "added",
+          "key": "app/(admission)/admissions/[slug]/admission-container.tsx#AdmissionContainer/errorAt",
+          "reason": "new action handler"
+        },
+        {
+          "change": "modified",
+          "key": "app/(admission)/admissions/[slug]/admission-container.tsx#AdmissionContainer/persist",
+          "reason": "action handler changed"
+        },
+        {
+          "change": "modified",
+          "key": "app/(admission)/admissions/[slug]/admission-container.tsx#AdmissionContainer/saveWhatsapp",
+          "reason": "action handler changed"
+        },
+        {
+          "change": "modified",
+          "key": "app/(admission)/admissions/[slug]/admission-container.tsx#AdmissionContainer/submit",
+          "reason": "action handler changed"
+        },
+        {
+          "change": "modified",
+          "key": "app/(admission)/admissions/[slug]/admission-container.tsx#AdmissionContainer~shell",
+          "reason": "component state or render changed"
+        },
+        {
+          "change": "added",
+          "key": "app/(admission)/admissions/[slug]/admission-container.tsx#feedbackOriginOf",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "modified",
+          "key": "app/(admission)/admissions/[slug]/legacy/[token]/legacy-admission-container.tsx#LegacyAdmissionContainer",
+          "reason": "code reached by the unit changed"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy-admissions/admission-screen/index.tsx#AdmissionScreen",
+          "reason": "code reached by the unit changed"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy-admissions/admission-screen/index.tsx#AdmissionScreenProps",
+          "reason": "code reached by the unit changed"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy-admissions/admission-whatsapp-number-form/index.tsx#AdmissionWhatsappNumberForm",
+          "reason": "code reached by the unit changed"
+        },
+        {
+          "change": "modified",
+          "key": "hooks/use-admission-view-feedback.ts#AdmissionViewFeedback",
+          "reason": "code reached by the unit changed"
+        },
+        {
+          "change": "modified",
+          "key": "hooks/use-admission-view-feedback.ts#useAdmissionViewFeedback/setErrorMessage",
+          "reason": "action handler changed"
+        },
+        {
+          "change": "modified",
+          "key": "hooks/use-admission-view-feedback.ts#useAdmissionViewFeedback/setReadErrorMessage",
+          "reason": "action handler changed"
+        },
+        {
+          "change": "modified",
+          "key": "hooks/use-admission-view-feedback.ts#useAdmissionViewFeedback~shell",
+          "reason": "component state or render changed"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-navigation.ts#reloadCurrentPage",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_FEEDBACK_ORIGIN.cancel",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_FEEDBACK_ORIGIN.page",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_FEEDBACK_ORIGIN.submit",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_FEEDBACK_ORIGIN.whatsapp",
+          "reason": "unclassified object member: lifecycle impact unknown"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_FEEDBACK_ORIGIN~frame",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_TRANSIENT_PAGE_ERROR_CODES",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.retryUnavailable",
+          "reason": "lifecycle configuration member (retryUnavailable)"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#AdmissionFeedbackOrigin",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/legacy-admission-arrival.ts#LEGACY_ADMISSION_COPY~frame",
+          "reason": "new code reached by the unit"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.admissions.applicant.legacy.view: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -4667,7 +4799,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261026T150753Z-c3893b.json"
+    "report": "runs/20261026T153128Z-540172.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",

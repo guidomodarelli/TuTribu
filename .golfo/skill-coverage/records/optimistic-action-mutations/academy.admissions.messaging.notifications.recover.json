@@ -3,7 +3,7 @@
     "baseline": {
       "analyzer": "babel-tokens/1",
       "branch": "chore/academy-audit-coverage",
-      "commit": "03e88a20f3cfd19b0c0103fa2bcecb2dd45621f0",
+      "commit": "2718f53c946a536caa7a065feab104de23414063",
       "files": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx": "f6c3b98b5b822d1f",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-local-snapshot.ts": "d45c6cf5cba2628b",
@@ -5368,32 +5368,64 @@
       {
         "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:10:12.783Z",
+        "recordedAt": "2026-10-26T15:36:59.312Z",
         "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-diagnostic-history.test.tsx [redacted]-connections-intent-store.test.ts: Tests 91 passed (91) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
+        "summary": "pnpm exec vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-workspace.test.tsx tests/unit/components/academy-admissions-messaging-connections.test.tsx tests/unit/components/academy-admissions-messaging-resources.test.tsx tests/unit/components/academy-admissions-notification-recovery-container.test.tsx tests/unit/components/academy-admissions-notification-recovery.test.tsx: Tests 107 passed (107) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
       },
       {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:10:13.227Z",
+        "recordedAt": "2026-10-26T15:36:59.734Z",
         "source": "attested",
-        "summary": "Estados: una prueba o verificación incierta solo se archiva con la ausencia del original confirmada durante 10 minutos y se vuelve a leer antes de archivar; started sigue bloqueando; vaciar el historial lleno pide confirmación, conserva la última y no cancela ni reenvía nada."
+        "summary": "Estados: el guardado valida al presionar y muestra qué falta junto a cada campo; las consultas de remitentes y plantillas muestran su carga, evitan la doble consulta y dejan el vacío y el error junto al select; Ver avisos anteriores acumula sin duplicados y una recuperación vencida se muestra como no disponible; solo un conflicto real marca la conexión como cambiada, también en la relectura tras una comprobación rechazada."
       }
     ],
     "limitations": [
-      "Solo se revisó la recuperación de pruebas inciertas y el historial lleno que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Remitentes, plantillas y recuperación de avisos no se recorrieron en el navegador: necesitan una conexión de Zavu con credencial válida o activa, que la rama efímera no tiene."
     ],
     "mode": "full",
     "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:10:15.378Z",
+    "recordedAt": "2026-10-26T15:37:01.964Z",
     "result": "partial",
-    "runId": "20261026T151012Z-dc87b6",
+    "runId": "20261026T153658Z-a913e4",
     "scope": {
       "decision": "full",
       "reasons": [
+        "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
         "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
       ],
-      "relevantChangesAtBegin": [],
+      "relevantChangesAtBegin": [
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/readCatalog",
+          "reason": "action handler changed"
+        },
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer/recover",
+          "reason": "action handler changed"
+        },
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container.tsx#NotificationRecoveryContainer~shell",
+          "reason": "component state or render changed"
+        },
+        {
+          "change": "modified",
+          "key": "components/academy-admissions/messaging-notification-recovery/index.tsx#MessagingNotificationRecovery",
+          "reason": "code reached by the unit changed"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/time.ts#TIMER_MAXIMUM_DELAY_MS",
+          "reason": "new code reached by the unit"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/constants/notification-recovery-ui.ts#NOTIFICATION_RECOVERY_UI_COPY.expired",
+          "reason": "lifecycle configuration member (expired)"
+        }
+      ],
       "suggestedScope": [
         "whole unit academy.admissions.messaging.notifications.recover: inventory every read, mutation and long-running operation, classify each mutation (optimistic, pending-first or server-confirmed) and review its transitions, concurrency, rollback and reconciliation"
       ]
@@ -5411,7 +5443,7 @@
       "name": "optimistic-action-mutations",
       "version": "1.2.0"
     },
-    "report": "runs/20261026T151012Z-dc87b6.json"
+    "report": "runs/20261026T153658Z-a913e4.json"
   },
   "schemaVersion": 1,
   "skill": "optimistic-action-mutations",
