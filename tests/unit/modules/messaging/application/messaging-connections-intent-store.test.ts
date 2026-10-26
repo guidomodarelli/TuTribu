@@ -3,6 +3,7 @@ import {randomUUID} from "node:crypto";
 import {beforeEach,describe,expect,it} from "vitest";
 import {createMessagingConnectionsIntentStore} from "@/lib/messaging/messaging-connections-intent-store";
 import {MESSAGING_CONNECTIONS_INTENT_STORAGE_PREFIX,MESSAGING_CONNECTION_HISTORY_LIMIT} from "@/src/modules/messaging/constants/messaging-connections-browser";
+import type {MessagingConnectionsPendingIntent} from "@/src/modules/messaging/application/ports/messaging-connections-intent-store";
 
 describe("connection intent metadata storage",()=>{
   beforeEach(()=>window.sessionStorage.clear());
@@ -71,6 +72,23 @@ describe("connection intent metadata storage",()=>{
   });
   it("should preserve an activation's original candidate and CAS without permitting a client readiness claim",()=>{
     const store=createMessagingConnectionsIntentStore(),viewerId=randomUUID(),intent={type:"activate_messaging_connection" as const,operationId:randomUUID(),original:{connectionId:randomUUID(),configurationVersion:2,expectedVersion:4}};expect(store.write(viewerId,"synthetic",intent)).toBe(true);expect(store.read(viewerId,"synthetic")).toEqual(intent);expect(store.write(viewerId,"synthetic",{...intent,original:{...intent.original,ready:true}} as typeof intent)).toBe(false);expect(store.read(viewerId,"synthetic")).toEqual(intent);
+  });
+  it.each(["diagnose_messaging_connection","verify_messaging_diagnostic"] as const)("should keep the dispatch instant of a pending %s so its absence wait survives a reload, and still read an older reference without it",(type)=>{
+    const store=createMessagingConnectionsIntentStore(),viewerId=randomUUID(),operationId=randomUUID(),connectionId=randomUUID();
+    /** @param startedAt - Dispatch instant to keep, or none as an older reference. @returns The pending test or verification of this case. */
+    const intentStartedAt=(startedAt?:string):MessagingConnectionsPendingIntent=>type==="diagnose_messaging_connection"?{type,operationId,original:{connectionId,configurationVersion:2,expectedVersion:3,channel:"email"},...(startedAt?{startedAt}:{})}:{type,operationId,original:{connectionId,configurationVersion:2,diagnosticId:connectionId,channel:"email"},...(startedAt?{startedAt}:{})};
+    const intent=intentStartedAt(new Date().toISOString()),legacy=intentStartedAt();
+    expect(store.write(viewerId,"synthetic",intent)).toBe(true);expect(store.read(viewerId,"synthetic")).toEqual(intent);
+    expect(store.write(viewerId,"synthetic",legacy)).toBe(true);expect(store.read(viewerId,"synthetic")).toEqual(legacy);
+    expect(store.write(viewerId,"synthetic",intentStartedAt("ayer"))).toBe(false);expect(store.read(viewerId,"synthetic")).toEqual(legacy);
+  });
+  it("should empty a full test history down to its latest reference so another test fits, and keep an empty history empty",()=>{
+    const store=createMessagingConnectionsIntentStore(),viewerId=randomUUID(),references=Array.from({length:MESSAGING_CONNECTION_HISTORY_LIMIT},(_,index)=>({operationId:randomUUID(),connectionId:randomUUID(),configurationVersion:index+1,channel:"email" as const}));
+    expect(store.keepLatestDiagnostic(viewerId,"synthetic")).toBe(true);expect(store.diagnostics(viewerId,"synthetic")).toEqual([]);
+    for(const reference of references)expect(store.writeDiagnostic(viewerId,"synthetic",reference)).toBe(true);
+    const next={operationId:randomUUID(),connectionId:randomUUID(),configurationVersion:99,channel:"sms" as const};expect(store.writeDiagnostic(viewerId,"synthetic",next)).toBe(false);
+    expect(store.keepLatestDiagnostic(viewerId,"synthetic")).toBe(true);expect(store.diagnostics(viewerId,"synthetic")).toEqual([references.at(-1)]);expect(store.diagnostic(viewerId,"synthetic")).toEqual(references.at(-1));
+    expect(store.writeDiagnostic(viewerId,"synthetic",next)).toBe(true);expect(store.diagnostics(viewerId,"synthetic")).toEqual([references.at(-1),next]);expect(store.diagnostics(randomUUID(),"synthetic")).toEqual([]);
   });
 
 });

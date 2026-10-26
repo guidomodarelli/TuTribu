@@ -11,6 +11,8 @@ import {MESSAGING_CONNECTION_SECURITY_REASON} from "@/src/modules/messaging/cons
 /** Browser metadata is untrusted input and never an authorization token. */
 const resourceOriginal=z.strictObject({connectionId:z.uuid(),configurationVersion:z.int().positive(),expectedVersion:z.int().positive()});
 const configurationOriginal=resourceOriginal.extend({channel:z.enum(MESSAGING_PUBLIC_CHANNEL),senderId:z.string().trim().min(1),templateId:z.string().trim().min(1).optional(),templateLanguage:z.string().trim().min(1).optional()}).refine((original)=>original.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp?Boolean(original.templateId&&original.templateLanguage):original.templateId===undefined&&original.templateLanguage===undefined);
+/** Browser dispatch instant of a test or verification; references saved before it existed stay readable without it. */
+const dispatchedAtSchema=z.iso.datetime().optional();
 const intentSchema=z.discriminatedUnion("type",[
   z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.saveMessagingCredentials),operationId:z.uuid(),original:z.strictObject({name:z.string().trim().min(1).max(ADMISSION_LIMIT.displayNameCharacters)}).optional()}),
   z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.validateMessagingConnection),operationId:z.uuid(),original:resourceOriginal.optional()}),
@@ -18,8 +20,8 @@ const intentSchema=z.discriminatedUnion("type",[
   z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.activateMessagingConnection),operationId:z.uuid(),original:resourceOriginal}),
   z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.suspendMessagingConnection),operationId:z.uuid(),original:z.strictObject({connectionId:z.uuid(),expectedVersion:z.int().positive(),reason:z.enum(MESSAGING_CONNECTION_SECURITY_REASON)})}),
   z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.disconnectMessagingConnection),operationId:z.uuid(),original:z.strictObject({connectionId:z.uuid(),expectedVersion:z.int().positive()})}),
-  z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.diagnoseMessagingConnection),operationId:z.uuid(),original:resourceOriginal.extend({channel:z.enum(MESSAGING_PUBLIC_CHANNEL)})}),
-  z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.verifyMessagingDiagnostic),operationId:z.uuid(),original:z.strictObject({connectionId:z.uuid(),configurationVersion:z.int().positive(),diagnosticId:z.uuid(),channel:z.enum(MESSAGING_PUBLIC_CHANNEL)})}),
+  z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.diagnoseMessagingConnection),operationId:z.uuid(),original:resourceOriginal.extend({channel:z.enum(MESSAGING_PUBLIC_CHANNEL)}),startedAt:dispatchedAtSchema}),
+  z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.verifyMessagingDiagnostic),operationId:z.uuid(),original:z.strictObject({connectionId:z.uuid(),configurationVersion:z.int().positive(),diagnosticId:z.uuid(),channel:z.enum(MESSAGING_PUBLIC_CHANNEL)}),startedAt:dispatchedAtSchema}),
 ]);
 const historySchema=z.array(intentSchema).max(MESSAGING_CONNECTION_HISTORY_LIMIT);
 const diagnosticReferenceSchema=z.strictObject({operationId:z.uuid(),connectionId:z.uuid(),configurationVersion:z.int().positive(),channel:z.enum(MESSAGING_PUBLIC_CHANNEL)});
@@ -52,6 +54,7 @@ export function createMessagingConnectionsIntentStore():MessagingConnectionsInte
     diagnostic(viewerId,slug){return diagnostics(viewerId,slug).at(-1)??null;},
     diagnostics,
     writeDiagnostic(viewerId,slug,reference){if(typeof window==="undefined")return false;try{const ownedKey=`${key(viewerId,slug)}${MESSAGING_DIAGNOSTIC_OBSERVATION_STORAGE_SUFFIX}`;if(reference===null)window.sessionStorage.removeItem(ownedKey);else{const original=diagnosticReferenceSchema.parse(reference),previous=diagnostics(viewerId,slug),matching=previous.find((entry)=>entry.operationId===original.operationId);if(matching&&(matching.connectionId!==original.connectionId||matching.configurationVersion!==original.configurationVersion||matching.channel!==original.channel))return false;const preserved=previous.filter((entry)=>entry.operationId!==original.operationId);if(preserved.length>=MESSAGING_CONNECTION_HISTORY_LIMIT)return false;window.sessionStorage.setItem(ownedKey,JSON.stringify([...preserved,original]));}return true;}catch{return false;}},
+    keepLatestDiagnostic(viewerId,slug){if(typeof window==="undefined")return false;try{const latest=diagnostics(viewerId,slug).at(-1);if(latest)window.sessionStorage.setItem(`${key(viewerId,slug)}${MESSAGING_DIAGNOSTIC_OBSERVATION_STORAGE_SUFFIX}`,JSON.stringify([latest]));return true;}catch{return false;}},
   };
 }
 /** No browser storage is touched before a container requests it after hydration. */
