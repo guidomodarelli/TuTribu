@@ -5,7 +5,7 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+import type { Pool } from "pg";
 
 import { BETTER_AUTH_SESSION_OPTIONS } from "@/src/modules/auth/constants/session";
 import { isMissingProviderAccountError } from "@/src/modules/auth/infrastructure/better-auth/provider-account-errors";

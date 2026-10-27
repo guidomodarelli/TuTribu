@@ -161,7 +161,7 @@ export type AdmissionPolicyRulesPatch = Omit<AdmissionPolicyPatch, "messagingCon
 export function selectAdmissionPolicyRules(patch: AdmissionPolicyRulesPatch): AdmissionPolicyRulesPatch {
   const rules: Record<string, unknown> = {};
   for (const field of ADMISSION_POLICY_RULE_FIELDS) if (field in patch) rules[field] = patch[field];
-  return rules as AdmissionPolicyRulesPatch;
+  return rules;
 }
 export type AdmissionPolicyChangeResult =
   | { outcome: "conflict" }

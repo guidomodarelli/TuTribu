@@ -596,7 +596,7 @@ describe("connection wizard first container step",()=>{
 /** @param fixture - Container fixture to extend. @returns Its SSR state with a valid production candidate, so the Canales step can read resources. */
 function channelsInitialState(fixture:ReturnType<typeof containerFixture>):MessagingConnectionsPageState{
   const candidate={id:fixture.connectionId,name:"Candidata con canales",version:3,configurationVersion:2,state:"ready" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,capabilities:[]};
-  return{...fixture.initialState,kind:"ready",renderedAt:new Date().toISOString(),configuration:{...fixture.configuration,candidate}} as MessagingConnectionsPageState;
+  return{...fixture.initialState,kind:"ready",renderedAt:new Date().toISOString(),configuration:{...fixture.configuration,candidate}};
 }
 
 describe("connection wizard states beside their origin",()=>{

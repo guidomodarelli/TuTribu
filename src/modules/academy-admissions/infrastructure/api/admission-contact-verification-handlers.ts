@@ -1,8 +1,7 @@
 /** Projects explicit applicant contact verification and proof attachment through own native HTTP contracts. @module admission-contact-verification-handlers */
 import "server-only";
-import { z } from "zod";
-import type { AdmissionFailure } from "../../application/results/admission-errors";
-import { admissionFailure } from "../../application/results/admission-errors";
+import type { z } from "zod";
+import { type AdmissionFailure, admissionFailure  } from "../../application/results/admission-errors";
 import type { ContactVerificationUseCases, IssueAdmissionContactChallengeInput, VerifyAdmissionContactChallengeInput, ResendAdmissionContactChallengeInput } from "../../application/use-cases/contact-verification-use-cases";
 import type { ApplyAdmissionProofInput } from "../../application/use-cases/apply-admission-proof-use-case";
 import { admissionChallengeSnapshotSchema, admissionVerifiedContactSchema } from "../../application/results/admission-contact-verification-schemas";

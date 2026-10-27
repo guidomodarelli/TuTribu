@@ -7,10 +7,8 @@ import type {MessagingUsagePolicyStateDto} from "@/src/modules/messaging/applica
 import type {messageDeliverySchema} from "@/src/modules/messaging/application/results/messaging-flow-result-schemas";
 import type {ConnectionDiagnosticIssueResult} from "@/src/modules/messaging/domain/repositories/connection-diagnostic-issuance";
 import type {ConnectionDiagnosticSnapshot} from "@/src/modules/messaging/application/results/connection-diagnostic-result";
-import type {MessagingDiagnosticDestination,MessagingDiagnosticDraft,MessagingDiagnosticFieldErrors} from "@/src/modules/messaging/application/commands/messaging-diagnostic-draft";
-import {validateMessagingDiagnosticDraft,validateMessagingDiagnosticCode} from "@/src/modules/messaging/application/commands/messaging-diagnostic-draft";
-import {MESSAGING_PUBLIC_CHANNEL} from "@/src/modules/messaging/constants/messaging-public-contract";
-import {MESSAGING_CREDENTIAL_PUBLIC_STATE} from "@/src/modules/messaging/constants/messaging-public-contract";
+import {type MessagingDiagnosticDestination,type MessagingDiagnosticDraft,type MessagingDiagnosticFieldErrors,validateMessagingDiagnosticDraft,validateMessagingDiagnosticCode} from "@/src/modules/messaging/application/commands/messaging-diagnostic-draft";
+import {MESSAGING_PUBLIC_CHANNEL,MESSAGING_CREDENTIAL_PUBLIC_STATE} from "@/src/modules/messaging/constants/messaging-public-contract";
 import {MESSAGING_DIAGNOSTIC_RESEND_BLOCK,MESSAGING_DIAGNOSTIC_UI_COPY,type MessagingDiagnosticResendBlock} from "@/src/modules/messaging/constants/messaging-diagnostic-browser";
 import {VERIFICATION_ISSUANCE_OUTCOME} from "@/src/modules/academy-admissions/constants/verification-issuance";
 import {CONNECTION_DIAGNOSTIC_VERIFICATION_OUTCOME} from "@/src/modules/messaging/constants/connection-diagnostic";
@@ -23,7 +21,7 @@ type DiagnosticControllerOptions={candidate:MessagingConfigurationConnection|nul
 /** @param options - Current own immutable scope, usage and route-owned actions. @returns Controlled fields and safe original results, without persistence, automatic sending or delivery-as-proof. */
 export function useMessagingDiagnosticController(options:DiagnosticControllerOptions){
   const scopeKey=`${options.candidate?.id??""}:${options.candidate?.configurationVersion??0}`;
-  const initial=()=>({scopeKey,draft:{channel:options.preferredChannel??MESSAGING_PUBLIC_CHANNEL.email,recipient:"",country:""} as MessagingDiagnosticDraft,touched:{} as Partial<Record<keyof MessagingDiagnosticFieldErrors,true>>,confirmed:false,verificationCode:"",diagnostic:null as Extract<ConnectionDiagnosticIssueResult,{outcome:"issued"}>|null,verifiedDiagnosticId:null as string|null,delivery:null as z.infer<typeof messageDeliverySchema>|null});
+  const initial=()=>({scopeKey,draft:{channel:options.preferredChannel??MESSAGING_PUBLIC_CHANNEL.email,recipient:"",country:""},touched:{} as Partial<Record<keyof MessagingDiagnosticFieldErrors,true>>,confirmed:false,verificationCode:"",diagnostic:null as Extract<ConnectionDiagnosticIssueResult,{outcome:"issued"}>|null,verifiedDiagnosticId:null as string|null,delivery:null as z.infer<typeof messageDeliverySchema>|null});
   const[state,setState]=useState(initial);if(state.scopeKey!==scopeKey)setState(initial());const current=state.scopeKey===scopeKey?state:initial();
   const[nowMs,setNowMs]=useState(()=>Date.parse(options.renderedAt));
   // The countdowns only move while the current test has an expiry or a resend wait ahead; at rest the clock stops.

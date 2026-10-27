@@ -188,7 +188,7 @@ describe("TribeSubscriptionPaymentStatus", () => {
     console.error = vi.fn();
     global.fetch = vi.fn(async () => {
       throw new Error("Failed to fetch");
-    }) as Mock;
+    });
 
     render(
       <TribeSubscriptionPaymentStatus

@@ -24,9 +24,9 @@ describe("neon api client", () => {
   const originalFetch = globalThis.fetch;
 
   beforeAll(async () => {
-    neonApiClient = (await import(
+    neonApiClient = await import(
       "../../../scripts/neon/neon-api-client.mjs"
-    )) as unknown as NeonApiClient;
+    );
   });
 
   afterEach(() => {

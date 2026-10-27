@@ -35,7 +35,7 @@ type TribeEventPostEventFormDialogProps = {
 };
 
 const EMPTY_VALUE = "";
-const WEB_URL_PROTOCOLS: readonly string[] = ["http:", "https:"];
+const WEB_URL_PROTOCOLS: ReadonlySet<string> = new Set(["http:", "https:"]);
 const FIELD_ID = {
   addMaterial: "tribe-event-add-material",
   materialTitle: (rowId: number) => `tribe-event-material-title-${rowId}`,
@@ -86,7 +86,7 @@ const COPY = {
 
 function isWebUrl(value: string): boolean {
   try {
-    return WEB_URL_PROTOCOLS.includes(new URL(value).protocol);
+    return WEB_URL_PROTOCOLS.has(new URL(value).protocol);
   } catch {
     // Unparseable text is not a link; the form shows the inline error.
     return false;

@@ -53,8 +53,8 @@ function getPathSegments(url: URL): string[] {
 
 function extractVimeo(url: URL): string | null {
   const segments = getPathSegments(url);
-  const videoSegmentIndex = segments.findIndex(
-    (segment) => segment === VIMEO_VIDEO_PATH_SEGMENT
+  const videoSegmentIndex = segments.indexOf(
+    VIMEO_VIDEO_PATH_SEGMENT
   );
   const idIndex = videoSegmentIndex >= 0 ? videoSegmentIndex + 1 : 0;
   const idCandidate = segments[idIndex];
@@ -79,14 +79,14 @@ function extractVimeo(url: URL): string | null {
 
 function extractWistia(url: URL): string | null {
   const segments = getPathSegments(url);
-  const mediasIndex = segments.findIndex(
-    (segment) => segment === WISTIA_MEDIAS_PATH_SEGMENT
+  const mediasIndex = segments.indexOf(
+    WISTIA_MEDIAS_PATH_SEGMENT
   );
-  const iframeIndex = segments.findIndex(
-    (segment) => segment === WISTIA_EMBED_IFRAME_PATH_SEGMENT
+  const iframeIndex = segments.indexOf(
+    WISTIA_EMBED_IFRAME_PATH_SEGMENT
   );
-  const embedIndex = segments.findIndex(
-    (segment) => segment === WISTIA_EMBED_PATH_SEGMENT
+  const embedIndex = segments.indexOf(
+    WISTIA_EMBED_PATH_SEGMENT
   );
 
   let idCandidate: string | undefined;

@@ -19,7 +19,7 @@ export type TribeEventAttendanceCsvFile = {
 
 const CSV = {
   // Excel only detects UTF-8 (accents, ñ) when the file starts with a BOM.
-  byteOrderMark: "﻿",
+  byteOrderMark: "\u{FEFF}",
   contentType: "text/csv; charset=utf-8",
   fileExtension: ".csv",
   fileNameFallback: "evento",

@@ -36,7 +36,7 @@ export async function deployAdmissionNodeHost(branch: AcademyAdmissionTestDataba
   const scope = ["--project-id", ADMISSION_NEON_PROJECT_ID, "--branch", branch.id, "--profile", "DEFAULT", "--output", "json"];
   /** @param argumentsList - Structured function arguments containing only public metadata. @returns Consumed private provider response without logging. */
   async function command(argumentsList: string[]) {
-    const result = await execute(process.execPath, [cli!, "functions", ...argumentsList, ...scope], { cwd: workspace, windowsHide: true, timeout: ADMISSION_NODE_HOST.deploymentTimeoutMs, maxBuffer: 2_000_000 });
+    const result = await execute(process.execPath, [cli, "functions", ...argumentsList, ...scope], { cwd: workspace, windowsHide: true, timeout: ADMISSION_NODE_HOST.deploymentTimeoutMs, maxBuffer: 2_000_000 });
     return result.stdout.trim() ? JSON.parse(result.stdout) as unknown : null;
   }
   /** @returns Current function metadata for this exact branch only. */

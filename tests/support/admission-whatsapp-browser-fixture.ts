@@ -31,5 +31,5 @@ export async function prepareAdmissionWhatsappBrowser(database: AcademyAdmission
     });
     return { userId, sessionId, sessionToken, email, name };
   };
-  return { ...fixture, slug: `allowlist-${fixture.tribeId}`, applicant, leader: { userId: fixture.userId, sessionId: fixture.sessionId, sessionToken: fixture.sessionToken, email: fixture.own.email! } };
+  return { ...fixture, slug: `allowlist-${fixture.tribeId}`, applicant, leader: { userId: fixture.userId, sessionId: fixture.sessionId, sessionToken: fixture.sessionToken, email: fixture.own.email } };
 }

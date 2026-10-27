@@ -971,7 +971,7 @@ describe("TribeEventsCalendar", () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       Object.defineProperty(navigator, "clipboard", {
         configurable: true,
-        value: { writeText: vi.fn(async () => Promise.reject(new Error("denied"))) },
+        value: { writeText: vi.fn(async () => { throw new Error("denied"); }) },
       });
 
       renderCalendar();
@@ -3075,7 +3075,7 @@ describe("TribeEventsCalendar hydration", () => {
     const container = document.createElement("div");
 
     container.innerHTML = renderToString(calendar);
-    document.body.appendChild(container);
+    document.body.append(container);
 
     const serverTable = container.querySelector("table");
     const serverAgendaRow = container.querySelector("li");

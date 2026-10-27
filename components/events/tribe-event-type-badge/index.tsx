@@ -1,12 +1,10 @@
-import type { LucideIcon } from "lucide-react";
-import { cn } from "@golfo/ui";
-import {
+import { type LucideIcon,
   MapPinIcon,
   MessageCircleQuestionIcon,
   RadioIcon,
   UsersIcon,
-  WrenchIcon,
-} from "lucide-react";
+  WrenchIcon } from "lucide-react";
+import { cn } from "@golfo/ui";
 
 import type { TribeEventType } from "@/src/modules/events/application/results/tribe-event-result";
 import { TRIBE_EVENT_TYPE_LABEL } from "@/src/modules/events/constants/tribe-event-copy";

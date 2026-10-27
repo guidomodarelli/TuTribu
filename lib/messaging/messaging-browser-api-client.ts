@@ -1,7 +1,7 @@
 "use client";
 /** Shares guarded same-origin HTTP observations without retrying mutations or preserving private input. @module messaging-browser-api-client */
 import {OPERATION_STATE} from "@/src/constants/operation-state";
-import {z} from "zod";
+import type {z} from "zod";
 import type {MessagingUsageBrowserResult} from "@/src/modules/messaging/application/ports/messaging-usage-browser-client";
 import type {MessagingErrorCode} from "@/src/modules/messaging/application/results/messaging-errors";
 import {messagingPublicErrorSchema} from "@/src/modules/messaging/application/results/messaging-public-result-schemas";

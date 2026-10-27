@@ -62,7 +62,7 @@ export async function deployOwnedMessagingNodes(branch: AcademyAdmissionTestData
     const commandScope = argumentsList[0] === "api" ? ["--profile", DEPLOYMENT.cliProfile, "--output", "json"] : scope;
     let result: { stdout: string };
     try {
-      result = await execute(process.execPath, [cli!, ...argumentsList, ...commandScope], { cwd: directory, env: childEnvironment, windowsHide: true, timeout: ADMISSION_NODE_HOST.deploymentTimeoutMs, maxBuffer: 2_000_000 });
+      result = await execute(process.execPath, [cli, ...argumentsList, ...commandScope], { cwd: directory, env: childEnvironment, windowsHide: true, timeout: ADMISSION_NODE_HOST.deploymentTimeoutMs, maxBuffer: 2_000_000 });
     } catch (error) { throw createOwnedMessagingCommandFailure(argumentsList[0], error); }
     try { return result.stdout.trim() ? JSON.parse(result.stdout) as unknown : null; }
     catch (error) { throw createOwnedMessagingOutputFailure(argumentsList[0], error); }
@@ -90,7 +90,7 @@ export async function deployOwnedMessagingNodes(branch: AcademyAdmissionTestData
   async function functions(): Promise<FunctionMetadata[]> {
     const result = await command(["functions", "list"]);
     const consumed = Array.isArray(result) ? result : (result as { functions?: FunctionMetadata[] } | null)?.functions;
-    if (!Array.isArray(consumed)) throw new Error("OwnedMessagingDeployment.inspect failed: function_inventory_unavailable");
+    if (!Array.isArray(consumed)) throw new TypeError("OwnedMessagingDeployment.inspect failed: function_inventory_unavailable");
     return consumed as FunctionMetadata[];
   }
   if ((await functions()).length) throw new Error("OwnedMessagingDeployment.prepare failed: existing_function_in_exclusive_copy");

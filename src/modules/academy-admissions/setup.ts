@@ -15,8 +15,7 @@ import { PostgresAdmissionRequestExpiration, type AdmissionExpirationDatabaseExe
 import type { z } from "zod";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import { GetAdmissionPageUseCase } from "./application/use-cases/get-admission-page-use-case";
-import type { AuthenticatedFeatureDependencies } from "@/src/modules/auth/infrastructure/composition/transaction-account-provider";
-import { createTransactionAccountProvider, readCurrentFeatureSessionContext } from "@/src/modules/auth/infrastructure/composition/transaction-account-provider";
+import { type AuthenticatedFeatureDependencies, createTransactionAccountProvider, readCurrentFeatureSessionContext  } from "@/src/modules/auth/infrastructure/composition/transaction-account-provider";
 import { ResolveAdmissionContextUseCase } from "./application/use-cases/resolve-admission-context-use-case";
 import { ResolveAdmissionOperationUseCase } from "./application/use-cases/resolve-admission-operation-use-case";
 import { PostgresAdmissionAuthorizationReader } from "./infrastructure/repositories/postgres-admission-authorization-reader";
@@ -80,7 +79,7 @@ import type { AdmissionMembershipLifecycleWriter } from "./domain/repositories/a
 import { PostgresAdmissionScopeClosureWriter } from "./infrastructure/repositories/postgres-admission-scope-closure-writer";
 import type { AdmissionScopeClosureWriter } from "./domain/repositories/admission-scope-closure-writer";
 import type { AuthorizedAdmissionContext } from "./domain/repositories/admission-authorization-reader";
-import type { AdmissionActivationPreflightReader } from "./domain/repositories/admission-activation-preflight-reader";
+import type { AdmissionActivationPreflightReader, AdmissionActivationRuntimeReader  } from "./domain/repositories/admission-activation-preflight-reader";
 import { ManageAdmissionPolicyUseCases } from "./application/use-cases/manage-admission-policy-use-cases";
 import { PostgresAdmissionPolicyRepository } from "./infrastructure/repositories/postgres-admission-policy-repository";
 import { PostgresAdmissionPolicyReader } from "./infrastructure/repositories/postgres-admission-policy-reader";
@@ -90,7 +89,6 @@ import { PostgresAdmissionVerificationReadinessReader } from "@/src/modules/mess
 import type { AdmissionPolicyPreparationReader } from "./domain/repositories/admission-policy-management";
 import { PostgresAdmissionPolicyViewFactsReader } from "./infrastructure/repositories/postgres-admission-policy-view-facts-reader";
 import { GetAdmissionPolicyUseCase } from "./application/use-cases/get-admission-policy-use-case";
-import type { AdmissionActivationRuntimeReader } from "./domain/repositories/admission-activation-preflight-reader";
 import { PostgresAdmissionActivationRepository } from "./infrastructure/repositories/postgres-admission-activation-repository";
 import { PreflightAdmissionActivationUseCase } from "./application/use-cases/preflight-admission-activation-use-case";
 import { ReadAdmissionRuntimeUseCase } from "./application/use-cases/read-admission-runtime-use-case";

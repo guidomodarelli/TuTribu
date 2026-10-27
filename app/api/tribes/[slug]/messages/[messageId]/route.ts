@@ -115,7 +115,7 @@ function readPollPayload(value: unknown): UpdateMessagePollPayload | null {
 
   return {
     allowMultipleVotes: candidate.allowMultipleVotes,
-    options: candidate.options as string[],
+    options: candidate.options,
   };
 }
 

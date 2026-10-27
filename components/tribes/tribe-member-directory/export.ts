@@ -343,9 +343,9 @@ export function downloadTextFile(
   anchor.href = objectUrl;
   anchor.download = filename;
   anchor.rel = DOWNLOAD_ANCHOR.relValue;
-  document.body.appendChild(anchor);
+  document.body.append(anchor);
   anchor.click();
-  document.body.removeChild(anchor);
+  anchor.remove();
   window.setTimeout(() => {
     URL.revokeObjectURL(objectUrl);
   }, OBJECT_URL_REVOKE_DELAY_MS);

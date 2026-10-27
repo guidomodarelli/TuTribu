@@ -260,7 +260,7 @@ function LinkedInvitationsDeletionDialogBody({
 
     const payload: LinkedInvitationActionSelection[] = invitations.map(
       (invitation) => {
-        const selection = selections[invitation.id]!;
+        const selection = selections[invitation.id];
 
         if (selection.action === ACTION_VALUE.revoke) {
           return { action: ACTION_VALUE.revoke, invitationId: invitation.id };

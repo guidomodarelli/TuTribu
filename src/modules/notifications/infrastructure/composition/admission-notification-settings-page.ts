@@ -3,8 +3,7 @@ import "server-only";
 import type { GetAdmissionNotificationSettingsPageUseCase } from "../../application/use-cases/get-admission-notification-settings-page-use-case";
 import type { AdmissionNotificationSettingsPageState } from "../../application/results/admission-notification-settings-page-state";
 import { admissionNotificationSettingsPageInputSchema, admissionNotificationSettingsPageStateSchema, ADMISSION_NOTIFICATION_SETTINGS_PAGE_KIND, ADMISSION_NOTIFICATION_SETTINGS_PAGE_LOG } from "../../constants/admission-notification-settings-page";
-import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
-import type { AdmissionErrorCode } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE, type AdmissionErrorCode  } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 

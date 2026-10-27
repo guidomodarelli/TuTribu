@@ -53,7 +53,7 @@ export async function deployAdmissionDistributedNodes(branch: AcademyAdmissionTe
   async function command(argumentsList: string[]): Promise<unknown> {
     if (argumentsList.some((argument) => protectedValues.some((value) => argument.includes(value)))) throw new Error("AdmissionDistributedDeployment.command failed: private_argument_rejected");
     const commandScope = argumentsList[0] === "api" ? ["--profile", ADMISSION_DISTRIBUTED_NODE.cliProfile, "--output", "json"] : scope;
-    const result = await execute(process.execPath, [cli!, ...argumentsList, ...commandScope], { cwd: directory, env: childEnvironment, windowsHide: true, timeout: ADMISSION_NODE_HOST.deploymentTimeoutMs, maxBuffer: 2_000_000 });
+    const result = await execute(process.execPath, [cli, ...argumentsList, ...commandScope], { cwd: directory, env: childEnvironment, windowsHide: true, timeout: ADMISSION_NODE_HOST.deploymentTimeoutMs, maxBuffer: 2_000_000 });
     return result.stdout.trim() ? JSON.parse(result.stdout) as unknown : null;
   }
   /** Reads only original branch metadata before any deployment or removal. */

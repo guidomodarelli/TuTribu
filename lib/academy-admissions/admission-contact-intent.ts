@@ -2,7 +2,7 @@
 /** Persists reference-only contact recovery, never code, destination, credential, session or consent. @module admission-contact-intent */
 import type { z } from "zod";
 import { ADMISSION_CONTACT_STORAGE_PREFIX, ADMISSION_PERSONAL_CONTACT_STORAGE_PREFIX } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
-import { admissionContactIntentSchema, admissionContactPendingSchema } from "@/src/modules/academy-admissions/constants/admission-contact-intent-schemas";
+import { admissionContactIntentSchema, type admissionContactPendingSchema } from "@/src/modules/academy-admissions/constants/admission-contact-intent-schemas";
 export { admissionContactPendingSchema } from "@/src/modules/academy-admissions/constants/admission-contact-intent-schemas";
 
 export type AdmissionContactPending = z.infer<typeof admissionContactPendingSchema>;

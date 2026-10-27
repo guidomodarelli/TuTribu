@@ -616,7 +616,7 @@ export function AppRailShell({
   const pathname = usePathname();
   const { push } = useRouter();
   const baseId = useId();
-  const prefersReduced = !!useReducedMotion();
+  const prefersReduced = Boolean(useReducedMotion());
   // The first measurement settles the layout before paint, so it never animates.
   const [settling, setSettling] = useState(true);
   const reduce = prefersReduced || settling;
@@ -753,8 +753,8 @@ export function AppRailShell({
       typeof value === "number"
         ? value / width
         : value.endsWith(PERCENT_SUFFIX)
-          ? parseFloat(value) / PERCENT_SCALE
-          : parseFloat(value) / width;
+          ? Number.parseFloat(value) / PERCENT_SCALE
+          : Number.parseFloat(value) / width;
     return Math.min(1, Math.max(0, 1 + (Number.isFinite(shift) ? shift : -1)));
   });
 

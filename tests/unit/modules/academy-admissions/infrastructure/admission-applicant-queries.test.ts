@@ -7,14 +7,13 @@ import { setTimeout as delay } from "node:timers/promises";
 import { sql } from "drizzle-orm";
 import { makeSignature } from "better-auth/crypto";
 import { describe, expect, it } from "vitest";
-import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
+import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase  } from "@/tests/support/academy-admission-database";
 import { prepareAdmissionContactVerification } from "@/tests/support/admission-contact-verification-fixture";
 import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
 import { createAdmissionRequestMeasurement, findAdmissionBudgetOverruns, signedAdmissionSessionCookie, withAdmissionQueryCounter } from "@/tests/support/admission-request-measurement";
 import { ADMISSION_REQUEST_MEASUREMENT } from "@/tests/support/constants/admission-request-measurement";
 import { ADMISSION_APPLICANT_QUERY_BUDGET as BUDGET, ADMISSION_APPLICANT_QUERY_VALIDATION as VALIDATION } from "@/tests/support/constants/admission-applicant-queries";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
-import type { AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
 
 const SAMPLES = ADMISSION_REQUEST_MEASUREMENT.samples;
 /** @param text - JSON command response. @returns Its original result. */

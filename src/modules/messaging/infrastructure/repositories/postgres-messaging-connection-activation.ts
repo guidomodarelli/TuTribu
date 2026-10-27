@@ -5,10 +5,9 @@ import type {RequestDatabase} from "@/src/modules/shared/infrastructure/database
 import type {AuthorizedMessagingContext} from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import type {MessagingConnectionActivator,MessagingConnectionActivationInput,MessagingSelectionDependencies,MessagingEffectiveSelection} from "@/src/modules/messaging/domain/repositories/messaging-connection-activation";
 import type {MessagingSecurityConfig} from "../config/messaging-security-config";
-import type {TenantMessagingConnection} from "@/src/modules/messaging/domain/entities/tenant-messaging-connection";
+import {type TenantMessagingConnection,assessMessagingConnectionActivation} from "@/src/modules/messaging/domain/entities/tenant-messaging-connection";
 import type {MessagingConnectionVersion,MessagingConnectionCapability} from "@/src/modules/messaging/domain/entities/messaging-connection-version";
 import type {ConnectionDiagnostic} from "@/src/modules/messaging/domain/entities/connection-diagnostic";
-import {assessMessagingConnectionActivation} from "@/src/modules/messaging/domain/entities/tenant-messaging-connection";
 import {PostgresAdmissionOperationRepository} from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository";
 import {AdmissionOperationError} from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import {ADMISSION_ERROR_CODE} from "@/src/modules/academy-admissions/constants/admission-errors";

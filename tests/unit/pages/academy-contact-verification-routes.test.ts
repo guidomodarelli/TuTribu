@@ -44,7 +44,7 @@ describe("admission contact verification routes", () => {
       expect(captured).toHaveLength(1);
       const serializedLog = captured[0][0];
       expect(typeof serializedLog).toBe("string");
-      if (typeof serializedLog !== "string") throw new Error("Final admission logger did not emit structured JSON");
+      if (typeof serializedLog !== "string") throw new TypeError("Final admission logger did not emit structured JSON");
       const entry = JSON.parse(serializedLog) as { level: string; feature: string; requestId: string; traceId: string; metadata: { code: string; status: number }; error?: unknown };
       expect(entry).toMatchObject({ level: "error", requestId, traceId, metadata: { code: publicBody.code, status: response.status } });
       expect(entry).not.toHaveProperty("error");

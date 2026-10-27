@@ -9,8 +9,7 @@ import { PurgeMessagingSecretsUseCase } from "./application/use-cases/purge-mess
 import { PostgresMessagingRetentionRepository } from "./infrastructure/repositories/postgres-messaging-retention-repository";
 import { ExpireMessagingCandidatesUseCase } from "./application/use-cases/expire-messaging-candidates-use-case";
 import { PostgresMessagingCandidateExpiration, type CandidateExpirationDatabaseExecutor, type CandidateExpirationGate } from "./infrastructure/repositories/postgres-messaging-candidate-expiration";
-import type { AuthenticatedFeatureDependencies } from "@/src/modules/auth/infrastructure/composition/transaction-account-provider";
-import { createTransactionAccountProvider, readCurrentFeatureSessionContext } from "@/src/modules/auth/infrastructure/composition/transaction-account-provider";
+import { type AuthenticatedFeatureDependencies, createTransactionAccountProvider, readCurrentFeatureSessionContext  } from "@/src/modules/auth/infrastructure/composition/transaction-account-provider";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessagingSecurityConfig } from "./infrastructure/config/messaging-security-config";
 import { ResolveMessagingContextUseCase, LoadAuthorizedMessagingSecretUseCase } from "./application/use-cases/resolve-messaging-context-use-case";
@@ -30,7 +29,7 @@ import {PostgresMessagingConnectionConfiguration} from "./infrastructure/reposit
 import type {MessagingConfigurationInspectorFactory} from "./domain/repositories/messaging-connection-configuration";
 import type {MessagingResourceInspectorFactory} from "./domain/repositories/messaging-resource-inspection";
 import {PostgresMessagingConfigurationReader} from "./infrastructure/repositories/postgres-messaging-configuration-reader";
-import type {MessagingSecurityFacts} from "./domain/repositories/messaging-repositories";
+import type {MessagingSecurityFacts,AuthorizedMessagingContext} from "./domain/repositories/messaging-repositories";
 import { ReadMessagingUsageOperationUseCase } from "./application/use-cases/read-messaging-usage-operation-use-case";
 import { GetMessagingUsagePageUseCase } from "./application/use-cases/get-messaging-usage-page-use-case";
 import type { ResolveAdmissionTribeUseCase } from "@/src/modules/academy-admissions/application/use-cases/resolve-admission-tribe-use-case";
@@ -47,7 +46,6 @@ import { PostgresNotificationDeliveryCatalogReader } from "./infrastructure/repo
 import {ActivateMessagingConnectionUseCase} from "./application/use-cases/activate-messaging-connection-use-case";
 import {PostgresMessagingConnectionActivation} from "./infrastructure/repositories/postgres-messaging-connection-activation";
 import type {MessagingSelectionDependencies} from "./domain/repositories/messaging-connection-activation";
-import type {AuthorizedMessagingContext} from "./domain/repositories/messaging-repositories";
 import { ReserveMessagingUsageUseCase } from "./application/use-cases/reserve-messaging-usage-use-case";
 import { ObserveMessageDispatchRunUseCase } from "./application/use-cases/observe-message-dispatch-run-use-case";
 import { PostgresMessageDispatchRunRecorder } from "./infrastructure/repositories/postgres-message-dispatch-run-recorder";
@@ -86,8 +84,7 @@ import type { OriginalMessageContextQuery } from "./domain/repositories/message-
 import { ReadNotificationRecoveryOperationUseCase } from "./application/use-cases/read-notification-recovery-operation-use-case";
 import { PostgresNotificationRecoveryOperationReader } from "./infrastructure/repositories/postgres-notification-recovery-operation-reader";
 import { createAdmissionNotificationResourceAuthority } from "@/src/modules/notifications/infrastructure/messaging/admission-notification-resource-authority";
-import { buildAdmissionNotificationDeliveryModule } from "@/src/modules/notifications/setup";
-import { buildAdmissionNotificationProducerModule, buildAdmissionNotificationReminderModule } from "@/src/modules/notifications/setup";
+import { buildAdmissionNotificationDeliveryModule, buildAdmissionNotificationProducerModule, buildAdmissionNotificationReminderModule  } from "@/src/modules/notifications/setup";
 import { buildAdmissionExpirationModule, buildAdmissionDataRetentionModule } from "@/src/modules/academy-admissions/setup";
 import { MESSAGE_STORAGE_OPERATION } from "./constants/message-delivery";
 import { ADMISSION_MESSAGING_MAINTENANCE_OPERATION, ADMISSION_MESSAGING_MAINTENANCE_PHASE, ADMISSION_MESSAGING_MAINTENANCE_REASON, ADMISSION_MESSAGING_MAINTENANCE_RECONCILIATION_LIMIT } from "./constants/admission-messaging-maintenance";

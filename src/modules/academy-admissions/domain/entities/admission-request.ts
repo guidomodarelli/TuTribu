@@ -1,8 +1,7 @@
 /** Models a request independently of membership and proposes immutable local lifecycle transitions. @module admission-request */
 import type { AdmissionContact } from "../value-objects/admission-contact";
 import type { AdmissionPolicy } from "./admission-policy";
-import type { AdmissionActorFacts } from "../policies/admission-eligibility";
-import { canPerformAdmissionAction } from "../policies/admission-eligibility";
+import { type AdmissionActorFacts, canPerformAdmissionAction  } from "../policies/admission-eligibility";
 import { ADMISSION_ACTION, ADMISSION_EVIDENCE_KIND } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { ADMISSION_REQUEST_STATUS, ADMISSION_REQUEST_SOURCE } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";

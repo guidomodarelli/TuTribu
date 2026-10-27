@@ -4,10 +4,9 @@ import type { MessageDeliveryAttempt } from "@/src/modules/messaging/domain/enti
 import type { MessageDeliverySender, PreparedMessageDeliverySender, MessagingDispatchRuntime, MessagingDispatchSettings, MessagingDispatchDeferredContext } from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
 import type { AuthorizedDeliveryMessagingContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import type { MessageDispatchRunResult } from "@/src/modules/messaging/application/results/message-dispatch-result";
-import { MESSAGE_ATTEMPT_STATE, MESSAGE_AUTHORIZATION_OUTCOME, MESSAGE_COMPLETION_OUTCOME, MESSAGE_RECEIPT_REASON } from "@/src/modules/messaging/constants/message-delivery";
+import { MESSAGE_ATTEMPT_STATE, MESSAGE_AUTHORIZATION_OUTCOME, MESSAGE_COMPLETION_OUTCOME, MESSAGE_RECEIPT_REASON, MESSAGE_STORAGE_OPERATION  } from "@/src/modules/messaging/constants/message-delivery";
 import { MESSAGING_DISPATCH_STAGE } from "@/src/modules/messaging/constants/messaging-dispatch";
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
-import { MESSAGE_STORAGE_OPERATION } from "@/src/modules/messaging/constants/message-delivery";
 import { MessagingDeliveryStorageError } from "@/src/modules/messaging/domain/errors/messaging-delivery-storage-error";
 import { MessagingDispatchDeadlineError } from "@/src/modules/messaging/domain/errors/messaging-dispatch-deadline-error";
 import { observeWithin, type ObservedWithinDeadline } from "./observe-dispatch-deadline";

@@ -5,8 +5,7 @@ import type {MessagingConfigurationConnection} from "@/src/modules/messaging/app
 import type {MessagingResourcePageResult} from "@/src/modules/messaging/application/results/messaging-resource-page-result";
 import type {MessagingResourcesBrowserClient} from "@/src/modules/messaging/application/ports/messaging-resources-browser-client";
 import type {MessagingUsageBrowserResult} from "@/src/modules/messaging/application/ports/messaging-usage-browser-client";
-import type {MessagingChannelDraft,MessagingChannelFieldErrors} from "@/src/modules/messaging/application/commands/messaging-channel-draft";
-import {validateMessagingChannelDraft} from "@/src/modules/messaging/application/commands/messaging-channel-draft";
+import {type MessagingChannelDraft,type MessagingChannelFieldErrors,validateMessagingChannelDraft} from "@/src/modules/messaging/application/commands/messaging-channel-draft";
 import {MESSAGING_PUBLIC_CHANNEL} from "@/src/modules/messaging/constants/messaging-public-contract";
 import {MESSAGING_RESOURCE_KIND} from "@/src/modules/messaging/constants/messaging-resources";
 import {MESSAGING_RESOURCE_UI_COPY} from "@/src/modules/messaging/constants/messaging-resources-browser";

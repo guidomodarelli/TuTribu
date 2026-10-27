@@ -160,7 +160,7 @@ export async function withAcademyAdmissionDatabase<Result>(
       const argumentsList = [entrypoint, "api", requestUrl.pathname, "--profile", "DEFAULT", "--output", "json", "--method", init?.method ?? "GET"];
       for (const [name, value] of requestUrl.searchParams) argumentsList.push("--query", `${name}=${value}`);
       if (init?.body !== undefined && init.body !== null) {
-        if (typeof init.body !== "string") throw new Error("AcademyAdmissionDatabase.admin failed: unsupported_native_request_body");
+        if (typeof init.body !== "string") throw new TypeError("AcademyAdmissionDatabase.admin failed: unsupported_native_request_body");
         argumentsList.push("--data", init.body);
       }
       // The installed official manager owns profiles, 401 recovery and rotating-token locks.

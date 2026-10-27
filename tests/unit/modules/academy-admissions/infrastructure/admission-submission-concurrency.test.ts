@@ -48,7 +48,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native independent
       const secondInput = { ...firstInput, requestId: randomUUID(), operationId: randomUUID() };
       const first = commands(participants[0], holdCommit).submit.execute(firstInput).then(
         (value) => ({ status: "fulfilled" as const, value }),
-        (reason: unknown) => ({ status: "rejected" as const, reason }),
+        (error: unknown) => ({ status: "rejected" as const, reason: error }),
       );
       void first.then((result) => { if (!announced) ready.reject(result.status === "rejected" ? result.reason : new Error("Admission submission commit barrier failed: completed_effects_unavailable")); });
       let second: Promise<PromiseSettledResult<unknown>> | undefined;
@@ -63,7 +63,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native independent
             if (value.ok && value.value.state === OPERATION_STATE.completed) secondRequestId = value.value.result.admissionRequestId;
             return { status: "fulfilled" as const, value };
           },
-          (reason: unknown) => { secondFinished = true; return { status: "rejected" as const, reason }; },
+          (error: unknown) => { secondFinished = true; return { status: "rejected" as const, reason: error }; },
         );
         const blocked = await database.withContext(fixture.own, async (transaction) => {
           await transaction.execute(sql`select set_config('statement_timeout',${ADMISSION_SUBMISSION_CONCURRENCY_TEST.statementTimeout},true)`);

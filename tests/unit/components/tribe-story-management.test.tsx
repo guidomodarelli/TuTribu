@@ -293,7 +293,7 @@ describe("TribeStoryManagement", () => {
       .mockImplementation(function () { return undefined; });
 
     container.innerHTML = renderToString(element);
-    document.body.appendChild(container);
+    document.body.append(container);
 
     try {
       await act(async () => {

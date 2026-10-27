@@ -2,7 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
-import { prepareContactVerificationDatabase, seedContactVerificationDatabase } from "./contact-verification-database-fixture";
+import { prepareContactVerificationDatabase, type seedContactVerificationDatabase } from "./contact-verification-database-fixture";
 import type { ReauthenticationOperation } from "@/src/modules/auth/constants/reauthentication-resources";
 import type { AuthorizedAdmissionContext } from "@/src/modules/academy-admissions/domain/repositories/admission-authorization-reader";
 import { PostgresAllowlistRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-repository";

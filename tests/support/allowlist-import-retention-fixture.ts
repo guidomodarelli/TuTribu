@@ -2,7 +2,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
-import { prepareContactVerificationDatabase, seedContactVerificationDatabase } from "./contact-verification-database-fixture";
+import { type prepareContactVerificationDatabase, seedContactVerificationDatabase } from "./contact-verification-database-fixture";
 import { createAdmissionContactFingerprint } from "@/src/modules/academy-admissions/infrastructure/verification/admission-contact-fingerprint";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { MESSAGING_CRYPTO, MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";

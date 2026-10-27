@@ -29,10 +29,10 @@ describe.runIf(process.env.RUN_ADMISSION_SQL_TESTS === "1")("native notification
       expect(after.items.find((item) => item.id === fixture.context.deliveryId)).toMatchObject({ version: 2, recoveryDeliveryId: recovery.recoveryDeliveryId });
       expect(after.items.find((item) => item.id === recovery.recoveryDeliveryId)).toMatchObject({ state: "queued", connectionId: fixture.input.targetConnectionId });
       expect(after.items.every((item) => Object.keys(item).sort().join(",") === "connectionId,createdAt,deadlineAt,id,recoveryDeliveryId,state,version")).toBe(true);
-      const first = after.items[0]!;
-      const metadata = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ valid_index: boolean; sub_millisecond: number }>(sql`select exists(select 1 from pg_index index_metadata join pg_class index_relation on index_relation.oid=index_metadata.indexrelid where index_relation.relname='idx_notification_delivery_catalog' and index_metadata.indisvalid and index_metadata.indisready) as valid_index,(extract(microseconds from created_at)::int % 1000) as sub_millisecond from public.message_deliveries where id=${first.id}`)).rows[0]!);
+      const first = after.items[0];
+      const metadata = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ valid_index: boolean; sub_millisecond: number }>(sql`select exists(select 1 from pg_index index_metadata join pg_class index_relation on index_relation.oid=index_metadata.indexrelid where index_relation.relname='idx_notification_delivery_catalog' and index_metadata.indisvalid and index_metadata.indisready) as valid_index,(extract(microseconds from created_at)::int % 1000) as sub_millisecond from public.message_deliveries where id=${first.id}`)).rows[0]);
       expect(metadata.valid_index).toBe(true);
-      expect(Number(first.createdAt.split(".")[1]!.replace("Z", "").slice(3))).toBe(metadata.sub_millisecond);
+      expect(Number(first.createdAt.split(".")[1].replace("Z", "").slice(3))).toBe(metadata.sub_millisecond);
       expect(notificationDeliveryCatalogSchema.parse(await reader.read(context, { deliveryId: first.id, createdAt: first.createdAt })).items).toEqual(after.items.slice(1));
       await expect(reader.read({ ...context, tribeId: randomUUID() }, null)).rejects.toMatchObject({ code: "permission_denied" });
       await expect(reader.read({ ...context, sessionId: randomUUID() }, null)).rejects.toMatchObject({ code: "authentication_required" });

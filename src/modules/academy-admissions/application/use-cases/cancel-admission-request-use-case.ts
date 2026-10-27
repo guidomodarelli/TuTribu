@@ -1,7 +1,7 @@
 /** Resolves own/management cancellation independently of the current admission opening. @module cancel-admission-request-use-case */
 import type { ResolveAdmissionContextUseCase } from "./resolve-admission-context-use-case";
 import type { AdmissionCommandWriter } from "@/src/modules/academy-admissions/domain/repositories/admission-repositories";
-import { ADMISSION_ACTION } from "@/src/modules/academy-admissions/constants/admission-eligibility";
+import type { ADMISSION_ACTION } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { ADMISSION_OPERATION_TYPE } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ADMISSION_RESOURCE_KIND } from "@/src/modules/academy-admissions/constants/admission-authorization";
 import { admissionOperationFailure } from "../results/admission-operation-failure";

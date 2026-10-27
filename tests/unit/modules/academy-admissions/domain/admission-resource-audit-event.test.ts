@@ -1,8 +1,7 @@
 /** Exercises the complete private audit vocabulary and its deliberate metadata projection. @module admission-resource-audit-event-tests */
 import {randomUUID} from "node:crypto";
 import {describe,expect,it} from "vitest";
-import {createAdmissionResourceAuditEvent} from "@/src/modules/academy-admissions/domain/entities/admission-resource-audit-event";
-import type {AdmissionResourceAuditInput} from "@/src/modules/academy-admissions/domain/entities/admission-resource-audit-event";
+import {createAdmissionResourceAuditEvent,type AdmissionResourceAuditInput} from "@/src/modules/academy-admissions/domain/entities/admission-resource-audit-event";
 import {createPersonalInvitationAuditEvent} from "@/src/modules/academy-admissions/domain/entities/personal-invitation-audit-event";
 import {createPersonalInvitation,redeemPersonalInvitation,revokePersonalInvitation} from "@/src/modules/academy-admissions/domain/entities/personal-invitation";
 import {ADMISSION_POLICY_AUDIT} from "@/src/modules/academy-admissions/constants/admission-policy";

@@ -46,7 +46,7 @@ describe("notification recovery container", () => {
     expect(screen.getByRole("button", { name: "Registrar recuperación" })).toBeDisabled();
     expect(fixture.props.client!.recover).not.toHaveBeenCalled(); expect(fixture.snapshot.reference).toBeNull();
     await user.click(screen.getByRole("button", { name: /^Consultar intento conservado 1$/ }));
-    await waitFor(() => expect(fixture.snapshot.reference?.operationId).toBe(history[0]!.operationId));
+    await waitFor(() => expect(fixture.snapshot.reference?.operationId).toBe(history[0].operationId));
     expect(fixture.snapshot.history).toHaveLength(NOTIFICATION_RECOVERY_HISTORY_LIMIT - 1); expect(fixture.props.client!.recover).not.toHaveBeenCalled();
   });
   it("should preserve a stale original in history explicitly and release the form without cancelling or repeating it", async () => {

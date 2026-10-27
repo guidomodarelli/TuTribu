@@ -25,7 +25,7 @@ type ResolutionRow =
   | { status: "resolved"; replayed: boolean; memberId: string; decision: Extract<CommercialMembershipResolutionResult, { status: "resolved" }>["decision"]; resultingRole: "tribemate"; resultingStatus: Extract<CommercialMembershipResolutionResult, { status: "resolved" }>["resultingStatus"]; resultingRecoveryStatus: CommercialMembershipReviewCase["recoveryStatus"]; decidedAt: string };
 
 /** Authority denials of the owner function that may surface as closed application failures. */
-const OWNER_DENIAL_CODES: readonly AdmissionErrorCode[] = [ADMISSION_ERROR_CODE.authenticationRequired, ADMISSION_ERROR_CODE.permissionDenied, ADMISSION_ERROR_CODE.resourceUnavailable, ADMISSION_ERROR_CODE.invalidInput, ADMISSION_ERROR_CODE.idempotencyConflict];
+const OWNER_DENIAL_CODES: ReadonlySet<AdmissionErrorCode> = new Set([ADMISSION_ERROR_CODE.authenticationRequired, ADMISSION_ERROR_CODE.permissionDenied, ADMISSION_ERROR_CODE.resourceUnavailable, ADMISSION_ERROR_CODE.invalidInput, ADMISSION_ERROR_CODE.idempotencyConflict]);
 
 /** @param value - Owner timestamp (ISO or PostgreSQL text). @returns Canonical ISO text for the public DTO. */
 function toIso(value: string): string { return new Date(value).toISOString(); }
@@ -58,7 +58,7 @@ export class PostgresCommercialMembershipReviewRepository implements CommercialM
       return await ledger.run(command, commercialMembershipResolutionResultSchema, async (database) => {
         const row = (await database.execute<{ value: ResolutionRow }>(sql`select public.resolve_commercial_membership_review(${context.tribeId},${context.sessionId},${input.operationId},${memberId},${input.decision},${input.expected.role},${input.expected.status},${input.expected.statusReason},${input.expected.recoveryStatus},${input.reason}) as value`)).rows[0]?.value;
         if (!row) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.unexpectedFailure);
-        if (row.status === COMMERCIAL_MEMBERSHIP_REVIEW_STATUS.denied) throw new AdmissionOperationError(OWNER_DENIAL_CODES.includes(row.code) ? row.code : ADMISSION_ERROR_CODE.unexpectedFailure);
+        if (row.status === COMMERCIAL_MEMBERSHIP_REVIEW_STATUS.denied) throw new AdmissionOperationError(OWNER_DENIAL_CODES.has(row.code) ? row.code : ADMISSION_ERROR_CODE.unexpectedFailure);
         if (row.status === COMMERCIAL_MEMBERSHIP_REVIEW_STATUS.rejected) return { status: row.status, memberId, reason: row.reason };
         return { status: row.status, memberId: row.memberId, decision: row.decision, resultingRole: row.resultingRole, resultingStatus: row.resultingStatus, resultingRecoveryStatus: row.resultingRecoveryStatus, decidedAt: toIso(row.decidedAt) };
       });

@@ -5,8 +5,7 @@ import type { AdmissionActivityPage } from "@/src/modules/academy-admissions/app
 import type { AdmissionActivityPageSelection } from "@/src/modules/academy-admissions/application/results/admission-activity-page-state";
 import type { AdmissionActivityFilterDraft } from "@/src/modules/academy-admissions/application/commands/admission-activity-filter-draft";
 import { ADMISSION_ACTIVITY_EVENT_LABELS, ADMISSION_ACTIVITY_RESOURCE_LABELS, ADMISSION_ACTIVITY_FILTER_ALL, ADMISSION_OBSERVATION_COPY } from "@/src/modules/academy-admissions/constants/admission-activity-labels";
-import { ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
-import type { AdmissionErrorCode } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { ADMISSION_ERROR_MESSAGE, type AdmissionErrorCode  } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { createAdmissionActivityDetailRows } from "@/lib/academy-admissions/admission-activity-view-model";
 import { formatAdmissionObservationTime } from "@/lib/academy-admissions/admission-observation-format";
 import styles from "./styles.module.scss";

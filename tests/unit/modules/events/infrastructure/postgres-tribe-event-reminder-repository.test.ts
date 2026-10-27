@@ -113,7 +113,7 @@ describe("PostgresTribeEventReminderRepository", () => {
     const candidatesParam = (enqueueStatement.queryChunks ?? [])
       .map((chunk) =>
         chunk && typeof chunk === "object" && "value" in chunk
-          ? (chunk as { value: unknown }).value
+          ? (chunk).value
           : chunk
       )
       .find((value): value is string => typeof value === "string" && value.startsWith("["));

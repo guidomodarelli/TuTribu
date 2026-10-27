@@ -1,8 +1,7 @@
 /** Projects admission-owned SQL tables; versioned migrations own RLS, triggers and deferred timing. */
 import { ADMISSION_PRIVATE_DATA_RETENTION } from "../../constants/admission-retention";
 import { sql } from "drizzle-orm";
-import { boolean, check, customType, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
-import type { AnyPgColumn, PgTableExtraConfig } from "drizzle-orm/pg-core";
+import { boolean, check, customType, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid, type AnyPgColumn, type PgTableExtraConfig  } from "drizzle-orm/pg-core";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import {ADMISSION_VERIFICATION_PURPOSE} from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import {VERIFICATION_ISSUANCE_OPERATION} from "@/src/modules/academy-admissions/constants/verification-issuance";

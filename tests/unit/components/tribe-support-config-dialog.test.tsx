@@ -20,7 +20,7 @@ const fetchMock = vi.fn();
 describe("TribeSupportConfigDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = fetchMock as unknown as typeof fetch;
+    global.fetch = fetchMock;
   });
 
   it("submits the form and reports the saved settings on success", async () => {

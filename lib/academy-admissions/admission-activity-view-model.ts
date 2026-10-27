@@ -28,7 +28,7 @@ export function createAdmissionActivityDetailRows(changes: ActivityChanges): Adm
     const field = name as keyof ActivityChanges, value = changes[field];
     if (value === undefined) continue;
     if (value !== null && typeof value === "object" && !Array.isArray(value)) {
-      const policy = value as PolicySnapshot;
+      const policy = value;
       for (const [policyName, policyLabel] of Object.entries(ADMISSION_POLICY_SNAPSHOT_LABELS)) {
         const policyValue = policy[policyName as keyof PolicySnapshot];
         if (policyValue === undefined) continue;

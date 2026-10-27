@@ -3,10 +3,9 @@
 import type { z } from "zod";
 import type { PersonalInvitationManagementBrowserResult as ManagementBrowserResult } from "@/src/modules/academy-admissions/application/ports/personal-invitation-management-browser-client";
 import { admissionPublicErrorSchema } from "@/src/modules/academy-admissions/application/results/admission-public-result-schemas";
-import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE, type AdmissionErrorCode  } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { HTTP_STATUS } from "@/src/constants/http-status";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
-import type { AdmissionErrorCode } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { boundBrowserRequest } from "@/lib/browser-request-deadline";
 import { BROWSER_REQUEST_TIMEOUT_MESSAGE } from "@/src/constants/browser-request";
 

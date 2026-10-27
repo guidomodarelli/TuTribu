@@ -18,7 +18,7 @@ if(diagnosticChannel!=="email"&&diagnosticChannel!=="sms"&&diagnosticChannel!=="
 /** Only the owned loopback framework origin may use native fetch; every external HTTP path is closed. */
 const frameworkOrigin=new URL(process.env.BETTER_AUTH_URL).origin;
 /** Owned synthetic recipients; a comma-separated list lets one journey verify several applicants. */
-const syntheticRecipients=(process.env.ADMISSION_TEST_ZAVU_RECIPIENT??"").split(",");
+const syntheticRecipients=new Set((process.env.ADMISSION_TEST_ZAVU_RECIPIENT??"").split(","));
 /** Owned synthetic admission notice recipients; their email sends are accepted without a verification code. */
 const notificationRecipients=(process.env.ADMISSION_TEST_ZAVU_NOTIFICATION_RECIPIENTS??"").split(",").filter(Boolean);
 /** Collects only the existing boundary's allowlisted diagnostic stage/code, never raw console payloads or causes. */
@@ -60,7 +60,7 @@ globalThis.fetch=async(input,init)=>{
     const body=await request.json(),whatsapp=diagnosticChannel==="whatsapp";
     const code=whatsapp?body.content?.templateVariables?.["1"]:typeof body.text==="string"?body.text.match(/\b\d{6}\b/u)?.[0]:undefined;
     const allowedPayload=whatsapp?body.messageType==="template"&&body.content?.templateId===process.env.ADMISSION_TEST_ZAVU_TEMPLATE_ID&&body.text===undefined&&body.templateLanguage===undefined&&process.env.ADMISSION_TEST_ZAVU_TEMPLATE_ID!==undefined:body.messageType==="text";
-    if(!syntheticRecipients.includes(body.to)||body.channel!==diagnosticChannel||body.fallbackEnabled!==false||request.headers.get("Zavu-Sender")!==RESOURCE_ID.sender||!allowedPayload||typeof code!=="string"||!/^\d{6}$/u.test(code))throw new Error("NativeZavuProviderTransport failed: crossed_diagnostic_intent");
+    if(!syntheticRecipients.has(body.to)||body.channel!==diagnosticChannel||body.fallbackEnabled!==false||request.headers.get("Zavu-Sender")!==RESOURCE_ID.sender||!allowedPayload||typeof code!=="string"||!/^\d{6}$/u.test(code))throw new Error("NativeZavuProviderTransport failed: crossed_diagnostic_intent");
     // A private test-only IPC simulates receipt; code/headers/body are never printed or persisted.
     process.send?.({kind:"admission_test_diagnostic_code",code});
     return Response.json({message:{id:randomUUID(),direction:"outbound",channel:diagnosticChannel,status:"sent"}});

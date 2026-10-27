@@ -2922,7 +2922,7 @@ describe("TribeRound", () => {
       .mockResolvedValueOnce({
         json: async () => ({ message: "El mensaje ya estaba publicado.", messageId: "message-stored", replayed: true }),
         ok: true,
-      } as Response);
+      });
 
     render(<TribeRound authenticatedMember={authenticatedMember} tribeSlug="matematica-pro" round={round} />);
 
@@ -2955,7 +2955,7 @@ describe("TribeRound", () => {
 
   it("does not resend a publication the server rejected with an HTTP error", async () => {
     const user = userEvent.setup();
-    (global.fetch as Mock).mockResolvedValueOnce({ json: async () => ({ message: "No tenes permisos para publicar en esta tribu." }), ok: false, statusText: "Forbidden" } as Response);
+    (global.fetch as Mock).mockResolvedValueOnce({ json: async () => ({ message: "No tenes permisos para publicar en esta tribu." }), ok: false, statusText: "Forbidden" });
 
     render(<TribeRound authenticatedMember={authenticatedMember} tribeSlug="matematica-pro" round={round} />);
 
@@ -7727,7 +7727,7 @@ describe("TribeRound", () => {
     const scrollIntoViewSpy = vi.fn();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView =
-      scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
+      scrollIntoViewSpy;
 
     try {
       render(
@@ -7756,7 +7756,7 @@ describe("TribeRound", () => {
 
       const scrolledElement = scrollIntoViewSpy.mock.instances.at(
         -1
-      ) as unknown as HTMLElement;
+      ) as HTMLElement;
       expect(
         within(scrolledElement).getByRole("textbox", {
           name: "Link del video",
@@ -7778,7 +7778,7 @@ describe("TribeRound", () => {
     const scrollIntoViewSpy = vi.fn();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView =
-      scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
+      scrollIntoViewSpy;
     const imageFile = new File(["image"], "captura.png", {
       type: "image/png",
     });
@@ -7833,7 +7833,7 @@ describe("TribeRound", () => {
 
       const scrolledElement = scrollIntoViewSpy.mock.instances.at(
         -1
-      ) as unknown as HTMLElement;
+      ) as HTMLElement;
       expect(
         within(scrolledElement).getByRole("textbox", {
           name: "Descripción de la imagen",
@@ -7855,7 +7855,7 @@ describe("TribeRound", () => {
     const scrollIntoViewSpy = vi.fn();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView =
-      scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
+      scrollIntoViewSpy;
 
     try {
       render(
@@ -7884,7 +7884,7 @@ describe("TribeRound", () => {
 
       const scrolledElement = scrollIntoViewSpy.mock.instances.at(
         -1
-      ) as unknown as HTMLElement;
+      ) as HTMLElement;
       expect(
         within(scrolledElement).getByRole("textbox", { name: "Opción 1" })
       ).toBeInTheDocument();
@@ -7907,7 +7907,7 @@ describe("TribeRound", () => {
     const scrollIntoViewSpy = vi.fn();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView =
-      scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
+      scrollIntoViewSpy;
 
     try {
       render(
@@ -7939,7 +7939,7 @@ describe("TribeRound", () => {
 
       const scrolledElement = scrollIntoViewSpy.mock.instances.at(
         -1
-      ) as unknown as HTMLElement;
+      ) as HTMLElement;
       expect(
         within(scrolledElement).getByRole("textbox", { name: "Opción 3" })
       ).toBeInTheDocument();
@@ -8006,7 +8006,7 @@ describe("TribeRound", () => {
     const scrollIntoViewSpy = vi.fn();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView =
-      scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
+      scrollIntoViewSpy;
 
     try {
       render(
@@ -8035,7 +8035,7 @@ describe("TribeRound", () => {
 
       const scrolledElement = scrollIntoViewSpy.mock.instances.at(
         -1
-      ) as unknown as HTMLElement;
+      ) as HTMLElement;
       expect(
         within(scrolledElement).getByRole("textbox", {
           name: "Título del mensaje",

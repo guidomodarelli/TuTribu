@@ -44,7 +44,7 @@ describe("allowlist import container", () => {
 describe("allowlist import selection", () => {
   afterEach(() => window.sessionStorage.clear());
   /** Rows past the 50 shown per page, with invalid rows and rows that already have a result. */
-  const ROW_COUNT = 120, INVALID_EVERY = 10, WITH_RESULT = [1, 2];
+  const ROW_COUNT = 120, INVALID_EVERY = 10, WITH_RESULT = new Set([1, 2]);
 
   /** @returns A saved import of the current viewer whose rows span several pages, and own ports that read it. */
   function savedImport() {
@@ -52,10 +52,10 @@ describe("allowlist import selection", () => {
     const state: Extract<AllowlistImportPageState, { kind: "ready" }> = { kind: "ready", slug: "synthetic-academy", tribeId: randomUUID(), viewerId, renderedAt: new Date().toISOString(), contactType: "email", policyVersion: 1 };
     const rows: AllowlistImportDto["rows"] = Array.from({ length: ROW_COUNT }, (_row, index) => {
       const rowNumber = index + 1, base = { rowNumber, identity: `fila-${rowNumber}@example.test`, displayName: null, selected: false };
-      if (WITH_RESULT.includes(rowNumber)) return { ...base, errors: [], outcome: "added" as const, version: 1 };
+      if (WITH_RESULT.has(rowNumber)) return { ...base, errors: [], outcome: "added" as const, version: 1 };
       return { ...base, errors: rowNumber % INVALID_EVERY === 0 ? ["admission_contact_invalid" as const] : [] };
     });
-    const snapshot: AllowlistImportDto = { importId, state: "processing", sourceVersion: 2, expiresAt: new Date(Date.now() + ADMISSION_LIMIT.csvRetentionMs).toISOString(), counts: { selected: 0, added: WITH_RESULT.length, unchanged: 0, skipped: 0, conflict: 0 }, rows };
+    const snapshot: AllowlistImportDto = { importId, state: "processing", sourceVersion: 2, expiresAt: new Date(Date.now() + ADMISSION_LIMIT.csvRetentionMs).toISOString(), counts: { selected: 0, added: WITH_RESULT.size, unchanged: 0, skipped: 0, conflict: 0 }, rows };
     const client: AllowlistImportBrowserClient = {
       viewer: vi.fn<AllowlistImportBrowserClient["viewer"]>(async () => ({ status: "ready", value: { id: viewerId } })),
       read: vi.fn<AllowlistImportBrowserClient["read"]>(async () => ({ status: "ready", value: snapshot })),

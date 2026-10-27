@@ -1,8 +1,8 @@
-import {
-  type NOTIFICATION_PROPOSAL_DECISION,
+import type {
+  NOTIFICATION_PROPOSAL_DECISION,
   NOTIFICATION_TYPE,
 } from "@/src/modules/notifications/constants/notifications";
-import { ADMISSION_NOTIFICATION_TYPE, ADMISSION_NOTIFICATION_AUDIENCE } from "@/src/modules/notifications/constants/admission-notifications";
+import type { ADMISSION_NOTIFICATION_TYPE, ADMISSION_NOTIFICATION_AUDIENCE } from "@/src/modules/notifications/constants/admission-notifications";
 
 /**
  * In-app notification model. It is generic (type, recipient, tribe, payload,

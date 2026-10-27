@@ -7,10 +7,10 @@ import { join, resolve, sep } from "node:path";
 import { ADMISSION_PERFORMANCE_ENVIRONMENT, ADMISSION_PERFORMANCE_CI, ADMISSION_PERFORMANCE_INHERITED_ENVIRONMENT, ADMISSION_PERFORMANCE_STATIC_ENVIRONMENT } from "../../tests/support/constants/admission-performance-runtime.mjs";
 import { createAdmissionPerformanceReport } from "../../tests/support/admission-performance-report.mjs";
 
-const repo = process.cwd();
+const repository = process.cwd();
 const required = Object.values(ADMISSION_PERFORMANCE_ENVIRONMENT);
 if (required.some((key) => !process.env[key]) || !process.env.DATABASE_URL) throw new Error("Native admission performance requires its explicit temporary project capability, two ownership nonces and database selection");
-const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo, encoding: "utf8", windowsHide: true }).trim();
+const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repository, encoding: "utf8", windowsHide: true }).trim();
 if (process.env[ADMISSION_PERFORMANCE_ENVIRONMENT.expectedCommit] !== head) throw new Error("Native admission performance requires the exact reviewed commit selected by its resource owner");
 const artifactRoot = await mkdtemp(join(process.env.RUNNER_TEMP ?? tmpdir(), ADMISSION_PERFORMANCE_CI.artifactDirectoryPrefix));
 const privatePath = join(artifactRoot, ADMISSION_PERFORMANCE_CI.privateReportFile), publicPath = join(artifactRoot, ADMISSION_PERFORMANCE_CI.publicReportFile);
@@ -21,7 +21,7 @@ let output = "", outputTruncated = false, capturedBytes = 0;
 /** @param {Buffer} chunk - Private native output. @returns Nothing after bounded in-memory capture; raw logs are never streamed or uploaded. */
 function capture(chunk) { const remaining = ADMISSION_PERFORMANCE_CI.maximumLogBytes - capturedBytes; if (chunk.length > remaining) outputTruncated = true; if (remaining > 0) { const accepted = chunk.subarray(0, remaining); output += accepted.toString("utf8"); capturedBytes += accepted.length; } }
 try {
-  const child = spawn(process.execPath, [join(repo, "node_modules/vitest/vitest.mjs"), "run", ADMISSION_PERFORMANCE_CI.testFile, "--no-file-parallelism", "--disableConsoleIntercept", "--reporter=json", "--outputFile=" + privatePath], { cwd: repo, env: environment, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+  const child = spawn(process.execPath, [join(repository, "node_modules/vitest/vitest.mjs"), "run", ADMISSION_PERFORMANCE_CI.testFile, "--no-file-parallelism", "--disableConsoleIntercept", "--reporter=json", "--outputFile=" + privatePath], { cwd: repository, env: environment, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
   child.stdout.on("data", capture); child.stderr.on("data", capture);
   const exitCode = await new Promise((accept, reject) => { child.once("error", reject); child.once("close", (code) => accept(code)); });
   const rawReport = JSON.parse(await readFile(privatePath, "utf8"));

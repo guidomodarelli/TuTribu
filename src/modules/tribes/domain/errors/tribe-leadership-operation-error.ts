@@ -1,5 +1,5 @@
 /** Keeps transfer failures typed and private diagnostics separate from a future public message. @module tribe-leadership-operation-error */
-import { TRIBE_LEADERSHIP_ERROR_CODE } from "../../constants/tribe-leadership";
+import type { TRIBE_LEADERSHIP_ERROR_CODE } from "../../constants/tribe-leadership";
 
 /** A caller may preserve progress only when it independently binds operationId to its original transfer. */
 export class TribeLeadershipOperationError extends Error{

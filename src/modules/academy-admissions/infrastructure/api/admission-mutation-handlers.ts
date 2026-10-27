@@ -1,8 +1,7 @@
 /** Executes explicit scoped mutations and projects only their confirmed original response. @module admission-mutation-handlers */
 import "server-only";
 import { z } from "zod";
-import type { AdmissionFailure } from "@/src/modules/academy-admissions/application/results/admission-errors";
-import { admissionFailure } from "@/src/modules/academy-admissions/application/results/admission-errors";
+import { type AdmissionFailure, admissionFailure  } from "@/src/modules/academy-admissions/application/results/admission-errors";
 import type { SubmitAdmissionInput } from "@/src/modules/academy-admissions/application/use-cases/submit-admission-use-case";
 import type { CancelAdmissionRequestInput } from "@/src/modules/academy-admissions/application/use-cases/cancel-admission-request-use-case";
 import type { DecideAdmissionRequestInput } from "@/src/modules/academy-admissions/application/use-cases/decide-admission-request-use-case";

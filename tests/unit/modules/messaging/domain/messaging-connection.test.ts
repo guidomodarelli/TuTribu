@@ -1,8 +1,7 @@
 /** Exercises connection preparation, immutable versions and exact local diagnostic activation without a provider. @module messaging-connection-tests */
 import { describe, expect, it } from "vitest";
 import { createDefaultMessagingConnection, assessMessagingConnectionActivation, suspendMessagingConnection } from "@/src/modules/messaging/domain/entities/tenant-messaging-connection";
-import { prepareMessagingConnectionVersion } from "@/src/modules/messaging/domain/entities/messaging-connection-version";
-import type { MessagingConnectionVersion } from "@/src/modules/messaging/domain/entities/messaging-connection-version";
+import { prepareMessagingConnectionVersion, type MessagingConnectionVersion  } from "@/src/modules/messaging/domain/entities/messaging-connection-version";
 import type { ConnectionDiagnostic } from "@/src/modules/messaging/domain/entities/connection-diagnostic";
 
 /** @returns Server-owned current candidate, prepared version and exact locally verified email diagnostic. */

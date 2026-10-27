@@ -13,7 +13,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native candidate e
       const fixture = await prepareMessagingCandidateExpiration(database);
       await database.applyMigration("20261012080000_claim_expired_messaging_candidates.sql");
       const eligible = fixture.cases.filter((candidate) => candidate.name === "expired" || candidate.name === "late" || candidate.name === "selected_with_candidate").sort((first, second) => first.tribeId.localeCompare(second.tribeId));
-      const held = eligible[0]!, locked = Promise.withResolvers<void>(), release = Promise.withResolvers<void>();
+      const held = eligible[0], locked = Promise.withResolvers<void>(), release = Promise.withResolvers<void>();
       const blocker = database.withContext(fixture.own, async (transaction) => { await transaction.execute(sql`select id from public.tribes where id=${held.tribeId} for update`); locked.resolve(); await release.promise; });
       void blocker.catch((error: unknown) => locked.reject(error));
       try {

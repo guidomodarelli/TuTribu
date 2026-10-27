@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "@golfo/ui";
 import { startWriteToast, type WriteToast } from "@/lib/toasts/write-toast";
 import type { AllowlistPageState, AllowlistBrowserQuery } from "@/src/modules/academy-admissions/application/results/allowlist-page-state";
-import type { AllowlistBrowserClient } from "@/src/modules/academy-admissions/application/ports/allowlist-browser-client";
+import type { AllowlistBrowserClient, AllowlistBrowserResult  } from "@/src/modules/academy-admissions/application/ports/allowlist-browser-client";
 import type { AllowlistDraft, AllowlistBrowserIntent } from "@/src/modules/academy-admissions/application/commands/allowlist-browser-intent";
 import type { AllowlistEntryResult } from "@/src/modules/academy-admissions/application/results/admission-resource-result";
 import { allowlistApiClient } from "@/lib/academy-admissions/allowlist-api-client";
@@ -18,10 +18,8 @@ import { ADMISSION_CONTACT_NORMALIZATION_STATUS } from "@/src/modules/academy-ad
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
-import { allowlistMutationResultSchema } from "@/src/modules/academy-admissions/application/results/allowlist-mutation-schemas";
-import { allowlistMutationDenialSchema } from "@/src/modules/academy-admissions/application/results/allowlist-mutation-schemas";
+import { allowlistMutationResultSchema, allowlistMutationDenialSchema  } from "@/src/modules/academy-admissions/application/results/allowlist-mutation-schemas";
 import { ADMISSION_QUERY_LIMIT } from "@/src/modules/academy-admissions/constants/admission-public-contract";
-import type { AllowlistBrowserResult } from "@/src/modules/academy-admissions/application/ports/allowlist-browser-client";
 import { appendAdmissionListPage } from "@/lib/academy-admissions/admission-list-pages";
 import { isAdmissionAccessLoss } from "@/lib/academy-admissions/admission-access-loss";
 

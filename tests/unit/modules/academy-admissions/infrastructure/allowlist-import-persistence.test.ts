@@ -34,7 +34,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native allowlist i
         expect((await transaction.execute(sql`select count(*)::int as count from public.academy_allowlist_entries where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ count: 25 }]);
         await transaction.execute(sql`update public.academy_admission_operations set lease_until=clock_timestamp()-interval '1 second',version=version+1 where actor_user_id=${fixture.userId} and tribe_id=${fixture.tribeId} and idempotency_key=${original.operationId}`);
       });
-      const resumed = await repository.confirm({ ...original, operationId: randomUUID(), expectedVersion: partial!.version, selectedRows: [26, 27, 28, 29, 30] });
+      const resumed = await repository.confirm({ ...original, operationId: randomUUID(), expectedVersion: partial.version, selectedRows: [26, 27, 28, 29, 30] });
       expect(resumed).toMatchObject({ state: "completed", result: { state: "completed", counts: { selected: 30, added: 30 } } });
       expect(await repository.confirm(original)).toMatchObject({ state: "completed", result: { counts: { added: 30 } } });
       await database.withContext(fixture.own, async (transaction) => {
@@ -67,8 +67,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native allowlist i
       const importId = created.result.importId, readContext = { ...context, resourceId: importId };
       expect(await repository.preview(input)).toEqual({ ...created, replayed: true });
       const preview = await repository.read(readContext, importId);
-      expect(preview!.rows.every((row) => row.outcome === null && !row.selected)).toBe(true);
-      expect(presentAllowlistImport(preview!)).not.toHaveProperty("fileFingerprint");
+      expect(preview.rows.every((row) => row.outcome === null && !row.selected)).toBe(true);
+      expect(presentAllowlistImport(preview)).not.toHaveProperty("fileFingerprint");
       await database.withContext(fixture.own, async (transaction) => { expect((await transaction.execute(sql`select count(*)::int as count from public.academy_allowlist_entries where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ count: 2 }]); });
       const confirmContext = await fixture.confirm(REAUTHENTICATION_OPERATION.confirmAllowlistImport, importId), confirm = { context: confirmContext, importId, operationId: randomUUID(), confirmed: true as const, expectedVersion: 1, selectedRows: [1, 2, 3] };
       const completed = await repository.confirm(confirm);
@@ -76,8 +76,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native allowlist i
       expect(await repository.confirm(confirm)).toEqual({ ...completed, replayed: true });
       await expect(repository.confirm({ ...confirm, selectedRows: [2] })).rejects.toMatchObject({ code: "idempotency_conflict" });
       const current = await repository.read(readContext, importId);
-      expect(current!.rows.map((row) => row.outcome)).toEqual(["unchanged", "added", "conflict", "skipped"]);
-      expect(current!.rows[0].entryVersion).toBe(1);
+      expect(current.rows.map((row) => row.outcome)).toEqual(["unchanged", "added", "conflict", "skipped"]);
+      expect(current.rows[0].entryVersion).toBe(1);
       await database.withContext(fixture.own, async (transaction) => {
         expect((await transaction.execute(sql`select status,version,display_name from public.academy_allowlist_entries where id=${disabled.result.entryId}`)).rows).toEqual([{ status: "disabled", version: 2, display_name: "Anterior" }]);
         expect((await transaction.execute(sql`select count(*)::int as count from public.academy_allowlist_entries where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ count: 3 }]);

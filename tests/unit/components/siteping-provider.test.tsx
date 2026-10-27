@@ -46,7 +46,7 @@ describe("SitepingProvider with the published Beezping widget", () => {
     vi.stubGlobal("fetch", request);
     const view = render(<SitepingProvider />);
     await waitFor(() => expect(request).toHaveBeenCalled());
-    const options = request.mock.calls[0]?.[1] as RequestInit | undefined;
+    const options = request.mock.calls[0]?.[1];
     view.unmount();
     expect(options?.signal?.aborted).toBe(true);
   });

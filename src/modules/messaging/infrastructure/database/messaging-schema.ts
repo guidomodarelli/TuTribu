@@ -4,8 +4,7 @@ import { ADMISSION_MESSAGING_MAINTENANCE_STORAGE } from "../../constants/admissi
 import { MESSAGE_DELIVERY_STATE } from "../../constants/message-delivery";
 import { CODE_REQUEST_EVENT } from "@/src/modules/messaging/constants/code-request-budget";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
-import { boolean, check, customType, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
-import type { AnyPgColumn, PgTableExtraConfig } from "drizzle-orm/pg-core";
+import { boolean, check, customType, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid, type AnyPgColumn, type PgTableExtraConfig  } from "drizzle-orm/pg-core";
 import { MESSAGING_USAGE_LIMIT } from "@/src/modules/messaging/constants/messaging-limits";
 import { MESSAGING_DEFAULT_CONNECTION_NAME } from "@/src/modules/messaging/constants/messaging-connection";
 import { MESSAGING_KEY_MATERIAL_CONTINUITY } from "../../constants/messaging-key-material-continuity";

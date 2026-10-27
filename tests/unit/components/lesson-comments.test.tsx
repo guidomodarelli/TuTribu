@@ -31,7 +31,7 @@ describe("LessonComments", () => {
   beforeEach(() => {
     global.fetch = vi.fn(async () =>
       buildJsonResponse({ comments: [existingComment] })
-    ) as unknown as typeof fetch;
+    );
   });
 
   afterEach(() => {
@@ -52,7 +52,7 @@ describe("LessonComments", () => {
   it("shows the empty state when the lesson has no comments", async () => {
     global.fetch = vi.fn(async () =>
       buildJsonResponse({ comments: [] })
-    ) as unknown as typeof fetch;
+    );
 
     render(<LessonComments lessonId={LESSON_ID} tribeSlug={TRIBE_SLUG} />);
 
@@ -72,7 +72,7 @@ describe("LessonComments", () => {
         return buildJsonResponse({ comment: createdComment }, 201);
       }
       return buildJsonResponse({ comments: [existingComment] });
-    }) as unknown as typeof fetch;
+    });
     const user = userEvent.setup();
 
     render(<LessonComments lessonId={LESSON_ID} tribeSlug={TRIBE_SLUG} />);
@@ -94,7 +94,7 @@ describe("LessonComments", () => {
         return buildJsonResponse({ message: "Comentario eliminado." });
       }
       return buildJsonResponse({ comments: [existingComment] });
-    }) as unknown as typeof fetch;
+    });
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
 
@@ -145,7 +145,7 @@ describe("LessonComments", () => {
         });
       }
       return Promise.resolve(buildJsonResponse({ comments: [existingComment] }));
-    }) as unknown as typeof fetch;
+    });
     const user = userEvent.setup();
 
     render(<LessonComments lessonId={LESSON_ID} tribeSlug={TRIBE_SLUG} />);
@@ -177,7 +177,7 @@ describe("LessonComments", () => {
         return buildJsonResponse({ message: "Comentario eliminado." });
       }
       return buildJsonResponse({ comments: [existingComment] });
-    }) as unknown as typeof fetch;
+    });
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
 
@@ -200,7 +200,7 @@ describe("LessonComments", () => {
       return requestCount === 1
         ? buildJsonResponse({ message: "boom" }, 500)
         : buildJsonResponse({ comments: [existingComment] });
-    }) as unknown as typeof fetch;
+    });
     const user = userEvent.setup();
 
     render(<LessonComments lessonId={LESSON_ID} tribeSlug={TRIBE_SLUG} />);
@@ -218,7 +218,7 @@ describe("LessonComments", () => {
   it("shows a load error state when the thread request fails", async () => {
     global.fetch = vi.fn(async () =>
       buildJsonResponse({ message: "boom" }, 500)
-    ) as unknown as typeof fetch;
+    );
 
     render(<LessonComments lessonId={LESSON_ID} tribeSlug={TRIBE_SLUG} />);
 

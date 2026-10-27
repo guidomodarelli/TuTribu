@@ -77,7 +77,7 @@ describe("TribeCoursesView", () => {
   beforeEach(() => {
     global.fetch = vi.fn(async () =>
       buildJsonResponse({ comments: [] })
-    ) as unknown as typeof fetch;
+    );
   });
 
   afterEach(() => {
@@ -267,7 +267,7 @@ describe("TribeCoursesView", () => {
         return { json: async () => ({}), ok: false, status: 500 } as Response;
       }
       return buildJsonResponse({ comments: [] });
-    }) as unknown as typeof fetch;
+    });
 
     render(
       <TribeCoursesView
@@ -343,7 +343,7 @@ describe("TribeCoursesView", () => {
     const user = userEvent.setup();
     global.fetch = vi.fn(async () =>
       buildJsonResponse({ completed: true })
-    ) as unknown as typeof fetch;
+    );
 
     render(
       <TribeCoursesView

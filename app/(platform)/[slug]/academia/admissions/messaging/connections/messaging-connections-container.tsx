@@ -29,7 +29,7 @@ import {messagingDiagnosticBrowserClient} from "@/lib/messaging/messaging-diagno
 import type {MessagingDiagnosticBrowserClient} from "@/src/modules/messaging/application/ports/messaging-diagnostic-browser-client";
 import type {MessagingDiagnosticDestination} from "@/src/modules/messaging/application/commands/messaging-diagnostic-draft";
 import type {ConnectionDiagnosticIssueResult} from "@/src/modules/messaging/domain/repositories/connection-diagnostic-issuance";
-import {MESSAGING_DIAGNOSTIC_UI_COPY as DIAGNOSTIC_COPY} from "@/src/modules/messaging/constants/messaging-diagnostic-browser";
+import {MESSAGING_DIAGNOSTIC_UI_COPY as DIAGNOSTIC_COPY,MESSAGING_DIAGNOSTIC_ABSENT_ARCHIVE_AFTER_MS,MESSAGING_DIAGNOSTIC_RECOVERY_UI_COPY as DIAGNOSTIC_RECOVERY_COPY} from "@/src/modules/messaging/constants/messaging-diagnostic-browser";
 import {VERIFICATION_ISSUANCE_OUTCOME} from "@/src/modules/academy-admissions/constants/verification-issuance";
 import {CONNECTION_DIAGNOSTIC_VERIFICATION_OUTCOME} from "@/src/modules/messaging/constants/connection-diagnostic";
 import {MessagingOriginalRecovery} from "@/components/academy-admissions/messaging-original-recovery";
@@ -47,7 +47,7 @@ import {MESSAGING_USAGE_SETTINGS_SEGMENT} from "@/src/modules/messaging/constant
 import {isMessagingDiagnosticSettled,resolveMessagingConnectionsNextAction} from "@/src/modules/messaging/application/commands/messaging-connections-next-action";
 import {MESSAGING_CONNECTIONS_FLOW_COPY as FLOW_COPY,MESSAGING_CONNECTIONS_NEXT_STEP,MESSAGING_CONNECTIONS_STEP_KIND as STEP_KIND} from "@/src/modules/messaging/constants/messaging-connections-workspace";
 import {messagingConnectionsActionStepId,messagingConnectionsStepId,resolveMessagingConnectionsFlow} from "@/src/modules/messaging/application/commands/messaging-connections-flow";
-import {MESSAGING_PUBLIC_CHANNEL} from "@/src/modules/messaging/constants/messaging-public-contract";
+import {MESSAGING_PUBLIC_CHANNEL,MESSAGING_INITIAL_PROVIDER_ID,MESSAGING_CREDENTIAL_PUBLIC_STATE} from "@/src/modules/messaging/constants/messaging-public-contract";
 import {AdmissionRouteError} from "@/components/academy-admissions/admission-route-error";
 import type {MessagingConnectionsPageState} from "@/src/modules/messaging/application/results/messaging-connections-page-state";
 import type {MessagingConfigurationResult} from "@/src/modules/messaging/application/results/messaging-configuration-result";
@@ -56,8 +56,7 @@ import type {MessagingConnectionsBrowserClient} from "@/src/modules/messaging/ap
 import type {MessagingConnectionsIntentStore,MessagingConnectionsPendingIntent,MessagingDiagnosticObservationReference} from "@/src/modules/messaging/application/ports/messaging-connections-intent-store";
 import {messagingConnectionsBrowserClient} from "@/lib/messaging/messaging-connections-api-client";
 import {messagingConnectionsIntentStore} from "@/lib/messaging/messaging-connections-intent-store";
-import {MESSAGING_CONNECTIONS_BROWSER_PHASE as PHASE,MESSAGING_CONNECTIONS_UI_COPY as COPY,MESSAGING_CREDENTIAL_CHECK_UI_COPY as CHECK_COPY,MESSAGING_CONNECTION_RECOVERY_UI_COPY as RECOVERY_COPY,MESSAGING_CONNECTIONS_WRITE_ACTION as WRITE_ACTION,type MessagingConnectionsWriteAction} from "@/src/modules/messaging/constants/messaging-connections-browser";
-import {MESSAGING_INITIAL_PROVIDER_ID,MESSAGING_CREDENTIAL_PUBLIC_STATE} from "@/src/modules/messaging/constants/messaging-public-contract";
+import {MESSAGING_CONNECTIONS_BROWSER_PHASE as PHASE,MESSAGING_CONNECTIONS_UI_COPY as COPY,MESSAGING_CREDENTIAL_CHECK_UI_COPY as CHECK_COPY,MESSAGING_CONNECTION_RECOVERY_UI_COPY as RECOVERY_COPY,MESSAGING_CONNECTIONS_WRITE_ACTION as WRITE_ACTION,type MessagingConnectionsWriteAction,MESSAGING_CONNECTION_HISTORY_LIMIT,MESSAGING_CONNECTIONS_RESTORED_SNAPSHOT_MAX_AGE_MS} from "@/src/modules/messaging/constants/messaging-connections-browser";
 import {MESSAGING_CREDENTIAL_MODE} from "@/src/modules/messaging/constants/messaging-credential-validation";
 import {newAdmissionOperationId} from "@/lib/academy-admissions/admission-draft";
 import {ADMISSION_LIMIT} from "@/src/modules/academy-admissions/constants/admission-limits";
@@ -65,8 +64,6 @@ import {REAUTHENTICATION_OPERATION} from "@/src/modules/auth/constants/reauthent
 import {MESSAGING_ERROR_MESSAGE,MESSAGING_ERROR_CODE} from "@/src/modules/messaging/constants/messaging-errors";
 import {TRIBE_MEMBER_ROLE} from "@/src/modules/tribes/constants/tribe-member-role";
 import {OPERATION_STATE} from "@/src/constants/operation-state";
-import {MESSAGING_CONNECTION_HISTORY_LIMIT,MESSAGING_CONNECTIONS_RESTORED_SNAPSHOT_MAX_AGE_MS} from "@/src/modules/messaging/constants/messaging-connections-browser";
-import {MESSAGING_DIAGNOSTIC_ABSENT_ARCHIVE_AFTER_MS,MESSAGING_DIAGNOSTIC_RECOVERY_UI_COPY as DIAGNOSTIC_RECOVERY_COPY} from "@/src/modules/messaging/constants/messaging-diagnostic-browser";
 
 /** A test or its code verification: never resumed, and followed until its result is read or its absence is confirmed long enough. */
 type DiagnosticPendingIntent=Extract<MessagingConnectionsPendingIntent,{type:"diagnose_messaging_connection"|"verify_messaging_diagnostic"}>;

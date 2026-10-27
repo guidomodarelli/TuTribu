@@ -33,7 +33,7 @@ export async function withAdmissionTransitionContention<Result>(database: Academ
   const transitionScope = await prepared;
   const settledContender = Promise.resolve().then(compete).then(
     (value): PromiseFulfilledResult<Result> => ({ status: "fulfilled", value }),
-    (reason: unknown): PromiseRejectedResult => ({ status: "rejected", reason }),
+    (error: unknown): PromiseRejectedResult => ({ status: "rejected", reason: error }),
   );
   let observationError: unknown;
   try {
@@ -52,7 +52,7 @@ export async function withAdmissionTransitionContention<Result>(database: Academ
     await whileContended?.();
   } catch (error) { observationError = error; }
   finally { releaseTransition(); }
-  const [transitionResult, contenderResult] = await Promise.all([transition.then(() => ({ status: "fulfilled" as const }), (reason: unknown) => ({ status: "rejected" as const, reason })), settledContender]);
+  const [transitionResult, contenderResult] = await Promise.all([transition.then(() => ({ status: "fulfilled" as const }), (error: unknown) => ({ status: "rejected" as const, reason: error })), settledContender]);
   const failures = [observationError, transitionResult.status === "rejected" ? transitionResult.reason : undefined].filter((error) => error !== undefined);
   if (failures.length) throw new AggregateError(failures, "Admission transition contention failed after settling owned transactions", { cause: failures[0] });
   return contenderResult;

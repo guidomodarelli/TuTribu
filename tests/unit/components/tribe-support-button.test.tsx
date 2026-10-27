@@ -68,7 +68,7 @@ function mockFetchOnce(settings: unknown) {
 describe("TribeSupportButton", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = fetchMock as unknown as typeof fetch;
+    global.fetch = fetchMock;
   });
 
   it("renders nothing when there is no active tribe", () => {

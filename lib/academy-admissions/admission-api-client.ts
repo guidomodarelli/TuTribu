@@ -3,8 +3,8 @@
 /** Uses same-origin own endpoints and the actual Better Auth SDK; no raw failure reaches product UI. @module admission-api-client */
 import { z } from "zod";
 import { createAuthClient } from "better-auth/client";
-import type { AdmissionAccountBrowserClient, AdmissionBrowserClient, AdmissionBrowserResult } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
-import { admissionOverviewSchema, admissionOwnRequestSchema, admissionOutcomeSchema, admissionReviewSchema, admissionBatchResultSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
+import type { AdmissionAccountBrowserClient, AdmissionBrowserClient, AdmissionBrowserResult, AdmissionBrowserSubmission, AdmissionStartedResponse  } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
+import { admissionOverviewSchema, admissionOwnRequestSchema, admissionOutcomeSchema, admissionReviewSchema, admissionBatchResultSchema, type AdmissionOutcomeDto , createAdmissionOperationStateSchema  } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { matchesAdmissionBatchDecisionResult } from "@/src/modules/academy-admissions/application/results/admission-batch-browser-result";
 import { ADMISSION_REVIEW_BROWSER_PATH } from "@/src/modules/academy-admissions/constants/admission-review-browser";
 import { admissionReviewPageSchema } from "@/src/modules/academy-admissions/application/results/admission-review-page-result";
@@ -13,21 +13,17 @@ import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/const
 import { DEFAULT_ADMISSION_REVIEW_SELECTION } from "@/src/modules/academy-admissions/constants/admission-review-selection";
 import { admissionReviewSelectionQuery } from "./admission-review-selection";
 import { ADMISSION_DECISION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
-import type { AdmissionBrowserSubmission, AdmissionStartedResponse } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
-import type { AdmissionOutcomeDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { admissionOperationRecoverySchema } from "@/src/modules/academy-admissions/application/results/admission-operation-recovery";
 import { admissionPublicErrorSchema } from "@/src/modules/academy-admissions/application/results/admission-public-result-schemas";
-import { admissionTransitionResultSchema } from "@/src/modules/academy-admissions/application/results/admission-writer-result-schemas";
+import { admissionTransitionResultSchema, admissionWhatsappNumberResultSchema  } from "@/src/modules/academy-admissions/application/results/admission-writer-result-schemas";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { HTTP_STATUS } from "@/src/constants/http-status";
 import type { AdmissionPolicyBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-policy-browser-client";
 import { admissionPolicyStateResultSchema, admissionPolicyMutationResultSchema } from "@/src/modules/academy-admissions/application/results/admission-policy-result-schemas";
 import { admissionPreflightResultSchema } from "@/src/modules/academy-admissions/application/results/admission-preflight-result-schema";
-import { createAdmissionOperationStateSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { ADMISSION_POLICY_BROWSER_PATH } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import type { AdmissionWhatsappNumberBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-whatsapp-number-browser-client";
-import { admissionWhatsappNumberResultSchema } from "@/src/modules/academy-admissions/application/results/admission-writer-result-schemas";
 import { ADMISSION_WHATSAPP_ROUTE_SEGMENT } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
 import type { CommercialMembershipReviewBrowserClient } from "@/src/modules/academy-admissions/application/ports/commercial-membership-review-browser-client";
 import { commercialMembershipResolutionResultSchema, commercialMembershipReviewListSchema } from "@/src/modules/academy-admissions/application/results/commercial-membership-review-schemas";

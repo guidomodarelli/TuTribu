@@ -58,7 +58,7 @@ const materialSchema = z.object(
       .pipe(httpUrlSchema),
   },
   { error: TRIBE_EVENT_INPUT_ISSUE.invalidMaterials }
-) satisfies z.ZodType<TribeEventMaterialInput, unknown>;
+) satisfies z.ZodType<TribeEventMaterialInput>;
 
 /**
  * Body of `PUT .../post-event`: the recording link (empty or null removes

@@ -188,9 +188,9 @@ describe("AcademyManagement", () => {
 
     render(<AppUIProvider><AcademyManagement {...base} /><ThemedToaster /></AppUIProvider>);
     const offer = screen.getByRole("heading", { name: "Oferta" }).closest("section") ?? document.body;
-    await user.clear(within(offer as HTMLElement).getByRole("textbox", { name: /Título/ }));
-    await user.type(within(offer as HTMLElement).getByRole("textbox", { name: /Título/ }), "Academia nueva");
-    await user.click(within(offer as HTMLElement).getByRole("button", { name: "Guardar" }));
+    await user.clear(within(offer).getByRole("textbox", { name: /Título/ }));
+    await user.type(within(offer).getByRole("textbox", { name: /Título/ }), "Academia nueva");
+    await user.click(within(offer).getByRole("button", { name: "Guardar" }));
 
     expect(await screen.findByText("Oferta guardada.")).toBeInTheDocument();
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 100)); });

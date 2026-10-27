@@ -27,7 +27,7 @@ describe("Mercado Pago access token refresh", () => {
   it("should persist refreshed tokens only for the selected payment integration", async () => {
     const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({ rows: [] }); });
     const executeWithDatabase = vi.fn(async (callback) =>
-      callback({ execute } as never)
+      callback({ execute })
     );
     const refreshMercadoPagoAccessToken = vi.fn(async () => ({
       accessToken: "fresh-access-token",

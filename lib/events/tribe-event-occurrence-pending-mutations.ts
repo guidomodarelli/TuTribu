@@ -59,7 +59,7 @@ function createOccurrenceMutationRegistry(): OccurrenceMutationRegistry {
       const pendingMutations = pendingMutationsByOccurrence.get(buildOccurrenceTargetKey(target));
 
       if (pendingMutations) {
-        await Promise.allSettled([...pendingMutations]);
+        await Promise.allSettled(pendingMutations);
       }
     },
   };

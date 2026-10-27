@@ -1,16 +1,13 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { ComponentType } from "react";
-import { useState } from "react";
-import type { EmojiClickData, PickerProps } from "emoji-picker-react";
-import {
+import { type ComponentType, useState  } from "react";
+import { type EmojiClickData, type PickerProps,
   EmojiStyle,
   SkinTonePickerLocation,
   SkinTones,
   SuggestionMode,
-  Theme,
-} from "emoji-picker-react";
+  Theme } from "emoji-picker-react";
 import { SmilePlusIcon } from "lucide-react";
 
 import { Button, Popover, PopoverContent, PopoverTrigger, useTheme, PresenceSwap } from "@golfo/ui";

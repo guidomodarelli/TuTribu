@@ -22,7 +22,7 @@ describe("notification recovery presenter", () => {
   });
   it("should keep uncertainty visible inside TuTribu while recovery is blocked", () => {
     const props = recoveryProps();
-    render(<MessagingNotificationRecovery {...props} items={[{ ...props.items[0]!, state: "unknown" }]} canRecover={false} confirmed />);
+    render(<MessagingNotificationRecovery {...props} items={[{ ...props.items[0], state: "unknown" }]} canRecover={false} confirmed />);
     expect(screen.getByRole("alert")).toHaveTextContent(/No se habilita otro envío a ciegas/);
     expect(screen.getByRole("button", { name: "Registrar recuperación" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Actualizar avisos" })).toBeEnabled();

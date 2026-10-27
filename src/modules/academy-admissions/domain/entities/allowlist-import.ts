@@ -77,7 +77,7 @@ export function selectAllowlistImportRows(input: { preview: AllowlistImport; con
   const byNumber = new Map(preview.rows.map((row) => [row.rowNumber, row]));
   for (const rowNumber of selected) {
     const row = byNumber.get(rowNumber);
-    if (!Number.isInteger(rowNumber) || !row || !row.contact || row.errors.length || row.outcome !== null) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+    if (!Number.isInteger(rowNumber) || !row?.contact || row.errors.length || row.outcome !== null) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
   }
   if (preview.state === ADMISSION_IMPORT_PUBLIC_STATE.processing && input.selectedRows.every((rowNumber) => byNumber.get(rowNumber)!.selected)) return preview;
   return { ...preview, version: preview.version + 1, state: ADMISSION_IMPORT_PUBLIC_STATE.processing, rows: preview.rows.map((row) => selected.has(row.rowNumber) && !row.selected ? { ...row, selected: true } : row) };

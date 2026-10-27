@@ -12,10 +12,9 @@ import { createVerificationDeliveryPayloadMac } from "@/src/modules/messaging/in
 import { createAdmissionContactFingerprint } from "@/src/modules/academy-admissions/infrastructure/verification/admission-contact-fingerprint";
 import type { VerificationChallengeScope } from "@/src/modules/academy-admissions/domain/entities/contact-verification-challenge";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
-import { VERIFICATION_CODE_GENERATION } from "@/src/modules/academy-admissions/constants/verification-challenge";
+import { VERIFICATION_CODE_GENERATION, VERIFICATION_CHALLENGE_STATE  } from "@/src/modules/academy-admissions/constants/verification-challenge";
 import { VERIFICATION_FROZEN_PAYLOAD_FORMAT } from "@/src/modules/academy-admissions/constants/verification-issuance";
 import { MESSAGE_DELIVERY_STATE, MESSAGE_ATTEMPT_STATE, MESSAGE_USAGE_CATEGORY, MESSAGE_RESERVATION_STATE, MESSAGE_RECEIPT_REASON } from "@/src/modules/messaging/constants/message-delivery";
-import { VERIFICATION_CHALLENGE_STATE } from "@/src/modules/academy-admissions/constants/verification-challenge";
 import { CONNECTION_DIAGNOSTIC_OUTCOME } from "@/src/modules/messaging/constants/connection-diagnostic";
 import { CODE_REQUEST_EVENT } from "@/src/modules/messaging/constants/code-request-budget";
 import { ADMISSION_VERIFICATION_PURPOSE } from "@/src/modules/academy-admissions/constants/admission-eligibility";

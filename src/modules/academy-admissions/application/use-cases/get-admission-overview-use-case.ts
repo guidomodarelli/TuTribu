@@ -17,13 +17,13 @@ import { evaluateAdmissionPreview } from "@/src/modules/academy-admissions/domai
 import { ADMISSION_OUTCOME, ADMISSION_DENIAL_REASON } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 
 /** Denials that only another account can overcome when the list has no exceptions: the own email misses the list, or another account holds its binding. */
-const ACCOUNT_CHANGE_DENIAL_REASONS: readonly string[] = [ADMISSION_DENIAL_REASON.allowlistUnmet, ADMISSION_DENIAL_REASON.contactConflict];
+const ACCOUNT_CHANGE_DENIAL_REASONS: ReadonlySet<string> = new Set([ADMISSION_DENIAL_REASON.allowlistUnmet, ADMISSION_DENIAL_REASON.contactConflict]);
 
 /** @param facts - Own current account facts read for an email list without code or exceptions. @returns Whether a common presentation from this account is bound to be refused (FR-017, FR-018), so another account is the only way forward. */
 function requiresAnotherAccount(facts: AdmissionOverviewFacts["allowlistEligibility"]): boolean {
   if (!facts) return false;
   const evaluated = evaluateAdmissionPreview(facts);
-  return evaluated.outcome === ADMISSION_OUTCOME.denied && ACCOUNT_CHANGE_DENIAL_REASONS.includes(evaluated.reason);
+  return evaluated.outcome === ADMISSION_OUTCOME.denied && ACCOUNT_CHANGE_DENIAL_REASONS.has(evaluated.reason);
 }
 
 /** The application owns navigation hints; the writer rechecks real eligibility under locks. */

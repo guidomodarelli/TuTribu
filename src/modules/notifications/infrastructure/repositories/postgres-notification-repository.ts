@@ -1,6 +1,10 @@
 import { sql } from "drizzle-orm";
 import { ADMISSION_NOTIFICATION_TYPES, ADMISSION_NOTIFICATION_AUDIENCE } from "@/src/modules/notifications/constants/admission-notifications";
-import type { AdmissionNotificationType } from "@/src/modules/notifications/domain/entities/notification";
+import type { AdmissionNotificationType,
+  InboxNotification,
+  NotificationInbox,
+  NotificationProposalDecision,
+  NotificationType } from "@/src/modules/notifications/domain/entities/notification";
 
 import {
   NOTIFICATION_MUTATION_STATUS,
@@ -8,12 +12,6 @@ import {
   NOTIFICATION_TYPE,
   NOTIFICATION_TYPES,
 } from "@/src/modules/notifications/constants/notifications";
-import type {
-  InboxNotification,
-  NotificationInbox,
-  NotificationProposalDecision,
-  NotificationType,
-} from "@/src/modules/notifications/domain/entities/notification";
 import type {
   CountUnreadNotificationsRepositoryQuery,
   GetNotificationInboxRepositoryQuery,

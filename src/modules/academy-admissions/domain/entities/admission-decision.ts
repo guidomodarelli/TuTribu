@@ -1,7 +1,6 @@
 /** Proposes current reviewer decisions without writing membership or external effects. @module admission-decision */
 import type { AdmissionRequest } from "./admission-request";
-import type { AdmissionActorFacts, PendingAdmissionReviewFacts } from "../policies/admission-eligibility";
-import { canPerformAdmissionAction, evaluatePendingAdmissionReview } from "../policies/admission-eligibility";
+import { type AdmissionActorFacts, type PendingAdmissionReviewFacts, canPerformAdmissionAction, evaluatePendingAdmissionReview  } from "../policies/admission-eligibility";
 import { ADMISSION_ACTION, ADMISSION_EVIDENCE_KIND } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { ADMISSION_REQUEST_STATUS, ADMISSION_REQUEST_SOURCE } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ADMISSION_DECISION } from "@/src/modules/academy-admissions/constants/admission-public-contract";

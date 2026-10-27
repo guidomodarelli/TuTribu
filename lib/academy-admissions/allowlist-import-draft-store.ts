@@ -34,7 +34,7 @@ async function transact<Value>(mode: IDBTransactionMode, signal: AbortSignal, pe
       const cleanup = () => signal.removeEventListener("abort", abort);
       transaction.oncomplete = () => { cleanup(); resolve(value); };
       transaction.onerror = () => { cleanup(); reject(new Error("Import draft transaction failed")); };
-      transaction.onabort = () => { cleanup(); reject(new Error("Import draft transaction was cancelled")); };
+      transaction.addEventListener('abort', () => { cleanup(); reject(new Error("Import draft transaction was cancelled")); });
       signal.addEventListener("abort", abort, { once: true });
       if (signal.aborted) { abort(); return; }
       try { perform(transaction.objectStore(ALLOWLIST_IMPORT_DRAFT_STORE), (result) => { value = result; }); } catch { abort(); }

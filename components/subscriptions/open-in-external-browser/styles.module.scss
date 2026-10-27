@@ -17,7 +17,6 @@ $open-in-external-browser-layout-padding: clamp(1rem, 3vw, 2rem);
 }
 
 .OpenInExternalBrowser {
-  align-items: center;
   display: grid;
   min-height: calc(
     100svh - #{$open-in-external-browser-header-height} -

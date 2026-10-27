@@ -20,8 +20,8 @@ async function tabToControl(page: Page, control: Locator): Promise<void> {
   await page.evaluate(() => {
     const diagnosticWindow = window as Window & { admissionTabEvents?: Array<{ tag: string | undefined; role: string | null | undefined; prevented: boolean; focused: boolean }> };
     diagnosticWindow.admissionTabEvents = [];
-    if (document.documentElement.hasAttribute("data-admission-tab-observer")) return;
-    document.documentElement.setAttribute("data-admission-tab-observer", "");
+    if (Object.hasOwn(document.documentElement.dataset, "admissionTabObserver")) return;
+    document.documentElement.dataset.admissionTabObserver = "";
     document.addEventListener("keydown", (event) => {
       if (event.key !== "Tab") return;
       const target = event.target instanceof Element ? event.target : null;

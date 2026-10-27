@@ -1,7 +1,6 @@
 /** Projects admission-derived basic membership; SQL owns consumption, retirement and deferred timing. */
 import { sql } from "drizzle-orm";
-import { check, foreignKey, index, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
-import type { AnyPgColumn, PgTableExtraConfig } from "drizzle-orm/pg-core";
+import { check, foreignKey, index, pgTable, text, timestamp, unique, uuid, type AnyPgColumn, type PgTableExtraConfig  } from "drizzle-orm/pg-core";
 
 /** Existing parents are injected by the shared composition root. */
 type AdmissionMembershipSchemaParents = {

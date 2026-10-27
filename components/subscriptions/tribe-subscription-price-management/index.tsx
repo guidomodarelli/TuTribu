@@ -7,9 +7,9 @@
  */
 
 import {
-  FormEvent,
+  type FormEvent,
   Fragment,
-  KeyboardEvent,
+  type KeyboardEvent,
   useCallback,
   useEffect,
   useId,
@@ -756,7 +756,7 @@ async function submitSubscriberDiagnosticsReconciliationRequest(
   return submitPriceRequest(
     buildSubscriberDiagnosticsReconciliationEndpoint(tribeSlug),
     PRICE_MANAGEMENT_REQUEST.postMethod
-  ) as Promise<SubscriberDiagnosticsReconciliationResponse>;
+  );
 }
 
 /**
@@ -947,8 +947,7 @@ export function TribeSubscriptionPriceManagement({
       })
     : undefined;
   const isEditTrialFrequencyValid =
-    !editingPrice ||
-    !editingPrice.trialFrequency.trim() ||
+    !editingPrice?.trialFrequency.trim() ||
     editingPrice.trialFrequencyType !==
       PRICE_MANAGEMENT_FORMAT.trialFrequencyType ||
     isValidDayTrialFrequency(editingPrice.trialFrequency) ||
@@ -1661,7 +1660,7 @@ export function TribeSubscriptionPriceManagement({
         buildPriceEndpoint(tribeSlug, priceId) +
           PRICE_DELETION_ROUTE_SEGMENT.deleteWithInvitationActions,
         PRICE_MANAGEMENT_REQUEST.postMethod,
-        { invitationActions: selections } as unknown as Record<string, string>
+        { invitationActions: selections }
       );
 
       if (response.deletedPriceId) {

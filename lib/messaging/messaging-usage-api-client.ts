@@ -1,6 +1,6 @@
 "use client";
 /** Uses native global auth and same-origin own usage DTOs without hidden retries. @module messaging-usage-api-client */
-import { z } from "zod";
+import type { z } from "zod";
 import { createAuthClient } from "better-auth/client";
 import type { MessagingUsageBrowserClient, MessagingUsageBrowserResult } from "@/src/modules/messaging/application/ports/messaging-usage-browser-client";
 import { messagingUsagePolicyStateSchema, messagingUsagePolicySchema, messagingPublicErrorSchema } from "@/src/modules/messaging/application/results/messaging-public-result-schemas";

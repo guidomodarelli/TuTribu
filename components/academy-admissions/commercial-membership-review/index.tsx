@@ -2,8 +2,7 @@
 /** Lists memberships blocked by payment that need a leader decision, one decision, reason and confirmation per row, without transport. @module commercial-membership-review */
 import { useId } from "react";
 import { Badge, Button, Checkbox, RadioGroup, Textarea } from "@golfo/ui";
-import type { CommercialMembershipReviewCase, CommercialMembershipReviewList } from "@/src/modules/academy-admissions/domain/entities/commercial-membership-review";
-import { allowedCommercialMembershipDecisions, classifyCommercialMembershipReview } from "@/src/modules/academy-admissions/domain/entities/commercial-membership-review";
+import { type CommercialMembershipReviewCase, type CommercialMembershipReviewList, allowedCommercialMembershipDecisions, classifyCommercialMembershipReview  } from "@/src/modules/academy-admissions/domain/entities/commercial-membership-review";
 import {
   COMMERCIAL_MEMBERSHIP_DECISION_COPY, COMMERCIAL_MEMBERSHIP_REASON_MAX_CHARACTERS, COMMERCIAL_MEMBERSHIP_REVIEW_COPY as COPY, COMMERCIAL_MEMBERSHIP_REVIEW_KIND,
   COMMERCIAL_MEMBERSHIP_REVIEW_LABEL as LABEL, type CommercialMembershipDecision,

@@ -53,7 +53,7 @@ export class PostgresAllowlistImportRepository implements AllowlistImportReposit
   /** @param database - Authorized transaction. @param context - Current actor/tenant. @param importId - Exact own preview. @param writing - Lock intent selected by server operation. @returns Current private record or closed absence after expiry/legacy context. */
   private async record(database: RequestDatabase, context: AuthorizedAdmissionContext, importId: string, writing = false) {
     const record = (await database.execute<AllowlistImportRecord>(sql`select * from public.academy_allowlist_imports where id=${importId} and tribe_id=${context.tribeId} and actor_user_id=${context.userId} ${writing ? sql`for update` : sql`for share`}`)).rows[0];
-    if (!record || !record.security_environment || !record.security_epoch || new Date(record.expires_at) <= await admissionDatabaseNow(database)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+    if (!record?.security_environment || !record.security_epoch || new Date(record.expires_at) <= await admissionDatabaseNow(database)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
     return record;
   }
   /** @param database - Authorized transaction. @param importId - Existing own record. @param tribeId - Native tenant. @returns Original ordered private rows without DTO/schema row validation. */

@@ -26,7 +26,7 @@ function getSqlText(statement: unknown): string {
         chunk &&
         typeof chunk === "object" &&
         "value" in chunk &&
-        Array.isArray((chunk as { value: unknown }).value)
+        Array.isArray((chunk).value)
       ) {
         return (chunk as { value: string[] }).value.join("");
       }
@@ -795,7 +795,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
             ],
           };
         }),
-      } as never);
+      });
 
       transactionEvents.push("transaction:end");
 

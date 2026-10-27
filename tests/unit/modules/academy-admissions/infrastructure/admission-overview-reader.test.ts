@@ -89,7 +89,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission overview
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.academy_admission_policies set allow_common_exceptions=true,version=version+1 where tribe_id=${tribeId}`));
       expect(await overview()).toMatchObject({ ok: true, value: { state: "available", nextAction: "request_admission" } });
       // Another session or no actor gets nothing from the helper, and it never returns an entry id or another account id.
-      const helper = (actor: string | null, session: string) => database.withContext({ userId: actor, email: null }, async (transaction) => (await transaction.execute<Record<string, unknown>>(sql`select * from public.read_own_admission_allowlist_facts(${tribeId},${session})`)).rows, "non_bypass");
+      const helper = (actor: string | null, session: string) => database.withContext({ userId: actor, email: null }, async (transaction) => (await transaction.execute(sql`select * from public.read_own_admission_allowlist_facts(${tribeId},${session})`)).rows, "non_bypass");
       expect(await helper(userId, randomUUID())).toEqual([]);
       expect(await helper(null, sessionId)).toEqual([]);
       const [own] = await helper(userId, sessionId);

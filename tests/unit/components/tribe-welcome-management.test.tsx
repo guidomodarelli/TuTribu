@@ -797,7 +797,7 @@ describe("TribeWelcomeManagement", () => {
               isActive: true,
               label: "WhatsApp",
               message:
-                "  Hola​   tribu\r\n\n\n\n\nVengo de la web  ",
+                "  Hola\u{200B}   tribu\r\n\n\n\n\nVengo de la web  ",
               phoneNumber: "+54 9 11 1234 5678",
               sortOrder: 1,
               type: TRIBE_WELCOME_LINK_TYPE.whatsappButton,

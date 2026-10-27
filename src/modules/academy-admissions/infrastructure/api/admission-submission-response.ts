@@ -1,7 +1,6 @@
 /** Projects only confirmed original submission results for every admission entry route. @module admission-submission-response */
 import { z } from "zod";
-import type { AdmissionFailure } from "@/src/modules/academy-admissions/application/results/admission-errors";
-import { admissionFailure } from "@/src/modules/academy-admissions/application/results/admission-errors";
+import { type AdmissionFailure, admissionFailure  } from "@/src/modules/academy-admissions/application/results/admission-errors";
 import { admissionCommittedOutcomeSchema } from "@/src/modules/academy-admissions/application/results/admission-writer-result-schemas";
 import { admissionOutcomeSchema, createAdmissionOperationStateSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";

@@ -1,8 +1,7 @@
 /** Adapts leader-owned list reads and explicit commands through the existing guarded HTTP boundary. @module allowlist-handlers */
 import "server-only";
 import type { ManageAllowlistUseCases } from "../../application/use-cases/manage-allowlist-use-cases";
-import type { AdmissionFailure } from "../../application/results/admission-errors";
-import { admissionFailure } from "../../application/results/admission-errors";
+import { type AdmissionFailure, admissionFailure  } from "../../application/results/admission-errors";
 import { allowlistPageSchema } from "../../application/results/allowlist-query-schemas";
 import { allowlistEntrySchema } from "../../application/results/admission-public-result-schemas";
 import { allowlistMutationResultSchema } from "../../application/results/allowlist-mutation-schemas";

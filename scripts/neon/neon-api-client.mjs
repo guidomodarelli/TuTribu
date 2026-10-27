@@ -75,7 +75,7 @@ export async function waitForNeonOperations({ apiKey, projectId, operationIds, o
       throw new NeonApiError(operation, `timeout after ${OPERATION_TIMEOUT_MS} ms`);
     }
 
-    for (const operationId of [...pending]) {
+    for (const operationId of pending) {
       const { operation: neonOperation } = await callNeonApi({
         apiKey,
         method: "GET",

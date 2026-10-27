@@ -81,7 +81,7 @@ export default async function TribeTribePage({
   const viewerMembership = memberTribes.find(
     (tribeListItem) => tribeListItem.slug === tribe.slug
   );
-  const viewerRole = (viewerMembership?.role ?? null) as TribeMemberRole | null;
+  const viewerRole = (viewerMembership?.role ?? null);
   const isViewerActive =
     viewerMembership?.membershipStatus === TRIBE_MEMBERSHIP_STATUS.active;
   const canManageTribeMembers =

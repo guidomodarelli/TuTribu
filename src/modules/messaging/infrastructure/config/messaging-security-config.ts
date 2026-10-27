@@ -34,7 +34,7 @@ export async function createMessagingSecurityConfig(input: {
   try {
     for (const purpose of Object.values(MESSAGING_KEY_PURPOSE)) {
     const ring = input.keyrings[purpose];
-    if (!ring || !ring.activeKeyId || !ring.keys.length) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.invalidConfiguration);
+    if (!ring?.activeKeyId || !ring.keys.length) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.invalidConfiguration);
     const keys = new Map<string, CryptoKey>();
     for (const entry of ring.keys) {
       if (!entry.id || keys.has(entry.id) || entry.material.byteLength !== MESSAGING_CRYPTO.keyBytes) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.invalidConfiguration);

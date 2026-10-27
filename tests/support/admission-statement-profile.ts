@@ -25,8 +25,8 @@ function executionMilliseconds(value: string): number {
 
 /** @param query - Private provider SQL retained only during projection. @returns Closed, deduplicated object hints, with no arbitrary identifier or literal. */
 function mentionedObjects(query: string): string[] {
-  const candidates = (query.match(ADMISSION_STATEMENT_PROFILE.identifierPattern) ?? []).map((word) => word.toLowerCase());
-  return ADMISSION_STATEMENT_OBJECTS.filter((name) => candidates.includes(name)).sort();
+  const candidates = new Set((query.match(ADMISSION_STATEMENT_PROFILE.identifierPattern) ?? []).map((word) => word.toLowerCase()));
+  return ADMISSION_STATEMENT_OBJECTS.filter((name) => candidates.has(name)).sort();
 }
 
 /**
@@ -36,7 +36,7 @@ function mentionedObjects(query: string): string[] {
  */
 export function projectAdmissionStatementProfile(input: unknown): AdmissionStatementProfile {
   try {
-    if (!Array.isArray(input)) throw new Error("Native inspector rows unavailable");
+    if (!Array.isArray(input)) throw new TypeError("Native inspector rows unavailable");
     const statements = (input as NativeStatementRow[]).map((row, index) => {
       const totalExecutionMs = executionMilliseconds(row.total_exec_time), calls = Number(row.ncalls);
       const query = row.query ?? "";

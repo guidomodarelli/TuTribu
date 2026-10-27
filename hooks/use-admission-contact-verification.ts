@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AdmissionContactBrowserClient, AdmissionContactBrowserResult, AdmissionContactVerified } from "@/src/modules/academy-admissions/application/ports/admission-contact-browser-client";
 import type { AdmissionChallengeSnapshot } from "@/src/modules/academy-admissions/domain/repositories/admission-contact-verification";
-import type { AdmissionOperationRecoveryDto } from "@/src/modules/academy-admissions/application/results/admission-operation-recovery";
-import { admissionOperationRecoverySchema } from "@/src/modules/academy-admissions/application/results/admission-operation-recovery";
+import { type AdmissionOperationRecoveryDto, admissionOperationRecoverySchema  } from "@/src/modules/academy-admissions/application/results/admission-operation-recovery";
 import type { AdmissionProofApplicationResult } from "@/src/modules/academy-admissions/domain/repositories/admission-verification-proof-repository";
 import { ZodError, type z } from "zod";
 import type { messageDeliverySchema } from "@/src/modules/messaging/application/results/messaging-flow-result-schemas";
@@ -13,9 +12,8 @@ import { readAdmissionContactIntent, readEarlierUnresolvedAdmissionContactIntent
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
 import { admissionChallengeSnapshotSchema, admissionIssuanceDenialSchema, admissionChallengeVerificationSnapshotSchema } from "@/src/modules/academy-admissions/application/results/admission-contact-verification-schemas";
 import { admissionCurrentChallengeSelectionSchema } from "@/src/modules/academy-admissions/application/results/admission-current-challenge-schemas";
-import { ADMISSION_CONTACT_SELECTED_REFERENCE } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
+import { ADMISSION_CONTACT_SELECTED_REFERENCE, ADMISSION_CONTACT_ACTION, ADMISSION_CONTACT_ISSUED_REFERENCE, ADMISSION_CONTACT_PHASE, ADMISSION_CONTACT_COPY, ADMISSION_CONTACT_BROWSER_STATUS, ADMISSION_CONTACT_BROWSER_TIMEOUT_MS, ADMISSION_CONTACT_CLOCK_INTERVAL_MS, ADMISSION_PERSONAL_CONTACT_SCOPE_PATTERN, ADMISSION_CONTACT_INTENT_DIAGNOSTIC, ADMISSION_CONTACT_ABSENT_DISCARD_AFTER_MS  } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
 import { admissionProofApplicationSnapshotSchema } from "@/src/modules/academy-admissions/application/results/admission-proof-application-schemas";
-import { ADMISSION_CONTACT_ACTION, ADMISSION_CONTACT_ISSUED_REFERENCE, ADMISSION_CONTACT_PHASE, ADMISSION_CONTACT_COPY, ADMISSION_CONTACT_BROWSER_STATUS, ADMISSION_CONTACT_BROWSER_TIMEOUT_MS, ADMISSION_CONTACT_CLOCK_INTERVAL_MS, ADMISSION_PERSONAL_CONTACT_SCOPE_PATTERN, ADMISSION_CONTACT_INTENT_DIAGNOSTIC, ADMISSION_CONTACT_ABSENT_DISCARD_AFTER_MS } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
 import { ADMISSION_PUBLIC_CODE_PATTERN } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE, type AdmissionErrorCode } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_CONTACT_TYPE, ADMISSION_CONTACT_NORMALIZATION_STATUS } from "@/src/modules/academy-admissions/constants/admission-contact";

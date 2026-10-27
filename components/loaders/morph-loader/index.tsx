@@ -11,11 +11,9 @@ import {
   useAnimationFrame,
   useMotionValue,
   useReducedMotion,
-  useTransform,
+  useTransform, type AnimationPlaybackControls, type MotionValue, type Transition 
 } from "motion/react";
-import type { AnimationPlaybackControls, MotionValue, Transition } from "motion/react";
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties  } from "react";
 import {
   DEGREES_PER_TURN,
   FULL_TURN_RADIANS,
@@ -25,13 +23,11 @@ import {
   nearestAngle,
   shapePoses,
   strokePath,
-} from "./morph-loader-geometry";
-import type {
-  MorphLoaderShape,
-  MorphLoaderStatus,
-  MorphLoaderVariant,
-  StrokePose,
-  StrokePoseKey,
+  type MorphLoaderShape,
+  type MorphLoaderStatus,
+  type MorphLoaderVariant,
+  type StrokePose,
+  type StrokePoseKey
 } from "./morph-loader-geometry";
 import { idleOffsets, idleTurn, nextUprightAngle } from "./morph-loader-idle";
 import styles from "./styles.module.scss";

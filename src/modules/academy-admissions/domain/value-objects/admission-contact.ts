@@ -48,7 +48,7 @@ export function normalizeAdmissionContact(input: {
   }
 
   const country = input.country?.trim().toUpperCase();
-  if (country && !isSupportedCountry(country as CountryCode)) return invalid;
+  if (country && !isSupportedCountry(country)) return invalid;
 
   try {
     const phone = parsePhoneNumberWithError(value, { defaultCountry: country as CountryCode | undefined, extract: false });

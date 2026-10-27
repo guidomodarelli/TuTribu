@@ -127,7 +127,7 @@ export function NotificationRecoveryContainer({ client = notificationRecoveryBro
   async function recover(resume = false): Promise<void> {
     if (!resume && historyFull) { setMessage({ kind: "alert", text: COPY.historyFull }); return; }
     // A deadline that passed since the last evaluation shows the notice as no longer available instead of a selection error.
-    const attemptedAtMs = new Date().getTime();
+    const attemptedAtMs = Date.now();
     if (!resume && selected && Date.parse(selected.deadlineAt) <= attemptedAtMs) { setClockMs(attemptedAtMs); setMessage(null); return; }
     if (!confirmed) { setMessage({ kind: "alert", text: COPY.consentRequired }); return; }
     if (resume ? !reference || !mayResume : Boolean(reference) || !eligible(new Date())) { setMessage({ kind: "alert", text: COPY.selectionRequired }); return; }

@@ -4,10 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 import { GetAdmissionPolicyUseCase } from "@/src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case";
 import { ResolveAdmissionContextUseCase } from "@/src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case";
 import { createDefaultAdmissionPolicy } from "@/src/modules/academy-admissions/domain/entities/admission-policy";
-import type { AdmissionPolicyState } from "@/src/modules/academy-admissions/domain/repositories/admission-policy-management";
+import type { AdmissionPolicyState, AdmissionPolicyViewFacts  } from "@/src/modules/academy-admissions/domain/repositories/admission-policy-management";
 import type { AuthenticatedAccount } from "@/src/modules/auth/domain/entities/authenticated-account";
 import type { AdmissionActorFacts } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
-import type { AdmissionPolicyViewFacts } from "@/src/modules/academy-admissions/domain/repositories/admission-policy-management";
 
 /** Supplies true absence and an actual global account, with no mutation owner. */
 function fixture() {

@@ -12,14 +12,13 @@ import { MessagingDeliveryStorageError } from "@/src/modules/messaging/domain/er
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
 import { MESSAGING_AUTHORIZATION_PURPOSE } from "@/src/modules/messaging/constants/messaging-connection";
 import { MESSAGING_SECRET_DELIVERY_SCOPE } from "@/src/modules/messaging/constants/messaging-secret-access";
-import { MESSAGE_ATTEMPT_STATE, MESSAGE_AUTHORIZATION_OUTCOME, MESSAGE_COMPLETION_OUTCOME, MESSAGE_STORAGE_OPERATION } from "@/src/modules/messaging/constants/message-delivery";
+import { MESSAGE_ATTEMPT_STATE, MESSAGE_AUTHORIZATION_OUTCOME, MESSAGE_COMPLETION_OUTCOME, MESSAGE_STORAGE_OPERATION, MESSAGE_DELIVERY_STATE  } from "@/src/modules/messaging/constants/message-delivery";
 import {ADMISSION_VERIFICATION_PURPOSE} from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { MessagingSecretAccessError } from "../../domain/errors/messaging-secret-access-error";
 import { MessagingCryptographyError } from "../encryption/messaging-cryptography-error";
 import type { QueuedMessageDeliveryResourceAuthority } from "../message-delivery-resource-authority";
 import { NOTIFICATION_GROUP_SUPPRESSION_AUDIT_EVENT, NOTIFICATION_GROUP_SUPPRESSION_AUDIT_RULE, NOTIFICATION_REFERENCE_SUPPRESSION_AUDIT_RULE } from "../../constants/notification-group-authorization";
 import { NOTIFICATION_DELIVERY_RECOVERY_PURPOSE } from "../../constants/notification-delivery-recovery";
-import { MESSAGE_DELIVERY_STATE } from "../../constants/message-delivery";
 
 /** Each call owns a short guarded transaction; RPC and secret reads happen after it returns. */
 type DeliveryDatabaseExecutor = <Result>(actorUserId: string | null, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;

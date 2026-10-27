@@ -2,8 +2,7 @@
 import "server-only";
 import { z } from "zod";
 import type { ManageMessagingConnectionLifecycleUseCases } from "../../application/use-cases/messaging-connection-lifecycle-use-cases";
-import type { MessagingConnectionLifecycleResult } from "../../application/results/messaging-connection-lifecycle-result";
-import { messagingConnectionLifecycleResultSchema } from "../../application/results/messaging-connection-lifecycle-result";
+import { type MessagingConnectionLifecycleResult, messagingConnectionLifecycleResultSchema  } from "../../application/results/messaging-connection-lifecycle-result";
 import type { AdmissionFailure } from "@/src/modules/academy-admissions/application/results/admission-errors";
 import { createAdmissionOperationStateSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { messagingFailure } from "../../application/results/messaging-errors";

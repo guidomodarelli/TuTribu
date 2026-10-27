@@ -23,7 +23,7 @@ describe("AppProviders", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
-    global.fetch = fetchMock as unknown as typeof fetch;
+    global.fetch = fetchMock;
   });
   afterEach(() => { cleanup(); vi.useRealTimers(); });
 

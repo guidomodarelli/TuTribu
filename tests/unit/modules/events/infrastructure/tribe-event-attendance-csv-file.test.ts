@@ -22,7 +22,7 @@ const REPORT = {
 };
 
 function parseLines(content: string): string[] {
-  return content.replace(/^﻿/, "").split("\r\n");
+  return content.replace(/^\ufeff/, "").split("\r\n");
 }
 
 describe("buildTribeEventAttendanceCsvFile", () => {
@@ -31,7 +31,7 @@ describe("buildTribeEventAttendanceCsvFile", () => {
 
     expect(file.contentType).toBe("text/csv; charset=utf-8");
     expect(file.fileName).toBe("asistencia-clase-abierta-repaso-2026-05-13.csv");
-    expect(file.content.startsWith("﻿")).toBe(true);
+    expect(file.content.startsWith("\u{FEFF}")).toBe(true);
 
     const lines = parseLines(file.content);
 

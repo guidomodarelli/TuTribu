@@ -6,8 +6,7 @@ import type { RequestDatabase } from "@/src/modules/shared/infrastructure/databa
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import type { AdmissionCommandScope } from "../../domain/repositories/admission-repositories";
 import type { PersonalInvitationOverviewReader, PersonalInvitationOverviewFacts } from "../../domain/repositories/personal-invitation-overview-reader";
-import type { AdmissionSubmissionFacts, AdmissionMembershipFacts } from "../../domain/policies/admission-eligibility";
-import { evaluateAdmissionPreview } from "../../domain/policies/admission-eligibility";
+import { type AdmissionSubmissionFacts, type AdmissionMembershipFacts, evaluateAdmissionPreview  } from "../../domain/policies/admission-eligibility";
 import { readAdmissionPolicy } from "./postgres-admission-policy-storage";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";

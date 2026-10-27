@@ -22,7 +22,14 @@
  */
 
 import { sql } from "drizzle-orm";
-import { MercadoPagoRequestError, type MercadoPagoCheckoutReferenceInput } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
+import { MercadoPagoRequestError, type MercadoPagoCheckoutReferenceInput,
+  type MercadoPagoAuthorizedPayment,
+  type MercadoPagoAuthorizedPaymentInput,
+  type MercadoPagoAuthorizedPaymentSearchInput,
+  type MercadoPagoPayment,
+  type MercadoPagoPaymentInput,
+  type MercadoPagoPreapprovalStatusInput,
+  type MercadoPagoPendingSubscriptionInput } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
 
 import {
   ACADEMY_COVERAGE_RECONCILIATION_THROTTLE_SECONDS,
@@ -53,15 +60,6 @@ import {
   resolveMercadoPagoAccessToken,
   type MercadoPagoAccessTokenRefresher,
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-access-token";
-import type {
-  MercadoPagoAuthorizedPayment,
-  MercadoPagoAuthorizedPaymentInput,
-  MercadoPagoAuthorizedPaymentSearchInput,
-  MercadoPagoPayment,
-  MercadoPagoPaymentInput,
-  MercadoPagoPreapprovalStatusInput,
-  MercadoPagoPendingSubscriptionInput,
-} from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
 import { mapMercadoPagoSubscriptionStatus } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-status-mapper";
 import { resolvePublicAppBaseUrl } from "@/src/modules/shared/infrastructure/backend/public-app-base-url";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";

@@ -745,7 +745,7 @@ describe("NotificationCenter hydration", () => {
     const container = document.createElement("div");
 
     container.innerHTML = await renderServerMarkup();
-    document.body.appendChild(container);
+    document.body.append(container);
     window.innerWidth = MOBILE_VIEWPORT_WIDTH_PX;
 
     const serverSheetTrigger = container.querySelector('[data-slot="sheet-trigger"]');
@@ -789,7 +789,7 @@ describe("NotificationCenter hydration", () => {
     const container = document.createElement("div");
 
     container.innerHTML = await renderServerMarkup();
-    document.body.appendChild(container);
+    document.body.append(container);
 
     const serverPopoverTrigger = container.querySelector('[data-slot="popover-trigger"]');
     let root: ReturnType<typeof hydrateRoot> | undefined;

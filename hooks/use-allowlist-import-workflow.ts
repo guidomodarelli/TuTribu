@@ -12,7 +12,7 @@ import { allowlistImportSchema, type AllowlistImportDto } from "@/src/modules/ac
 import { allowlistImportReferenceSchema, allowlistImportConfirmationResultSchema, allowlistImportDenialSchema } from "@/src/modules/academy-admissions/application/results/allowlist-import-operation-schemas";
 import { allowlistImportApiClient } from "@/lib/academy-admissions/allowlist-import-api-client";
 import { readAllowlistImport, writeAllowlistImport, type StoredAllowlistImport } from "@/lib/academy-admissions/allowlist-import-intent";
-import { readAllowlistImportFile, countAllowlistImportRows } from "@/lib/academy-admissions/allowlist-import-file-client";
+import { readAllowlistImportFile, countAllowlistImportRows, downloadAllowlistImportFile  } from "@/lib/academy-admissions/allowlist-import-file-client";
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
 import { ALLOWLIST_IMPORT_BROWSER_COPY as COPY, ALLOWLIST_IMPORT_WRITE_ACTION as WRITE_ACTION, ALLOWLIST_IMPORT_STEP, type AllowlistImportWriteAction } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
 import { ALLOWLIST_BROWSER_TIMEOUT_MS } from "@/src/modules/academy-admissions/constants/allowlist-browser";
@@ -20,7 +20,6 @@ import { ADMISSION_IMPORT_PUBLIC_STATE as IMPORT_STATE } from "@/src/modules/aca
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { REAUTHENTICATION_OPERATION as OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
-import { downloadAllowlistImportFile } from "@/lib/academy-admissions/allowlist-import-file-client";
 import { allowlistImportDraftStore } from "@/lib/academy-admissions/allowlist-import-draft-store";
 import { isSelectableAllowlistImportRow, listSelectableAllowlistImportRows } from "@/lib/academy-admissions/allowlist-import-selection";
 

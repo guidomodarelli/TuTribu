@@ -156,7 +156,7 @@ describe("TribeCoursesBrowser", () => {
     window.history.replaceState(null, "", CATALOG_PATH);
     global.fetch = vi.fn(async () =>
       buildJsonResponse({ comments: [] })
-    ) as unknown as typeof fetch;
+    );
   });
 
   afterEach(() => {
@@ -319,7 +319,7 @@ describe("TribeCoursesBrowser", () => {
     const user = userEvent.setup();
     global.fetch = vi.fn(async () =>
       buildJsonResponse({ comments: [] })
-    ) as unknown as typeof fetch;
+    );
 
     renderBrowser();
 
@@ -361,7 +361,7 @@ describe("TribeCoursesBrowser", () => {
       String(input).includes("/completion")
         ? ({ json: async () => ({}), ok: false, status: 500 } as Response)
         : buildJsonResponse({ comments: [] })
-    ) as unknown as typeof fetch;
+    );
 
     renderBrowser({ initialCourseId: "course-2" });
 

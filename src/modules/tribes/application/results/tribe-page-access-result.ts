@@ -7,7 +7,7 @@ export {
   TRIBE_PAGE_ACCESS_STATUS,
 } from "@/src/modules/tribes/constants/tribe-page-access";
 
-import {
+import type {
   TRIBE_MEMBERSHIP_STATUS_REASON,
   TRIBE_PAGE_ACCESS_REASON,
   TRIBE_PAGE_ACCESS_STATUS,

@@ -11,8 +11,7 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { toast, Badge, Button, Dialog, DialogContent, DropdownMenu, Input, Select, type SelectOption, AnimatedCount, AnimatedListItem, PresenceSwap, SplitButton, copyTextToClipboard, cn } from "@golfo/ui";
-import type { SplitButtonAction } from "@golfo/ui";
+import { toast, Badge, Button, Dialog, DialogContent, DropdownMenu, Input, Select, type SelectOption, AnimatedCount, AnimatedListItem, PresenceSwap, SplitButton, copyTextToClipboard, cn, type SplitButtonAction  } from "@golfo/ui";
 
 import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
 import {

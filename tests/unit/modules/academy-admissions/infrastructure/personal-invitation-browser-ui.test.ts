@@ -71,10 +71,10 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native persona
           }
           if (terminal !== "code") {
             const observation = await page.evaluate((catalogue) => {
-              const alerts = Array.from(document.querySelectorAll('[role="alert"]')).map((element) => element.textContent?.trim());
+              const alerts = new Set(Array.from(document.querySelectorAll('[role="alert"]')).map((element) => element.textContent?.trim()));
               const section = document.querySelector('section[aria-labelledby][aria-busy]');
               const input = document.querySelector('input[autocomplete="one-time-code"]');
-              return { publicCodes: catalogue.filter(([, message]) => alerts.includes(message)).map(([code]) => code), confirm: section?.querySelector('[role="checkbox"]')?.getAttribute("aria-checked"), busy: section?.getAttribute("aria-busy"), secure: isSecureContext, uuid: typeof crypto.randomUUID, phoneInvalid: document.querySelector('input[type="tel"]')?.getAttribute("aria-invalid"), codeField: Boolean(input), codeLabelAssociated: Boolean(input && Array.from(document.querySelectorAll("label")).some((label) => label.htmlFor === input.id && label.textContent?.trim() === "Código de ingreso")) };
+              return { publicCodes: catalogue.filter(([, message]) => alerts.has(message)).map(([code]) => code), confirm: section?.querySelector('[role="checkbox"]')?.getAttribute("aria-checked"), busy: section?.getAttribute("aria-busy"), secure: isSecureContext, uuid: typeof crypto.randomUUID, phoneInvalid: document.querySelector('input[type="tel"]')?.getAttribute("aria-invalid"), codeField: Boolean(input), codeLabelAssociated: Boolean(input && Array.from(document.querySelectorAll("label")).some((label) => label.htmlFor === input.id && label.textContent?.trim() === "Código de ingreso")) };
             }, [...Object.entries(ADMISSION_ERROR_MESSAGE), ...Object.entries(ADMISSION_CONTACT_COPY)]);
             throw new Error(`Personal code issuance did not produce a usable field ${JSON.stringify({ issueRequests, issueStatuses, authRequests, authStatuses, providerRequests, failures, ...observation })}`);
           }

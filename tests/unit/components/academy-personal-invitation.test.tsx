@@ -206,7 +206,7 @@ describe("personal invitation page workflow", () => {
     const data = fixture(); vi.mocked(data.client.submit).mockResolvedValue({ status: "failed", code: "dependency_unavailable", message: "La respuesta no llegó.", uncertain: true }); render(data.element());
     const confirmation = screen.getByRole("checkbox", { name: /Confirmo que quiero usar esta invitación/i }); await waitFor(() => expect(confirmation).toBeEnabled()); fireEvent.click(confirmation); fireEvent.click(screen.getByRole("button", { name: "Confirmar invitación" }));
     const read = await screen.findByRole("button", { name: "Consultar operación original" });
-    const operationId = vi.mocked(data.client.submit).mock.calls[0]![1].operationId;
+    const operationId = vi.mocked(data.client.submit).mock.calls[0][1].operationId;
     vi.mocked(data.client.operation).mockResolvedValue({ status: "ready", value: { type: "submit_admission", state: "completed", operationId, replayed: true, result: { operationId, outcome: "pending", admissionRequestId: data.request.id, committedRequestVersion: 1, membership: null, requestSnapshot: data.request, created: true } } });
     fireEvent.click(read); await screen.findByRole("link", { name: "Ver mi solicitud" });
     expect(data.client.operation).toHaveBeenCalledExactlyOnceWith("synthetic-personal", operationId, expect.any(AbortSignal));

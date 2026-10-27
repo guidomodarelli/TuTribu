@@ -166,7 +166,7 @@ describe("post-event routes", () => {
       ]);
       const bodies = await Promise.all(responses.map((response) => response.json()));
 
-      expect(responses.map((response) => response.status)).toEqual(Array(7).fill(500));
+      expect(responses.map((response) => response.status)).toEqual(new Array(7).fill(500));
       expect(bodies).toEqual([
         { message: "No pudimos cargar la grabación y los materiales. Intentá de nuevo." },
         { message: "No pudimos guardar la grabación y los materiales. Intentá de nuevo." },
@@ -204,7 +204,7 @@ describe("post-event routes", () => {
       {
         ...buildRequest(`${BASE_URL}/post-event?occurrence=${ORIGINAL_STARTS_AT}`),
         headers: new Headers({ "x-request-id": CLIENT_REQUEST_ID }),
-      } as unknown as Request,
+      },
       eventContext()
     );
 
@@ -688,7 +688,7 @@ describe("lesson conversion routes", () => {
       {
         ...buildRequest("https://tutribu.example.com/api", conversionBody),
         headers: new Headers({ "x-request-id": CLIENT_REQUEST_ID }),
-      } as unknown as Request,
+      },
       tribeContext()
     );
 

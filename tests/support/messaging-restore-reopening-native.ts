@@ -1,10 +1,8 @@
 /** Exercises an explicit fresh connection, diagnostic, policy and admission after private recovery. @module messaging-restore-reopening-fixture */
 import { randomUUID } from "node:crypto";
-import type { MessagingRestoreSql } from "./messaging-restore-composition";
+import { type MessagingRestoreSql, composeAdmissionRestoreOwnersForPrincipal , composeMessagingRestoreOwnersForPrincipal  } from "./messaging-restore-composition";
 import type { AuthorizedMessagingContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import type { prepareRestoreAdmissionCheckpoint } from "./messaging-restore-admission-fixture";
-import { composeAdmissionRestoreOwnersForPrincipal } from "./messaging-restore-composition";
-import { composeMessagingRestoreOwnersForPrincipal } from "./messaging-restore-composition";
 import { prepareMessagingActivationFromCreation, type MessagingActivationCreation } from "./messaging-activation-native";
 import { composeRestoreAdmissionDispatch } from "./messaging-restore-dispatch-native";
 import { createAdmissionProviderTransport } from "./admission-provider-transport";

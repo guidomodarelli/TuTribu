@@ -70,7 +70,7 @@ $tribe-events-calendar-view-duration: 220ms;
     height: 1px;
     margin: 0;
     overflow: hidden;
-    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
     white-space: nowrap;
   }
 

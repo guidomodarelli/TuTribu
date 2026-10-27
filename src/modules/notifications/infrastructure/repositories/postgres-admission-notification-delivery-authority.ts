@@ -50,7 +50,7 @@ export class PostgresAdmissionNotificationDeliveryAuthority implements Admission
     const row = (await this.database.execute<DeliveryRow>(sql`select id,connection_id,connection_version,environment,security_epoch,purpose,channel,state,source_resource_id,notification_group_id,notification_group_audience,recipient_ref,actor_user_id,recovery_of_delivery_id,idempotency_key,queued_usage_policy_version,
       (extract(epoch from created_at)*${MICROSECONDS_PER_SECOND})::bigint::text as created_microseconds,(extract(epoch from deadline_at)*${MICROSECONDS_PER_SECOND})::bigint::text as deadline_microseconds,
       frozen_intent,payload_fingerprint,payload_mac_key_id from public.message_deliveries where id=${scope.deliveryId} and tribe_id=${scope.tribeId}`)).rows[0];
-    if (!row || !row.notification_group_id || !row.notification_group_audience) return deny(ADMISSION_NOTIFICATION_GROUP_AUTHORITY_REASON.unavailable);
+    if (!row?.notification_group_id || !row.notification_group_audience) return deny(ADMISSION_NOTIFICATION_GROUP_AUTHORITY_REASON.unavailable);
     if (row.state !== MESSAGE_DELIVERY_STATE.queued || row.purpose !== NOTIFICATION_DELIVERY_RECOVERY_PURPOSE || row.channel !== MESSAGING_PUBLIC_CHANNEL.email || row.source_resource_id !== row.notification_group_id) return deny(ADMISSION_NOTIFICATION_GROUP_REASON.scopeMismatch);
     const config = await this.readSecurityConfig();
     if (config.recoveryLocked || config.environment !== row.environment || config.securityEpoch !== row.security_epoch) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.connectionIncomplete);

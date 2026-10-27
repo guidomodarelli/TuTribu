@@ -1,6 +1,6 @@
 "use client";
 /** Consumes only own same-origin contact contracts, preserving original uncertainty and cancellation without automatic retries. @module admission-contact-api-client */
-import { z } from "zod";
+import type { z } from "zod";
 import { admissionCurrentChallengeSelectionSchema } from "@/src/modules/academy-admissions/application/results/admission-current-challenge-schemas";
 import type { AdmissionContactBrowserClient, AdmissionContactBrowserResult } from "@/src/modules/academy-admissions/application/ports/admission-contact-browser-client";
 import type { AdmissionErrorCode, AdmissionErrorOperation } from "@/src/modules/academy-admissions/application/results/admission-errors";

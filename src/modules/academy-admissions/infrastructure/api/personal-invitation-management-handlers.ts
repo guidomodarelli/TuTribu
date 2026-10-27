@@ -1,8 +1,7 @@
 /** Adapts current leader administration and original commands without recovering token material. @module personal-invitation-management-handlers */
 import "server-only";
 import type { ManagePersonalInvitationsUseCases } from "../../application/use-cases/manage-personal-invitations-use-cases";
-import type { AdmissionFailure } from "../../application/results/admission-errors";
-import { admissionFailure } from "../../application/results/admission-errors";
+import { type AdmissionFailure, admissionFailure  } from "../../application/results/admission-errors";
 import { personalInvitationCreationResultSchema, personalInvitationMutationOperationSchema } from "../../constants/personal-invitation-management-schemas";
 import { personalInvitationPageSchema, personalInvitationManagementSchema, createPersonalInvitationHttpCreationSchema } from "../../constants/personal-invitation-http-schemas";
 import { PERSONAL_INVITATION_HTTP_ACTION, PERSONAL_INVITATION_HTTP_OPERATION } from "../../constants/personal-invitation-http";

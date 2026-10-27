@@ -1,8 +1,7 @@
 /** Resolves actual private leader scope before delegating original personal invitation commands. @module manage-personal-invitations-use-cases */
 import type { ResolveAdmissionContextUseCase } from "./resolve-admission-context-use-case";
 import type { PersonalInvitationReader, PersonalInvitationCommandWriter, PersonalInvitationQuery, PersonalInvitationReplacement } from "../../domain/repositories/personal-invitation-management";
-import type { AdmissionContactType } from "../../domain/value-objects/admission-contact";
-import { normalizeAdmissionContact } from "../../domain/value-objects/admission-contact";
+import { type AdmissionContactType, normalizeAdmissionContact  } from "../../domain/value-objects/admission-contact";
 import { normalizePersonalInvitationName } from "../../domain/value-objects/personal-invitation-name";
 import { ADMISSION_LIMIT } from "../../constants/admission-limits";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";

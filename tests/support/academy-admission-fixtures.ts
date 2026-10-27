@@ -93,7 +93,7 @@ export function createAcademyAdmissionFixtures(
     statusReason: MembershipReason = TRIBE_MEMBERSHIP_STATUS_REASON.none,
     commercialRecoveryStatus: RecoveryStatus = null,
   ) {
-    return { id: identifier(`membership:${owner.userId}`), tribeId: tribes.academyA.id, userId: owner.userId, role, status, statusReason, commercialRecoveryStatus, createdAt: new Date(initialTime.getTime()) };
+    return { id: identifier(`membership:${owner.userId}`), tribeId: tribes.academyA.id, userId: owner.userId, role, status, statusReason, commercialRecoveryStatus, createdAt: new Date(initialTime) };
   }
 
   const memberships = {

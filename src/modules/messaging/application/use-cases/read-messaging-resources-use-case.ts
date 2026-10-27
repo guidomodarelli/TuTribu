@@ -2,8 +2,7 @@
 import type {ResolveMessagingContextUseCase} from "./resolve-messaging-context-use-case";
 import type {AuthorizedMessagingContext,MessagingSecretStore} from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import type {MessagingResourceCursor,MessagingResourceInspectorFactory} from "@/src/modules/messaging/domain/repositories/messaging-resource-inspection";
-import type {MessagingFailure} from "../results/messaging-errors";
-import {messagingFailure} from "../results/messaging-errors";
+import {type MessagingFailure,messagingFailure} from "../results/messaging-errors";
 import {messagingResourcePageSchema,type MessagingResourcePageResult} from "../results/messaging-resource-page-result";
 import {MessagingSecretAccessError} from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
 import {MessagingConnectionInspectionError} from "@/src/modules/messaging/domain/errors/messaging-connection-inspection-error";

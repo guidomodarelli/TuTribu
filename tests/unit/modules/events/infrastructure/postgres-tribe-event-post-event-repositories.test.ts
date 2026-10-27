@@ -20,7 +20,7 @@ function getSqlText(statement: unknown): string {
       }
 
       if (chunk && typeof chunk === "object" && "value" in chunk) {
-        const value = (chunk as { value: unknown }).value;
+        const value = (chunk).value;
 
         return Array.isArray(value) ? value.join("") : "";
       }

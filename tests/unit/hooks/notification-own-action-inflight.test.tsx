@@ -2,9 +2,8 @@
 /** Exercises original inbox cancellation when a later confirmed admission action requires a current snapshot. @module notification-own-action-inflight-tests */
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useAdmissionNotificationRefresh } from "@/hooks/use-admission-notification-refresh";
+import { useAdmissionNotificationRefresh, type AdmissionNotificationRefreshOutcome  } from "@/hooks/use-admission-notification-refresh";
 import { useNotificationCenter } from "@/hooks/use-notification-center";
-import type { AdmissionNotificationRefreshOutcome } from "@/hooks/use-admission-notification-refresh";
 import type { NotificationInboxResponse } from "@/src/modules/notifications/application/results/notification-public-dto-schemas";
 
 const original: NotificationInboxResponse = { notifications: [], unreadCount: 0 };

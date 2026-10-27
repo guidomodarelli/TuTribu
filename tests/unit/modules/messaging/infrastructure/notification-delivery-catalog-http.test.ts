@@ -21,7 +21,7 @@ describe("notification catalog HTTP", () => {
     expect(response.status).toBe(400); expect(open).not.toHaveBeenCalled();
   });
   it("should reject private own DTO fields without exposing their contents", async () => {
-    const value = catalogResult(), execute = vi.fn(async () => ({ ok: true as const, value: { ...value, items: [{ ...value.items[0]!, recipient: "synthetic-private-recipient" }] } }));
+    const value = catalogResult(), execute = vi.fn(async () => ({ ok: true as const, value: { ...value, items: [{ ...value.items[0], recipient: "synthetic-private-recipient" }] } }));
     const handler = createNotificationDeliveryCatalogHandler(async () => ({ catalog: { execute }, resolveTribe: { execute: async () => ({ ok: true, value: { tribeId: randomUUID() } }) } }));
     const response = await handler(new Request("https://synthetic.example/api/tribes/synthetic/messaging/notification-deliveries"), { params: Promise.resolve({ slug: "synthetic" }) });
     expect(response.status).toBe(500); expect(await response.text()).not.toContain("synthetic-private-recipient");

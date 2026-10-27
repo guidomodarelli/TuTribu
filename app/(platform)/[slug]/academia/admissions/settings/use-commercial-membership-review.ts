@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "@golfo/ui";
 import type { CommercialMembershipReviewBrowserClient } from "@/src/modules/academy-admissions/application/ports/commercial-membership-review-browser-client";
-import type { CommercialMembershipResolutionResult, CommercialMembershipReviewList } from "@/src/modules/academy-admissions/domain/entities/commercial-membership-review";
-import { commercialMembershipExpectedState } from "@/src/modules/academy-admissions/domain/entities/commercial-membership-review";
+import { type CommercialMembershipResolutionResult, type CommercialMembershipReviewList, commercialMembershipExpectedState  } from "@/src/modules/academy-admissions/domain/entities/commercial-membership-review";
 import type { CommercialMembershipReviewDraft } from "@/components/academy-admissions/commercial-membership-review";
 import { COMMERCIAL_MEMBERSHIP_REJECTION_COPY, COMMERCIAL_MEMBERSHIP_REVIEW_COPY as COPY, COMMERCIAL_MEMBERSHIP_REVIEW_OPERATION, COMMERCIAL_MEMBERSHIP_REVIEW_STATUS, commercialMembershipResolvedMessage } from "@/src/modules/academy-admissions/constants/commercial-membership-review";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
@@ -110,7 +109,7 @@ export function useCommercialMembershipReview({ slug, viewerId, client, initialL
     try { stored = readCommercialMembershipReviewIntent(viewerId, slug); } catch { stored = null; }
     if (!stored) return;
     intent.current = stored;
-    const timer = window.setTimeout(() => { setUncertain(true); void run(null, recoverOriginal); });
+    const timer = window.setTimeout(() => { setUncertain(true); void run(null, recoverOriginal); }, 0);
     return () => { window.clearTimeout(timer); controller.current?.abort(); busy.current = false; };
   }, [recoverOriginal, run, slug, viewerId]);
 

@@ -1,9 +1,8 @@
 /** Executes explicit policy commands through validated own HTTP contracts. @module admission-policy-command-handlers */
 import "server-only";
-import { z } from "zod";
+import type { z } from "zod";
 import type { ManageAdmissionPolicyUseCases } from "../../application/use-cases/manage-admission-policy-use-cases";
-import type { AdmissionFailure } from "../../application/results/admission-errors";
-import { admissionFailure } from "../../application/results/admission-errors";
+import { type AdmissionFailure, admissionFailure  } from "../../application/results/admission-errors";
 import { admissionPolicyMutationResultSchema } from "../../application/results/admission-policy-result-schemas";
 import { createAdmissionOperationStateSchema } from "../../application/results/admission-flow-result-schemas";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";

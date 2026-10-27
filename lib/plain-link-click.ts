@@ -12,7 +12,7 @@ const PRIMARY_MOUSE_BUTTON = 0;
  * @param event - Click on an anchor, or on an element that contains it.
  * @returns `true` when the page may take over the navigation.
  */
-export function isInPageLinkClick(event: MouseEvent<Element>): boolean {
+export function isInPageLinkClick(event: MouseEvent): boolean {
   return (
     !event.defaultPrevented &&
     event.button === PRIMARY_MOUSE_BUTTON &&

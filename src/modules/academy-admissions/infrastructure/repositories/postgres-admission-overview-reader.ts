@@ -11,13 +11,11 @@ import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants
 import { TRIBE_ACCESS_MODEL } from "@/src/modules/product-access/constants/product-access";
 import { AdmissionMessagingCountryChoicesReader } from "../verification/messaging-country-choices-reader";
 import { PostgresMessagingUsageRepository } from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-repository";
-import { ADMISSION_CONTACT_TYPE } from "../../constants/admission-contact";
-import { ADMISSION_PHONE_CHANNEL } from "../../constants/admission-policy";
+import { ADMISSION_CONTACT_TYPE, ADMISSION_CONTACT_NORMALIZATION_STATUS  } from "../../constants/admission-contact";
+import { ADMISSION_PHONE_CHANNEL, ADMISSION_POLICY_MODE  } from "../../constants/admission-policy";
 import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/messaging-public-contract";
-import { ADMISSION_POLICY_MODE } from "../../constants/admission-policy";
 import { ADMISSION_SOURCE_KIND } from "../../constants/admission-eligibility";
 import { normalizeAdmissionContact } from "../../domain/value-objects/admission-contact";
-import { ADMISSION_CONTACT_NORMALIZATION_STATUS } from "../../constants/admission-contact";
 import type { AdmissionSubmissionFacts, AdmissionMembershipFacts } from "../../domain/policies/admission-eligibility";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { createDefaultAdmissionPolicy, type AdmissionPolicy } from "../../domain/entities/admission-policy";

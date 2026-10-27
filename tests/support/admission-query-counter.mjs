@@ -49,7 +49,7 @@ pg.Client.prototype.query = function countedQuery(config, values, callback) {
     args[callbackIndex] = function settledCallback(...result) { finish(); return original.apply(this, result); };
     return originalQuery.apply(this, args.slice(0, Math.max(callbackIndex + 1, arguments.length)));
   }
-  const result = originalQuery.apply(this, arguments);
+  const result = Reflect.apply(originalQuery, this, arguments);
   if (result && typeof result.then === "function") result.then(finish, finish);
   else finish();
   return result;
@@ -66,7 +66,7 @@ pg.Pool.prototype.connect = function countedConnect(...args) {
 const originalEmit = Server.prototype.emit;
 /** Opens one scope per incoming request and reports its aggregate once the response and late work settled. */
 Server.prototype.emit = function scopedEmit(event, request, response) {
-  if (event !== "request" || !request?.url || !response) return originalEmit.apply(this, arguments);
+  if (event !== "request" || !request?.url || !response) return Reflect.apply(originalEmit, this, arguments);
   const scope = { method: request.method, path: new URL(request.url, "http://counter.invalid").pathname, startedAt: performance.now(), counts: { checkouts: 0, begin: 0, commit: 0, rollback: 0, statement: 0 }, intervals: [], shapes: [] };
   response.once("close", () => {
     const durationMs = Math.round(performance.now() - scope.startedAt), status = response.statusCode;

@@ -42,7 +42,7 @@ import type { AdmissionWhatsappNumberBrowserClient } from "@/src/modules/academy
 import { ADMISSION_WHATSAPP_COPY, ADMISSION_WHATSAPP_INTENT_KIND, ADMISSION_WHATSAPP_OPERATION } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
 
 /** Submission refusals that the current overview may explain as needing another account. */
-const ACCOUNT_CHANGE_SUBMISSION_CODES: readonly string[] = [ADMISSION_ERROR_CODE.admissionIneligible, ADMISSION_ERROR_CODE.contactBindingConflict];
+const ACCOUNT_CHANGE_SUBMISSION_CODES: ReadonlySet<string> = new Set([ADMISSION_ERROR_CODE.admissionIneligible, ADMISSION_ERROR_CODE.contactBindingConflict]);
 
 /** @param intent - A write the applicant started. @returns The step or action whose error it is: the submission, the cancellation or the WhatsApp correction. */
 function feedbackOriginOf(intent: AdmissionPendingIntent): AdmissionFeedbackOrigin {
@@ -199,7 +199,7 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
       setErrorMessage(result.message, feedbackOriginOf(intent));
       clearIntent(); if (intent.kind === ADMISSION_WHATSAPP_INTENT_KIND) { setWhatsappConfirmed(false); whatsappConfirmation.current = null; await refresh(signal); }
       // A list or contact-binding refusal can follow a change made after this page loaded; the current overview then explains it and offers another account.
-      if (intent.kind === "submit" && ACCOUNT_CHANGE_SUBMISSION_CODES.includes(result.code) && await refresh(signal) === NOTIFICATION_REFRESH_OUTCOME.refreshed) {
+      if (intent.kind === "submit" && ACCOUNT_CHANGE_SUBMISSION_CODES.has(result.code) && await refresh(signal) === NOTIFICATION_REFRESH_OUTCOME.refreshed) {
         const current = currentState.current;
         if (live(signal) && current.kind === "ready" && current.overview.nextAction === ADMISSION_NEXT_ACTION.changeAccount) setErrorMessage(null);
       }
@@ -390,7 +390,7 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
     form={{ draft, contactType: contactState.overview.policy?.contactType ?? "email", contactLocked: Boolean(contact.challenge || contact.pending), showWhatsappNumber: formReady && !accountChanged && contactState.overview.policy?.contactType !== ADMISSION_CONTACT_TYPE.phone, requiresWhatsappNumber: contactState.overview.policy?.requiresWhatsappNumber ?? false, whatsappErrorMessage: state.kind === "ready" && whatsappValidationError !== null && whatsappValidationError.policyVersion === state.overview.policy?.version ? whatsappValidationError.message : null, confirmed, disabled: flowBlocked, busy: phase === ADMISSION_UI_PHASE.writing, errorMessage: errorAt(ADMISSION_FEEDBACK_ORIGIN.submit), onChange: changeDraft, onConfirm: (value) => { setConfirmed(value); setErrorMessage(null); } }}
     finalAction={flowMode === ADMISSION_REQUEST_FLOW_MODE.apply
       ? { label: ADMISSION_REQUEST_FLOW_COPY.applyAction, loading: contact.phase === ADMISSION_CONTACT_PHASE.applying, disabled: !proofFresh || Boolean(contact.pending) || contactBusy && contact.phase !== ADMISSION_CONTACT_PHASE.applying, onRun: () => void contact.apply() }
-      : { label: ADMISSION_UI_COPY.submit, loading: phase === ADMISSION_UI_PHASE.writing && !writingWhatsapp, disabled: !confirmed || flowBlocked && !(phase === ADMISSION_UI_PHASE.writing && !writingWhatsapp) || hasVerification && !canSubmitWithProof && contactState.overview.state !== ADMISSION_OVERVIEW_STATE.available, onRun: submit }}
+      : { label: ADMISSION_UI_COPY.submit, loading: phase === ADMISSION_UI_PHASE.writing && !writingWhatsapp, disabled: !confirmed || flowBlocked && (phase !== ADMISSION_UI_PHASE.writing || writingWhatsapp) || hasVerification && !canSubmitWithProof && contactState.overview.state !== ADMISSION_OVERVIEW_STATE.available, onRun: submit }}
     detailsBlockedReason={detailsBlockedReason} finalBlockedReason={hasVerification && !proofFresh ? flowMode === ADMISSION_REQUEST_FLOW_MODE.apply ? ADMISSION_REQUEST_FLOW_COPY.applyProofRequired : ADMISSION_REQUEST_FLOW_COPY.proofRequired : undefined} /> : undefined;
   const whatsappErrorMessage = state.kind === "ready" && whatsappValidationError !== null && whatsappValidationError.policyVersion === state.overview.policy?.version ? whatsappValidationError.message : null;
   const currentWhatsappError = currentPending && whatsappEditError?.requestId === currentPending.id && whatsappEditError.version === currentPending.version && whatsappEditError.required === (currentPending.requiresWhatsappNumber ?? false) ? whatsappEditError.message : null;

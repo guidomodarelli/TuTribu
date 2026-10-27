@@ -3,9 +3,9 @@ import { snapshotAdmissionDecisionEvidence } from "@/src/modules/academy-admissi
 import type { AdmissionBatchDecisionIntent, AdmissionBatchDecisionItemResult, AdmissionBatchDecisionSnapshot, AdmissionBatchDecisionWriter } from "../../domain/repositories/admission-batch-decision-writer";
 import { ADMISSION_BATCH_DECISION_OPERATION } from "../../constants/admission-batch-decision";
 import { admissionBatchDecisionSnapshotSchema } from "../../constants/admission-batch-decision-schema";
-import { ADMISSION_BATCH_ITEM_STATUS } from "../../constants/admission-public-contract";
+import { ADMISSION_BATCH_ITEM_STATUS, ADMISSION_DECISION  } from "../../constants/admission-public-contract";
 import type { AdmissionAuditEvent } from "../../domain/entities/admission-audit-event";
-import type { AdmissionNotificationObligation } from "../../domain/repositories/admission-repositories";
+import type { AdmissionNotificationObligation, AdmissionCommandScope, AdmissionCommandWriter, AdmissionSubmissionIntent, AdmissionDecisionIntent, AdmissionCancellationIntent, AdmissionNotificationObligationWriter  } from "../../domain/repositories/admission-repositories";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
@@ -14,20 +14,17 @@ import { parsePhoneNumber } from "libphonenumber-js/max";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import type { AcademyApprovedMembershipWriter } from "@/src/modules/tribes/domain/repositories/academy-approved-membership-writer";
-import type { AdmissionCommandScope, AdmissionCommandWriter, AdmissionSubmissionIntent, AdmissionDecisionIntent, AdmissionCancellationIntent, AdmissionNotificationObligationWriter } from "@/src/modules/academy-admissions/domain/repositories/admission-repositories";
-import type { AdmissionRequest, AdmissionRequestEvidence } from "@/src/modules/academy-admissions/domain/entities/admission-request";
+import { type AdmissionRequest, type AdmissionRequestEvidence, createPendingAdmissionRequest, proposeAdmissionCancellation, getAdmissionRetryAllowedAt  } from "@/src/modules/academy-admissions/domain/entities/admission-request";
 import type { AdmissionPolicy } from "@/src/modules/academy-admissions/domain/entities/admission-policy";
 import type { AdmissionOperationCommand, AdmissionOperationResult } from "@/src/modules/academy-admissions/domain/entities/admission-operation";
-import type { AdmissionActorFacts, AdmissionSubmissionFacts, AdmissionMembershipFacts } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
-import { evaluateAdmissionSubmission } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
-import { createPendingAdmissionRequest, proposeAdmissionCancellation, getAdmissionRetryAllowedAt } from "@/src/modules/academy-admissions/domain/entities/admission-request";
+import { type AdmissionActorFacts, type AdmissionSubmissionFacts, type AdmissionMembershipFacts, evaluateAdmissionSubmission  } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
 import { proposeAdmissionDecision } from "@/src/modules/academy-admissions/domain/entities/admission-decision";
 import { PostgresAdmissionAuthorizationReader, type AdmissionSubmissionActorContext } from "./postgres-admission-authorization-reader";
 import { readLockedAdmissionFacts } from "./postgres-locked-admission-facts";
 import { PostgresAdmissionOperationRepository } from "./postgres-admission-operation-repository";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
-import { admissionCommittedOutcomeSchema, admissionTransitionResultSchema, admissionRetryResultSchema, type AdmissionSubmissionResult } from "@/src/modules/academy-admissions/application/results/admission-writer-result-schemas";
+import { admissionCommittedOutcomeSchema, admissionTransitionResultSchema, admissionRetryResultSchema, type AdmissionSubmissionResult, admissionWhatsappNumberResultSchema  } from "@/src/modules/academy-admissions/application/results/admission-writer-result-schemas";
 import { PostgresOwnAdmissionRequestReader } from "./postgres-own-admission-request-reader";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_ACTION, ADMISSION_DENIAL_REASON, ADMISSION_EVIDENCE_KIND, ADMISSION_OUTCOME } from "@/src/modules/academy-admissions/constants/admission-eligibility";
@@ -38,7 +35,6 @@ import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-r
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { TRIBE_ACCESS_MODEL } from "@/src/modules/product-access/constants/product-access";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
-import { ADMISSION_DECISION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { TRIBE_FREE_JOIN_STATUS } from "@/src/modules/tribes/constants/tribe-story";
 import type { AdmissionRetryWriter, AdmissionRetryIntent } from "@/src/modules/academy-admissions/domain/repositories/admission-retry-writer";
 import { proposeAdmissionRetry } from "@/src/modules/academy-admissions/domain/policies/admission-retry";
@@ -68,7 +64,6 @@ import type { AdmissionWhatsappNumberWriter, AdmissionWhatsappNumberIntent, Admi
 import { proposeAdmissionWhatsappNumberChange } from "../../domain/value-objects/admission-whatsapp-number";
 import { createAdmissionWhatsappNumberAuditEvent } from "../../domain/entities/admission-whatsapp-number-audit-event";
 import { ADMISSION_WHATSAPP_OPERATION, ADMISSION_WHATSAPP_CHANGE_OUTCOME } from "../../constants/admission-whatsapp-number";
-import { admissionWhatsappNumberResultSchema } from "../../application/results/admission-writer-result-schemas";
 import { admissionRequestSchema } from "../../application/results/admission-flow-result-schemas";
 
 /** Every checkout reuses the trusted request actor; a client cannot select the database principal. */

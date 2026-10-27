@@ -3,11 +3,10 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { RunAdmissionMessagingMaintenanceUseCase } from "@/src/modules/messaging/application/use-cases/run-admission-messaging-maintenance-use-case";
-import { createUnstartedAdmissionMaintenancePhases } from "@/src/modules/messaging/application/use-cases/admission-messaging-maintenance-state";
+import { createUnstartedAdmissionMaintenancePhases, admissionMaintenanceMadeProgress  } from "@/src/modules/messaging/application/use-cases/admission-messaging-maintenance-state";
 import type { AdmissionMessagingMaintenanceHealth, AdmissionMessagingMaintenancePhaseOutput, AdmissionMessagingMaintenanceProgress, AdmissionMessagingMaintenanceRun, AdmissionMessagingMaintenanceWork } from "@/src/modules/messaging/domain/repositories/admission-messaging-maintenance";
 import { ADMISSION_MESSAGING_MAINTENANCE_BUDGET_MS, ADMISSION_MESSAGING_MAINTENANCE_PHASES, ADMISSION_MESSAGING_MAINTENANCE_PHASE } from "@/src/modules/messaging/constants/admission-messaging-maintenance";
 import { ADMISSION_MESSAGING_MAINTENANCE_TEST_BUDGET_MS, ADMISSION_MESSAGING_MAINTENANCE_TEST_METRIC_BY_PHASE } from "@/tests/support/constants/admission-messaging-maintenance";
-import { admissionMaintenanceMadeProgress } from "@/src/modules/messaging/application/use-cases/admission-messaging-maintenance-state";
 import { AdmissionMessagingMaintenanceError } from "@/src/modules/messaging/domain/errors/admission-messaging-maintenance-error";
 
 /** @returns Own in-memory effect/observation ports; no framework, SDK, database library or timer is mocked. */

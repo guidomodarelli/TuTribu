@@ -288,7 +288,7 @@ $media-viewer-overlay-opacity: 72%;
     width: 1px;
     height: 1px;
     overflow: hidden;
-    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
     white-space: nowrap;
   }
 
@@ -297,7 +297,7 @@ $media-viewer-overlay-opacity: 72%;
     width: 1px;
     height: 1px;
     overflow: hidden;
-    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
     white-space: nowrap;
   }
 
@@ -306,7 +306,7 @@ $media-viewer-overlay-opacity: 72%;
     width: 1px;
     height: 1px;
     overflow: hidden;
-    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
     white-space: nowrap;
   }
 
@@ -606,7 +606,6 @@ $media-viewer-overlay-opacity: 72%;
     width: 1px;
     height: 1px;
     overflow: hidden;
-    clip: rect(0 0 0 0);
     clip-path: inset(50%);
     white-space: nowrap;
   }
@@ -1578,7 +1577,6 @@ $media-viewer-overlay-opacity: 72%;
 
   &__visuallyHidden {
     border: 0;
-    clip: rect(0 0 0 0);
     clip-path: inset(50%);
     height: 1px;
     margin: -1px;
@@ -2103,7 +2101,7 @@ $media-viewer-overlay-opacity: 72%;
     &__composerDialog:global([data-slot="dialog-content"]) {
       inset: 0 auto auto 0;
       margin: 0;
-      translate: var(--tribe-message-details-no-translate, none) !important;
+      translate: var(--tribe-message-details-no-translate, none);
       width: 100vw;
       max-width: 100vw;
       height: 100dvh;
@@ -2175,7 +2173,7 @@ $media-viewer-overlay-opacity: 72%;
       // plain `translate: none` as a redundant initial value.
       inset: 0 auto auto 0;
       margin: 0;
-      translate: var(--tribe-message-details-no-translate, none) !important;
+      translate: var(--tribe-message-details-no-translate, none);
       width: 100vw;
       max-width: 100vw;
       height: 100dvh;

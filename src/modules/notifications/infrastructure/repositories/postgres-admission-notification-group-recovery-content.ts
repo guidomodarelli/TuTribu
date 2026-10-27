@@ -74,7 +74,7 @@ export class PostgresAdmissionNotificationGroupRecoveryContent implements Notifi
     const original = (await database.execute<OriginalGroupDelivery>(sql`select id,connection_id,connection_version,environment,security_epoch,purpose,channel,source_resource_id,notification_group_id,notification_group_audience,recipient_ref,actor_user_id,recovery_of_delivery_id,idempotency_key,queued_usage_policy_version,
       (extract(epoch from created_at)*${MICROSECONDS_PER_SECOND})::bigint::text as created_microseconds,(extract(epoch from deadline_at)*${MICROSECONDS_PER_SECOND})::bigint::text as deadline_microseconds,
       frozen_intent,payload_mac_key_id,payload_fingerprint from public.message_deliveries where id=${command.originalDeliveryId} and tribe_id=${command.tribeId}`)).rows[0];
-    if (!original || !original.notification_group_id || !original.notification_group_audience || original.purpose !== NOTIFICATION_DELIVERY_RECOVERY_PURPOSE || original.channel !== MESSAGING_PUBLIC_CHANNEL.email || original.source_resource_id !== original.notification_group_id) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+    if (!original?.notification_group_id || !original.notification_group_audience || original.purpose !== NOTIFICATION_DELIVERY_RECOVERY_PURPOSE || original.channel !== MESSAGING_PUBLIC_CHANNEL.email || original.source_resource_id !== original.notification_group_id) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
     const config = await this.readSecurityConfig();
     this.assertSecurity(config, original);
     const group = await readAdmissionNotificationGroup(database, command.tribeId, original.notification_group_id);

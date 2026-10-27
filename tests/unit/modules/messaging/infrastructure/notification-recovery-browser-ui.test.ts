@@ -68,12 +68,12 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native notific
           const originalButton = recovery.getByRole("button", { name: "Consultar recuperación original", exact: true });
           await originalButton.waitFor({ timeout: 120_000 });
           expect(await consent.isChecked()).toBe(false);
-          const originalResponse = page.waitForResponse((response) => new URL(response.url()).pathname === `/api/tribes/${slug}/messaging/notification-recovery-operations/${posts[0]!.operationId}`, { timeout: 120_000 });
+          const originalResponse = page.waitForResponse((response) => new URL(response.url()).pathname === `/api/tribes/${slug}/messaging/notification-recovery-operations/${posts[0].operationId}`, { timeout: 120_000 });
           await originalButton.click();
           const response = await originalResponse, value = await response.json();
           expect(response.status()).toBe(200); expect(response.headers()["cache-control"]).toContain("no-store");
           expect(notificationRecoveryOperationSchema.safeParse(value).success).toBe(true);
-          expect(value).toMatchObject({ state: "completed", operationId: posts[0]!.operationId, replayed: true });
+          expect(value).toMatchObject({ state: "completed", operationId: posts[0].operationId, replayed: true });
           await recovery.getByRole("button", { name: "Preparar otra recuperación", exact: true }).waitFor({ timeout: 120_000 });
           expect(posts).toHaveLength(1); expect(await consent.isChecked()).toBe(false);
           expect(providerRequests).toBe(0); expect(errors).toBe(0); expect(hydrationErrors).toBe(0);

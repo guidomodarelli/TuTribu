@@ -8,13 +8,11 @@ import {
   useEffect,
   useRef,
   useState,
-} from "react";
-import type {
-  ChangeEvent,
-  CSSProperties,
-  FormEvent,
-  KeyboardEvent,
-  MouseEvent,
+  type ChangeEvent,
+  type CSSProperties,
+  type FormEvent,
+  type KeyboardEvent,
+  type MouseEvent
 } from "react";
 import {
   CalendarClockIcon,
@@ -2015,7 +2013,7 @@ function TribeRoundContent({
               : mediaDraft
           ),
           ...appendedImageDrafts.map((imageDraft) => ({
-            kind: MESSAGE_MEDIA_KIND.image as typeof MESSAGE_MEDIA_KIND.image,
+            kind: MESSAGE_MEDIA_KIND.image,
             ...imageDraft,
           })),
         ];
@@ -2981,7 +2979,7 @@ function TribeRoundContent({
         body: file,
         headers: {
           [TRIBE_ROUND_FORM.contentTypeHeader]: file.type,
-          ...(upload.uploadHeaders ?? {}),
+          ...upload.uploadHeaders,
         },
         method: TRIBE_ROUND_FORM.putMethod,
       });
@@ -3745,7 +3743,7 @@ function TribeRoundContent({
 
       pendingCreateMessageKeyRef.current = null;
 
-      const createdMessage = response.tribeMessage as TribeRoundMessageResult;
+      const createdMessage = response.tribeMessage;
 
       replaceOptimisticMessage({
         createdMessage,
@@ -4041,7 +4039,7 @@ function TribeRoundContent({
         typeof response.likedByViewer !== "boolean" ||
         typeof response.likeCount !== "number"
       ) {
-        throw new Error(TRIBE_ROUND_COPY.toggleLikeError);
+        throw new TypeError(TRIBE_ROUND_COPY.toggleLikeError);
       }
 
       const latestPendingLikeIntent = pendingLikeIntentsRef.current[messageId];
@@ -4213,7 +4211,7 @@ function TribeRoundContent({
       }
 
       if (typeof response.isPinned !== "boolean") {
-        throw new Error(TRIBE_ROUND_COPY.togglePinError);
+        throw new TypeError(TRIBE_ROUND_COPY.togglePinError);
       }
 
       const responsePinnedAt = response.pinnedAt ?? null;

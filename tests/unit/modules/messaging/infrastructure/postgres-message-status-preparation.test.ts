@@ -84,7 +84,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native original me
       const waitingPreparation = new PostgresMessageStatusPreparation(changingResolver, execute, guardedSecrets, async () => ({ ...fixture.config, recoveryLocked }));
       const waitingLookup = new ZavuMessageStatusLookup(waitingPreparation, async () => { reads += 1; return Response.json({ message: { id: providerMessageId, direction: ZAVU_MESSAGE_DIRECTION.outbound, channel: ZAVU_DELIVERY_CHANNEL.email, status: ZAVU_DELIVERY_STATUS.delivered } }); });
       const pendingRead = waitingLookup.read(reference, new AbortController().signal);
-      const settledRead = pendingRead.then((value) => ({ status: "fulfilled" as const, value }), (reason: unknown) => ({ status: "rejected" as const, reason }));
+      const settledRead = pendingRead.then((value) => ({ status: "fulfilled" as const, value }), (error: unknown) => ({ status: "rejected" as const, reason: error }));
       const earlyFailure = settledRead.then((result) => { if (result.status === "rejected") throw result.reason; return new Promise<never>(() => undefined); });
       void earlyFailure.catch(() => undefined);
       let raced: PromiseSettledResult<Awaited<ReturnType<typeof waitingLookup.read>>>;

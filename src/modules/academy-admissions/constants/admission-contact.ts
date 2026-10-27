@@ -18,7 +18,7 @@ export const ADMISSION_CONTACT_ERROR = {
 } as const;
 
 /** Rejects whitespace, control characters, and missing email address parts. */
-export const ADMISSION_EMAIL_PATTERN = /^[^\s@\u0000-\u001f\u007f]+@[^\s@\u0000-\u001f\u007f]+\.[^\s@\u0000-\u001f\u007f]+$/u;
+export const ADMISSION_EMAIL_PATTERN = /^[^\s@\u0000-\u001f\u007f]+@[^\s\0-\x08\x0e-\x1f@\x7f][^\s\0-\x08\x0e-\x1f.@\x7f]*\.[^\s\0-\x08\x0e-\x1f@\x7f]+$/u;
 
 /** Recognizes the normalizer's documented missing-country ParseError. */
 export const ADMISSION_PHONE_PARSE_ERROR = { invalidCountry: "INVALID_COUNTRY" } as const;

@@ -11,7 +11,7 @@ import type {
 import type {
   CreateTribeMessageRepositoryCommand,
   MessageCreationRepository,
-  MessagePublicationKeyQuery,
+  MessagePublicationKeyQuery, MessageVideoRepositoryDraft 
 } from "@/src/modules/messages/domain/repositories/message-creation-repository";
 import type {
   MessageContentUpdateRepository,
@@ -57,7 +57,6 @@ import { sortMessageMediaBySortOrder } from "@/src/modules/messages/infrastructu
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessageImageAttachmentDraft } from "@/src/modules/messages/domain/repositories/message-image-repository";
 import type { MessageFileAttachmentDraft } from "@/src/modules/messages/domain/repositories/message-file-repository";
-import type { MessageVideoRepositoryDraft } from "@/src/modules/messages/domain/repositories/message-creation-repository";
 import type { VideoProvider } from "@/src/modules/shared/domain/value-objects/video-provider";
 
 type DatabaseExecutor = <T>(
