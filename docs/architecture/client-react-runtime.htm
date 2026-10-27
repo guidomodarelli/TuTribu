@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Targets de despliegue</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.part-header{padding:32px 0 0;border-top:2px solid #1a1a1a;margin:56px 0 24px;}
+.part-header-label{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.part-header-title{font-size:22px;font-weight:600;line-height:1.2;color:#1a1a1a;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;line-height:1.3;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;color:#1a1a1a;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+.table-wrap{max-width:100%;overflow-x:auto;}
+th{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
+.c-ok{background:#e8f7f2;border-color:#4aaa8c;color:#1a6b52;}
+.badge{display:inline-block;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:0.05em;border-radius:4px;padding:2px 8px;border:1px solid;}
+.badge-green{background:#e8f7f2;color:#1a6b52;border-color:#4aaa8c;}
+.badge-gray{background:#f0ede6;color:#555;border-color:#ccc;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style>
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">ARCHITECTURE</div>
+  <div class="doc-title">Runtime de React en el navegador</div>
+  <div class="doc-sub">Los componentes cliente corren sobre TanStack Redact; el servidor sigue en React.</div>
+  <div class="doc-meta"><span>Scope: Frontend runtime</span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Decision</div>
+  <p>TuTribu usa <strong>TanStack Redact</strong> (<code>@tanstack/redact</code>) como runtime de React en el navegador para reducir el JavaScript que descarga cada pagina. La integracion es <code>withRedact</code> de <code>@tanstack/redact/next</code>, que envuelve la configuracion exportada por <code>next.config.ts</code>.</p>
+  <p>El codigo de producto no cambia: sigue importando de <code>react</code> y <code>react-dom</code>. <code>withRedact</code> redirige esos imports solo en el bundle del navegador, tanto en Turbopack (reglas con condicion <code>browser</code>) como en webpack (cuando <code>isServer</code> es falso).</p>
+  <div class="callout c-info"><strong>Lo que queda en React:</strong> el render en servidor, los Server Components, Flight, el cache y el transporte de Server Actions. Redact hidrata el HTML y ejecuta los componentes cliente.</div>
+  <div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Diferencias que hay que tener en cuenta</div>
+  <ul>
+    <li>Redact renderiza en forma <strong>sincronica</strong>: no hay time slicing ni renders interrumpibles. <code>useTransition</code> y <code>useDeferredValue</code> conservan el contenido confirmado y el estado pendiente, pero no bajan la prioridad del trabajo.</li>
+    <li><code>&lt;Profiler&gt;</code> no ejecuta su callback, <code>cacheSignal</code> devuelve <code>null</code> y <code>unstable_useCacheRefresh</code> no hace nada en el cliente.</li>
+    <li>Los metodos de ciclo de vida legacy de clases no se ejecutan.</li>
+    <li><code>&lt;Activity&gt;</code> conserva el DOM y el estado ocultos, pero desconecta sus efectos y refs.</li>
+  </ul>
+  <p>La guia completa esta en <code>https://tanstack.com/redact/latest/docs/compatibility</code>.</p>
+  <div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Versiones y alcance</div>
+  <ul>
+    <li><code>withRedact</code> valida la version de Next.js al cargar la configuracion y falla con un error si no esta soportada (en <code>0.2.0</code>: 15.5 y 16.0 a 16.4). Antes de subir Next.js, subir Redact a una version que la soporte.</li>
+    <li><code>@tanstack/redact</code> figura en <code>minimumReleaseAgeExclude</code> de <code>pnpm-workspace.yaml</code>: el paquete publica versiones seguido y la integracion con Next.js llega primero en las versiones nuevas, asi que se instala sin esperar las 24 horas de <code>minimumReleaseAge</code>.</li>
+    <li>Los tests de Vitest siguen ejecutando React: Redact solo cambia el bundle que genera Next.js. La verificacion de Redact es <code>pnpm run build</code> y la prueba de la app en <code>https://dev.tutribu.app</code>.</li>
+    <li>Para volver a React en el navegador alcanza con exportar <code>nextConfig</code> sin <code>withRedact</code>.</li>
+  </ul>
+</div>
+</body>
+</html>
