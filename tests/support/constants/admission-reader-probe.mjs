@@ -63,9 +63,12 @@ export const ADMISSION_READER_PROBE = {
     wordSeparator: /\s+/u,
     whitespace: /\s+/gu,
   },
-  nativeKeys: { interrupt: "Control_L", next: "Tab", invoke: "space" },
+  nativeKeys: { interrupt: "Control_L", next: "Tab", invoke: "space", contentPane: "F6" },
+  /** A cold browser can start with native focus in its toolbar, where Tab never reaches the page; F6 moves it to the content pane. */
+  maximumContentPaneSwitches: 3,
   failures: {
     window: "native_window_not_active",
+    documentFocus: "native_document_focus_unavailable",
     focus: "native_focus_unavailable",
     speech: "native_reader_speech_missing",
     audio: "native_reader_audio_missing",

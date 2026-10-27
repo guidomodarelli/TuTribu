@@ -72,6 +72,19 @@ function assertActiveWindow(title) {
 }
 /** @param {string} title - Owned visible window. @param {string} key - Fixed native key. @returns After genuine X11 input, without browser event synthesis. */
 function nativeKey(title, key) { assertActiveWindow(title); execFileSync("xdotool", ["key", "--clearmodifiers", key], { timeout: PROBE.windowCommandTimeoutMs }); }
+/**
+ * @param {{title:string}} item - Owned fixture window.
+ * @param {{documentHasFocus:()=>Promise<boolean>}} browser - Real OS focus of the page document (focus emulation is disabled).
+ * @returns {Promise<number>} Native F6 presses needed to move focus from the browser toolbar into the page.
+ */
+async function focusContentPane(item, browser) {
+  for (let switches = 0; switches <= PROBE.maximumContentPaneSwitches; switches += 1) {
+    const deadline = Date.now() + PROBE.focusSettleTimeoutMs;
+    while (Date.now() < deadline) { if (await browser.documentHasFocus()) return switches; await delay(PROBE.pollMs); }
+    if (switches < PROBE.maximumContentPaneSwitches) nativeKey(item.title, PROBE.nativeKeys.contentPane);
+  }
+  throw new Error(PROBE.failures.documentFocus);
+}
 /** @param {string} expected - Own synthetic control label. @returns {unknown} Native state flags without names or typed values. */
 function nativeFocus(expected) {
   try { return JSON.parse(execFileSync("/usr/bin/python3", ["tests/support/admission-reader-atspi.py", expected, String(PROBE.maximumAccessibilityNodes), String(PROBE.maximumAccessibilityDepth), String(PROBE.accessibilityTimeoutMs), "focus"], { encoding: "utf8", timeout: PROBE.windowCommandTimeoutMs, stdio: ["ignore", "pipe", "pipe"] })); }
@@ -100,6 +113,8 @@ try {
       observation.initialInterruptSent = true;
       observation.initialInterruptCount = 1;
       await quiet(() => { nativeKey(item.title, PROBE.nativeKeys.interrupt); observation.initialInterruptCount += 1; });
+      observation.contentPaneSwitches = await focusContentPane(item, browser);
+      if (observation.contentPaneSwitches > 0) await quiet();
       let speechOffset = (await readerLog()).length, audioOffset = await audioSize();
       speechPhaseOffset = speechOffset;
       observation.speechPhase = PROBE.speechPhases.focus;

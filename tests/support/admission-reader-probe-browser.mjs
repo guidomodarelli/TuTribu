@@ -73,6 +73,7 @@ export async function openAdmissionReaderProbeBrowser(options) {
     return {
       browserVersion: browser.version(), backend: DRIVER.backends.playwright, focusEmulationDisabled, viewport: page.viewportSize(),
       controlHasFocus: () => button.evaluate((element) => element.ownerDocument.hasFocus() && element === element.ownerDocument.activeElement),
+      documentHasFocus: () => page.evaluate(() => document.hasFocus()),
       statusText: () => page.locator("#status").textContent(),
       screenshot: (path) => page.screenshot({ path }),
       close: () => browser.close(),
