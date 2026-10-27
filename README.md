@@ -66,7 +66,8 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 | `pnpm start` | Run the production build locally. |
 | `pnpm run ci` | Run the full quality gate (also run by GitHub Actions on pushes to `main` and on pull requests): lint, application/test type checks, Vitest, and Next.js build. |
 | `pnpm run lint` | Run oxlint across the repo (configured in `.oxlintrc.json`). |
-| `pnpm run typecheck` | Run `tsc --noEmit` over production code. |
+| `pnpm run typecheck` | Type-check production code with `bun check` (Bun's type checker, same errors as `tsc` from TypeScript 7). |
+| `pnpm run typecheck:tests` | Type-check the tests with `bun check` against `tsconfig.test.json`. |
 | `pnpm test` | Run Vitest unit and integration tests. |
 | `pnpm run test:watch` | Run Vitest in watch mode. |
 | `pnpm run test:e2e` | Run Playwright E2E tests. |

@@ -476,7 +476,7 @@ pnpm run dev
 ## Runtime and compiler
 
 - Use Node.js 24.21.0 from `.nvmrc` locally and in GitHub Actions; `engines.node` permits only Node 24. The workflow installs the exact `.nvmrc` version through `actions/setup-node`.
-- TypeScript 7 is the project compiler for application tests and Next builds. Keep the separate `tsconfig.test.json` and run `pnpm typecheck:tests`.
+- TypeScript 7 is the project compiler for Next builds and the editor. `pnpm typecheck` and `pnpm typecheck:tests` run `bun check` (Bun's type checker, which reports the same errors as `tsc` from TypeScript 7), with Bun pinned in `.bun-version` locally and in GitHub Actions. Keep the separate `tsconfig.test.json` and run `pnpm typecheck:tests`.
 - Keep the root `typescript` dependency on version 7 and do not disable Next build type checking.
 - Lint runs with oxlint (`.oxlintrc.json`). Inline `eslint-disable` and `oxlint-disable` directives are rejected by `scripts/oxlint/no-lint-disable-plugin.mjs`.
 - The local runtime and GitHub Actions must match `.nvmrc` and `packageManager` (pnpm 12.14.0). Update runtime pins, Node types and lockfiles together.

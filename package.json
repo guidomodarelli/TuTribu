@@ -23,7 +23,7 @@
     "commitlint": "commitlint --from HEAD~30 --to HEAD --verbose",
     "prepare": "husky",
     "lint": "oxlint",
-    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
+    "typecheck": "bun check -p tsconfig.typecheck.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:migrate": "node scripts/push-migrations.js",
@@ -35,7 +35,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:beezping": "playwright test --config playwright.beezping.config.ts",
     "e2e:cleanup": "cleaner playwright",
-    "typecheck:tests": "tsc --noEmit -p tsconfig.test.json"
+    "typecheck:tests": "bun check -p tsconfig.test.json"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1063.0",
