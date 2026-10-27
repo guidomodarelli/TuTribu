@@ -116,4 +116,4 @@ El preflight de [40435735265](https://github.com/guidomodarelli/TuTribu/actions/
 
 El preflight pasa a Orca 51.1 y AT-SPI 2.58.6, igual que los recorridos reales. Su [primer run](https://github.com/guidomodarelli/TuTribu/actions/runs/40438910001) aprobó las ocho combinaciones Chromium. Las ocho WebKit fallaron con el log ya volcado a tiempo: después de la activación, ni Orca ni el observador AT-SPI propio recibieron `text-changed` o `children-changed` de la página, aunque el inspector leyó el texto esperado en la región viva. Se atribuye a WebKit en Linux, que no emite el evento de cambio, en línea con el contraste de WebKitGTK 2.52.6.
 
-Por eso sólo Chromium decide el resultado del preflight. Los casos WebKit se siguen ejecutando como diagnóstico y el contraste `admission-reader-current-probe.yml` los sigue exigiendo. El canario sintético no acredita los recorridos de producto, y T198/T208 siguen abiertos para WebKit.
+Por eso el preflight corre sólo Chromium. El contraste `admission-reader-current-probe.yml` sigue ejecutando y exigiendo los casos WebKit. El canario sintético no acredita los recorridos de producto, y T198/T208 siguen abiertos para WebKit.

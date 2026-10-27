@@ -2,11 +2,11 @@
 export const ADMISSION_READER_PROBE = {
   engines: ["chromium", "webkit"],
   /**
-   * Engines whose cases decide the preflight result. WebKit on Linux (Playwright 26.4 and WebKitGTK 2.52.6) exposes the
-   * live region text but emits no AT-SPI change event for it, so its cases stay as diagnostics until the browser does.
+   * Engines the preflight runs when the workflow selects none. WebKit on Linux (Playwright 26.4 and WebKitGTK 2.52.6)
+   * exposes the live region text but emits no AT-SPI change event for it; the current-reader contrast keeps measuring it.
    */
-  requiredEngines: ["chromium"],
-  requiredEnginesEnvironment: "ADMISSION_READER_REQUIRED_ENGINES",
+  defaultEngines: ["chromium"],
+  enginesEnvironment: "ADMISSION_READER_ENGINES",
   widths: [390, 1280],
   height: 900,
   locale: "es-AR",

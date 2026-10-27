@@ -55,7 +55,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y locales orca dbus-x11 at-spi2-core gsettings-desktop-schemas dconf-cli openbox xvfb xauth xdotool pulseaudio pulseaudio-utils speech-dispatcher speech-dispatcher-espeak-ng meson ninja-build pkg-config libatspi2.0-dev libatk-bridge2.0-dev python-gi-dev python3-dasbus gettext itstool yelp-tools gobject-introspection libgirepository1.0-dev libdbus-1-dev libglib2.0-dev libxml2-dev libxi-dev libxtst-dev
-          pnpm exec playwright install --with-deps chromium webkit
+          pnpm exec playwright install --with-deps chromium
 
       - name: Compilar AT-SPI oficial con sus overrides Python
         run: |
