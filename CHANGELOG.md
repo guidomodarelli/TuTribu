@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-10-26
+
 ### Changed
 
 - Las páginas descargan menos código en el navegador, por lo que cargan y responden más rápido, sobre todo en celulares y conexiones lentas.
