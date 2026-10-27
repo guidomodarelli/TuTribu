@@ -125,8 +125,9 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
+          # `vercel build` carga .vercel/.env.production.local por su cuenta. No se copia a .env: Next lo
+          # referencia desde el artefacto prearmado y .vercelignore lo excluye de la subida (ENOENT al desplegar).
           vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-          cp .vercel/.env.production.local .env
       - name: Construir artefacto de producción
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
