@@ -17,11 +17,13 @@ const directory = join(process.env.RUNNER_TEMP, "admission-reader-probe");
 await mkdir(directory, { recursive: true });
 const debugPath = process.env.ORCA_DEBUG_LOG, audioPath = process.env.ORCA_AUDIO_FILE;
 if (!debugPath || !audioPath) throw new Error("AdmissionReaderProbe.start failed: native_capture_paths_required");
+const requiredEngines = process.env[PROBE.requiredEnginesEnvironment]?.split(",").map((engine) => engine.trim()).filter(Boolean) ?? PROBE.requiredEngines;
+if (requiredEngines.length === 0 || requiredEngines.some((engine) => !PROBE.engines.includes(engine))) throw new Error("AdmissionReaderProbe.start failed: required_engines_invalid");
 const cases = PROBE.engines.flatMap((engine) => PROBE.widths.flatMap((width) => Object.values(PROBE.markupVariants).map((markupVariant) => {
   const id = randomUUID().replaceAll("-", "").slice(0, 8);
   return { id, engine, width, markupVariant, title: `${PROBE.titlePrefix} ${id}`, focus: `${PROBE.focusPrefix} ${id}`, status: `${PROBE.statusPrefix} ${id}` };
 })));
-const report = { commit: process.env.GITHUB_SHA, kind: "platform_preflight", productJourneysValidated: false, realMessages: 0, orcaVersion: process.env.ORCA_BINARY_VERSION ?? null, orcaSourceCommit: process.env.ORCA_SOURCE_COMMIT ?? null, speechDispatcherVersion: process.env.SPEECH_DISPATCHER_VERSION ?? null, cases: [] };
+const report = { commit: process.env.GITHUB_SHA, kind: "platform_preflight", requiredEngines, productJourneysValidated: false, realMessages: 0, orcaVersion: process.env.ORCA_BINARY_VERSION ?? null, orcaSourceCommit: process.env.ORCA_SOURCE_COMMIT ?? null, speechDispatcherVersion: process.env.SPEECH_DISPATCHER_VERSION ?? null, cases: [] };
 const server = createServer((request, response) => {
   const item = cases.find((candidate) => new URL(request.url, "http://127.0.0.1").pathname === `/${candidate.id}`);
   if (!item) { response.writeHead(404); response.end(); return; }
@@ -82,7 +84,7 @@ function nativeStatus(expected) {
 }
 try {
   for (const item of cases) {
-    const observation = { caseId: item.id, engine: item.engine, width: item.width, markupVariant: item.markupVariant, height: PROBE.height, passed: false };
+    const observation = { caseId: item.id, engine: item.engine, width: item.width, markupVariant: item.markupVariant, height: PROBE.height, requiredForApproval: requiredEngines.includes(item.engine), passed: false };
     const caseLogOffset = (await readerLog()).length;
     let speechPhaseOffset = caseLogOffset, expectedSpeech = item.focus;
     observation.speechPhase = PROBE.speechPhases.setup;
@@ -162,7 +164,7 @@ try {
       observation.focusSpokenSincePageLoad = hasNativeReaderSpeech(observedLog, item.focus);
       observation.statusSpokenSincePageLoad = hasNativeReaderSpeech(observedLog, item.status);
       observation.speechDiagnostics = diagnoseNativeReaderSpeech(recordedLog.slice(speechPhaseOffset), expectedSpeech);
-      process.exitCode = 1;
+      if (observation.requiredForApproval) process.exitCode = 1;
     } finally { await browser?.close(); }
     observation.nativeTextInspectionValidated = (observation.nativeAccessibility?.textObservation?.controlTextMatches ?? 0) > 0;
     observation.automaticReadingDisabledObserved = (await readerLog()).slice(caseLogOffset).includes(PROBE.automaticReadingDisabledMarker);
@@ -174,7 +176,8 @@ try {
   report.nativeTextInspectionValidated = report.cases.length === cases.length && report.cases.every((item) => item.nativeTextInspectionValidated);
   const observedNativeEventCases = report.cases.filter((item) => item.engine === ADMISSION_READER_EVENTS.engine);
   report.nativeEventObservationValidated = observedNativeEventCases.length === PROBE.widths.length * Object.values(PROBE.markupVariants).length && observedNativeEventCases.every((item) => item.nativeEventObservation?.available && item.nativeEventObservation.complete && item.nativeEventObservation.observedEvents > 0);
-  report.passed = report.cases.length === cases.length && report.cases.every((item) => item.passed) && report.nativeTextInspectionValidated && report.nativeEventObservationValidated;
+  report.passed = report.cases.length === cases.length && report.cases.filter((item) => item.requiredForApproval).every((item) => item.passed) && report.nativeTextInspectionValidated && report.nativeEventObservationValidated;
+  report.diagnosticCasesPassed = report.cases.filter((item) => !item.requiredForApproval && item.passed).length;
   if (!report.nativeEventObservationValidated) process.exitCode = 1;
   if (!report.nativeTextInspectionValidated) process.exitCode = 1;
   // This service observes only the loopback synthetic fixture, never the product or private pilot.

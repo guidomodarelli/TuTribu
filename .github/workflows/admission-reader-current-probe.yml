@@ -36,6 +36,8 @@ env:
   HUSKY: "0"
   NEXT_TELEMETRY_DISABLED: "1"
   ADMISSION_READER_WEBKIT_BACKEND: ${{ inputs.webkit_backend || 'playwright' }}
+  # El contraste mide WebKit: a diferencia del preflight, sus casos siguen decidiendo el resultado.
+  ADMISSION_READER_REQUIRED_ENGINES: chromium,webkit
 
 jobs:
   reader-current-probe:

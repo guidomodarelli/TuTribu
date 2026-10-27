@@ -1,6 +1,12 @@
 /** Bounds a disposable Linux reader capability probe; product journeys retain their separate gate. */
 export const ADMISSION_READER_PROBE = {
   engines: ["chromium", "webkit"],
+  /**
+   * Engines whose cases decide the preflight result. WebKit on Linux (Playwright 26.4 and WebKitGTK 2.52.6) exposes the
+   * live region text but emits no AT-SPI change event for it, so its cases stay as diagnostics until the browser does.
+   */
+  requiredEngines: ["chromium"],
+  requiredEnginesEnvironment: "ADMISSION_READER_REQUIRED_ENGINES",
   widths: [390, 1280],
   height: 900,
   locale: "es-AR",
