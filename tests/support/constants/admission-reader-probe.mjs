@@ -1,6 +1,12 @@
 /** Bounds a disposable Linux reader capability probe; product journeys retain their separate gate. */
 export const ADMISSION_READER_PROBE = {
   engines: ["chromium", "webkit"],
+  /**
+   * Engines the preflight runs when the workflow selects none. WebKit on Linux (Playwright 26.4 and WebKitGTK 2.52.6)
+   * exposes the live region text but emits no AT-SPI change event for it; the current-reader contrast keeps measuring it.
+   */
+  defaultEngines: ["chromium"],
+  enginesEnvironment: "ADMISSION_READER_ENGINES",
   widths: [390, 1280],
   height: 900,
   locale: "es-AR",
@@ -57,9 +63,12 @@ export const ADMISSION_READER_PROBE = {
     wordSeparator: /\s+/u,
     whitespace: /\s+/gu,
   },
-  nativeKeys: { interrupt: "Control_L", next: "Tab", invoke: "space" },
+  nativeKeys: { interrupt: "Control_L", next: "Tab", invoke: "space", contentPane: "F6" },
+  /** A cold browser can start with native focus in its toolbar, where Tab never reaches the page; F6 moves it to the content pane. */
+  maximumContentPaneSwitches: 3,
   failures: {
     window: "native_window_not_active",
+    documentFocus: "native_document_focus_unavailable",
     focus: "native_focus_unavailable",
     speech: "native_reader_speech_missing",
     audio: "native_reader_audio_missing",

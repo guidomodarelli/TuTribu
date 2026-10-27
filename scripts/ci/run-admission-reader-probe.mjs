@@ -17,11 +17,13 @@ const directory = join(process.env.RUNNER_TEMP, "admission-reader-probe");
 await mkdir(directory, { recursive: true });
 const debugPath = process.env.ORCA_DEBUG_LOG, audioPath = process.env.ORCA_AUDIO_FILE;
 if (!debugPath || !audioPath) throw new Error("AdmissionReaderProbe.start failed: native_capture_paths_required");
-const cases = PROBE.engines.flatMap((engine) => PROBE.widths.flatMap((width) => Object.values(PROBE.markupVariants).map((markupVariant) => {
+const engines = process.env[PROBE.enginesEnvironment]?.split(",").map((engine) => engine.trim()).filter(Boolean) ?? PROBE.defaultEngines;
+if (engines.length === 0 || engines.some((engine) => !PROBE.engines.includes(engine))) throw new Error("AdmissionReaderProbe.start failed: engines_invalid");
+const cases = engines.flatMap((engine) => PROBE.widths.flatMap((width) => Object.values(PROBE.markupVariants).map((markupVariant) => {
   const id = randomUUID().replaceAll("-", "").slice(0, 8);
   return { id, engine, width, markupVariant, title: `${PROBE.titlePrefix} ${id}`, focus: `${PROBE.focusPrefix} ${id}`, status: `${PROBE.statusPrefix} ${id}` };
 })));
-const report = { commit: process.env.GITHUB_SHA, kind: "platform_preflight", productJourneysValidated: false, realMessages: 0, orcaVersion: process.env.ORCA_BINARY_VERSION ?? null, orcaSourceCommit: process.env.ORCA_SOURCE_COMMIT ?? null, speechDispatcherVersion: process.env.SPEECH_DISPATCHER_VERSION ?? null, cases: [] };
+const report = { commit: process.env.GITHUB_SHA, kind: "platform_preflight", engines, productJourneysValidated: false, realMessages: 0, orcaVersion: process.env.ORCA_BINARY_VERSION ?? null, orcaSourceCommit: process.env.ORCA_SOURCE_COMMIT ?? null, speechDispatcherVersion: process.env.SPEECH_DISPATCHER_VERSION ?? null, cases: [] };
 const server = createServer((request, response) => {
   const item = cases.find((candidate) => new URL(request.url, "http://127.0.0.1").pathname === `/${candidate.id}`);
   if (!item) { response.writeHead(404); response.end(); return; }
@@ -70,6 +72,19 @@ function assertActiveWindow(title) {
 }
 /** @param {string} title - Owned visible window. @param {string} key - Fixed native key. @returns After genuine X11 input, without browser event synthesis. */
 function nativeKey(title, key) { assertActiveWindow(title); execFileSync("xdotool", ["key", "--clearmodifiers", key], { timeout: PROBE.windowCommandTimeoutMs }); }
+/**
+ * @param {{title:string}} item - Owned fixture window.
+ * @param {{documentHasFocus:()=>Promise<boolean>}} browser - Real OS focus of the page document (focus emulation is disabled).
+ * @returns {Promise<number>} Native F6 presses needed to move focus from the browser toolbar into the page.
+ */
+async function focusContentPane(item, browser) {
+  for (let switches = 0; switches <= PROBE.maximumContentPaneSwitches; switches += 1) {
+    const deadline = Date.now() + PROBE.focusSettleTimeoutMs;
+    while (Date.now() < deadline) { if (await browser.documentHasFocus()) return switches; await delay(PROBE.pollMs); }
+    if (switches < PROBE.maximumContentPaneSwitches) nativeKey(item.title, PROBE.nativeKeys.contentPane);
+  }
+  throw new Error(PROBE.failures.documentFocus);
+}
 /** @param {string} expected - Own synthetic control label. @returns {unknown} Native state flags without names or typed values. */
 function nativeFocus(expected) {
   try { return JSON.parse(execFileSync("/usr/bin/python3", ["tests/support/admission-reader-atspi.py", expected, String(PROBE.maximumAccessibilityNodes), String(PROBE.maximumAccessibilityDepth), String(PROBE.accessibilityTimeoutMs), "focus"], { encoding: "utf8", timeout: PROBE.windowCommandTimeoutMs, stdio: ["ignore", "pipe", "pipe"] })); }
@@ -98,6 +113,8 @@ try {
       observation.initialInterruptSent = true;
       observation.initialInterruptCount = 1;
       await quiet(() => { nativeKey(item.title, PROBE.nativeKeys.interrupt); observation.initialInterruptCount += 1; });
+      observation.contentPaneSwitches = await focusContentPane(item, browser);
+      if (observation.contentPaneSwitches > 0) await quiet();
       let speechOffset = (await readerLog()).length, audioOffset = await audioSize();
       speechPhaseOffset = speechOffset;
       observation.speechPhase = PROBE.speechPhases.focus;
@@ -173,9 +190,10 @@ try {
   await new Promise((fulfill) => server.close(fulfill));
   report.nativeTextInspectionValidated = report.cases.length === cases.length && report.cases.every((item) => item.nativeTextInspectionValidated);
   const observedNativeEventCases = report.cases.filter((item) => item.engine === ADMISSION_READER_EVENTS.engine);
-  report.nativeEventObservationValidated = observedNativeEventCases.length === PROBE.widths.length * Object.values(PROBE.markupVariants).length && observedNativeEventCases.every((item) => item.nativeEventObservation?.available && item.nativeEventObservation.complete && item.nativeEventObservation.observedEvents > 0);
-  report.passed = report.cases.length === cases.length && report.cases.every((item) => item.passed) && report.nativeTextInspectionValidated && report.nativeEventObservationValidated;
-  if (!report.nativeEventObservationValidated) process.exitCode = 1;
+  // The native event observer only attaches to WebKit; without WebKit cases it has nothing to validate.
+  report.nativeEventObservationValidated = engines.includes(ADMISSION_READER_EVENTS.engine) ? observedNativeEventCases.length === PROBE.widths.length * Object.values(PROBE.markupVariants).length && observedNativeEventCases.every((item) => item.nativeEventObservation?.available && item.nativeEventObservation.complete && item.nativeEventObservation.observedEvents > 0) : null;
+  report.passed = report.cases.length === cases.length && report.cases.every((item) => item.passed) && report.nativeTextInspectionValidated && report.nativeEventObservationValidated !== false;
+  if (report.nativeEventObservationValidated === false) process.exitCode = 1;
   if (!report.nativeTextInspectionValidated) process.exitCode = 1;
   // This service observes only the loopback synthetic fixture, never the product or private pilot.
   if (!report.passed && process.env.ORCA_SERVICE_LOG) {

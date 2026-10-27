@@ -12,6 +12,7 @@ export const ADMISSION_READER_WEBDRIVER = {
   maximumScreenshotCharacters: 24_000_000,
   viewportScript: "return {width:innerWidth,height:innerHeight,outerWidth,outerHeight};",
   controlFocusScript: "return document.hasFocus() && document.getElementById('control') === document.activeElement;",
+  documentFocusScript: "return document.hasFocus();",
   statusScript: "return document.getElementById('status')?.textContent ?? null;",
   failures: {
     origin: "reader_webdriver_loopback_required",

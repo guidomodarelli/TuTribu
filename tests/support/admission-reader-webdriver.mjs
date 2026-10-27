@@ -54,6 +54,7 @@ export async function connectAdmissionReaderWebDriver({ origin, url, width, heig
       focusEmulationDisabled: false,
       viewport: { width: viewport.width, height: viewport.height },
       controlHasFocus: async () => await inspect(DRIVER.controlFocusScript) === true,
+      documentHasFocus: async () => await inspect(DRIVER.documentFocusScript) === true,
       statusText: () => inspect(DRIVER.statusScript),
       async screenshot(path) {
         const encoded = await command("GET", `${prefix}/screenshot`);
