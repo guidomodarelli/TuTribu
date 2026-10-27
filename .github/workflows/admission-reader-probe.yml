@@ -3,6 +3,9 @@ name: Preflight del lector en Linux
 on:
   workflow_dispatch:
   push:
+    # Un filtro de ramas excluye los pushes de tags, que GitHub dispara sin evaluar `paths`.
+    branches:
+      - "**"
     paths:
       - ".github/workflows/admission-reader-probe.yml"
       - "scripts/ci/run-admission-reader-probe.*"
