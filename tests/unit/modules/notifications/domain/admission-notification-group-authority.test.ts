@@ -39,7 +39,8 @@ describe("current complete frozen-group authority", () => {
 
   it.each(["open", "suppressed", "expired"] as const)("should deny an original group currently %s", (state) => {
     const current = fixture();
-    const group: AdmissionNotificationStoredGroup = { ...current.group, state, version: state === "open" ? 1 : 2, frozenManifest: null, deadlineAtMicroseconds: null, suppressionReason: state === "open" ? null : state === "expired" ? "notification_deadline_expired" : "email_disabled", closedAtMicroseconds: state === "open" ? null : current.now };
+    const closedReason = state === "expired" ? "notification_deadline_expired" : "email_disabled";
+    const group: AdmissionNotificationStoredGroup = { ...current.group, state, version: state === "open" ? 1 : 2, frozenManifest: null, deadlineAtMicroseconds: null, suppressionReason: state === "open" ? null : closedReason, closedAtMicroseconds: state === "open" ? null : current.now };
     expect(resolveAdmissionNotificationGroupAuthority(current.scope, group, current.members, current.now)).toEqual({ status: "denied", reason: "notification_group_not_frozen" });
   });
 

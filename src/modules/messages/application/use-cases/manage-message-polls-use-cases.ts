@@ -24,7 +24,7 @@ export function normalizeMessagePollDraft(
   poll: MessagePollDraftCommand
 ): MessagePollDraftCommand {
   return {
-    allowMultipleVotes: Boolean(poll.allowMultipleVotes),
+    allowMultipleVotes: poll.allowMultipleVotes,
     options: poll.options.map((option) => option.trim()).filter(Boolean),
   };
 }

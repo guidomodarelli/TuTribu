@@ -176,11 +176,13 @@ describe("PostgresTribeEventOccurrenceExceptionRepository", () => {
       createExecutorAnsweringMembershipLock(execute)
     );
 
-    await repository.clear({
-      eventId: EVENT_ID,
-      originalStartsAt: "2026-05-14T21:00:00.000Z",
-      tribeSlug: TRIBE_SLUG,
-    });
+    await expect(
+      repository.clear({
+        eventId: EVENT_ID,
+        originalStartsAt: "2026-05-14T21:00:00.000Z",
+        tribeSlug: TRIBE_SLUG,
+      })
+    ).resolves.toEqual({ status: "exception_cleared" });
   });
 
   it("maps a missing event and a viewer who cannot manage events", async () => {

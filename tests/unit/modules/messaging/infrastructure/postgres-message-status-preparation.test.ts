@@ -57,8 +57,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native original me
       };
       const security = { getCurrentSecurityFacts: async () => ({ environment: fixture.config.environment, securityEpoch: fixture.config.securityEpoch, recoveryLocked: fixture.config.recoveryLocked }) };
       const resolver = new ResolveMessagingContextUseCase(accounts, reader, security, () => new Date());
-      const secrets = new PostgresEncryptedSecretStore(execute, accounts, async () => fixture.config, MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader);
-      const preparation = new PostgresMessageStatusPreparation(resolver, execute, secrets, async () => fixture.config);
+      const secrets = new PostgresEncryptedSecretStore({ executeWithDatabase: execute, accounts, readSecurityConfig: async () => fixture.config, purpose: MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader });
+      const preparation = new PostgresMessageStatusPreparation({ resolver, execute, secrets, readSecurityConfig: async () => fixture.config });
       let reads = 0;
       const lookup = new ZavuMessageStatusLookup(preparation, async (input, init) => {
         reads += 1; const request = new Request(input, init); expect(request.method).toBe("GET");
@@ -81,7 +81,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native original me
       } };
       const changingSecurity = { getCurrentSecurityFacts: async () => ({ environment: fixture.config.environment, securityEpoch: fixture.config.securityEpoch, recoveryLocked }) };
       const changingResolver = new ResolveMessagingContextUseCase(accounts, reader, changingSecurity, () => new Date());
-      const waitingPreparation = new PostgresMessageStatusPreparation(changingResolver, execute, guardedSecrets, async () => ({ ...fixture.config, recoveryLocked }));
+      const waitingPreparation = new PostgresMessageStatusPreparation({ resolver: changingResolver, execute, secrets: guardedSecrets, readSecurityConfig: async () => ({ ...fixture.config, recoveryLocked }) });
       const waitingLookup = new ZavuMessageStatusLookup(waitingPreparation, async () => { reads += 1; return Response.json({ message: { id: providerMessageId, direction: ZAVU_MESSAGE_DIRECTION.outbound, channel: ZAVU_DELIVERY_CHANNEL.email, status: ZAVU_DELIVERY_STATUS.delivered } }); });
       const pendingRead = waitingLookup.read(reference, new AbortController().signal);
       const settledRead = pendingRead.then((value) => ({ status: "fulfilled" as const, value }), (error: unknown) => ({ status: "rejected" as const, reason: error }));

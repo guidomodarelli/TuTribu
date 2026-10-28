@@ -10,13 +10,13 @@ describe("own contact operation references", () => {
     const viewerId = randomUUID(), slug = "synthetic-academy", arrivalScope = "b".repeat(64), otherScope = "c".repeat(64), previousRequestId = randomUUID();
     const original = { viewerId, slug, requestId: null, arrivalScope, issuedOperationId: null, verifiedOperationId: null, pending: { kind: "issue" as const, operationId: randomUUID() } };
     writeAdmissionContactIntent(original);
-    expect(readAdmissionContactIntent(viewerId, slug, null, undefined, undefined, arrivalScope)).toEqual(original);
+    expect(readAdmissionContactIntent(viewerId, slug, null, { arrivalScope })).toEqual(original);
     expect(readAdmissionContactIntent(viewerId, slug, null)).toBeNull();
-    expect(readAdmissionContactIntent(viewerId, slug, null, undefined, undefined, otherScope)).toBeNull();
+    expect(readAdmissionContactIntent(viewerId, slug, null, { arrivalScope: otherScope })).toBeNull();
     expect(readEarlierUnresolvedAdmissionContactIntent(viewerId, slug, previousRequestId)).toBeNull();
     expect(readEarlierUnresolvedAdmissionContactIntent(viewerId, slug, previousRequestId, otherScope)).toBeNull();
     expect(readEarlierUnresolvedAdmissionContactIntent(viewerId, slug, previousRequestId, arrivalScope)).toEqual(original);
-    expect(() => writeAdmissionContactIntent({ ...original, legacyInvitationToken: "must-not-be-stored" } as typeof original)).toThrow();
+    expect(() => writeAdmissionContactIntent({ ...original, legacyInvitationToken: "must-not-be-stored" } as typeof original)).toThrow(expect.objectContaining({ issues: [expect.objectContaining({ code: "unrecognized_keys", keys: ["legacyInvitationToken"] })] }));
   });
   it("should find only earlier unresolved common originals without crossing viewer, pending or personal scopes", () => {
     const viewerId = randomUUID(), slug = "synthetic-academy", previousRequestId = randomUUID();
@@ -38,21 +38,21 @@ describe("own contact operation references", () => {
     const current = { ...previous, previousRequestId, issuedOperationId: randomUUID(), verifiedOperationId: null };
     writeAdmissionContactIntent(previous);
     writeAdmissionContactIntent(current);
-    expect(readAdmissionContactIntent(viewerId, slug, null, undefined, previousRequestId)).toEqual(current);
+    expect(readAdmissionContactIntent(viewerId, slug, null, { previousRequestId })).toEqual(current);
     expect(readAdmissionContactIntent(viewerId, slug, null)).toEqual(previous);
-    expect(readAdmissionContactIntent(viewerId, slug, null, undefined, randomUUID())).toBeNull();
+    expect(readAdmissionContactIntent(viewerId, slug, null, { previousRequestId: randomUUID() })).toBeNull();
     expect(readAdmissionContactIntent(viewerId, slug, previousRequestId)).toBeNull();
-    expect(readAdmissionContactIntent(viewerId, slug, null, "a".repeat(64))).toBeNull();
+    expect(readAdmissionContactIntent(viewerId, slug, null, { personalScope: "a".repeat(64) })).toBeNull();
   });
 
   it("should isolate personal references from common admission and from another personal proposal", () => {
     const viewerId = randomUUID(), slug = "synthetic-academy", personalScope = "a".repeat(64);
     const record = { viewerId, slug, requestId: null, issuedOperationId: randomUUID(), verifiedOperationId: null, pending: null, personalScope };
     writeAdmissionContactIntent(record);
-    expect(readAdmissionContactIntent(viewerId, slug, null, personalScope)).toEqual(record);
+    expect(readAdmissionContactIntent(viewerId, slug, null, { personalScope })).toEqual(record);
     expect(readAdmissionContactIntent(viewerId, slug, null)).toBeNull();
-    expect(readAdmissionContactIntent(viewerId, slug, null, "b".repeat(64))).toBeNull();
-    const raw = window.sessionStorage.getItem(admissionContactIntentKey(viewerId, slug, null, personalScope));
+    expect(readAdmissionContactIntent(viewerId, slug, null, { personalScope: "b".repeat(64) })).toBeNull();
+    const raw = window.sessionStorage.getItem(admissionContactIntentKey(viewerId, slug, null, { personalScope }));
     expect(raw).not.toContain("invitationToken");
     expect(raw).not.toContain("confirmed");
   });
@@ -70,7 +70,7 @@ describe("own contact operation references", () => {
 
   it.each(["verificationCode", "phone", "email", "recipient", "apiKey", "sessionId", "invitationToken"])("should reject sensitive field %s instead of writing it", (field) => {
     const record = { viewerId: randomUUID(), slug: "synthetic-academy", requestId: null, issuedOperationId: null, verifiedOperationId: null, pending: null, [field]: "synthetic-sensitive" };
-    expect(() => writeAdmissionContactIntent(record)).toThrow();
+    expect(() => writeAdmissionContactIntent(record)).toThrow(expect.objectContaining({ issues: [expect.objectContaining({ code: "unrecognized_keys", keys: [field] })] }));
     expect(window.sessionStorage.length).toBe(0);
   });
 

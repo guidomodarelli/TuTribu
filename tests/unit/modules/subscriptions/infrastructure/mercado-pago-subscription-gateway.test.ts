@@ -98,10 +98,11 @@ describe("mercado pago subscription gateway", () => {
   it("should recover only the checkout matching the reservation reference", async () => {
     fetchMock.mockImplementation(async (requestUrl: string) => {
       const url = new URL(requestUrl);
+      const searchBody = url.searchParams.get("q") === "reservation-1"
+        ? { paging: { total: 1 }, results: [{ id: "recovered-1", external_reference: "reservation-1" }] }
+        : { paging: { total: 2 }, results: [{ id: "unrelated", external_reference: "other" }, { id: "recovered-1", external_reference: "reservation-1" }] };
       const body = url.pathname.endsWith("/search")
-        ? (url.searchParams.get("q") === "reservation-1"
-          ? { paging: { total: 1 }, results: [{ id: "recovered-1", external_reference: "reservation-1" }] }
-          : { paging: { total: 2 }, results: [{ id: "unrelated", external_reference: "other" }, { id: "recovered-1", external_reference: "reservation-1" }] })
+        ? searchBody
         : { id: "recovered-1", external_reference: "reservation-1", status: "pending", init_point: "https://checkout.example/recovered" };
       return { ok: true, status: 200, json: async () => body };
     });
@@ -114,7 +115,7 @@ describe("mercado pago subscription gateway", () => {
     await expect(createMercadoPagoPendingPreapprovalSubscription({
       accessToken: "access-token", amountCents: 3000, backUrl: "https://tutribu.example.com/academy", currency: "ARS",
       externalReference: "reservation-1", idempotencyKey: "checkout-1", payerEmail: "buyer@example.com", reason: "Academia",
-    })).rejects.toThrow();
+    })).rejects.toThrow("Connection lost after sending request");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -169,7 +170,7 @@ describe("mercado pago subscription gateway", () => {
 
   it("should reject an unavailable payment lookup without exposing the seller token", async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 503, json: async () => ({ message: "Unavailable" }) });
-    await expect(getMercadoPagoPayment({ accessToken: "synthetic-private-token", paymentId: "12345" })).rejects.toThrow();
+    await expect(getMercadoPagoPayment({ accessToken: "synthetic-private-token", paymentId: "12345" })).rejects.toThrow("Mercado Pago request failed with status 503: Unavailable");
   });
 
   it("should retrieve every invoice when the provider rejects unsupported page sizes", async () => {

@@ -176,9 +176,8 @@ export function createMessageMediaFromRows(
         kind: MESSAGE_MEDIA_KIND.video,
         provider,
         sortOrder: Number(row.sortOrder ?? row.sort_order ?? 0),
-        thumbnailResolved: Boolean(
-          row.thumbnailResolved ?? row.thumbnail_resolved ?? false
-        ),
+        thumbnailResolved:
+          row.thumbnailResolved ?? row.thumbnail_resolved ?? false,
         thumbnailUrl: row.thumbnailUrl ?? row.thumbnail_url ?? null,
       },
     ];
@@ -370,9 +369,7 @@ function mapRowsToRound(
 ): TribeRoundResult {
   const likedMessageIds = new Set(viewerState.likedMessageIds);
   const selectedPollOptionIds = new Set(viewerState.selectedPollOptionIds);
-  const canManageOwnMessages = Boolean(
-    viewerState.viewerPermissions.canCreateMessage
-  );
+  const canManageOwnMessages = viewerState.viewerPermissions.canCreateMessage;
   const canDeleteStaffMessages = Boolean(
     viewerState.viewerPermissions.canPinMessages
   );
@@ -394,7 +391,7 @@ function mapRowsToRound(
 
       return {
         ...message,
-        hasLoadedReplies: (message.replyCount ?? 0) === 0,
+        hasLoadedReplies: message.replyCount === 0,
         likedByViewer: likedMessageIds.has(message.id),
         permissions: {
           canDelete:
@@ -662,6 +659,299 @@ export function mapRowsToLikers(rows: MessageLikerRow[]): TribeRoundLikersResult
   };
 }
 
+/**
+ * @returns Like, poll option and poll total counts of the target tribe, as CTEs.
+ */
+function buildRoundCountCtes() {
+  return sql`
+    message_like_counts as (
+      select
+        message_reactions.message_id,
+        count(*) as like_count
+      from public.message_reactions
+      inner join public.messages liked_messages
+        on liked_messages.id = message_reactions.message_id
+      inner join target_tribe
+        on target_tribe.id = liked_messages.tribe_id
+      where message_reactions.type = 'like'
+      group by message_reactions.message_id
+    ),
+    poll_option_counts as (
+      select
+        message_poll_options.id as option_id,
+        count(message_poll_votes.id) as vote_count
+      from public.message_poll_options
+      inner join public.message_polls
+        on message_polls.id = message_poll_options.poll_id
+      inner join target_tribe
+        on target_tribe.id = message_polls.tribe_id
+      left join public.message_poll_votes
+        on message_poll_votes.option_id = message_poll_options.id
+      group by message_poll_options.id
+    ),
+    poll_total_counts as (
+      select
+        message_polls.id as poll_id,
+        count(message_poll_votes.id) as total_vote_count
+      from public.message_polls
+      inner join target_tribe
+        on target_tribe.id = message_polls.tribe_id
+      left join public.message_poll_votes
+        on message_poll_votes.poll_id = message_polls.id
+      group by message_polls.id
+    )
+  `;
+}
+
+/**
+ * @returns Lateral joins that aggregate the attached images, videos and files of each message.
+ */
+function buildMessageAttachmentJoins() {
+  return sql`
+      left join lateral (
+        select jsonb_agg(
+          jsonb_build_object(
+            'alt_text', image_assets.alt_text,
+            'id', image_assets.id,
+            'sort_order', image_assets.sort_order,
+            'url', image_assets.delivery_url
+          )
+          order by image_assets.sort_order asc, image_assets.created_at asc
+        ) as message_images
+        from public.message_images image_assets
+        where image_assets.message_id = messages.id
+          and image_assets.status = 'attached'
+      ) message_images on true
+      left join lateral (
+        select jsonb_agg(
+          jsonb_build_object(
+            'external_video_id', video_assets.external_video_id,
+            'external_video_provider', video_assets.external_video_provider,
+            'id', video_assets.id,
+            'sort_order', video_assets.sort_order,
+            'thumbnail_url', video_assets.thumbnail_url,
+            'thumbnail_resolved', (video_assets.thumbnail_resolved_at is not null)
+          )
+          order by video_assets.sort_order asc, video_assets.created_at asc
+        ) as message_videos
+        from public.message_videos video_assets
+        where video_assets.message_id = messages.id
+      ) message_videos on true
+      left join lateral (
+        select jsonb_agg(
+          jsonb_build_object(
+            'file_name', file_assets.file_name,
+            'file_size_bytes', file_assets.file_size_bytes,
+            'id', file_assets.id,
+            'mime_type', file_assets.mime_type,
+            'sort_order', file_assets.sort_order
+          )
+          order by file_assets.sort_order asc, file_assets.created_at asc
+        ) as message_files
+        from public.message_files file_assets
+        where file_assets.message_id = messages.id
+          and file_assets.status = 'attached'
+      ) message_files on true
+  `;
+}
+
+/**
+ * @param activeChannelSlug - Selected channel, or null for every channel.
+ * @param page - Page window, with one extra message to detect a next page.
+ * @returns The CTE with the messages of the requested page.
+ */
+function buildFilteredMessagesCte(
+  activeChannelSlug: string | null,
+  page: { messageLimit: number; messageOffset: number }
+) {
+  return sql`
+    filtered_messages as (
+      select
+        messages.id,
+        messages.title,
+        messages.content,
+        messages.created_at,
+        messages.channel_id,
+        messages.author_id,
+        messages.tribe_id,
+        coalesce(message_images.message_images, '[]'::jsonb) as message_images,
+        coalesce(message_videos.message_videos, '[]'::jsonb) as message_videos,
+        coalesce(message_files.message_files, '[]'::jsonb) as message_files,
+        coalesce(message_like_counts.like_count, 0) as like_count,
+        message_pins.pinned_at as pinned_at
+      from public.messages
+      inner join target_tribe
+        on target_tribe.id = messages.tribe_id
+      left join message_like_counts
+        on message_like_counts.message_id = messages.id
+      left join public.message_pins
+        on message_pins.message_id = messages.id
+      ${buildMessageAttachmentJoins()}
+      where messages.channel_id is not null
+        and (
+          ${activeChannelSlug}::text is null
+          or exists (
+            select 1
+            from public.tribe_channels selected_channel
+            where selected_channel.id = messages.channel_id
+              and selected_channel.tribe_id = target_tribe.id
+              and selected_channel.slug = ${activeChannelSlug}
+          )
+        )
+        and exists (
+          select 1
+          from public.tribe_channels channel_matches
+          where channel_matches.id = messages.channel_id
+            and channel_matches.tribe_id = target_tribe.id
+        )
+      order by message_pins.pinned_at desc nulls last, messages.created_at desc, messages.id desc
+      limit ${page.messageLimit}
+      offset ${page.messageOffset}
+    )
+  `;
+}
+
+/**
+ * @returns Lateral join with the reply count and the latest reply authors of each message.
+ */
+function buildReplyAuthorsPreviewJoin() {
+  return sql`
+    left join lateral (
+      select
+        coalesce(sum(reply_author_previews.reply_count), 0) as reply_count,
+        coalesce(
+          jsonb_agg(
+              jsonb_build_object(
+                'id', reply_author_previews.id,
+                'image', reply_author_previews.image,
+                'name', reply_author_previews.name,
+                'role', reply_author_previews.role
+              )
+              order by reply_author_previews.latest_reply_created_at desc
+            ) filter (where reply_author_previews.author_rank <= 3),
+          '[]'::jsonb
+        ) as reply_authors_preview
+      from (
+        select
+          reply_authors.id,
+          reply_authors.image,
+          reply_authors.name,
+          reply_members.role,
+          count(*) as reply_count,
+          max(message_replies.created_at) as latest_reply_created_at,
+          row_number() over (
+            order by max(message_replies.created_at) desc
+          ) as author_rank
+        from public.message_replies
+        inner join public."user" reply_authors
+          on reply_authors.id = message_replies.author_id
+        left join public.tribe_members reply_members
+          on reply_members.tribe_id = messages.tribe_id
+          and reply_members.user_id = message_replies.author_id
+        where message_replies.message_id = messages.id
+        group by
+          reply_authors.id,
+          reply_authors.image,
+          reply_authors.name,
+          reply_members.role
+      ) reply_author_previews
+    ) message_reply_counts on true
+  `;
+}
+
+/**
+ * @returns Grouping and order of the shared round rows.
+ */
+function buildSharedRoundGroupBy() {
+  return sql`
+    group by
+      messages.id,
+      messages.title,
+      messages.content,
+      messages.created_at,
+      messages.message_images,
+      messages.message_videos,
+      messages.message_files,
+      messages.channel_id,
+      messages.author_id,
+      messages.tribe_id,
+      tribe_channels.id,
+      tribe_channels.name,
+      tribe_channels.slug,
+      tribe_channels.emoji,
+      tribe_channels.sort_order,
+      tribe_channels.access_scope,
+      messages.like_count,
+      messages.pinned_at,
+      message_reply_counts.reply_count,
+      message_reply_counts.reply_authors_preview,
+      message_polls.id,
+      message_poll_options.id,
+      poll_option_counts.vote_count,
+      poll_total_counts.total_vote_count,
+      message_authors.id,
+      message_members.role
+    order by messages.pinned_at desc nulls last, messages.created_at desc, messages.id desc, message_poll_options.sort_order asc
+  `;
+}
+
+/**
+ * @returns Final projection of the page messages with channel, author, replies and poll.
+ */
+function buildSharedRoundSelect() {
+  return sql`
+    select
+      messages.id as message_id,
+      messages.title as message_title,
+      messages.content as message_content,
+      messages.created_at as message_created_at,
+      messages.message_images as message_images,
+      messages.message_videos as message_videos,
+      messages.message_files as message_files,
+      tribe_channels.id as channel_id,
+      tribe_channels.name as channel_name,
+      tribe_channels.slug as channel_slug,
+      tribe_channels.emoji as channel_emoji,
+      tribe_channels.sort_order as channel_sort_order,
+      tribe_channels.access_scope as channel_access_scope,
+      message_authors.id as author_id,
+      message_authors.name as author_name,
+      message_authors.image as author_image,
+      message_members.role as author_role,
+      messages.like_count as like_count,
+      coalesce(message_reply_counts.reply_count, 0) as reply_count,
+      coalesce(
+        message_reply_counts.reply_authors_preview,
+        '[]'::jsonb
+      ) as reply_authors_preview,
+      messages.pinned_at as message_pinned_at,
+      message_polls.id as poll_id,
+      message_polls.allow_multiple_votes as poll_allow_multiple_votes,
+      message_poll_options.id as poll_option_id,
+      message_poll_options.text as poll_option_text,
+      coalesce(poll_option_counts.vote_count, 0) as poll_option_vote_count,
+      coalesce(poll_total_counts.total_vote_count, 0) as poll_total_vote_count
+    from filtered_messages messages
+    inner join public.tribe_channels
+      on tribe_channels.id = messages.channel_id
+    inner join public."user" message_authors
+      on message_authors.id = messages.author_id
+    left join public.tribe_members message_members
+      on message_members.tribe_id = messages.tribe_id
+      and message_members.user_id = messages.author_id
+    ${buildReplyAuthorsPreviewJoin()}
+    left join public.message_polls
+      on message_polls.message_id = messages.id
+    left join public.message_poll_options
+      on message_poll_options.poll_id = message_polls.id
+    left join poll_option_counts
+      on poll_option_counts.option_id = message_poll_options.id
+    left join poll_total_counts
+      on poll_total_counts.poll_id = message_polls.id
+    ${buildSharedRoundGroupBy()}
+  `;
+}
+
 export class PostgresMessageRoundRepository implements MessageRoundReadRepository {
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
 
@@ -715,7 +1005,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             on target_tribe.id = tribe_channels.tribe_id
           order by tribe_channels.sort_order asc, tribe_channels.name asc
         `);
-      const channels = mapRowsToChannels((channelsResult.rows ?? []) as TribeChannelRow[]);
+      const channels = mapRowsToChannels(channelsResult.rows as TribeChannelRow[]);
       const selectedChannelSlug = normalizeChannelSlug(channelSlug);
       const activeChannel =
         channels.find((channel) => channel.slug === selectedChannelSlug) ?? null;
@@ -726,245 +1016,11 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             where tribes.slug = ${tribeSlug}
             limit 1
           ),
-          message_like_counts as (
-            select
-              message_reactions.message_id,
-              count(*) as like_count
-            from public.message_reactions
-            inner join public.messages liked_messages
-              on liked_messages.id = message_reactions.message_id
-            inner join target_tribe
-              on target_tribe.id = liked_messages.tribe_id
-            where message_reactions.type = 'like'
-            group by message_reactions.message_id
-          ),
-          poll_option_counts as (
-            select
-              message_poll_options.id as option_id,
-              count(message_poll_votes.id) as vote_count
-            from public.message_poll_options
-            inner join public.message_polls
-              on message_polls.id = message_poll_options.poll_id
-            inner join target_tribe
-              on target_tribe.id = message_polls.tribe_id
-            left join public.message_poll_votes
-              on message_poll_votes.option_id = message_poll_options.id
-            group by message_poll_options.id
-          ),
-          poll_total_counts as (
-            select
-              message_polls.id as poll_id,
-              count(message_poll_votes.id) as total_vote_count
-            from public.message_polls
-            inner join target_tribe
-              on target_tribe.id = message_polls.tribe_id
-            left join public.message_poll_votes
-              on message_poll_votes.poll_id = message_polls.id
-            group by message_polls.id
-          ),
-          filtered_messages as (
-            select
-              messages.id,
-              messages.title,
-              messages.content,
-              messages.created_at,
-              messages.channel_id,
-              messages.author_id,
-              messages.tribe_id,
-              coalesce(message_images.message_images, '[]'::jsonb) as message_images,
-              coalesce(message_videos.message_videos, '[]'::jsonb) as message_videos,
-              coalesce(message_files.message_files, '[]'::jsonb) as message_files,
-              coalesce(message_like_counts.like_count, 0) as like_count,
-              message_pins.pinned_at as pinned_at
-            from public.messages
-            inner join target_tribe
-              on target_tribe.id = messages.tribe_id
-            left join message_like_counts
-              on message_like_counts.message_id = messages.id
-            left join public.message_pins
-              on message_pins.message_id = messages.id
-            left join lateral (
-              select jsonb_agg(
-                jsonb_build_object(
-                  'alt_text', image_assets.alt_text,
-                  'id', image_assets.id,
-                  'sort_order', image_assets.sort_order,
-                  'url', image_assets.delivery_url
-                )
-                order by image_assets.sort_order asc, image_assets.created_at asc
-              ) as message_images
-              from public.message_images image_assets
-              where image_assets.message_id = messages.id
-                and image_assets.status = 'attached'
-            ) message_images on true
-            left join lateral (
-              select jsonb_agg(
-                jsonb_build_object(
-                  'external_video_id', video_assets.external_video_id,
-                  'external_video_provider', video_assets.external_video_provider,
-                  'id', video_assets.id,
-                  'sort_order', video_assets.sort_order,
-                  'thumbnail_url', video_assets.thumbnail_url,
-                  'thumbnail_resolved', (video_assets.thumbnail_resolved_at is not null)
-                )
-                order by video_assets.sort_order asc, video_assets.created_at asc
-              ) as message_videos
-              from public.message_videos video_assets
-              where video_assets.message_id = messages.id
-            ) message_videos on true
-            left join lateral (
-              select jsonb_agg(
-                jsonb_build_object(
-                  'file_name', file_assets.file_name,
-                  'file_size_bytes', file_assets.file_size_bytes,
-                  'id', file_assets.id,
-                  'mime_type', file_assets.mime_type,
-                  'sort_order', file_assets.sort_order
-                )
-                order by file_assets.sort_order asc, file_assets.created_at asc
-              ) as message_files
-              from public.message_files file_assets
-              where file_assets.message_id = messages.id
-                and file_assets.status = 'attached'
-            ) message_files on true
-            where messages.channel_id is not null
-              and (
-                ${activeChannel?.slug ?? null}::text is null
-                or exists (
-                  select 1
-                  from public.tribe_channels selected_channel
-                  where selected_channel.id = messages.channel_id
-                    and selected_channel.tribe_id = target_tribe.id
-                    and selected_channel.slug = ${activeChannel?.slug ?? null}
-                )
-              )
-              and exists (
-                select 1
-                from public.tribe_channels channel_matches
-                where channel_matches.id = messages.channel_id
-                  and channel_matches.tribe_id = target_tribe.id
-              )
-            order by message_pins.pinned_at desc nulls last, messages.created_at desc, messages.id desc
-            limit ${messageLimit}
-            offset ${messageOffset}
-          )
-          select
-            messages.id as message_id,
-            messages.title as message_title,
-            messages.content as message_content,
-            messages.created_at as message_created_at,
-            messages.message_images as message_images,
-            messages.message_videos as message_videos,
-            messages.message_files as message_files,
-            tribe_channels.id as channel_id,
-            tribe_channels.name as channel_name,
-            tribe_channels.slug as channel_slug,
-            tribe_channels.emoji as channel_emoji,
-            tribe_channels.sort_order as channel_sort_order,
-            tribe_channels.access_scope as channel_access_scope,
-            message_authors.id as author_id,
-            message_authors.name as author_name,
-            message_authors.image as author_image,
-            message_members.role as author_role,
-            messages.like_count as like_count,
-            coalesce(message_reply_counts.reply_count, 0) as reply_count,
-            coalesce(
-              message_reply_counts.reply_authors_preview,
-              '[]'::jsonb
-            ) as reply_authors_preview,
-            messages.pinned_at as message_pinned_at,
-            message_polls.id as poll_id,
-            message_polls.allow_multiple_votes as poll_allow_multiple_votes,
-            message_poll_options.id as poll_option_id,
-            message_poll_options.text as poll_option_text,
-            coalesce(poll_option_counts.vote_count, 0) as poll_option_vote_count,
-            coalesce(poll_total_counts.total_vote_count, 0) as poll_total_vote_count
-          from filtered_messages messages
-          inner join public.tribe_channels
-            on tribe_channels.id = messages.channel_id
-          inner join public."user" message_authors
-            on message_authors.id = messages.author_id
-          left join public.tribe_members message_members
-            on message_members.tribe_id = messages.tribe_id
-            and message_members.user_id = messages.author_id
-          left join lateral (
-            select
-              coalesce(sum(reply_author_previews.reply_count), 0) as reply_count,
-              coalesce(
-                jsonb_agg(
-                    jsonb_build_object(
-                      'id', reply_author_previews.id,
-                      'image', reply_author_previews.image,
-                      'name', reply_author_previews.name,
-                      'role', reply_author_previews.role
-                    )
-                    order by reply_author_previews.latest_reply_created_at desc
-                  ) filter (where reply_author_previews.author_rank <= 3),
-                '[]'::jsonb
-              ) as reply_authors_preview
-            from (
-              select
-                reply_authors.id,
-                reply_authors.image,
-                reply_authors.name,
-                reply_members.role,
-                count(*) as reply_count,
-                max(message_replies.created_at) as latest_reply_created_at,
-                row_number() over (
-                  order by max(message_replies.created_at) desc
-                ) as author_rank
-              from public.message_replies
-              inner join public."user" reply_authors
-                on reply_authors.id = message_replies.author_id
-              left join public.tribe_members reply_members
-                on reply_members.tribe_id = messages.tribe_id
-                and reply_members.user_id = message_replies.author_id
-              where message_replies.message_id = messages.id
-              group by
-                reply_authors.id,
-                reply_authors.image,
-                reply_authors.name,
-                reply_members.role
-            ) reply_author_previews
-          ) message_reply_counts on true
-          left join public.message_polls
-            on message_polls.message_id = messages.id
-          left join public.message_poll_options
-            on message_poll_options.poll_id = message_polls.id
-          left join poll_option_counts
-            on poll_option_counts.option_id = message_poll_options.id
-          left join poll_total_counts
-            on poll_total_counts.poll_id = message_polls.id
-          group by
-            messages.id,
-            messages.title,
-            messages.content,
-            messages.created_at,
-            messages.message_images,
-            messages.message_videos,
-            messages.message_files,
-            messages.channel_id,
-            messages.author_id,
-            messages.tribe_id,
-            tribe_channels.id,
-            tribe_channels.name,
-            tribe_channels.slug,
-            tribe_channels.emoji,
-            tribe_channels.sort_order,
-            tribe_channels.access_scope,
-            messages.like_count,
-            messages.pinned_at,
-            message_reply_counts.reply_count,
-            message_reply_counts.reply_authors_preview,
-            message_polls.id,
-            message_poll_options.id,
-            poll_option_counts.vote_count,
-            poll_total_counts.total_vote_count,
-            message_authors.id,
-            message_members.role
-          order by messages.pinned_at desc nulls last, messages.created_at desc, messages.id desc, message_poll_options.sort_order asc
+          ${buildRoundCountCtes()},
+          ${buildFilteredMessagesCte(activeChannel?.slug ?? null, { messageLimit, messageOffset })}
+          ${buildSharedRoundSelect()}
         `);
-      const resultRows = (result.rows ?? []) as MessageRoundSharedRow[];
+      const resultRows = result.rows as MessageRoundSharedRow[];
       const rows = limitRowsToPageMessages(resultRows);
 
       return mapRowsToSharedData(
@@ -1045,7 +1101,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
           on true
       `);
 
-      return mapRowsToReplies((result.rows ?? []) as MessageReplyRow[]);
+      return mapRowsToReplies(result.rows as MessageReplyRow[]);
     });
   }
 
@@ -1119,7 +1175,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
           on true
       `);
 
-      return mapRowsToLikers((result.rows ?? []) as MessageLikerRow[]);
+      return mapRowsToLikers(result.rows as MessageLikerRow[]);
     });
   }
 
@@ -1199,7 +1255,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
       `);
 
       return mapViewerStateRow(
-        (result.rows?.[0] ?? null) as MessageRoundViewerStateRow | null,
+        (result.rows[0] ?? null) as MessageRoundViewerStateRow | null,
         viewerId
       );
     });

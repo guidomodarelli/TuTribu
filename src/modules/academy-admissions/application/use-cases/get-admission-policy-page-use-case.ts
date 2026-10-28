@@ -23,7 +23,7 @@ export class GetAdmissionPolicyPageUseCase {
       const policy = await this.readers.policy.execute({ tribeId: tribe.value.tribeId, requestId: query.requestId });
       if (!policy.ok) return policy;
       const current = await this.accounts.getAuthenticatedAccount(), now = this.clock();
-      if (!current || current.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+      if (current?.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       return { ok: true as const, value: admissionPolicyPageStateSchema.parse({ kind: "ready", slug: query.slug, tribeId: tribe.value.tribeId, viewerId: current.userId, renderedAt: now.toISOString(), policy: policy.value }) };
     } catch (error) { return admissionOperationFailure(error); }
   }

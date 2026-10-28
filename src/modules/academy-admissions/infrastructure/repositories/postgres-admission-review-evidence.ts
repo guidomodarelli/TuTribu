@@ -30,9 +30,9 @@ export async function readAdmissionReviewEvidence(database: RequestDatabase, sco
   if (projected.request.id !== request.id || projected.request.userId !== request.userId || projected.request.tribeId !== request.tribeId || projected.request.version !== request.version) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
   const proof = projected.review.request.attachedEvidence;
   if (request.evidence.kind === ADMISSION_EVIDENCE_KIND.local) {
-    if (!proof || proof.id !== request.evidence.proofId || proof.securityEpoch !== security.securityEpoch) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.proofUnavailable);
+    if (proof?.id !== request.evidence.proofId || proof.securityEpoch !== security.securityEpoch) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.proofUnavailable);
     const resource = (await database.execute<{ environment: string; security_epoch: string }>(sql`select environment,security_epoch from public.messaging_connection_versions where connection_id=${proof.connectionId} and tribe_id=${scope.tribeId} and version=${proof.connectionVersion} for share`)).rows[0];
-    if (!resource || resource.environment !== security.environment || resource.security_epoch !== security.securityEpoch) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.proofUnavailable);
+    if (resource?.environment !== security.environment || resource.security_epoch !== security.securityEpoch) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.proofUnavailable);
   }
   return projected.review;
 }

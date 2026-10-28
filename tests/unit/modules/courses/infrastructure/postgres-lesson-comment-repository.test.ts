@@ -3,7 +3,7 @@ import { PostgresLessonCommentRepository } from "@/src/modules/courses/infrastru
 
 describe("PostgresLessonCommentRepository", () => {
   it("lists lesson comments with author data and viewer delete permission", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           comments: [
@@ -49,7 +49,7 @@ describe("PostgresLessonCommentRepository", () => {
   });
 
   it("creates a comment guarded by active membership", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           author_id: "u1",
@@ -89,7 +89,7 @@ describe("PostgresLessonCommentRepository", () => {
   });
 
   it("deletes a comment when the viewer is the author or a leader", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [{ status: "deleted" as const }],
     }); });
     const repository = new PostgresLessonCommentRepository(async (callback) =>
@@ -105,7 +105,7 @@ describe("PostgresLessonCommentRepository", () => {
   });
 
   it("maps a forbidden deletion status", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [{ status: "forbidden" as const }],
     }); });
     const repository = new PostgresLessonCommentRepository(async (callback) =>

@@ -79,7 +79,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native private
         const browser = await engine.launch({ headless: true });
         try {
           for (const applicant of applicants) {
-            for (const width of [390, 1280]) {
+            /** Verifies that this applicant reads only its own admission and no private academy content at the given width. */
+            const verifyApplicantView = async (width: number) => {
               const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: "reduce" });
               try {
                 await context.addCookies([{ name: "better-auth.session_token", value: encodeURIComponent(`${applicant.sessionToken}.${await makeSignature(applicant.sessionToken, secret)}`), url: origin, httpOnly: true, sameSite: "Lax" }]);
@@ -100,7 +101,9 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native private
                 }
                 const messages = await runPrivateBrowserRequest("read_hidden_messages", () => context.request.get(`${origin}/api/tribes/${slug}/messages?channel=private-example`));
                 expect(messages.status()).toBe(404);
-                expect([privateMarker, privateDirectoryMarker].every((value) => !(messages.headers().location ?? "").includes(value))).toBe(true);
+                // Playwright types headers as a total record, but an absent header is undefined.
+                const messageHeaders: Partial<Record<string, string>> = messages.headers();
+                expect([privateMarker, privateDirectoryMarker].every((value) => !(messageHeaders.location ?? "").includes(value))).toBe(true);
                 const messagesBody = await messages.text();
                 expect([privateMarker, privateDirectoryMarker].every((value) => !messagesBody.includes(value))).toBe(true);
                 for (const suffix of ["events/calendar-feed", "academy/members"]) {
@@ -122,7 +125,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native private
                   expect([privateMarker, privateDirectoryMarker].every((value) => !html.includes(value))).toBe(true);
                 }
               } finally { await context.close(); }
-            }
+            };
+            for (const width of [390, 1280]) await verifyApplicantView(width);
           }
           const guardianContext = await browser.newContext({ viewport: { width: 390, height: 900 } });
           try {

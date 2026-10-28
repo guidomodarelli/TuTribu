@@ -18,20 +18,44 @@ import type { MarkedMessageDeliveryResourceAuthority } from "../message-delivery
 
 type DatabaseExecutor = <Result>(actorUserId: string, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
 type SecurityConfigReader = () => Promise<MessagingSecurityConfig>;
+/** Collaborators of {@link PostgresEncryptedSecretStore}; the delivery-resource guard is only composed for grouped deliveries. */
+export type PostgresEncryptedSecretStoreDependencies = { executeWithDatabase: DatabaseExecutor; accounts: MessagingAccountProvider; readSecurityConfig: SecurityConfigReader; purpose: MessagingSecretAccessContext["authorizationPurpose"]; authorizeDeliveryResource?: MarkedMessageDeliveryResourceAuthority };
+
+/**
+ * Verifies the requested operation at runtime: the access context crosses a trust boundary, so its declared literal is not assumed.
+ * @param context - Access scope whose operation is checked.
+ * @param operation - Only operation allowed for this entrypoint.
+ * @returns Whether the scope requests exactly that operation.
+ */
+function isOperation(context: { operation: string }, operation: string): boolean {
+  return context.operation === operation;
+}
 
 /**
  * Keeps human and worker entrypoints separate, with no default execution principal or keyring.
  * Plaintext exists only as a private adapter result; no credential/IV/ciphertext is logged or persisted.
  */
 export class PostgresEncryptedSecretStore implements MessagingSecretStore, MessagingSecretMaterialStore {
+  private readonly executeWithDatabase: DatabaseExecutor;
+  private readonly accounts: MessagingAccountProvider;
+  private readonly readSecurityConfig: SecurityConfigReader;
+  private readonly purpose: MessagingSecretAccessContext["authorizationPurpose"];
+  private readonly authorizeDeliveryResource: MarkedMessageDeliveryResourceAuthority | undefined;
   /**
-   * @param executeWithDatabase - Existing guarded backend executor; never a new checkout within a transaction.
-   * @param accounts - Current server session/account for human access; worker access uses persisted attempt facts.
-   * @param readSecurityConfig - Current external hosting-secret snapshot, never PostgreSQL-restored authority.
-   * @param purpose - Fixed composition purpose; a public request cannot select worker authority.
-   * @param authorizeDeliveryResource - Purpose-specific native business guard, required before decrypting an explicitly grouped delivery.
+   * @param dependencies - Store collaborators.
+   * @param dependencies.executeWithDatabase - Existing guarded backend executor; never a new checkout within a transaction.
+   * @param dependencies.accounts - Current server session/account for human access; worker access uses persisted attempt facts.
+   * @param dependencies.readSecurityConfig - Current external hosting-secret snapshot, never PostgreSQL-restored authority.
+   * @param dependencies.purpose - Fixed composition purpose; a public request cannot select worker authority.
+   * @param dependencies.authorizeDeliveryResource - Purpose-specific native business guard, required before decrypting an explicitly grouped delivery.
    */
-  constructor(private readonly executeWithDatabase: DatabaseExecutor, private readonly accounts: MessagingAccountProvider, private readonly readSecurityConfig: SecurityConfigReader, private readonly purpose: MessagingSecretAccessContext["authorizationPurpose"], private readonly authorizeDeliveryResource?: MarkedMessageDeliveryResourceAuthority) {}
+  constructor({ executeWithDatabase, accounts, readSecurityConfig, purpose, authorizeDeliveryResource }: PostgresEncryptedSecretStoreDependencies) {
+    this.executeWithDatabase = executeWithDatabase;
+    this.accounts = accounts;
+    this.readSecurityConfig = readSecurityConfig;
+    this.purpose = purpose;
+    this.authorizeDeliveryResource = authorizeDeliveryResource;
+  }
 
   /**
    * Preserves the credential-only port through the same current authorization and material owner.
@@ -53,8 +77,8 @@ export class PostgresEncryptedSecretStore implements MessagingSecretStore, Messa
       if (human) {
         if (context.resourceId !== context.connectionId || !MESSAGING_SECRET_HUMAN_OPERATIONS.some((operation) => operation === context.operation)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
         const account = await this.accounts.getAuthenticatedAccount();
-        if (!account || account.userId !== context.actorUserId || account.session.id !== context.sessionId || account.googleAccount?.id !== context.accountId || account.googleAccount.subject !== context.subject) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
-      } else if (context.operation !== MESSAGING_SECRET_DELIVERY_SCOPE.operation) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
+        if (account?.userId !== context.actorUserId || account.session.id !== context.sessionId || account.googleAccount?.id !== context.accountId || account.googleAccount.subject !== context.subject) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
+      } else if (!isOperation(context, MESSAGING_SECRET_DELIVERY_SCOPE.operation)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
       return await this.executeWithDatabase(actorUserId, async (database) => {
         const authorization = await authorizeMessagingSecret(database, context, false, this.authorizeDeliveryResource);
         const config = await this.readSecurityConfig();

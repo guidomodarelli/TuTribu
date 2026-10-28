@@ -64,7 +64,7 @@ export async function readMessagingHostingSecurityConfig(environment: HostingEnv
         let decoded: string;
         try { decoded = atob(key.materialBase64); }
         catch (error) { throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.invalidConfiguration, { cause: error }); }
-        const bytes = Uint8Array.from(decoded, (character) => character.charCodeAt(0));
+        const bytes = Uint8Array.from(decoded, (character) => character.codePointAt(0) ?? 0);
         material.push(bytes);
         return { id: key.id, material: bytes };
       }) };

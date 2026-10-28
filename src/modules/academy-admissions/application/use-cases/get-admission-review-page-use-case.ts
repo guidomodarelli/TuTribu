@@ -29,7 +29,7 @@ export class GetAdmissionReviewPageUseCase {
       const detail = query.admissionRequestId ? await this.readers.review.detail({ ...scope, admissionRequestId: query.admissionRequestId }) : null;
       if (detail && !detail.ok) return detail;
       const current = await this.accounts.getAuthenticatedAccount(), now = this.clock();
-      if (!current || current.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+      if (current?.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       return { ok: true as const, value: admissionReviewPageStateSchema.parse({ kind: "ready", slug: query.slug, viewerId: current.userId, renderedAt: now.toISOString(), filters, page: list.value, selected: detail?.value ?? null }) };
     } catch (error) { return admissionOperationFailure(error); }
   }

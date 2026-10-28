@@ -60,16 +60,21 @@ function buildWebhookSignature(resourceId: string, requestId: string, timestamp:
   return `ts=${timestamp},v1=${signature}`;
 }
 
-function buildWebhookRequest(
-  headers: HeadersInit = {},
-  url?: string,
-  body: Record<string, unknown> = {
+/** Builds a fresh default webhook payload for each request. */
+function buildDefaultWebhookBody(): Record<string, unknown> {
+  return {
     action: "subscription_preapproval.created",
     data: {
       id: "preapproval-1",
     },
     id: "event-1",
-  }
+  };
+}
+
+function buildWebhookRequest(
+  headers: HeadersInit = {},
+  url?: string,
+  body: Record<string, unknown> = buildDefaultWebhookBody()
 ) {
   return {
     headers: new Headers(headers),

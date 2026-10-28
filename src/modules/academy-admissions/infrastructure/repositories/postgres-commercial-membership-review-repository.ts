@@ -48,7 +48,6 @@ export class PostgresCommercialMembershipReviewRepository implements CommercialM
 
   /** @param context - Current leader with the review's sensitive purpose. @param input - Confirmed decision. @returns The original confirmed decision or rejection, or registered progress. */
   async resolve(context: AuthorizedAdmissionContext, input: CommercialMembershipResolutionCommand): Promise<AdmissionOperationResult<CommercialMembershipResolutionResult>> {
-    if (!input.confirmed) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     const memberId = input.memberId.toLowerCase();
     const command = { actorUserId: context.userId, tribeId: context.tribeId, operationType: COMMERCIAL_MEMBERSHIP_REVIEW_OPERATION, idempotencyKey: input.operationId,
       intent: { memberId, decision: input.decision, expected: { role: input.expected.role, status: input.expected.status, statusReason: input.expected.statusReason, recoveryStatus: input.expected.recoveryStatus }, reason: input.reason } };
@@ -56,7 +55,7 @@ export class PostgresCommercialMembershipReviewRepository implements CommercialM
     const ledger = new PostgresAdmissionOperationRepository((run) => this.execute(context, run), authorize, this.readSecurityConfig);
     try {
       return await ledger.run(command, commercialMembershipResolutionResultSchema, async (database) => {
-        const row = (await database.execute<{ value: ResolutionRow }>(sql`select public.resolve_commercial_membership_review(${context.tribeId},${context.sessionId},${input.operationId},${memberId},${input.decision},${input.expected.role},${input.expected.status},${input.expected.statusReason},${input.expected.recoveryStatus},${input.reason}) as value`)).rows[0]?.value;
+        const row = (await database.execute<{ value: ResolutionRow | null }>(sql`select public.resolve_commercial_membership_review(${context.tribeId},${context.sessionId},${input.operationId},${memberId},${input.decision},${input.expected.role},${input.expected.status},${input.expected.statusReason},${input.expected.recoveryStatus},${input.reason}) as value`)).rows[0]?.value;
         if (!row) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.unexpectedFailure);
         if (row.status === COMMERCIAL_MEMBERSHIP_REVIEW_STATUS.denied) throw new AdmissionOperationError(OWNER_DENIAL_CODES.has(row.code) ? row.code : ADMISSION_ERROR_CODE.unexpectedFailure);
         if (row.status === COMMERCIAL_MEMBERSHIP_REVIEW_STATUS.rejected) return { status: row.status, memberId, reason: row.reason };

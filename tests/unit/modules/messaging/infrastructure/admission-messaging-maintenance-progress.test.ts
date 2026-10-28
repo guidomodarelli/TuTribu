@@ -23,7 +23,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission m
       let scope: AdmissionMessagingMaintenanceExternalScope | null = null;
       const request = new Request("https://example.invalid/maintenance", { headers: { authorization: `Bearer ${secret}` } });
       const authorize = createRequestMessagingMaintenanceAuthorizer(request, () => currentSecret);
-      const progress = new PostgresAdmissionMessagingMaintenanceProgress(execute, authorize, async () => recoveryLocked, async () => scope);
+      const progress = new PostgresAdmissionMessagingMaintenanceProgress({ execute, authorize, readRecoveryLock: async () => recoveryLocked, readExternalScope: async () => scope });
       /** @returns Original persisted metadata; no credentials, contacts or provider fields are read. */
       const metadata = () => execute(async (transaction) => (await transaction.execute<{ version: number; state: string; first_phase: number; next_phase: number; last_successful_at: string | null; deadline_reached: boolean }>(sql`select version,state,first_phase,next_phase,last_successful_at::text,deadline_reached from public.admission_messaging_maintenance_progress`)).rows[0]);
       /** @returns After the original unmodified native deadline; no lease or clock is rewritten. */

@@ -24,6 +24,7 @@ export async function applyAdmissionRetentionHistoricalPrefix(database: AcademyA
   if (cutoff < 1) throw new Error("AdmissionRetentionFixture.prepare failed: migration_cutoff_missing");
   const entries = journal.entries.slice(0, cutoff);
   const directory = await mkdtemp(join(tmpdir(), settings.prefixDirectoryName));
+  let migrationFailed = false, migrationError: unknown;
   try {
     await mkdir(join(directory, "meta"));
     await writeFile(join(directory, settings.journalRelativePath), JSON.stringify({ ...journal, entries }), "utf8");
@@ -32,9 +33,13 @@ export async function applyAdmissionRetentionHistoricalPrefix(database: AcademyA
     const sourceConfig = resolve(settings.defaultConfigPath).replaceAll("\\", "/");
     await writeFile(configPath, `import baseConfig from ${JSON.stringify(sourceConfig)};\nexport default { ...baseConfig, out: ${JSON.stringify(directory)} };\n`, "utf8");
     await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }, [resolve(settings.drizzleCliPath), "migrate", "--config", configPath]));
-  } finally {
-    const resolvedDirectory = resolve(directory), temporaryRoot = resolve(tmpdir());
-    if (!resolvedDirectory.toLowerCase().startsWith(`${temporaryRoot.toLowerCase()}${sep}`) || !basename(resolvedDirectory).startsWith(settings.prefixDirectoryName)) throw new Error("AdmissionRetentionFixture.cleanup failed: unowned_directory");
-    await rm(resolvedDirectory, { recursive: true, force: true });
+  } catch (error) {
+    migrationFailed = true;
+    migrationError = error;
   }
+  // Cleanup always runs and its own failure takes precedence over the migration failure.
+  const resolvedDirectory = resolve(directory), temporaryRoot = resolve(tmpdir());
+  if (!resolvedDirectory.toLowerCase().startsWith(`${temporaryRoot.toLowerCase()}${sep}`) || !basename(resolvedDirectory).startsWith(settings.prefixDirectoryName)) throw new Error("AdmissionRetentionFixture.cleanup failed: unowned_directory");
+  await rm(resolvedDirectory, { recursive: true, force: true });
+  if (migrationFailed) throw migrationError;
 }

@@ -126,25 +126,19 @@ function buildStartSubscriptionEndpoint(tribeSlug: string): string {
 }
 
 /**
- * Renders the member-facing payment state and, when allowed, a retry action
- * that starts a new checkout and hands the browser off to Mercado Pago.
+ * Owns the retry action: starts a new checkout once at a time, reports its
+ * progress or failure and hands the browser off to Mercado Pago.
  *
- * @param props - Current subscription status and tribe slug.
- * @returns Subscription payment status section.
+ * @param tribeSlug - Tribe slug.
+ * @returns Pending state, current feedback and the retry handler.
  */
-export function TribeSubscriptionPaymentStatus({
-  subscriptionStatus,
-  tribeSlug,
-}: TribeSubscriptionPaymentStatusProps) {
+function useRetrySubscriptionPayment(tribeSlug: string) {
   const [isStartingPayment, setIsStartingPayment] = useState(false);
   const [feedback, setFeedback] = useState<SubscriptionPaymentFeedback | null>(
     null
   );
   // Guards against a second click landing before the disabled state renders.
   const isStartingPaymentRef = useRef(false);
-  const statusContent = SUBSCRIPTION_PAYMENT_STATUS_CONTENT[subscriptionStatus];
-  const canRetryPayment =
-    SUBSCRIPTION_PAYMENT_RETRY_STATUSES.has(subscriptionStatus);
 
   const failPaymentStart = (message: string) => {
     isStartingPaymentRef.current = false;
@@ -199,6 +193,26 @@ export function TribeSubscriptionPaymentStatus({
       failPaymentStart(SUBSCRIPTION_PAYMENT_STATUS_COPY.errorFallback);
     }
   };
+
+  return { feedback, handleRetryPayment, isStartingPayment };
+}
+
+/**
+ * Renders the member-facing payment state and, when allowed, a retry action
+ * that starts a new checkout and hands the browser off to Mercado Pago.
+ *
+ * @param props - Current subscription status and tribe slug.
+ * @returns Subscription payment status section.
+ */
+export function TribeSubscriptionPaymentStatus({
+  subscriptionStatus,
+  tribeSlug,
+}: TribeSubscriptionPaymentStatusProps) {
+  const { feedback, handleRetryPayment, isStartingPayment } =
+    useRetrySubscriptionPayment(tribeSlug);
+  const statusContent = SUBSCRIPTION_PAYMENT_STATUS_CONTENT[subscriptionStatus];
+  const canRetryPayment =
+    SUBSCRIPTION_PAYMENT_RETRY_STATUSES.has(subscriptionStatus);
 
   return (
     <section className={styles.TribeSubscriptionPaymentStatus}>

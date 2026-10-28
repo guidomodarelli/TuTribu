@@ -39,8 +39,7 @@ function rememberShownMonth(tribeSlug: string, month: string): void {
 
 function readRecentlyShownMonth(tribeSlug: string): string | null {
   if (
-    lastShownMonth === null ||
-    lastShownMonth.tribeSlug !== tribeSlug ||
+    lastShownMonth?.tribeSlug !== tribeSlug ||
     Date.now() - lastShownMonth.shownAt > SHOWN_MONTH_MEMORY_MS
   ) {
     return null;

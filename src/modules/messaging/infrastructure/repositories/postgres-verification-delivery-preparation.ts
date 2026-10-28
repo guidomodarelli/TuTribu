@@ -30,6 +30,13 @@ type PreparationRow = {
 };
 
 /** Owns backend-only material preparation; it never verifies the user or posts a message. */
+/** @param row - Prepared challenge. @returns Its contact. @throws MessagingSecretAccessError for a phone without its delivery country. */
+function preparationContact(row: PreparationRow): VerificationChallengeScope["contact"] {
+  if (row.contact_type === ADMISSION_CONTACT_TYPE.email) return { type: ADMISSION_CONTACT_TYPE.email, value: row.normalized_contact };
+  if (!row.recipient_country) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
+  return { type: ADMISSION_CONTACT_TYPE.phone, value: row.normalized_contact, country: row.recipient_country };
+}
+
 export class PostgresVerificationDeliveryPreparation implements VerificationDeliveryPreparation {
   /** Protected contributing-actor checkout, scoped so a repeated attempt check reuses the locks of the first. */
   private readonly execute: PreparationDatabaseExecutor;
@@ -55,7 +62,7 @@ export class PostgresVerificationDeliveryPreparation implements VerificationDeli
       const authority = await authorizeMessagingSecret(database, context);
       signal.throwIfAborted();
       const row = (await database.execute<PreparationRow>(sql`select delivery.frozen_intent,delivery.payload_fingerprint,delivery.payload_mac_key_id,delivery.idempotency_key,delivery.contact_subject_id,delivery.recipient_country,delivery.source_resource_id,delivery.purpose as delivery_purpose,challenge.id as challenge_id,challenge.user_id,challenge.contact_type,challenge.normalized_contact,challenge.fingerprint_key_id,challenge.contact_fingerprint,challenge.purpose,challenge.verification_epoch,challenge.channel,challenge.created_at,challenge.expires_at,challenge.code_envelope_id,challenge.state,challenge.is_current,challenge.invalidated_at,envelope.id as envelope_id,envelope.environment,envelope.security_epoch,envelope.format,envelope.key_id,envelope.iv,envelope.ciphertext from public.message_deliveries delivery join public.contact_verification_challenges challenge on challenge.delivery_id=delivery.id and challenge.tribe_id=delivery.tribe_id join public.verification_code_envelopes envelope on envelope.id=challenge.code_envelope_id and envelope.challenge_id=challenge.id and envelope.delivery_id=delivery.id where delivery.id=${context.deliveryId} and delivery.tribe_id=${context.tribeId} and delivery.connection_id=${context.connectionId} and delivery.connection_version=${context.connectionVersion} for share of delivery,challenge,envelope`)).rows[0];
-      if (!row || row.state !== VERIFICATION_CHALLENGE_STATE.issued || !row.is_current || row.invalidated_at !== null || row.delivery_purpose !== row.purpose || !row.contact_subject_id || row.code_envelope_id !== row.envelope_id || row.environment !== context.environment || row.security_epoch !== context.securityEpoch || typeof row.frozen_intent !== "object" || row.frozen_intent === null || Array.isArray(row.frozen_intent)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
+      if (row?.state !== VERIFICATION_CHALLENGE_STATE.issued || !row.is_current || row.invalidated_at !== null || row.delivery_purpose !== row.purpose || !row.contact_subject_id || row.code_envelope_id !== row.envelope_id || row.environment !== context.environment || row.security_epoch !== context.securityEpoch || typeof row.frozen_intent !== "object" || row.frozen_intent === null || Array.isArray(row.frozen_intent)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
       const frozen = row.frozen_intent as Record<string, unknown>;
       if (frozen.format !== VERIFICATION_FROZEN_PAYLOAD_FORMAT || frozen.challengeId !== row.challenge_id || frozen.deliveryId !== context.deliveryId || frozen.envelopeId !== row.envelope_id || frozen.channel !== row.channel || frozen.purpose !== row.purpose || typeof frozen.senderId !== "string" || !frozen.senderId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
       const config = await this.readSecurityConfig();
@@ -64,8 +71,8 @@ export class PostgresVerificationDeliveryPreparation implements VerificationDeli
       const diagnosticId = row.purpose === ADMISSION_VERIFICATION_PURPOSE.connectionDiagnostic ? row.source_resource_id : null;
       const matches = await createVerificationDeliveryPayloadMac(config).verify({ tribeId: context.tribeId, connectionId: context.connectionId, connectionVersion: context.connectionVersion, challengeId: row.challenge_id, diagnosticId, deliveryId: context.deliveryId, contactSubjectId: row.contact_subject_id, fingerprintKeyId: row.fingerprint_key_id, contactFingerprint: row.contact_fingerprint, frozenIntent: frozen, createdAt, expiresAt }, { keyId: row.payload_mac_key_id, mac: row.payload_fingerprint });
       if (!matches) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
-      if (row.contact_type === ADMISSION_CONTACT_TYPE.phone && !row.recipient_country) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
-      const scope: VerificationChallengeScope = { userId: row.user_id, tribeId: context.tribeId, connectionId: context.connectionId, connectionVersion: context.connectionVersion, securityEpoch: context.securityEpoch, purpose: row.purpose, verificationEpoch: row.verification_epoch, channel: row.channel, contact: row.contact_type === ADMISSION_CONTACT_TYPE.email ? { type: ADMISSION_CONTACT_TYPE.email, value: row.normalized_contact } : { type: ADMISSION_CONTACT_TYPE.phone, value: row.normalized_contact, country: row.recipient_country! } };
+      const contact = preparationContact(row);
+      const scope: VerificationChallengeScope = { userId: row.user_id, tribeId: context.tribeId, connectionId: context.connectionId, connectionVersion: context.connectionVersion, securityEpoch: context.securityEpoch, purpose: row.purpose, verificationEpoch: row.verification_epoch, channel: row.channel, contact };
       const now = new Date((await database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
       if (!messagingSecretLifetimeIsCurrent(authority, now)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
       const code = await createVerificationCodeEnvelope(config).open({ format: row.format, purpose: MESSAGING_KEY_PURPOSE.otpEnvelope, environment: row.environment, securityEpoch: row.security_epoch, keyId: row.key_id, iv: row.iv, ciphertext: row.ciphertext }, { ...scope, challengeId: row.challenge_id, createdAt, expiresAt }, now);

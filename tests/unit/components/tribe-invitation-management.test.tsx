@@ -4,12 +4,13 @@ import userEvent from "@testing-library/user-event";
 import { toast } from "@golfo/ui";
 
 import { TribeInvitationManagement } from "@/components/tribes/tribe-invitation-management";
+import type * as GolfoUiModule from "@golfo/ui";
 
 const writeTextMock = vi.fn(async () => undefined);
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
 vi.mock("@golfo/ui", async () => ({
-  ...await vi.importActual<typeof import("@golfo/ui")>("@golfo/ui"),
+  ...await vi.importActual<typeof GolfoUiModule>("@golfo/ui"),
   toast: {
     error: vi.fn(),
     success: vi.fn(),
@@ -555,9 +556,7 @@ describe("TribeInvitationManagement", () => {
     await user.click(await screen.findByRole("option", { name: "Plan actual" }));
 
     // The submit button lives in the dialog footer and reaches its form through `form`.
-    const createForm = (
-      screen.getByRole("button", { name: /^Crear link$/ }) as HTMLButtonElement
-    ).form;
+    const createForm = screen.getByRole<HTMLButtonElement>("button", { name: /^Crear link$/ }).form;
 
     expect(createForm).not.toBeNull();
 

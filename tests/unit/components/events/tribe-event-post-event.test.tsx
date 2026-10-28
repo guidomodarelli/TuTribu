@@ -12,10 +12,11 @@ import { TribeEventsCalendar } from "@/components/events/tribe-events-calendar";
 import { TRIBE_EVENT_REACTION_FLUSH_DELAY_MS } from "@/lib/events/tribe-event-post-event-state";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 import { MOTION_SAFE_FAKE_TIMERS } from "@/tests/unit/components/events/support/motion-safe-fake-timers";
+import type * as GolfoUiModule from "@golfo/ui";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
 vi.mock("@golfo/ui", async () => ({
-  ...(await vi.importActual<typeof import("@golfo/ui")>("@golfo/ui")),
+  ...(await vi.importActual<typeof GolfoUiModule>("@golfo/ui")),
   toast: {
     error: vi.fn(),
     info: vi.fn(),

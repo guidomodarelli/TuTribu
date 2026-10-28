@@ -48,8 +48,8 @@ export class PostgresAllowlistRepository implements AllowlistCommandWriter {
     return policy.contact_type;
   }
 
-  /** @param database - Original operation effect. @param context - Native actor/tenant. @param ledgerId - Actual original claim. @param operation - Server-selected list command. @param entry - Effectively changed configuration and authoritative clock. @param previous - Locked prior status/version, or absence for creation. @returns After staging reconstructible facts without contact, name or fingerprint. */
-  private async audit(database: RequestDatabase, context: AuthorizedAdmissionContext, ledgerId: string, operation: AllowlistAuditOperation, entry: AllowlistEntry, previous: Pick<AllowlistEntry, "status" | "version"> | null) {
+  /** @param database - Original operation effect. @param context - Native actor/tenant. @param ledgerId - Actual original claim. @param change - Server-selected list command (`operation`), effectively changed configuration and authoritative clock (`entry`), and locked prior status/version, or absence for creation (`previous`). @returns After staging reconstructible facts without contact, name or fingerprint. */
+  private async audit(database: RequestDatabase, context: AuthorizedAdmissionContext, ledgerId: string, { operation, entry, previous }: { operation: AllowlistAuditOperation; entry: AllowlistEntry; previous: Pick<AllowlistEntry, "status" | "version"> | null }) {
     await new PostgresAdmissionAuditRepository(database).append(createAdmissionResourceAuditEvent({
       tribeId: context.tribeId, actorUserId: context.userId, operationId: ledgerId,
       resourceType: ADMISSION_AUDIT_RESOURCE_TYPE.allowlistEntry, resourceId: entry.id,
@@ -59,8 +59,8 @@ export class PostgresAllowlistRepository implements AllowlistCommandWriter {
     }));
   }
 
-  /** @param intent - Exact native proposal, without caller permissions. @param operation - Server-owned namespace. @param resourceId - Tribe for creation or exact entry for editing. @param payload - Canonical intent protected by the ledger. @param mutate - DB-only list effect returning a grant or known denial. @returns Confirmed original result or actual progress; no stale CAS overrides a replay. */
-  private async run(intent: ListIntent, operation: ReauthenticationOperation, resourceId: string, payload: AdmissionOperationCommand["intent"], mutate: (database: RequestDatabase, ledgerId: string) => Promise<MutationSnapshot>): Promise<AdmissionOperationResult<AllowlistMutationResult>> {
+  /** @param intent - Exact native proposal, without caller permissions. @param target - Server-owned namespace (`operation`), tribe for creation or exact entry for editing (`resourceId`), and canonical intent protected by the ledger (`payload`). @param mutate - DB-only list effect returning a grant or known denial. @returns Confirmed original result or actual progress; no stale CAS overrides a replay. */
+  private async run(intent: ListIntent, { operation, resourceId, payload }: { operation: ReauthenticationOperation; resourceId: string; payload: AdmissionOperationCommand["intent"] }, mutate: (database: RequestDatabase, ledgerId: string) => Promise<MutationSnapshot>): Promise<AdmissionOperationResult<AllowlistMutationResult>> {
     const command = { actorUserId: intent.context.userId, tribeId: intent.context.tribeId, operationType: operation, idempotencyKey: intent.operationId, intent: payload };
     const ledger = new PostgresAdmissionOperationRepository((work) => this.execute(intent.context, work), async (database) => { await authorizeAdmissionLeader(database, intent.context, { action: ADMISSION_ACTION.manageAllowlist, resourceId, operation }); return true; }, this.readSecurityConfig);
     let original;
@@ -90,19 +90,18 @@ export class PostgresAllowlistRepository implements AllowlistCommandWriter {
 
   /** @param intent - Explicit canonical contact/name proposal. @returns Version-one creation, unchanged matching duplicate or completed conflict; never edits/reactivates an existing row. */
   async create(intent: AllowlistCreationIntent) {
-    if (!intent.confirmed) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     const displayName = normalizeAllowlistDisplayName(intent.displayName);
     const normalized = normalizeAdmissionContact(intent.contact);
     if (normalized.status !== ADMISSION_CONTACT_NORMALIZATION_STATUS.valid) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     const contact = normalized.contact;
-    return this.run(intent, REAUTHENTICATION_OPERATION.createAllowlistEntry, intent.context.tribeId, { confirmed: true, contact, displayName }, async (database, ledgerId) => {
+    return this.run(intent, { operation: REAUTHENTICATION_OPERATION.createAllowlistEntry, resourceId: intent.context.tribeId, payload: { confirmed: true, contact, displayName } }, async (database, ledgerId) => {
       if (await this.selectedContactType(database, intent.context) !== contact.type) return { outcome: ALLOWLIST_MUTATION_DENIAL, code: ADMISSION_ERROR_CODE.invalidInput };
       const existing = (await database.execute<AllowlistEntryRow>(sql`select * from public.academy_allowlist_entries where tribe_id=${intent.context.tribeId} and contact_type=${contact.type} and normalized_contact=${contact.value} for update`)).rows[0];
       if (existing) return existing.status === ALLOWLIST_ENTRY_STATUS.enabled && existing.display_name === displayName ? { entryId: existing.id, version: existing.version, changed: false, created: false } : { outcome: ALLOWLIST_MUTATION_DENIAL, code: ADMISSION_ERROR_CODE.allowlistConflict };
       const config = await this.readSecurityConfig(), fingerprint = await createAdmissionContactFingerprint(contact, config), now = await admissionDatabaseNow(database);
       const entry = createAllowlistEntry({ id: randomUUID(), tribeId: intent.context.tribeId, actorUserId: intent.context.userId, now, contact, displayName, source: ALLOWLIST_ENTRY_SOURCE.manual });
       await database.execute(sql`insert into public.academy_allowlist_entries(id,tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,display_name,status,version,origin,created_by_user_id,updated_by_user_id,created_at,updated_at) values (${entry.id},${entry.tribeId},${entry.contact.type},${entry.contact.value},${Buffer.from(fingerprint.digest)},${fingerprint.keyId},${entry.displayName},${entry.status},${entry.version},${ALLOWLIST_DATABASE_ORIGIN.manual},${entry.createdByUserId},${entry.updatedByUserId},${now},${now})`);
-      await this.audit(database, intent.context, ledgerId, REAUTHENTICATION_OPERATION.createAllowlistEntry, entry, null);
+      await this.audit(database, intent.context, ledgerId, { operation: REAUTHENTICATION_OPERATION.createAllowlistEntry, entry, previous: null });
       const current = await this.readSecurityConfig();
       if (current.recoveryLocked || current.environment !== config.environment || current.securityEpoch !== config.securityEpoch || !current.keyrings.contact_fingerprint.keys.has(fingerprint.keyId)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
       return { entryId: entry.id, version: entry.version, changed: true, created: true };
@@ -111,9 +110,9 @@ export class PostgresAllowlistRepository implements AllowlistCommandWriter {
 
   /** @param intent - Explicit name/state update on the observed entry version. @returns Exactly one effective increment, current no-op or completed stale denial without membership/binding writes. */
   async update(intent: AllowlistUpdateIntent) {
-    if (!intent.confirmed || !Number.isInteger(intent.expectedVersion) || intent.expectedVersion <= 0 || intent.patch.displayName === undefined && intent.patch.status === undefined) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+    if (!Number.isInteger(intent.expectedVersion) || intent.expectedVersion <= 0 || intent.patch.displayName === undefined && intent.patch.status === undefined) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     const patch = { ...(intent.patch.displayName !== undefined ? { displayName: normalizeAllowlistDisplayName(intent.patch.displayName) } : {}), ...(intent.patch.status !== undefined ? { status: intent.patch.status } : {}) };
-    return this.run(intent, REAUTHENTICATION_OPERATION.updateAllowlistEntry, intent.entryId, { confirmed: true, entryId: intent.entryId, expectedVersion: intent.expectedVersion, patch }, async (database, ledgerId) => {
+    return this.run(intent, { operation: REAUTHENTICATION_OPERATION.updateAllowlistEntry, resourceId: intent.entryId, payload: { confirmed: true, entryId: intent.entryId, expectedVersion: intent.expectedVersion, patch } }, async (database, ledgerId) => {
       const selectedType = await this.selectedContactType(database, intent.context);
       const row = (await database.execute<AllowlistEntryRow>(sql`select * from public.academy_allowlist_entries where tribe_id=${intent.context.tribeId} and id=${intent.entryId} for update`)).rows[0];
       if (!row) return { outcome: ALLOWLIST_MUTATION_DENIAL, code: ADMISSION_ERROR_CODE.resourceUnavailable };
@@ -124,7 +123,7 @@ export class PostgresAllowlistRepository implements AllowlistCommandWriter {
       const entry = proposal.entry;
       const saved = (await database.execute(sql`update public.academy_allowlist_entries set display_name=${entry.displayName},status=${entry.status},version=${entry.version},updated_by_user_id=${entry.updatedByUserId},updated_at=${entry.updatedAt} where tribe_id=${entry.tribeId} and id=${entry.id} and version=${intent.expectedVersion} returning id`)).rows[0];
       if (!saved) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.allowlistConflict);
-      await this.audit(database, intent.context, ledgerId, REAUTHENTICATION_OPERATION.updateAllowlistEntry, entry, row);
+      await this.audit(database, intent.context, ledgerId, { operation: REAUTHENTICATION_OPERATION.updateAllowlistEntry, entry, previous: row });
       return { entryId: entry.id, version: entry.version, changed: true, created: false };
     });
   }

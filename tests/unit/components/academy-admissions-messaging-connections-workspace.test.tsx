@@ -10,8 +10,11 @@ const now=new Date().toISOString();
 const candidate={id:"00000000-0000-4000-8000-000000000001",name:"Candidata de prueba",version:3,configurationVersion:2,state:"ready" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,capabilities:[{channel:"email" as const,state:"prepared" as const,checkedAt:now,testedAt:now},{channel:"sms" as const,state:"unprepared" as const,checkedAt:now,testedAt:null}]};
 const usage={state:"configured" as const,policy:{version:1,allowedCountries:["AR"],verificationDailyLimit:100,notificationDailyLimit:200,platformMaximums:{verificationDailyLimit:1000,notificationDailyLimit:5000},consumption:{verificationToday:0,notificationToday:0}}};
 
+/** @returns Fresh workspace connections with no selected connection and the ready candidate. */
+function defaultWorkspaceConnections():{selected:MessagingConnectionsWorkspaceProps["selected"];candidate:MessagingConnectionsWorkspaceProps["candidate"]}{return{selected:null,candidate};}
+
 /** @param connections - Selected and candidate metadata that decide the steps and the next action. @param current - Open step. @returns Controlled props with labelled step contents, without session, provider or storage. */
-function workspaceProps(connections:{selected:MessagingConnectionsWorkspaceProps["selected"];candidate:MessagingConnectionsWorkspaceProps["candidate"]}={selected:null,candidate},current=0):MessagingConnectionsWorkspaceProps{
+function workspaceProps(connections:{selected:MessagingConnectionsWorkspaceProps["selected"];candidate:MessagingConnectionsWorkspaceProps["candidate"]}=defaultWorkspaceConnections(),current=0):MessagingConnectionsWorkspaceProps{
   const flow=resolveMessagingConnectionsFlow({candidate:connections.candidate,usage,observedAt:now});
   return{...connections,nextAction:resolveMessagingConnectionsNextAction({...connections,usage,observedAt:now}),nextActionInView:false,usageHref:"/academia/admissions/messaging",busy:false,
     steps:flow.map((step)=>({id:step.id,title:step.title,description:step.description,content:<p>{`Contenido de ${step.title}`}</p>,blockedReason:step.blockedReason??undefined})),current,onCurrentChange:vi.fn(),
@@ -31,7 +34,7 @@ describe("messaging connections workspace",()=>{
   it("should show one small step at a time in a linear flow with a test step per configured channel",async()=>{
     const props=workspaceProps(),user=userEvent.setup();render(<MessagingConnectionsWorkspace {...props} />);
     const progress=screen.getByRole("navigation",{name:"Paso 1 de 6"});
-    expect(within(progress).getAllByRole("listitem").map((item)=>item.querySelector("[data-label]")?.getAttribute("data-label"))).toEqual(["Clave","Credencial","Canales","Probar Correo","Probar SMS","Activación"]);
+    expect(within(progress).getAllByRole("listitem").map((item)=>item.querySelector<HTMLElement>("[data-label]")?.dataset.label)).toEqual(["Clave","Credencial","Canales","Probar Correo","Probar SMS","Activación"]);
     expect(screen.getByRole("group",{name:"Clave"})).toHaveTextContent("Contenido de Clave");expect(screen.queryByText("Contenido de Credencial")).not.toBeInTheDocument();
     expect(screen.queryByRole("button",{name:/Atrás/})).not.toBeInTheDocument();
     await user.click(screen.getByRole("button",{name:"Siguiente"}));expect(props.onCurrentChange).toHaveBeenCalledWith(1);

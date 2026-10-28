@@ -83,7 +83,7 @@ describe("messaging connection lifecycle", () => {
     expect(edited).toMatchObject({ changed: true, version: { version: 2, configuration: { emailSenderId: "another" }, credential: { status: "not_validated", validatedAt: null, isTestMode: null }, capabilities: [] } });
     expect(fixture.version.configuration.emailSenderId).toBe("email-sender");
     expect(fixture.version.version).toBe(1);
-    expect(() => prepareMessagingConnectionVersion(fixture.version, { ...fixture.version.configuration, emailSenderId: "another" }, fixture.version.secretRef, fixture.facts.now)).toThrowError(expect.objectContaining({ code: "secret_version_required" }));
+    expect(() => prepareMessagingConnectionVersion(fixture.version, { ...fixture.version.configuration, emailSenderId: "another" }, fixture.version.secretRef, fixture.facts.now)).toThrow(expect.objectContaining({ code: "secret_version_required" }));
   });
 
   it("should preserve occupied selection and version while suspending immediately for a new leader", () => {

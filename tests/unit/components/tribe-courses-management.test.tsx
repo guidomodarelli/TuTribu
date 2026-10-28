@@ -15,6 +15,7 @@ import { ATTACHMENT_FILE } from "@/src/constants/attachment-files";
 import { COURSE_LESSON_DESCRIPTION } from "@/src/modules/courses/constants/courses";
 import { VIDEO_PROVIDER } from "@/src/modules/shared/domain/value-objects/video-provider";
 import type { CourseModuleWithLessonsResult } from "@/src/modules/courses/application/results/course-results";
+import type * as GolfoUiModule from "@golfo/ui";
 
 const TRIBE_SLUG = "matematica-pro";
 
@@ -26,7 +27,7 @@ vi.mock("next/navigation", () => ({
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
 vi.mock("@golfo/ui", async () => ({
-  ...await vi.importActual<typeof import("@golfo/ui")>("@golfo/ui"),
+  ...await vi.importActual<typeof GolfoUiModule>("@golfo/ui"),
   toast: {
     error: vi.fn(),
     success: vi.fn(),

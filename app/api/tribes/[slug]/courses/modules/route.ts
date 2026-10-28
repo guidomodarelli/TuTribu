@@ -38,7 +38,7 @@ export async function POST(
   }
 
   try {
-    const body = await request.json().catch(() => null);
+    const body: unknown = await request.json().catch(() => null);
     const courseId = readUuidField(body, COURSE_ROUTE_FIELD.courseId);
     const unlockAfterDays = readNullableNumberField(
       body,

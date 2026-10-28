@@ -43,6 +43,93 @@ function createOccurrenceUnavailableResponse(): Response {
   );
 }
 
+type OpenLessonEventSourceRouteScope = Extract<
+  Awaited<ReturnType<typeof openLessonEventSourceRouteScope>>,
+  { isOpen: true }
+>;
+
+type LessonFromEventRecordingResult = Awaited<
+  ReturnType<OpenLessonEventSourceRouteScope["modules"]["courses"]["useCases"]["createLessonFromEventRecording"]>
+>;
+
+type ConversionResponseContext = {
+  logMetadata: Record<string, unknown>;
+  logger: OpenLessonEventSourceRouteScope["logger"];
+  slug: string;
+};
+
+function createConversionResultResponse(
+  result: LessonFromEventRecordingResult,
+  { logMetadata, logger, slug }: ConversionResponseContext
+): Response {
+  switch (result.status) {
+    case LESSON_EVENT_SOURCE_STATUS.created:
+    case LESSON_EVENT_SOURCE_STATUS.existing: {
+      const isExisting = result.status === LESSON_EVENT_SOURCE_STATUS.existing;
+
+      logger.info({
+        message: LESSON_FROM_EVENT_ROUTE_LOG.completedMessage,
+        metadata: { ...logMetadata, lessonId: result.lesson.id, result: result.status },
+      });
+
+      return createLessonEventSourcePublicResponse({
+        body: {
+          isExisting,
+          lesson: {
+            courseId: result.lesson.courseId,
+            href: buildCourseLessonRoute(slug, result.lesson.courseId, result.lesson.id),
+            id: result.lesson.id,
+            title: result.lesson.title,
+          },
+          message: isExisting
+            ? LESSON_EVENT_SOURCE_RESPONSE.existingMessage
+            : LESSON_EVENT_SOURCE_RESPONSE.createdMessage,
+        },
+        failureMessage: LESSON_EVENT_SOURCE_RESPONSE.unexpectedConversionMessage,
+        logger,
+        metadata: logMetadata,
+        schema: lessonConversionResponseSchema,
+        status: isExisting
+          ? LESSON_EVENT_SOURCE_HTTP_STATUS.ok
+          : LESSON_EVENT_SOURCE_HTTP_STATUS.created,
+      });
+    }
+    case LESSON_EVENT_SOURCE_STATUS.invalidInput:
+      return createLessonEventSourceJsonResponse(
+        { message: LESSON_EVENT_SOURCE_RESPONSE.invalidLessonMessage },
+        LESSON_EVENT_SOURCE_HTTP_STATUS.badRequest
+      );
+    case LESSON_EVENT_SOURCE_STATUS.notFound:
+      return createLessonEventSourceJsonResponse(
+        { message: LESSON_EVENT_SOURCE_RESPONSE.notFoundMessage },
+        LESSON_EVENT_SOURCE_HTTP_STATUS.notFound
+      );
+    case LESSON_EVENT_SOURCE_STATUS.recordingChanged:
+      logger.warn({
+        message: LESSON_FROM_EVENT_ROUTE_LOG.recordingChangedMessage,
+        metadata: { ...logMetadata, result: result.status },
+      });
+
+      return createLessonEventSourceJsonResponse(
+        { message: LESSON_EVENT_SOURCE_RESPONSE.recordingChangedMessage },
+        LESSON_EVENT_SOURCE_HTTP_STATUS.conflict
+      );
+    case LESSON_EVENT_SOURCE_STATUS.occurrenceUnavailable:
+      logger.warn({
+        message: LESSON_FROM_EVENT_ROUTE_LOG.occurrenceUnavailableMessage,
+        metadata: { ...logMetadata, result: result.status },
+      });
+
+      return createOccurrenceUnavailableResponse();
+    case LESSON_EVENT_SOURCE_STATUS.forbidden:
+    default:
+      return createLessonEventSourceJsonResponse(
+        { message: LESSON_EVENT_SOURCE_RESPONSE.forbiddenMessage },
+        LESSON_EVENT_SOURCE_HTTP_STATUS.forbidden
+      );
+  }
+}
+
 /**
  * "Convertir en lección": the route is the composition point of two
  * independent modules. It reads the occurrence recording through the events
@@ -121,71 +208,7 @@ export async function POST(request: Request, context: { params: Promise<{ slug: 
       videoProvider: source.source.provider,
     });
 
-    switch (result.status) {
-      case LESSON_EVENT_SOURCE_STATUS.created:
-      case LESSON_EVENT_SOURCE_STATUS.existing: {
-        const isExisting = result.status === LESSON_EVENT_SOURCE_STATUS.existing;
-
-        logger.info({
-          message: LESSON_FROM_EVENT_ROUTE_LOG.completedMessage,
-          metadata: { ...logMetadata, lessonId: result.lesson.id, result: result.status },
-        });
-
-        return createLessonEventSourcePublicResponse({
-          body: {
-            isExisting,
-            lesson: {
-              courseId: result.lesson.courseId,
-              href: buildCourseLessonRoute(slug, result.lesson.courseId, result.lesson.id),
-              id: result.lesson.id,
-              title: result.lesson.title,
-            },
-            message: isExisting
-              ? LESSON_EVENT_SOURCE_RESPONSE.existingMessage
-              : LESSON_EVENT_SOURCE_RESPONSE.createdMessage,
-          },
-          failureMessage: LESSON_EVENT_SOURCE_RESPONSE.unexpectedConversionMessage,
-          logger,
-          metadata: logMetadata,
-          schema: lessonConversionResponseSchema,
-          status: isExisting
-            ? LESSON_EVENT_SOURCE_HTTP_STATUS.ok
-            : LESSON_EVENT_SOURCE_HTTP_STATUS.created,
-        });
-      }
-      case LESSON_EVENT_SOURCE_STATUS.invalidInput:
-        return createLessonEventSourceJsonResponse(
-          { message: LESSON_EVENT_SOURCE_RESPONSE.invalidLessonMessage },
-          LESSON_EVENT_SOURCE_HTTP_STATUS.badRequest
-        );
-      case LESSON_EVENT_SOURCE_STATUS.notFound:
-        return createLessonEventSourceJsonResponse(
-          { message: LESSON_EVENT_SOURCE_RESPONSE.notFoundMessage },
-          LESSON_EVENT_SOURCE_HTTP_STATUS.notFound
-        );
-      case LESSON_EVENT_SOURCE_STATUS.recordingChanged:
-        logger.warn({
-          message: LESSON_FROM_EVENT_ROUTE_LOG.recordingChangedMessage,
-          metadata: { ...logMetadata, result: result.status },
-        });
-
-        return createLessonEventSourceJsonResponse(
-          { message: LESSON_EVENT_SOURCE_RESPONSE.recordingChangedMessage },
-          LESSON_EVENT_SOURCE_HTTP_STATUS.conflict
-        );
-      case LESSON_EVENT_SOURCE_STATUS.occurrenceUnavailable:
-        logger.warn({
-          message: LESSON_FROM_EVENT_ROUTE_LOG.occurrenceUnavailableMessage,
-          metadata: { ...logMetadata, result: result.status },
-        });
-
-        return createOccurrenceUnavailableResponse();
-      default:
-        return createLessonEventSourceJsonResponse(
-          { message: LESSON_EVENT_SOURCE_RESPONSE.forbiddenMessage },
-          LESSON_EVENT_SOURCE_HTTP_STATUS.forbidden
-        );
-    }
+    return createConversionResultResponse(result, { logMetadata, logger, slug });
   } catch (error) {
     logger.error({
       error,

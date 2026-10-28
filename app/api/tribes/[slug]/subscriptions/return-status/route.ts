@@ -130,39 +130,71 @@ function readQueryObject(request: Request): Record<string, string> {
   return Object.fromEntries(new URL(request.url).searchParams);
 }
 
-export async function GET(
-  request: Request,
-  context: {
-    params: Promise<{
-      slug: string;
-    }>;
+type SubscriptionReturnRouteOutcome = Awaited<
+  ReturnType<typeof resolveSubscriptionReturnOutcome>
+>;
+
+type OutcomeResponseContext = {
+  logger: ServerLogger;
+  metadata: Record<string, unknown>;
+  returnPath: string;
+};
+
+function createOutcomeResponse(
+  outcome: SubscriptionReturnRouteOutcome,
+  { logger, metadata, returnPath }: OutcomeResponseContext
+): Response {
+  switch (outcome.kind) {
+    case SUBSCRIPTION_RETURN_OUTCOME.redirect:
+      return createPublicResponse(
+        {
+          redirectPath: outcome.path,
+          status: SUBSCRIPTION_RETURN_STATUS.resolved,
+        },
+        logger,
+        metadata
+      );
+    case SUBSCRIPTION_RETURN_OUTCOME.pending:
+      return createPublicResponse(
+        { status: SUBSCRIPTION_RETURN_STATUS.pending },
+        logger,
+        metadata
+      );
+    case SUBSCRIPTION_RETURN_OUTCOME.failed:
+      logger.error({
+        error: outcome.error,
+        message: SUBSCRIPTION_RETURN_STATUS_ROUTE_LOG.resolveFailureMessage,
+        metadata: {
+          ...metadata,
+          reason: SUBSCRIPTION_RETURN_STATUS_ROUTE_LOG.resolveFailureReason,
+          result: SUBSCRIPTION_RETURN_OUTCOME.failed,
+        },
+      });
+
+      return createUnexpectedResponse(HTTP_STATUS.serviceUnavailable);
+    case SUBSCRIPTION_RETURN_OUTCOME.unresolved:
+    default:
+      return createPublicResponse(
+        { redirectPath: returnPath, status: SUBSCRIPTION_RETURN_STATUS.resolved },
+        logger,
+        metadata
+      );
   }
-) {
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: SUBSCRIPTION_RETURN_STATUS_ROUTE_LOG.feature,
-    operation: SUBSCRIPTION_RETURN_STATUS_ROUTE_LOG.operation,
-    requestId,
-  });
-  const params = subscriptionReturnStatusParamsSchema.safeParse(
-    await context.params
-  );
+}
 
-  if (!params.success) {
-    return rejectInput(logger, "params", params.error);
-  }
+type ReturnStatusRequest = {
+  logger: ServerLogger;
+  providerSubscriptionId: Parameters<typeof buildSubscriptionReturnPath>[1];
+  requestId: string;
+  tribeSlug: string;
+};
 
-  const query = subscriptionReturnStatusQuerySchema.safeParse(
-    readQueryObject(request)
-  );
-
-  if (!query.success) {
-    return rejectInput(logger, "query", query.error);
-  }
-
-  const tribeSlug = params.data.slug;
-  const providerSubscriptionId =
-    query.data[SUBSCRIPTION_RETURN_QUERY_PARAM.mercadoPagoPreapprovalId];
+async function resolveReturnStatusResponse({
+  logger,
+  providerSubscriptionId,
+  requestId,
+  tribeSlug,
+}: ReturnStatusRequest): Promise<Response> {
   const returnPath = buildSubscriptionReturnPath(
     tribeSlug,
     providerSubscriptionId
@@ -225,7 +257,7 @@ export async function GET(
     );
   }
 
-  let outcome: Awaited<ReturnType<typeof resolveSubscriptionReturnOutcome>>;
+  let outcome: SubscriptionReturnRouteOutcome;
 
   try {
     outcome = await resolveSubscriptionReturnOutcome({
@@ -238,40 +270,46 @@ export async function GET(
     outcome = { error, kind: SUBSCRIPTION_RETURN_OUTCOME.failed };
   }
 
-  switch (outcome.kind) {
-    case SUBSCRIPTION_RETURN_OUTCOME.redirect:
-      return createPublicResponse(
-        {
-          redirectPath: outcome.path,
-          status: SUBSCRIPTION_RETURN_STATUS.resolved,
-        },
-        logger,
-        metadata
-      );
-    case SUBSCRIPTION_RETURN_OUTCOME.pending:
-      return createPublicResponse(
-        { status: SUBSCRIPTION_RETURN_STATUS.pending },
-        logger,
-        metadata
-      );
-    case SUBSCRIPTION_RETURN_OUTCOME.failed:
-      logger.error({
-        error: outcome.error,
-        message: SUBSCRIPTION_RETURN_STATUS_ROUTE_LOG.resolveFailureMessage,
-        metadata: {
-          ...metadata,
-          reason: SUBSCRIPTION_RETURN_STATUS_ROUTE_LOG.resolveFailureReason,
-          result: SUBSCRIPTION_RETURN_OUTCOME.failed,
-        },
-      });
+  return createOutcomeResponse(outcome, { logger, metadata, returnPath });
+}
 
-      return createUnexpectedResponse(HTTP_STATUS.serviceUnavailable);
-    case SUBSCRIPTION_RETURN_OUTCOME.unresolved:
-    default:
-      return createPublicResponse(
-        { redirectPath: returnPath, status: SUBSCRIPTION_RETURN_STATUS.resolved },
-        logger,
-        metadata
-      );
+export async function GET(
+  request: Request,
+  context: {
+    params: Promise<{
+      slug: string;
+    }>;
   }
+) {
+  const { requestId } = resolveRequestContext(request.headers);
+  const logger = createServerLogger({
+    feature: SUBSCRIPTION_RETURN_STATUS_ROUTE_LOG.feature,
+    operation: SUBSCRIPTION_RETURN_STATUS_ROUTE_LOG.operation,
+    requestId,
+  });
+  const params = subscriptionReturnStatusParamsSchema.safeParse(
+    await context.params
+  );
+
+  if (!params.success) {
+    return rejectInput(logger, "params", params.error);
+  }
+
+  const query = subscriptionReturnStatusQuerySchema.safeParse(
+    readQueryObject(request)
+  );
+
+  if (!query.success) {
+    return rejectInput(logger, "query", query.error);
+  }
+
+  const providerSubscriptionId =
+    query.data[SUBSCRIPTION_RETURN_QUERY_PARAM.mercadoPagoPreapprovalId];
+
+  return resolveReturnStatusResponse({
+    logger,
+    providerSubscriptionId,
+    requestId,
+    tribeSlug: params.data.slug,
+  });
 }

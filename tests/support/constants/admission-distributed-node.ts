@@ -72,7 +72,7 @@ export type AdmissionDistributedNodeMeasurement = {
   realMessages: 0;
 };
 
-const nonnegative = z.number().finite().nonnegative();
+const nonnegative = z.number().nonnegative();
 const integer = nonnegative.int();
 const actorSchema = z.object({ index: integer.max(ADMISSION_PERFORMANCE.participantCount - 1), userId: z.uuid(), sessionId: z.uuid(), email: z.email() }).strict();
 export const admissionDistributedHostInputSchema = z.object({
@@ -80,7 +80,7 @@ export const admissionDistributedHostInputSchema = z.object({
   participants: z.array(actorSchema).length(ADMISSION_DISTRIBUTED_NODE.poolMaximum),
 }).strict().refine((input) => new Set(input.participants.map((participant) => participant.index)).size === ADMISSION_DISTRIBUTED_NODE.poolMaximum && input.participants.every((participant) => participant.index % ADMISSION_DISTRIBUTED_NODE.functionCount === input.nodeIndex), { message: "Owned host actor partition is inconsistent" }) satisfies z.ZodType<AdmissionDistributedHostInput>;
 
-const confirmationSchema = z.object({ index: integer, durationMs: nonnegative, startedOffsetMs: nonnegative, outcome: z.string().nullable(), failure: z.string().nullable(), startedLowerMs: z.number().finite(), startedUpperMs: z.number().finite(), finishedLowerMs: z.number().finite(), finishedUpperMs: z.number().finite() }).strict();
+const confirmationSchema = z.object({ index: integer, durationMs: nonnegative, startedOffsetMs: nonnegative, outcome: z.string().nullable(), failure: z.string().nullable(), startedLowerMs: z.number(), startedUpperMs: z.number(), finishedLowerMs: z.number(), finishedUpperMs: z.number() }).strict();
 export const admissionDistributedNodeMeasurementSchema = z.object({
   nodeIndex: integer, nodeVersion: z.string(), sourceCommit: z.string(), bundleSha256: z.string(), participants: integer, admitted: integer, pending: integer, p95Ms: nonnegative.nullable(), peakInFlight: integer,
   pool: z.object({ maximum: integer, acquisitions: integer, releases: integer, errorReleases: integer, peakWaitingCount: integer, peakTotalCount: integer, waitingAfter: integer, checkedOutAfter: integer }).strict(),

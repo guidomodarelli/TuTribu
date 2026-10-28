@@ -20,6 +20,14 @@ import {
 type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
 
 /**
+ * Return resolution use case. Optional because a request composition may omit
+ * it (the caller then falls back to the pending-return validation).
+ */
+type SubscriptionReturnUseCases = {
+  resolveTribeMemberSubscriptionReturn?: RequestModules["subscriptions"]["useCases"]["resolveTribeMemberSubscriptionReturn"];
+};
+
+/**
  * Membership reasons that a paid subscription can recover: a failed payment
  * (`payment_blocked`) or a subscription that became inactive. Conduct blocks
  * (and any other reason) never reach the return resolution.
@@ -117,9 +125,10 @@ export async function resolveSubscriptionReturnOutcome(input: {
     mercadoPagoWebhookVerified: true,
     requestId: input.requestId,
   });
+  const subscriptionReturnUseCases: SubscriptionReturnUseCases =
+    subscriptionConfirmationModules.subscriptions.useCases;
   const resolveSubscriptionReturn =
-    subscriptionConfirmationModules.subscriptions.useCases
-      .resolveTribeMemberSubscriptionReturn;
+    subscriptionReturnUseCases.resolveTribeMemberSubscriptionReturn;
   const query = {
     providerSubscriptionId: input.providerSubscriptionId,
     tribeSlug: input.tribeSlug,
@@ -140,7 +149,7 @@ export async function resolveSubscriptionReturnOutcome(input: {
     const subscriptionReturn = await resolveSubscriptionReturn(query);
 
     return mapSubscriptionReturnStatus(
-      subscriptionReturn?.status ?? null,
+      subscriptionReturn.status,
       input.tribeSlug
     );
   } catch (error) {

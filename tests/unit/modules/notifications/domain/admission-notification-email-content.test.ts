@@ -45,17 +45,17 @@ describe("admission notification complete email content", () => {
 
   it.each(["approved", "rejected", "cancelled", "expired"] as const)("should reject a reviewer manifest containing applicant event %s", (event) => {
     const source = manifest();
-    expect(() => prepare({ ...source, items: [{ ...source.items[0], event }] })).toThrowError(expect.objectContaining({ code: "invalid_input" }));
+    expect(() => prepare({ ...source, items: [{ ...source.items[0], event }] })).toThrow(expect.objectContaining({ code: "invalid_input" }));
   });
 
   it.each(["pending_created", "reminder"] as const)("should reject applicant event %s instead of producing a reviewer message", (event: AdmissionNotificationEvent) => {
     const source = manifest();
-    expect(() => prepare({ ...source, identity: { ...source.identity, audience: "applicant", mode: "individual", preferenceVersion: 0, individualObligationId: source.items[0].obligationId }, items: [{ ...source.items[0], event }] })).toThrowError(expect.objectContaining({ code: "invalid_input" }));
+    expect(() => prepare({ ...source, identity: { ...source.identity, audience: "applicant", mode: "individual", preferenceVersion: 0, individualObligationId: source.items[0].obligationId }, items: [{ ...source.items[0], event }] })).toThrow(expect.objectContaining({ code: "invalid_input" }));
   });
 
   it("should reject empty and multiple-applicant manifests", () => {
     const source = manifest();
-    expect(() => prepare({ ...source, items: [] })).toThrowError(expect.objectContaining({ code: "invalid_input" }));
-    expect(() => prepare({ ...source, identity: { ...source.identity, audience: "applicant", mode: "individual", preferenceVersion: 0, individualObligationId: source.items[0].obligationId }, items: [{ ...source.items[0], event: "approved" }, { ...source.items[0], obligationId: "other", event: "approved" }] })).toThrowError(expect.objectContaining({ code: "invalid_input" }));
+    expect(() => prepare({ ...source, items: [] })).toThrow(expect.objectContaining({ code: "invalid_input" }));
+    expect(() => prepare({ ...source, identity: { ...source.identity, audience: "applicant", mode: "individual", preferenceVersion: 0, individualObligationId: source.items[0].obligationId }, items: [{ ...source.items[0], event: "approved" }, { ...source.items[0], obligationId: "other", event: "approved" }] })).toThrow(expect.objectContaining({ code: "invalid_input" }));
   });
 });

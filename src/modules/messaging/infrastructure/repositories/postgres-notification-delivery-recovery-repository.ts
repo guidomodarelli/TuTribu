@@ -30,6 +30,14 @@ import type { NotificationGroupRecoveryContent, NotificationGroupRecoveryContent
 import { admissionNotificationTimestamp } from "@/src/modules/notifications/infrastructure/database/admission-notification-timestamp";
 
 /** Uses one native actor for the ledger's claim, effect and original-result recovery. */
+/**
+ * Verifies explicit consent at runtime: the input crosses a trust boundary, so its declared `true` is not assumed.
+ * @param input - Intent carrying the explicit confirmation.
+ * @returns Whether the caller actually confirmed.
+ */
+function isExplicitlyConfirmed(input: { confirmed: boolean }): boolean {
+  return input.confirmed;
+}
 type RecoveryDatabaseExecutor = <Result>(context: NotificationDeliveryRecoveryContext, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
 /** Consumes immutable original fields without validating a PostgreSQL row schema. */
 type OriginalRow = {
@@ -45,6 +53,46 @@ type TargetRow = {
   retired_at: Date | string | null;
 };
 
+/** Group content prepared by a staged recovery, rechecked in the final ledger fence. */
+type StagedRecoveryGroup = { command: NotificationGroupRecoveryContentCommand; prepared: PreparedNotificationGroupRecoveryContent };
+/** Current human authority for a group's tribe inside the original transaction. */
+type GroupAuthority = (database: RequestDatabase, tribeId: string) => Promise<boolean>;
+/** Selected target version facts; credential bytes are never selected. */
+type TargetVersionRow = { retired_at: Date | string | null; is_test_mode: boolean | null; secret_ref: string | null; credential_validation_status: string; email_sender_id: string | null };
+/** Email capability facts of the target version. */
+type TargetCapabilityRow = { state: string; sender_id: string; tested_at: Date | string | null };
+/** Rows locked for one recovery, with the target's selected version confirmed. */
+type RecoveryRows = {
+  usage: { version: number }; target: TargetRow & { selected_version: number }; version: TargetVersionRow; capability: TargetCapabilityRow;
+  email: { enabled: boolean } | undefined; original: OriginalRow;
+  attempts: { id: string; state: MessageDeliveryAttempt["state"]; authorized_usage_policy_version: number | null }[];
+};
+/** Facts of an allowed recovery decision. */
+type RecoveryDecision = { config: MessagingSecurityConfig; now: Date; originalAttempt: RecoveryRows["attempts"][number] | null };
+/** Everything the recovery write needs. */
+type RecoveryWrite = { context: NotificationDeliveryRecoveryContext; input: NotificationDeliveryRecoveryInput; rows: RecoveryRows; decided: RecoveryDecision; authorizeGroup: GroupAuthority };
+
+/**
+ * @param context - Current original-delivery scope.
+ * @param resource - Locked target connection, its selected version and email capability.
+ * @returns The target facts of the recovery policy: active only when owned, live, validated and outside test mode; email prepared only for the version's sender.
+ */
+function recoveryTargetFacts(context: NotificationDeliveryRecoveryContext, resource: { target: TargetRow; version: TargetVersionRow; capability: TargetCapabilityRow }) {
+  const { target, version, capability } = resource;
+  return { tribeId: context.tribeId, connectionId: target.id, environment: target.environment, securityEpoch: target.security_epoch, selected: target.is_selected, active: target.state === MESSAGING_CONNECTION_STATE.active && target.retired_at === null && target.contributed_by_user_id === context.actorUserId && version.retired_at === null && version.is_test_mode === false && version.secret_ref !== null && version.credential_validation_status === MESSAGING_CREDENTIAL_PUBLIC_STATE.valid, emailPrepared: capability.state === MESSAGING_CAPABILITY_PUBLIC_STATE.prepared && capability.tested_at !== null && Boolean(capability.sender_id) && capability.sender_id === version.email_sender_id };
+}
+
+/**
+ * @param group - Prepared group content, if this recovery is grouped.
+ * @param now - Decision time.
+ * @param deadlineAt - Original delivery deadline.
+ * @returns The creation and deadline values inserted for the recovery: the group's native timestamps, or the decision time and original deadline.
+ */
+function recoveryTimestamps(group: PreparedNotificationGroupRecoveryContent | null, now: Date, deadlineAt: Date) {
+  if (group) return { createdAt: admissionNotificationTimestamp(group.createdAtMicroseconds), deadlineAt: admissionNotificationTimestamp(group.deadlineAtMicroseconds) };
+  return { createdAt: sql`${now}`, deadlineAt: sql`${deadlineAt}` };
+}
+
 /** Uses the original durable ledger and repeats native authority after every relevant wait. */
 export class PostgresNotificationDeliveryRecoveryRepository implements NotificationDeliveryRecoveryRepository<NotificationDeliveryRecoveryResult> {
   /** @param execute - Original server principal's guarded native executor. @param readSecurityConfig - Current external epoch/keyring/recovery state; no SDK or remote call under locks. @param groupContent - Explicit complete-group source owner; absent composition closes group recovery without falling back to individual references. */
@@ -52,7 +100,9 @@ export class PostgresNotificationDeliveryRecoveryRepository implements Notificat
 
   /** @param database - Current native transaction. @param context - Exact current scope. @returns After current identity and all post-wait lifetimes are validated. @throws AdmissionOperationError preserving closed denial and its private cause. */
   private async authorize(database: RequestDatabase, context: NotificationDeliveryRecoveryContext): Promise<void> {
-    if (context.operation !== MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.recoverNotification) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+    // The scope crosses a trust boundary: its declared literal is still verified at runtime.
+    const operation: string = context.operation;
+    if (operation !== MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.recoverNotification) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
     try { await authorizeMessagingTribeManagement(database, context); }
     catch (error) {
       if (error instanceof MessagingUsageOperationError) {
@@ -81,12 +131,125 @@ export class PostgresNotificationDeliveryRecoveryRepository implements Notificat
     return request.status === obligation.event_type;
   }
 
+  /**
+   * Repeats, in the final ledger fence, the checks of a newly staged recovery: security scope, current obligation or group content, and deadline.
+   * @param database - Exact current original transaction.
+   * @param context - Current original-delivery scope.
+   * @param staged - Original delivery and group content staged by this operation, plus the group authority callback.
+   * @returns Nothing once the staged recovery is still current.
+   * @throws AdmissionOperationError when it is no longer current.
+   */
+  private async assertStagedCurrent(database: RequestDatabase, context: NotificationDeliveryRecoveryContext, staged: { original: OriginalRow; group: StagedRecoveryGroup | null; authorizeGroup: GroupAuthority }): Promise<void> {
+    const { original, group, authorizeGroup } = staged;
+    const currentSecurity = await this.readSecurityConfig();
+    if (currentSecurity.recoveryLocked || currentSecurity.environment !== original.environment || currentSecurity.securityEpoch !== original.security_epoch) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
+    if (group && this.groupContent) await this.groupContent.assertCurrent(database, group.command, group.prepared, authorizeGroup);
+    else if (!await this.obligationCurrent(database, context, original)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+    await this.authorize(database, context);
+    const now = new Date((await database.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now);
+    if (now >= new Date(original.deadline_at)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.challengeExpired);
+  }
+
+  /**
+   * Locks policy, target resources, settings and the original delivery, in that order, and checks the requested versions.
+   * @param database - Ledger effect transaction; the exclusive tribe fence is already held by authorization.
+   * @param context - Current original-delivery scope.
+   * @param input - Exact original/target CAS.
+   * @returns The locked rows the recovery decision reads.
+   * @throws AdmissionOperationError when a row is missing, a version changed or a recovery already exists.
+   */
+  private async lockRecoveryRows(database: RequestDatabase, context: NotificationDeliveryRecoveryContext, input: NotificationDeliveryRecoveryInput): Promise<RecoveryRows> {
+    // The exclusive tribe fence is already held by authorization; acquire resource locks before original delivery.
+    const usage = (await database.execute<{ version: number }>(sql`select version from public.messaging_usage_policies where tribe_id=${context.tribeId} for share`)).rows[0];
+    const target = (await database.execute<TargetRow>(sql`select id,version,environment,security_epoch,contributed_by_user_id,state,is_selected,selected_version,retired_at from public.tenant_messaging_connections where id=${input.targetConnectionId} and tribe_id=${context.tribeId} for share`)).rows[0];
+    const version = target ? (await database.execute<{ retired_at: Date | string | null; is_test_mode: boolean | null; secret_ref: string | null; credential_validation_status: string; email_sender_id: string | null }>(sql`select retired_at,is_test_mode,secret_ref,credential_validation_status,email_sender_id from public.messaging_connection_versions where connection_id=${target.id} and tribe_id=${context.tribeId} and version=${target.selected_version} for share`)).rows[0] : undefined;
+    const capability = target ? (await database.execute<{ state: string; sender_id: string; tested_at: Date | string | null }>(sql`select state,sender_id,tested_at from public.messaging_connection_capabilities where connection_id=${target.id} and tribe_id=${context.tribeId} and connection_version=${target.selected_version} and channel=${MESSAGING_PUBLIC_CHANNEL.email} for share`)).rows[0] : undefined;
+    const email = (await database.execute<{ enabled: boolean }>(sql`select enabled from public.admission_email_settings where tribe_id=${context.tribeId} for share`)).rows.at(0);
+    const original = (await database.execute<OriginalRow>(sql`select id,connection_id,connection_version,environment,security_epoch,purpose,state,version,source_resource_id,recipient_ref,deadline_at,notification_group_id,notification_group_audience from public.message_deliveries where id=${context.deliveryId} and tribe_id=${context.tribeId} for update`)).rows[0];
+    if (!original || !usage || !target || !version || !capability) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+    if (original.version !== input.expectedVersion) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
+    const selectedVersion = target.selected_version;
+    if (target.version !== input.expectedTargetVersion || selectedVersion === null) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionConflict);
+    const attempts = (await database.execute<{ id: string; state: MessageDeliveryAttempt["state"]; authorized_usage_policy_version: number | null }>(sql`select id,state,authorized_usage_policy_version from public.message_delivery_attempts where delivery_id=${original.id} order by sequence desc for share`)).rows;
+    const child = (await database.execute(sql`select id from public.message_deliveries where recovery_of_delivery_id=${original.id}`)).rows[0];
+    if (child) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
+    return { usage, target: { ...target, selected_version: selectedVersion }, version, capability, email, original, attempts };
+  }
+
+  /**
+   * Evaluates the recovery against current security, obligation and target facts, sampling time after every lock.
+   * @param database - Ledger effect transaction.
+   * @param context - Current original-delivery scope.
+   * @param rows - Locked recovery rows.
+   * @returns The security configuration, decision time and original attempt of an allowed recovery.
+   * @throws AdmissionOperationError when the recovery is not allowed.
+   */
+  private async decideRecovery(database: RequestDatabase, context: NotificationDeliveryRecoveryContext, rows: RecoveryRows): Promise<RecoveryDecision> {
+    const { target, version, capability, email, original, attempts } = rows;
+    const config = await this.readSecurityConfig();
+    if (config.recoveryLocked || config.environment !== original.environment || config.securityEpoch !== original.security_epoch) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
+    await this.authorize(database, context);
+    const grouped = original.notification_group_id !== null;
+    const obligationCurrent = email?.enabled === true && (grouped ? this.groupContent !== undefined : await this.obligationCurrent(database, context, original));
+    await this.authorize(database, context);
+    const now = new Date((await database.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now);
+    const originalAttempt = attempts.find((attempt) => attempt.state !== MESSAGE_ATTEMPT_STATE.rejected) ?? attempts.at(0) ?? null;
+    const decision = evaluateNotificationDeliveryRecovery({
+      original: { tribeId: context.tribeId, connectionId: original.connection_id, environment: original.environment, securityEpoch: original.security_epoch, purpose: original.purpose, state: original.state, deadlineAt: new Date(original.deadline_at) },
+      originalAttempt,
+      target: recoveryTargetFacts(context, { target, version, capability }),
+      obligationCurrent, now,
+    });
+    if (!decision.allowed) throw new AdmissionOperationError(NOTIFICATION_DELIVERY_RECOVERY_ERROR_BY_REASON[decision.reason]);
+    return { config, now, originalAttempt };
+  }
+
+  /**
+   * Prepares the new lineage's payload, cancels or fails the original and inserts the recovery delivery with its audit event.
+   * @param database - Ledger effect transaction.
+   * @param ledgerId - Claimed ledger operation.
+   * @param request - Scope, CAS input, locked rows, decision and group authority of this recovery.
+   * @returns The committed public result and the group content staged for the final fence, if any.
+   * @throws AdmissionOperationError when the recovery stopped being current or a write conflicted.
+   */
+  private async writeRecovery(database: RequestDatabase, ledgerId: string, request: RecoveryWrite): Promise<{ result: NotificationDeliveryRecoveryResult; group: StagedRecoveryGroup | null }> {
+    const { context, input, rows, decided, authorizeGroup } = request;
+    const { usage, target, capability, original, attempts } = rows;
+    const { config, now, originalAttempt } = decided;
+    const grouped = original.notification_group_id !== null;
+    const recoveryId = randomUUID();
+    const payloadContext = { tribeId: context.tribeId, deliveryId: recoveryId, originalDeliveryId: original.id, connectionId: target.id, connectionVersion: target.selected_version, obligationId: original.source_resource_id, recipientRef: original.recipient_ref, senderId: capability.sender_id, createdAt: now, deadlineAt: new Date(original.deadline_at) };
+    const groupCommand: NotificationGroupRecoveryContentCommand = { tribeId: context.tribeId, originalDeliveryId: original.id, recoveryDeliveryId: recoveryId, connectionId: target.id, connectionVersion: target.selected_version, contributingLeaderUserId: context.actorUserId, senderId: capability.sender_id, idempotencyKey: ledgerId, queuedUsagePolicyVersion: usage.version };
+    const group = grouped && this.groupContent ? await this.groupContent.prepare(database, groupCommand, authorizeGroup) : null;
+    const payload = group ?? await createNotificationRecoveryPayloadMac(config).sign(payloadContext);
+    await this.authorize(database, context);
+    const finalNow = new Date((await database.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now);
+    if (finalNow >= payloadContext.deadlineAt) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.challengeExpired);
+    if (group && this.groupContent) await this.groupContent.assertCurrent(database, groupCommand, group, authorizeGroup);
+    else if (!await this.obligationCurrent(database, context, original)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+    const state = attempts.length === 0 ? MESSAGE_DELIVERY_STATE.cancelled : MESSAGE_DELIVERY_STATE.failed;
+    const changed = (await database.execute<{ version: number }>(sql`update public.message_deliveries set state=${state},lease_token=null,lease_until=null,version=version+1 where id=${original.id} and version=${input.expectedVersion} returning version`)).rows[0];
+    if (!changed) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
+    const frozenIntent = group?.frozenIntent ?? { originalDeliveryId: original.id, obligationId: original.source_resource_id, recipientRef: original.recipient_ref, senderId: capability.sender_id };
+    const { createdAt, deadlineAt } = recoveryTimestamps(group, now, payloadContext.deadlineAt);
+    const recovery = (await database.execute<{ version: number; state: MessageDelivery["state"]; created_at: Date | string; created_at_native: string }>(sql`insert into public.message_deliveries(id,tribe_id,connection_id,connection_version,environment,security_epoch,purpose,source_resource_id,notification_group_id,notification_group_audience,recovery_of_delivery_id,recovery_operation_id,actor_user_id,recipient_ref,channel,idempotency_key,payload_fingerprint,payload_mac_key_id,frozen_intent,queued_usage_policy_version,created_at,due_at,deadline_at) values (${recoveryId},${context.tribeId},${target.id},${target.selected_version},${config.environment},${config.securityEpoch},${NOTIFICATION_DELIVERY_RECOVERY_PURPOSE},${original.source_resource_id},${group?.groupId ?? null},${group?.audience ?? null},${original.id},${ledgerId},${context.actorUserId},${original.recipient_ref},${MESSAGING_PUBLIC_CHANNEL.email},${ledgerId},${Buffer.from(payload.mac)},${payload.keyId},${JSON.stringify(frozenIntent)}::jsonb,${usage.version},${createdAt},${createdAt},${deadlineAt}) returning version,state,created_at,created_at::text as created_at_native`)).rows[0];
+    if (!recovery) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+    const auditEvent = createAdmissionResourceAuditEvent({
+      tribeId: context.tribeId, actorUserId: context.actorUserId, resourceType: NOTIFICATION_DELIVERY_RECOVERY_AUDIT.resourceType, resourceId: recoveryId, operationId: ledgerId, eventType: NOTIFICATION_DELIVERY_RECOVERY_AUDIT.eventType, rule: NOTIFICATION_DELIVERY_RECOVERY_AUDIT.rule, cause: NOTIFICATION_DELIVERY_RECOVERY_AUDIT.cause, resourceVersion: recovery.version, createdAt: new Date(recovery.created_at),
+      metadata: { fromState: null, toState: recovery.state, previousVersion: null, connectionId: target.id, connectionVersion: target.selected_version, channel: MESSAGING_PUBLIC_CHANNEL.email, attemptId: null, authorizedUsagePolicyVersion: null, originalDeliveryId: original.id, targetConnectionId: target.id, originalConnectionId: original.connection_id, originalConnectionVersion: original.connection_version, originalFromState: original.state, originalToState: state, previousOriginalVersion: original.version, originalVersion: changed.version, originalAttemptId: originalAttempt?.id ?? null, originalAuthorizedUsagePolicyVersion: originalAttempt?.authorized_usage_policy_version ?? null },
+    });
+    const audit = new PostgresAdmissionAuditRepository(database);
+    if (group) await audit.appendAtNativeTimestamp(auditEvent, recovery.created_at_native);
+    else await audit.append(auditEvent);
+    return { result: { originalDeliveryId: original.id, recoveryDeliveryId: recoveryId, originalVersion: changed.version, targetConnectionId: target.id, targetConnectionVersion: target.selected_version }, group: group ? { command: groupCommand, prepared: group } : null };
+  }
+
   /** @param context - Current original-delivery scope, repeated by the ledger. @param input - Exact original/target CAS and explicit UUID/consent. @returns A single committed new lineage or the identical original replay without dispatch. */
   async recover(context: NotificationDeliveryRecoveryContext, input: NotificationDeliveryRecoveryInput) {
-    if (input.confirmed !== true) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+    if (!isExplicitlyConfirmed(input)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     // Only a new staged mutation receives this final fence. Historical completed replay keeps its original result.
     let stagedOriginal: OriginalRow | null = null;
-    let stagedGroup: { command: NotificationGroupRecoveryContentCommand; prepared: PreparedNotificationGroupRecoveryContent } | null = null;
+    let stagedGroup: StagedRecoveryGroup | null = null;
     /** @param database - Exact current original transaction. @param tribeId - Existing delivery tenant. @returns Current human authority without a new checkout or durable permission token. */
     const authorizeGroup = async (database: RequestDatabase, tribeId: string): Promise<boolean> => {
       if (tribeId !== context.tribeId) return false;
@@ -97,15 +260,7 @@ export class PostgresNotificationDeliveryRecoveryRepository implements Notificat
       (run) => this.execute(context, run),
       async (database) => {
         await this.authorize(database, context);
-        if (stagedOriginal) {
-          const currentSecurity = await this.readSecurityConfig();
-          if (currentSecurity.recoveryLocked || currentSecurity.environment !== stagedOriginal.environment || currentSecurity.securityEpoch !== stagedOriginal.security_epoch) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
-          if (stagedGroup && this.groupContent) await this.groupContent.assertCurrent(database, stagedGroup.command, stagedGroup.prepared, authorizeGroup);
-          else if (!await this.obligationCurrent(database, context, stagedOriginal)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-          await this.authorize(database, context);
-          const now = new Date((await database.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-          if (now >= new Date(stagedOriginal.deadline_at)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.challengeExpired);
-        }
+        if (stagedOriginal) await this.assertStagedCurrent(database, context, { original: stagedOriginal, group: stagedGroup, authorizeGroup });
         return true;
       },
       this.readSecurityConfig,
@@ -117,63 +272,12 @@ export class PostgresNotificationDeliveryRecoveryRepository implements Notificat
       intent: { deliveryId: context.deliveryId, expectedVersion: input.expectedVersion, targetConnectionId: input.targetConnectionId, expectedTargetVersion: input.expectedTargetVersion, confirmed: true },
     };
     return ledger.run(command, notificationDeliveryRecoveryResultSchema, async (database, ledgerId) => {
-      // The exclusive tribe fence is already held by authorization; acquire resource locks before original delivery.
-      const usage = (await database.execute<{ version: number }>(sql`select version from public.messaging_usage_policies where tribe_id=${context.tribeId} for share`)).rows[0];
-      const target = (await database.execute<TargetRow>(sql`select id,version,environment,security_epoch,contributed_by_user_id,state,is_selected,selected_version,retired_at from public.tenant_messaging_connections where id=${input.targetConnectionId} and tribe_id=${context.tribeId} for share`)).rows[0];
-      const version = target ? (await database.execute<{ retired_at: Date | string | null; is_test_mode: boolean | null; secret_ref: string | null; credential_validation_status: string; email_sender_id: string | null }>(sql`select retired_at,is_test_mode,secret_ref,credential_validation_status,email_sender_id from public.messaging_connection_versions where connection_id=${target.id} and tribe_id=${context.tribeId} and version=${target.selected_version} for share`)).rows[0] : undefined;
-      const capability = target ? (await database.execute<{ state: string; sender_id: string; tested_at: Date | string | null }>(sql`select state,sender_id,tested_at from public.messaging_connection_capabilities where connection_id=${target.id} and tribe_id=${context.tribeId} and connection_version=${target.selected_version} and channel=${MESSAGING_PUBLIC_CHANNEL.email} for share`)).rows[0] : undefined;
-      const email = (await database.execute<{ enabled: boolean }>(sql`select enabled from public.admission_email_settings where tribe_id=${context.tribeId} for share`)).rows[0];
-      const original = (await database.execute<OriginalRow>(sql`select id,connection_id,connection_version,environment,security_epoch,purpose,state,version,source_resource_id,recipient_ref,deadline_at,notification_group_id,notification_group_audience from public.message_deliveries where id=${context.deliveryId} and tribe_id=${context.tribeId} for update`)).rows[0];
-      if (!original || !usage || !target || !version || !capability) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-      if (original.version !== input.expectedVersion) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
-      if (target.version !== input.expectedTargetVersion || target.selected_version === null) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionConflict);
-      const attempts = (await database.execute<{ id: string; state: MessageDeliveryAttempt["state"]; authorized_usage_policy_version: number | null }>(sql`select id,state,authorized_usage_policy_version from public.message_delivery_attempts where delivery_id=${original.id} order by sequence desc for share`)).rows;
-      const child = (await database.execute(sql`select id from public.message_deliveries where recovery_of_delivery_id=${original.id}`)).rows[0];
-      if (child) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
-      const config = await this.readSecurityConfig();
-      if (config.recoveryLocked || config.environment !== original.environment || config.securityEpoch !== original.security_epoch) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
-      await this.authorize(database, context);
-      let now = new Date((await database.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-      const grouped = original.notification_group_id !== null;
-      const obligationCurrent = email?.enabled === true && (grouped ? this.groupContent !== undefined : await this.obligationCurrent(database, context, original));
-      await this.authorize(database, context);
-      now = new Date((await database.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-      const originalAttempt = attempts.find((attempt) => attempt.state !== MESSAGE_ATTEMPT_STATE.rejected) ?? attempts[0] ?? null;
-      const decision = evaluateNotificationDeliveryRecovery({
-        original: { tribeId: context.tribeId, connectionId: original.connection_id, environment: original.environment, securityEpoch: original.security_epoch, purpose: original.purpose, state: original.state, deadlineAt: new Date(original.deadline_at) },
-        originalAttempt,
-        target: { tribeId: context.tribeId, connectionId: target.id, environment: target.environment, securityEpoch: target.security_epoch, selected: target.is_selected, active: target.state === MESSAGING_CONNECTION_STATE.active && target.retired_at === null && target.contributed_by_user_id === context.actorUserId && version.retired_at === null && version.is_test_mode === false && version.secret_ref !== null && version.credential_validation_status === MESSAGING_CREDENTIAL_PUBLIC_STATE.valid, emailPrepared: capability.state === MESSAGING_CAPABILITY_PUBLIC_STATE.prepared && capability.tested_at !== null && Boolean(capability.sender_id) && capability.sender_id === version.email_sender_id },
-        obligationCurrent, now,
-      });
-      if (!decision.allowed) throw new AdmissionOperationError(NOTIFICATION_DELIVERY_RECOVERY_ERROR_BY_REASON[decision.reason]);
-      const recoveryId = randomUUID();
-      const payloadContext = { tribeId: context.tribeId, deliveryId: recoveryId, originalDeliveryId: original.id, connectionId: target.id, connectionVersion: target.selected_version, obligationId: original.source_resource_id, recipientRef: original.recipient_ref, senderId: capability.sender_id, createdAt: now, deadlineAt: new Date(original.deadline_at) };
-      const groupCommand: NotificationGroupRecoveryContentCommand = { tribeId: context.tribeId, originalDeliveryId: original.id, recoveryDeliveryId: recoveryId, connectionId: target.id, connectionVersion: target.selected_version, contributingLeaderUserId: context.actorUserId, senderId: capability.sender_id, idempotencyKey: ledgerId, queuedUsagePolicyVersion: usage.version };
-      const group = grouped && this.groupContent ? await this.groupContent.prepare(database, groupCommand, authorizeGroup) : null;
-      const payload = group ?? await createNotificationRecoveryPayloadMac(config).sign(payloadContext);
-      await this.authorize(database, context);
-      const finalNow = new Date((await database.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-      if (finalNow >= payloadContext.deadlineAt) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.challengeExpired);
-      if (group && this.groupContent) await this.groupContent.assertCurrent(database, groupCommand, group, authorizeGroup);
-      else if (!await this.obligationCurrent(database, context, original)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-      const state = attempts.length === 0 ? MESSAGE_DELIVERY_STATE.cancelled : MESSAGE_DELIVERY_STATE.failed;
-      const changed = (await database.execute<{ version: number }>(sql`update public.message_deliveries set state=${state},lease_token=null,lease_until=null,version=version+1 where id=${original.id} and version=${input.expectedVersion} returning version`)).rows[0];
-      if (!changed) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
-      const frozenIntent = group?.frozenIntent ?? { originalDeliveryId: original.id, obligationId: original.source_resource_id, recipientRef: original.recipient_ref, senderId: capability.sender_id };
-      const createdAt = group ? admissionNotificationTimestamp(group.createdAtMicroseconds) : sql`${now}`;
-      const deadlineAt = group ? admissionNotificationTimestamp(group.deadlineAtMicroseconds) : sql`${payloadContext.deadlineAt}`;
-      const recovery = (await database.execute<{ version: number; state: MessageDelivery["state"]; created_at: Date | string; created_at_native: string }>(sql`insert into public.message_deliveries(id,tribe_id,connection_id,connection_version,environment,security_epoch,purpose,source_resource_id,notification_group_id,notification_group_audience,recovery_of_delivery_id,recovery_operation_id,actor_user_id,recipient_ref,channel,idempotency_key,payload_fingerprint,payload_mac_key_id,frozen_intent,queued_usage_policy_version,created_at,due_at,deadline_at) values (${recoveryId},${context.tribeId},${target.id},${target.selected_version},${config.environment},${config.securityEpoch},${NOTIFICATION_DELIVERY_RECOVERY_PURPOSE},${original.source_resource_id},${group?.groupId ?? null},${group?.audience ?? null},${original.id},${ledgerId},${context.actorUserId},${original.recipient_ref},${MESSAGING_PUBLIC_CHANNEL.email},${ledgerId},${Buffer.from(payload.mac)},${payload.keyId},${JSON.stringify(frozenIntent)}::jsonb,${usage.version},${createdAt},${createdAt},${deadlineAt}) returning version,state,created_at,created_at::text as created_at_native`)).rows[0];
-      if (!recovery) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-      const auditEvent = createAdmissionResourceAuditEvent({
-        tribeId: context.tribeId, actorUserId: context.actorUserId, resourceType: NOTIFICATION_DELIVERY_RECOVERY_AUDIT.resourceType, resourceId: recoveryId, operationId: ledgerId, eventType: NOTIFICATION_DELIVERY_RECOVERY_AUDIT.eventType, rule: NOTIFICATION_DELIVERY_RECOVERY_AUDIT.rule, cause: NOTIFICATION_DELIVERY_RECOVERY_AUDIT.cause, resourceVersion: recovery.version, createdAt: new Date(recovery.created_at),
-        metadata: { fromState: null, toState: recovery.state, previousVersion: null, connectionId: target.id, connectionVersion: target.selected_version, channel: MESSAGING_PUBLIC_CHANNEL.email, attemptId: null, authorizedUsagePolicyVersion: null, originalDeliveryId: original.id, targetConnectionId: target.id, originalConnectionId: original.connection_id, originalConnectionVersion: original.connection_version, originalFromState: original.state, originalToState: state, previousOriginalVersion: original.version, originalVersion: changed.version, originalAttemptId: originalAttempt?.id ?? null, originalAuthorizedUsagePolicyVersion: originalAttempt?.authorized_usage_policy_version ?? null },
-      });
-      const audit = new PostgresAdmissionAuditRepository(database);
-      if (group) await audit.appendAtNativeTimestamp(auditEvent, recovery.created_at_native);
-      else await audit.append(auditEvent);
-      stagedOriginal = original;
-      if (group) stagedGroup = { command: groupCommand, prepared: group };
-      return { originalDeliveryId: original.id, recoveryDeliveryId: recoveryId, originalVersion: changed.version, targetConnectionId: target.id, targetConnectionVersion: target.selected_version };
+      const rows = await this.lockRecoveryRows(database, context, input);
+      const decided = await this.decideRecovery(database, context, rows);
+      const written = await this.writeRecovery(database, ledgerId, { context, input, rows, decided, authorizeGroup });
+      stagedOriginal = rows.original;
+      if (written.group) stagedGroup = written.group;
+      return written.result;
     });
   }
 }

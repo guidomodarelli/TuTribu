@@ -90,7 +90,7 @@ function NextActionButton({nextAction,inView,busy,usageHref,onNextAction}:{nextA
 /** @param props - Current own metadata and the wired guided flow. @returns A summary, one highlighted next action and the linear steps; moving between steps never sends, saves or activates anything. */
 export function MessagingConnectionsWorkspace(props:MessagingConnectionsWorkspaceProps){
   const instanceId=useId(),overviewId=`${instanceId}-overview`;
-  const shared=props.selected&&props.candidate&&props.selected.id===props.candidate.id?props.selected:null;
+  const shared=props.selected&&props.selected.id===props.candidate?.id?props.selected:null;
   const rows=shared?[{connection:shared,role:"Conexión seleccionada y candidata"}]:[...(props.selected?[{connection:props.selected,role:"Conexión seleccionada"}]:[]),...(props.candidate?[{connection:props.candidate,role:"Conexión candidata"}]:[])];
   const done=props.nextAction.step===MESSAGING_CONNECTIONS_NEXT_STEP.active;
   return<div className={styles.MessagingConnectionsWorkspace} data-beezping-ignore="true">

@@ -63,10 +63,7 @@ export function deriveAdmissionSetupProgress(facts: AdmissionSetupFacts): Admiss
   const emailNotices = notifications?.receivesEmail ?? false;
   const needsMessaging = policy.sendsCodes || emailNotices;
   const usage = messaging?.usage ?? null;
-  const usageReady = usage !== null
-    && (!emailNotices || usage.notificationDailyLimit > 0)
-    && (!policy.verifiesPhone || (usage.countryCount > 0 && usage.verificationDailyLimit > 0))
-    && (!policy.sendsCodes || usage.verificationDailyLimit > 0);
+  const usageReady = isUsageReady(usage, policy, emailNotices);
   /** A saved notice quota under the threshold matters whenever the tribe sends admission email, to the leader or to other reviewers. */
   const lowNoticeQuota = usage !== null && (emailNotices || (notifications?.emailEnabled ?? false)) && usage.notificationDailyLimit < MESSAGING_USAGE_LOW_NOTIFICATION_DAILY_LIMIT;
   const activated = policy.open || policy.paused;
@@ -74,19 +71,39 @@ export function deriveAdmissionSetupProgress(facts: AdmissionSetupFacts): Admiss
   const connected = messaging?.connected ?? false;
   const memberships = facts.memberships ?? null;
   const reviewNeeded = !activated && memberships !== null && (memberships.pendingCount > 0 || memberships.resolvedCount > 0);
-  const status = (done: boolean, required: boolean): AdmissionSetupStepStatus => (done ? ADMISSION_SETUP_STEP_STATUS.done : required ? ADMISSION_SETUP_STEP_STATUS.pending : ADMISSION_SETUP_STEP_STATUS.optional);
   const byId: Record<AdmissionSetupStepId, AdmissionSetupStep | null> = {
-    rules: { id: ADMISSION_SETUP_STEP.rules, status: status(policy.exists, true), ...(draftRules ? { draft: true } : {}) },
-    connection: { id: ADMISSION_SETUP_STEP.connection, status: status(connected, needsMessaging), ...(!connected && messaging?.candidatePending ? { draft: true } : {}) },
-    usage: { id: ADMISSION_SETUP_STEP.usage, status: status(usageReady, needsMessaging), ...(lowNoticeQuota ? { lowNoticeQuota: true } : {}) },
-    memberships: reviewNeeded ? { id: ADMISSION_SETUP_STEP.memberships, status: status(memberships.pendingCount === 0, true) } : null,
-    open: { id: ADMISSION_SETUP_STEP.open, status: status(policy.open, true), ...(policy.paused ? { paused: true } : {}), ...(draftRules ? { draft: true } : {}), ...(!activated && facts.activation?.platformBlocked ? { platformBlocked: true } : !activated && facts.activation?.admissionsClosed ? { admissionsClosed: true } : {}) },
-    notifications: { id: ADMISSION_SETUP_STEP.notifications, status: status(notifications !== null && notifications.emailEnabled && notifications.receivesEmail, false), ...(notifications?.emailEnabled && !notifications.receivesEmail ? { emailOmitted: true } : {}) },
+    rules: { id: ADMISSION_SETUP_STEP.rules, status: stepStatus(policy.exists, true), ...(draftRules ? { draft: true } : {}) },
+    connection: { id: ADMISSION_SETUP_STEP.connection, status: stepStatus(connected, needsMessaging), ...(!connected && messaging?.candidatePending ? { draft: true } : {}) },
+    usage: { id: ADMISSION_SETUP_STEP.usage, status: stepStatus(usageReady, needsMessaging), ...(lowNoticeQuota ? { lowNoticeQuota: true } : {}) },
+    memberships: reviewNeeded ? { id: ADMISSION_SETUP_STEP.memberships, status: stepStatus(memberships.pendingCount === 0, true) } : null,
+    open: { id: ADMISSION_SETUP_STEP.open, status: stepStatus(policy.open, true), ...(policy.paused ? { paused: true } : {}), ...(draftRules ? { draft: true } : {}), ...activationFlags(activated, facts.activation ?? null) },
+    notifications: { id: ADMISSION_SETUP_STEP.notifications, status: stepStatus(notifications !== null && notifications.emailEnabled && notifications.receivesEmail, false), ...(notifications?.emailEnabled && !notifications.receivesEmail ? { emailOmitted: true } : {}) },
   };
   const steps = ADMISSION_SETUP_STEP_ORDER.map((id) => byId[id]).filter((step): step is AdmissionSetupStep => step !== null);
   const requiredSteps = steps.filter((step) => isRequired(step.id, needsMessaging));
   const next = steps.find((step) => step.status === ADMISSION_SETUP_STEP_STATUS.pending) ?? steps.find((step) => step.status === ADMISSION_SETUP_STEP_STATUS.optional) ?? null;
   return { steps, completed: requiredSteps.filter((step) => step.status === ADMISSION_SETUP_STEP_STATUS.done).length, required: requiredSteps.length, next: next?.id ?? null };
+}
+
+/** @returns Whether the saved usage covers every quota the rules and notices need. */
+function isUsageReady(usage: NonNullable<AdmissionSetupFacts["messaging"]>["usage"], policy: AdmissionSetupFacts["policy"], emailNotices: boolean): boolean {
+  return usage !== null
+    && (!emailNotices || usage.notificationDailyLimit > 0)
+    && (!policy.verifiesPhone || (usage.countryCount > 0 && usage.verificationDailyLimit > 0))
+    && (!policy.sendsCodes || usage.verificationDailyLimit > 0);
+}
+
+/** @returns Done when finished, else pending for required steps and optional for the rest. */
+function stepStatus(done: boolean, required: boolean): AdmissionSetupStepStatus {
+  if (done) return ADMISSION_SETUP_STEP_STATUS.done;
+  return required ? ADMISSION_SETUP_STEP_STATUS.pending : ADMISSION_SETUP_STEP_STATUS.optional;
+}
+
+/** @returns The blocking activation flag for the opening step; a platform block wins over closed admissions. */
+function activationFlags(activated: boolean, activation: NonNullable<AdmissionSetupFacts["activation"]> | null): Pick<AdmissionSetupStep, "platformBlocked" | "admissionsClosed"> {
+  if (activated || !activation) return {};
+  if (activation.platformBlocked) return { platformBlocked: true };
+  return activation.admissionsClosed ? { admissionsClosed: true } : {};
 }
 
 /** Rules, the membership review (when shown) and opening are always required; messaging steps only when the rules or notices send messages. */

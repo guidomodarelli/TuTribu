@@ -442,11 +442,12 @@ export function resolveAppRailNavigation(
   const currentSection = visibleSections.find((section) => section.entries.some(isOpenRow));
   const currentEntry = currentSection?.entries.find(isOpenRow);
   const currentChild = currentEntry?.children?.find((child) => child.isActive);
+  const currentChildParent = currentChild ? currentEntry?.label : currentSection?.heading;
 
   return {
     activeTribe,
     currentLabel: currentChild?.label ?? currentEntry?.label,
-    currentParent: activeTribe ? (currentChild ? currentEntry?.label : currentSection?.heading) : undefined,
+    currentParent: activeTribe ? currentChildParent : undefined,
     sections: visibleSections,
   };
 }

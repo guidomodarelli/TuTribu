@@ -11,7 +11,7 @@ function fixture() {
   const account: MessagingAuthenticatedAccount = { userId, session: { id: sessionId, expiresAt: new Date("2026-10-08T12:00:00Z") }, googleAccount: null};
   const leadership: MessagingLeadershipFacts = { tribeId, leaderUserId: userId, membership: { userId, role: "leader", status: "active" } };
   const value = { type: "update_messaging_usage", state: "completed", operationId, replayed: true, result: { version: 2, allowedCountries: ["AR"], verificationDailyLimit: 0, notificationDailyLimit: 200, platformMaximums: { verificationDailyLimit: 1000, notificationDailyLimit: 5000 }, consumption: { verificationToday: 0, notificationToday: 0 } } };
-  const reader = { read: vi.fn(async (): Promise<unknown | null> => value) };
+  const reader = { read: vi.fn(async (): Promise<unknown> => value) };
   const accounts = { getAuthenticatedAccount: vi.fn(async (): Promise<MessagingAuthenticatedAccount | null> => account) }, authorization = { getCurrentLeadership: vi.fn(async (): Promise<MessagingLeadershipFacts | null> => leadership) };
   return { account, accounts, leadership, authorization, reader, value, query: { tribeId, operationId, requestId: randomUUID() }, useCase: new ReadMessagingUsageOperationUseCase(accounts, authorization, reader, () => now) };
 }

@@ -38,7 +38,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native applica
         page.setDefaultTimeout(180_000); page.on("pageerror", () => pageErrors.push("pageerror"));
         page.on("response", (response) => { if (response.request().method() === "POST" && response.url() === `${origin}/api/tribes/${slug}/admissions/challenges`) issueStatuses.push(response.status()); if (response.url().startsWith(`${origin}/api/auth/get-session`)) viewerStatuses.push(response.status()); });
         page.on("request", (request) => { if (request.method() === "POST" && request.url() === `${origin}/api/tribes/${slug}/admissions/challenges`) { issueRequests += 1; issueStartedAt = Date.now(); } });
-        page.on("requestfailed", (request) => { if (request.method() === "POST" && request.url() === `${origin}/api/tribes/${slug}/admissions/challenges`) { issueFailedAfterMs = Date.now() - issueStartedAt; const failure = request.failure()?.errorText ?? ""; issueFailures.push(/cancel|abort/iu.test(failure) ? "aborted" : /cors|access control/iu.test(failure) ? "cors" : /timeout/iu.test(failure) ? "timeout" : /connection/iu.test(failure) ? "connection" : "other"); } });
+        page.on("requestfailed", (request) => { if (request.method() === "POST" && request.url() === `${origin}/api/tribes/${slug}/admissions/challenges`) { issueFailedAfterMs = Date.now() - issueStartedAt; const failure = request.failure()?.errorText ?? ""; issueFailures.push(classifyRequestFailure(failure)); } });
         try {
           await page.goto(`${origin}/admissions/${slug}`, { waitUntil: "domcontentloaded" });
           await continueToAdmissionCode(page);
@@ -50,7 +50,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native applica
           await page.getByRole("option", { name: "AR", exact: true }).click();
           await page.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i }).click();
           await page.getByRole("button", { name: "Enviar código de ingreso", exact: true }).click();
-          await page.waitForFunction(() => Boolean(document.querySelector('input[autocomplete="one-time-code"]')) || Array.from(document.querySelectorAll('[role="alert"]')).some((element) => element.textContent?.trim()) || Boolean(document.querySelector('[aria-invalid="true"]'))).catch(() => {});
+          await page.waitForFunction(() => Boolean(document.querySelector('input[autocomplete="one-time-code"]')) || Array.from(document.querySelectorAll('[role="alert"]')).some((element) => element.textContent.trim()) || Boolean(document.querySelector('[aria-invalid="true"]'))).catch(() => {});
           if (await page.getByLabel("Código de ingreso", { exact: true }).count() === 0 && await page.getByText(ADMISSION_CONTACT_COPY.uncertain, { exact: true }).count() > 0) {
             // Native WebKit can time out before the remote SQL fixture's focal dispatch finishes.
             // Recover the real original with an explicit GET, retaining its one POST and private delivery.
@@ -63,7 +63,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native applica
             const state = await page.evaluate(({ phone, catalogue }) => {
               const section = Array.from(document.querySelectorAll('section[aria-labelledby][aria-busy]')).find((element) => element.querySelector('input[type="tel"]'));
               const input = section?.querySelector<HTMLInputElement>('input[type="tel"]');
-              const alerts = Array.from(document.querySelectorAll('[role="alert"]')).map((element) => element.textContent?.trim()).filter(Boolean);
+              const alerts = Array.from(document.querySelectorAll('[role="alert"]')).map((element) => element.textContent.trim()).filter(Boolean);
               return { phoneMatches: input?.value === phone, countrySelected: section?.querySelector('[role="combobox"]')?.textContent === "AR", confirmed: section?.querySelector('[role="checkbox"]')?.getAttribute("aria-checked") === "true", phoneInvalid: input?.getAttribute("aria-invalid") === "true", countryInvalid: section?.querySelector('[role="combobox"]')?.getAttribute("aria-invalid") === "true", busy: section?.getAttribute("aria-busy"), invalidInputs: Array.from(document.querySelectorAll<HTMLInputElement>("input")).filter((element) => !element.validity.valid).length, alerts: alerts.length, publicCodes: catalogue.filter(([, message]) => alerts.includes(message)).map(([key]) => key) };
             }, { phone: fixture.input.contact.value, catalogue: [...Object.entries(ADMISSION_ERROR_MESSAGE), ...Object.entries(ADMISSION_CONTACT_COPY).map(([key, message]) => [`contact_${key}`, message]), ...Object.entries(ADMISSION_UI_COPY).map(([key, message]) => [`ui_${key}`, message])] });
             const effects = await fixture.counts();
@@ -148,3 +148,17 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native applica
     });
   }, 1_200_000);
 });
+
+/**
+ * Classifies a browser request failure without keeping its raw text.
+ *
+ * @param failure - Browser failure text for the request.
+ * @returns Safe failure category.
+ */
+function classifyRequestFailure(failure: string): string {
+  if (/cancel|abort/iu.test(failure)) return "aborted";
+  if (/cors|access control/iu.test(failure)) return "cors";
+  if (/timeout/iu.test(failure)) return "timeout";
+  if (/connection/iu.test(failure)) return "connection";
+  return "other";
+}

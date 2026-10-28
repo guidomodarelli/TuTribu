@@ -137,7 +137,7 @@ async function readTribeAccess(
     limit 1
   `);
 
-  return (result.rows?.[0] ?? null) as TribeAccessRow | null;
+  return (result.rows[0] ?? null) as TribeAccessRow | null;
 }
 
 async function readProposal(
@@ -152,7 +152,7 @@ async function readProposal(
     where event_proposals.id = ${proposalId}
   `);
 
-  return mapProposal(result.rows?.[0] as ProposalRow);
+  return mapProposal(result.rows[0] as ProposalRow);
 }
 
 /**
@@ -182,7 +182,7 @@ async function lockProposal(
     for update of event_proposals
   `);
 
-  return (result.rows?.[0] ?? null) as LockedProposalRow | null;
+  return (result.rows[0] ?? null) as LockedProposalRow | null;
 }
 
 /**
@@ -252,7 +252,7 @@ export class PostgresTribeEventProposalRepository implements TribeEventProposalR
           and event_proposals.status = ${TRIBE_EVENT_PROPOSAL_STATUS.pending}
       `);
       const pendingCount = mapCount(
-        ((pendingResult.rows?.[0] ?? null) as { pending_count: number | string | null } | null)
+        ((pendingResult.rows[0] ?? null) as { pending_count: number | string | null } | null)
           ?.pending_count ?? null
       );
 
@@ -287,7 +287,7 @@ export class PostgresTribeEventProposalRepository implements TribeEventProposalR
         )
         returning event_proposals.id
       `);
-      const proposalId = (insertResult.rows?.[0] as { id: string }).id;
+      const proposalId = (insertResult.rows[0] as { id: string }).id;
 
       return {
         proposal: await readProposal(database, proposalId),
@@ -340,7 +340,7 @@ export class PostgresTribeEventProposalRepository implements TribeEventProposalR
             `
       );
 
-      const rows = (result.rows ?? []) as ProposalListRow[];
+      const rows = result.rows as ProposalListRow[];
 
       return {
         canReviewProposals,
@@ -397,7 +397,7 @@ export class PostgresTribeEventProposalRepository implements TribeEventProposalR
         )
         ${RETURNING_TRIBE_EVENT_COLUMNS}
       `);
-      const createdEvent = mapTribeEvent(eventResult.rows?.[0] as TribeEventRow);
+      const createdEvent = mapTribeEvent(eventResult.rows[0] as TribeEventRow);
 
       await database.execute(sql`
         update public.event_proposals

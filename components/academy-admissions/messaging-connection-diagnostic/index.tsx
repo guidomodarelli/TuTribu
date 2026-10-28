@@ -23,18 +23,35 @@ const SECONDS_DIGITS=2;
 /** @param seconds - Remaining whole seconds. @returns A short minutes/seconds reading, such as "3:07". */
 const formatRemaining=(seconds:number)=>`${Math.floor(seconds/SECONDS_PER_MINUTE)}:${String(seconds%SECONDS_PER_MINUTE).padStart(SECONDS_DIGITS,"0")}`;
 
-/** @param props - Own controlled form and readonly current metadata. @returns Explicit sending/verification actions with private controls excluded from feedback screenshots; render and field changes never issue a message. */
-export function MessagingConnectionDiagnostic(props:MessagingConnectionDiagnosticProps){
-  const fieldId=useId(),phone=props.channel!==MESSAGING_PUBLIC_CHANNEL.email,phoneBlocked=phone&&props.allowedCountries.length===0,diagnostic=props.diagnostic,verified=Boolean(diagnostic&&props.verified),awaitingCode=Boolean(diagnostic&&!props.verified);
-  const expired=props.expiresInSeconds===0;
-  return<section className={styles.MessagingConnectionDiagnostic} aria-labelledby={`${fieldId}-title`} data-beezping-ignore="true">
-    <h2 id={`${fieldId}-title`} className={styles.MessagingConnectionDiagnostic__title}>Probar el canal de la candidata</h2>
-    <p className={styles.MessagingConnectionDiagnostic__lead}>El envío de la prueba consume un código del cupo de la academia y puede generar un cargo en el proyecto de Zavu de esta conexión. Guardar o comprobar la clave no envía esta prueba.</p>
-    {props.usage.policy&&<p className={styles.MessagingConnectionDiagnostic__note}>Hoy: {props.usage.policy.consumption.verificationToday} de {props.usage.policy.verificationDailyLimit} códigos usados. Cada intento conserva su consumo aunque no se confirme la entrega.</p>}
-    {diagnostic&&<section className={`${styles.MessagingConnectionDiagnostic__current} ${verified?styles["MessagingConnectionDiagnostic__current--verified"]:""}`} aria-label={verified?"Prueba confirmada":"Código de prueba emitido"}>
+/** What a blocked resend still needs, except waiting, whose copy carries the remaining time. */
+const RESEND_BLOCK_COPY={[MESSAGING_DIAGNOSTIC_RESEND_BLOCK.destination]:"Para reenviar, escribí otra vez el destino de la prueba más abajo y confirmá el consumo. Por seguridad, el destino no se conserva después de cada envío.",[MESSAGING_DIAGNOSTIC_RESEND_BLOCK.consent]:"Para reenviar, confirmá el destino y el consumo más abajo.",[MESSAGING_DIAGNOSTIC_RESEND_BLOCK.channel]:"Para reenviar este código, elegí el mismo canal de la prueba en curso."} as const satisfies Record<Exclude<MessagingDiagnosticResendBlock,typeof MESSAGING_DIAGNOSTIC_RESEND_BLOCK.wait>,string>;
+/** @param block - What the resend still needs. @param resendInSeconds - Remaining wait, when known. @returns The explanation shown beside the resend button. */
+function resendBlockCopy(block:MessagingDiagnosticResendBlock,resendInSeconds:number|null|undefined):string{
+  if(block===MESSAGING_DIAGNOSTIC_RESEND_BLOCK.wait)return`Podés reenviar en ${formatRemaining(resendInSeconds??0)}. Después, completá otra vez el destino y confirmá el consumo más abajo.`;
+  return RESEND_BLOCK_COPY[block];
+}
+/** @param props - Whether the current code was confirmed or expired. @returns The badge naming the current code state. */
+function DiagnosticCodeBadge({verified,expired}:{verified:boolean;expired:boolean}){
+  if(verified)return<Badge tone="success">Código confirmado</Badge>;
+  return expired?<Badge tone="warning">Código vencido</Badge>:<Badge tone="info">Esperando el código</Badge>;
+}
+/** @param props - What the resend needs, its remaining wait, the field ids prefix and whether a read or write runs. @returns Why the resend is blocked and, when a field below resolves it, a shortcut that focuses that field. */
+function ResendBlockNotice({block,resendInSeconds,fieldId,busy}:{block:MessagingDiagnosticResendBlock;resendInSeconds:number|null|undefined;fieldId:string;busy:boolean}){
+  const destination=block===MESSAGING_DIAGNOSTIC_RESEND_BLOCK.destination;
+  return<div className={styles.MessagingConnectionDiagnostic__resendBlock}>
+    <p id={`${fieldId}-resend-block`} className={styles.MessagingConnectionDiagnostic__note}>{resendBlockCopy(block,resendInSeconds)}</p>
+    {(destination||block===MESSAGING_DIAGNOSTIC_RESEND_BLOCK.consent)&&<Button variant="ghost" size="sm" disabled={busy} onClick={()=>document.getElementById(destination?`${fieldId}-recipient`:`${fieldId}-consent`)?.focus()}>{destination?"Completar el destino":"Ir a la confirmación"}</Button>}
+  </div>;
+}
+
+/** Current issued test facts the current-test panel needs, beside the whole controlled props. */
+type CurrentDiagnosticProps={props:MessagingConnectionDiagnosticProps;diagnostic:NonNullable<MessagingConnectionDiagnosticProps["diagnostic"]>;fieldId:string;verified:boolean;awaitingCode:boolean;expired:boolean};
+/** @param props - The issued test, its confirmation and expiry, and the controlled props. @returns The current test first: its state, delivery and the code confirmation or resend. */
+function CurrentDiagnostic({props,diagnostic,fieldId,verified,awaitingCode,expired}:CurrentDiagnosticProps){
+  return<section className={`${styles.MessagingConnectionDiagnostic__current} ${verified?styles["MessagingConnectionDiagnostic__current--verified"]:""}`} aria-label={verified?"Prueba confirmada":"Código de prueba emitido"}>
       <div className={styles.MessagingConnectionDiagnostic__currentHeader}>
         <h3 className={styles.MessagingConnectionDiagnostic__subtitle}>{verified?"Prueba confirmada":"Prueba en curso"}</h3>
-        {verified?<Badge tone="success">Código confirmado</Badge>:expired?<Badge tone="warning">Código vencido</Badge>:<Badge tone="info">Esperando el código</Badge>}
+        <DiagnosticCodeBadge verified={verified} expired={expired} />
       </div>
       <p className={styles.MessagingConnectionDiagnostic__lead}>{MESSAGING_CHANNEL_LABEL[diagnostic.channel]} · configuración {diagnostic.connectionVersion} · destino {diagnostic.maskedDestination}</p>
       {verified?<p className={styles.MessagingConnectionDiagnostic__note}>El código recibido quedó confirmado para este canal y configuración. No habilita producción ni concede admisión.</p>:<>
@@ -50,13 +67,21 @@ export function MessagingConnectionDiagnostic(props:MessagingConnectionDiagnosti
           {/* An expired code leaves the resend as the only way forward, so it becomes the primary action. */}
           <Button className={styles.MessagingConnectionDiagnostic__action} variant={expired?"primary":"ghost"} loading={props.resending} disabled={!props.resending&&(props.busy||!props.canResend)} aria-describedby={props.resendBlock?`${fieldId}-resend-block`:undefined} onClick={props.onResend}>Reenviar código de prueba</Button>
         </div>
-        {props.resendBlock&&<div className={styles.MessagingConnectionDiagnostic__resendBlock}>
-          <p id={`${fieldId}-resend-block`} className={styles.MessagingConnectionDiagnostic__note}>{props.resendBlock===MESSAGING_DIAGNOSTIC_RESEND_BLOCK.wait?`Podés reenviar en ${formatRemaining(props.resendInSeconds??0)}. Después, completá otra vez el destino y confirmá el consumo más abajo.`:props.resendBlock===MESSAGING_DIAGNOSTIC_RESEND_BLOCK.destination?"Para reenviar, escribí otra vez el destino de la prueba más abajo y confirmá el consumo. Por seguridad, el destino no se conserva después de cada envío.":props.resendBlock===MESSAGING_DIAGNOSTIC_RESEND_BLOCK.consent?"Para reenviar, confirmá el destino y el consumo más abajo.":"Para reenviar este código, elegí el mismo canal de la prueba en curso."}</p>
-          {(props.resendBlock===MESSAGING_DIAGNOSTIC_RESEND_BLOCK.destination||props.resendBlock===MESSAGING_DIAGNOSTIC_RESEND_BLOCK.consent)&&<Button variant="ghost" size="sm" disabled={props.busy} onClick={()=>document.getElementById(props.resendBlock===MESSAGING_DIAGNOSTIC_RESEND_BLOCK.destination?`${fieldId}-recipient`:`${fieldId}-consent`)?.focus()}>{props.resendBlock===MESSAGING_DIAGNOSTIC_RESEND_BLOCK.destination?"Completar el destino":"Ir a la confirmación"}</Button>}
-        </div>}
+        {props.resendBlock&&<ResendBlockNotice block={props.resendBlock} resendInSeconds={props.resendInSeconds} fieldId={fieldId} busy={props.busy} />}
       </div>}
       {verified&&<div className={styles.MessagingConnectionDiagnostic__actions}><Button className={styles.MessagingConnectionDiagnostic__action} variant="secondary" size="sm" disabled={props.busy} onClick={props.onReadDelivery}>Consultar entrega de la prueba</Button></div>}
-    </section>}
+    </section>;
+}
+
+/** @param props - Own controlled form and readonly current metadata. @returns Explicit sending/verification actions with private controls excluded from feedback screenshots; render and field changes never issue a message. */
+export function MessagingConnectionDiagnostic(props:MessagingConnectionDiagnosticProps){
+  const fieldId=useId(),phone=props.channel!==MESSAGING_PUBLIC_CHANNEL.email,phoneBlocked=phone&&props.allowedCountries.length===0,diagnostic=props.diagnostic,verified=Boolean(diagnostic&&props.verified),awaitingCode=Boolean(diagnostic&&!props.verified);
+  const expired=props.expiresInSeconds===0;
+  return<section className={styles.MessagingConnectionDiagnostic} aria-labelledby={`${fieldId}-title`} data-beezping-ignore="true">
+    <h2 id={`${fieldId}-title`} className={styles.MessagingConnectionDiagnostic__title}>Probar el canal de la candidata</h2>
+    <p className={styles.MessagingConnectionDiagnostic__lead}>El envío de la prueba consume un código del cupo de la academia y puede generar un cargo en el proyecto de Zavu de esta conexión. Guardar o comprobar la clave no envía esta prueba.</p>
+    {props.usage.policy&&<p className={styles.MessagingConnectionDiagnostic__note}>Hoy: {props.usage.policy.consumption.verificationToday} de {props.usage.policy.verificationDailyLimit} códigos usados. Cada intento conserva su consumo aunque no se confirme la entrega.</p>}
+    {diagnostic&&<CurrentDiagnostic props={props} diagnostic={diagnostic} fieldId={fieldId} verified={verified} awaitingCode={awaitingCode} expired={expired} />}
     <div className={styles.MessagingConnectionDiagnostic__form} role="group" aria-busy={props.busy} aria-label={diagnostic?undefined:"Enviar un código de prueba"} aria-labelledby={diagnostic?`${fieldId}-new`:undefined}>
       {diagnostic&&<h3 id={`${fieldId}-new`} className={styles.MessagingConnectionDiagnostic__subtitle}>{awaitingCode?"Destino para reenviar o probar otro canal":"Nueva prueba"}</h3>}
       {!props.channelLocked&&<div className={styles.MessagingConnectionDiagnostic__field}><Select value={props.channel} disabled={props.busy} onValueChange={(value)=>{const channel=Object.values(MESSAGING_PUBLIC_CHANNEL).find((candidate)=>candidate===value);if(channel)props.onChannelChange(channel);}} id={`${fieldId}-channel`} label="Canal de la prueba" options={Object.values(MESSAGING_PUBLIC_CHANNEL).map((channel) => ({ value: channel, label: MESSAGING_CHANNEL_LABEL[channel] }))} /></div>}

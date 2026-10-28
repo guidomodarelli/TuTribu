@@ -10,7 +10,8 @@ import { ADMISSION_PERFORMANCE, ADMISSION_PERFORMANCE_ENVIRONMENT, ADMISSION_PER
 import { IDLE_IN_TRANSACTION_TIMEOUT_MILLISECONDS } from "@/src/modules/shared/infrastructure/database/postgres-pool";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_ADMISSION_PERFORMANCE_TESTS !== "1")("native admission performance", () => {
-  it(ADMISSION_PERFORMANCE_CASE.load, async () => {
+  // The report matches results by these exact case titles; `%s` renders the shared name unchanged.
+  it.each([ADMISSION_PERFORMANCE_CASE.load])("%s", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const setupStartedAt = performance.now();
       const { fixture, participants } = await prepareAdmissionPerformanceFixture(database, (phase) => process.stdout.write(JSON.stringify({ phase }) + "\n"));
@@ -27,7 +28,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
     }, { authorization: process.env[ADMISSION_PERFORMANCE_ENVIRONMENT.authorization], ownershipNonce: process.env[ADMISSION_PERFORMANCE_ENVIRONMENT.loadBranchNonce] });
   }, ADMISSION_PERFORMANCE.nativeCaseTimeoutMs);
 
-  it(ADMISSION_PERFORMANCE_CASE.abandonment, async () => {
+  it.each([ADMISSION_PERFORMANCE_CASE.abandonment])("%s", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const before = database.readPoolMetrics();
       let entered = false, observedIdleTimeoutMs: number | null = null;
@@ -39,7 +40,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
         entered = true;
         await pendingWork;
       }).then(() => ({ committed: true }), (error: unknown) => ({ committed: false, cause: error }));
-      let healthy: number | null = null;
+      let healthy: number | null;
       const observedAt = performance.now();
       try {
         await expect.poll(() => entered, { timeout: ADMISSION_PERFORMANCE.abandonmentObservationMs }).toBe(true);

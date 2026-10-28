@@ -18,6 +18,25 @@ import { OPERATION_STATE } from "@/src/constants/operation-state";
 /** Each phase uses the same actual request actor; no public input selects a principal or creates nested transactions. */
 export type TribeLeadershipDatabaseExecutor=<Result>(context:TribeLeadershipTransferContext,run:(database:RequestDatabase)=>Promise<Result>)=>Promise<Result>;
 
+/** @param error - Failure of the transfer. @param operationId - Confirmed original. @returns Whether the original outcome of this exact operation is unknown. */
+function isUnresolvedOriginal(error:unknown,operationId:string):error is AdmissionOperationError{
+  return error instanceof AdmissionOperationError&&error.code===ADMISSION_ERROR_CODE.operationUnresolved&&error.operationId===operationId;
+}
+
+/** @param error - Failure of the transfer. @returns The closed leadership code exposed for it. */
+function resolveLeadershipErrorCode(error:unknown){
+  if(!(error instanceof AdmissionOperationError))return TRIBE_LEADERSHIP_ERROR_CODE.unexpectedFailure;
+  if(error.code===ADMISSION_ERROR_CODE.connectionConflict)return TRIBE_LEADERSHIP_ERROR_CODE.leadershipConflict;
+  return Object.values(TRIBE_LEADERSHIP_ERROR_CODE).find((candidate)=>candidate===error.code)??TRIBE_LEADERSHIP_ERROR_CODE.unexpectedFailure;
+}
+
+/** @param ledger - Operation ledger of the transfer. @param command - Confirmed original command. @param error - Unresolved failure. @param operationId - Confirmed original. @returns The completed original, or undefined when it is still unfinished. @throws TribeLeadershipOperationError when the original cannot be read. */
+async function readOriginalAfterUnresolved(ledger:PostgresAdmissionOperationRepository,command:Parameters<PostgresAdmissionOperationRepository["read"]>[0],error:AdmissionOperationError,operationId:string){
+  try{const original=await ledger.read(command,tribeLeadershipTransferResultSchema);if(original?.state===OPERATION_STATE.completed)return original;}
+  catch(recoveryError){const cause=new AggregateError([error,recoveryError],"Tribe leadership original could not be read",{cause:recoveryError});if(recoveryError instanceof AdmissionOperationError&&(recoveryError.code===ADMISSION_ERROR_CODE.authenticationRequired||recoveryError.code===ADMISSION_ERROR_CODE.permissionDenied))throw new TribeLeadershipOperationError(recoveryError.code,{cause});throw new TribeLeadershipOperationError(TRIBE_LEADERSHIP_ERROR_CODE.operationUnresolved,{cause,operationId});}
+  return undefined;
+}
+
 /** Original result observation survives the intentional loss of leader role; fresh effects always require the current canonical leader. */
 export class PostgresTribeLeadershipRepository implements TribeLeadershipWriter{
   /** @param execute - Native actor's protected database phases. @param readSecurityConfig - Independent operation MAC snapshot; no provider or SecretStore participates. */
@@ -36,7 +55,7 @@ export class PostgresTribeLeadershipRepository implements TribeLeadershipWriter{
     const members=(await database.execute<{user_id:string;role:string;status:string}>(sql`select user_id,role,status from public.tribe_members where tribe_id=${context.tribeId} and (role=${TRIBE_MEMBER_ROLE.leader} or user_id in (${context.actorUserId},${input.nextLeaderUserId})) order by user_id for update`)).rows,leaders=members.filter((member)=>member.role===TRIBE_MEMBER_ROLE.leader&&member.status===TRIBE_MEMBERSHIP_STATUS.active),target=members.find((member)=>member.user_id===input.nextLeaderUserId);
     if(leaders.length!==1||leaders[0].user_id!==context.actorUserId)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
     if(input.expectedLeaderUserId!==context.actorUserId)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionConflict);
-    if(!target||target.status!==TRIBE_MEMBERSHIP_STATUS.active||!TRIBE_FORMER_LEADER_ROLE.some((role)=>role===target.role))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+    if(target?.status!==TRIBE_MEMBERSHIP_STATUS.active||!TRIBE_FORMER_LEADER_ROLE.some((role)=>role===target.role))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
     await this.authorizeIdentity(database,context);
   }
   /** @param context - Actual native actor/session/tribe. @param input - Confirmed original transfer. @returns The immutable original or genuine unfinished work, preserving replay after role loss. @throws TribeLeadershipOperationError with closed code and private cause. */
@@ -59,9 +78,8 @@ export class PostgresTribeLeadershipRepository implements TribeLeadershipWriter{
         return{previousLeaderUserId:context.actorUserId,leaderUserId:input.nextLeaderUserId,formerLeaderRole:input.formerLeaderRole,suspendedConnectionIds:previousConnectionIds};
       });
     }catch(error){
-      if(error instanceof AdmissionOperationError&&error.code===ADMISSION_ERROR_CODE.operationUnresolved&&error.operationId===input.operationId){try{const original=await ledger.read(command,tribeLeadershipTransferResultSchema);if(original?.state===OPERATION_STATE.completed)return original;}catch(recoveryError){const cause=new AggregateError([error,recoveryError],"Tribe leadership original could not be read",{cause:recoveryError});if(recoveryError instanceof AdmissionOperationError&&(recoveryError.code===ADMISSION_ERROR_CODE.authenticationRequired||recoveryError.code===ADMISSION_ERROR_CODE.permissionDenied))throw new TribeLeadershipOperationError(recoveryError.code,{cause});throw new TribeLeadershipOperationError(TRIBE_LEADERSHIP_ERROR_CODE.operationUnresolved,{cause,operationId:input.operationId});}}
-      const code=error instanceof AdmissionOperationError?(error.code===ADMISSION_ERROR_CODE.connectionConflict?TRIBE_LEADERSHIP_ERROR_CODE.leadershipConflict:Object.values(TRIBE_LEADERSHIP_ERROR_CODE).find((candidate)=>candidate===error.code)??TRIBE_LEADERSHIP_ERROR_CODE.unexpectedFailure):TRIBE_LEADERSHIP_ERROR_CODE.unexpectedFailure;
-      throw new TribeLeadershipOperationError(code,{cause:error,...(error instanceof AdmissionOperationError&&error.code===ADMISSION_ERROR_CODE.operationUnresolved&&error.operationId===input.operationId?{operationId:input.operationId}:{})});
+      if(isUnresolvedOriginal(error,input.operationId)){const original=await readOriginalAfterUnresolved(ledger,command,error,input.operationId);if(original)return original;}
+      throw new TribeLeadershipOperationError(resolveLeadershipErrorCode(error),{cause:error,...(isUnresolvedOriginal(error,input.operationId)?{operationId:input.operationId}:{})});
     }
   }
 }

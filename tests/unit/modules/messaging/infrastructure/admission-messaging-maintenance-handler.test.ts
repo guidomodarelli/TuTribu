@@ -59,7 +59,11 @@ describe("protected admission messaging maintenance HTTP boundary", () => {
 
   it("should return partial confirmed counters with a visible failure status instead of a successful zero", async () => {
     const test = fixture();
-    const partial: AdmissionMessagingMaintenanceResult = { ...test.value, status: "incomplete", phases: test.value.phases.map((phase, index) => index === 0 ? { ...phase, metrics: [{ key: "expired_requests", value: 1 }] } : index === 1 ? { ...phase, status: "not_configured", reason: "configuration_unavailable", metrics: [], hasRemainingWork: true } : phase) };
+    const partial: AdmissionMessagingMaintenanceResult = { ...test.value, status: "incomplete", phases: test.value.phases.map((phase, index) => {
+      if (index === 0) return { ...phase, metrics: [{ key: "expired_requests", value: 1 }] };
+      if (index === 1) return { ...phase, status: "not_configured", reason: "configuration_unavailable", metrics: [], hasRemainingWork: true };
+      return phase;
+    }) };
     test.execute.mockResolvedValueOnce(partial);
     const response = await test.handler(test.request());
     expect(response.status).toBe(503);
@@ -72,7 +76,11 @@ describe("protected admission messaging maintenance HTTP boundary", () => {
 
   it("should answer a budget-only incomplete run with confirmed progress as a successful bounded invocation", async () => {
     const test = fixture();
-    const partial: AdmissionMessagingMaintenanceResult = { ...test.value, status: "incomplete", deadlineReached: true, phases: test.value.phases.map((phase, index) => index === 4 ? { ...phase, status: "deferred", reason: "deadline_reached", hasRemainingWork: true } : index > 4 ? { ...phase, status: "not_run", reason: "deadline_reached", metrics: [], startedAtMilliseconds: null, durationMilliseconds: null, observation: "not_run" } : phase) };
+    const partial: AdmissionMessagingMaintenanceResult = { ...test.value, status: "incomplete", deadlineReached: true, phases: test.value.phases.map((phase, index) => {
+      if (index === 4) return { ...phase, status: "deferred", reason: "deadline_reached", hasRemainingWork: true };
+      if (index > 4) return { ...phase, status: "not_run", reason: "deadline_reached", metrics: [], startedAtMilliseconds: null, durationMilliseconds: null, observation: "not_run" };
+      return phase;
+    }) };
     test.execute.mockResolvedValueOnce(partial);
     const response = await test.handler(test.request());
     expect(response.status).toBe(200);

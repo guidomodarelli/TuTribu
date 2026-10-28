@@ -35,9 +35,7 @@ async function listRunningAndUpcomingOccurrences(
   });
 
   return buildTribeEventOccurrences(
-    listing.events,
-    listing.attendances,
-    listing.exceptions,
+    listing,
     range,
     TRIBE_EVENT_RANGE_MATCH.overlaps
   ).filter(

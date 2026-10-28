@@ -378,6 +378,356 @@ function mapCreatedReply(row: CreatedReplyRow | null): MessageReplyCreationResul
   return mapFallbackReplyCreationStatus(row?.status ?? null);
 }
 
+type AttachmentConflictResult = {
+  status:
+    | typeof MESSAGE_MUTATION_STATUS.invalidFile
+    | typeof MESSAGE_MUTATION_STATUS.invalidImage
+    | typeof MESSAGE_MUTATION_STATUS.invalidMedia;
+};
+
+/**
+ * Maps an attachment conflict raised inside the transaction to its rejection; any other error is rethrown.
+ * @param error - Error that aborted the transaction.
+ * @returns The rejection for the attachment kind that conflicted.
+ */
+function mapAttachmentConflictError(error: unknown): AttachmentConflictResult {
+  if (error instanceof MessageImageAttachmentConflictError) {
+    return { status: MESSAGE_MUTATION_STATUS.invalidImage };
+  }
+
+  if (error instanceof MessageVideoAttachmentConflictError) {
+    return { status: MESSAGE_MUTATION_STATUS.invalidMedia };
+  }
+
+  if (error instanceof MessageFileAttachmentConflictError) {
+    return { status: MESSAGE_MUTATION_STATUS.invalidFile };
+  }
+
+  throw error;
+}
+
+/**
+ * Builds the statement that inserts the message videos in their order.
+ * @param command - Target message, tribe and normalized videos.
+ * @returns The insert returning the stored videos as JSON.
+ */
+function buildInsertMessageVideosQuery(command: {
+  messageId: string;
+  tribeId: string;
+  videos: MessageVideoRepositoryDraft[];
+}) {
+  const providers = command.videos.map((video) => video.provider);
+  const externalIds = command.videos.map((video) => video.externalId);
+  const sortOrders = command.videos.map((video) => video.sortOrder);
+
+  return sql`
+    with video_input as (
+      select
+        video_input.provider,
+        video_input.external_id,
+        video_input.sort_order::integer as sort_order
+      from unnest(
+        ${sql.param(providers)}::text[],
+        ${sql.param(externalIds)}::text[],
+        ${sql.param(sortOrders)}::int[]
+      ) as video_input(provider, external_id, sort_order)
+    ),
+    inserted_videos as (
+      insert into public.message_videos (
+        tribe_id,
+        message_id,
+        external_video_provider,
+        external_video_id,
+        sort_order,
+        created_at,
+        updated_at
+      )
+      select
+        ${command.tribeId},
+        ${command.messageId},
+        video_input.provider,
+        video_input.external_id,
+        video_input.sort_order,
+        timezone('utc', now()),
+        timezone('utc', now())
+      from video_input
+      returning
+        id,
+        external_video_provider,
+        external_video_id,
+        sort_order
+    )
+    select
+      coalesce(
+        json_agg(
+          json_build_object(
+            'external_video_id', inserted_videos.external_video_id,
+            'external_video_provider', inserted_videos.external_video_provider,
+            'id', inserted_videos.id,
+            'sort_order', inserted_videos.sort_order
+          )
+          order by inserted_videos.sort_order
+        ),
+        '[]'::json
+      ) as message_videos
+    from inserted_videos
+  `;
+}
+
+/**
+ * Builds the statement that attaches the uploaded images to the message in their order.
+ * @param command - Target message, tribe, uploader and normalized images.
+ * @returns The update returning the attached images as JSON.
+ */
+function buildAttachMessageImagesQuery(command: {
+  images: MessageImageAttachmentDraft[];
+  messageId: string;
+  tribeId: string;
+  userId: string;
+}) {
+  const imageIds = command.images.map((image) => image.assetId);
+  const altTexts = command.images.map((image) => image.altText);
+  const sortOrders = command.images.map((image) => image.sortOrder);
+
+  return sql`
+    with image_input as (
+      select
+        image_input.asset_id,
+        image_input.alt_text,
+        image_input.sort_order::integer as sort_order
+      from unnest(
+        ${sql.param(imageIds)}::uuid[],
+        ${sql.param(altTexts)}::text[],
+        ${sql.param(sortOrders)}::int[]
+      ) as image_input(asset_id, alt_text, sort_order)
+    ),
+    updated_images as (
+      update public.message_images
+      set message_id = ${command.messageId},
+          status = ${MESSAGE_IMAGE_STATUS.attached},
+          alt_text = image_input.alt_text,
+          sort_order = image_input.sort_order,
+          updated_at = timezone('utc', now())
+      from image_input
+      where message_images.id = image_input.asset_id
+        and message_images.tribe_id = ${command.tribeId}
+        and message_images.uploaded_by = ${command.userId}
+        and (
+          message_images.status = ${MESSAGE_IMAGE_STATUS.draft}
+          or (
+            message_images.status = ${MESSAGE_IMAGE_STATUS.pendingDelete}
+            and message_images.message_id = ${command.messageId}
+          )
+        )
+      returning
+        message_images.id,
+        message_images.alt_text,
+        message_images.delivery_url as url,
+        message_images.sort_order
+    )
+    select
+      coalesce(
+        json_agg(
+          json_build_object(
+            'alt_text', updated_images.alt_text,
+            'id', updated_images.id,
+            'sort_order', updated_images.sort_order,
+            'url', updated_images.url
+          )
+          order by updated_images.sort_order
+        ),
+        '[]'::json
+      ) as message_images
+    from updated_images
+  `;
+}
+
+/**
+ * Builds the statement that attaches the uploaded files to the message in their order.
+ * @param command - Target message, tribe, uploader and normalized files.
+ * @returns The update returning the attached files as JSON.
+ */
+function buildAttachMessageFilesQuery(command: {
+  files: MessageFileAttachmentDraft[];
+  messageId: string;
+  tribeId: string;
+  userId: string;
+}) {
+  const fileIds = command.files.map((file) => file.assetId);
+  const sortOrders = command.files.map((file) => file.sortOrder);
+
+  return sql`
+    with file_input as (
+      select
+        file_input.asset_id,
+        file_input.sort_order::integer as sort_order
+      from unnest(
+        ${sql.param(fileIds)}::uuid[],
+        ${sql.param(sortOrders)}::int[]
+      ) as file_input(asset_id, sort_order)
+    ),
+    updated_files as (
+      update public.message_files
+      set message_id = ${command.messageId},
+          status = ${MESSAGE_FILE_STATUS.attached},
+          sort_order = file_input.sort_order,
+          updated_at = timezone('utc', now())
+      from file_input
+      where message_files.id = file_input.asset_id
+        and message_files.tribe_id = ${command.tribeId}
+        and message_files.uploaded_by = ${command.userId}
+        and (
+          message_files.status = ${MESSAGE_FILE_STATUS.draft}
+          or (
+            message_files.status = ${MESSAGE_FILE_STATUS.pendingDelete}
+            and message_files.message_id = ${command.messageId}
+          )
+        )
+      returning
+        message_files.id,
+        message_files.file_name,
+        message_files.file_size_bytes,
+        message_files.mime_type,
+        message_files.sort_order
+    )
+    select
+      coalesce(
+        json_agg(
+          json_build_object(
+            'file_name', updated_files.file_name,
+            'file_size_bytes', updated_files.file_size_bytes,
+            'id', updated_files.id,
+            'mime_type', updated_files.mime_type,
+            'sort_order', updated_files.sort_order
+          )
+          order by updated_files.sort_order
+        ),
+        '[]'::json
+      ) as message_files
+    from updated_files
+  `;
+}
+
+/**
+ * @returns The CTE that projects the inserted message with its channel and author.
+ */
+function buildCreatedMessageCte() {
+  return sql`
+    created_message as (
+      select
+        inserted_message.id as message_id,
+        inserted_message.tribe_id as message_tribe_id,
+        target_channel.id as channel_id,
+        target_channel.name as channel_name,
+        target_channel.slug as channel_slug,
+        target_channel.emoji as channel_emoji,
+        target_channel.sort_order as channel_sort_order,
+        target_channel.access_scope as channel_access_scope,
+        inserted_message.title as message_title,
+        inserted_message.content as message_content,
+        inserted_message.created_at as message_created_at,
+        message_authors.id as author_id,
+        message_authors.name as author_name,
+        message_authors.image as author_image,
+        message_members.role as author_role
+      from inserted_message
+      inner join target_channel
+        on target_channel.id = inserted_message.channel_id
+      inner join public."user" message_authors
+        on message_authors.id = inserted_message.author_id
+      left join public.tribe_members message_members
+        on message_members.tribe_id = inserted_message.tribe_id
+        and message_members.user_id = inserted_message.author_id
+    )
+  `;
+}
+
+/**
+ * Builds the single statement that inserts a publication, or reports why it was not inserted.
+ * @param command - Publication to insert.
+ * @param clientRequestId - Idempotency key, when the client sent one.
+ * @returns The insert returning the creation status and the created message.
+ */
+function buildCreateMessageQuery(
+  command: CreateTribeMessageRepositoryCommand,
+  clientRequestId: string | null
+) {
+  return sql`
+    with target_tribe as (
+      select tribes.id
+      from public.tribes
+      where tribes.slug = ${command.tribeSlug}
+      limit 1
+    ),
+    target_channel as (
+      select
+        tribe_channels.id,
+        tribe_channels.name,
+        tribe_channels.slug,
+        tribe_channels.emoji,
+        tribe_channels.sort_order,
+        tribe_channels.access_scope
+      from public.tribe_channels
+      inner join target_tribe
+        on target_tribe.id = tribe_channels.tribe_id
+      where tribe_channels.id = ${command.channelId}
+      limit 1
+    ),
+    replayed_message as (
+      select messages.id
+      from public.messages
+      inner join target_tribe
+        on target_tribe.id = messages.tribe_id
+      where ${clientRequestId}::uuid is not null
+        and messages.author_id = ${command.authorId}
+        and messages.client_request_id = ${clientRequestId}::uuid
+      limit 1
+    ),
+    inserted_message as (
+      insert into public.messages (tribe_id, channel_id, author_id, title, content, client_request_id, created_at, updated_at)
+      select target_tribe.id, target_channel.id, ${command.authorId}, ${command.title}, ${command.content}, ${clientRequestId}::uuid, timezone('utc', now()), timezone('utc', now())
+      from target_tribe
+      inner join target_channel
+        on true
+      where public.can_write_tribe_channel(target_channel.id)
+      on conflict (author_id, client_request_id) where client_request_id is not null do nothing
+      returning id, tribe_id, channel_id, author_id, title, content, created_at
+    ),
+    ${buildCreatedMessageCte()}
+    select
+      case
+        when exists (select 1 from inserted_message) then ${MESSAGE_MUTATION_STATUS.created}
+        when exists (select 1 from replayed_message) then ${MESSAGE_MUTATION_STATUS.replayed}
+        -- The key conflicted with a publication committed concurrently, outside this statement's snapshot.
+        when ${clientRequestId}::uuid is not null
+          and exists (select 1 from target_channel where public.can_write_tribe_channel(target_channel.id))
+          then ${MESSAGE_MUTATION_STATUS.replayed}
+        when not exists (select 1 from target_tribe) then ${MESSAGE_MUTATION_STATUS.notFound}
+        when not exists (select 1 from target_channel) then ${MESSAGE_MUTATION_STATUS.invalidChannel}
+        else ${MESSAGE_MUTATION_STATUS.forbidden}
+      end as status,
+      created_message.message_id,
+      created_message.message_tribe_id,
+      created_message.channel_id,
+      created_message.channel_name,
+      created_message.channel_slug,
+      created_message.channel_emoji,
+      created_message.channel_sort_order,
+      created_message.channel_access_scope,
+      created_message.message_title,
+      created_message.message_content,
+      created_message.message_created_at,
+      created_message.author_id,
+      created_message.author_name,
+      created_message.author_image,
+      created_message.author_role,
+      (select replayed_message.id from replayed_message) as replayed_message_id
+    from (select 1) result
+    left join created_message
+      on true
+  `;
+}
+
 export class PostgresMessageMutationRepository
   implements
     MessageCreationRepository,
@@ -418,7 +768,7 @@ export class PostgresMessageMutationRepository
         limit 1
       `);
 
-      return ((storedResult.rows?.[0] ?? null) as { id: string } | null)?.id ?? null;
+      return ((storedResult.rows[0] ?? null) as { id: string } | null)?.id ?? null;
     });
   }
 
@@ -436,7 +786,7 @@ export class PostgresMessageMutationRepository
           and tribes.slug = ${command.tribeSlug}
         limit 1
       `);
-      const targetMessage = (targetMessageResult.rows?.[0] ?? null) as TargetMessageRow | null;
+      const targetMessage = (targetMessageResult.rows[0] ?? null) as TargetMessageRow | null;
 
       if (!targetMessage) {
         return {
@@ -460,7 +810,7 @@ export class PostgresMessageMutationRepository
             and message_reactions.user_id = ${command.userId}
             and message_reactions.type = ${MESSAGE_REACTION_TYPE.like}
           returning message_reactions.id
-        `)).rows?.[0] ?? null) as DeletedReactionRow | null;
+        `)).rows[0] ?? null) as DeletedReactionRow | null;
 
       // A desired "not liked" never inserts, whether or not a like existed.
       if (deletedReaction || command.liked === false) {
@@ -488,7 +838,7 @@ export class PostgresMessageMutationRepository
           and message_reactions.type = ${MESSAGE_REACTION_TYPE.like}
       `);
       const likeCount = Number(
-        ((likeCountResult.rows?.[0] ?? null) as LikeCountRow | null)?.like_count ?? 0
+        ((likeCountResult.rows[0] ?? null) as LikeCountRow | null)?.like_count ?? 0
       );
 
       if (status === MESSAGE_MUTATION_STATUS.liked) {
@@ -499,16 +849,10 @@ export class PostgresMessageMutationRepository
         };
       }
 
-      if (status === MESSAGE_MUTATION_STATUS.unliked) {
-        return {
-          likedByViewer: false,
-          likeCount,
-          status,
-        };
-      }
-
       return {
-        status: MESSAGE_MUTATION_STATUS.forbidden,
+        likedByViewer: false,
+        likeCount,
+        status,
       };
     });
   }
@@ -532,7 +876,7 @@ export class PostgresMessageMutationRepository
           and tribes.slug = ${command.tribeSlug}
         limit 1
       `);
-      const targetMessage = (targetMessageResult.rows?.[0] ?? null) as
+      const targetMessage = (targetMessageResult.rows[0] ?? null) as
         | PinTargetMessageRow
         | null;
 
@@ -561,70 +905,78 @@ export class PostgresMessageMutationRepository
         };
       }
 
-      await database.execute(sql`
-        select pg_advisory_xact_lock(hashtext(${targetMessage.tribe_id}))
-      `);
+      return this.pinMessage(database, targetMessage, command.userId);
+    });
+  }
 
-      const existingPinResult = await database.execute(sql`
-        select message_pins.pinned_at
-        from public.message_pins
-        where message_pins.message_id = ${targetMessage.message_id}
-        limit 1
-      `);
-      const existingPin = (existingPinResult.rows?.[0] ?? null) as
-        | ExistingPinRow
-        | null;
+  private async pinMessage(
+    database: RequestDatabase,
+    targetMessage: PinTargetMessageRow,
+    userId: string
+  ): Promise<MessagePinToggleResult> {
+    await database.execute(sql`
+      select pg_advisory_xact_lock(hashtext(${targetMessage.tribe_id}))
+    `);
 
-      if (existingPin) {
-        return {
-          isPinned: true,
-          pinnedAt: existingPin.pinned_at
-            ? formatMessageDateTimeValue(existingPin.pinned_at)
-            : null,
-          status: MESSAGE_MUTATION_STATUS.pinned,
-        };
-      }
+    const existingPinResult = await database.execute(sql`
+      select message_pins.pinned_at
+      from public.message_pins
+      where message_pins.message_id = ${targetMessage.message_id}
+      limit 1
+    `);
+    const existingPin = (existingPinResult.rows[0] ?? null) as
+      | ExistingPinRow
+      | null;
 
-      const pinnedCountResult = await database.execute(sql`
-        select count(*) as pinned_count
-        from public.message_pins
-        where message_pins.tribe_id = ${targetMessage.tribe_id}
-      `);
-      const pinnedCount = Number(
-        ((pinnedCountResult.rows?.[0] ?? null) as PinCountRow | null)?.pinned_count ?? 0
-      );
-
-      if (pinnedCount >= PINNED_TRIBE_MESSAGES_LIMIT) {
-        return {
-          status: MESSAGE_MUTATION_STATUS.pinLimitReached,
-        };
-      }
-
-      const insertedPinResult = await database.execute(sql`
-        insert into public.message_pins (message_id, tribe_id, pinned_by, pinned_at)
-        values (
-          ${targetMessage.message_id},
-          ${targetMessage.tribe_id},
-          ${command.userId},
-          timezone('utc', now())
-        )
-        on conflict (message_id) do update
-        set pinned_by = excluded.pinned_by,
-            pinned_at = excluded.pinned_at
-        returning pinned_at
-      `);
-      const insertedPin = (insertedPinResult.rows?.[0] ?? null) as
-        | InsertedPinRow
-        | null;
-
+    if (existingPin) {
       return {
         isPinned: true,
-        pinnedAt: insertedPin?.pinned_at
-          ? formatMessageDateTimeValue(insertedPin.pinned_at)
+        pinnedAt: existingPin.pinned_at
+          ? formatMessageDateTimeValue(existingPin.pinned_at)
           : null,
         status: MESSAGE_MUTATION_STATUS.pinned,
       };
-    });
+    }
+
+    const pinnedCountResult = await database.execute(sql`
+      select count(*) as pinned_count
+      from public.message_pins
+      where message_pins.tribe_id = ${targetMessage.tribe_id}
+    `);
+    const pinnedCount = Number(
+      ((pinnedCountResult.rows[0] ?? null) as PinCountRow | null)?.pinned_count ?? 0
+    );
+
+    if (pinnedCount >= PINNED_TRIBE_MESSAGES_LIMIT) {
+      return {
+        status: MESSAGE_MUTATION_STATUS.pinLimitReached,
+      };
+    }
+
+    const insertedPinResult = await database.execute(sql`
+      insert into public.message_pins (message_id, tribe_id, pinned_by, pinned_at)
+      values (
+        ${targetMessage.message_id},
+        ${targetMessage.tribe_id},
+        ${userId},
+        timezone('utc', now())
+      )
+      on conflict (message_id) do update
+      set pinned_by = excluded.pinned_by,
+          pinned_at = excluded.pinned_at
+      returning pinned_at
+    `);
+    const insertedPin = (insertedPinResult.rows[0] ?? null) as
+      | InsertedPinRow
+      | null;
+
+    return {
+      isPinned: true,
+      pinnedAt: insertedPin?.pinned_at
+        ? formatMessageDateTimeValue(insertedPin.pinned_at)
+        : null,
+      status: MESSAGE_MUTATION_STATUS.pinned,
+    };
   }
 
   async vote(command: SubmitMessagePollVoteCommand): Promise<MessagePollMutationResult> {
@@ -660,7 +1012,7 @@ export class PostgresMessageMutationRepository
         where message_poll_options.poll_id = ${targetPoll.poll_id}
           and message_poll_options.id = any(array[${optionIdSqlArray}]::uuid[])
       `);
-      const validOptionIds = ((validOptionsResult.rows ?? []) as { option_id: string }[])
+      const validOptionIds = (validOptionsResult.rows as { option_id: string }[])
         .map((option) => option.option_id);
 
       if (validOptionIds.length === 0) {
@@ -731,7 +1083,7 @@ export class PostgresMessageMutationRepository
             else ${MESSAGE_MUTATION_STATUS.forbidden}
           end as status
       `);
-      const row = (result.rows?.[0] ?? null) as MutationStatusRow | null;
+      const row = (result.rows[0] ?? null) as MutationStatusRow | null;
 
       if (row?.status === MESSAGE_MUTATION_STATUS.deleted) {
         return { status: MESSAGE_MUTATION_STATUS.deleted };
@@ -781,7 +1133,7 @@ export class PostgresMessageMutationRepository
           end as status,
           (select updated_message.created_at from updated_message) as message_created_at
       `);
-      const row = (result.rows?.[0] ?? null) as UpdatedCreatedAtRow | null;
+      const row = (result.rows[0] ?? null) as UpdatedCreatedAtRow | null;
 
       if (
         row?.status === MESSAGE_MUTATION_STATUS.updated &&
@@ -806,206 +1158,254 @@ export class PostgresMessageMutationRepository
   ): Promise<MessageContentUpdateResult> {
     try {
       return await this.executeWithDatabase(async (database) => {
-        const targetResult = await database.execute(sql`
-          select
-            messages.id as message_id,
-            messages.tribe_id,
-            (
-              messages.author_id = ${command.userId}
-              and public.can_write_tribe_channel(messages.channel_id)
-            ) as can_edit,
-            existing_poll.id as poll_id,
-            existing_poll.allow_multiple_votes as poll_allow_multiple_votes,
-            coalesce(existing_poll_votes.vote_count, 0) as poll_vote_count
-          from public.messages
-          inner join public.tribes
-            on tribes.id = messages.tribe_id
-          left join public.message_polls existing_poll
-            on existing_poll.message_id = messages.id
-          left join lateral (
-            select count(*) as vote_count
-            from public.message_poll_votes
-            where message_poll_votes.poll_id = existing_poll.id
-          ) existing_poll_votes on true
-          where messages.id = ${command.messageId}
-            and tribes.slug = ${command.tribeSlug}
-          limit 1
-        `);
-        const targetMessage = (targetResult.rows?.[0] ?? null) as
-          | TargetEditMessageRow
-          | null;
+        const targetMessage = await this.findEditTarget(database, command);
 
-      if (!targetMessage) {
-        return { status: MESSAGE_MUTATION_STATUS.notFound };
-      }
-
-      if (!targetMessage.can_edit) {
-        return { status: MESSAGE_MUTATION_STATUS.forbidden };
-      }
-
-      if (command.poll) {
-        if (!targetMessage.poll_id) {
-          return { status: MESSAGE_MUTATION_STATUS.pollMissing };
+        if (!targetMessage) {
+          return { status: MESSAGE_MUTATION_STATUS.notFound };
         }
 
-        if (Number(targetMessage.poll_vote_count ?? 0) > 0) {
-          return { status: MESSAGE_MUTATION_STATUS.pollHasVotes };
+        if (!targetMessage.can_edit) {
+          return { status: MESSAGE_MUTATION_STATUS.forbidden };
         }
 
-        await this.lockMessagePollForOptionReplacement(
+        const pollRejection = await this.findPollEditRejection(
           database,
-          targetMessage.poll_id
+          command,
+          targetMessage
         );
 
-        if (
-          (await this.countMessagePollVotes(database, targetMessage.poll_id)) > 0
-        ) {
-          return { status: MESSAGE_MUTATION_STATUS.pollHasVotes };
+        if (pollRejection) {
+          return pollRejection;
         }
-      }
 
-      const updatedMessageResult = await database.execute(sql`
-        update public.messages
-        set title = ${command.title},
-            content = ${command.content},
-            updated_at = timezone('utc', now())
-        where messages.id = ${command.messageId}
-        returning messages.id as message_id
-      `);
-      const updatedMessage = (updatedMessageResult.rows?.[0] ?? null) as
-        | UpdatedMessageRow
-        | null;
+        const updatedMessageResult = await database.execute(sql`
+          update public.messages
+          set title = ${command.title},
+              content = ${command.content},
+              updated_at = timezone('utc', now())
+          where messages.id = ${command.messageId}
+          returning messages.id as message_id
+        `);
+        const updatedMessage = (updatedMessageResult.rows[0] ?? null) as
+          | UpdatedMessageRow
+          | null;
 
-      if (!updatedMessage?.message_id) {
-        return { status: MESSAGE_MUTATION_STATUS.forbidden };
-      }
+        if (!updatedMessage?.message_id) {
+          return { status: MESSAGE_MUTATION_STATUS.forbidden };
+        }
 
-      let updatedPoll: MessagePollResult | undefined;
-      let updatedMedia: MessageMediaResult[] | undefined;
-      let updatedFiles: MessageFileResult[] | undefined;
-
-      if (command.files !== undefined) {
-        updatedFiles = await this.replaceMessageFiles(database, {
-          files: command.files,
-          messageId: command.messageId,
-          tribeId: targetMessage.tribe_id,
-          userId: command.userId,
-        });
-      }
-
-      if (command.images !== undefined || command.videos !== undefined) {
-        const attachedImages =
-          command.images !== undefined
-            ? await this.replaceMessageImages(database, {
-                images: command.images,
+        const updatedFiles =
+          command.files !== undefined
+            ? await this.replaceMessageFiles(database, {
+                files: command.files,
                 messageId: command.messageId,
                 tribeId: targetMessage.tribe_id,
                 userId: command.userId,
               })
-            : [];
-        const attachedVideos =
-          command.videos !== undefined
-            ? await this.replaceMessageVideos(database, {
-                messageId: command.messageId,
+            : undefined;
+        const updatedMedia = await this.replaceEditedMedia(
+          database,
+          command,
+          targetMessage.tribe_id
+        );
+        const updatedPoll =
+          command.poll && targetMessage.poll_id
+            ? await this.replaceEditedPollOptions(database, {
+                poll: command.poll,
+                pollId: targetMessage.poll_id,
                 tribeId: targetMessage.tribe_id,
-                videos: command.videos,
               })
-            : [];
+            : undefined;
 
-        updatedMedia = sortMessageMediaBySortOrder([
-          ...attachedImages,
-          ...attachedVideos,
-        ]);
-      }
-
-      if (command.poll && targetMessage.poll_id) {
-        await database.execute(sql`
-          update public.message_polls
-          set allow_multiple_votes = ${command.poll.allowMultipleVotes},
-              updated_at = timezone('utc', now())
-          where message_polls.id = ${targetMessage.poll_id}
-        `);
-
-        await database.execute(sql`
-          delete from public.message_poll_options
-          where message_poll_options.poll_id = ${targetMessage.poll_id}
-        `);
-
-        const insertedOptionsResult = await database.execute(sql`
-          with inserted_options as (
-            insert into public.message_poll_options (poll_id, tribe_id, text, sort_order, created_at)
-            select
-              ${targetMessage.poll_id},
-              ${targetMessage.tribe_id},
-              poll_option.text,
-              poll_option.sort_order::integer,
-              timezone('utc', now())
-            from unnest(${sql.param(command.poll.options)}::text[]) with ordinality as poll_option(text, sort_order)
-            returning id, text, sort_order
-          )
-          select
-            coalesce(
-              json_agg(
-                json_build_object(
-                  'id', inserted_options.id,
-                  'text', inserted_options.text
-                )
-                order by inserted_options.sort_order
-              ),
-              '[]'::json
-            ) as poll_options
-          from inserted_options
-        `);
-        const insertedOptions =
-          ((insertedOptionsResult.rows?.[0] ?? null) as InsertedEditedOptionsRow | null)
-            ?.poll_options ?? [];
-
-        if (insertedOptions.length !== command.poll.options.length) {
-          throw new Error(MESSAGE_CREATION_DATABASE_ERROR.pollOptionsNotInserted);
-        }
-
-        updatedPoll = {
-          allowMultipleVotes: command.poll.allowMultipleVotes,
-          id: targetMessage.poll_id,
-          options: insertedOptions
-            .filter((option) => option.id && option.text)
-            .map((option) => ({
-              id: option.id ?? "",
-              percentage: 0,
-              selectedByViewer: false,
-              text: option.text ?? "",
-              voteCount: 0,
-            })),
-          totalVoteCount: 0,
-          viewerHasVoted: false,
+        return {
+          content: command.content,
+          ...(updatedFiles !== undefined ? { files: updatedFiles } : {}),
+          ...(updatedMedia !== undefined ? { media: updatedMedia } : {}),
+          messageId: command.messageId,
+          ...(updatedPoll !== undefined ? { poll: updatedPoll } : {}),
+          status: MESSAGE_MUTATION_STATUS.updated,
+          title: command.title,
         };
-      }
-
-      return {
-        content: command.content,
-        ...(updatedFiles !== undefined ? { files: updatedFiles } : {}),
-        ...(updatedMedia !== undefined ? { media: updatedMedia } : {}),
-        messageId: command.messageId,
-        ...(updatedPoll !== undefined ? { poll: updatedPoll } : {}),
-        status: MESSAGE_MUTATION_STATUS.updated,
-        title: command.title,
-      };
       });
     } catch (error) {
-      if (error instanceof MessageImageAttachmentConflictError) {
-        return { status: MESSAGE_MUTATION_STATUS.invalidImage };
-      }
-
-      if (error instanceof MessageVideoAttachmentConflictError) {
-        return { status: MESSAGE_MUTATION_STATUS.invalidMedia };
-      }
-
-      if (error instanceof MessageFileAttachmentConflictError) {
-        return { status: MESSAGE_MUTATION_STATUS.invalidFile };
-      }
-
-      throw error;
+      return mapAttachmentConflictError(error);
     }
+  }
+
+  private async findEditTarget(
+    database: RequestDatabase,
+    command: UpdateTribeMessageContentRepositoryCommand
+  ): Promise<TargetEditMessageRow | null> {
+    const targetResult = await database.execute(sql`
+      select
+        messages.id as message_id,
+        messages.tribe_id,
+        (
+          messages.author_id = ${command.userId}
+          and public.can_write_tribe_channel(messages.channel_id)
+        ) as can_edit,
+        existing_poll.id as poll_id,
+        existing_poll.allow_multiple_votes as poll_allow_multiple_votes,
+        coalesce(existing_poll_votes.vote_count, 0) as poll_vote_count
+      from public.messages
+      inner join public.tribes
+        on tribes.id = messages.tribe_id
+      left join public.message_polls existing_poll
+        on existing_poll.message_id = messages.id
+      left join lateral (
+        select count(*) as vote_count
+        from public.message_poll_votes
+        where message_poll_votes.poll_id = existing_poll.id
+      ) existing_poll_votes on true
+      where messages.id = ${command.messageId}
+        and tribes.slug = ${command.tribeSlug}
+      limit 1
+    `);
+
+    return (targetResult.rows[0] ?? null) as TargetEditMessageRow | null;
+  }
+
+  /**
+   * A poll edit replaces the options, so it needs an existing poll without votes; the vote count is
+   * read again under the replacement lock to close the race with a concurrent vote.
+   * @returns The rejection to answer, or null when the edit may continue.
+   */
+  private async findPollEditRejection(
+    database: RequestDatabase,
+    command: UpdateTribeMessageContentRepositoryCommand,
+    targetMessage: TargetEditMessageRow
+  ): Promise<MessageContentUpdateResult | null> {
+    if (!command.poll) {
+      return null;
+    }
+
+    if (!targetMessage.poll_id) {
+      return { status: MESSAGE_MUTATION_STATUS.pollMissing };
+    }
+
+    if (Number(targetMessage.poll_vote_count ?? 0) > 0) {
+      return { status: MESSAGE_MUTATION_STATUS.pollHasVotes };
+    }
+
+    await this.lockMessagePollForOptionReplacement(
+      database,
+      targetMessage.poll_id
+    );
+
+    if (
+      (await this.countMessagePollVotes(database, targetMessage.poll_id)) > 0
+    ) {
+      return { status: MESSAGE_MUTATION_STATUS.pollHasVotes };
+    }
+
+    return null;
+  }
+
+  private async replaceEditedMedia(
+    database: RequestDatabase,
+    command: UpdateTribeMessageContentRepositoryCommand,
+    tribeId: string
+  ): Promise<MessageMediaResult[] | undefined> {
+    if (command.images === undefined && command.videos === undefined) {
+      return undefined;
+    }
+
+    const attachedImages =
+      command.images !== undefined
+        ? await this.replaceMessageImages(database, {
+            images: command.images,
+            messageId: command.messageId,
+            tribeId,
+            userId: command.userId,
+          })
+        : [];
+    const attachedVideos =
+      command.videos !== undefined
+        ? await this.replaceMessageVideos(database, {
+            messageId: command.messageId,
+            tribeId,
+            videos: command.videos,
+          })
+        : [];
+
+    return sortMessageMediaBySortOrder([
+      ...attachedImages,
+      ...attachedVideos,
+    ]);
+  }
+
+  private async replaceEditedPollOptions(
+    database: RequestDatabase,
+    {
+      poll,
+      pollId,
+      tribeId,
+    }: {
+      poll: NonNullable<UpdateTribeMessageContentRepositoryCommand["poll"]>;
+      pollId: string;
+      tribeId: string;
+    }
+  ): Promise<MessagePollResult> {
+    await database.execute(sql`
+      update public.message_polls
+      set allow_multiple_votes = ${poll.allowMultipleVotes},
+          updated_at = timezone('utc', now())
+      where message_polls.id = ${pollId}
+    `);
+
+    await database.execute(sql`
+      delete from public.message_poll_options
+      where message_poll_options.poll_id = ${pollId}
+    `);
+
+    const insertedOptionsResult = await database.execute(sql`
+      with inserted_options as (
+        insert into public.message_poll_options (poll_id, tribe_id, text, sort_order, created_at)
+        select
+          ${pollId},
+          ${tribeId},
+          poll_option.text,
+          poll_option.sort_order::integer,
+          timezone('utc', now())
+        from unnest(${sql.param(poll.options)}::text[]) with ordinality as poll_option(text, sort_order)
+        returning id, text, sort_order
+      )
+      select
+        coalesce(
+          json_agg(
+            json_build_object(
+              'id', inserted_options.id,
+              'text', inserted_options.text
+            )
+            order by inserted_options.sort_order
+          ),
+          '[]'::json
+        ) as poll_options
+      from inserted_options
+    `);
+    const insertedOptions =
+      ((insertedOptionsResult.rows[0] ?? null) as InsertedEditedOptionsRow | null)
+        ?.poll_options ?? [];
+
+    if (insertedOptions.length !== poll.options.length) {
+      throw new Error(MESSAGE_CREATION_DATABASE_ERROR.pollOptionsNotInserted);
+    }
+
+    return {
+      allowMultipleVotes: poll.allowMultipleVotes,
+      id: pollId,
+      options: insertedOptions
+        .filter((option) => option.id && option.text)
+        .map((option) => ({
+          id: option.id ?? "",
+          percentage: 0,
+          selectedByViewer: false,
+          text: option.text ?? "",
+          voteCount: 0,
+        })),
+      totalVoteCount: 0,
+      viewerHasVoted: false,
+    };
   }
 
   private async createMessage(
@@ -1015,245 +1415,173 @@ export class PostgresMessageMutationRepository
 
     try {
       return await this.executeWithDatabase(async (database) => {
-        const messageResult = await database.execute(sql`
-        with target_tribe as (
-          select tribes.id
-          from public.tribes
-          where tribes.slug = ${command.tribeSlug}
-          limit 1
-        ),
-        target_channel as (
-          select
-            tribe_channels.id,
-            tribe_channels.name,
-            tribe_channels.slug,
-            tribe_channels.emoji,
-            tribe_channels.sort_order,
-            tribe_channels.access_scope
-          from public.tribe_channels
-          inner join target_tribe
-            on target_tribe.id = tribe_channels.tribe_id
-          where tribe_channels.id = ${command.channelId}
-          limit 1
-        ),
-        replayed_message as (
-          select messages.id
-          from public.messages
-          inner join target_tribe
-            on target_tribe.id = messages.tribe_id
-          where ${clientRequestId}::uuid is not null
-            and messages.author_id = ${command.authorId}
-            and messages.client_request_id = ${clientRequestId}::uuid
-          limit 1
-        ),
-        inserted_message as (
-          insert into public.messages (tribe_id, channel_id, author_id, title, content, client_request_id, created_at, updated_at)
-          select target_tribe.id, target_channel.id, ${command.authorId}, ${command.title}, ${command.content}, ${clientRequestId}::uuid, timezone('utc', now()), timezone('utc', now())
-          from target_tribe
-          inner join target_channel
-            on true
-          where public.can_write_tribe_channel(target_channel.id)
-          on conflict (author_id, client_request_id) where client_request_id is not null do nothing
-          returning id, tribe_id, channel_id, author_id, title, content, created_at
-        ),
-        created_message as (
-          select
-            inserted_message.id as message_id,
-            inserted_message.tribe_id as message_tribe_id,
-            target_channel.id as channel_id,
-            target_channel.name as channel_name,
-            target_channel.slug as channel_slug,
-            target_channel.emoji as channel_emoji,
-            target_channel.sort_order as channel_sort_order,
-            target_channel.access_scope as channel_access_scope,
-            inserted_message.title as message_title,
-            inserted_message.content as message_content,
-            inserted_message.created_at as message_created_at,
-            message_authors.id as author_id,
-            message_authors.name as author_name,
-            message_authors.image as author_image,
-            message_members.role as author_role
-          from inserted_message
-          inner join target_channel
-            on target_channel.id = inserted_message.channel_id
-          inner join public."user" message_authors
-            on message_authors.id = inserted_message.author_id
-          left join public.tribe_members message_members
-            on message_members.tribe_id = inserted_message.tribe_id
-            and message_members.user_id = inserted_message.author_id
-        )
-        select
-          case
-            when exists (select 1 from inserted_message) then ${MESSAGE_MUTATION_STATUS.created}
-            when exists (select 1 from replayed_message) then ${MESSAGE_MUTATION_STATUS.replayed}
-            -- The key conflicted with a publication committed concurrently, outside this statement's snapshot.
-            when ${clientRequestId}::uuid is not null
-              and exists (select 1 from target_channel where public.can_write_tribe_channel(target_channel.id))
-              then ${MESSAGE_MUTATION_STATUS.replayed}
-            when not exists (select 1 from target_tribe) then ${MESSAGE_MUTATION_STATUS.notFound}
-            when not exists (select 1 from target_channel) then ${MESSAGE_MUTATION_STATUS.invalidChannel}
-            else ${MESSAGE_MUTATION_STATUS.forbidden}
-          end as status,
-          created_message.message_id,
-          created_message.message_tribe_id,
-          created_message.channel_id,
-          created_message.channel_name,
-          created_message.channel_slug,
-          created_message.channel_emoji,
-          created_message.channel_sort_order,
-          created_message.channel_access_scope,
-          created_message.message_title,
-          created_message.message_content,
-          created_message.message_created_at,
-          created_message.author_id,
-          created_message.author_name,
-          created_message.author_image,
-          created_message.author_role,
-          (select replayed_message.id from replayed_message) as replayed_message_id
-        from (select 1) result
-        left join created_message
-          on true
-      `);
-        const createdMessage = (messageResult.rows?.[0] ?? null) as
+        const messageResult = await database.execute(
+          buildCreateMessageQuery(command, clientRequestId)
+        );
+        const createdMessage = (messageResult.rows[0] ?? null) as
           | CreatedMessageRow
           | null;
 
-      if (createdMessage?.status === MESSAGE_MUTATION_STATUS.replayed) {
-        return { messageId: createdMessage.replayed_message_id ?? null, status: MESSAGE_MUTATION_STATUS.replayed };
-      }
-
-      if (
-        createdMessage?.status !== MESSAGE_MUTATION_STATUS.created ||
-        !createdMessage.message_id
-      ) {
-        return mapCreatedMessage(createdMessage);
-      }
-
-      const mediaItems: MessageMediaResult[] = [];
-
-      if (command.images?.length || command.videos?.length) {
-        if (!createdMessage.message_tribe_id) {
-          return { status: MESSAGE_MUTATION_STATUS.invalidMedia };
+        if (createdMessage?.status === MESSAGE_MUTATION_STATUS.replayed) {
+          return { messageId: createdMessage.replayed_message_id ?? null, status: MESSAGE_MUTATION_STATUS.replayed };
         }
 
-        if (command.images?.length) {
-          const attachedImages = await this.replaceMessageImages(database, {
-            images: command.images,
-            messageId: createdMessage.message_id,
-            tribeId: createdMessage.message_tribe_id,
-            userId: command.authorId,
-          });
-
-          mediaItems.push(...attachedImages);
+        if (
+          createdMessage?.status !== MESSAGE_MUTATION_STATUS.created ||
+          !createdMessage.message_id
+        ) {
+          return mapCreatedMessage(createdMessage);
         }
 
-        if (command.videos?.length) {
-          const attachedVideos = await this.replaceMessageVideos(database, {
-            messageId: createdMessage.message_id,
-            tribeId: createdMessage.message_tribe_id,
-            videos: command.videos,
-          });
-
-          mediaItems.push(...attachedVideos);
-        }
-      }
-
-      const media = sortMessageMediaBySortOrder(mediaItems);
-      let attachedFiles: MessageFileResult[] = [];
-
-      if (command.files?.length) {
-        if (!createdMessage.message_tribe_id) {
-          return { status: MESSAGE_MUTATION_STATUS.invalidFile };
-        }
-
-        attachedFiles = await this.replaceMessageFiles(database, {
-          files: command.files,
-          messageId: createdMessage.message_id,
-          tribeId: createdMessage.message_tribe_id,
-          userId: command.authorId,
-        });
-      }
-
-      if (!command.poll) {
-        return mapCreatedMessage(createdMessage, media, attachedFiles);
-      }
-
-      const pollResult = await database.execute(sql`
-        insert into public.message_polls (message_id, tribe_id, allow_multiple_votes, status, created_at, updated_at)
-        select messages.id, messages.tribe_id, ${command.poll.allowMultipleVotes}, ${MESSAGE_POLL_STATUS.open}, timezone('utc', now()), timezone('utc', now())
-        from public.messages
-        inner join public.tribes
-          on tribes.id = messages.tribe_id
-        where messages.id = ${createdMessage.message_id}
-          and tribes.slug = ${command.tribeSlug}
-          and messages.author_id = ${command.authorId}
-        returning
-          id as poll_id,
-          allow_multiple_votes as poll_allow_multiple_votes
-      `);
-      const insertedPoll = (pollResult.rows?.[0] ?? null) as InsertedPollRow | null;
-
-      if (!insertedPoll?.poll_id) {
-        throw new Error(MESSAGE_CREATION_DATABASE_ERROR.pollNotInserted);
-      }
-
-      const pollOptionsResult = await database.execute(sql`
-        with inserted_poll_options as (
-          insert into public.message_poll_options (poll_id, tribe_id, text, sort_order, created_at)
-          select message_polls.id, message_polls.tribe_id, poll_option.text, poll_option.sort_order::integer, timezone('utc', now())
-          from public.message_polls
-          cross join unnest(${sql.param(command.poll.options)}::text[]) with ordinality as poll_option(text, sort_order)
-          where message_polls.id = ${insertedPoll.poll_id}
-          returning id, text, sort_order
-        )
-        select
-          coalesce(
-            json_agg(
-              json_build_object(
-                'id', inserted_poll_options.id,
-                'text', inserted_poll_options.text
-              )
-              order by inserted_poll_options.sort_order
-            ),
-            '[]'::json
-          ) as poll_options
-        from inserted_poll_options
-      `);
-      const insertedPollOptions = (pollOptionsResult.rows?.[0] ?? null) as
-        | InsertedPollOptionsRow
-        | null;
-      const pollOptions = insertedPollOptions?.poll_options ?? [];
-
-      if (pollOptions.length !== command.poll.options.length) {
-        throw new Error(MESSAGE_CREATION_DATABASE_ERROR.pollOptionsNotInserted);
-      }
-
-      return mapCreatedMessage(
-        {
-          ...createdMessage,
-          poll_allow_multiple_votes: insertedPoll.poll_allow_multiple_votes,
-          poll_id: insertedPoll.poll_id,
-          poll_options: pollOptions,
-        },
-        media,
-        attachedFiles
-      );
+        return this.attachCreatedMessageContent(
+          database,
+          command,
+          createdMessage,
+          createdMessage.message_id
+        );
       });
     } catch (error) {
-      if (error instanceof MessageImageAttachmentConflictError) {
-        return { status: MESSAGE_MUTATION_STATUS.invalidImage };
-      }
+      return mapAttachmentConflictError(error);
+    }
+  }
 
-      if (error instanceof MessageVideoAttachmentConflictError) {
+  private async attachCreatedMessageContent(
+    database: RequestDatabase,
+    command: CreateTribeMessageRepositoryCommand,
+    createdMessage: CreatedMessageRow,
+    messageId: string
+  ): Promise<MessageCreationResult> {
+    const mediaItems: MessageMediaResult[] = [];
+
+    if (command.images?.length || command.videos?.length) {
+      if (!createdMessage.message_tribe_id) {
         return { status: MESSAGE_MUTATION_STATUS.invalidMedia };
       }
 
-      if (error instanceof MessageFileAttachmentConflictError) {
+      if (command.images?.length) {
+        const attachedImages = await this.replaceMessageImages(database, {
+          images: command.images,
+          messageId,
+          tribeId: createdMessage.message_tribe_id,
+          userId: command.authorId,
+        });
+
+        mediaItems.push(...attachedImages);
+      }
+
+      if (command.videos?.length) {
+        const attachedVideos = await this.replaceMessageVideos(database, {
+          messageId,
+          tribeId: createdMessage.message_tribe_id,
+          videos: command.videos,
+        });
+
+        mediaItems.push(...attachedVideos);
+      }
+    }
+
+    const media = sortMessageMediaBySortOrder(mediaItems);
+    let attachedFiles: MessageFileResult[] = [];
+
+    if (command.files?.length) {
+      if (!createdMessage.message_tribe_id) {
         return { status: MESSAGE_MUTATION_STATUS.invalidFile };
       }
 
-      throw error;
+      attachedFiles = await this.replaceMessageFiles(database, {
+        files: command.files,
+        messageId,
+        tribeId: createdMessage.message_tribe_id,
+        userId: command.authorId,
+      });
     }
+
+    if (!command.poll) {
+      return mapCreatedMessage(createdMessage, media, attachedFiles);
+    }
+
+    const insertedPoll = await this.insertCreatedMessagePoll(database, {
+      authorId: command.authorId,
+      messageId,
+      poll: command.poll,
+      tribeSlug: command.tribeSlug,
+    });
+
+    return mapCreatedMessage(
+      { ...createdMessage, ...insertedPoll },
+      media,
+      attachedFiles
+    );
+  }
+
+  private async insertCreatedMessagePoll(
+    database: RequestDatabase,
+    command: {
+      authorId: string;
+      messageId: string;
+      poll: NonNullable<CreateTribeMessageRepositoryCommand["poll"]>;
+      tribeSlug: string;
+    }
+  ): Promise<{
+    poll_allow_multiple_votes: InsertedPollRow["poll_allow_multiple_votes"];
+    poll_id: string;
+    poll_options: NonNullable<InsertedPollOptionsRow["poll_options"]>;
+  }> {
+    const pollResult = await database.execute(sql`
+      insert into public.message_polls (message_id, tribe_id, allow_multiple_votes, status, created_at, updated_at)
+      select messages.id, messages.tribe_id, ${command.poll.allowMultipleVotes}, ${MESSAGE_POLL_STATUS.open}, timezone('utc', now()), timezone('utc', now())
+      from public.messages
+      inner join public.tribes
+        on tribes.id = messages.tribe_id
+      where messages.id = ${command.messageId}
+        and tribes.slug = ${command.tribeSlug}
+        and messages.author_id = ${command.authorId}
+      returning
+        id as poll_id,
+        allow_multiple_votes as poll_allow_multiple_votes
+    `);
+    const insertedPoll = (pollResult.rows[0] ?? null) as InsertedPollRow | null;
+
+    if (!insertedPoll?.poll_id) {
+      throw new Error(MESSAGE_CREATION_DATABASE_ERROR.pollNotInserted);
+    }
+
+    const pollOptionsResult = await database.execute(sql`
+      with inserted_poll_options as (
+        insert into public.message_poll_options (poll_id, tribe_id, text, sort_order, created_at)
+        select message_polls.id, message_polls.tribe_id, poll_option.text, poll_option.sort_order::integer, timezone('utc', now())
+        from public.message_polls
+        cross join unnest(${sql.param(command.poll.options)}::text[]) with ordinality as poll_option(text, sort_order)
+        where message_polls.id = ${insertedPoll.poll_id}
+        returning id, text, sort_order
+      )
+      select
+        coalesce(
+          json_agg(
+            json_build_object(
+              'id', inserted_poll_options.id,
+              'text', inserted_poll_options.text
+            )
+            order by inserted_poll_options.sort_order
+          ),
+          '[]'::json
+        ) as poll_options
+      from inserted_poll_options
+    `);
+    const insertedPollOptions = (pollOptionsResult.rows[0] ?? null) as
+      | InsertedPollOptionsRow
+      | null;
+    const pollOptions = insertedPollOptions?.poll_options ?? [];
+
+    if (pollOptions.length !== command.poll.options.length) {
+      throw new Error(MESSAGE_CREATION_DATABASE_ERROR.pollOptionsNotInserted);
+    }
+
+    return {
+      poll_allow_multiple_votes: insertedPoll.poll_allow_multiple_votes,
+      poll_id: insertedPoll.poll_id,
+      poll_options: pollOptions,
+    };
   }
 
   private async replaceMessageFiles(
@@ -1265,8 +1593,6 @@ export class PostgresMessageMutationRepository
       userId: string;
     }
   ): Promise<MessageFileResult[]> {
-    const fileIds = command.files.map((file) => file.assetId);
-
     await database.execute(sql`
       update public.message_files
       set status = ${MESSAGE_FILE_STATUS.pendingDelete},
@@ -1281,59 +1607,11 @@ export class PostgresMessageMutationRepository
       return [];
     }
 
-    const sortOrders = command.files.map((file) => file.sortOrder);
-    const attachedFilesResult = await database.execute(sql`
-      with file_input as (
-        select
-          file_input.asset_id,
-          file_input.sort_order::integer as sort_order
-        from unnest(
-          ${sql.param(fileIds)}::uuid[],
-          ${sql.param(sortOrders)}::int[]
-        ) as file_input(asset_id, sort_order)
-      ),
-      updated_files as (
-        update public.message_files
-        set message_id = ${command.messageId},
-            status = ${MESSAGE_FILE_STATUS.attached},
-            sort_order = file_input.sort_order,
-            updated_at = timezone('utc', now())
-        from file_input
-        where message_files.id = file_input.asset_id
-          and message_files.tribe_id = ${command.tribeId}
-          and message_files.uploaded_by = ${command.userId}
-          and (
-            message_files.status = ${MESSAGE_FILE_STATUS.draft}
-            or (
-              message_files.status = ${MESSAGE_FILE_STATUS.pendingDelete}
-              and message_files.message_id = ${command.messageId}
-            )
-          )
-        returning
-          message_files.id,
-          message_files.file_name,
-          message_files.file_size_bytes,
-          message_files.mime_type,
-          message_files.sort_order
-      )
-      select
-        coalesce(
-          json_agg(
-            json_build_object(
-              'file_name', updated_files.file_name,
-              'file_size_bytes', updated_files.file_size_bytes,
-              'id', updated_files.id,
-              'mime_type', updated_files.mime_type,
-              'sort_order', updated_files.sort_order
-            )
-            order by updated_files.sort_order
-          ),
-          '[]'::json
-        ) as message_files
-      from updated_files
-    `);
+    const attachedFilesResult = await database.execute(
+      buildAttachMessageFilesQuery(command)
+    );
     const attachedFiles =
-      ((attachedFilesResult.rows?.[0] ?? null) as PersistedMessageFilesRow | null)
+      ((attachedFilesResult.rows[0] ?? null) as PersistedMessageFilesRow | null)
         ?.message_files ?? [];
 
     if (attachedFiles.length !== command.files.length) {
@@ -1358,8 +1636,6 @@ export class PostgresMessageMutationRepository
       userId: string;
     }
   ): Promise<MessageMediaResult[]> {
-    const imageIds = command.images.map((image) => image.assetId);
-
     await database.execute(sql`
       update public.message_images
       set status = ${MESSAGE_IMAGE_STATUS.pendingDelete},
@@ -1373,61 +1649,11 @@ export class PostgresMessageMutationRepository
       return [];
     }
 
-    const altTexts = command.images.map((image) => image.altText);
-    const sortOrders = command.images.map((image) => image.sortOrder);
-    const attachedImagesResult = await database.execute(sql`
-      with image_input as (
-        select
-          image_input.asset_id,
-          image_input.alt_text,
-          image_input.sort_order::integer as sort_order
-        from unnest(
-          ${sql.param(imageIds)}::uuid[],
-          ${sql.param(altTexts)}::text[],
-          ${sql.param(sortOrders)}::int[]
-        ) as image_input(asset_id, alt_text, sort_order)
-      ),
-      updated_images as (
-        update public.message_images
-        set message_id = ${command.messageId},
-            status = ${MESSAGE_IMAGE_STATUS.attached},
-            alt_text = image_input.alt_text,
-            sort_order = image_input.sort_order,
-            updated_at = timezone('utc', now())
-        from image_input
-        where message_images.id = image_input.asset_id
-          and message_images.tribe_id = ${command.tribeId}
-          and message_images.uploaded_by = ${command.userId}
-          and (
-            message_images.status = ${MESSAGE_IMAGE_STATUS.draft}
-            or (
-              message_images.status = ${MESSAGE_IMAGE_STATUS.pendingDelete}
-              and message_images.message_id = ${command.messageId}
-            )
-          )
-        returning
-          message_images.id,
-          message_images.alt_text,
-          message_images.delivery_url as url,
-          message_images.sort_order
-      )
-      select
-        coalesce(
-          json_agg(
-            json_build_object(
-              'alt_text', updated_images.alt_text,
-              'id', updated_images.id,
-              'sort_order', updated_images.sort_order,
-              'url', updated_images.url
-            )
-            order by updated_images.sort_order
-          ),
-          '[]'::json
-        ) as message_images
-      from updated_images
-    `);
+    const attachedImagesResult = await database.execute(
+      buildAttachMessageImagesQuery(command)
+    );
     const attachedImages =
-      ((attachedImagesResult.rows?.[0] ?? null) as PersistedMessageImagesRow | null)
+      ((attachedImagesResult.rows[0] ?? null) as PersistedMessageImagesRow | null)
         ?.message_images ?? [];
 
     if (attachedImages.length !== command.images.length) {
@@ -1461,63 +1687,11 @@ export class PostgresMessageMutationRepository
       return [];
     }
 
-    const providers = command.videos.map((video) => video.provider);
-    const externalIds = command.videos.map((video) => video.externalId);
-    const sortOrders = command.videos.map((video) => video.sortOrder);
-    const insertedVideosResult = await database.execute(sql`
-      with video_input as (
-        select
-          video_input.provider,
-          video_input.external_id,
-          video_input.sort_order::integer as sort_order
-        from unnest(
-          ${sql.param(providers)}::text[],
-          ${sql.param(externalIds)}::text[],
-          ${sql.param(sortOrders)}::int[]
-        ) as video_input(provider, external_id, sort_order)
-      ),
-      inserted_videos as (
-        insert into public.message_videos (
-          tribe_id,
-          message_id,
-          external_video_provider,
-          external_video_id,
-          sort_order,
-          created_at,
-          updated_at
-        )
-        select
-          ${command.tribeId},
-          ${command.messageId},
-          video_input.provider,
-          video_input.external_id,
-          video_input.sort_order,
-          timezone('utc', now()),
-          timezone('utc', now())
-        from video_input
-        returning
-          id,
-          external_video_provider,
-          external_video_id,
-          sort_order
-      )
-      select
-        coalesce(
-          json_agg(
-            json_build_object(
-              'external_video_id', inserted_videos.external_video_id,
-              'external_video_provider', inserted_videos.external_video_provider,
-              'id', inserted_videos.id,
-              'sort_order', inserted_videos.sort_order
-            )
-            order by inserted_videos.sort_order
-          ),
-          '[]'::json
-        ) as message_videos
-      from inserted_videos
-    `);
+    const insertedVideosResult = await database.execute(
+      buildInsertMessageVideosQuery(command)
+    );
     const insertedVideos =
-      ((insertedVideosResult.rows?.[0] ?? null) as PersistedMessageVideosRow | null)
+      ((insertedVideosResult.rows[0] ?? null) as PersistedMessageVideosRow | null)
         ?.message_videos ?? [];
 
     if (insertedVideos.length !== command.videos.length) {
@@ -1557,7 +1731,7 @@ export class PostgresMessageMutationRepository
       limit 1
     `);
 
-    return (targetResult.rows?.[0] ?? null) as PollTargetRow | null;
+    return (targetResult.rows[0] ?? null) as PollTargetRow | null;
   }
 
   private async lockMessagePollForVoting(
@@ -1606,7 +1780,7 @@ export class PostgresMessageMutationRepository
       from public.message_poll_votes
       where message_poll_votes.poll_id = ${pollId}
     `);
-    const row = (result.rows?.[0] ?? null) as PollVoteCountRow | null;
+    const row = (result.rows[0] ?? null) as PollVoteCountRow | null;
 
     return Number(row?.poll_vote_count ?? 0);
   }
@@ -1651,12 +1825,12 @@ export class PostgresMessageMutationRepository
       where message_polls.id = ${pollId}
       order by message_poll_options.sort_order asc
     `);
-    const rows = (optionsResult.rows ?? []) as Array<PollOptionRow & {
+    const rows = optionsResult.rows as Array<PollOptionRow & {
       allow_multiple_votes: boolean;
       poll_id: string;
       total_vote_count: number | string | null;
     }>;
-    const firstRow = rows[0];
+    const firstRow = rows.at(0);
     const totalVoteCount = Number(firstRow?.total_vote_count ?? 0);
 
     return {
@@ -1673,7 +1847,7 @@ export class PostgresMessageMutationRepository
                   (voteCount / totalVoteCount) * MESSAGE_POLL_PERCENTAGE_SCALE
                 )
               : 0,
-          selectedByViewer: Boolean(row.selected_by_viewer),
+          selectedByViewer: row.selected_by_viewer,
           text: row.option_text,
           voteCount,
         };
@@ -1738,7 +1912,7 @@ export class PostgresMessageMutationRepository
           on true
       `);
 
-      return mapCreatedReply((result.rows?.[0] ?? null) as CreatedReplyRow | null);
+      return mapCreatedReply((result.rows[0] ?? null) as CreatedReplyRow | null);
     });
   }
 }

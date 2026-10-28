@@ -41,7 +41,7 @@ function buildPresenceEndpoint(tribeSlug: string): string {
  */
 export function TribePresenceHeartbeat() {
   const routeParams = useParams<TribeRouteParams>();
-  const tribeSlug = routeParams?.slug ?? null;
+  const tribeSlug = routeParams.slug ?? null;
 
   useEffect(() => {
     if (!tribeSlug) {

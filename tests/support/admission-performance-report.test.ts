@@ -1,6 +1,7 @@
 /** @vitest-environment node */
 /** Exercises the actual public-artifact projection with private canaries and real Vitest JSON shapes. @module admission-performance-report-tests */
 import { describe, expect, it } from "vitest";
+import { ZodError } from "zod";
 import { createAdmissionPerformanceReport } from "./admission-performance-report.mjs";
 import { ADMISSION_PERFORMANCE_CASE, ADMISSION_PERFORMANCE_PHASE } from "./constants/admission-performance-runtime.mjs";
 import { execFile } from "node:child_process";
@@ -55,6 +56,6 @@ describe("native admission performance artifact", () => {
   });
 
   it("should reject unusable own metadata when the public artifact head is not a commit identifier", () => {
-    expect(() => createAdmissionPerformanceReport({ head: "private-canary", exitCode: null, outputTruncated: false, rawReport: null, output: "" })).toThrow();
+    expect(() => createAdmissionPerformanceReport({ head: "private-canary", exitCode: null, outputTruncated: false, rawReport: null, output: "" })).toThrow(ZodError);
   });
 });

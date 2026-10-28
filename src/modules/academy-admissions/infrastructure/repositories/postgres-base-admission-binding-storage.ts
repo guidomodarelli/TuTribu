@@ -34,11 +34,9 @@ export async function prepareBaseAdmissionBinding(database: RequestDatabase, tri
  * @param database - Same transaction holding its contact and request fences.
  * @param request - Current own pending proposal and expected version.
  * @param contact - Canonical contact already validated by the binding owner.
- * @param evidenceId - Current locked global identity capture.
- * @param fingerprint - Verified external contact-key digest and key identifier.
- * @param bindingId - Existing locked binding, or null to insert one.
+ * @param binding - Current locked global identity capture (`evidenceId`), verified external contact-key digest and key identifier (`fingerprint`), and the existing locked binding, or null to insert one (`bindingId`).
  * @returns Whether the request CAS succeeded; its owner rolls back on false.
  */
-export async function writeBaseAdmissionBinding(database: RequestDatabase, request: AdmissionRequest, contact: AdmissionContact, evidenceId: string, fingerprint: { digest: Uint8Array; keyId: string }, bindingId: string | null): Promise<boolean> {
+export async function writeBaseAdmissionBinding(database: RequestDatabase, request: AdmissionRequest, contact: AdmissionContact, { evidenceId, fingerprint, bindingId }: { evidenceId: string; fingerprint: { digest: Uint8Array; keyId: string }; bindingId: string | null }): Promise<boolean> {
   return Boolean((await database.execute(sql`select request_id from public.write_base_admission_contact_binding(${request.tribeId},${request.userId},${request.id},${request.version},${contact.type},${contact.value},${evidenceId},${Buffer.from(fingerprint.digest)},${fingerprint.keyId},${bindingId})`)).rows[0]);
 }

@@ -24,8 +24,8 @@ export function createAdmissionContactApiClient(options: { fetch?: typeof global
   /** @param code - Closed own error. @param uncertain - Whether the write may have committed. @param operation - Genuine guarded original metadata only. @returns Safe catalogue copy with no raw upstream diagnostics. */
   const failed = (code: AdmissionErrorCode, uncertain: boolean, operation?: AdmissionErrorOperation): AdmissionContactBrowserResult<never> => ({ status: ADMISSION_CONTACT_BROWSER_STATUS.failed, code, message: ADMISSION_ERROR_MESSAGE[code], uncertain, ...(operation ? { operation } : {}) });
   const base = (slug: string) => `${ADMISSION_CONTACT_BROWSER_PATH.prefix}/${encodeURIComponent(slug)}/${ADMISSION_CONTACT_BROWSER_PATH.segment}`;
-  /** @param url - Same-origin own route. @param schema - Own output contract. @param signal - Original caller cancellation/deadline. @param body - Optional exact write or readonly selection proposal. @param readError - Own safe error contract. @param readOnly - A POST lookup cannot have mutation uncertainty. @returns Guarded data, controlled failure or cancellation; no request is retried. */
-  async function request<Value>(url: string, schema: z.ZodType<Value>, signal: AbortSignal, body?: object, readError: z.ZodType<{ code: string; operation?: AdmissionErrorOperation }> = admissionPublicErrorSchema, readOnly = false): Promise<AdmissionContactBrowserResult<Value>> {
+  /** @param url - Same-origin own route. @param schema - Own output contract. @param signal - Original caller cancellation/deadline. @param options - `body`: optional exact write or readonly selection proposal; `readError`: own safe error contract; `readOnly`: a POST lookup cannot have mutation uncertainty. @returns Guarded data, controlled failure or cancellation; no request is retried. */
+  async function request<Value>(url: string, schema: z.ZodType<Value>, signal: AbortSignal, { body, readError = admissionPublicErrorSchema, readOnly = false }: { body?: object; readError?: z.ZodType<{ code: string; operation?: AdmissionErrorOperation }>; readOnly?: boolean } = {}): Promise<AdmissionContactBrowserResult<Value>> {
     const writing = body !== undefined && !readOnly;
     if (signal.aborted) return { status: ADMISSION_CONTACT_BROWSER_STATUS.aborted };
     try {
@@ -43,22 +43,22 @@ export function createAdmissionContactApiClient(options: { fetch?: typeof global
       return parsed.success ? { status: ADMISSION_CONTACT_BROWSER_STATUS.ready, value: parsed.data } : failed(ADMISSION_ERROR_CODE.publicContractUnusable, writing);
     } catch { return signal.aborted ? { status: ADMISSION_CONTACT_BROWSER_STATUS.aborted } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable, writing); }
   }
-  /** @typeParam Snapshot - Minimal own commit result. @param url - Fixed own write path. @param input - Original request identity and proposal. @param schema - Snapshot guard. @param signal - Caller cancellation. @param matches - Intent-specific result binding. @returns Original usable state or ambiguity without manufacturing progress. */
-  async function command<Snapshot>(url: string, input: { operationId: string }, schema: z.ZodType<Snapshot>, signal: AbortSignal, matches: (snapshot: Snapshot) => boolean = () => true) {
-    const result = await request(url, createAdmissionOperationStateSchema(schema), signal, input);
+  /** @typeParam Snapshot - Minimal own commit result. @param url - Fixed own write path. @param schema - Snapshot guard. @param signal - Caller cancellation. @param intent - `input`: original request identity and proposal; `matches`: intent-specific result binding. @returns Original usable state or ambiguity without manufacturing progress. */
+  async function command<Snapshot>(url: string, schema: z.ZodType<Snapshot>, signal: AbortSignal, { input, matches = () => true }: { input: { operationId: string }; matches?: (snapshot: Snapshot) => boolean }) {
+    const result = await request(url, createAdmissionOperationStateSchema(schema), signal, { body: input });
     if (result.status !== ADMISSION_CONTACT_BROWSER_STATUS.ready) return result;
     if (result.value.operationId.toLowerCase() !== input.operationId.toLowerCase() || result.value.state === OPERATION_STATE.completed && !matches(result.value.result)) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
     return result;
   }
   return {
-    current: (slug, input, signal) => request(`${base(slug)}/${ADMISSION_CONTACT_BROWSER_PATH.challenges}/${ADMISSION_CONTACT_BROWSER_PATH.current}`, admissionCurrentChallengeSelectionSchema, signal, input, admissionPublicErrorSchema, true),
-    issue: (slug, input, signal) => command(`${base(slug)}/${ADMISSION_CONTACT_BROWSER_PATH.challenges}`, input, admissionChallengeSnapshotSchema, signal, (snapshot) => snapshot.channel === input.channel),
-    verify: (slug, challengeId, input, signal) => command(`${base(slug)}/${ADMISSION_CONTACT_BROWSER_PATH.challenges}/${encodeURIComponent(challengeId)}/${ADMISSION_CONTACT_BROWSER_PATH.verify}`, input, admissionVerifiedContactSchema, signal),
-    resend: (slug, challengeId, input, signal) => command(`${base(slug)}/${ADMISSION_CONTACT_BROWSER_PATH.challenges}/${encodeURIComponent(challengeId)}/${ADMISSION_CONTACT_BROWSER_PATH.resend}`, input, admissionChallengeSnapshotSchema, signal, (snapshot) => !input.useSmsAlternative || snapshot.channel === MESSAGING_PUBLIC_CHANNEL.sms),
-    apply: (slug, requestId, input, signal) => command(`${base(slug)}/${ADMISSION_CONTACT_BROWSER_PATH.requests}/${encodeURIComponent(requestId)}/${ADMISSION_CONTACT_BROWSER_PATH.proof}`, input, admissionProofApplicationSnapshotSchema.options[0], signal, (snapshot) => snapshot.requestId.toLowerCase() === requestId.toLowerCase() && snapshot.proofId.toLowerCase() === input.proofId.toLowerCase() && snapshot.requestVersion === input.expectedVersion + 1),
+    current: (slug, input, signal) => request(`${base(slug)}/${ADMISSION_CONTACT_BROWSER_PATH.challenges}/${ADMISSION_CONTACT_BROWSER_PATH.current}`, admissionCurrentChallengeSelectionSchema, signal, { body: input, readOnly: true }),
+    issue: (slug, input, signal) => command(`${base(slug)}/${ADMISSION_CONTACT_BROWSER_PATH.challenges}`, admissionChallengeSnapshotSchema, signal, { input, matches: (snapshot) => snapshot.channel === input.channel }),
+    verify: (slug, challengeId, input, signal) => command(`${base(slug)}/${ADMISSION_CONTACT_BROWSER_PATH.challenges}/${encodeURIComponent(challengeId)}/${ADMISSION_CONTACT_BROWSER_PATH.verify}`, admissionVerifiedContactSchema, signal, { input }),
+    resend: (slug, challengeId, input, signal) => command(`${base(slug)}/${ADMISSION_CONTACT_BROWSER_PATH.challenges}/${encodeURIComponent(challengeId)}/${ADMISSION_CONTACT_BROWSER_PATH.resend}`, admissionChallengeSnapshotSchema, signal, { input, matches: (snapshot) => !input.useSmsAlternative || snapshot.channel === MESSAGING_PUBLIC_CHANNEL.sms }),
+    apply: (slug, requestId, input, signal) => command(`${base(slug)}/${ADMISSION_CONTACT_BROWSER_PATH.requests}/${encodeURIComponent(requestId)}/${ADMISSION_CONTACT_BROWSER_PATH.proof}`, admissionProofApplicationSnapshotSchema.options[0], signal, { input, matches: (snapshot) => snapshot.requestId.toLowerCase() === requestId.toLowerCase() && snapshot.proofId.toLowerCase() === input.proofId.toLowerCase() && snapshot.requestVersion === input.expectedVersion + 1 }),
     operation: (slug, operationId, signal) => request(`${base(slug)}/${ADMISSION_CONTACT_BROWSER_PATH.operations}/${encodeURIComponent(operationId)}`, admissionOperationRecoverySchema, signal),
     delivery: async (slug, deliveryId, signal) => {
-      const result = await request(`${ADMISSION_CONTACT_BROWSER_PATH.prefix}/${encodeURIComponent(slug)}/${ADMISSION_CONTACT_BROWSER_PATH.messaging}/${ADMISSION_CONTACT_BROWSER_PATH.deliveries}/${encodeURIComponent(deliveryId)}`, messageDeliverySchema, signal, undefined, messagingPublicErrorSchema);
+      const result = await request(`${ADMISSION_CONTACT_BROWSER_PATH.prefix}/${encodeURIComponent(slug)}/${ADMISSION_CONTACT_BROWSER_PATH.messaging}/${ADMISSION_CONTACT_BROWSER_PATH.deliveries}/${encodeURIComponent(deliveryId)}`, messageDeliverySchema, signal, { readError: messagingPublicErrorSchema });
       return result.status === ADMISSION_CONTACT_BROWSER_STATUS.ready && (result.value.id.toLowerCase() !== deliveryId.toLowerCase() || result.value.purpose !== ADMISSION_VERIFICATION_PURPOSE.admission) ? failed(ADMISSION_ERROR_CODE.publicContractUnusable, false) : result;
     },
   };

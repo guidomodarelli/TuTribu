@@ -47,8 +47,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("private credential i
       }}]);
       const operations=new PostgresMessagingCredentialValidation(execute,async()=>fixture.fixture.config);
       const budget=new ReserveMessagingUsageUseCase(new PostgresCredentialValidationBudget(execute,async()=>fixture.fixture.config));
-      const secrets=new PostgresEncryptedSecretStore((actorUserId,run)=>database.withContext({userId:actorUserId,email:fixture.fixture.own.email},run),accounts,async()=>fixture.fixture.config,"sensitive_leader");
-      const useCase=new ValidateMessagingConnectionUseCase(resolver,operations,budget,secrets,{create:(context,key)=>new ZavuConnectionInspector({...context,credential:key},transport.fetch)});
+      const secrets=new PostgresEncryptedSecretStore({executeWithDatabase:(actorUserId,run)=>database.withContext({userId:actorUserId,email:fixture.fixture.own.email},run),accounts,readSecurityConfig:async()=>fixture.fixture.config,purpose:"sensitive_leader"});
+      const useCase=new ValidateMessagingConnectionUseCase({resolver,operations,budget,secrets,inspectors:{create:(context,key)=>new ZavuConnectionInspector({...context,credential:key},transport.fetch)}});
       const input={tribeId:fixture.context.tribeId,connectionId,operationId:randomUUID(),confirmed:true as const,expectedVersion:1,requestId:randomUUID()};
       const result=await useCase.execute(input,new AbortController().signal);
       if(scenario==="success"){
@@ -111,7 +111,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("private credential i
         const pending=await operations.prepare(context,input);expect(pending.state).toBe("prepared");
       }
       await delay(MESSAGING_CREDENTIAL_RECOVERY_GRACE_MS/2);await delay(MESSAGING_CREDENTIAL_RECOVERY_GRACE_MS/2);
-      const transport=createAdmissionProviderTransport([]),secrets=new PostgresEncryptedSecretStore((actorUserId,run)=>database.withContext({userId:actorUserId,email:fixture.fixture.own.email},run),accounts,async()=>fixture.fixture.config,"sensitive_leader"),useCase=new ValidateMessagingConnectionUseCase(resolver,operations,budget,secrets,{create:(scope,key)=>new ZavuConnectionInspector({...scope,credential:key},transport.fetch)});
+      const transport=createAdmissionProviderTransport([]),secrets=new PostgresEncryptedSecretStore({executeWithDatabase:(actorUserId,run)=>database.withContext({userId:actorUserId,email:fixture.fixture.own.email},run),accounts,readSecurityConfig:async()=>fixture.fixture.config,purpose:"sensitive_leader"}),useCase=new ValidateMessagingConnectionUseCase({resolver,operations,budget,secrets,inspectors:{create:(scope,key)=>new ZavuConnectionInspector({...scope,credential:key},transport.fetch)}});
       const result=await useCase.execute(input,new AbortController().signal);expect(result).toMatchObject({ok:true,value:{state:"completed",replayed:false,result:{id:connectionId,version:2,configurationVersion:1,credentialState:"unavailable",credentialMode:"unknown",failureCode:"dependency_unavailable"}}});expect(transport.receipts).toHaveLength(0);expect(transport.deniedRequests).toBe(0);
       const late=await operations.complete(context,input,prepared.validationId,{ok:true,inspection:{isTestMode:false,apiKeyId:randomUUID(),projectId:randomUUID(),teamId:randomUUID()}});expect(late).toMatchObject({state:"completed",replayed:true,result:{credentialState:"unavailable",failureCode:"dependency_unavailable"}});
       expect(await useCase.execute(input,new AbortController().signal)).toMatchObject({ok:true,value:{state:"completed",replayed:true,result:{credentialState:"unavailable"}}});expect(transport.receipts).toHaveLength(0);

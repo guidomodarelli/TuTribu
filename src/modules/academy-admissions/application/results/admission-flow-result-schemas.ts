@@ -74,12 +74,19 @@ export const admissionBatchResultSchema = z.object({
   const completed = batch.items.filter((item) => item.status === ADMISSION_BATCH_ITEM_STATUS.approved || item.status === ADMISSION_BATCH_ITEM_STATUS.rejected || item.status === ADMISSION_BATCH_ITEM_STATUS.cancelled).length;
   const unresolved = batch.items.filter((item) => item.status === ADMISSION_BATCH_ITEM_STATUS.unresolved).length;
   const failed = batch.items.length - completed - unresolved;
-  const expected = unresolved > 0 ? ADMISSION_BATCH_RESULT.incomplete : completed > 0 && failed > 0 ? ADMISSION_BATCH_RESULT.mixed : failed > 0 ? ADMISSION_BATCH_RESULT.allRejected : ADMISSION_BATCH_RESULT.allSucceeded;
+  const expected = expectedAdmissionBatchResult({ completed, failed, unresolved });
   return new Set(batch.items.map((item) => item.requestId)).size === batch.items.length
     && batch.completedCount === completed && batch.failedCount === failed && batch.unresolvedCount === unresolved
     && batch.result === expected && batch.state === (unresolved > 0 ? OPERATION_STATE.started : OPERATION_STATE.completed)
     && batch.items.every((item) => completed > 0 && (item.status === ADMISSION_BATCH_ITEM_STATUS.approved || item.status === ADMISSION_BATCH_ITEM_STATUS.rejected || item.status === ADMISSION_BATCH_ITEM_STATUS.cancelled) ? item.version !== undefined : item.code !== undefined);
 });
+
+/** @returns The only summary consistent with the item counts: incomplete while unresolved, else mixed, all rejected or all succeeded. */
+function expectedAdmissionBatchResult({ completed, failed, unresolved }: { completed: number; failed: number; unresolved: number }) {
+  if (unresolved > 0) return ADMISSION_BATCH_RESULT.incomplete;
+  if (failed === 0) return ADMISSION_BATCH_RESULT.allSucceeded;
+  return completed > 0 ? ADMISSION_BATCH_RESULT.mixed : ADMISSION_BATCH_RESULT.allRejected;
+}
 
 /**
  * Binds an operation response to its owner's actual committed DTO without exposing intent or a current-snapshot claim.

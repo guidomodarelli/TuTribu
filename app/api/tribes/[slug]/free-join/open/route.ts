@@ -73,7 +73,7 @@ export async function PUT(
   }
 
   try {
-    const parsedBody = await request.json().catch(() => ({}));
+    const parsedBody: unknown = await request.json().catch(() => ({}));
 
     if (
       !isPayloadObject(parsedBody) ||

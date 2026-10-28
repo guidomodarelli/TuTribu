@@ -18,6 +18,43 @@ import {isMessagingDiagnosticSettled} from "@/src/modules/messaging/application/
 /** Issue/verify callbacks must remain explicit; this controller cannot fetch a session or invoke a provider. */
 type DiagnosticControllerOptions={candidate:MessagingConfigurationConnection|null;/** Channel the next action asks to test; it starts the form for each candidate scope. */preferredChannel?:MessagingDiagnosticDraft["channel"]|null;usage:MessagingUsagePolicyStateDto;renderedAt:string;blocked:boolean;issue:(destination:MessagingDiagnosticDestination,currentChallengeId?:string)=>Promise<void>;verify:(diagnostic:Extract<ConnectionDiagnosticIssueResult,{outcome:"issued"}>,code:string)=>Promise<void>;readDelivery:(diagnostic:Extract<ConnectionDiagnosticIssueResult,{outcome:"issued"}>)=>Promise<void>;feedback:(message:{kind:"status"|"alert";text:string}|null)=>void};
 
+type IssuedDiagnostic=Extract<ConnectionDiagnosticIssueResult,{outcome:"issued"}>;
+type DiagnosticTouched=Partial<Record<keyof MessagingDiagnosticFieldErrors,true>>;
+
+/** @param touched - Fields already edited. @param previous - Draft before the change. @param next - Proposed draft. @returns No touched fields after a channel switch; otherwise the previous ones plus every changed field. */
+function touchedAfterChange(touched:DiagnosticTouched,previous:MessagingDiagnosticDraft,next:MessagingDiagnosticDraft):DiagnosticTouched{
+  if(next.channel!==previous.channel)return {};
+  return{...touched,...(next.recipient===previous.recipient?{}:{recipient:true}),...(next.country===previous.country?{}:{country:true})};
+}
+
+/** @param instant - ISO instant of the current diagnostic, if one exists. @param nowMs - Current clock. @returns Whole seconds left, never negative, or null without a diagnostic. */
+function secondsUntil(instant:string|undefined,nowMs:number):number|null{
+  if(instant===undefined)return null;
+  return Math.max(0,Math.ceil((Date.parse(instant)-nowMs)/MILLISECONDS_PER_SECOND));
+}
+
+/** SMS and WhatsApp share one phone/contact namespace; replacing it stays an explicit consented resend. @param issuedChannel - Channel of the current diagnostic, if one exists. @param draftChannel - Channel in the form. @returns Whether a resend may replace the current diagnostic. */
+function canReplaceDiagnosticChannel(issuedChannel:IssuedDiagnostic["channel"]|undefined,draftChannel:MessagingDiagnosticDraft["channel"]):boolean{
+  if(issuedChannel===undefined)return false;
+  return issuedChannel===draftChannel||issuedChannel!==MESSAGING_PUBLIC_CHANNEL.email&&draftChannel!==MESSAGING_PUBLIC_CHANNEL.email;
+}
+
+/** @param state - Whether an unverified diagnostic with a valid credential is pending, and what a resend still needs. @returns The first missing piece for a resend, or null when nothing blocks it or no resend applies. */
+function resolveResendBlock(state:{pending:boolean;resendInSeconds:number|null;canReplaceChannel:boolean;destinationValid:boolean;confirmed:boolean}):MessagingDiagnosticResendBlock|null{
+  if(!state.pending)return null;
+  if(state.resendInSeconds!==null&&state.resendInSeconds>0)return MESSAGING_DIAGNOSTIC_RESEND_BLOCK.wait;
+  if(!state.canReplaceChannel)return MESSAGING_DIAGNOSTIC_RESEND_BLOCK.channel;
+  if(!state.destinationValid)return MESSAGING_DIAGNOSTIC_RESEND_BLOCK.destination;
+  if(!state.confirmed)return MESSAGING_DIAGNOSTIC_RESEND_BLOCK.consent;
+  return null;
+}
+
+/** @param result - Verification snapshot. @param diagnostic - Diagnostic issued in this scope. @returns Whether the snapshot verifies exactly that diagnostic. */
+function verificationMatches(result:ConnectionDiagnosticSnapshot,diagnostic:IssuedDiagnostic|null):result is Extract<ConnectionDiagnosticSnapshot,{outcome:typeof CONNECTION_DIAGNOSTIC_VERIFICATION_OUTCOME.verified}>{
+  if(result.outcome!==CONNECTION_DIAGNOSTIC_VERIFICATION_OUTCOME.verified||diagnostic===null)return false;
+  return result.diagnosticId===diagnostic.diagnosticId&&result.connectionVersion===diagnostic.connectionVersion&&result.channel===diagnostic.channel;
+}
+
 /** @param options - Current own immutable scope, usage and route-owned actions. @returns Controlled fields and safe original results, without persistence, automatic sending or delivery-as-proof. */
 export function useMessagingDiagnosticController(options:DiagnosticControllerOptions){
   const scopeKey=`${options.candidate?.id??""}:${options.candidate?.configurationVersion??0}`;
@@ -31,14 +68,14 @@ export function useMessagingDiagnosticController(options:DiagnosticControllerOpt
   const update=(patch:Partial<typeof state>)=>setState((previous)=>previous.scopeKey===scopeKey?{...previous,...patch}:previous);
   const allowedCountries=options.usage.policy?.allowedCountries??[],validation=validateMessagingDiagnosticDraft(current.draft,allowedCountries),codeMessage=validateMessagingDiagnosticCode(current.verificationCode),credentialValid=options.candidate?.credentialState===MESSAGING_CREDENTIAL_PUBLIC_STATE.valid;
   /** Field feedback appears only after the operator edits that field or attempts to send; a fresh form shows no errors. */
-  const change=(draft:MessagingDiagnosticDraft)=>{if(options.blocked)return;const channelChanged=draft.channel!==current.draft.channel;update({draft,confirmed:false,touched:channelChanged?{}:{...current.touched,...(draft.recipient!==current.draft.recipient?{recipient:true}:{}),...(draft.country!==current.draft.country?{country:true}:{})}});options.feedback(null);};
+  const change=(draft:MessagingDiagnosticDraft)=>{if(options.blocked)return;update({draft,confirmed:false,touched:touchedAfterChange(current.touched,current.draft,draft)});options.feedback(null);};
   const visibleErrors:MessagingDiagnosticFieldErrors=Object.fromEntries(Object.entries(validation.fieldErrors).filter(([field])=>current.touched[field as keyof MessagingDiagnosticFieldErrors]));
-  const verified=Boolean(current.diagnostic&&current.verifiedDiagnosticId===current.diagnostic.diagnosticId);
-  const expiresInSeconds=current.diagnostic?Math.max(0,Math.ceil((Date.parse(current.diagnostic.expiresAt)-nowMs)/MILLISECONDS_PER_SECOND)):null,resendInSeconds=current.diagnostic?Math.max(0,Math.ceil((Date.parse(current.diagnostic.resendAllowedAt)-nowMs)/MILLISECONDS_PER_SECOND)):null;
+  const verified=current.verifiedDiagnosticId===current.diagnostic?.diagnosticId;
+  const expiresInSeconds=secondsUntil(current.diagnostic?.expiresAt,nowMs),resendInSeconds=secondsUntil(current.diagnostic?.resendAllowedAt,nowMs);
   /** SMS and WhatsApp share one phone/contact namespace; replacing it stays an explicit consented resend. */
-  const canReplaceChannel=Boolean(current.diagnostic)&&(current.diagnostic?.channel===current.draft.channel||current.diagnostic?.channel!==MESSAGING_PUBLIC_CHANNEL.email&&current.draft.channel!==MESSAGING_PUBLIC_CHANNEL.email);
+  const canReplaceChannel=canReplaceDiagnosticChannel(current.diagnostic?.channel,current.draft.channel);
   /** The destination is not kept after a send, so a resend waits for it again; the step names the missing piece instead of a silent disabled button. */
-  const resendBlock:MessagingDiagnosticResendBlock|null=!current.diagnostic||verified||!credentialValid?null:resendInSeconds!==null&&resendInSeconds>0?MESSAGING_DIAGNOSTIC_RESEND_BLOCK.wait:!canReplaceChannel?MESSAGING_DIAGNOSTIC_RESEND_BLOCK.channel:!validation.valid?MESSAGING_DIAGNOSTIC_RESEND_BLOCK.destination:!current.confirmed?MESSAGING_DIAGNOSTIC_RESEND_BLOCK.consent:null;
+  const resendBlock=resolveResendBlock({pending:Boolean(current.diagnostic)&&!verified&&credentialValid,resendInSeconds,canReplaceChannel,destinationValid:validation.valid,confirmed:current.confirmed});
   const issue=async(resend=false)=>{if(!options.blocked&&!validation.valid)update({touched:{recipient:true,country:true}});if(options.blocked||!credentialValid||!current.confirmed||!validation.valid)return;if(resend&&verified)return;const previous=resend?current.diagnostic:null;if(resend&&(!previous||!canReplaceChannel||resendInSeconds!==0))return;update({confirmed:false,verificationCode:""});await options.issue(validation.destination,previous?.challengeId);};
   const verify=async()=>{if(options.blocked||!current.diagnostic||verified||codeMessage||expiresInSeconds===0)return;const code=current.verificationCode;update({verificationCode:"",confirmed:false});await options.verify(current.diagnostic,code);};
   return{...current,verified,allowedCountries,expiresInSeconds:verified?null:expiresInSeconds,resendInSeconds:verified?null:resendInSeconds,resendBlock,fieldErrors:{...visibleErrors,...(current.verificationCode&&codeMessage?{verificationCode:codeMessage}:{})},canIssue:!options.blocked&&credentialValid&&current.confirmed&&validation.valid,canResend:!options.blocked&&!verified&&credentialValid&&current.confirmed&&validation.valid&&canReplaceChannel&&resendInSeconds===0,canVerify:!options.blocked&&Boolean(current.diagnostic)&&!verified&&!codeMessage&&expiresInSeconds!==0,
@@ -49,7 +86,7 @@ export function useMessagingDiagnosticController(options:DiagnosticControllerOpt
     issue:()=>issue(),resend:()=>issue(true),verify,readDelivery:async()=>{if(!options.blocked&&current.diagnostic)await options.readDelivery(current.diagnostic);},
     acceptIssuance:(result:ConnectionDiagnosticIssueResult)=>{if(result.outcome===VERIFICATION_ISSUANCE_OUTCOME.issued&&result.connectionId===options.candidate?.id&&result.connectionVersion===options.candidate.configurationVersion)update({diagnostic:result,verifiedDiagnosticId:null,draft:{...current.draft,channel:isMessagingDiagnosticSettled(result,options.candidate)?current.draft.channel:result.channel,recipient:""},touched:{},confirmed:false,verificationCode:"",delivery:null});},
     /** Retains success only for the exact issued diagnostic it confirms; another challenge or configuration stays unverified. */
-    acceptVerification:(result:ConnectionDiagnosticSnapshot)=>{setState((previous)=>{if(previous.scopeKey!==scopeKey)return previous;const matches=result.outcome===CONNECTION_DIAGNOSTIC_VERIFICATION_OUTCOME.verified&&previous.diagnostic!==null&&result.diagnosticId===previous.diagnostic.diagnosticId&&result.connectionVersion===previous.diagnostic.connectionVersion&&result.channel===previous.diagnostic.channel;return{...previous,verificationCode:"",confirmed:false,...(matches?{verifiedDiagnosticId:result.diagnosticId}:{})};});if(result.outcome===CONNECTION_DIAGNOSTIC_VERIFICATION_OUTCOME.verified)options.feedback({kind:"status",text:MESSAGING_DIAGNOSTIC_UI_COPY.verified});},
+    acceptVerification:(result:ConnectionDiagnosticSnapshot)=>{setState((previous)=>{if(previous.scopeKey!==scopeKey)return previous;return{...previous,verificationCode:"",confirmed:false,...(verificationMatches(result,previous.diagnostic)?{verifiedDiagnosticId:result.diagnosticId}:{})};});if(result.outcome===CONNECTION_DIAGNOSTIC_VERIFICATION_OUTCOME.verified)options.feedback({kind:"status",text:MESSAGING_DIAGNOSTIC_UI_COPY.verified});},
     acceptDelivery:(delivery:z.infer<typeof messageDeliverySchema>)=>update({delivery}),
   };
 }

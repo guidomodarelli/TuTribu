@@ -39,7 +39,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native persona
         const completedStep = (stage: string) => process.stdout.write(JSON.stringify({ phase: "personal_ui_step", engine: name, width, phone, stage }) + "\n");
         const forbidden = [fixture.context.userId, fixture.sessionToken, fixture.fixture.credential, fixture.own.email, fixture.input.contact.value, secret, personal.token.token];
         page.setDefaultTimeout(180_000);
-        page.on("pageerror", (error) => { const reactCode = error.message.match(/Minified React error #(\d+)/u)?.[1]; failures.push(`${workflowPhase}:${error.name}${reactCode ? `:react-${reactCode}` : ""}`); });
+        page.on("pageerror", (error) => { const reactCode = /Minified React error #(\d+)/u.exec(error.message)?.[1]; failures.push(`${workflowPhase}:${error.name}${reactCode ? `:react-${reactCode}` : ""}`); });
         page.on("console", (message) => { if (message.type() === "error" && /hydration|hydrating/i.test(message.text())) failures.push("hydration"); if (message.type() === "error" && message.text().startsWith(ADMISSION_CONTACT_INTENT_DIAGNOSTIC)) { void Promise.all(message.args().slice(1).map((argument) => argument.jsonValue())).then((metadata) => process.stdout.write(JSON.stringify({ phase: "safe_contact_persistence_error", metadata }) + "\n")); } });
         let submissions = 0, issueRequests = 0, authRequests = 0, lostReply = true;
         const issueStatuses: number[] = [], authStatuses: number[] = [];
@@ -71,10 +71,10 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native persona
           }
           if (terminal !== "code") {
             const observation = await page.evaluate((catalogue) => {
-              const alerts = new Set(Array.from(document.querySelectorAll('[role="alert"]')).map((element) => element.textContent?.trim()));
+              const alerts = new Set(Array.from(document.querySelectorAll('[role="alert"]')).map((element) => element.textContent.trim()));
               const section = document.querySelector('section[aria-labelledby][aria-busy]');
               const input = document.querySelector('input[autocomplete="one-time-code"]');
-              return { publicCodes: catalogue.filter(([, message]) => alerts.has(message)).map(([code]) => code), confirm: section?.querySelector('[role="checkbox"]')?.getAttribute("aria-checked"), busy: section?.getAttribute("aria-busy"), secure: isSecureContext, uuid: typeof crypto.randomUUID, phoneInvalid: document.querySelector('input[type="tel"]')?.getAttribute("aria-invalid"), codeField: Boolean(input), codeLabelAssociated: Boolean(input && Array.from(document.querySelectorAll("label")).some((label) => label.htmlFor === input.id && label.textContent?.trim() === "Código de ingreso")) };
+              return { publicCodes: catalogue.filter(([, message]) => alerts.has(message)).map(([code]) => code), confirm: section?.querySelector('[role="checkbox"]')?.getAttribute("aria-checked"), busy: section?.getAttribute("aria-busy"), secure: isSecureContext, uuid: typeof crypto.randomUUID, phoneInvalid: document.querySelector('input[type="tel"]')?.getAttribute("aria-invalid"), codeField: Boolean(input), codeLabelAssociated: Boolean(input && Array.from(document.querySelectorAll("label")).some((label) => label.htmlFor === input.id && label.textContent.trim() === "Código de ingreso")) };
             }, [...Object.entries(ADMISSION_ERROR_MESSAGE), ...Object.entries(ADMISSION_CONTACT_COPY)]);
             throw new Error(`Personal code issuance did not produce a usable field ${JSON.stringify({ issueRequests, issueStatuses, authRequests, authStatuses, providerRequests, failures, ...observation })}`);
           }

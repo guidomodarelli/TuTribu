@@ -33,6 +33,12 @@ const HTTP_STATUS = {
   unauthorized: 401,
 } as const;
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type LessonFileUploadResult = Awaited<
+  ReturnType<RequestModules["courses"]["useCases"]["createLessonFileUpload"]>
+>;
+
 type UploadDeclaration = {
   fileName: string;
   fileSizeBytes: number;
@@ -65,6 +71,36 @@ function readUploadDeclaration(body: unknown): UploadDeclaration | null {
   return { fileName, fileSizeBytes, mimeType };
 }
 
+function createUploadResultResponse(result: LessonFileUploadResult): Response {
+  switch (result.status) {
+    case COURSE_MUTATION_STATUS.created:
+      return createJsonResponse(
+        {
+          assetId: result.assetId,
+          uploadHeaders: result.uploadHeaders,
+          uploadUrl: result.uploadUrl,
+        },
+        HTTP_STATUS.created
+      );
+    case COURSE_MUTATION_STATUS.notFound:
+      return createJsonResponse(
+        { message: LESSON_FILE_UPLOAD_ROUTE_RESPONSE.notFoundMessage },
+        HTTP_STATUS.notFound
+      );
+    case COURSE_MUTATION_STATUS.invalidFile:
+      return createJsonResponse(
+        { message: LESSON_FILE_UPLOAD_ROUTE_RESPONSE.invalidFileMessage },
+        HTTP_STATUS.badRequest
+      );
+    case COURSE_MUTATION_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        { message: LESSON_FILE_UPLOAD_ROUTE_RESPONSE.forbiddenMessage },
+        HTTP_STATUS.forbidden
+      );
+  }
+}
+
 export async function POST(
   request: Request,
   context: {
@@ -91,7 +127,7 @@ export async function POST(
   }
 
   try {
-    const body = await request.json().catch(() => null);
+    const body: unknown = await request.json().catch(() => null);
     const declaration = readUploadDeclaration(body);
 
     if (!declaration) {
@@ -109,33 +145,7 @@ export async function POST(
       userId: authenticatedMember.id,
     });
 
-    switch (result.status) {
-      case COURSE_MUTATION_STATUS.created:
-        return createJsonResponse(
-          {
-            assetId: result.assetId,
-            uploadHeaders: result.uploadHeaders,
-            uploadUrl: result.uploadUrl,
-          },
-          HTTP_STATUS.created
-        );
-      case COURSE_MUTATION_STATUS.notFound:
-        return createJsonResponse(
-          { message: LESSON_FILE_UPLOAD_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case COURSE_MUTATION_STATUS.invalidFile:
-        return createJsonResponse(
-          { message: LESSON_FILE_UPLOAD_ROUTE_RESPONSE.invalidFileMessage },
-          HTTP_STATUS.badRequest
-        );
-      case COURSE_MUTATION_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: LESSON_FILE_UPLOAD_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-    }
+    return createUploadResultResponse(result);
   } catch (error) {
     logger.error({
       message: LESSON_FILE_UPLOAD_ROUTE_LOG.failureMessage,

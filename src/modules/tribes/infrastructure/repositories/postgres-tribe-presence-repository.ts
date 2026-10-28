@@ -47,7 +47,7 @@ export class PostgresTribePresenceRepository implements TribePresenceRepository 
       const result = await database.execute(sql`
         select public.touch_tribe_member_presence(${tribeSlug}) as touched
       `);
-      const row = (result.rows?.[0] ?? null) as PresenceTouchRow | null;
+      const row = (result.rows[0] ?? null) as PresenceTouchRow | null;
 
       return Boolean(row?.touched);
     }).catch((error: unknown) => {

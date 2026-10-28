@@ -105,6 +105,102 @@ function isHttpUrl(value: string): boolean {
   }
 }
 
+type StoryMediaItemRead = { errorMessage: string } | { item: SaveTribeStoryMediaItem };
+
+function readStoryVideoItem(mediaUrl: string | null, sortOrder: number): StoryMediaItemRead {
+  if (!mediaUrl) {
+    return { errorMessage: STORY_ROUTE_RESPONSE.invalidVideoUrlMessage };
+  }
+
+  try {
+    const parsedVideo = parseExternalVideoUrl(mediaUrl);
+
+    return {
+      item: {
+        externalVideoId: parsedVideo.externalId,
+        mediaType: TRIBE_STORY_MEDIA_TYPE.video,
+        sortOrder,
+        url: null,
+        videoProvider: parsedVideo.provider,
+      },
+    };
+  } catch {
+    return { errorMessage: STORY_ROUTE_RESPONSE.invalidVideoUrlMessage };
+  }
+}
+
+function readStoryMediaItem(mediaCandidate: unknown, sortOrder: number): StoryMediaItemRead {
+  if (!isPayloadObject(mediaCandidate)) {
+    return { errorMessage: STORY_ROUTE_RESPONSE.invalidBodyMessage };
+  }
+
+  const mediaUrl = readRequiredText(mediaCandidate.url);
+
+  if (mediaCandidate.mediaType === TRIBE_STORY_MEDIA_TYPE.video) {
+    return readStoryVideoItem(mediaUrl, sortOrder);
+  }
+
+  if (mediaCandidate.mediaType === TRIBE_STORY_MEDIA_TYPE.image) {
+    if (!mediaUrl || !isHttpUrl(mediaUrl)) {
+      return { errorMessage: STORY_ROUTE_RESPONSE.invalidImageUrlMessage };
+    }
+
+    return {
+      item: {
+        externalVideoId: null,
+        mediaType: TRIBE_STORY_MEDIA_TYPE.image,
+        sortOrder,
+        url: mediaUrl,
+        videoProvider: null,
+      },
+    };
+  }
+
+  return { errorMessage: STORY_ROUTE_RESPONSE.invalidBodyMessage };
+}
+
+type StoryDraft = {
+  content: string;
+  media: SaveTribeStoryMediaItem[];
+  websiteUrl: string | null;
+};
+
+/**
+ * Validates the story body in the order the route reports its errors.
+ *
+ * @param parsedBody - Untrusted JSON body.
+ * @returns The story to save, or the first validation message.
+ */
+function readStoryDraft(parsedBody: unknown): StoryDraft | { errorMessage: string } {
+  if (!isPayloadObject(parsedBody)) {
+    return { errorMessage: STORY_ROUTE_RESPONSE.invalidBodyMessage };
+  }
+
+  const content = readRequiredText(parsedBody.content);
+
+  if (!content) {
+    return { errorMessage: STORY_ROUTE_RESPONSE.missingContentMessage };
+  }
+
+  if (content.length > TRIBE_STORY_CONTENT_MAX_LENGTH) {
+    return { errorMessage: STORY_ROUTE_RESPONSE.contentTooLongMessage };
+  }
+
+  const websiteUrl = readRequiredText(parsedBody.websiteUrl);
+
+  if (websiteUrl && !isHttpUrl(websiteUrl)) {
+    return { errorMessage: STORY_ROUTE_RESPONSE.invalidWebsiteUrlMessage };
+  }
+
+  const mediaValidation = validateMediaItems(parsedBody.media);
+
+  if (!mediaValidation.ok) {
+    return { errorMessage: mediaValidation.errorMessage };
+  }
+
+  return { content, media: mediaValidation.media, websiteUrl };
+}
+
 function validateMediaItems(value: unknown): MediaValidationResult {
   if (value === undefined) {
     return { media: [], ok: true };
@@ -127,66 +223,13 @@ function validateMediaItems(value: unknown): MediaValidationResult {
   const media: SaveTribeStoryMediaItem[] = [];
 
   for (const [mediaIndex, mediaCandidate] of value.entries()) {
-    if (!isPayloadObject(mediaCandidate)) {
-      return {
-        errorMessage: STORY_ROUTE_RESPONSE.invalidBodyMessage,
-        ok: false,
-      };
+    const read = readStoryMediaItem(mediaCandidate, mediaIndex);
+
+    if ("errorMessage" in read) {
+      return { errorMessage: read.errorMessage, ok: false };
     }
 
-    const mediaUrl = readRequiredText(mediaCandidate.url);
-
-    if (mediaCandidate.mediaType === TRIBE_STORY_MEDIA_TYPE.video) {
-      if (!mediaUrl) {
-        return {
-          errorMessage: STORY_ROUTE_RESPONSE.invalidVideoUrlMessage,
-          ok: false,
-        };
-      }
-
-      try {
-        const parsedVideo = parseExternalVideoUrl(mediaUrl);
-
-        media.push({
-          externalVideoId: parsedVideo.externalId,
-          mediaType: TRIBE_STORY_MEDIA_TYPE.video,
-          sortOrder: mediaIndex,
-          url: null,
-          videoProvider: parsedVideo.provider,
-        });
-      } catch {
-        return {
-          errorMessage: STORY_ROUTE_RESPONSE.invalidVideoUrlMessage,
-          ok: false,
-        };
-      }
-
-      continue;
-    }
-
-    if (mediaCandidate.mediaType === TRIBE_STORY_MEDIA_TYPE.image) {
-      if (!mediaUrl || !isHttpUrl(mediaUrl)) {
-        return {
-          errorMessage: STORY_ROUTE_RESPONSE.invalidImageUrlMessage,
-          ok: false,
-        };
-      }
-
-      media.push({
-        externalVideoId: null,
-        mediaType: TRIBE_STORY_MEDIA_TYPE.image,
-        sortOrder: mediaIndex,
-        url: mediaUrl,
-        videoProvider: null,
-      });
-
-      continue;
-    }
-
-    return {
-      errorMessage: STORY_ROUTE_RESPONSE.invalidBodyMessage,
-      ok: false,
-    };
+    media.push(read.item);
   }
 
   return { media, ok: true };
@@ -269,6 +312,38 @@ export async function GET(
   }
 }
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type SaveTribeStoryResult = Awaited<
+  ReturnType<RequestModules["tribes"]["useCases"]["saveTribeStory"]>
+>;
+
+function createPutResultResponse(result: SaveTribeStoryResult, slug: string): Response {
+  switch (result.status) {
+    case TRIBE_STORY_SAVE_STATUS.updated:
+      revalidateTribeStoryAboutCache(slug);
+
+      return createJsonResponse(
+        {
+          message: STORY_ROUTE_RESPONSE.savedMessage,
+          story: result.story ? serializeStory(result.story) : null,
+        },
+        HTTP_STATUS.ok
+      );
+    case TRIBE_STORY_SAVE_STATUS.notFound:
+      return createJsonResponse(
+        { message: STORY_ROUTE_RESPONSE.notFoundMessage },
+        HTTP_STATUS.notFound
+      );
+    case TRIBE_STORY_SAVE_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        { message: STORY_ROUTE_RESPONSE.forbiddenMessage },
+        HTTP_STATUS.forbidden
+      );
+  }
+}
+
 export async function PUT(
   request: Request,
   context: {
@@ -296,79 +371,23 @@ export async function PUT(
   }
 
   try {
-    const parsedBody = await request.json().catch(() => ({}));
+    const parsedBody: unknown = await request.json().catch(() => ({}));
 
-    if (!isPayloadObject(parsedBody)) {
+    const draft = readStoryDraft(parsedBody);
+
+    if ("errorMessage" in draft) {
       return createJsonResponse(
-        { message: STORY_ROUTE_RESPONSE.invalidBodyMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    const content = readRequiredText(parsedBody.content);
-
-    if (!content) {
-      return createJsonResponse(
-        { message: STORY_ROUTE_RESPONSE.missingContentMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    if (content.length > TRIBE_STORY_CONTENT_MAX_LENGTH) {
-      return createJsonResponse(
-        { message: STORY_ROUTE_RESPONSE.contentTooLongMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    const websiteUrl = readRequiredText(parsedBody.websiteUrl);
-
-    if (websiteUrl && !isHttpUrl(websiteUrl)) {
-      return createJsonResponse(
-        { message: STORY_ROUTE_RESPONSE.invalidWebsiteUrlMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    const mediaValidation = validateMediaItems(parsedBody.media);
-
-    if (!mediaValidation.ok) {
-      return createJsonResponse(
-        { message: mediaValidation.errorMessage },
+        { message: draft.errorMessage },
         HTTP_STATUS.badRequest
       );
     }
 
     const result = await modules.tribes.useCases.saveTribeStory({
-      content,
-      media: mediaValidation.media,
+      ...draft,
       tribeSlug: slug,
-      websiteUrl,
     });
 
-    switch (result.status) {
-      case TRIBE_STORY_SAVE_STATUS.updated:
-        revalidateTribeStoryAboutCache(slug);
-
-        return createJsonResponse(
-          {
-            message: STORY_ROUTE_RESPONSE.savedMessage,
-            story: result.story ? serializeStory(result.story) : null,
-          },
-          HTTP_STATUS.ok
-        );
-      case TRIBE_STORY_SAVE_STATUS.notFound:
-        return createJsonResponse(
-          { message: STORY_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case TRIBE_STORY_SAVE_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: STORY_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-    }
+    return createPutResultResponse(result, slug);
   } catch (error) {
     logger.error({
       error,

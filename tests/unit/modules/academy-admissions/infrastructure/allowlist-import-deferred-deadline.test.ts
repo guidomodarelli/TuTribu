@@ -24,9 +24,22 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native deferred im
         await transaction.execute(sql`insert into public.academy_allowlist_import_rows(import_id,tribe_id,row_number,input_data,validation_result) select ${importId},tribe_id,row_number,input_data,validation_result from public.academy_allowlist_import_rows where import_id=${original.result.importId}`);
         await transaction.execute(sql`update public.academy_allowlist_import_rows set outcome='skipped',confirmed_operation_id=${ledgerId},committed_at=clock_timestamp() where import_id=${importId}`);
         await transaction.execute(sql`select pg_sleep(2.2)`);
-      }); } catch (error) { databaseCode = typeof error === "object" && error !== null && "code" in error ? error.code : typeof error === "object" && error !== null && "cause" in error && typeof error.cause === "object" && error.cause !== null && "code" in error.cause ? error.cause.code : undefined; }
+      }); } catch (error) { databaseCode = readDatabaseCode(error); }
       expect(databaseCode).toBe("23514");
       await database.withContext(fixture.own, async (transaction) => { expect((await transaction.execute(sql`select count(*)::int as count from public.academy_allowlist_import_rows where import_id=${importId}`)).rows).toEqual([{ count: 0 }]); });
     });
   }, 1_200_000);
 });
+
+/**
+ * Reads the SQL code from a database error or from its direct cause.
+ *
+ * @param error - Rejected value of the guarded transaction.
+ * @returns The SQL code, or undefined when none is present.
+ */
+function readDatabaseCode(error: unknown): unknown {
+  if (typeof error !== "object" || error === null) return undefined;
+  if ("code" in error) return error.code;
+  if ("cause" in error && typeof error.cause === "object" && error.cause !== null && "code" in error.cause) return error.cause.code;
+  return undefined;
+}

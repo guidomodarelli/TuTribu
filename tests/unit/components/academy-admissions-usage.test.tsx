@@ -26,8 +26,8 @@ describe("admission usage and historical presentation", () => {
     expect(screen.getByText("Aceptadas").closest("div")).toHaveTextContent("1");
     expect(screen.getByText("Aceptados").closest("div")).toHaveTextContent("3");
     expect(screen.getByText(/no representan un saldo ni una garantía monetaria/)).toBeInTheDocument();
-    expect(view.container.textContent?.includes(state.viewerId)).toBe(false);
-    expect(view.container.textContent?.includes(state.tribeId)).toBe(false);
+    expect(view.container.textContent.includes(state.viewerId)).toBe(false);
+    expect(view.container.textContent.includes(state.tribeId)).toBe(false);
     expect(screen.getByRole("link", { name: "Administrar países y cupos" })).toHaveAttribute("href", "/synthetic-academy/academia/admissions/messaging");
   });
 
@@ -105,7 +105,7 @@ describe("admission usage and historical presentation", () => {
     expect(within(screen.getByRole("region", { name: "Estado de mensajería" })).getByRole("status")).not.toBeEmptyDOMElement();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    expect(view.container.textContent?.includes(marker)).toBe(false);
-    expect(view.container.textContent?.includes(props.apiKey)).toBe(false);
+    expect(view.container.textContent.includes(marker)).toBe(false);
+    expect(view.container.textContent.includes(props.apiKey)).toBe(false);
   });
 });

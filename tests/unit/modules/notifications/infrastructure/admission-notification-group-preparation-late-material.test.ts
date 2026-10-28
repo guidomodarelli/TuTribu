@@ -19,7 +19,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native final group
       const ring = fixture.keys.config.keyrings.operation_payload;
       const replacement = await crypto.subtle.importKey("raw", randomBytes(MESSAGING_CRYPTO.keyBytes), { name: MESSAGING_CRYPTO.macAlgorithm, hash: MESSAGING_CRYPTO.macHash }, false, ["sign", "verify"]);
       const changed = { ...fixture.keys.config, keyrings: { ...fixture.keys.config.keyrings, operation_payload: { ...ring, keys: new Map([[ring.activeKeyId, replacement]]) } } };
-      let stagedObserved = false, stagedSnapshots = 0, outcome = "no_outcome";
+      let stagedObserved = false, stagedSnapshots = 0, outcome: string;
       const preparation = new PostgresAdmissionNotificationGroupPreparation(fixture.preparationExecute, async (transaction, tribeId) => {
         const allowed = await fixture.preparationAuthorize(transaction, tribeId);
         stagedObserved ||= Boolean((await transaction.execute(sql`select delivery.id from public.message_deliveries delivery join public.admission_notification_groups notification_group on notification_group.id=delivery.notification_group_id where notification_group.id=${command.groupId} and notification_group.state='frozen'`)).rows[0]);

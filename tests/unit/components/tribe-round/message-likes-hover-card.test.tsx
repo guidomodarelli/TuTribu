@@ -38,21 +38,17 @@ function renderHoverCard(likeCount = 12) {
 }
 
 function renderDisabledHoverCard(likeCount = 3) {
-  const handleClick = vi.fn();
-
   render(
     <MessageLikesHoverCard
       isTriggerDisabled
       likeCount={likeCount}
       messageId="message-1"
-      onTriggerClick={handleClick}
       tribeSlug="matematica-pro"
     >
-      <button disabled type="button">{`Me gusta ${likeCount}`}</button>
+      {/* A disabled ReactionButton stays focusable with aria-disabled. */}
+      <button aria-disabled="true" type="button">{`Me gusta ${likeCount}`}</button>
     </MessageLikesHoverCard>
   );
-
-  return { handleClick };
 }
 
 async function openHoverCard(user: ReturnType<typeof userEvent.setup>) {
@@ -159,14 +155,14 @@ describe("MessageLikesHoverCard", () => {
       ok: true,
     });
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    const { handleClick } = renderDisabledHoverCard(3);
+    renderDisabledHoverCard(3);
 
     await user.tab();
 
+    expect(screen.getByRole("button", { name: "Me gusta 3" })).toHaveFocus();
     await waitFor(() => {
       expect(screen.getByText("Guido Modarelli")).toBeInTheDocument();
     });
-    expect(handleClick).not.toHaveBeenCalled();
   });
 
   it("does not request likers when an open timer fires after unmounting", async () => {
@@ -336,16 +332,17 @@ describe("MessageLikesHoverCard on touch devices", () => {
   beforeEach(() => {
     (global.fetch as Mock).mockReset();
     window.matchMedia = function matchMediaTouchStub(query: string): MediaQueryList {
-      return {
+      // The component only uses the current listener API, so the stub leaves out the deprecated addListener/removeListener.
+      const mediaQueryList: Omit<MediaQueryList, "addListener" | "removeListener"> = {
         addEventListener: () => undefined,
-        addListener: () => undefined,
         dispatchEvent: () => false,
         matches: query === "(hover: none)",
         media: query,
         onchange: null,
         removeEventListener: () => undefined,
-        removeListener: () => undefined,
       };
+
+      return mediaQueryList as MediaQueryList;
     };
   });
 

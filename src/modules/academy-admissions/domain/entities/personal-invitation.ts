@@ -1,6 +1,5 @@
 /** Proposes a versioned personal invitation lifecycle without token recovery, contact binding or membership effects. @module personal-invitation */
-import type { AdmissionContact, AdmissionContactType } from "../value-objects/admission-contact";
-import { normalizeAdmissionContact } from "../value-objects/admission-contact";
+import { normalizeAdmissionContact, type AdmissionContact, type AdmissionContactType } from "../value-objects/admission-contact";
 import { AdmissionOperationError } from "../errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { ADMISSION_INVITATION_STATUS } from "../../constants/admission-eligibility";
@@ -25,13 +24,19 @@ function assertCurrentVersion(invitation: PersonalInvitation, expectedVersion: n
   if (expectedVersion !== invitation.version) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationConflict);
 }
 
+/** @param expiresAt - Explicit expiry, `null` for none, or absent for the default. @param now - Authoritative clock. @returns A detached expiry date or `null`. */
+function resolveInvitationExpiry(expiresAt: Date | null | undefined, now: Date): Date | null {
+  if (expiresAt === undefined) return new Date(now.getTime() + ADMISSION_LIMIT.invitationDefaultValidityMs);
+  return expiresAt === null ? null : new Date(expiresAt);
+}
+
 /** @param input - Server-assigned identity/clock and normalized policy plus explicit recipient, restrictions and optional expiry. @returns A detached version-one resource without token or access effects. @throws AdmissionOperationError when recipient, expiry, exemption or phone-OFF issuance is forbidden. */
 export function createPersonalInvitation(input: { id: string; tribeId: string; actorUserId: string; contact: { type: AdmissionContactType; value: string; country?: string }; internalName: string; requiresAllowlist: boolean; allowlistExemptionAcknowledged: boolean; expiresAt?: Date | null; now: Date; policy: { contactType: AdmissionContactType; requiresAdditionalVerification: boolean } }): PersonalInvitation {
   if (!input.id || !input.tribeId || !input.actorUserId || !Number.isFinite(input.now.getTime()) || input.contact.type !== input.policy.contactType || !input.requiresAllowlist && !input.allowlistExemptionAcknowledged) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
   if (input.policy.contactType === ADMISSION_CONTACT_TYPE.phone && !input.policy.requiresAdditionalVerification) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationUnavailable);
   const normalized = normalizeAdmissionContact(input.contact);
   if (normalized.status !== ADMISSION_CONTACT_NORMALIZATION_STATUS.valid) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-  const expiresAt = input.expiresAt === undefined ? new Date(input.now.getTime() + ADMISSION_LIMIT.invitationDefaultValidityMs) : input.expiresAt === null ? null : new Date(input.expiresAt);
+  const expiresAt = resolveInvitationExpiry(input.expiresAt, input.now);
   if (expiresAt && (!Number.isFinite(expiresAt.getTime()) || expiresAt <= input.now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
   return { id: input.id, tribeId: input.tribeId, createdByUserId: input.actorUserId, internalName: normalizePersonalInvitationName(input.internalName), contact: { ...normalized.contact }, requiresAllowlist: input.requiresAllowlist, expiresAt,
     status: ADMISSION_INVITATION_STATUS.active, version: 1, createdAt: new Date(input.now), updatedAt: new Date(input.now), redeemedByUserId: null, redeemedRequestId: null, redeemedAt: null, revokedAt: null, authorizationRevokedAt: null };

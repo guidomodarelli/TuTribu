@@ -134,9 +134,11 @@ async function getGoogleAccessTokenForMember(
   userId: string
 ): Promise<string | null> {
   try {
-    const tokens = await auth.api.getAccessToken({
+    // Better Auth types the refreshed token as always present, but it comes from
+    // the provider's stored credentials, so a missing token is still possible.
+    const tokens = (await auth.api.getAccessToken({
       body: { providerId: BETTER_AUTH_PROVIDER.google, userId },
-    });
+    })) as { accessToken?: string | null } | null | undefined;
 
     return tokens?.accessToken ?? null;
   } catch (error) {

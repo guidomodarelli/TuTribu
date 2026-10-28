@@ -17,14 +17,14 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native whole admis
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAdmissionNotificationGroupAuthority(database), [original] = await fixture.queueIndividual(1), claim = await fixture.claim();
       expect(claim.deliveryId).toBe(original.deliveryId);
-      const missing = new PostgresMessageDeliveryRepository(fixture.deliveryExecute, fixture.deliveryAuthorize, fixture.readSecurityConfig);
+      const missing = new PostgresMessageDeliveryRepository({ execute: fixture.deliveryExecute, authorizeMaintenance: fixture.deliveryAuthorize, readSecurityConfig: fixture.readSecurityConfig });
       await expect(missing.authorize(claim, randomUUID())).rejects.toMatchObject({ code: "connection_incomplete" });
       expect(await fixture.snapshot(original.deliveryId)).toEqual({ state: "queued", attempts: 0, reservations: 0, exposures: 0, suppressions: 0 });
       const authorized = await fixture.deliveryRepository.authorize(claim, randomUUID());
       if (authorized.outcome !== "authorized") throw new Error("Native current whole group did not receive a committed marker");
       expect(await fixture.snapshot(original.deliveryId)).toEqual({ state: "queued", attempts: 1, reservations: 1, exposures: 0, suppressions: 0 });
       expect(await fixture.execute(async (transaction) => (await transaction.execute(sql`select category,state from public.messaging_usage_reservations where delivery_id=${original.deliveryId}`)).rows)).toEqual([{ category: "notification", state: "consumed" }]);
-      const unguardedSecrets = new PostgresEncryptedSecretStore(fixture.deliveryExecute, { getAuthenticatedAccount: async () => null }, fixture.readSecurityConfig, "authorized_delivery");
+      const unguardedSecrets = new PostgresEncryptedSecretStore({ executeWithDatabase: fixture.deliveryExecute, accounts: { getAuthenticatedAccount: async () => null }, readSecurityConfig: fixture.readSecurityConfig, purpose: "authorized_delivery" });
       const unguardedProvider = new PostgresCurrentMessagingProvider((context, run) => fixture.deliveryExecute(context.authorizationPurpose === "authorized_delivery" ? context.contributingLeaderUserId : context.actorUserId, run), async () => ({ environment: fixture.keys.config.environment, securityEpoch: fixture.keys.config.securityEpoch, recoveryLocked: false }));
       await expect(unguardedSecrets.loadAuthorizedSecret(authorized.context)).rejects.toMatchObject({ code: "resource_unavailable" });
       await expect(unguardedProvider.read(authorized.context)).rejects.toMatchObject({ code: "resource_unavailable" });

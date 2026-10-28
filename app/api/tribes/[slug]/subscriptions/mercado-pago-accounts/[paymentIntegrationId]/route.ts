@@ -92,7 +92,7 @@ export async function PATCH(
   }
 
   try {
-    const body = await request.json().catch(() => null);
+    const body: unknown = await request.json().catch(() => null);
     const result =
       await modules.subscriptions.useCases.updateTribePaymentIntegrationAccountLabel({
         accountLabel: readStringField(
@@ -123,6 +123,7 @@ export async function PATCH(
           HTTP_STATUS.notFound
         );
       case TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden:
+      case TRIBE_SUBSCRIPTION_PRICE_STATUS.connected:
       default:
         return createJsonResponse(
           { message: MERCADO_PAGO_ACCOUNT_ROUTE_RESPONSE.forbiddenMessage },

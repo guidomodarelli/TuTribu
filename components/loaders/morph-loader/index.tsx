@@ -13,7 +13,7 @@ import {
   useReducedMotion,
   useTransform, type AnimationPlaybackControls, type MotionValue, type Transition 
 } from "motion/react";
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties  } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from "react";
 import {
   DEGREES_PER_TURN,
   FULL_TURN_RADIANS,
@@ -131,6 +131,135 @@ function Stroke({ values, wave }: { values: StrokeValues; wave: MotionValue<Part
   return <motion.path d={pathData} opacity={opacity} strokeWidth={width} />;
 }
 
+/** Motion values the idle loop and the settle animation drive, beside the turn in flight. */
+type IdleMotion = {
+  waves: MotionValue<Partial<StrokePose>>[];
+  rotate: MotionValue<number>;
+  loopAmount: MotionValue<number>;
+  pop: MotionValue<number>;
+  turning: RefObject<AnimationPlaybackControls | null>;
+};
+
+/**
+ * Springs every stroke value to the pose of the new shape, or sets it at once under reduced motion.
+ *
+ * @param target - Stroke values, the new shape, stroke width and the reduced motion preference.
+ * @returns The animations started, to stop on the next change.
+ */
+function animateStrokes({ strokes, shape, strokeWidth, reduceMotion }: { strokes: StrokeValues[]; shape: MorphLoaderShape; strokeWidth: number; reduceMotion: boolean }): AnimationPlaybackControls[] {
+  const settling = isSettledShape(shape);
+  const controls: AnimationPlaybackControls[] = [];
+  shapePoses(shape, strokeWidth).forEach((pose, index) => {
+    const values = strokes[index];
+    for (const key of STROKE_POSE_KEYS) {
+      const value = values[key];
+      const target =
+        key === "ang"
+          ? nearestAngle(value.get(), pose.ang, pose.bend === 0 && values.bend.get() < STRAIGHT_BEND_THRESHOLD)
+          : pose[key];
+      if (reduceMotion) {
+        value.set(target);
+        continue;
+      }
+      // The check draws itself in stroke order; loading shapes gather all at once.
+      const delay = settling ? index * MOTION_TIMING.listStagger : 0;
+      controls.push(animate(value, target, { ...(settling ? SETTLE_TRANSITION : MORPH_TRANSITION), delay }));
+    }
+  });
+  return controls;
+}
+
+/** @param motion - Idle motion values and the turn in flight. @param settling - Whether the shape is a finished mark. @returns Nothing; every offset, turn and pop is set to its resting value. */
+function resetIdleMotion(motion: IdleMotion, settling: boolean): void {
+  motion.turning.current?.stop();
+  motion.turning.current = null;
+  motion.waves.forEach((wave) => wave.set({}));
+  motion.loopAmount.set(settling ? 0 : 1);
+  motion.rotate.set(0);
+  motion.pop.set(1);
+}
+
+/** @param motion - Idle motion values and the turn in flight. @param settling - Whether the shape is a finished mark. @returns The loop, turn and pop animations started, to stop on the next change. */
+function animateSettling(motion: IdleMotion, settling: boolean): AnimationPlaybackControls[] {
+  const controls = [
+    animate(motion.loopAmount, settling ? 0 : 1, {
+      duration: settling ? MOTION_TIMING.exit : MOTION_TIMING.standard,
+      ease: MOTION_EASE_STANDARD,
+    }),
+  ];
+  if (settling) {
+    // The finished mark lands upright: the turn carries on to the next full revolution and the mark pops once.
+    motion.turning.current?.stop();
+    motion.turning.current = animate(motion.rotate, nextUprightAngle(motion.rotate.get()), TURN_TRANSITION);
+    controls.push(
+      animate(motion.pop, [1, POP_PEAK_SCALE, 1], {
+        duration: MOTION_TIMING.standard,
+        times: [0, POP_PEAK_AT, 1],
+        ease: ["easeOut", "easeInOut"],
+      }),
+    );
+  } else {
+    // Loading resumed: a pop stopped mid flight shrinks back instead of leaving the loader enlarged.
+    controls.push(animate(motion.pop, 1, { duration: MOTION_TIMING.exit, ease: MOTION_EASE }));
+  }
+  return controls;
+}
+
+/**
+ * Advances the idle wave and turn by one frame.
+ *
+ * @param motion - Idle motion values and the turn in flight.
+ * @param frame - Current shape, the idle clock and the frame duration.
+ * @returns Nothing; the waves and the rotation move on.
+ */
+function stepIdleMotion(motion: IdleMotion, { shape, clockSeconds, deltaMs }: { shape: MorphLoaderShape; clockSeconds: RefObject<number>; deltaMs: number }): void {
+  const loading = !isSettledShape(shape);
+  const amount = motion.loopAmount.get();
+  if (!loading && amount < SETTLED_AMOUNT_THRESHOLD) return;
+  const deltaSeconds = Math.min(deltaMs, MAX_FRAME_DELTA_MS) / MS_PER_SECOND;
+  clockSeconds.current += deltaSeconds * (loading ? 1 : amount);
+  const offsets = idleOffsets(shape, clockSeconds.current, amount);
+  motion.waves.forEach((wave, index) => wave.set(offsets[index]));
+
+  const turn = loading ? idleTurn(shape, clockSeconds.current, deltaSeconds, amount) : null;
+  if (turn !== null) {
+    motion.turning.current?.stop();
+    motion.turning.current = null;
+    motion.rotate.set(motion.rotate.get() + turn);
+  } else if (loading && !motion.turning.current && Math.abs(motion.rotate.get() % DEGREES_PER_TURN) > UPRIGHT_TOLERANCE_DEGREES) {
+    motion.turning.current = animate(motion.rotate, nextUprightAngle(motion.rotate.get()), TURN_TRANSITION);
+  }
+}
+
+/** @param status - Loader status. @param labels - Loading, success and error announcements. @returns The announcement of the status. */
+function statusAnnouncement(status: MorphLoaderStatus, labels: { label: string; successLabel: string; errorLabel: string }): string {
+  if (status === "success") return labels.successLabel;
+  return status === "error" ? labels.errorLabel : labels.label;
+}
+
+/** @param props - Rendered size, the rotate/pop transform and every stroke's values and wave. @returns The hidden four-stroke drawing. */
+function MorphDrawing({ size, transform, strokes, waves }: { size: number; transform: MotionValue<string>; strokes: StrokeValues[]; waves: MotionValue<Partial<StrokePose>>[] }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={styles.MorphLoader__drawing}
+      fill="none"
+      focusable="false"
+      height={size}
+      stroke="currentColor"
+      strokeLinecap="round"
+      viewBox="0 0 24 24"
+      width={size}
+    >
+      <motion.g style={{ transform, transformOrigin: "12px 12px", transformBox: "view-box" }}>
+        {strokes.map((values, index) => (
+          <Stroke key={index} values={values} wave={waves[index]} />
+        ))}
+      </motion.g>
+    </svg>
+  );
+}
+
 /**
  * A small loader drawn from four strokes. Every variant, and the check and cross it ends on, is the same
  * four strokes in a new pose, so changing the variant or the status morphs one shape into the next.
@@ -172,85 +301,26 @@ export function MorphLoader({
   }, [shape]);
 
   useEffect(() => {
-    const targets = shapePoses(shape, strokeWidth);
     const settling = isSettledShape(shape);
-    const controls: AnimationPlaybackControls[] = [];
-    targets.forEach((pose, index) => {
-      const values = strokes[index];
-      for (const key of STROKE_POSE_KEYS) {
-        const value = values[key];
-        const target =
-          key === "ang"
-            ? nearestAngle(value.get(), pose.ang, pose.bend === 0 && values.bend.get() < STRAIGHT_BEND_THRESHOLD)
-            : pose[key];
-        if (reduceMotion) {
-          value.set(target);
-          continue;
-        }
-        // The check draws itself in stroke order; loading shapes gather all at once.
-        const delay = settling ? index * MOTION_TIMING.listStagger : 0;
-        controls.push(animate(value, target, { ...(settling ? SETTLE_TRANSITION : MORPH_TRANSITION), delay }));
-      }
-    });
+    const controls = animateStrokes({ strokes, shape, strokeWidth, reduceMotion });
     if (reduceMotion) {
       // Clear every animated offset too, so a preference switched mid flight never freezes a half-drawn shape.
-      turning.current?.stop();
-      turning.current = null;
-      waves.forEach((wave) => wave.set({}));
-      loopAmount.set(settling ? 0 : 1);
-      rotate.set(0);
-      pop.set(1);
+      resetIdleMotion({ waves, rotate, loopAmount, pop, turning }, settling);
       return undefined;
     }
-    controls.push(
-      animate(loopAmount, settling ? 0 : 1, {
-        duration: settling ? MOTION_TIMING.exit : MOTION_TIMING.standard,
-        ease: MOTION_EASE_STANDARD,
-      }),
-    );
-    if (settling) {
-      // The finished mark lands upright: the turn carries on to the next full revolution and the mark pops once.
-      turning.current?.stop();
-      turning.current = animate(rotate, nextUprightAngle(rotate.get()), TURN_TRANSITION);
-      controls.push(
-        animate(pop, [1, POP_PEAK_SCALE, 1], {
-          duration: MOTION_TIMING.standard,
-          times: [0, POP_PEAK_AT, 1],
-          ease: ["easeOut", "easeInOut"],
-        }),
-      );
-    } else {
-      // Loading resumed: a pop stopped mid flight shrinks back instead of leaving the loader enlarged.
-      controls.push(animate(pop, 1, { duration: MOTION_TIMING.exit, ease: MOTION_EASE }));
-    }
+    controls.push(...animateSettling({ waves, rotate, loopAmount, pop, turning }, settling));
     return () => controls.forEach((control) => control.stop());
   }, [shape, strokeWidth, reduceMotion, loopAmount, pop, rotate, strokes, waves]);
 
   useAnimationFrame((_time, deltaMs) => {
     if (reduceMotion) return;
-    const current = shapeRef.current;
-    const loading = !isSettledShape(current);
-    const amount = loopAmount.get();
-    if (!loading && amount < SETTLED_AMOUNT_THRESHOLD) return;
-    const deltaSeconds = Math.min(deltaMs, MAX_FRAME_DELTA_MS) / MS_PER_SECOND;
-    clockSeconds.current += deltaSeconds * (loading ? 1 : amount);
-    const offsets = idleOffsets(current, clockSeconds.current, amount);
-    waves.forEach((wave, index) => wave.set(offsets[index]));
-
-    const turn = loading ? idleTurn(current, clockSeconds.current, deltaSeconds, amount) : null;
-    if (turn !== null) {
-      turning.current?.stop();
-      turning.current = null;
-      rotate.set(rotate.get() + turn);
-    } else if (loading && !turning.current && Math.abs(rotate.get() % DEGREES_PER_TURN) > UPRIGHT_TOLERANCE_DEGREES) {
-      turning.current = animate(rotate, nextUprightAngle(rotate.get()), TURN_TRANSITION);
-    }
+    stepIdleMotion({ waves, rotate, loopAmount, pop, turning }, { shape: shapeRef.current, clockSeconds, deltaMs });
   });
 
   const transform = useTransform(
     () => `rotate(${rotate.get().toFixed(ROTATE_PRECISION)}deg) scale(${pop.get().toFixed(SCALE_PRECISION)})`,
   );
-  const announcement = status === "success" ? successLabel : status === "error" ? errorLabel : label;
+  const announcement = statusAnnouncement(status, { label, successLabel, errorLabel });
   const rootClassName = [styles.MorphLoader, className].filter(Boolean).join(" ");
 
   return (
@@ -262,23 +332,7 @@ export function MorphLoader({
       role={decorative ? undefined : "status"}
       style={{ ...style, width: size, height: size }}
     >
-      <svg
-        aria-hidden="true"
-        className={styles.MorphLoader__drawing}
-        fill="none"
-        focusable="false"
-        height={size}
-        stroke="currentColor"
-        strokeLinecap="round"
-        viewBox="0 0 24 24"
-        width={size}
-      >
-        <motion.g style={{ transform, transformOrigin: "12px 12px", transformBox: "view-box" }}>
-          {strokes.map((values, index) => (
-            <Stroke key={index} values={values} wave={waves[index]} />
-          ))}
-        </motion.g>
-      </svg>
+      <MorphDrawing size={size} transform={transform} strokes={strokes} waves={waves} />
       {decorative ? null : <span className={styles.MorphLoader__srOnly}>{announcement}</span>}
     </span>
   );

@@ -108,7 +108,7 @@ export async function runAdmissionDistributedPerformance(options: { computeUnits
         report.failedHostRequests = replies.filter((reply) => reply.status === "rejected").length;
         await persist();
         assert.equal(report.failedHostRequests, 0, "Distributed admission original HTTP responses must all be known");
-        const results = replies.map((reply) => { assert.equal(reply.status, "fulfilled"); return reply.value; });
+        const results = replies.map((reply) => reply.status === "fulfilled" ? reply.value : assert.fail("Distributed admission original HTTP responses must all be known"));
         for (const result of results) assert.deepEqual(result, { operationId: report.operationId, state: ADMISSION_NODE_RUN_STATE.completed, measurement: null });
         /** SQL rows are trusted adapter output; only public HTTP DTOs are schema-validated here. */
         const readNodes = () => database.withContext({ userId: null, email: null }, async (transaction) => (await transaction.execute<AdmissionDistributedStoredNode>(sql`select node_index,state,measurement from native_test_support.admission_distributed_nodes where cohort_id=${report.operationId} order by node_index`)).rows);

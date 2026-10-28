@@ -41,69 +41,106 @@ const ACADEMY_ENTRY_SEGMENT = "academy/join";
 /** Explicit compatibility submission retains the owner's recoverable transport contract. */
 export type AcademyAdmissionBrowserEntry = { submitAcademyEntry(slug: string, input: AdmissionBrowserSubmission, signal: AbortSignal): Promise<AdmissionBrowserResult<AdmissionOutcomeDto | AdmissionStartedResponse>> };
 
+type AdmissionErrorCodeValue = typeof ADMISSION_ERROR_CODE[keyof typeof ADMISSION_ERROR_CODE];
+/** Optional write of an own request: the original intent and its method when it differs from POST. */
+type AdmissionWrite = { body?: object; method?: "POST" | "PUT" };
+/** Own policy command: target path, original identity/counter and write method. */
+type AdmissionPolicyCommand = { path: string; input: { operationId: string; confirmed: true; expectedVersion?: number }; method?: "POST" | "PUT" };
+
+/** Converts a native rejection to safe copy without exposing a cause or claiming accepted work. */
+function failed(code: AdmissionErrorCodeValue, uncertain = false): AdmissionBrowserResult<never> {
+  return { status: "failed", code, message: ADMISSION_ERROR_MESSAGE[code], uncertain };
+}
+
+/**
+ * Ends a hung call: the caller's cancellation stays an abort, while an expired deadline is a failure that keeps a
+ * write uncertain (it may have committed), so its original intent is recovered instead of repeated.
+ * @param callerSignal - The caller's own cancellation.
+ * @param writing - Whether the call may have changed server state.
+ * @param call - The call, run with a signal that also follows the deadline.
+ * @returns The call's result, or a deadline failure when the response never arrived.
+ */
+function bounded<Value>(callerSignal: AbortSignal, writing: boolean, call: (signal: AbortSignal) => Promise<AdmissionBrowserResult<Value>>): Promise<AdmissionBrowserResult<Value>> {
+  return boundBrowserRequest<AdmissionBrowserResult<Value>>(callerSignal, call, () => ({ status: "failed", code: ADMISSION_ERROR_CODE.transportTimeout, message: BROWSER_REQUEST_TIMEOUT_MESSAGE, uncertain: writing }));
+}
+
+/** @param body - Original write intent. @param operationId - Identity echoed by the own error. @returns Whether the echoed identity differs from the original one. */
+function hasForeignOperation(body: object | undefined, operationId: string): boolean {
+  return !body || !("operationId" in body) || typeof body.operationId !== "string" || operationId !== body.operationId.toLowerCase();
+}
+
+/**
+ * Reads an own error DTO without turning accepted unresolved work into success or rollback.
+ * @returns The safe failure, or `null` when the response carries a result instead.
+ */
+function readAdmissionFailure(response: Response, value: unknown, writing: boolean, body: object | undefined): AdmissionBrowserResult<never> | null {
+  const error = !response.ok || response.status === HTTP_STATUS.accepted ? admissionPublicErrorSchema.safeParse(value) : null;
+  if (!error || (response.ok && !(error.success && error.data.code === ADMISSION_ERROR_CODE.operationUnresolved))) return null;
+  if (!error.success) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, writing);
+  if (writing && error.data.operation && hasForeignOperation(body, error.data.operation.operationId)) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
+  return failed(error.data.code, writing && (error.data.code === ADMISSION_ERROR_CODE.operationUnresolved || response.status >= HTTP_STATUS.serverError || error.data.operation?.state === OPERATION_STATE.started));
+}
+
+/** Sends one own request under a signal that already follows the caller and the deadline. */
+async function send<Value>(transport: typeof globalThis.fetch, url: string, schema: z.ZodType<Value>, { signal, write }: { signal: AbortSignal; write: AdmissionWrite }): Promise<AdmissionBrowserResult<Value>> {
+  const { body, method } = write;
+  const writing = body !== undefined;
+  try {
+    const response = await transport(url, { method: writing ? method ?? "POST" : "GET", credentials: "same-origin", cache: "no-store", signal, ...(writing ? { headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {}) });
+    const value: unknown = await response.json();
+    if (signal.aborted) return { status: "aborted" };
+    const failure = readAdmissionFailure(response, value, writing, body);
+    if (failure) return failure;
+    const parsed = schema.safeParse(value);
+    return parsed.success ? { status: "ready", value: parsed.data } : failed(ADMISSION_ERROR_CODE.publicContractUnusable, writing);
+  } catch { return signal.aborted ? { status: "aborted" } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable, writing); }
+}
+
+/** @param snapshot - Confirmed own policy snapshot. @param command - Original command. @returns Whether the confirmed snapshot contradicts the original counter or intent. */
+function isUnboundPolicySnapshot(snapshot: z.infer<typeof admissionPolicyMutationResultSchema>, { path, input }: AdmissionPolicyCommand): boolean {
+  if (input.expectedVersion !== undefined && snapshot.version !== input.expectedVersion + (snapshot.changed ? 1 : 0)) return true;
+  if (path === ADMISSION_POLICY_BROWSER_PATH.activate && !snapshot.controlActivated) return true;
+  return path === ADMISSION_POLICY_BROWSER_PATH.policy && input.expectedVersion === undefined && snapshot.changed && (snapshot.version !== 1 || snapshot.verificationEpoch !== 1 || snapshot.controlActivated);
+}
+
+/** @param auth - Installed native SDK client. @returns The default viewer: the native account id only; SDK session/token/provider fields stay within this adapter. */
+function createSessionViewer(auth: ReturnType<typeof createAuthClient>): AdmissionBrowserClient["viewer"] {
+  return (callerSignal) => bounded(callerSignal, false, async (signal) => {
+    try {
+      const result = await auth.getSession({ query: { disableCookieCache: true }, fetchOptions: { signal } });
+      if (signal.aborted) return { status: "aborted" };
+      if (result.error) return result.error.status === HTTP_STATUS.unauthorized ? { status: "ready", value: null } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable);
+      return { status: "ready", value: result.data ? { id: result.data.user.id } : null };
+    } catch { return signal.aborted ? { status: "aborted" } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable); }
+  });
+}
+
 /** @param options - Explicit own HTTP transport; the default viewer uses the installed native SDK. @returns A same-origin application client with cancellation and safe owned contracts. */
 export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fetch; viewer?: AdmissionBrowserClient["viewer"] } = {}): AdmissionBrowserClient & AdmissionAccountBrowserClient & AdmissionReviewBrowserClient & AcademyAdmissionBrowserEntry & AdmissionPolicyBrowserClient & AdmissionWhatsappNumberBrowserClient & CommercialMembershipReviewBrowserClient {
   const transport = options.fetch ?? globalThis.fetch;
-  const auth = options.viewer ? null : createAuthClient();
+  const viewer = options.viewer ?? createSessionViewer(createAuthClient());
   const signOutClient = createAuthClient({ fetchOptions: { customFetchImpl: transport } });
-  /** Converts a native rejection to safe copy without exposing a cause or claiming accepted work. */
-  const failed = (code: typeof ADMISSION_ERROR_CODE[keyof typeof ADMISSION_ERROR_CODE], uncertain = false): AdmissionBrowserResult<never> => ({ status: "failed", code, message: ADMISSION_ERROR_MESSAGE[code], uncertain });
   const base = (slug: string) => `${ADMISSION_API_PREFIX}/${encodeURIComponent(slug)}/${ADMISSION_API_SEGMENT}`;
-
-  /**
-   * Ends a hung call: the caller's cancellation stays an abort, while an expired deadline is a failure that keeps a
-   * write uncertain (it may have committed), so its original intent is recovered instead of repeated.
-   * @param callerSignal - The caller's own cancellation.
-   * @param writing - Whether the call may have changed server state.
-   * @param call - The call, run with a signal that also follows the deadline.
-   * @returns The call's result, or a deadline failure when the response never arrived.
-   */
-  function bounded<Value>(callerSignal: AbortSignal, writing: boolean, call: (signal: AbortSignal) => Promise<AdmissionBrowserResult<Value>>): Promise<AdmissionBrowserResult<Value>> {
-    return boundBrowserRequest<AdmissionBrowserResult<Value>>(callerSignal, call, () => ({ status: "failed", code: ADMISSION_ERROR_CODE.transportTimeout, message: BROWSER_REQUEST_TIMEOUT_MESSAGE, uncertain: writing }));
-  }
 
   /**
    * Consumes own result/error DTOs without turning accepted unresolved work into success or rollback.
    * @param url - Same-origin own route.
    * @param schema - Public result contract selected by the caller.
-   * @param signal - Original caller cancellation.
-   * @param body - Optional original write intent.
-   * @param method - Explicit write method when it differs from POST.
+   * @param callerSignal - Original caller cancellation.
+   * @param write - Optional original write intent and its method when it differs from POST.
    * @returns Guarded data, cancellation or safe failure retaining uncertainty and original identity.
    */
-  async function request<Value>(url: string, schema: z.ZodType<Value>, callerSignal: AbortSignal, body?: object, method?: "POST" | "PUT"): Promise<AdmissionBrowserResult<Value>> {
-    const writing = body !== undefined;
-    return bounded(callerSignal, writing, (signal) => send(url, schema, signal, writing, body, method));
-  }
-
-  /** Sends one own request under a signal that already follows the caller and the deadline. */
-  async function send<Value>(url: string, schema: z.ZodType<Value>, signal: AbortSignal, writing: boolean, body?: object, method?: "POST" | "PUT"): Promise<AdmissionBrowserResult<Value>> {
-    try {
-      const response = await transport(url, { method: writing ? method ?? "POST" : "GET", credentials: "same-origin", cache: "no-store", signal, ...(writing ? { headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {}) });
-      const value: unknown = await response.json();
-      if (signal.aborted) return { status: "aborted" };
-      const error = !response.ok || response.status === HTTP_STATUS.accepted ? admissionPublicErrorSchema.safeParse(value) : null;
-      if (error && (!response.ok || error.success && error.data.code === ADMISSION_ERROR_CODE.operationUnresolved)) {
-        if (writing && error.success && error.data.operation && (!body || !("operationId" in body) || typeof body.operationId !== "string" || error.data.operation.operationId !== body.operationId.toLowerCase())) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
-        return error.success ? failed(error.data.code, writing && (error.data.code === ADMISSION_ERROR_CODE.operationUnresolved || response.status >= HTTP_STATUS.serverError || error.data.operation?.state === OPERATION_STATE.started)) : failed(ADMISSION_ERROR_CODE.publicContractUnusable, writing);
-      }
-      const parsed = schema.safeParse(value);
-      return parsed.success ? { status: "ready", value: parsed.data } : failed(ADMISSION_ERROR_CODE.publicContractUnusable, writing);
-    } catch { return signal.aborted ? { status: "aborted" } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable, writing); }
+  async function request<Value>(url: string, schema: z.ZodType<Value>, callerSignal: AbortSignal, write: AdmissionWrite = {}): Promise<AdmissionBrowserResult<Value>> {
+    return bounded(callerSignal, write.body !== undefined, (signal) => send(transport, url, schema, { signal, write }));
   }
 
   /** Validates the original command identity/counter before a browser can treat a response as confirmed. */
-  async function policyCommand(slug: string, path: string, input: { operationId: string; confirmed: true; expectedVersion?: number }, signal: AbortSignal, method: "POST" | "PUT" = "POST") {
-    const result = await request(`${base(slug)}/${path}`, createAdmissionOperationStateSchema(admissionPolicyMutationResultSchema), signal, input, method);
+  async function policyCommand(slug: string, command: AdmissionPolicyCommand, signal: AbortSignal) {
+    const result = await request(`${base(slug)}/${command.path}`, createAdmissionOperationStateSchema(admissionPolicyMutationResultSchema), signal, { body: command.input, method: command.method });
     if (result.status !== "ready") return result;
     const operation = result.value;
-    if (operation.operationId !== input.operationId.toLowerCase()) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
-    if (operation.state === "completed") {
-      const snapshot = operation.result;
-      if (input.expectedVersion !== undefined && snapshot.version !== input.expectedVersion + (snapshot.changed ? 1 : 0)) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
-      if (path === ADMISSION_POLICY_BROWSER_PATH.activate && !snapshot.controlActivated) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
-      if (path === ADMISSION_POLICY_BROWSER_PATH.policy && input.expectedVersion === undefined && snapshot.changed && (snapshot.version !== 1 || snapshot.verificationEpoch !== 1 || snapshot.controlActivated)) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
-    }
+    if (operation.operationId !== command.input.operationId.toLowerCase()) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
+    if (operation.state === "completed" && isUnboundPolicySnapshot(operation.result, command)) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
     return result;
   }
 
@@ -117,23 +154,15 @@ export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fe
     }),
     readPolicy: (slug, signal) => request(`${base(slug)}/${ADMISSION_POLICY_BROWSER_PATH.policy}`, admissionPolicyStateResultSchema, signal),
     readPreflight: (slug, signal) => request(`${base(slug)}/${ADMISSION_POLICY_BROWSER_PATH.preflight}`, admissionPreflightResultSchema, signal),
-    initializePolicy: (slug, input, signal) => policyCommand(slug, ADMISSION_POLICY_BROWSER_PATH.policy, input, signal),
-    updatePolicy: (slug, input, signal) => policyCommand(slug, ADMISSION_POLICY_BROWSER_PATH.policy, input, signal, "PUT"),
-    activatePolicy: (slug, input, signal) => policyCommand(slug, ADMISSION_POLICY_BROWSER_PATH.activate, input, signal),
-    pausePolicy: (slug, input, signal) => policyCommand(slug, ADMISSION_POLICY_BROWSER_PATH.pause, input, signal),
-    /** Reads the native account id only; SDK session/token/provider fields stay within this adapter. */
-    viewer: options.viewer ?? ((callerSignal) => bounded(callerSignal, false, async (signal) => {
-      try {
-        const result = await auth!.getSession({ query: { disableCookieCache: true }, fetchOptions: { signal } });
-        if (signal.aborted) return { status: "aborted" };
-        if (result.error) return result.error.status === HTTP_STATUS.unauthorized ? { status: "ready", value: null } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable);
-        return { status: "ready", value: result.data ? { id: result.data.user.id } : null };
-      } catch { return signal.aborted ? { status: "aborted" } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable); }
-    })),
+    initializePolicy: (slug, input, signal) => policyCommand(slug, { path: ADMISSION_POLICY_BROWSER_PATH.policy, input }, signal),
+    updatePolicy: (slug, input, signal) => policyCommand(slug, { path: ADMISSION_POLICY_BROWSER_PATH.policy, input, method: "PUT" }, signal),
+    activatePolicy: (slug, input, signal) => policyCommand(slug, { path: ADMISSION_POLICY_BROWSER_PATH.activate, input }, signal),
+    pausePolicy: (slug, input, signal) => policyCommand(slug, { path: ADMISSION_POLICY_BROWSER_PATH.pause, input }, signal),
+    viewer,
     overview: (slug, signal) => request(`${base(slug)}/overview`, admissionOverviewSchema, signal),
     own: (slug, requestId, signal) => request(`${base(slug)}/own-request${requestId ? `?${new URLSearchParams({ admissionRequestId: requestId })}` : ""}`, admissionOwnRequestSchema.nullable(), signal),
     updateWhatsappNumber: async (slug, requestId, input, signal) => {
-      const result = await request(`${base(slug)}/requests/${encodeURIComponent(requestId)}/${ADMISSION_WHATSAPP_ROUTE_SEGMENT}`, createAdmissionOperationStateSchema(admissionWhatsappNumberResultSchema), signal, input);
+      const result = await request(`${base(slug)}/requests/${encodeURIComponent(requestId)}/${ADMISSION_WHATSAPP_ROUTE_SEGMENT}`, createAdmissionOperationStateSchema(admissionWhatsappNumberResultSchema), signal, { body: input });
       if (result.status !== "ready") return result;
       const operation = result.value;
       if (operation.operationId !== input.operationId.toLowerCase() || operation.state === OPERATION_STATE.completed && (operation.result.admissionRequestId.toLowerCase() !== requestId.toLowerCase() || operation.result.version !== input.expectedVersion + (operation.result.changed ? 1 : 0))) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
@@ -141,7 +170,7 @@ export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fe
     },
     readCommercialReviews: (slug, signal) => request(`${base(slug)}/${COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH.list}`, commercialMembershipReviewListSchema, signal),
     resolveCommercialReview: async (slug, memberId, input, signal) => {
-      const result = await request(`${base(slug)}/${COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH.list}/${encodeURIComponent(memberId)}/${COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH.resolutionSegment}`, createAdmissionOperationStateSchema(commercialMembershipResolutionResultSchema), signal, input);
+      const result = await request(`${base(slug)}/${COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH.list}/${encodeURIComponent(memberId)}/${COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH.resolutionSegment}`, createAdmissionOperationStateSchema(commercialMembershipResolutionResultSchema), signal, { body: input });
       if (result.status !== "ready") return result;
       const operation = result.value;
       if (operation.operationId !== input.operationId.toLowerCase() || operation.state === OPERATION_STATE.completed && operation.result.memberId !== memberId.toLowerCase()) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
@@ -149,15 +178,15 @@ export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fe
     },
     operation: (slug, operationId, signal) => request(`${base(slug)}/operations/${encodeURIComponent(operationId)}`, admissionOperationRecoverySchema, signal),
     submit: async (slug, input, signal) => {
-      const result = await request(`${base(slug)}/submissions`, submissionSchema, signal, input);
+      const result = await request(`${base(slug)}/submissions`, submissionSchema, signal, { body: input });
       return result.status === "ready" && result.value.operationId !== input.operationId.toLowerCase() ? failed(ADMISSION_ERROR_CODE.publicContractUnusable, true) : result;
     },
     submitAcademyEntry: async (slug, input, signal) => {
-      const result = await request(`${ADMISSION_API_PREFIX}/${encodeURIComponent(slug)}/${ACADEMY_ENTRY_SEGMENT}`, submissionSchema, signal, input);
+      const result = await request(`${ADMISSION_API_PREFIX}/${encodeURIComponent(slug)}/${ACADEMY_ENTRY_SEGMENT}`, submissionSchema, signal, { body: input });
       return result.status === "ready" && result.value.operationId !== input.operationId.toLowerCase() ? failed(ADMISSION_ERROR_CODE.publicContractUnusable, true) : result;
     },
     cancel: async (slug, requestId, input, signal) => {
-      const result = await request(`${base(slug)}/requests/${encodeURIComponent(requestId)}/cancel`, cancellationSchema, signal, input);
+      const result = await request(`${base(slug)}/requests/${encodeURIComponent(requestId)}/cancel`, cancellationSchema, signal, { body: input });
       if (result.status === "ready" && ("state" in result.value ? result.value.operationId !== input.operationId.toLowerCase() : result.value.admissionRequestId !== requestId.toLowerCase() || result.value.status !== "cancelled")) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
       return result;
     },
@@ -167,14 +196,14 @@ export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fe
       return result.status === "ready" && result.value.id !== requestId.toLowerCase() ? failed(ADMISSION_ERROR_CODE.publicContractUnusable) : result;
     },
     decide: async (slug, requestId, input, signal) => {
-      const result = await request(`${base(slug)}/requests/${encodeURIComponent(requestId)}/decision`, cancellationSchema, signal, input);
+      const result = await request(`${base(slug)}/requests/${encodeURIComponent(requestId)}/decision`, cancellationSchema, signal, { body: input });
       const expectedStatus = input.decision === ADMISSION_DECISION.approve ? ADMISSION_REQUEST_STATUS.approved : ADMISSION_REQUEST_STATUS.rejected;
       if (result.status === "ready" && ("state" in result.value ? result.value.operationId !== input.operationId.toLowerCase() : result.value.admissionRequestId !== requestId.toLowerCase() || result.value.status !== expectedStatus || result.value.version !== input.expectedVersion + 1)) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
       return result;
     },
     decideBatch: async (slug, input, signal) => {
       const body = { operationId: input.operationId, confirmed: input.confirmed, decision: input.decision, internalReason: input.internalReason, ...(input.externalMessage !== undefined ? { externalMessage: input.externalMessage } : {}), items: input.items.map((item) => ({ requestId: item.requestId, expectedVersion: item.expectedVersion })) };
-      const result = await request(`${base(slug)}/${ADMISSION_REVIEW_BROWSER_PATH.batchDecisions}`, admissionBatchResultSchema, signal, body);
+      const result = await request(`${base(slug)}/${ADMISSION_REVIEW_BROWSER_PATH.batchDecisions}`, admissionBatchResultSchema, signal, { body });
       return result.status === "ready" && !matchesAdmissionBatchDecisionResult(body, result.value) ? failed(ADMISSION_ERROR_CODE.publicContractUnusable, true) : result;
     },
   };

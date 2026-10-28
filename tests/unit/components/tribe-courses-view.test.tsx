@@ -430,7 +430,7 @@ describe("TribeCoursesView", () => {
     const consoleErrorSpy = vi
       .spyOn(console, "error")
       .mockImplementation(function () {});
-    let consoleErrorCalls: unknown[][] = [];
+    let consoleErrorCalls: unknown[][];
 
     try {
       const view = (

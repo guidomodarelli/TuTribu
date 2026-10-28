@@ -118,7 +118,7 @@ export async function POST(
   }
 
   try {
-    const body = await request.json().catch(() => null);
+    const body: unknown = await request.json().catch(() => null);
     const result = await modules.courses.useCases.createLessonComment({
       content: readStringField(body, COURSE_ROUTE_FIELD.content),
       lessonId,

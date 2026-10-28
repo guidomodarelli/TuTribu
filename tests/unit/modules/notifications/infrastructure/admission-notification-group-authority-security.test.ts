@@ -18,7 +18,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native whole group
       const ring = fixture.keys.config.keyrings.operation_payload;
       const broken = { ...fixture.keys.config, keyrings: { ...fixture.keys.config.keyrings, operation_payload: { ...ring, keys: new Map([[ring.activeKeyId, replacement]]) } } };
       const brokenGuard = createAdmissionNotificationResourceAuthority(async () => broken);
-      const repository = new PostgresMessageDeliveryRepository(fixture.deliveryExecute, fixture.deliveryAuthorize, async () => broken, undefined, brokenGuard.queued);
+      const repository = new PostgresMessageDeliveryRepository({ execute: fixture.deliveryExecute, authorizeMaintenance: fixture.deliveryAuthorize, readSecurityConfig: async () => broken, authorizeQueuedResource: brokenGuard.queued });
       let observed: { status: string; outcome: string | null; code: string | null };
       try {
         const result = await repository.authorize(claim, randomUUID());

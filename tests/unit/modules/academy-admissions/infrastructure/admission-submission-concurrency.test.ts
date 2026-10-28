@@ -67,7 +67,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native independent
         );
         const blocked = await database.withContext(fixture.own, async (transaction) => {
           await transaction.execute(sql`select set_config('statement_timeout',${ADMISSION_SUBMISSION_CONCURRENCY_TEST.statementTimeout},true)`);
-          while (true) {
+          for (;;) {
             await transaction.execute(sql`select pg_stat_clear_snapshot()`);
             const current = (await transaction.execute<{ blocked: boolean; live: boolean }>(sql`select exists(select 1 from pg_stat_activity where wait_event_type='Lock' and ${scope.pid}=any(pg_blocking_pids(pid))) as blocked,clock_timestamp()<${scope.deadline}::timestamptz as live`)).rows[0];
             if (current.blocked) return true;

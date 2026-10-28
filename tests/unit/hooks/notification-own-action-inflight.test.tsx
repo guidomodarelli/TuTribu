@@ -9,7 +9,7 @@ import type { NotificationInboxResponse } from "@/src/modules/notifications/appl
 const original: NotificationInboxResponse = { notifications: [], unreadCount: 0 };
 const updated: NotificationInboxResponse = { unreadCount: 1, notifications: [{ id: "bc693176-9f18-4149-aa38-8248da1cd756", type: "admission_approved", createdAt: "2026-10-16T12:00:00Z", readAt: null, tribe: { name: "Academia sintética", slug: "test-inflight-action" }, admission: { requestId: "d8da878d-7c99-421c-baaa-b3793e91028e", audience: "applicant" } }] };
 const fetchOwn = vi.fn<typeof fetch>();
-const readOwn = async (_signal: AbortSignal): Promise<AdmissionNotificationRefreshOutcome> => "refreshed";
+const readOwn: (signal: AbortSignal) => Promise<AdmissionNotificationRefreshOutcome> = async () => "refreshed";
 
 beforeEach(() => {
   fetchOwn.mockReset(); vi.stubGlobal("fetch", fetchOwn);

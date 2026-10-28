@@ -18,10 +18,24 @@ import { authorizeMessagingSecret, messagingSecretLifetimeFailure, messagingSecr
 /** Each callback commits before private material leaves the database boundary. */
 type StatusDatabaseExecutor = <Result>(actorUserId: string, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
 
+/** Collaborators of {@link PostgresMessageStatusPreparation}; `clock` defaults to the server clock. */
+export type PostgresMessageStatusPreparationDependencies = { resolver: OriginalMessageContextResolver; execute: StatusDatabaseExecutor; secrets: MessagingSecretStore; readSecurityConfig: () => Promise<MessagingSecurityConfig>; clock?: () => Date };
+
 /** Reads only an authorized original message; credentials and provider payloads remain infrastructure-owned. */
 export class PostgresMessageStatusPreparation implements MessageStatusPreparation {
-  /** @param resolver - Current account/session/leader/resource/security. @param execute - Existing guarded actor transaction. @param secrets - Existing human-purpose store with its own locks and lifetime checks. @param readSecurityConfig - Current external recovery/epoch/keyrings, read again after the final SQL wait. @param clock - Server time sampled after that final external read. */
-  constructor(private readonly resolver: OriginalMessageContextResolver, private readonly execute: StatusDatabaseExecutor, private readonly secrets: MessagingSecretStore, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly clock: () => Date = () => new Date()) {}
+  private readonly resolver: OriginalMessageContextResolver;
+  private readonly execute: StatusDatabaseExecutor;
+  private readonly secrets: MessagingSecretStore;
+  private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>;
+  private readonly clock: () => Date;
+  /** @param dependencies - resolver: current account/session/leader/resource/security; execute: existing guarded actor transaction; secrets: existing human-purpose store with its own locks and lifetime checks; readSecurityConfig: current external recovery/epoch/keyrings, read again after the final SQL wait; clock: server time sampled after that final external read. */
+  constructor({ resolver, execute, secrets, readSecurityConfig, clock = () => new Date() }: PostgresMessageStatusPreparationDependencies) {
+    this.resolver = resolver;
+    this.execute = execute;
+    this.secrets = secrets;
+    this.readSecurityConfig = readSecurityConfig;
+    this.clock = clock;
+  }
 
   /** @param reference - Original immutable message metadata from protected storage. @returns Current native authority, never authority selected by the reference itself. */
   private async resolve(reference: MessageStatusReference): Promise<AuthorizedMessagingContext> {

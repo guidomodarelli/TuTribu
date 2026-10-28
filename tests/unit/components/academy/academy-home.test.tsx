@@ -61,17 +61,17 @@ function access(overrides: Partial<AcademyAccessStatusDto> = {}): AcademyAccessS
 }
 
 describe("AcademyHome", () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    refreshMock.mockReset();
+  });
+
   it("should navigate to a protected admission request without posting a direct join or refreshing the route", () => {
     render(<AcademyHome access={null} canManage={false} isCheckoutReturn={false} offer={{ ...offer, admissionRequiresRequest: true }} tribeSlug="synthetic-academy" />);
     expect(screen.getByRole("link", { name: "Solicitar ingreso" })).toHaveAttribute("href", "/admissions/synthetic-academy");
     expect(screen.queryByRole("button", { name: "Ingresar gratis" })).not.toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(refreshMock).not.toHaveBeenCalled();
-  });
-
-  beforeEach(() => {
-    fetchMock.mockReset();
-    refreshMock.mockReset();
   });
 
   it("guides a basic member to verify before buying", () => {

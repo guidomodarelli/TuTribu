@@ -125,6 +125,65 @@ export async function GET(
   }
 }
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type CreateTribeChannelResult = Awaited<
+  ReturnType<RequestModules["messages"]["useCases"]["createTribeChannel"]>
+>;
+
+type CreateChannelResponseContext = {
+  routeObservation: ReturnType<typeof createRouteObservation>;
+  slug: string;
+  viewerId: string;
+};
+
+function createPostResultResponse(
+  result: CreateTribeChannelResult,
+  { routeObservation, slug, viewerId }: CreateChannelResponseContext
+): Response {
+  const reject = (message: string, status: number) =>
+    routeObservation.createJsonResponse({ message }, status, {
+      message: CHANNEL_ROUTE_LOG.createFailureMessage,
+      metadata: {
+        slug,
+        viewerId,
+      },
+      outcome: result.status,
+      level: CHANNEL_ROUTE_OBSERVATION_LEVEL.warn,
+    });
+
+  switch (result.status) {
+    case TRIBE_CHANNEL_MUTATION_STATUS.created:
+      revalidateTribeRoundCache(slug);
+
+      return routeObservation.createJsonResponse(
+        {
+          channel: result.channel,
+          message: CHANNEL_ROUTE_RESPONSE.successMessage,
+        },
+        HTTP_STATUS.created,
+        {
+          message: CHANNEL_ROUTE_LOG.createSuccessMessage,
+          metadata: {
+            channelId: result.channel.id,
+            slug,
+            viewerId,
+          },
+          outcome: TRIBE_CHANNEL_MUTATION_STATUS.created,
+        }
+      );
+    case TRIBE_CHANNEL_MUTATION_STATUS.invalidName:
+      return reject(CHANNEL_ROUTE_RESPONSE.invalidNameMessage, HTTP_STATUS.badRequest);
+    case TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug:
+      return reject(CHANNEL_ROUTE_RESPONSE.duplicateSlugMessage, HTTP_STATUS.badRequest);
+    case TRIBE_CHANNEL_MUTATION_STATUS.notFound:
+      return reject(CHANNEL_ROUTE_RESPONSE.notFoundMessage, HTTP_STATUS.notFound);
+    case TRIBE_CHANNEL_MUTATION_STATUS.forbidden:
+    default:
+      return reject(CHANNEL_ROUTE_RESPONSE.forbiddenMessage, HTTP_STATUS.forbidden);
+  }
+}
+
 export async function POST(
   request: Request,
   context: {
@@ -160,91 +219,18 @@ export async function POST(
   }
 
   try {
-    const body = await request.json().catch(() => null);
+    const body: unknown = await request.json().catch(() => null);
     const result = await modules.messages.useCases.createTribeChannel({
       tribeSlug: slug,
       emoji: readStringField(body, CHANNEL_ROUTE_FIELD.emoji),
       name: readStringField(body, CHANNEL_ROUTE_FIELD.name),
     });
 
-    switch (result.status) {
-      case TRIBE_CHANNEL_MUTATION_STATUS.created:
-        revalidateTribeRoundCache(slug);
-
-        return routeObservation.createJsonResponse(
-          {
-            channel: result.channel,
-            message: CHANNEL_ROUTE_RESPONSE.successMessage,
-          },
-          HTTP_STATUS.created,
-          {
-            message: CHANNEL_ROUTE_LOG.createSuccessMessage,
-            metadata: {
-              channelId: result.channel.id,
-              slug,
-              viewerId: authenticatedMember.id,
-            },
-            outcome: TRIBE_CHANNEL_MUTATION_STATUS.created,
-          }
-        );
-      case TRIBE_CHANNEL_MUTATION_STATUS.invalidName:
-        return routeObservation.createJsonResponse(
-          { message: CHANNEL_ROUTE_RESPONSE.invalidNameMessage },
-          HTTP_STATUS.badRequest,
-          {
-            message: CHANNEL_ROUTE_LOG.createFailureMessage,
-            metadata: {
-              slug,
-              viewerId: authenticatedMember.id,
-            },
-            outcome: result.status,
-            level: CHANNEL_ROUTE_OBSERVATION_LEVEL.warn,
-          }
-        );
-      case TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug:
-        return routeObservation.createJsonResponse(
-          { message: CHANNEL_ROUTE_RESPONSE.duplicateSlugMessage },
-          HTTP_STATUS.badRequest,
-          {
-            message: CHANNEL_ROUTE_LOG.createFailureMessage,
-            metadata: {
-              slug,
-              viewerId: authenticatedMember.id,
-            },
-            outcome: result.status,
-            level: CHANNEL_ROUTE_OBSERVATION_LEVEL.warn,
-          }
-        );
-      case TRIBE_CHANNEL_MUTATION_STATUS.notFound:
-        return routeObservation.createJsonResponse(
-          { message: CHANNEL_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound,
-          {
-            message: CHANNEL_ROUTE_LOG.createFailureMessage,
-            metadata: {
-              slug,
-              viewerId: authenticatedMember.id,
-            },
-            outcome: result.status,
-            level: CHANNEL_ROUTE_OBSERVATION_LEVEL.warn,
-          }
-        );
-      case TRIBE_CHANNEL_MUTATION_STATUS.forbidden:
-      default:
-        return routeObservation.createJsonResponse(
-          { message: CHANNEL_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden,
-          {
-            message: CHANNEL_ROUTE_LOG.createFailureMessage,
-            metadata: {
-              slug,
-              viewerId: authenticatedMember.id,
-            },
-            outcome: result.status,
-            level: CHANNEL_ROUTE_OBSERVATION_LEVEL.warn,
-          }
-        );
-    }
+    return createPostResultResponse(result, {
+      routeObservation,
+      slug,
+      viewerId: authenticatedMember.id,
+    });
   } catch (error) {
     routeObservation.logRouteError({
       message: CHANNEL_ROUTE_LOG.createFailureMessage,

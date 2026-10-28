@@ -4,6 +4,7 @@ import { z } from "zod";
 import { admissionPolicyBrowserIntentSchema, type AdmissionPolicyBrowserIntent } from "@/src/modules/academy-admissions/application/commands/admission-policy-browser-intent";
 import { ADMISSION_POLICY_STORAGE_PREFIX } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 import { ADMISSION_POLICY_OPERATION } from "@/src/modules/academy-admissions/constants/admission-policy";
+import { omitKeys } from "@/lib/object-omit";
 
 /** The own storage boundary is injectable without replacing browser or framework libraries. */
 type AdmissionPolicyIntentStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
@@ -19,7 +20,7 @@ const legacyStoredUpdateSchema = z.object({ pending: z.object({ type: z.literal(
 function withoutLegacyMessagingReference(value: unknown): unknown {
   if (!legacyStoredUpdateSchema.safeParse(value).success) return value;
   const stored = value as { pending: { input: Record<string, unknown> } };
-  const { messagingConnectionId: _messagingConnectionId, messagingConnectionVersion: _messagingConnectionVersion, ...input } = stored.pending.input;
+  const input = omitKeys(stored.pending.input, ["messagingConnectionId", "messagingConnectionVersion"]);
   return { ...stored, pending: { ...stored.pending, input } };
 }
 /** @param viewerId - Native account. @param slug - Current tribe. @returns An isolated key, never a permission token. */

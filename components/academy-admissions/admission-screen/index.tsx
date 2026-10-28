@@ -38,6 +38,40 @@ export type AdmissionScreenProps = {
   onChangeAccount?: () => void;
 };
 
+/** @param state - Current page state. @param requestPage - Whether the own request page is shown. @returns The page title: unavailable, the request status, or the entry. */
+function admissionScreenTitle(state: AdmissionScreenProps["state"], requestPage: boolean): string {
+  if (state.kind === "unavailable") return ADMISSION_UI_COPY.unavailableTitle;
+  return (state.kind === "ready" && state.request) || (state.kind === "loading" && requestPage) ? ADMISSION_UI_COPY.statusTitle : ADMISSION_UI_COPY.title;
+}
+
+/** @param props.requestPage - Whether the own request page is loading. @returns The reading status with placeholders shaped like the request status or the entry form. */
+function AdmissionLoadingContent({ requestPage }: { requestPage: boolean }) {
+  return <>
+    <p role="status" className={styles.AdmissionScreen__loading}>{ADMISSION_UI_COPY.reading}</p>
+    {requestPage ? <><SkeletonFacts count={ADMISSION_LOADING_SHAPE.requestFactCount} /><SkeletonLines /></> : <SkeletonStepsPanel stepCount={ADMISSION_LOADING_SHAPE.entryStepCount} />}
+  </>;
+}
+
+/** Ready page facts, with screen defaults already applied, and the derived flags the ready content reads. */
+type AdmissionReadyContentProps = Required<Pick<AdmissionScreenProps, "draft" | "confirmed" | "cancelConfirmed" | "phase" | "formReady" | "requestPage" | "contactLocked" | "cancelErrorMessage">>
+  & Pick<AdmissionScreenProps, "now" | "retryHref" | "requestStatusRef" | "verification" | "requestFlow" | "contactRecovery" | "whatsappErrorMessage" | "whatsappEditor" | "onChange" | "onConfirm" | "onCancelConfirm" | "onSubmit" | "onCancel">
+  & { state: Extract<AdmissionPageState, { kind: "ready" }>; blocked: boolean; canSubmit: boolean; stalePendingOverview: boolean };
+
+/** @param props - Ready page state, defaults-applied screen props and derived flags; `retryHref` is set only when a retry is offered. @returns The overview message, own request, request flow or form, for the same account that loaded the page. */
+function AdmissionReadyContent({ state, draft, confirmed, cancelConfirmed, phase, now, formReady, requestPage, requestStatusRef, verification, requestFlow, contactRecovery, contactLocked, whatsappErrorMessage, cancelErrorMessage, whatsappEditor, retryHref, blocked, canSubmit, stalePendingOverview, onChange, onConfirm, onCancelConfirm, onSubmit, onCancel }: AdmissionReadyContentProps) {
+  return <>
+    {!stalePendingOverview && <p role="status">{state.overview.safeMessage}</p>}
+    {state.request && <RequestStatus request={state.request} statusRef={requestStatusRef} now={now ?? state.renderedAt} confirmed={cancelConfirmed} disabled={blocked} busy={phase === ADMISSION_UI_PHASE.writing} errorMessage={cancelErrorMessage} retryHref={retryHref} onConfirm={(value) => onCancelConfirm?.(value)} onCancel={() => onCancel?.()} />}
+    {whatsappEditor}
+    {!requestPage && state.request && <Link href={buildOwnAdmissionRequestRoute(state.overview.tribe.slug, state.request.id)}>Ver solicitud</Link>}
+    {contactRecovery && <div className={styles.AdmissionScreen__callout}><p role="status">{ADMISSION_UI_COPY.contactRecovery}</p>{contactRecovery}</div>}
+    {requestFlow}
+    {!requestFlow && verification}
+    {!requestFlow && canSubmit && <AdmissionForm draft={draft} contactLocked={contactLocked} contactType={state.overview.policy?.contactType ?? "email"} showWhatsappNumber={formReady} requiresWhatsappNumber={state.overview.policy?.requiresWhatsappNumber ?? false} whatsappErrorMessage={whatsappErrorMessage} confirmed={confirmed} disabled={blocked} busy={phase === ADMISSION_UI_PHASE.writing} errorMessage={null} onChange={(value) => onChange?.(value)} onConfirm={(value) => onConfirm?.(value)} onSubmit={() => onSubmit?.()} />}
+    {state.overview.state === ADMISSION_OVERVIEW_STATE.verificationRequired && !verification && !requestFlow && <p className={styles.AdmissionScreen__help}>{ADMISSION_UI_COPY.verifying}</p>}
+  </>;
+}
+
 /** @param props - Validated owned state and container actions. @returns A restrained responsive page with persistent accessible feedback. */
 export function AdmissionScreen({ state, draft = { phone: "", country: "", message: "" }, confirmed = false, cancelConfirmed = false, phase = ADMISSION_UI_PHASE.idle, now, errorMessage, feedback, accountChanged = false, changingAccount = false, formReady = false, retryOriginal = false, signInHref = ROUTES.auth.signIn, retryHref, requestPage = false, requestStatusRef, verification, requestFlow, contactRecovery, canSubmitWithProof = false, contactLocked = false, whatsappErrorMessage, cancelErrorMessage = null, whatsappEditor, onChange, onConfirm, onCancelConfirm, onSubmit, onCancel, onRead, onRetryOriginal, onReloadAccount, onChangeAccount, onRetryUnavailable }: AdmissionScreenProps) {
   const ready = state.kind === "ready", loading = state.kind === "loading";
@@ -45,7 +79,7 @@ export function AdmissionScreen({ state, draft = { phone: "", country: "", messa
   // Like every account action it waits for the current account check, so a tap before hydration is never silently lost.
   const offersAccountChange = ready && Boolean(state.viewerId) && state.overview.nextAction === ADMISSION_NEXT_ACTION.changeAccount && !accountChanged && Boolean(onChangeAccount);
   const blocked = busy || phase === ADMISSION_UI_PHASE.uncertain || accountChanged || !formReady;
-  const canSubmit = ready && !requestPage && (state.overview.state === ADMISSION_OVERVIEW_STATE.available || canSubmitWithProof) && (!state.request || state.request.status !== "pending");
+  const canSubmit = ready && !requestPage && (state.overview.state === ADMISSION_OVERVIEW_STATE.available || canSubmitWithProof) && state.request?.status !== "pending";
   const readyToRetry = ready && state.request && state.request.status !== ADMISSION_REQUEST_STATUS.pending
     && (state.overview.nextAction === ADMISSION_NEXT_ACTION.requestAdmission || state.overview.nextAction === ADMISSION_NEXT_ACTION.verifyContact);
   // Parallel own reads can observe a resolution just after the overview read.
@@ -53,22 +87,12 @@ export function AdmissionScreen({ state, draft = { phone: "", country: "", messa
   const offersUnavailableRetry = state.kind === "unavailable" && ADMISSION_TRANSIENT_PAGE_ERROR_CODES.includes(state.code) && Boolean(onRetryUnavailable);
   const stalePendingOverview = ready && state.request && state.request.status !== ADMISSION_REQUEST_STATUS.pending && state.overview.state === ADMISSION_OVERVIEW_STATE.pending;
   return <main className={styles.AdmissionScreen} aria-busy={busy || loading}>
-    <header className={styles.AdmissionScreen__header}><p className={styles.AdmissionScreen__eyebrow}>TuTribu{ready ? ` · ${state.overview.tribe.name}` : " · Admisión"}</p><h1 className={styles.AdmissionScreen__title}>{state.kind === "unavailable" ? ADMISSION_UI_COPY.unavailableTitle : (ready && state.request) || (loading && requestPage) ? ADMISSION_UI_COPY.statusTitle : ADMISSION_UI_COPY.title}</h1><p className={styles.AdmissionScreen__description}>{ADMISSION_UI_COPY.description}</p></header>
+    <header className={styles.AdmissionScreen__header}><p className={styles.AdmissionScreen__eyebrow}>TuTribu{ready ? ` · ${state.overview.tribe.name}` : " · Admisión"}</p><h1 className={styles.AdmissionScreen__title}>{admissionScreenTitle(state, requestPage)}</h1><p className={styles.AdmissionScreen__description}>{ADMISSION_UI_COPY.description}</p></header>
     <section className={styles.AdmissionScreen__content} aria-label="Admisión a la academia">
-      {loading ? <>
-        <p role="status" className={styles.AdmissionScreen__loading}>{ADMISSION_UI_COPY.reading}</p>
-        {requestPage ? <><SkeletonFacts count={ADMISSION_LOADING_SHAPE.requestFactCount} /><SkeletonLines /></> : <SkeletonStepsPanel stepCount={ADMISSION_LOADING_SHAPE.entryStepCount} />}
-      </> : state.kind === "unavailable" ? <p role="alert">{state.message}</p> : accountChanged ? null : <>
-        {!stalePendingOverview && <p role="status">{state.overview.safeMessage}</p>}
-        {state.request && <RequestStatus request={state.request} statusRef={requestStatusRef} now={now ?? state.renderedAt} confirmed={cancelConfirmed} disabled={blocked} busy={phase === ADMISSION_UI_PHASE.writing} errorMessage={cancelErrorMessage} retryHref={readyToRetry ? retryHref : undefined} onConfirm={(value) => onCancelConfirm?.(value)} onCancel={() => onCancel?.()} />}
-        {whatsappEditor}
-        {!requestPage && state.request && <Link href={buildOwnAdmissionRequestRoute(state.overview.tribe.slug, state.request.id)}>Ver solicitud</Link>}
-        {contactRecovery && <div className={styles.AdmissionScreen__callout}><p role="status">{ADMISSION_UI_COPY.contactRecovery}</p>{contactRecovery}</div>}
-        {requestFlow}
-        {!requestFlow && verification}
-        {!requestFlow && canSubmit && <AdmissionForm draft={draft} contactLocked={contactLocked} contactType={state.overview.policy?.contactType ?? "email"} showWhatsappNumber={formReady && !accountChanged} requiresWhatsappNumber={state.overview.policy?.requiresWhatsappNumber ?? false} whatsappErrorMessage={whatsappErrorMessage} confirmed={confirmed} disabled={blocked} busy={phase === ADMISSION_UI_PHASE.writing} errorMessage={null} onChange={(value) => onChange?.(value)} onConfirm={(value) => onConfirm?.(value)} onSubmit={() => onSubmit?.()} />}
-        {state.overview.state === ADMISSION_OVERVIEW_STATE.verificationRequired && !verification && !requestFlow && <p className={styles.AdmissionScreen__help}>{ADMISSION_UI_COPY.verifying}</p>}
-      </>}
+      {loading && <AdmissionLoadingContent requestPage={requestPage} />}
+      {state.kind === "unavailable" && <p role="alert">{state.message}</p>}
+      {state.kind === "ready" && !accountChanged && <AdmissionReadyContent state={state} draft={draft} confirmed={confirmed} cancelConfirmed={cancelConfirmed} phase={phase} now={now} formReady={formReady} requestPage={requestPage} requestStatusRef={requestStatusRef} verification={verification} requestFlow={requestFlow} contactRecovery={contactRecovery} contactLocked={contactLocked} whatsappErrorMessage={whatsappErrorMessage} cancelErrorMessage={cancelErrorMessage} whatsappEditor={whatsappEditor}
+        retryHref={readyToRetry ? retryHref : undefined} blocked={blocked} canSubmit={canSubmit} stalePendingOverview={Boolean(stalePendingOverview)} onChange={onChange} onConfirm={onConfirm} onCancelConfirm={onCancelConfirm} onSubmit={onSubmit} onCancel={onCancel} />}
       {feedback && <p role="status">{feedback}</p>}
       {phase === ADMISSION_UI_PHASE.uncertain && errorMessage !== ADMISSION_UI_COPY.uncertain && <p role="status">{ADMISSION_UI_COPY.uncertain}</p>}
       {errorMessage && <p role="alert" className={styles.AdmissionScreen__error}>{errorMessage}</p>}

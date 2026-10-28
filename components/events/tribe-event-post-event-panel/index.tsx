@@ -84,6 +84,177 @@ export function TribeEventPostEventPanel(props: TribeEventPostEventPanelProps) {
   );
 }
 
+type TribeEventPostEventRecordingProps = {
+  occurrenceTitle: string;
+  recording: NonNullable<TribeEventPostEventView["recording"]>;
+};
+
+/** Embedded recording player plus a link to open it. */
+function TribeEventPostEventRecording({ occurrenceTitle, recording }: TribeEventPostEventRecordingProps) {
+  return (
+    <div className={styles.TribeEventPostEventPanel__recording}>
+      <p className={styles.TribeEventPostEventPanel__subheading}>
+        <VideoIcon aria-hidden className={styles.TribeEventPostEventPanel__subheadingIcon} />
+        {COPY.recordingHeading}
+      </p>
+      <div className={styles.TribeEventPostEventPanel__player}>
+        <iframe
+          allow={PLAYER_IFRAME_ALLOW}
+          allowFullScreen
+          className={styles.TribeEventPostEventPanel__playerFrame}
+          loading={LINK_ATTRIBUTE.lazy}
+          src={recording.embedUrl}
+          title={COPY.recordingTitle(occurrenceTitle)}
+        />
+      </div>
+      <a
+        className={styles.TribeEventPostEventPanel__link}
+        href={recording.sourceUrl}
+        rel={LINK_ATTRIBUTE.noreferrer}
+        target={LINK_ATTRIBUTE.targetBlank}
+      >
+        <ExternalLinkIcon aria-hidden className={styles.TribeEventPostEventPanel__linkIcon} />
+        {COPY.openRecording}
+      </a>
+    </div>
+  );
+}
+
+/** Links to the occurrence materials. */
+function TribeEventPostEventMaterials({ materials }: { materials: TribeEventPostEventView["materials"] }) {
+  return (
+    <div className={styles.TribeEventPostEventPanel__materials}>
+      <p className={styles.TribeEventPostEventPanel__subheading}>
+        <FileTextIcon aria-hidden className={styles.TribeEventPostEventPanel__subheadingIcon} />
+        {COPY.materialsHeading}
+      </p>
+      <ul className={styles.TribeEventPostEventPanel__materialList}>
+        {materials.map((material) => (
+          <li key={material.url + material.title}>
+            <a
+              className={styles.TribeEventPostEventPanel__link}
+              href={material.url}
+              rel={LINK_ATTRIBUTE.noreferrer}
+              target={LINK_ATTRIBUTE.targetBlank}
+            >
+              <ExternalLinkIcon
+                aria-hidden
+                className={styles.TribeEventPostEventPanel__linkIcon}
+              />
+              {material.title}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+type TribeEventPostEventReactionsProps = {
+  canParticipate: boolean;
+  onReact: (reaction: TribeEventOccurrenceReaction) => void;
+  visibleReactions: TribeEventReactionSummary;
+};
+
+/** "¿Cómo estuvo?" reactions with rolling counts; read-only for non participants. */
+function TribeEventPostEventReactions({
+  canParticipate,
+  onReact,
+  visibleReactions,
+}: TribeEventPostEventReactionsProps) {
+  return (
+    <div
+      aria-label={COPY.reactionsHeading}
+      className={styles.TribeEventPostEventPanel__reactions}
+      role="group"
+    >
+      <p className={styles.TribeEventPostEventPanel__subheading}>{COPY.reactionsHeading}</p>
+      <div className={styles.TribeEventPostEventPanel__reactionButtons}>
+        {TRIBE_EVENT_OCCURRENCE_REACTIONS.map((reaction) => {
+          const display = TRIBE_EVENT_OCCURRENCE_REACTION_DISPLAY[reaction];
+          const count = visibleReactions.counts[reaction];
+          const isSelected = visibleReactions.viewerReaction === reaction;
+
+          return (
+            <button
+              aria-label={COPY.reactionCount(display.label, count)}
+              aria-pressed={isSelected}
+              className={cn(
+                styles.TribeEventPostEventPanel__reaction,
+                isSelected && styles["TribeEventPostEventPanel__reaction--selected"]
+              )}
+              disabled={!canParticipate}
+              key={reaction}
+              title={display.label}
+              type={BUTTON_ATTRIBUTE.typeButton}
+              onClick={() => onReact(reaction)}
+            >
+              <span aria-hidden className={styles.TribeEventPostEventPanel__reactionEmoji}>
+                {display.emoji}
+              </span>
+              <span aria-hidden className={styles.TribeEventPostEventPanel__reactionCount}>
+                <AnimatedCount value={count} />
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {canParticipate ? null : (
+        <p className={styles.TribeEventPostEventPanel__muted}>{COPY.reactionsReadOnly}</p>
+      )}
+    </div>
+  );
+}
+
+type TribeEventPostEventManagerActionsProps = Pick<
+  TribeEventPostEventPanelProps,
+  "isSavingResources" | "onConvertToLesson" | "onEditResources"
+> & {
+  hasResources: boolean;
+  viewerPermissions: TribeEventPostEventView["viewerPermissions"];
+};
+
+/** Resource editing and lesson conversion actions, for viewers allowed to use them. */
+function TribeEventPostEventManagerActions({
+  hasResources,
+  isSavingResources,
+  onConvertToLesson,
+  onEditResources,
+  viewerPermissions,
+}: TribeEventPostEventManagerActionsProps) {
+  if (!viewerPermissions.canManageResources && !viewerPermissions.canConvertToLesson) {
+    return null;
+  }
+
+  return (
+    <div className={styles.TribeEventPostEventPanel__actions}>
+      {viewerPermissions.canManageResources ? (
+        <Button
+          aria-busy={isSavingResources}
+          disabled={isSavingResources}
+          size={BUTTON_ATTRIBUTE.sizeSmall}
+          type={BUTTON_ATTRIBUTE.typeButton}
+          variant={BUTTON_ATTRIBUTE.variantSecondary}
+          onClick={onEditResources}
+        >
+          {hasResources ? COPY.editResources : COPY.addResources}
+        </Button>
+      ) : null}
+      {viewerPermissions.canConvertToLesson ? (
+        <Button
+          size={BUTTON_ATTRIBUTE.sizeSmall}
+          type={BUTTON_ATTRIBUTE.typeButton}
+          variant={BUTTON_ATTRIBUTE.variantSecondary}
+          onClick={onConvertToLesson}
+        >
+          <GraduationCapIcon aria-hidden />
+          {COPY.convertToLesson}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
 /**
  * Content under the heading for the current load state; loading, error and
  * the loaded resources cross-fade in place.
@@ -133,89 +304,22 @@ function TribeEventPostEventPanelBody({
   return (
     <>
       {recording ? (
-        <div className={styles.TribeEventPostEventPanel__recording}>
-          <p className={styles.TribeEventPostEventPanel__subheading}>
-            <VideoIcon aria-hidden className={styles.TribeEventPostEventPanel__subheadingIcon} />
-            {COPY.recordingHeading}
-          </p>
-          <div className={styles.TribeEventPostEventPanel__player}>
-            <iframe
-              allow={PLAYER_IFRAME_ALLOW}
-              allowFullScreen
-              className={styles.TribeEventPostEventPanel__playerFrame}
-              loading={LINK_ATTRIBUTE.lazy}
-              src={recording.embedUrl}
-              title={COPY.recordingTitle(occurrenceTitle)}
-            />
-          </div>
-          <a
-            className={styles.TribeEventPostEventPanel__link}
-            href={recording.sourceUrl}
-            rel={LINK_ATTRIBUTE.noreferrer}
-            target={LINK_ATTRIBUTE.targetBlank}
-          >
-            <ExternalLinkIcon aria-hidden className={styles.TribeEventPostEventPanel__linkIcon} />
-            {COPY.openRecording}
-          </a>
-        </div>
+        <TribeEventPostEventRecording occurrenceTitle={occurrenceTitle} recording={recording} />
       ) : null}
 
       {postEvent.materials.length > 0 ? (
-        <div className={styles.TribeEventPostEventPanel__materials}>
-          <p className={styles.TribeEventPostEventPanel__subheading}>
-            <FileTextIcon aria-hidden className={styles.TribeEventPostEventPanel__subheadingIcon} />
-            {COPY.materialsHeading}
-          </p>
-          <ul className={styles.TribeEventPostEventPanel__materialList}>
-            {postEvent.materials.map((material) => (
-              <li key={material.url + material.title}>
-                <a
-                  className={styles.TribeEventPostEventPanel__link}
-                  href={material.url}
-                  rel={LINK_ATTRIBUTE.noreferrer}
-                  target={LINK_ATTRIBUTE.targetBlank}
-                >
-                  <ExternalLinkIcon
-                    aria-hidden
-                    className={styles.TribeEventPostEventPanel__linkIcon}
-                  />
-                  {material.title}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <TribeEventPostEventMaterials materials={postEvent.materials} />
       ) : null}
 
       {hasResources ? null : <p className={styles.TribeEventPostEventPanel__muted}>{COPY.empty}</p>}
 
-      {viewerPermissions.canManageResources || viewerPermissions.canConvertToLesson ? (
-        <div className={styles.TribeEventPostEventPanel__actions}>
-          {viewerPermissions.canManageResources ? (
-            <Button
-              aria-busy={isSavingResources}
-              disabled={isSavingResources}
-              size={BUTTON_ATTRIBUTE.sizeSmall}
-              type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantSecondary}
-              onClick={onEditResources}
-            >
-              {hasResources ? COPY.editResources : COPY.addResources}
-            </Button>
-          ) : null}
-          {viewerPermissions.canConvertToLesson ? (
-            <Button
-              size={BUTTON_ATTRIBUTE.sizeSmall}
-              type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantSecondary}
-              onClick={onConvertToLesson}
-            >
-              <GraduationCapIcon aria-hidden />
-              {COPY.convertToLesson}
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
+      <TribeEventPostEventManagerActions
+        hasResources={hasResources}
+        isSavingResources={isSavingResources}
+        viewerPermissions={viewerPermissions}
+        onConvertToLesson={onConvertToLesson}
+        onEditResources={onEditResources}
+      />
 
       <AnimatedCollapse isOpen={viewerPermissions.canManageResources && isSavingResources}>
         <p className={styles.TribeEventPostEventPanel__muted} role="status">
@@ -223,46 +327,11 @@ function TribeEventPostEventPanelBody({
         </p>
       </AnimatedCollapse>
 
-      <div
-        aria-label={COPY.reactionsHeading}
-        className={styles.TribeEventPostEventPanel__reactions}
-        role="group"
-      >
-        <p className={styles.TribeEventPostEventPanel__subheading}>{COPY.reactionsHeading}</p>
-        <div className={styles.TribeEventPostEventPanel__reactionButtons}>
-          {TRIBE_EVENT_OCCURRENCE_REACTIONS.map((reaction) => {
-            const display = TRIBE_EVENT_OCCURRENCE_REACTION_DISPLAY[reaction];
-            const count = visibleReactions.counts[reaction];
-            const isSelected = visibleReactions.viewerReaction === reaction;
-
-            return (
-              <button
-                aria-label={COPY.reactionCount(display.label, count)}
-                aria-pressed={isSelected}
-                className={cn(
-                  styles.TribeEventPostEventPanel__reaction,
-                  isSelected && styles["TribeEventPostEventPanel__reaction--selected"]
-                )}
-                disabled={!viewerPermissions.canParticipate}
-                key={reaction}
-                title={display.label}
-                type={BUTTON_ATTRIBUTE.typeButton}
-                onClick={() => onReact(reaction)}
-              >
-                <span aria-hidden className={styles.TribeEventPostEventPanel__reactionEmoji}>
-                  {display.emoji}
-                </span>
-                <span aria-hidden className={styles.TribeEventPostEventPanel__reactionCount}>
-                  <AnimatedCount value={count} />
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        {viewerPermissions.canParticipate ? null : (
-          <p className={styles.TribeEventPostEventPanel__muted}>{COPY.reactionsReadOnly}</p>
-        )}
-      </div>
+      <TribeEventPostEventReactions
+        canParticipate={viewerPermissions.canParticipate}
+        visibleReactions={visibleReactions}
+        onReact={onReact}
+      />
     </>
   );
 }

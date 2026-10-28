@@ -21,8 +21,8 @@ export class ReadMessagingConnectionOperationUseCase{
       /** @returns Nothing only while the same native session and canonical active leadership remain current. */
       const authorize=async()=>{
         const facts=await this.authorization.getCurrentLeadership(query.tribeId,account.userId),current=await this.accounts.getAuthenticatedAccount();
-        if(!current||current.userId!==account.userId||current.session.id!==account.session.id||!isAuthenticatedSessionLive(current.session.expiresAt,this.clock()))throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.authenticationRequired);
-        if(!facts||facts.tribeId!==query.tribeId||facts.leaderUserId!==account.userId||facts.membership?.userId!==account.userId||facts.membership.role!==TRIBE_MEMBER_ROLE.leader||facts.membership.status!==TRIBE_MEMBERSHIP_STATUS.active)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.permissionDenied);
+        if(current?.userId !== account.userId||current.session.id!==account.session.id||!isAuthenticatedSessionLive(current.session.expiresAt,this.clock()))throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.authenticationRequired);
+        if(facts?.tribeId !== query.tribeId||facts.leaderUserId!==account.userId||facts.membership?.userId!==account.userId||facts.membership.role!==TRIBE_MEMBER_ROLE.leader||facts.membership.status!==TRIBE_MEMBERSHIP_STATUS.active)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.permissionDenied);
       };
       await authorize();const value=await this.reader.read({actorUserId:account.userId,sessionId:account.session.id,tribeId:query.tribeId,requestId:query.requestId},query.operationId);await authorize();
       if(!value)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.resourceUnavailable);

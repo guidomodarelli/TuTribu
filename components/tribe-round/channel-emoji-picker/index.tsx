@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { type ComponentType, useState  } from "react";
+import { useState } from "react";
 import { type EmojiClickData, type PickerProps,
   EmojiStyle,
   SkinTonePickerLocation,
@@ -32,9 +32,9 @@ const CHANNEL_EMOJI_PICKER_CONFIG = {
   secondaryVariant: "secondary",
 } as const;
 
-const EmojiPicker = dynamic(() => import("emoji-picker-react"), {
+const EmojiPicker = dynamic<PickerProps>(() => import("emoji-picker-react"), {
   ssr: false,
-}) as ComponentType<PickerProps>;
+});
 
 type ChannelEmojiPickerProps = {
   disabled?: boolean;

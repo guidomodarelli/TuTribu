@@ -105,6 +105,194 @@ function formatOfferPrice(offerPrice: TribeStoryAboutOfferPrice): string {
 }
 
 /**
+ * Cover image of the tribe.
+ * @param props - Cover URL and tribe name.
+ * @returns The cover, or `null` without a cover URL.
+ */
+function TribeStoryCover({
+  coverUrl,
+  tribeName,
+}: {
+  coverUrl: string | null;
+  tribeName: string;
+}) {
+  if (!coverUrl) {
+    return null;
+  }
+
+  return (
+    <div className={styles.TribeStoryAbout__cover}>
+      <Image
+        alt={TRIBE_STORY_ABOUT_COPY.coverAlt(tribeName)}
+        className={styles.TribeStoryAbout__coverImage}
+        fill
+        sizes={ABOUT_COVER_SIZES}
+        src={coverUrl}
+        unoptimized
+      />
+    </div>
+  );
+}
+
+/**
+ * Facts of the tribe: member, online and admin counts, creation date (when
+ * stats are available), privacy and the offer price.
+ * @param props - Tribe stats and the offer price.
+ * @returns The facts description list.
+ */
+function TribeStoryFacts({
+  offerPrice,
+  stats,
+}: Pick<TribeStoryAboutProps, "offerPrice" | "stats">) {
+  return (
+    <dl className={styles.TribeStoryAbout__facts}>
+      {stats ? (
+        <>
+          <div className={styles.TribeStoryAbout__fact}>
+            <dt className={styles.TribeStoryAbout__factTerm}>
+              {TRIBE_STORY_ABOUT_COPY.membersLabel}
+            </dt>
+            <dd className={styles.TribeStoryAbout__factValue}>
+              {stats.memberCount}
+            </dd>
+          </div>
+          <div className={styles.TribeStoryAbout__fact}>
+            <dt className={styles.TribeStoryAbout__factTerm}>
+              {TRIBE_STORY_ABOUT_COPY.onlineLabel}
+            </dt>
+            <dd className={styles.TribeStoryAbout__factValue}>
+              {stats.onlineCount}
+            </dd>
+          </div>
+          <div className={styles.TribeStoryAbout__fact}>
+            <dt className={styles.TribeStoryAbout__factTerm}>
+              {TRIBE_STORY_ABOUT_COPY.adminsLabel}
+            </dt>
+            <dd className={styles.TribeStoryAbout__factValue}>
+              {stats.adminCount}
+            </dd>
+          </div>
+          <div className={styles.TribeStoryAbout__fact}>
+            <dt className={styles.TribeStoryAbout__factTerm}>
+              {TRIBE_STORY_ABOUT_COPY.createdLabel}
+            </dt>
+            <dd className={styles.TribeStoryAbout__factValue}>
+              {formatCreatedAt(stats.createdAt)}
+            </dd>
+          </div>
+        </>
+      ) : null}
+      <div className={styles.TribeStoryAbout__fact}>
+        <dt className={styles.TribeStoryAbout__factTerm}>
+          {TRIBE_STORY_ABOUT_COPY.privacyLabel}
+        </dt>
+        <dd className={styles.TribeStoryAbout__factValue}>
+          {TRIBE_STORY_ABOUT_COPY.privacyPrivate}
+        </dd>
+      </div>
+      {offerPrice ? (
+        <div className={styles.TribeStoryAbout__fact}>
+          <dt className={styles.TribeStoryAbout__factTerm}>
+            {TRIBE_STORY_ABOUT_COPY.priceLabel}
+          </dt>
+          <dd className={styles.TribeStoryAbout__factValue}>
+            {formatOfferPrice(offerPrice)}
+          </dd>
+        </div>
+      ) : null}
+    </dl>
+  );
+}
+
+/**
+ * Avatars (or initials) of the members currently online.
+ * @param props - Online members.
+ * @returns The online members list, or `null` when nobody is online.
+ */
+function TribeStoryOnlineMembers({
+  onlineMembers,
+}: {
+  onlineMembers: TribeStoryOnlineMember[];
+}) {
+  if (onlineMembers.length === 0) {
+    return null;
+  }
+
+  return (
+    <ul
+      aria-label={TRIBE_STORY_ABOUT_COPY.onlineMembersLabel}
+      className={styles.TribeStoryAbout__onlineMembers}
+    >
+      {onlineMembers.map((onlineMember, onlineMemberIndex) => (
+        <li
+          className={styles.TribeStoryAbout__onlineMember}
+          key={onlineMember.name + String(onlineMemberIndex)}
+          title={onlineMember.name}
+        >
+          {onlineMember.image ? (
+            <Image
+              alt={onlineMember.name}
+              className={styles.TribeStoryAbout__onlineAvatar}
+              height={ONLINE_AVATAR_SIZE}
+              src={onlineMember.image}
+              unoptimized
+              width={ONLINE_AVATAR_SIZE}
+            />
+          ) : (
+            <>
+              <span
+                aria-hidden
+                className={styles.TribeStoryAbout__onlineInitials}
+              >
+                {buildOnlineMemberInitials(onlineMember.name)}
+              </span>
+              <span className={styles.TribeStoryAbout__visuallyHidden}>
+                {onlineMember.name}
+              </span>
+            </>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Join call to action: the free-join form when the tribe allows tokenless
+ * free joins, otherwise a link to the paid checkout page.
+ * @param props - Free-join action and paid checkout link.
+ * @returns The join action, or `null` when the visitor cannot join.
+ */
+function TribeStoryJoinAction({
+  freeJoinAction,
+  joinHref,
+}: Pick<TribeStoryAboutProps, "freeJoinAction" | "joinHref">) {
+  if (freeJoinAction) {
+    return (
+      <div className={styles.TribeStoryAbout__joinAction}>
+        <FreeJoinForm
+          action={freeJoinAction}
+          label={TRIBE_STORY_ABOUT_COPY.freeJoinButton}
+          pendingLabel={TRIBE_STORY_ABOUT_COPY.freeJoinPendingButton}
+        />
+      </div>
+    );
+  }
+
+  if (!joinHref) {
+    return null;
+  }
+
+  return (
+    <div className={styles.TribeStoryAbout__joinAction}>
+      <ButtonLink className={styles.TribeStoryAbout__joinButton} href={joinHref}>
+        {TRIBE_STORY_ABOUT_COPY.joinButton}
+      </ButtonLink>
+    </div>
+  );
+}
+
+/**
  * Read-only "About" view of the tribe story: cover, media gallery, formatted
  * story content, and a side panel with the tribe identity (logo, name) and
  * facts (members, online, admins, privacy, creation date, price) plus a join
@@ -125,18 +313,7 @@ export function TribeStoryAbout({
 
   return (
     <section className={styles.TribeStoryAbout}>
-      {stats?.coverUrl ? (
-        <div className={styles.TribeStoryAbout__cover}>
-          <Image
-            alt={TRIBE_STORY_ABOUT_COPY.coverAlt(tribeName)}
-            className={styles.TribeStoryAbout__coverImage}
-            fill
-            sizes={ABOUT_COVER_SIZES}
-            src={stats.coverUrl}
-            unoptimized
-          />
-        </div>
-      ) : null}
+      <TribeStoryCover coverUrl={stats?.coverUrl ?? null} tribeName={tribeName} />
       <div className={styles.TribeStoryAbout__layout}>
         <article className={styles.TribeStoryAbout__main}>
           <header className={styles.TribeStoryAbout__header}>
@@ -173,99 +350,8 @@ export function TribeStoryAbout({
             ) : null}
             <h2 className={styles.TribeStoryAbout__tribeName}>{tribeName}</h2>
           </div>
-          <dl className={styles.TribeStoryAbout__facts}>
-            {stats ? (
-              <>
-                <div className={styles.TribeStoryAbout__fact}>
-                  <dt className={styles.TribeStoryAbout__factTerm}>
-                    {TRIBE_STORY_ABOUT_COPY.membersLabel}
-                  </dt>
-                  <dd className={styles.TribeStoryAbout__factValue}>
-                    {stats.memberCount}
-                  </dd>
-                </div>
-                <div className={styles.TribeStoryAbout__fact}>
-                  <dt className={styles.TribeStoryAbout__factTerm}>
-                    {TRIBE_STORY_ABOUT_COPY.onlineLabel}
-                  </dt>
-                  <dd className={styles.TribeStoryAbout__factValue}>
-                    {stats.onlineCount}
-                  </dd>
-                </div>
-                <div className={styles.TribeStoryAbout__fact}>
-                  <dt className={styles.TribeStoryAbout__factTerm}>
-                    {TRIBE_STORY_ABOUT_COPY.adminsLabel}
-                  </dt>
-                  <dd className={styles.TribeStoryAbout__factValue}>
-                    {stats.adminCount}
-                  </dd>
-                </div>
-                <div className={styles.TribeStoryAbout__fact}>
-                  <dt className={styles.TribeStoryAbout__factTerm}>
-                    {TRIBE_STORY_ABOUT_COPY.createdLabel}
-                  </dt>
-                  <dd className={styles.TribeStoryAbout__factValue}>
-                    {formatCreatedAt(stats.createdAt)}
-                  </dd>
-                </div>
-              </>
-            ) : null}
-            <div className={styles.TribeStoryAbout__fact}>
-              <dt className={styles.TribeStoryAbout__factTerm}>
-                {TRIBE_STORY_ABOUT_COPY.privacyLabel}
-              </dt>
-              <dd className={styles.TribeStoryAbout__factValue}>
-                {TRIBE_STORY_ABOUT_COPY.privacyPrivate}
-              </dd>
-            </div>
-            {offerPrice ? (
-              <div className={styles.TribeStoryAbout__fact}>
-                <dt className={styles.TribeStoryAbout__factTerm}>
-                  {TRIBE_STORY_ABOUT_COPY.priceLabel}
-                </dt>
-                <dd className={styles.TribeStoryAbout__factValue}>
-                  {formatOfferPrice(offerPrice)}
-                </dd>
-              </div>
-            ) : null}
-          </dl>
-          {onlineMembers.length > 0 ? (
-            <ul
-              aria-label={TRIBE_STORY_ABOUT_COPY.onlineMembersLabel}
-              className={styles.TribeStoryAbout__onlineMembers}
-            >
-              {onlineMembers.map((onlineMember, onlineMemberIndex) => (
-                <li
-                  className={styles.TribeStoryAbout__onlineMember}
-                  key={onlineMember.name + String(onlineMemberIndex)}
-                  title={onlineMember.name}
-                >
-                  {onlineMember.image ? (
-                    <Image
-                      alt={onlineMember.name}
-                      className={styles.TribeStoryAbout__onlineAvatar}
-                      height={ONLINE_AVATAR_SIZE}
-                      src={onlineMember.image}
-                      unoptimized
-                      width={ONLINE_AVATAR_SIZE}
-                    />
-                  ) : (
-                    <>
-                      <span
-                        aria-hidden
-                        className={styles.TribeStoryAbout__onlineInitials}
-                      >
-                        {buildOnlineMemberInitials(onlineMember.name)}
-                      </span>
-                      <span className={styles.TribeStoryAbout__visuallyHidden}>
-                        {onlineMember.name}
-                      </span>
-                    </>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : null}
+          <TribeStoryFacts offerPrice={offerPrice} stats={stats} />
+          <TribeStoryOnlineMembers onlineMembers={onlineMembers} />
           {story?.websiteUrl ? (
             <a
               className={styles.TribeStoryAbout__websiteLink}
@@ -280,21 +366,10 @@ export function TribeStoryAbout({
               />
             </a>
           ) : null}
-          {freeJoinAction ? (
-            <div className={styles.TribeStoryAbout__joinAction}>
-              <FreeJoinForm
-                action={freeJoinAction}
-                label={TRIBE_STORY_ABOUT_COPY.freeJoinButton}
-                pendingLabel={TRIBE_STORY_ABOUT_COPY.freeJoinPendingButton}
-              />
-            </div>
-          ) : joinHref ? (
-            <div className={styles.TribeStoryAbout__joinAction}>
-              <ButtonLink className={styles.TribeStoryAbout__joinButton} href={joinHref}>
-                {TRIBE_STORY_ABOUT_COPY.joinButton}
-              </ButtonLink>
-            </div>
-          ) : null}
+          <TribeStoryJoinAction
+            freeJoinAction={freeJoinAction}
+            joinHref={joinHref}
+          />
         </aside>
       </div>
     </section>

@@ -6,6 +6,7 @@ import { fromBuenosAiresMinuteKey, toBuenosAiresMinuteKey } from "@/src/modules/
 import { MILLISECONDS_PER_SECOND } from "@/src/constants/time";
 import { ADMISSION_REVIEW_ALL_STATUSES } from "@/src/modules/academy-admissions/constants/admission-review-selection";
 import { admissionReviewPageInputSchema } from "@/src/modules/academy-admissions/constants/admission-review-page-input";
+import { omitKeys } from "@/lib/object-omit";
 import { admissionReviewSelectionQuery } from "./admission-review-selection";
 
 /** Editable strings do not represent permissions or persisted reviewer commands. */
@@ -62,8 +63,7 @@ export function parseAdmissionReviewFilterDraft(slug: string, draft: AdmissionRe
     ...(submittedUntil !== undefined ? { submittedUntil } : {}),
   } });
   if (!parsed.success) return { ok: false };
-  const { [ADMISSION_NAVIGATION.requestQuery]: _selectedId, ...filters } = parsed.data.query;
-  return { ok: true, filters };
+  return { ok: true, filters: omitKeys(parsed.data.query, [ADMISSION_NAVIGATION.requestQuery]) };
 }
 
 /** @param slug - Current academy slug. @param filters - Validated own selection. @returns A same-origin reviewer route retaining all filters and clearing any previous selected detail. */

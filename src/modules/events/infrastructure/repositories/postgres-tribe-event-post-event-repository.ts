@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
 import type {
@@ -188,7 +188,7 @@ async function readResources(
       on event_occurrence_recordings.event_id = target_event.id
       and event_occurrence_recordings.original_starts_at = ${originalStartsAt}::timestamptz
   `);
-  const row = (result.rows?.[0] ?? null) as ResourcesRow | null;
+  const row = (result.rows[0] ?? null) as ResourcesRow | null;
 
   if (!row) {
     return null;
@@ -212,7 +212,7 @@ async function readReactionSummary(
   const result = await database.execute(sql`
     select ${buildReactionSummarySql(eventId, originalStartsAt)}
   `);
-  const row = (result.rows?.[0] ?? null) as Pick<
+  const row = (result.rows[0] ?? null) as Pick<
     ResourcesRow,
     "reaction_counts" | "viewer_reaction"
   > | null;
@@ -244,6 +244,73 @@ async function readManagedOccurrence(
   return target.guard.canManage
     ? { isAccepted: true, tribeId: target.guard.tribeId }
     : { isAccepted: false, status: TRIBE_EVENT_MUTATION_STATUS.forbidden };
+}
+
+/**
+ * Upserts the recording of an occurrence, writing only when it changed.
+ */
+function buildUpsertOccurrenceRecordingStatement(command: SaveTribeEventPostEventResourcesCommand, recording: NonNullable<SaveTribeEventPostEventResourcesCommand["recording"]>, tribeId: string): SQL {
+  return sql`
+          insert into public.event_occurrence_recordings as event_occurrence_recordings (
+            event_id,
+            tribe_id,
+            original_starts_at,
+            video_provider,
+            external_video_id,
+            source_url,
+            created_by,
+            created_at,
+            updated_at
+          )
+          values (
+            ${command.eventId},
+            ${tribeId},
+            ${command.originalStartsAt}::timestamptz,
+            ${recording.provider},
+            ${recording.externalVideoId},
+            ${recording.sourceUrl},
+            public.current_app_user_id(),
+            timezone('utc', clock_timestamp()),
+            timezone('utc', clock_timestamp())
+          )
+          on conflict (event_id, original_starts_at) do update set
+            video_provider = excluded.video_provider,
+            external_video_id = excluded.external_video_id,
+            source_url = excluded.source_url,
+            updated_at = excluded.updated_at
+          where event_occurrence_recordings.video_provider is distinct from excluded.video_provider
+            or event_occurrence_recordings.external_video_id is distinct from excluded.external_video_id
+            or event_occurrence_recordings.source_url is distinct from excluded.source_url
+        `;
+}
+
+/**
+ * Inserts the materials of an occurrence in their given order.
+ */
+function buildInsertOccurrenceMaterialsStatement(command: SaveTribeEventPostEventResourcesCommand, tribeId: string): SQL {
+  return sql`
+          insert into public.event_occurrence_materials (
+            event_id,
+            tribe_id,
+            original_starts_at,
+            title,
+            url,
+            sort_order,
+            created_by
+          )
+          select
+            ${command.eventId},
+            ${tribeId},
+            ${command.originalStartsAt}::timestamptz,
+            material.title,
+            material.url,
+            (material.ordinality - 1)::integer,
+            public.current_app_user_id()
+          from rows from (
+            jsonb_to_recordset(${JSON.stringify(command.materials)}::jsonb)
+              as (title text, url text)
+          ) with ordinality as material(title, url, ordinality)
+        `;
 }
 
 export class PostgresTribeEventPostEventRepository implements TribeEventPostEventRepository {
@@ -302,38 +369,7 @@ export class PostgresTribeEventPostEventRepository implements TribeEventPostEven
       }
 
       if (command.recording) {
-        await database.execute(sql`
-          insert into public.event_occurrence_recordings as event_occurrence_recordings (
-            event_id,
-            tribe_id,
-            original_starts_at,
-            video_provider,
-            external_video_id,
-            source_url,
-            created_by,
-            created_at,
-            updated_at
-          )
-          values (
-            ${command.eventId},
-            ${target.tribeId},
-            ${command.originalStartsAt}::timestamptz,
-            ${command.recording.provider},
-            ${command.recording.externalVideoId},
-            ${command.recording.sourceUrl},
-            public.current_app_user_id(),
-            timezone('utc', clock_timestamp()),
-            timezone('utc', clock_timestamp())
-          )
-          on conflict (event_id, original_starts_at) do update set
-            video_provider = excluded.video_provider,
-            external_video_id = excluded.external_video_id,
-            source_url = excluded.source_url,
-            updated_at = excluded.updated_at
-          where event_occurrence_recordings.video_provider is distinct from excluded.video_provider
-            or event_occurrence_recordings.external_video_id is distinct from excluded.external_video_id
-            or event_occurrence_recordings.source_url is distinct from excluded.source_url
-        `);
+        await database.execute(buildUpsertOccurrenceRecordingStatement(command, command.recording, target.tribeId));
       } else {
         await database.execute(sql`
           delete from public.event_occurrence_recordings
@@ -349,29 +385,7 @@ export class PostgresTribeEventPostEventRepository implements TribeEventPostEven
       `);
 
       if (command.materials.length > 0) {
-        await database.execute(sql`
-          insert into public.event_occurrence_materials (
-            event_id,
-            tribe_id,
-            original_starts_at,
-            title,
-            url,
-            sort_order,
-            created_by
-          )
-          select
-            ${command.eventId},
-            ${target.tribeId},
-            ${command.originalStartsAt}::timestamptz,
-            material.title,
-            material.url,
-            (material.ordinality - 1)::integer,
-            public.current_app_user_id()
-          from rows from (
-            jsonb_to_recordset(${JSON.stringify(command.materials)}::jsonb)
-              as (title text, url text)
-          ) with ordinality as material(title, url, ordinality)
-        `);
+        await database.execute(buildInsertOccurrenceMaterialsStatement(command, target.tribeId));
       }
 
       const resources = await readResources(database, command);

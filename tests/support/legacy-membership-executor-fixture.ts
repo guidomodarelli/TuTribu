@@ -17,7 +17,7 @@ export function createLegacyMembershipExecutorFixture(execute:(statement:unknown
       || query.startsWith("select settings.tribe_id from public.tribe_academy_settings settings ")
       || query.startsWith("select member.id from public.tribe_members member join public.tribes tribe ")
       || query.startsWith("select tribes.id from public.tribes where ");
-    if(isResourceLock && /for (update|share)/.test(query)) return Promise.resolve({rows:[]});
+    if(isResourceLock && /for (?:update|share)/.test(query)) return Promise.resolve({rows:[]});
     return execute(statement,...parameters);
   };
 }

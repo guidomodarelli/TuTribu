@@ -37,7 +37,7 @@ export class ManageCommercialMembershipReviewsUseCases {
   async resolve(input: ReviewQuery & CommercialMembershipResolutionCommand) {
     try {
       const reason = input.reason?.trim() ? input.reason.trim() : null;
-      if (!input.confirmed || (reason?.length ?? 0) > ADMISSION_LIMIT.internalMessageCharacters) return { ok: false as const, failure: admissionFailure(ADMISSION_ERROR_CODE.invalidInput) };
+      if ((reason?.length ?? 0) > ADMISSION_LIMIT.internalMessageCharacters) return { ok: false as const, failure: admissionFailure(ADMISSION_ERROR_CODE.invalidInput) };
       const authority = await this.resolver.execute({ tribeId: input.tribeId, requestId: input.requestId, action: ADMISSION_ACTION.configurePolicy, sensitiveOperation: COMMERCIAL_MEMBERSHIP_REVIEW_OPERATION });
       if (!authority.allowed) return { ok: false as const, failure: authority.failure };
       const result = await this.repository.resolve(authority.context, { operationId: input.operationId, confirmed: input.confirmed, memberId: input.memberId, decision: input.decision, expected: input.expected, reason });

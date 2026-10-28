@@ -2,6 +2,7 @@
 /** Verifies authentication and scoped host dispatch through own ports with real crypto and HTTP objects. */
 import { randomBytes, randomUUID, createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
+import { ZodError } from "zod";
 import { createAdmissionNodeHostHandler } from "@/tests/support/admission-node-host-handler";
 import { ADMISSION_NODE_HOST, ADMISSION_NODE_RUN_STATE, type AdmissionNodeStatus } from "@/tests/support/constants/admission-node-host";
 import { HTTP_STATUS } from "@/src/constants/http-status";
@@ -51,7 +52,7 @@ describe("native Node workload boundary", () => {
   });
   it("should require complete deployment metadata instead of falling back to another environment", () => {
     const fixture = prepareHandler();
-    expect(() => createAdmissionNodeHostHandler({ ...fixture.configuration, tokenSha256: "" }, fixture.dependencies)).toThrow();
+    expect(() => createAdmissionNodeHostHandler({ ...fixture.configuration, tokenSha256: "" }, fixture.dependencies)).toThrow(ZodError);
   });
   it("should expose only the explicitly mapped safe diagnostic after an authorized failure", async () => {
     const fixture = prepareHandler(); fixture.dependencies.run.mockRejectedValue(new Error("private failure detail"));

@@ -20,6 +20,7 @@ Object.assign(environment, ADMISSION_PERFORMANCE_STATIC_ENVIRONMENT, { DATABASE_
 let output = "", outputTruncated = false, capturedBytes = 0;
 /** @param {Buffer} chunk - Private native output. @returns Nothing after bounded in-memory capture; raw logs are never streamed or uploaded. */
 function capture(chunk) { const remaining = ADMISSION_PERFORMANCE_CI.maximumLogBytes - capturedBytes; if (chunk.length > remaining) outputTruncated = true; if (remaining > 0) { const accepted = chunk.subarray(0, remaining); output += accepted.toString("utf8"); capturedBytes += accepted.length; } }
+if (!resolve(privatePath).startsWith(resolve(artifactRoot) + sep)) throw new Error("Native admission report cleanup escaped its owned directory");
 try {
   const child = spawn(process.execPath, [join(repository, "node_modules/vitest/vitest.mjs"), "run", ADMISSION_PERFORMANCE_CI.testFile, "--no-file-parallelism", "--disableConsoleIntercept", "--reporter=json", "--outputFile=" + privatePath], { cwd: repository, env: environment, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
   child.stdout.on("data", capture); child.stderr.on("data", capture);
@@ -36,6 +37,5 @@ try {
   process.stderr.write(failure.message + "\n");
   process.exitCode = 1;
 } finally {
-  if (!resolve(privatePath).startsWith(resolve(artifactRoot) + sep)) throw new Error("Native admission report cleanup escaped its owned directory");
   await rm(privatePath, { force: true });
 }

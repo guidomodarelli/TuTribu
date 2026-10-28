@@ -53,22 +53,17 @@ const ROUTE_OBSERVATION_DEFAULT = {
 } as const;
 
 /**
- * Builds request-scoped observability helpers for route handlers.
+ * Builds the route outcome and error loggers, which add the status, outcome,
+ * and elapsed time to the metadata.
  *
- * @param input - Route request, feature, and operation metadata.
- * @returns Logger, correlation context, and response helpers for the route.
+ * @param logger - Request-scoped server logger.
+ * @param startedAt - Request start, in epoch milliseconds.
+ * @returns The outcome and error loggers.
  */
-export function createRouteObservation(
-  input: RouteObservationInput
-): RouteObservation {
-  const requestContext = resolveRequestContext(input.request.headers);
-  const startedAt = Date.now();
-  const logger = createServerLogger({
-    feature: input.feature,
-    operation: input.operation,
-    requestId: requestContext.requestId,
-    traceId: requestContext.traceId,
-  });
+function createRouteLogFunctions(
+  logger: ReturnType<typeof createServerLogger>,
+  startedAt: number
+): Pick<RouteObservation, "logRouteError" | "logRouteOutcome"> {
   const buildMetadata = (
     status: number,
     outcome: string,
@@ -102,6 +97,28 @@ export function createRouteObservation(
       ),
     });
   };
+
+  return { logRouteError, logRouteOutcome };
+}
+
+/**
+ * Builds request-scoped observability helpers for route handlers.
+ *
+ * @param input - Route request, feature, and operation metadata.
+ * @returns Logger, correlation context, and response helpers for the route.
+ */
+export function createRouteObservation(
+  input: RouteObservationInput
+): RouteObservation {
+  const requestContext = resolveRequestContext(input.request.headers);
+  const startedAt = Date.now();
+  const logger = createServerLogger({
+    feature: input.feature,
+    operation: input.operation,
+    requestId: requestContext.requestId,
+    traceId: requestContext.traceId,
+  });
+  const { logRouteError, logRouteOutcome } = createRouteLogFunctions(logger, startedAt);
 
   return {
     createJsonResponse(

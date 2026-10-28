@@ -57,27 +57,54 @@ export function resolveMessagingConnectionsNextAction(input:{selected:MessagingC
   const{candidate,selected,usage}=input,nowMs=Date.parse(input.observedAt);
   // Activating clears the candidate slot; an active selection without a new candidate is finished, not waiting for a key.
   if(!candidate)return selected?.state===MESSAGING_CONNECTION_STATE.active?{step:MESSAGING_CONNECTIONS_NEXT_STEP.active,title:COPY.activeTitle,reason:COPY.selectedActiveReason,action:null,target:null,channel:null}:actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.saveCandidate,COPY.saveCandidate,TARGET.key);
+  const credentialAction=resolveCandidateCredentialAction(candidate,selected);
+  if(credentialAction)return credentialAction;
+  const progress=classifyCandidateChannels(candidate,selected,nowMs);
+  if(progress.usable.length===0)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.prepareChannel,progress.unavailable.length?COPY.unavailableChannels(joinChannels(progress.unavailable)):COPY.noChannel,TARGET.channels);
+  return resolvePendingTestAction(progress,usage)??resolveActivationAction({candidate,selected,usage,progress});
+}
+
+/**
+ * Checks the candidate's lifecycle and credential before any channel work.
+ * @returns The action that fixes them, or null when the credential is valid.
+ */
+function resolveCandidateCredentialAction(candidate:MessagingConfigurationConnection,selected:MessagingConfigurationConnection|null):MessagingConnectionsNextAction|null{
   // Retiring a candidate that is also the selection retires the selection too, so its advice never promises the selection stays.
   if(candidate.state===MESSAGING_CONNECTION_STATE.suspended||candidate.state===MESSAGING_CONNECTION_STATE.disconnected)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.activate,candidate.id===selected?.id?COPY.suspendedSelection:COPY.suspendedCandidate,TARGET.security);
   if(candidate.credentialState===MESSAGING_CREDENTIAL_PUBLIC_STATE.notValidated)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.validateCredential,COPY.credentialNotValidated,TARGET.credential);
   // A rejected key is not fixed by checking it again: a separate candidate is retired from Clave, which leaves the selection untouched.
   if(candidate.credentialState===MESSAGING_CREDENTIAL_PUBLIC_STATE.invalid)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.validateCredential,candidate.id===selected?.id?COPY.credentialInvalidSelection:COPY.credentialInvalid,candidate.id===selected?.id?TARGET.credential:TARGET.key);
   if(candidate.credentialState!==MESSAGING_CREDENTIAL_PUBLIC_STATE.valid)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.validateCredential,COPY.credentialUnavailable,TARGET.credential);
+  return null;
+}
+
+type CandidateChannelProgress={activeSelection:boolean;stale:MessagingConnectionChannel[];unavailable:MessagingConnectionChannel[];untested:MessagingConnectionChannel[];usable:ConnectionCapability[];verified:MessagingConnectionChannel[]};
+
+/** @returns The candidate's channels split by test progress at the observation time. */
+function classifyCandidateChannels(candidate:MessagingConfigurationConnection,selected:MessagingConfigurationConnection|null,nowMs:number):CandidateChannelProgress{
   const unavailable=candidate.capabilities.filter((capability)=>capability.state===MESSAGING_CAPABILITY_PUBLIC_STATE.unavailable).map((capability)=>capability.channel);
   const usable=candidate.capabilities.filter((capability)=>capability.state!==MESSAGING_CAPABILITY_PUBLIC_STATE.unavailable);
-  if(usable.length===0)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.prepareChannel,unavailable.length?COPY.unavailableChannels(joinChannels(unavailable)):COPY.noChannel,TARGET.channels);
   // The 24-hour window applies to activating a candidate; the unchanged active selection is not retested daily.
   const activeSelection=isExactActiveSelection(selected,candidate);
   const verified=usable.filter((capability)=>activeSelection?capability.state===MESSAGING_CAPABILITY_PUBLIC_STATE.prepared:isMessagingCapabilityFreshlyTested(capability,nowMs)).map((capability)=>capability.channel);
   const untested=usable.filter((capability)=>capability.state===MESSAGING_CAPABILITY_PUBLIC_STATE.unprepared).map((capability)=>capability.channel);
   const stale=activeSelection?[]:usable.filter((capability)=>capability.state===MESSAGING_CAPABILITY_PUBLIC_STATE.prepared&&!isMessagingCapabilityFreshlyTested(capability,nowMs)).map((capability)=>capability.channel);
+  return{activeSelection,stale,unavailable,untested,usable,verified};
+}
+
+/** @returns The next channel test to run, or null when every usable channel is proven. */
+function resolvePendingTestAction({stale,untested,verified}:CandidateChannelProgress,usage:MessagingUsagePolicyStateDto):MessagingConnectionsNextAction|null{
   const[firstPending]=[...untested,...stale];
+  if(!firstPending)return null;
   // Every test consumes the daily code quota, so a pending test first needs Países y cupos saved.
-  if(firstPending&&usage.state===MESSAGING_USAGE_POLICY_STATE.notConfigured)return{step:MESSAGING_CONNECTIONS_NEXT_STEP.testChannel,...COPY.usageRequired,target:{kind:"usage"},channel:firstPending};
-  if(firstPending){
-    const reason=[verified.length?COPY.verified(joinChannels(verified),verified.length>1):"",untested.length?COPY.untested(joinChannels(untested)):"",stale.length?COPY.stale(joinChannels(stale)):""].filter(Boolean).join(" ");
-    return{step:MESSAGING_CONNECTIONS_NEXT_STEP.testChannel,title:COPY.testTitle(joinChannels([...untested,...stale])),reason,action:COPY.testAction(MESSAGING_CHANNEL_LABEL[firstPending]),target:TARGET.test,channel:firstPending};
-  }
+  if(usage.state===MESSAGING_USAGE_POLICY_STATE.notConfigured)return{step:MESSAGING_CONNECTIONS_NEXT_STEP.testChannel,...COPY.usageRequired,target:{kind:"usage"},channel:firstPending};
+  const reason=[verified.length?COPY.verified(joinChannels(verified),verified.length>1):"",untested.length?COPY.untested(joinChannels(untested)):"",stale.length?COPY.stale(joinChannels(stale)):""].filter(Boolean).join(" ");
+  return{step:MESSAGING_CONNECTIONS_NEXT_STEP.testChannel,title:COPY.testTitle(joinChannels([...untested,...stale])),reason,action:COPY.testAction(MESSAGING_CHANNEL_LABEL[firstPending]),target:TARGET.test,channel:firstPending};
+}
+
+/** @returns What still blocks activating a fully tested candidate, or the activation itself. */
+function resolveActivationAction({candidate,selected,usage,progress}:{candidate:MessagingConfigurationConnection;selected:MessagingConfigurationConnection|null;usage:MessagingUsagePolicyStateDto;progress:CandidateChannelProgress}):MessagingConnectionsNextAction{
+  const{activeSelection,unavailable,verified}=progress;
   // Activation needs every configured channel tested, so an unavailable extra channel is the next thing to fix.
   if(unavailable.length)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.prepareChannel,COPY.unavailableChannels(joinChannels(unavailable)),TARGET.channels);
   if(candidate.credentialMode!==MESSAGING_CREDENTIAL_MODE.production)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.validateCredential,COPY.productionRequired,TARGET.credential);
@@ -95,7 +122,7 @@ export function resolveMessagingConnectionsNextAction(input:{selected:MessagingC
  * @returns Whether waiting for its code adds nothing because the channel is already proven for this configuration.
  */
 export function isMessagingDiagnosticSettled(diagnostic:Extract<ConnectionDiagnosticIssueResult,{outcome:"issued"}>,candidate:MessagingConfigurationConnection|null):boolean{
-  if(!candidate||candidate.id!==diagnostic.connectionId||candidate.configurationVersion!==diagnostic.connectionVersion)return false;
+  if(candidate?.id !== diagnostic.connectionId||candidate.configurationVersion!==diagnostic.connectionVersion)return false;
   const capability=candidate.capabilities.find((entry)=>entry.channel===diagnostic.channel);
   if(capability?.state!==MESSAGING_CAPABILITY_PUBLIC_STATE.prepared||!capability.testedAt)return false;
   const issuedAtMs=Date.parse(diagnostic.resendAllowedAt)-ADMISSION_LIMIT.verificationResendWaitMs;

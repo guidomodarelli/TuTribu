@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type SubmitEvent, useState } from "react";
 
 import { Button, Dialog, DialogContent, Input, Select, type SelectOption, Textarea, cn } from "@golfo/ui";
 
@@ -110,6 +110,107 @@ function isTribeEventType(value: string): value is TribeEventType {
   return TRIBE_EVENT_TYPES.some((eventType) => eventType === value);
 }
 
+type UpdateProposalField = <TField extends keyof ProposalFormValues>(
+  field: TField,
+  value: ProposalFormValues[TField]
+) => void;
+
+type ProposalFormFieldsProps = {
+  /** Missing-fields message of a required control, if it is the one to fix. */
+  getFieldError: (fieldId: ProposalRequiredFieldId) => string | undefined;
+  updateField: UpdateProposalField;
+  values: ProposalFormValues;
+};
+
+/** Title, date and time, duration, type and description controls of the proposal. */
+function ProposalFormFields({ getFieldError, updateField, values }: ProposalFormFieldsProps) {
+  return (
+    <>
+      <Input
+        error={getFieldError(FIELD_ID.title)}
+        id={FIELD_ID.title}
+        label={COPY.titleLabel}
+        maxLength={TRIBE_EVENT_FIELD_LIMIT.titleMaxLength}
+        required
+        value={values.title}
+        onChange={(event) => updateField("title", event.currentTarget.value)}
+      />
+      <div className={styles.TribeEventProposalFormDialog__row}>
+        <Input
+          error={getFieldError(FIELD_ID.date)}
+          id={FIELD_ID.date}
+          label={COPY.dateLabel}
+          required
+          type={INPUT_TYPE.date}
+          value={values.date}
+          onChange={(event) => updateField("date", event.currentTarget.value)}
+        />
+        <Input
+          error={getFieldError(FIELD_ID.startsTime)}
+          id={FIELD_ID.startsTime}
+          label={COPY.startsTimeLabel}
+          required
+          type={INPUT_TYPE.time}
+          value={values.startsTime}
+          onChange={(event) => updateField("startsTime", event.currentTarget.value)}
+        />
+      </div>
+      <div
+        className={cn(
+          styles.TribeEventProposalFormDialog__row,
+          styles["TribeEventProposalFormDialog__row--selects"]
+        )}
+      >
+        <Select
+          className={styles.TribeEventProposalFormDialog__field}
+          id={FIELD_ID.durationMinutes}
+          label={COPY.durationLabel}
+          options={DURATION_OPTIONS}
+          value={values.durationMinutes}
+          onValueChange={(value) => updateField("durationMinutes", value)}
+        />
+        <Select
+          className={styles.TribeEventProposalFormDialog__field}
+          id={FIELD_ID.eventType}
+          label={COPY.eventTypeLabel}
+          options={EVENT_TYPE_OPTIONS}
+          value={values.eventType}
+          onValueChange={(value) => {
+            if (isTribeEventType(value)) {
+              updateField("eventType", value);
+            }
+          }}
+        />
+      </div>
+      <Textarea
+        id={FIELD_ID.description}
+        label={COPY.descriptionLabel}
+        maxLength={TRIBE_EVENT_FIELD_LIMIT.descriptionMaxLength}
+        value={values.description}
+        onChange={(event) => updateField("description", event.currentTarget.value)}
+      />
+    </>
+  );
+}
+
+/** Cancel and submit buttons of the proposal form. */
+function ProposalFormActions({ isSubmitting, onClose }: Pick<TribeEventProposalFormDialogProps, "isSubmitting" | "onClose">) {
+  return (
+    <div className={styles.TribeEventProposalFormDialog__actions}>
+      <Button
+        type={BUTTON_ATTRIBUTE.typeButton}
+        variant={BUTTON_ATTRIBUTE.variantGhost}
+        onClick={onClose}
+      >
+        {COPY.cancelButton}
+      </Button>
+      <Button disabled={isSubmitting} type={BUTTON_ATTRIBUTE.typeSubmit}>
+        {isSubmitting ? COPY.submittingButton : COPY.submitButton}
+      </Button>
+    </div>
+  );
+}
+
 /**
  * Reduced form a member uses to propose a meeting: title, date and time,
  * duration, type, and description. Managers complete the rest (link,
@@ -138,7 +239,7 @@ export function TribeEventProposalFormDialog({
     setValues((currentValues) => ({ ...currentValues, [field]: value }));
   };
 
-  const handleSubmit = (submitEvent: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (submitEvent: SubmitEvent<HTMLFormElement>) => {
     submitEvent.preventDefault();
 
     if (isSubmitting) {
@@ -192,81 +293,12 @@ export function TribeEventProposalFormDialog({
           noValidate
           onSubmit={handleSubmit}
         >
-          <Input
-            error={getFieldError(FIELD_ID.title)}
-            id={FIELD_ID.title}
-            label={COPY.titleLabel}
-            maxLength={TRIBE_EVENT_FIELD_LIMIT.titleMaxLength}
-            required
-            value={values.title}
-            onChange={(event) => updateField("title", event.currentTarget.value)}
+          <ProposalFormFields
+            getFieldError={getFieldError}
+            updateField={updateField}
+            values={values}
           />
-          <div className={styles.TribeEventProposalFormDialog__row}>
-            <Input
-              error={getFieldError(FIELD_ID.date)}
-              id={FIELD_ID.date}
-              label={COPY.dateLabel}
-              required
-              type={INPUT_TYPE.date}
-              value={values.date}
-              onChange={(event) => updateField("date", event.currentTarget.value)}
-            />
-            <Input
-              error={getFieldError(FIELD_ID.startsTime)}
-              id={FIELD_ID.startsTime}
-              label={COPY.startsTimeLabel}
-              required
-              type={INPUT_TYPE.time}
-              value={values.startsTime}
-              onChange={(event) => updateField("startsTime", event.currentTarget.value)}
-            />
-          </div>
-          <div
-            className={cn(
-              styles.TribeEventProposalFormDialog__row,
-              styles["TribeEventProposalFormDialog__row--selects"]
-            )}
-          >
-            <Select
-              className={styles.TribeEventProposalFormDialog__field}
-              id={FIELD_ID.durationMinutes}
-              label={COPY.durationLabel}
-              options={DURATION_OPTIONS}
-              value={values.durationMinutes}
-              onValueChange={(value) => updateField("durationMinutes", value)}
-            />
-            <Select
-              className={styles.TribeEventProposalFormDialog__field}
-              id={FIELD_ID.eventType}
-              label={COPY.eventTypeLabel}
-              options={EVENT_TYPE_OPTIONS}
-              value={values.eventType}
-              onValueChange={(value) => {
-                if (isTribeEventType(value)) {
-                  updateField("eventType", value);
-                }
-              }}
-            />
-          </div>
-          <Textarea
-            id={FIELD_ID.description}
-            label={COPY.descriptionLabel}
-            maxLength={TRIBE_EVENT_FIELD_LIMIT.descriptionMaxLength}
-            value={values.description}
-            onChange={(event) => updateField("description", event.currentTarget.value)}
-          />
-          <div className={styles.TribeEventProposalFormDialog__actions}>
-            <Button
-              type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantGhost}
-              onClick={onClose}
-            >
-              {COPY.cancelButton}
-            </Button>
-            <Button disabled={isSubmitting} type={BUTTON_ATTRIBUTE.typeSubmit}>
-              {isSubmitting ? COPY.submittingButton : COPY.submitButton}
-            </Button>
-          </div>
+          <ProposalFormActions isSubmitting={isSubmitting} onClose={onClose} />
         </form>
       </DialogContent>
     </Dialog>

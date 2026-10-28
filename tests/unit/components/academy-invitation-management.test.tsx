@@ -22,7 +22,7 @@ function fixture(phone = false) {
   const client: PersonalInvitationManagementBrowserClient = {
     viewer: vi.fn(async () => ({ status: "ready" as const, value: { id: viewerId } })),
     page: vi.fn(async () => ({ status: "ready" as const, value: { ...initial, page: { items: [metadata], nextCursor: null } } })),
-    write: vi.fn(async (_slug, intent) => ({ status: "ready" as const, value: { viewerId, outcome: { state: "completed" as const, operationId: intent.input.operationId, replayed: false, result: { invitationId, version: intent.type === "create_personal_invitation" ? 1 : intent.input.expectedVersion + 1, changed: true, created: intent.type === "create_personal_invitation" }, ...(intent.type === "create_personal_invitation" ? { invitationUrl } : {}) } } })),
+    write: vi.fn<PersonalInvitationManagementBrowserClient["write"]>(async (_slug, intent) => ({ status: "ready" as const, value: { viewerId, outcome: { state: "completed" as const, operationId: intent.input.operationId, replayed: false, result: { invitationId, version: intent.type === "create_personal_invitation" ? 1 : intent.input.expectedVersion + 1, changed: true, created: intent.type === "create_personal_invitation" }, ...(intent.type === "create_personal_invitation" ? { invitationUrl } : {}) } } })),
     operation: vi.fn(async () => ({ status: "failed" as const, code: "resource_unavailable" as const, message: "Recurso no disponible.", uncertain: false })),
   };
   return { initial, client, metadata, invitationUrl };

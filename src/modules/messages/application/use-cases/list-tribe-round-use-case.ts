@@ -68,9 +68,7 @@ function mergeTribeRoundWithViewerState({
 }): TribeRoundResult {
   const likedMessageIds = new Set(viewerState.likedMessageIds);
   const selectedPollOptionIds = new Set(viewerState.selectedPollOptionIds);
-  const canManageOwnMessages = Boolean(
-    viewerState.viewerPermissions.canCreateMessage
-  );
+  const canManageOwnMessages = viewerState.viewerPermissions.canCreateMessage;
   const canDeleteStaffMessages = Boolean(
     viewerState.viewerPermissions.canPinMessages
   );
@@ -83,7 +81,7 @@ function mergeTribeRoundWithViewerState({
 
       return {
         ...message,
-        hasLoadedReplies: (message.replyCount ?? 0) === 0,
+        hasLoadedReplies: message.replyCount === 0,
         likedByViewer: likedMessageIds.has(message.id),
         permissions: {
           canDelete:

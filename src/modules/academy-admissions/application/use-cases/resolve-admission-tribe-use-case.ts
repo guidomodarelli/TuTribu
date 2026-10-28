@@ -11,7 +11,7 @@ export class ResolveAdmissionTribeUseCase {
   async execute(query: { slug: string; requestId: string }) {
     try {
       const identity = await this.reader.readIdentity(query);
-      if (!identity || identity.slug !== query.slug) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+      if (identity?.slug !== query.slug) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
       return { ok: true as const, value: { tribeId: identity.id } };
     } catch (error) { return admissionOperationFailure(error); }
   }

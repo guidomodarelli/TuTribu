@@ -15,7 +15,6 @@ import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
 import {
   bigint,
   boolean,
-  customType,
   check,
   doublePrecision,
   foreignKey,
@@ -32,12 +31,6 @@ import {
 } from "drizzle-orm/pg-core";
 
 const UTC_NOW_SQL = sql`timezone('utc', now())`;
-/** Maps the driver's binary value without schema-validating PostgreSQL rows. */
-const binaryData = customType<{ data: Uint8Array; driverData: Buffer }>({
-  dataType: () => "bytea",
-  toDriver: (value) => Buffer.from(value),
-  fromDriver: (value) => new Uint8Array(value),
-});
 
 export const users = pgTable("user", {
   id: text("id").primaryKey(),
@@ -47,9 +40,9 @@ export const users = pgTable("user", {
   image: text("image"),
   createdAt: timestamp("createdAt", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull(),
-}, (table) => ({
-  emailKey: uniqueIndex("user_email_key").on(table.email),
-}));
+}, (table) => [
+  uniqueIndex("user_email_key").on(table.email),
+]);
 
 export const sessions = pgTable("session", {
   id: text("id").primaryKey(),
@@ -62,11 +55,11 @@ export const sessions = pgTable("session", {
   userId: text("userId")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-}, (table) => ({
-  tokenKey: uniqueIndex("session_token_key").on(table.token),
-  userIdIndex: index("idx_session_user_id").on(table.userId),
-  userScopeKey: uniqueIndex("session_user_scope_key").on(table.id, table.userId),
-}));
+}, (table) => [
+  uniqueIndex("session_token_key").on(table.token),
+  index("idx_session_user_id").on(table.userId),
+  uniqueIndex("session_user_scope_key").on(table.id, table.userId),
+]);
 
 export const accounts = pgTable("account", {
   id: text("id").primaryKey(),
@@ -84,11 +77,11 @@ export const accounts = pgTable("account", {
   password: text("password"),
   createdAt: timestamp("createdAt", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull(),
-}, (table) => ({
-  userIdIndex: index("idx_account_user_id").on(table.userId),
-  identityScopeKey: uniqueIndex("account_identity_scope_key").on(table.id, table.userId, table.providerId, table.accountId),
-  subjectUserKey: uniqueIndex("account_subject_user_key").on(table.id, table.userId, table.accountId),
-}));
+}, (table) => [
+  index("idx_account_user_id").on(table.userId),
+  uniqueIndex("account_identity_scope_key").on(table.id, table.userId, table.providerId, table.accountId),
+  uniqueIndex("account_subject_user_key").on(table.id, table.userId, table.accountId),
+]);
 
 export const verifications = pgTable("verification", {
   id: text("id").primaryKey(),
@@ -97,9 +90,9 @@ export const verifications = pgTable("verification", {
   expiresAt: timestamp("expiresAt", { withTimezone: true }).notNull(),
   createdAt: timestamp("createdAt", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull(),
-}, (table) => ({
-  identifierIndex: index("idx_verification_identifier").on(table.identifier),
-}));
+}, (table) => [
+  index("idx_verification_identifier").on(table.identifier),
+]);
 
 /** Private verified captures; no additional OAuth token or full provider profile is persisted. */
 export const {globalSessionIdentityBindings}=createAuthenticatedAccountSchema({sessions,accounts});
@@ -113,20 +106,20 @@ export const globalIdentityEvidence = pgTable("global_identity_evidence", {
   tokenIssuedAt: timestamp("token_issued_at", { withTimezone: true }).notNull(), tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }).notNull(),
   verifiedAt: timestamp("verified_at", { withTimezone: true }).notNull(), version: integer("version").notNull().default(1),
   invalidatedAt: timestamp("invalidated_at", { withTimezone: true }), invalidationReason: text("invalidation_reason"),
-}, (table) => ({
-  userForeignKey: foreignKey({ columns: [table.userId], foreignColumns: [users.id], name: "global_identity_user_fkey" }).onDelete("cascade"),
-  accountScopeForeignKey: foreignKey({ columns: [table.accountId,table.userId,table.providerId,table.providerSubject], foreignColumns: [accounts.id,accounts.userId,accounts.providerId,accounts.accountId], name: "global_identity_account_scope_fkey" }).onDelete("cascade"),
-  currentAccountKey: uniqueIndex("global_identity_current_account_key").on(table.accountId,table.providerId).where(sql`${table.invalidatedAt} is null`),
-  historyIndex: index("global_identity_user_history_idx").on(table.userId,table.verifiedAt.desc()),
-  userScopeKey: uniqueIndex("global_identity_evidence_user_key").on(table.id,table.userId),
-  versionCheck: check("global_identity_version_check", sql`${table.version}>0`),
-  providerCheck: check("global_identity_provider_check", sql`${table.providerId}='google'`),
-  emailCheck: check("global_identity_email_check", sql`${table.normalizedEmail}<>'' and ${table.normalizedEmail}=lower(btrim(${table.normalizedEmail}))`),
-  classificationCheck: check("global_identity_classification_check", sql`${table.classification} in ('gmail','workspace','insufficient')`),
-  timeCheck: check("global_identity_time_check", sql`${table.tokenExpiresAt}>${table.tokenIssuedAt}`),
-  authorityCheck: check("global_identity_authority_check", sql`${table.classification}='insufficient' or (${table.emailVerifiedClaim} and ((${table.classification}='gmail' and ${table.normalizedEmail} like '%@gmail.com') or (${table.classification}='workspace' and ${table.hostedDomain} is not null and btrim(${table.hostedDomain})<>'')))`),
-  invalidationCheck: check("global_identity_invalidation_check", sql`(${table.invalidatedAt} is null)=(${table.invalidationReason} is null)`),
-}));
+}, (table) => [
+  foreignKey({ columns: [table.userId], foreignColumns: [users.id], name: "global_identity_user_fkey" }).onDelete("cascade"),
+  foreignKey({ columns: [table.accountId,table.userId,table.providerId,table.providerSubject], foreignColumns: [accounts.id,accounts.userId,accounts.providerId,accounts.accountId], name: "global_identity_account_scope_fkey" }).onDelete("cascade"),
+  uniqueIndex("global_identity_current_account_key").on(table.accountId,table.providerId).where(sql`${table.invalidatedAt} is null`),
+  index("global_identity_user_history_idx").on(table.userId,table.verifiedAt.desc()),
+  uniqueIndex("global_identity_evidence_user_key").on(table.id,table.userId),
+  check("global_identity_version_check", sql`${table.version}>0`),
+  check("global_identity_provider_check", sql`${table.providerId}='google'`),
+  check("global_identity_email_check", sql`${table.normalizedEmail}<>'' and ${table.normalizedEmail}=lower(btrim(${table.normalizedEmail}))`),
+  check("global_identity_classification_check", sql`${table.classification} in ('gmail','workspace','insufficient')`),
+  check("global_identity_time_check", sql`${table.tokenExpiresAt}>${table.tokenIssuedAt}`),
+  check("global_identity_authority_check", sql`${table.classification}='insufficient' or (${table.emailVerifiedClaim} and ((${table.classification}='gmail' and ${table.normalizedEmail} like '%@gmail.com') or (${table.classification}='workspace' and ${table.hostedDomain} is not null and btrim(${table.hostedDomain})<>'')))`),
+  check("global_identity_invalidation_check", sql`(${table.invalidatedAt} is null)=(${table.invalidationReason} is null)`),
+]);
 
 export const tribeCreatorWhitelist = pgTable("tribe_creator_whitelist", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -134,9 +127,9 @@ export const tribeCreatorWhitelist = pgTable("tribe_creator_whitelist", {
   notes: text("notes"),
   createdBy: text("created_by").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-}, (table) => ({
-  emailKey: uniqueIndex("tribe_creator_whitelist_email_key").on(table.email),
-}));
+}, (table) => [
+  uniqueIndex("tribe_creator_whitelist_email_key").on(table.email),
+]);
 
 export const tribes = pgTable("tribes", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -158,9 +151,9 @@ export const tribes = pgTable("tribes", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  slugKey: uniqueIndex("tribes_slug_key").on(table.slug),
-}));
+}, (table) => [
+  uniqueIndex("tribes_slug_key").on(table.slug),
+]);
 
 export const tribeMembers = pgTable("tribe_members", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -185,19 +178,19 @@ export const tribeMembers = pgTable("tribe_members", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  membershipKey: uniqueIndex("tribe_members_tribe_id_user_id_key").on(
+}, (table) => [
+  uniqueIndex("tribe_members_tribe_id_user_id_key").on(
     table.tribeId,
     table.userId
   ),
-  admissionScopeKey: uniqueIndex("tribe_member_admission_scope_key").on(table.id,table.tribeId,table.userId),
-  commercialRecoveryCheck: check("tribe_member_commercial_recovery_check",sql`${table.commercialRecoveryStatus} in ('active','muted')`),
-  admissionEffectForeignKey: foreignKey({name:"tribe_member_admission_effect_fkey",columns:[table.admissionMembershipEffectId,table.tribeId,table.userId,table.id],foreignColumns:[academyAdmissionMembershipEffects.id,academyAdmissionMembershipEffects.tribeId,academyAdmissionMembershipEffects.userId,academyAdmissionMembershipEffects.memberId]}),
-  subscriptionEffectForeignKey: foreignKey({name:"tribe_member_subscription_effect_fkey",columns:[table.subscriptionMembershipEffectId,table.tribeId,table.userId,table.id],foreignColumns:[subscriptionMembershipEffects.id,subscriptionMembershipEffects.tribeId,subscriptionMembershipEffects.userId,subscriptionMembershipEffects.memberId]}),
-  joinedViaInvitationIndex: index("idx_tribe_members_joined_via_invitation").on(
+  uniqueIndex("tribe_member_admission_scope_key").on(table.id,table.tribeId,table.userId),
+  check("tribe_member_commercial_recovery_check",sql`${table.commercialRecoveryStatus} in ('active','muted')`),
+  foreignKey({name:"tribe_member_admission_effect_fkey",columns:[table.admissionMembershipEffectId,table.tribeId,table.userId,table.id],foreignColumns:[academyAdmissionMembershipEffects.id,academyAdmissionMembershipEffects.tribeId,academyAdmissionMembershipEffects.userId,academyAdmissionMembershipEffects.memberId]}),
+  foreignKey({name:"tribe_member_subscription_effect_fkey",columns:[table.subscriptionMembershipEffectId,table.tribeId,table.userId,table.id],foreignColumns:[subscriptionMembershipEffects.id,subscriptionMembershipEffects.tribeId,subscriptionMembershipEffects.userId,subscriptionMembershipEffects.memberId]}),
+  index("idx_tribe_members_joined_via_invitation").on(
     table.joinedViaInvitationId
   ),
-}));
+]);
 
 export const tribeInvitations = pgTable("tribe_invitations", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -221,21 +214,21 @@ export const tribeInvitations = pgTable("tribe_invitations", {
   ),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
-}, (table) => ({
-  tokenHashKey: uniqueIndex("tribe_invitations_token_hash_key").on(table.tokenHash),
-  admissionScopeKey: uniqueIndex("admission_legacy_invitation_scope_key").on(table.id,table.tribeId),
-  tribeStatusIndex: index("idx_tribe_invitations_tribe_status").on(
+}, (table) => [
+  uniqueIndex("tribe_invitations_token_hash_key").on(table.tokenHash),
+  uniqueIndex("admission_legacy_invitation_scope_key").on(table.id,table.tribeId),
+  index("idx_tribe_invitations_tribe_status").on(
     table.tribeId,
     table.status
   ),
-  subscriptionPriceIndex: index("idx_tribe_invitations_subscription_price_id").on(
+  index("idx_tribe_invitations_subscription_price_id").on(
     table.subscriptionPriceId
   ),
-  tribeChannelIndex: index("idx_tribe_invitations_tribe_channel").on(
+  index("idx_tribe_invitations_tribe_channel").on(
     table.tribeId,
     table.channel
   ),
-}));
+]);
 
 export const tribeWelcomeSettings = pgTable("tribe_welcome_settings", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -264,9 +257,9 @@ export const tribeWelcomeSettings = pgTable("tribe_welcome_settings", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  tribeKey: uniqueIndex("tribe_welcome_settings_tribe_key").on(table.tribeId),
-}));
+}, (table) => [
+  uniqueIndex("tribe_welcome_settings_tribe_key").on(table.tribeId),
+]);
 
 export const tribeSupportSettings = pgTable("tribe_support_settings", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -283,9 +276,9 @@ export const tribeSupportSettings = pgTable("tribe_support_settings", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  tribeKey: uniqueIndex("tribe_support_settings_tribe_key").on(table.tribeId),
-}));
+}, (table) => [
+  uniqueIndex("tribe_support_settings_tribe_key").on(table.tribeId),
+]);
 
 export const tribeStorySettings = pgTable("tribe_story_settings", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -301,9 +294,9 @@ export const tribeStorySettings = pgTable("tribe_story_settings", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  tribeKey: uniqueIndex("tribe_story_settings_tribe_key").on(table.tribeId),
-}));
+}, (table) => [
+  uniqueIndex("tribe_story_settings_tribe_key").on(table.tribeId),
+]);
 
 export const tribeStoryMedia = pgTable("tribe_story_media", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -321,12 +314,12 @@ export const tribeStoryMedia = pgTable("tribe_story_media", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  tribeSortIndex: index("idx_tribe_story_media_tribe_sort").on(
+}, (table) => [
+  index("idx_tribe_story_media_tribe_sort").on(
     table.tribeId,
     table.sortOrder
   ),
-}));
+]);
 
 export const tribeImages = pgTable("tribe_images", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -342,15 +335,15 @@ export const tribeImages = pgTable("tribe_images", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  cloudflareKey: uniqueIndex("tribe_images_cloudflare_key").on(
+}, (table) => [
+  uniqueIndex("tribe_images_cloudflare_key").on(
     table.cloudflareImageId
   ),
-  tribeStatusIndex: index("idx_tribe_images_tribe_status").on(
+  index("idx_tribe_images_tribe_status").on(
     table.tribeId,
     table.status
   ),
-}));
+]);
 
 export const tribeWelcomeRules = pgTable("tribe_welcome_rules", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -366,12 +359,12 @@ export const tribeWelcomeRules = pgTable("tribe_welcome_rules", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  tribeSortIndex: index("idx_tribe_welcome_rules_tribe_sort").on(
+}, (table) => [
+  index("idx_tribe_welcome_rules_tribe_sort").on(
     table.tribeId,
     table.sortOrder
   ),
-}));
+]);
 
 export const tribeWelcomeLinks = pgTable("tribe_welcome_links", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -393,12 +386,12 @@ export const tribeWelcomeLinks = pgTable("tribe_welcome_links", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  tribeSortIndex: index("idx_tribe_welcome_links_tribe_sort").on(
+}, (table) => [
+  index("idx_tribe_welcome_links_tribe_sort").on(
     table.tribeId,
     table.sortOrder
   ),
-}));
+]);
 
 export const tribeWelcomeSelections = pgTable("tribe_welcome_selections", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -414,20 +407,20 @@ export const tribeWelcomeSelections = pgTable("tribe_welcome_selections", {
   selectedAt: timestamp("selected_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  linkUserIndex: index("idx_tribe_welcome_selections_link_user").on(
+}, (table) => [
+  index("idx_tribe_welcome_selections_link_user").on(
     table.welcomeLinkId,
     table.userId
   ),
-  tribeUserIndex: index("idx_tribe_welcome_selections_tribe_user").on(
+  index("idx_tribe_welcome_selections_tribe_user").on(
     table.tribeId,
     table.userId
   ),
-  tribeLinkIndex: index("idx_tribe_welcome_selections_tribe_link").on(
+  index("idx_tribe_welcome_selections_tribe_link").on(
     table.tribeId,
     table.welcomeLinkId
   ),
-}));
+]);
 
 export const tribeChannels = pgTable("tribe_channels", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -445,16 +438,16 @@ export const tribeChannels = pgTable("tribe_channels", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  tribeSlugKey: uniqueIndex("tribe_channels_tribe_id_slug_key").on(
+}, (table) => [
+  uniqueIndex("tribe_channels_tribe_id_slug_key").on(
     table.tribeId,
     table.slug
   ),
-  tribeSortOrderIndex: index("idx_tribe_channels_sort_order").on(
+  index("idx_tribe_channels_sort_order").on(
     table.tribeId,
     table.sortOrder
   ),
-}));
+]);
 
 export const messages = pgTable("messages", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -472,15 +465,15 @@ export const messages = pgTable("messages", {
   clientRequestId: uuid("client_request_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
-}, (table) => ({
-  authorClientRequestIdKey: uniqueIndex("messages_author_client_request_id_key")
+}, (table) => [
+  uniqueIndex("messages_author_client_request_id_key")
     .on(table.authorId, table.clientRequestId)
     .where(sql`${table.clientRequestId} IS NOT NULL`),
-  tribeCreatedAtIndex: index("idx_messages_tribe_created_at").on(
+  index("idx_messages_tribe_created_at").on(
     table.tribeId,
     table.createdAt
   ),
-}));
+]);
 
 export const messageImages = pgTable("message_images", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -505,29 +498,29 @@ export const messageImages = pgTable("message_images", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  cloudflareImageKey: uniqueIndex("message_images_cloudflare_image_id_key").on(
+}, (table) => [
+  uniqueIndex("message_images_cloudflare_image_id_key").on(
     table.cloudflareImageId
   ),
-  messageSortKey: uniqueIndex("message_images_message_sort_key").on(
+  uniqueIndex("message_images_message_sort_key").on(
     table.messageId,
     table.sortOrder
   ).where(sql`${table.status} = 'attached'`),
-  messageStatusSortIndex: index("idx_message_images_message_status_sort").on(
+  index("idx_message_images_message_status_sort").on(
     table.messageId,
     table.status,
     table.sortOrder
   ),
-  tribeUploadedByStatusIndex: index(
+  index(
     "idx_message_images_tribe_uploaded_by_status"
   ).on(table.tribeId, table.uploadedBy, table.status),
-  pendingDeleteIndex: index("idx_message_images_pending_delete")
+  index("idx_message_images_pending_delete")
     .on(table.status, table.updatedAt)
     .where(sql`${table.status} = 'pending_delete'`),
-  deletedMessageStatusIndex: index("idx_message_images_deleted_message_status")
+  index("idx_message_images_deleted_message_status")
     .on(table.deletedMessageId, table.status)
     .where(sql`${table.deletedMessageId} IS NOT NULL`),
-}));
+]);
 
 /**
  * Decoupled queue of Cloudflare image ids whose owning `message_images` row is
@@ -546,14 +539,14 @@ export const pendingRemoteImageDeletions = pgTable(
       .notNull()
       .default(UTC_NOW_SQL),
   },
-  (table) => ({
-    cloudflareImageKey: uniqueIndex(
+  (table) => [
+    uniqueIndex(
       "pending_remote_image_deletions_image_key"
     ).on(table.cloudflareImageId),
-    enqueuedAtIndex: index(
+    index(
       "idx_pending_remote_image_deletions_enqueued_at"
     ).on(table.enqueuedAt),
-  })
+  ]
 );
 
 export const messageFiles = pgTable("message_files", {
@@ -580,29 +573,29 @@ export const messageFiles = pgTable("message_files", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  storageKeyKey: uniqueIndex("message_files_storage_key_key").on(
+}, (table) => [
+  uniqueIndex("message_files_storage_key_key").on(
     table.storageKey
   ),
-  messageSortKey: uniqueIndex("message_files_message_sort_key").on(
+  uniqueIndex("message_files_message_sort_key").on(
     table.messageId,
     table.sortOrder
   ).where(sql`${table.status} = 'attached'`),
-  messageStatusSortIndex: index("idx_message_files_message_status_sort").on(
+  index("idx_message_files_message_status_sort").on(
     table.messageId,
     table.status,
     table.sortOrder
   ),
-  tribeUploadedByStatusIndex: index(
+  index(
     "idx_message_files_tribe_uploaded_by_status"
   ).on(table.tribeId, table.uploadedBy, table.status),
-  pendingDeleteIndex: index("idx_message_files_pending_delete")
+  index("idx_message_files_pending_delete")
     .on(table.status, table.updatedAt)
     .where(sql`${table.status} = 'pending_delete'`),
-  deletedMessageStatusIndex: index("idx_message_files_deleted_message_status")
+  index("idx_message_files_deleted_message_status")
     .on(table.deletedMessageId, table.status)
     .where(sql`${table.deletedMessageId} IS NOT NULL`),
-}));
+]);
 
 /**
  * Decoupled queue of R2 storage keys whose owning `message_files` or
@@ -622,14 +615,14 @@ export const pendingRemoteFileDeletions = pgTable(
       .notNull()
       .default(UTC_NOW_SQL),
   },
-  (table) => ({
-    storageKeyKey: uniqueIndex(
+  (table) => [
+    uniqueIndex(
       "pending_remote_file_deletions_storage_key_key"
     ).on(table.storageKey),
-    enqueuedAtIndex: index(
+    index(
       "idx_pending_remote_file_deletions_enqueued_at"
     ).on(table.enqueuedAt),
-  })
+  ]
 );
 
 export const messageVideos = pgTable("message_videos", {
@@ -657,16 +650,16 @@ export const messageVideos = pgTable("message_videos", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  messageSortKey: uniqueIndex("message_videos_message_sort_key").on(
+}, (table) => [
+  uniqueIndex("message_videos_message_sort_key").on(
     table.messageId,
     table.sortOrder
   ),
-  messageSortIndex: index("idx_message_videos_message_sort").on(
+  index("idx_message_videos_message_sort").on(
     table.messageId,
     table.sortOrder
   ),
-}));
+]);
 
 export const messageReplies = pgTable("message_replies", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -681,12 +674,12 @@ export const messageReplies = pgTable("message_replies", {
     .references(() => users.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-}, (table) => ({
-  messageCreatedAtIndex: index("idx_message_replies_message_created_at").on(
+}, (table) => [
+  index("idx_message_replies_message_created_at").on(
     table.messageId,
     table.createdAt
   ),
-}));
+]);
 
 export const messageReactions = pgTable("message_reactions", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -701,13 +694,13 @@ export const messageReactions = pgTable("message_reactions", {
     .references(() => users.id, { onDelete: "cascade" }),
   type: text("type").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-}, (table) => ({
-  messageTypeIndex: index("idx_message_reactions_message_type").on(table.messageId, table.type),
-  reactionKey: uniqueIndex("message_reactions_message_id_user_id_key").on(
+}, (table) => [
+  index("idx_message_reactions_message_type").on(table.messageId, table.type),
+  uniqueIndex("message_reactions_message_id_user_id_key").on(
     table.messageId,
     table.userId
   ),
-}));
+]);
 
 export const messagePins = pgTable("message_pins", {
   messageId: uuid("message_id")
@@ -720,12 +713,12 @@ export const messagePins = pgTable("message_pins", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   pinnedAt: timestamp("pinned_at", { withTimezone: true }).notNull(),
-}, (table) => ({
-  tribePinnedAtIndex: index("idx_message_pins_tribe_pinned_at").on(
+}, (table) => [
+  index("idx_message_pins_tribe_pinned_at").on(
     table.tribeId,
     table.pinnedAt
   ),
-}));
+]);
 
 export const courses = pgTable("courses", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -744,16 +737,16 @@ export const courses = pgTable("courses", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  courseTribeKey: uniqueIndex("courses_id_tribe_id_key").on(
+}, (table) => [
+  uniqueIndex("courses_id_tribe_id_key").on(
     table.id,
     table.tribeId
   ),
-  tribeSortIndex: index("idx_courses_tribe_sort").on(
+  index("idx_courses_tribe_sort").on(
     table.tribeId,
     table.sortOrder
   ),
-}));
+]);
 
 export const courseModules = pgTable("course_modules", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -771,25 +764,25 @@ export const courseModules = pgTable("course_modules", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  moduleTribeKey: uniqueIndex("course_modules_id_tribe_id_key").on(
+}, (table) => [
+  uniqueIndex("course_modules_id_tribe_id_key").on(
     table.id,
     table.tribeId
   ),
-  tribeSortIndex: index("idx_course_modules_tribe_sort").on(
+  index("idx_course_modules_tribe_sort").on(
     table.tribeId,
     table.sortOrder
   ),
-  courseTribeForeignKey: foreignKey({
+  foreignKey({
     columns: [table.courseId, table.tribeId],
     foreignColumns: [courses.id, courses.tribeId],
     name: "course_modules_course_tribe_fkey",
   }).onDelete("cascade"),
-  courseSortIndex: index("idx_course_modules_course_sort").on(
+  index("idx_course_modules_course_sort").on(
     table.courseId,
     table.sortOrder
   ),
-}));
+]);
 
 export const courseLessons = pgTable("course_lessons", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -816,21 +809,21 @@ export const courseLessons = pgTable("course_lessons", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  eventSourceIndex: index("idx_course_lessons_event_source")
+}, (table) => [
+  index("idx_course_lessons_event_source")
     .on(table.sourceEventId, table.sourceOccurrenceStartsAt)
     .where(sql`source_event_id IS NOT NULL`),
-  moduleTribeForeignKey: foreignKey({
+  foreignKey({
     columns: [table.courseModuleId, table.tribeId],
     foreignColumns: [courseModules.id, courseModules.tribeId],
     name: "course_lessons_module_tribe_fkey",
   }).onDelete("cascade"),
-  moduleSortIndex: index("idx_course_lessons_module_sort").on(
+  index("idx_course_lessons_module_sort").on(
     table.courseModuleId,
     table.sortOrder
   ),
-  tribeIndex: index("idx_course_lessons_tribe").on(table.tribeId),
-}));
+  index("idx_course_lessons_tribe").on(table.tribeId),
+]);
 
 export const courseLessonFiles = pgTable("course_lesson_files", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -856,31 +849,31 @@ export const courseLessonFiles = pgTable("course_lesson_files", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  storageKeyKey: uniqueIndex("course_lesson_files_storage_key_key").on(
+}, (table) => [
+  uniqueIndex("course_lesson_files_storage_key_key").on(
     table.storageKey
   ),
-  lessonSortKey: uniqueIndex("course_lesson_files_lesson_sort_key").on(
+  uniqueIndex("course_lesson_files_lesson_sort_key").on(
     table.lessonId,
     table.sortOrder
   ).where(sql`${table.status} = 'attached'`),
-  lessonStatusSortIndex: index("idx_course_lesson_files_lesson_status_sort").on(
+  index("idx_course_lesson_files_lesson_status_sort").on(
     table.lessonId,
     table.status,
     table.sortOrder
   ),
-  tribeUploadedByStatusIndex: index(
+  index(
     "idx_course_lesson_files_tribe_uploaded_by_status"
   ).on(table.tribeId, table.uploadedBy, table.status),
-  pendingDeleteIndex: index("idx_course_lesson_files_pending_delete")
+  index("idx_course_lesson_files_pending_delete")
     .on(table.status, table.updatedAt)
     .where(sql`${table.status} = 'pending_delete'`),
-  deletedLessonStatusIndex: index(
+  index(
     "idx_course_lesson_files_deleted_lesson_status"
   )
     .on(table.deletedLessonId, table.status)
     .where(sql`${table.deletedLessonId} IS NOT NULL`),
-}));
+]);
 
 export const courseLessonCompletions = pgTable("course_lesson_completions", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -896,16 +889,16 @@ export const courseLessonCompletions = pgTable("course_lesson_completions", {
   completedAt: timestamp("completed_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  lessonUserKey: uniqueIndex("course_lesson_completions_lesson_user_key").on(
+}, (table) => [
+  uniqueIndex("course_lesson_completions_lesson_user_key").on(
     table.lessonId,
     table.userId
   ),
-  tribeUserIndex: index("idx_course_lesson_completions_tribe_user").on(
+  index("idx_course_lesson_completions_tribe_user").on(
     table.tribeId,
     table.userId
   ),
-}));
+]);
 
 export const courseLastViewedLessons = pgTable("course_last_viewed_lessons", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -924,16 +917,16 @@ export const courseLastViewedLessons = pgTable("course_last_viewed_lessons", {
   viewedAt: timestamp("viewed_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  courseUserKey: uniqueIndex("course_last_viewed_lessons_course_user_key").on(
+}, (table) => [
+  uniqueIndex("course_last_viewed_lessons_course_user_key").on(
     table.courseId,
     table.userId
   ),
-  tribeUserIndex: index("idx_course_last_viewed_lessons_tribe_user").on(
+  index("idx_course_last_viewed_lessons_tribe_user").on(
     table.tribeId,
     table.userId
   ),
-}));
+]);
 
 export const courseLessonComments = pgTable("course_lesson_comments", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -950,12 +943,12 @@ export const courseLessonComments = pgTable("course_lesson_comments", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  lessonCreatedAtIndex: index("idx_course_lesson_comments_lesson_created_at").on(
+}, (table) => [
+  index("idx_course_lesson_comments_lesson_created_at").on(
     table.lessonId,
     table.createdAt
   ),
-}));
+]);
 
 export const events = pgTable("events", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -988,13 +981,13 @@ export const events = pgTable("events", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  tribeStartsAtIndex: index("idx_events_tribe_starts_at").on(
+}, (table) => [
+  index("idx_events_tribe_starts_at").on(
     table.tribeId,
     table.startsAt
   ),
-  idTribeKey: uniqueIndex("events_id_tribe_id_key").on(table.id, table.tribeId),
-}));
+  uniqueIndex("events_id_tribe_id_key").on(table.id, table.tribeId),
+]);
 
 export const eventAttendances = pgTable("event_attendances", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -1026,33 +1019,33 @@ export const eventAttendances = pgTable("event_attendances", {
   // Audit/display mark set when a waitlisted answer was promoted to going.
   // Not a sweep cursor: consumers must hook into the promotion transaction.
   promotedAt: timestamp("promoted_at", { withTimezone: true }),
-}, (table) => ({
-  eventOccurrenceUserKey: uniqueIndex(
+}, (table) => [
+  uniqueIndex(
     "event_attendances_event_occurrence_user_key"
   ).on(table.eventId, table.occurrenceStartsAt, table.userId),
-  eventOccurrenceIndex: index("idx_event_attendances_event_occurrence").on(
+  index("idx_event_attendances_event_occurrence").on(
     table.eventId,
     table.occurrenceStartsAt
   ),
-  tribeOccurrenceIndex: index("idx_event_attendances_tribe_occurrence").on(
+  index("idx_event_attendances_tribe_occurrence").on(
     table.tribeId,
     table.occurrenceStartsAt
   ),
-  tribeUserOccurrenceIndex: index("idx_event_attendances_tribe_user_occurrence").on(
+  index("idx_event_attendances_tribe_user_occurrence").on(
     table.tribeId,
     table.userId,
     table.occurrenceStartsAt
   ),
-  waitlistQueueIndex: index("idx_event_attendances_waitlist_queue")
+  index("idx_event_attendances_waitlist_queue")
     .on(table.eventId, table.occurrenceStartsAt, table.respondedAt, table.id)
     .where(sql`status = 'waitlisted'`),
-  goingPreviewIndex: index("idx_event_attendances_going_preview")
+  index("idx_event_attendances_going_preview")
     .on(table.eventId, table.occurrenceStartsAt, table.respondedAt, table.id)
     .where(sql`status = 'going'`),
-  promotedAtIndex: index("idx_event_attendances_promoted_at")
+  index("idx_event_attendances_promoted_at")
     .on(table.promotedAt)
     .where(sql`promoted_at IS NOT NULL`),
-}));
+]);
 
 // Cancelled or moved date of a series, keyed by the slot the recurrence rule
 // generates (original_starts_at). CHECKs, the composite FK to events, and RLS
@@ -1076,25 +1069,25 @@ export const eventOccurrenceExceptions = pgTable("event_occurrence_exceptions", 
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  eventOccurrenceKey: uniqueIndex("event_occurrence_exceptions_event_occurrence_key").on(
+}, (table) => [
+  uniqueIndex("event_occurrence_exceptions_event_occurrence_key").on(
     table.eventId,
     table.originalStartsAt
   ),
-  eventTribeForeignKey: foreignKey({
+  foreignKey({
     columns: [table.eventId, table.tribeId],
     foreignColumns: [events.id, events.tribeId],
     name: "event_occurrence_exceptions_event_tribe_fkey",
   }).onDelete("cascade"),
-  tribeOriginalIndex: index("idx_event_occurrence_exceptions_tribe_original").on(
+  index("idx_event_occurrence_exceptions_tribe_original").on(
     table.tribeId,
     table.originalStartsAt
   ),
-  tribeNewStartIndex: index("idx_event_occurrence_exceptions_tribe_new_start")
+  index("idx_event_occurrence_exceptions_tribe_new_start")
     .on(table.tribeId, table.newStartsAt)
     .where(sql`kind = 'moved'`),
-  updatedAtIndex: index("idx_event_occurrence_exceptions_updated_at").on(table.updatedAt),
-}));
+  index("idx_event_occurrence_exceptions_updated_at").on(table.updatedAt),
+]);
 
 // Meeting proposed by a member; approving it creates the event (event_id).
 // CHECKs and RLS live in 20260924122000_create_event_proposals.sql.
@@ -1123,24 +1116,24 @@ export const eventProposals = pgTable("event_proposals", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  eventIdKey: uniqueIndex("event_proposals_event_id_key")
+}, (table) => [
+  uniqueIndex("event_proposals_event_id_key")
     .on(table.eventId)
     .where(sql`event_id IS NOT NULL`),
-  tribeStatusCreatedIndex: index("idx_event_proposals_tribe_status_created").on(
+  index("idx_event_proposals_tribe_status_created").on(
     table.tribeId,
     table.status,
     table.createdAt
   ),
-  tribeAuthorCreatedIndex: index("idx_event_proposals_tribe_author_created").on(
+  index("idx_event_proposals_tribe_author_created").on(
     table.tribeId,
     table.proposedBy,
     table.createdAt
   ),
-  reviewedAtIndex: index("idx_event_proposals_reviewed_at")
+  index("idx_event_proposals_reviewed_at")
     .on(table.reviewedAt)
     .where(sql`reviewed_at IS NOT NULL`),
-}));
+]);
 
 // Personal calendar feed token (only the SHA-256 hex digest is stored). CHECKs,
 // RLS, and the SECURITY DEFINER resolver live in
@@ -1159,13 +1152,13 @@ export const eventCalendarFeedTokens = pgTable("event_calendar_feed_tokens", {
     .default(UTC_NOW_SQL),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
-}, (table) => ({
-  tokenHashKey: uniqueIndex("event_calendar_feed_tokens_token_hash_key").on(table.tokenHash),
-  activeMemberKey: uniqueIndex("event_calendar_feed_tokens_active_member_key")
+}, (table) => [
+  uniqueIndex("event_calendar_feed_tokens_token_hash_key").on(table.tokenHash),
+  uniqueIndex("event_calendar_feed_tokens_active_member_key")
     .on(table.userId, table.tribeId)
     .where(sql`revoked_at IS NULL`),
-  tribeIdIndex: index("idx_event_calendar_feed_tokens_tribe_id").on(table.tribeId),
-}));
+  index("idx_event_calendar_feed_tokens_tribe_id").on(table.tribeId),
+]);
 
 // Recording of one event occurrence (at most one per slot). Its INSERT
 // enqueues "event_recording_available"; CHECKs, RLS, and the trigger live in
@@ -1188,21 +1181,21 @@ export const eventOccurrenceRecordings = pgTable("event_occurrence_recordings", 
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  eventOccurrenceKey: uniqueIndex("event_occurrence_recordings_event_occurrence_key").on(
+}, (table) => [
+  uniqueIndex("event_occurrence_recordings_event_occurrence_key").on(
     table.eventId,
     table.originalStartsAt
   ),
-  eventTribeForeignKey: foreignKey({
+  foreignKey({
     columns: [table.eventId, table.tribeId],
     foreignColumns: [events.id, events.tribeId],
     name: "event_occurrence_recordings_event_tribe_fkey",
   }).onDelete("cascade"),
-  tribeOriginalIndex: index("idx_event_occurrence_recordings_tribe_original").on(
+  index("idx_event_occurrence_recordings_tribe_original").on(
     table.tribeId,
     table.originalStartsAt
   ),
-}));
+]);
 
 // Ordered material links of one event occurrence (same migration).
 export const eventOccurrenceMaterials = pgTable("event_occurrence_materials", {
@@ -1219,18 +1212,18 @@ export const eventOccurrenceMaterials = pgTable("event_occurrence_materials", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  occurrenceSortKey: uniqueIndex("event_occurrence_materials_occurrence_sort_key").on(
+}, (table) => [
+  uniqueIndex("event_occurrence_materials_occurrence_sort_key").on(
     table.eventId,
     table.originalStartsAt,
     table.sortOrder
   ),
-  eventTribeForeignKey: foreignKey({
+  foreignKey({
     columns: [table.eventId, table.tribeId],
     foreignColumns: [events.id, events.tribeId],
     name: "event_occurrence_materials_event_tribe_fkey",
   }).onDelete("cascade"),
-}));
+]);
 
 // "¿Cómo estuvo?" reaction of a member to a finished occurrence. CHECK and
 // RLS in 20260927121000_create_event_occurrence_reactions.sql.
@@ -1252,18 +1245,18 @@ export const eventOccurrenceReactions = pgTable("event_occurrence_reactions", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  memberKey: uniqueIndex("event_occurrence_reactions_member_key").on(
+}, (table) => [
+  uniqueIndex("event_occurrence_reactions_member_key").on(
     table.eventId,
     table.originalStartsAt,
     table.userId
   ),
-  eventTribeForeignKey: foreignKey({
+  foreignKey({
     columns: [table.eventId, table.tribeId],
     foreignColumns: [events.id, events.tribeId],
     name: "event_occurrence_reactions_event_tribe_fkey",
   }).onDelete("cascade"),
-}));
+]);
 
 // Conversation thread of one occurrence. CHECK and RLS in
 // 20260927122000_create_event_occurrence_comments.sql.
@@ -1282,22 +1275,22 @@ export const eventOccurrenceComments = pgTable("event_occurrence_comments", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  clientRequestKey: uniqueIndex("event_occurrence_comments_client_request_key")
+}, (table) => [
+  uniqueIndex("event_occurrence_comments_client_request_key")
     .on(table.eventId, table.originalStartsAt, table.authorId, table.clientRequestId)
     .where(sql`${table.clientRequestId} IS NOT NULL`),
-  eventTribeForeignKey: foreignKey({
+  foreignKey({
     columns: [table.eventId, table.tribeId],
     foreignColumns: [events.id, events.tribeId],
     name: "event_occurrence_comments_event_tribe_fkey",
   }).onDelete("cascade"),
-  threadIndex: index("idx_event_occurrence_comments_thread").on(
+  index("idx_event_occurrence_comments_thread").on(
     table.eventId,
     table.originalStartsAt,
     table.createdAt,
     table.id
   ),
-}));
+]);
 
 /** Independent admission email capability; SQL owns its version and RLS guards. */
 export const admissionEmailSettings=pgTable("admission_email_settings",{
@@ -1309,10 +1302,10 @@ export const admissionEmailSettings=pgTable("admission_email_settings",{
   changedByUserId:text("changed_by_user_id").references(()=>users.id,{onDelete:"set null"}),
   createdAt:timestamp("created_at",{withTimezone:true}).notNull().default(UTC_NOW_SQL),
   updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().default(UTC_NOW_SQL),
-},(table)=>({
-  versionCheck:check("admission_email_settings_version_check",sql`${table.version}>0`),
-  enabledTimeCheck:check("admission_email_enabled_time_check",sql`not ${table.enabled} or ${table.enabledAt} is not null`),
-}));
+},(table) => [
+  check("admission_email_settings_version_check",sql`${table.version}>0`),
+  check("admission_email_enabled_time_check",sql`not ${table.enabled} or ${table.enabledAt} is not null`),
+]);
 
 /** Explicit own preference epochs remain precise; SQL owns CAS guards and forced RLS. */
 export const admissionNotificationPreferences = pgTable("admission_notification_preferences", {
@@ -1322,11 +1315,11 @@ export const admissionNotificationPreferences = pgTable("admission_notification_
   version: integer("version").notNull().default(1),
   effectiveFrom: timestamp("effective_from", { withTimezone: true, mode: "string" }).notNull().default(sql`clock_timestamp()`),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().default(sql`clock_timestamp()`),
-}, (table) => ({
-  key: primaryKey({ name: "admission_notification_preferences_pkey", columns: [table.tribeId, table.recipientUserId] }),
-  versionCheck: check("admission_notification_preferences_version_check", sql`${table.version}>0`),
-  modeCheck: check("admission_notification_preferences_mode_check", sql`${table.mode} in (${ADMISSION_NOTIFICATION_PREFERENCE_MODE.individual},${ADMISSION_NOTIFICATION_PREFERENCE_MODE.grouped},${ADMISSION_NOTIFICATION_PREFERENCE_MODE.daily},${ADMISSION_NOTIFICATION_PREFERENCE_MODE.omitted})`),
-}));
+}, (table) => [
+  primaryKey({ name: "admission_notification_preferences_pkey", columns: [table.tribeId, table.recipientUserId] }),
+  check("admission_notification_preferences_version_check", sql`${table.version}>0`),
+  check("admission_notification_preferences_mode_check", sql`${table.mode} in (${ADMISSION_NOTIFICATION_PREFERENCE_MODE.individual},${ADMISSION_NOTIFICATION_PREFERENCE_MODE.grouped},${ADMISSION_NOTIFICATION_PREFERENCE_MODE.daily},${ADMISSION_NOTIFICATION_PREFERENCE_MODE.omitted})`),
+]);
 
 // In-app notification inbox. CHECKs, RLS, the recipient update guard, and the
 // SECURITY DEFINER producer triggers live in
@@ -1348,13 +1341,13 @@ export const notifications = pgTable("notifications", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  admissionObligationForeignKey: foreignKey({
+}, (table) => [
+  foreignKey({
     name: "notifications_admission_obligation_fkey",
     columns: [table.admissionObligationId, table.tribeId],
     foreignColumns: [academyAdmissionNotificationObligations.id, academyAdmissionNotificationObligations.tribeId],
   }).onDelete("cascade"),
-  admissionAudienceCheck: check("notifications_admission_scope_check", sql`
+  check("notifications_admission_scope_check", sql`
     (${table.type} in (${sql.join(ADMISSION_NOTIFICATION_TYPES.map((type) => sql`${type}`), sql`, `)})
       and ${table.admissionObligationId} is not null and ${table.admissionAudience} is not null
       and ${table.admissionAudience} in (${ADMISSION_NOTIFICATION_AUDIENCE.applicant},${ADMISSION_NOTIFICATION_AUDIENCE.reviewer})
@@ -1362,25 +1355,25 @@ export const notifications = pgTable("notifications", {
     or (${table.type} not in (${sql.join(ADMISSION_NOTIFICATION_TYPES.map((type) => sql`${type}`), sql`, `)})
       and ${table.admissionObligationId} is null and ${table.admissionAudience} is null)
   `.inlineParams()),
-  admissionRecipientKey: uniqueIndex("notifications_admission_recipient_key")
+  uniqueIndex("notifications_admission_recipient_key")
     .on(table.admissionObligationId, table.recipientUserId)
     .where(sql`${table.admissionObligationId} is not null`),
-  recipientDedupeKey: uniqueIndex("notifications_recipient_dedupe_key").on(
+  uniqueIndex("notifications_recipient_dedupe_key").on(
     table.recipientUserId,
     table.dedupeKey
   ),
-  recipientCreatedIndex: index("idx_notifications_recipient_created").on(
+  index("idx_notifications_recipient_created").on(
     table.recipientUserId,
     table.createdAt.desc(),
     table.id.desc()
   ),
-  recipientUnreadIndex: index("idx_notifications_recipient_unread")
+  index("idx_notifications_recipient_unread")
     .on(table.recipientUserId)
     .where(sql`read_at IS NULL`),
-  readAtIndex: index("idx_notifications_read_at")
+  index("idx_notifications_read_at")
     .on(table.readAt)
     .where(sql`read_at IS NOT NULL`),
-}));
+]);
 
 export const tribePaymentIntegrations = pgTable("tribe_payment_integrations", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -1404,22 +1397,22 @@ export const tribePaymentIntegrations = pgTable("tribe_payment_integrations", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  providerAccountKey: uniqueIndex("tribe_payment_integrations_provider_account_key").on(
+}, (table) => [
+  uniqueIndex("tribe_payment_integrations_provider_account_key").on(
     table.tribeId,
     table.provider,
     sql`COALESCE(${table.providerAccountId}, ${table.id}::text)`
   ),
-  providerAccountIdKey: uniqueIndex("tribe_payment_integrations_provider_account_id_key").on(
+  uniqueIndex("tribe_payment_integrations_provider_account_id_key").on(
     table.tribeId,
     table.provider,
     table.providerAccountId
   ).where(sql`${table.providerAccountId} IS NOT NULL`),
-  integrationTribeKey: uniqueIndex("tribe_payment_integrations_id_tribe_key").on(
+  uniqueIndex("tribe_payment_integrations_id_tribe_key").on(
     table.id,
     table.tribeId
   ),
-}));
+]);
 
 export const tribeSubscriptionPrices = pgTable("tribe_subscription_prices", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -1444,24 +1437,24 @@ export const tribeSubscriptionPrices = pgTable("tribe_subscription_prices", {
     .notNull()
     .default(UTC_NOW_SQL),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
-}, (table) => ({
-  tribeCreatedAtIndex: index("idx_tribe_subscription_prices_tribe_created_at").on(
+}, (table) => [
+  index("idx_tribe_subscription_prices_tribe_created_at").on(
     table.tribeId,
     table.createdAt
   ),
-  paymentIntegrationIndex: index("idx_tribe_subscription_prices_payment_integration").on(
+  index("idx_tribe_subscription_prices_payment_integration").on(
     table.paymentIntegrationId
   ),
-  priceTribeKey: uniqueIndex("tribe_subscription_prices_id_tribe_key").on(
+  uniqueIndex("tribe_subscription_prices_id_tribe_key").on(
     table.id,
     table.tribeId
   ),
-  paymentIntegrationTribeForeignKey: foreignKey({
+  foreignKey({
     columns: [table.paymentIntegrationId, table.tribeId],
     foreignColumns: [tribePaymentIntegrations.id, tribePaymentIntegrations.tribeId],
     name: "tribe_subscription_prices_payment_integration_tribe_fkey",
   }),
-}));
+]);
 
 export const tribeMemberSubscriptions = pgTable("tribe_member_subscriptions", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -1494,18 +1487,18 @@ export const tribeMemberSubscriptions = pgTable("tribe_member_subscriptions", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  priceIndex: index("idx_tribe_member_subscriptions_price").on(table.priceId),
-  membershipOriginScopeKey: unique("subscription_membership_origin_scope_key").on(table.id,table.tribeId,table.userId),
-  paymentIntegrationIndex: index("idx_tribe_member_subscriptions_payment_integration").on(
+}, (table) => [
+  index("idx_tribe_member_subscriptions_price").on(table.priceId),
+  unique("subscription_membership_origin_scope_key").on(table.id,table.tribeId,table.userId),
+  index("idx_tribe_member_subscriptions_payment_integration").on(
     table.paymentIntegrationId
   ),
-  paymentIntegrationTribeForeignKey: foreignKey({
+  foreignKey({
     columns: [table.paymentIntegrationId, table.tribeId],
     foreignColumns: [tribePaymentIntegrations.id, tribePaymentIntegrations.tribeId],
     name: "tribe_member_subscriptions_payment_integration_tribe_fkey",
   }),
-}));
+]);
 
 export const subscriptionIdempotencyOperations = pgTable("subscription_idempotency_operations", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -1518,11 +1511,11 @@ export const subscriptionIdempotencyOperations = pgTable("subscription_idempoten
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  operationKey: uniqueIndex("subscription_idempotency_operations_key").on(
+}, (table) => [
+  uniqueIndex("subscription_idempotency_operations_key").on(
     table.operationKey
   ),
-}));
+]);
 
 export const sitepingFeedbacks = pgTable("siteping_feedbacks", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -1553,24 +1546,24 @@ export const sitepingFeedbacks = pgTable("siteping_feedbacks", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  projectCreatedByClientIdKey: uniqueIndex(
+}, (table) => [
+  uniqueIndex(
     "siteping_feedbacks_project_created_by_client_id_key"
   ).on(table.projectName, table.createdBy, table.clientId),
-  projectCreatedAtIndex: index("idx_siteping_feedbacks_project_created_at").on(
+  index("idx_siteping_feedbacks_project_created_at").on(
     table.projectName,
     table.createdAt
   ),
-  projectStatusCreatedAtIndex: index("idx_siteping_feedbacks_project_status_created_at").on(
+  index("idx_siteping_feedbacks_project_status_created_at").on(
     table.projectName,
     table.status,
     table.createdAt
   ),
-  projectUrlIndex: index("idx_siteping_feedbacks_project_url").on(
+  index("idx_siteping_feedbacks_project_url").on(
     table.projectName,
     table.url
   ),
-}));
+]);
 
 export const sitepingAnnotations = pgTable("siteping_annotations", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -1599,9 +1592,9 @@ export const sitepingAnnotations = pgTable("siteping_annotations", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-}, (table) => ({
-  feedbackIndex: index("idx_siteping_annotations_feedback").on(table.feedbackId),
-}));
+}, (table) => [
+  index("idx_siteping_annotations_feedback").on(table.feedbackId),
+]);
 
 // Academy access (database/migrations/20260928120000..125000). Policies,
 // CHECK constraints and owner-only functions live in the SQL migrations.
@@ -1641,19 +1634,19 @@ export const memberAccessGrants = pgTable("member_access_grants", {
   revokedBy: text("revoked_by").references(() => users.id, { onDelete: "set null" }),
   createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(UTC_NOW_SQL),
-}, (table) => ({
-  sourceKey: uniqueIndex("member_access_grants_source_key").on(
+}, (table) => [
+  uniqueIndex("member_access_grants_source_key").on(
     table.tribeId,
     table.productKey,
     table.sourceType,
     table.sourceKey
   ),
-  memberProductIndex: index("idx_member_access_grants_member_product").on(
+  index("idx_member_access_grants_member_product").on(
     table.tribeId,
     table.userId,
     table.productKey
   ),
-}));
+]);
 
 export const memberProductEnrollments = pgTable("member_product_enrollments", {
   tribeId: uuid("tribe_id")
@@ -1666,13 +1659,13 @@ export const memberProductEnrollments = pgTable("member_product_enrollments", {
   firstActivatedAt: timestamp("first_activated_at", { withTimezone: true }).notNull(),
   activationOrigin: text("activation_origin").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(UTC_NOW_SQL),
-}, (table) => ({
-  memberProductKey: uniqueIndex("member_product_enrollments_pkey").on(
+}, (table) => [
+  uniqueIndex("member_product_enrollments_pkey").on(
     table.tribeId,
     table.userId,
     table.productKey
   ),
-}));
+]);
 
 export const academyAuditEvents = pgTable("academy_audit_events", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -1689,13 +1682,13 @@ export const academyAuditEvents = pgTable("academy_audit_events", {
   reason: text("reason"),
   correlationId: text("correlation_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(UTC_NOW_SQL),
-}, (table) => ({
-  tribeCreatedIndex: index("idx_academy_audit_events_tribe_created").on(
+}, (table) => [
+  index("idx_academy_audit_events_tribe_created").on(
     table.tribeId,
     table.createdAt
   ),
-  entityIndex: index("idx_academy_audit_events_entity").on(table.entityType, table.entityId),
-}));
+  index("idx_academy_audit_events_entity").on(table.entityType, table.entityId),
+]);
 
 export const verificationProviders = pgTable("verification_providers", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -1710,10 +1703,10 @@ export const verificationProviders = pgTable("verification_providers", {
   createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(UTC_NOW_SQL),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(UTC_NOW_SQL),
-}, (table) => ({
-  tribeKey: uniqueIndex("verification_providers_tribe_key").on(table.tribeId, table.key),
-  idTribeKey: uniqueIndex("verification_providers_id_tribe_key").on(table.id, table.tribeId),
-}));
+}, (table) => [
+  uniqueIndex("verification_providers_tribe_key").on(table.tribeId, table.key),
+  uniqueIndex("verification_providers_id_tribe_key").on(table.id, table.tribeId),
+]);
 
 export const memberVerifications = pgTable("member_verifications", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -1732,23 +1725,23 @@ export const memberVerifications = pgTable("member_verifications", {
   reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(UTC_NOW_SQL),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(UTC_NOW_SQL),
-}, (table) => ({
-  memberProviderKey: uniqueIndex("member_verifications_member_provider_key").on(
+}, (table) => [
+  uniqueIndex("member_verifications_member_provider_key").on(
     table.tribeId,
     table.userId,
     table.providerId
   ),
-  queueIndex: index("idx_member_verifications_queue").on(
+  index("idx_member_verifications_queue").on(
     table.tribeId,
     table.status,
     table.createdAt
   ),
-  providerTribeForeignKey: foreignKey({
+  foreignKey({
     columns: [table.providerId, table.tribeId],
     foreignColumns: [verificationProviders.id, verificationProviders.tribeId],
     name: "member_verifications_provider_tribe_fkey",
   }),
-}));
+]);
 
 export const subscriptionPaymentPeriods = pgTable("subscription_payment_periods", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -1777,21 +1770,21 @@ export const subscriptionPaymentPeriods = pgTable("subscription_payment_periods"
   reviewReason: text("review_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(UTC_NOW_SQL),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(UTC_NOW_SQL),
-}, (table) => ({
-  invoiceKey: uniqueIndex("subscription_payment_periods_invoice_key").on(
+}, (table) => [
+  uniqueIndex("subscription_payment_periods_invoice_key").on(
     table.paymentIntegrationId,
     table.providerInvoiceId
   ),
-  subscriptionIndex: index("idx_subscription_payment_periods_subscription").on(
+  index("idx_subscription_payment_periods_subscription").on(
     table.subscriptionId,
     table.serviceStartsAt
   ),
-  integrationTribeForeignKey: foreignKey({
+  foreignKey({
     columns: [table.paymentIntegrationId, table.tribeId],
     foreignColumns: [tribePaymentIntegrations.id, tribePaymentIntegrations.tribeId],
     name: "subscription_payment_periods_integration_tribe_fkey",
   }),
-}));
+]);
 
 /** Composes admission-owned projections after all existing parent tables exist. */
 export const {

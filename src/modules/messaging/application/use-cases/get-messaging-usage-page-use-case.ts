@@ -23,7 +23,7 @@ export class GetMessagingUsagePageUseCase {
       const result = await this.readers.usage.read({ tribeId: tribe.value.tribeId, requestId: query.requestId });
       if (!result.ok) return result;
       const current = await this.accounts.getAuthenticatedAccount(), now = this.clock();
-      if (!current || current.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, now)) throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.authenticationRequired);
+      if (current?.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, now)) throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.authenticationRequired);
       return { ok: true as const, value: messagingUsagePageStateSchema.parse({ kind: "ready", slug: query.slug, tribeId: tribe.value.tribeId, viewerId: current.userId, renderedAt: now.toISOString(), usage: result.value, countryChoices: this.countryChoices }) };
     } catch (error) { return { ok: false as const, failure: messagingFailure(error instanceof MessagingUsageOperationError ? error.code : MESSAGING_ERROR_CODE.unexpectedFailure, { cause: error }) }; }
   }

@@ -18,7 +18,8 @@ runs:
         cache-dependency-path: pnpm-lock.yaml
 
     # `pnpm run typecheck` and `typecheck:tests` run `bun check`, Bun's type checker (same errors as `tsc` from
-    # TypeScript 7), pinned in `.bun-version`.
+    # TypeScript 7), and `pnpm run lint` runs `bun lint`, which ships only in Bun canary until 1.4.5; `.bun-version`
+    # says which Bun to use.
     - name: Set up Bun
       uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
       with:

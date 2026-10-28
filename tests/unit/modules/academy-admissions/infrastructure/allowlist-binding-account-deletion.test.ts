@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 /** Exercises account deletion against a real claimed contact before choosing its retention implementation. @module allowlist-binding-account-deletion-tests */
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
@@ -8,7 +8,6 @@ import { prepareAllowlistAdmission } from "@/tests/support/allowlist-admission-d
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { assertUnreservedAdmissionContact } from "@/src/modules/academy-admissions/infrastructure/repositories/assert-unreserved-admission-contact";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
-import { randomBytes } from "node:crypto";
 import { assertMessagingPrivateMacKeyMaterial } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native bound-account deletion", () => {

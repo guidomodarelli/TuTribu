@@ -6,7 +6,7 @@ const IMAGE_URL = "https://lh3.googleusercontent.com/a/new=s96-c";
 
 describe("PostgresMemberProfileRepository", () => {
   it("returns the stored image for a member", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({ rows: [{ image: IMAGE_URL }] }); });
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({ rows: [{ image: IMAGE_URL }] }); });
     const repository = new PostgresMemberProfileRepository(async (callback) =>
       callback({ execute } as never)
     );

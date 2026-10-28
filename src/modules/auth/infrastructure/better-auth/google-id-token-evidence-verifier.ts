@@ -30,7 +30,7 @@ function readTokenSegment(token: string, segmentIndex: number): unknown {
     const segment = token.split(".")[segmentIndex];
     if (!segment) return null;
     const decoded = atob(segment.replaceAll("-", "+").replaceAll("_", "/"));
-    const bytes = Uint8Array.from(decoded, (character) => character.charCodeAt(0));
+    const bytes = Uint8Array.from(decoded, (character) => character.codePointAt(0) ?? 0);
     return JSON.parse(new TextDecoder().decode(bytes));
   } catch (error) {
     if (error instanceof SyntaxError || (error instanceof DOMException && error.name === "InvalidCharacterError")) return null;

@@ -58,7 +58,7 @@ const nextConfig: NextConfig = {
   // the root and warns about multiple lockfiles. The root must be where
   // dependencies are installed so Turbopack can resolve `next`.
   turbopack: {
-    root: resolveWorkspaceRoot(__dirname),
+    root: resolveWorkspaceRoot(import.meta.dirname),
   },
   outputFileTracingIncludes: getCloudflareOutputFileTracingIncludes(),
   redirects: getLegacyRedirects,

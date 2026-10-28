@@ -12,20 +12,40 @@ import { HTTP_STATUS } from "@/src/constants/http-status";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { boundBrowserRequest } from "@/lib/browser-request-deadline";
 
+/** Optional write of an own usage request: the original input and its method (POST by default). */
+type UsageWrite = { input?: object; method?: "POST" | "PUT" };
+
+function failure(code: typeof MESSAGING_ERROR_CODE[keyof typeof MESSAGING_ERROR_CODE], uncertain = false): MessagingUsageBrowserResult<never> {
+  return { status: "failed", code, message: MESSAGING_ERROR_MESSAGE[code], uncertain };
+}
+
+/** @param auth - Installed native SDK client. @returns The default viewer: the native account id only. */
+function createSessionViewer(auth: ReturnType<typeof createAuthClient>): MessagingUsageBrowserClient["viewer"] {
+  return async (signal) => {
+    if (signal.aborted) return { status: "aborted" };
+    try {
+      const result = await auth.getSession({ query: { disableCookieCache: true }, fetchOptions: { signal } });
+      if (signal.aborted) return { status: "aborted" };
+      if (result.error) return result.error.status === HTTP_STATUS.unauthorized ? { status: "ready", value: null } : failure(MESSAGING_ERROR_CODE.dependencyUnavailable);
+      return { status: "ready", value: result.data ? { id: result.data.user.id } : null };
+    } catch { return signal.aborted ? { status: "aborted" } : failure(MESSAGING_ERROR_CODE.dependencyUnavailable); }
+  };
+}
+
 /** @param options - Explicit feature-owned transport/viewer ports; defaults retain the real Better Auth SDK. @returns Abortable own reads and immutable original writes, without full route refreshes. */
 export function createMessagingUsageBrowserClient(options: { fetch?: typeof fetch; viewer?: MessagingUsageBrowserClient["viewer"] } = {}): MessagingUsageBrowserClient {
-  const transport = options.fetch ?? globalThis.fetch, auth = options.viewer ? null : createAuthClient();
-  const failure = (code: typeof MESSAGING_ERROR_CODE[keyof typeof MESSAGING_ERROR_CODE], uncertain = false): MessagingUsageBrowserResult<never> => ({ status: "failed", code, message: MESSAGING_ERROR_MESSAGE[code], uncertain });
+  const transport = options.fetch ?? globalThis.fetch, viewer = options.viewer ?? createSessionViewer(createAuthClient());
   const base = (slug: string) => `${MESSAGING_USAGE_BROWSER_PATH.tribePrefix}/${encodeURIComponent(slug)}/${MESSAGING_USAGE_BROWSER_PATH.usageSegment}`;
   /** Only own response DTOs are schema-guarded; transport failure of a write remains uncertain. */
-  function request<Value>(path: string, schema: z.ZodType<Value>, callerSignal: AbortSignal, input?: object, method: "POST" | "PUT" = "POST"): Promise<MessagingUsageBrowserResult<Value>> {
-    const writing = input !== undefined;
+  function request<Value>(path: string, schema: z.ZodType<Value>, callerSignal: AbortSignal, write: UsageWrite = {}): Promise<MessagingUsageBrowserResult<Value>> {
+    const writing = write.input !== undefined;
     if (callerSignal.aborted) return Promise.resolve({ status: "aborted" });
     // A hung response ends at the deadline as a timeout that keeps a write uncertain; the caller's own cancellation stays an abort.
-    return boundBrowserRequest<MessagingUsageBrowserResult<Value>>(callerSignal, (signal) => send(path, schema, signal, writing, input, method), () => failure(MESSAGING_ERROR_CODE.transportTimeout, writing));
+    return boundBrowserRequest<MessagingUsageBrowserResult<Value>>(callerSignal, (signal) => send(path, schema, signal, write), () => failure(MESSAGING_ERROR_CODE.transportTimeout, writing));
   }
   /** Sends one own request under a signal that already follows the caller and the deadline. */
-  async function send<Value>(path: string, schema: z.ZodType<Value>, signal: AbortSignal, writing: boolean, input: object | undefined, method: "POST" | "PUT"): Promise<MessagingUsageBrowserResult<Value>> {
+  async function send<Value>(path: string, schema: z.ZodType<Value>, signal: AbortSignal, { input, method = "POST" }: UsageWrite): Promise<MessagingUsageBrowserResult<Value>> {
+    const writing = input !== undefined;
     try {
       const response = await transport(path, { method: writing ? method : "GET", credentials: "same-origin", cache: "no-store", signal, ...(writing ? { headers: { "content-type": "application/json" }, body: JSON.stringify(input) } : {}) });
       const value: unknown = await response.json();
@@ -39,7 +59,7 @@ export function createMessagingUsageBrowserClient(options: { fetch?: typeof fetc
   }
   /** Current version is not inferred from an original replay; only its own UUID/counter relationship is confirmed. */
   async function write(slug: string, input: { operationId: string; confirmed: true; expectedVersion?: number }, signal: AbortSignal, method: "POST" | "PUT") {
-    const result = await request(base(slug), createAdmissionOperationStateSchema(messagingUsagePolicySchema), signal, input, method);
+    const result = await request(base(slug), createAdmissionOperationStateSchema(messagingUsagePolicySchema), signal, { input, method });
     if (result.status !== "ready") return result;
     if (result.value.operationId.toLowerCase() !== input.operationId.toLowerCase()) return failure(MESSAGING_ERROR_CODE.publicContractUnusable, true);
     if (result.value.state === OPERATION_STATE.completed && input.expectedVersion !== undefined && result.value.result.version !== input.expectedVersion && result.value.result.version !== input.expectedVersion + 1) return failure(MESSAGING_ERROR_CODE.publicContractUnusable, true);
@@ -53,15 +73,7 @@ export function createMessagingUsageBrowserClient(options: { fetch?: typeof fetc
       const result = await request(`${base(slug)}/${MESSAGING_USAGE_BROWSER_PATH.operationsSegment}/${encodeURIComponent(operationId)}`, messagingUsageOperationRecoverySchema, signal);
       return result.status === "ready" && result.value.operationId.toLowerCase() !== operationId.toLowerCase() ? failure(MESSAGING_ERROR_CODE.publicContractUnusable) : result;
     },
-    viewer: options.viewer ?? (async (signal) => {
-      if (signal.aborted) return { status: "aborted" };
-      try {
-        const result = await auth!.getSession({ query: { disableCookieCache: true }, fetchOptions: { signal } });
-        if (signal.aborted) return { status: "aborted" };
-        if (result.error) return result.error.status === HTTP_STATUS.unauthorized ? { status: "ready", value: null } : failure(MESSAGING_ERROR_CODE.dependencyUnavailable);
-        return { status: "ready", value: result.data ? { id: result.data.user.id } : null };
-      } catch { return signal.aborted ? { status: "aborted" } : failure(MESSAGING_ERROR_CODE.dependencyUnavailable); }
-    }),
+    viewer,
   };
 }
 /** Route containers own this transport; presentational components never import it. */

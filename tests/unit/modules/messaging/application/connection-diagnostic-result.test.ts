@@ -13,7 +13,8 @@ describe("connection diagnostic own result", () => {
     const diagnosticId = randomUUID();
     const result = projectConnectionDiagnosticSnapshot({ outcome: "verified", diagnosticId, connectionVersion: 3, channel: "whatsapp", validatedAt: new Date("2026-10-06T12:00:00.000Z"), capabilityState: "unavailable" });
     expect(result).toEqual({ outcome: "verified", diagnosticId, connectionVersion: 3, channel: "whatsapp", validatedAt: "2026-10-06T12:00:00.000Z", capabilityState: "unavailable" });
-    expect(connectionDiagnosticSnapshotSchema.parse(JSON.parse(JSON.stringify(result)))).toEqual(result);
+    const serialized = JSON.stringify(result);
+    expect(connectionDiagnosticSnapshotSchema.parse(JSON.parse(serialized))).toEqual(result);
   });
 
   it("should reject secret or authority fields in an own replay DTO rather than passing them to a consumer", () => {

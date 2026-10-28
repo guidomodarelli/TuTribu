@@ -38,7 +38,7 @@ export type MorphBlockProps = {
   /** Skeleton height, any CSS length. Defaults to one text line, or lines × lineHeight. */
   height?: number | string;
   /** Skeleton corner radius; "circle" for avatars. */
-  radius?: number | string | "circle";
+  radius?: number | string;
   /** Paragraph skeleton with this many lines; the last one is shorter. */
   lines?: number;
   /** Line height of the paragraph in px, so the skeleton is as tall as the text. */
@@ -134,6 +134,18 @@ export function SkeletonMorph({ loading, children, stagger = SKELETON_MORPH_DEFA
   </Tag>;
 }
 
+/** @param radius - Requested corner radius, or "circle". @param lineCount - Paragraph lines of the skeleton. @returns The placeholder corner radius: round for a circle, square for a paragraph, else the requested one. */
+function placeholderRadius(radius: number | string, lineCount: number): number | string | undefined {
+  if (radius === CIRCLE) return CIRCLE_RADIUS_PX;
+  return lineCount ? 0 : cssLength(radius);
+}
+
+/** @param morphs - Whether the block was a skeleton that morphs into its content. @param reduced - Whether motion is reduced. @returns The content's starting state: as rendered, a fade, or a fade from blur. */
+function contentInitial(morphs: boolean, reduced: boolean) {
+  if (!morphs) return false;
+  return reduced ? { opacity: 0 } : { opacity: 0, filter: `blur(${CONTENT_BLUR_PX}px)` };
+}
+
 /**
  * @param props - Content, skeleton size and element.
  * @returns A size-matched skeleton while loading that stretches onto the content's box and fades as the content sharpens in.
@@ -160,7 +172,6 @@ export function MorphBlock({ children, width = "100%", height, radius = SKELETON
     return () => window.clearTimeout(timer);
   }, [loading, order, reduced, stagger]);
 
-  const circle = radius === CIRCLE;
   const lineCount = lines ?? 0;
   const skeletonWidth = cssLength(width) ?? "100%";
   const skeletonHeight = cssLength(height) ?? (lineCount ? `${lineCount * lineHeight}px` : SKELETON_MORPH_DEFAULT.skeletonHeight);
@@ -197,11 +208,11 @@ export function MorphBlock({ children, width = "100%", height, radius = SKELETON
 
   const Tag = as as ElementType;
   const sizing: CSSProperties = resolved ? {} : { width: skeletonWidth, height: skeletonHeight };
-  const placeholderStyle = { borderRadius: circle ? CIRCLE_RADIUS_PX : lineCount ? 0 : cssLength(radius), "--skeleton-morph-line": `${lineHeight}px` } as CSSProperties;
+  const placeholderStyle = { borderRadius: placeholderRadius(radius, lineCount), "--skeleton-morph-line": `${lineHeight}px` } as CSSProperties;
 
   return <Tag ref={ref} className={[styles.SkeletonMorph__block, className].filter(Boolean).join(" ")} data-state={resolved ? BLOCK_STATE.content : BLOCK_STATE.skeleton} data-fill={fill || undefined} style={sizing}>
     {resolved && <motion.div className={styles.SkeletonMorph__content}
-      initial={!morphs ? false : reduced ? { opacity: 0 } : { opacity: 0, filter: `blur(${CONTENT_BLUR_PX}px)` }} animate={{ opacity: 1, filter: "blur(0px)" }}
+      initial={contentInitial(morphs, reduced)} animate={{ opacity: 1, filter: "blur(0px)" }}
       transition={reduced ? { duration: MOTION_TIMING.instant } : CONTENT_ENTER}>
       {children}
     </motion.div>}

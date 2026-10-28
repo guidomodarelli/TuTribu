@@ -433,7 +433,7 @@ export class R2LessonFileRepository implements LessonFileRepository {
       `);
 
       return Boolean(
-        ((result.rows?.[0] ?? null) as BooleanResultRow | null)?.result
+        ((result.rows[0] ?? null) as BooleanResultRow | null)?.result
       );
     });
   }
@@ -451,7 +451,7 @@ export class R2LessonFileRepository implements LessonFileRepository {
         )
       `);
 
-      return (result.rows ?? []) as PendingRemoteLessonFileRow[];
+      return result.rows as PendingRemoteLessonFileRow[];
     });
   }
 
@@ -466,7 +466,7 @@ export class R2LessonFileRepository implements LessonFileRepository {
           ${batchLimit}
         ) as reclaimed
       `);
-      const reclaimed = ((result.rows?.[0] ?? null) as ReclaimedDraftsRow | null)
+      const reclaimed = ((result.rows[0] ?? null) as ReclaimedDraftsRow | null)
         ?.reclaimed;
 
       return Number(reclaimed ?? 0);
@@ -504,7 +504,7 @@ export class R2LessonFileRepository implements LessonFileRepository {
           )
       `);
 
-      return (result.rows ?? []) as AttachableLessonFileRow[];
+      return result.rows as AttachableLessonFileRow[];
     });
   }
 
@@ -532,7 +532,7 @@ export class R2LessonFileRepository implements LessonFileRepository {
         limit 1
       `);
 
-      return (result.rows?.[0] ?? null) as DeletableLessonFileRow | null;
+      return (result.rows[0] ?? null) as DeletableLessonFileRow | null;
     });
   }
 
@@ -568,7 +568,7 @@ export class R2LessonFileRepository implements LessonFileRepository {
         limit 1
       `);
 
-      return (result.rows?.[0] ?? null) as DownloadableLessonFileRow | null;
+      return (result.rows[0] ?? null) as DownloadableLessonFileRow | null;
     });
   }
 
@@ -595,7 +595,7 @@ export class R2LessonFileRepository implements LessonFileRepository {
           and course_lesson_files.status = ${LESSON_FILE_STATUS.pendingDelete}
       `);
 
-      return (result.rows ?? []) as DeletableLessonFileRow[];
+      return result.rows as DeletableLessonFileRow[];
     });
   }
 
@@ -612,7 +612,7 @@ export class R2LessonFileRepository implements LessonFileRepository {
         limit 1
       `);
 
-      return (result.rows?.[0] ?? null) as ManageableTribeRow | null;
+      return (result.rows[0] ?? null) as ManageableTribeRow | null;
     });
   }
 
@@ -662,7 +662,7 @@ export class R2LessonFileRepository implements LessonFileRepository {
         returning course_lesson_files.id as file_id
       `);
 
-      return (result.rows?.[0] ?? null) as InsertedLessonFileRow | null;
+      return (result.rows[0] ?? null) as InsertedLessonFileRow | null;
     });
   }
 
@@ -677,7 +677,7 @@ export class R2LessonFileRepository implements LessonFileRepository {
       `);
 
       return Boolean(
-        ((result.rows?.[0] ?? null) as MarkedLessonFileRow | null)?.file_id
+        ((result.rows[0] ?? null) as MarkedLessonFileRow | null)?.file_id
       );
     });
   }
@@ -694,7 +694,7 @@ export class R2LessonFileRepository implements LessonFileRepository {
       `);
 
       return Boolean(
-        ((result.rows?.[0] ?? null) as MarkedLessonFileRow | null)?.file_id
+        ((result.rows[0] ?? null) as MarkedLessonFileRow | null)?.file_id
       );
     });
   }
@@ -728,7 +728,7 @@ export class R2LessonFileRepository implements LessonFileRepository {
       `);
 
       return Boolean(
-        ((result.rows?.[0] ?? null) as MarkedLessonFileRow | null)?.file_id
+        ((result.rows[0] ?? null) as MarkedLessonFileRow | null)?.file_id
       );
     });
   }

@@ -42,7 +42,7 @@ export class PostgresTribeCreatorWhitelistRepository
           limit 1
         `);
 
-        return Boolean(result.rows?.[0]?.[TRIBE_CREATOR_WHITELIST.emailColumn]);
+        return Boolean(result.rows[0]?.[TRIBE_CREATOR_WHITELIST.emailColumn]);
       });
     } catch (error) {
       const recoverableError = error as RecoverableDatabaseError;

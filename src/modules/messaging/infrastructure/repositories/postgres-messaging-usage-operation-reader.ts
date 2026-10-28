@@ -17,7 +17,7 @@ export class PostgresMessagingUsageOperationReader implements MessagingUsageOper
   /** @param execute - Actual current account executor with the shared guarded checkout. */
   constructor(private readonly execute: <Result>(context: MessagingUsageContext, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>) {}
   /** @param context - Server-owned current principal and tribe. @param operationId - Original client UUID. @returns Original state or real absence; ambiguous namespaces close without releasing work. */
-  async read(context: MessagingUsageContext, operationId: string): Promise<unknown | null> {
+  async read(context: MessagingUsageContext, operationId: string): Promise<unknown> {
     return this.execute(context, async (database) => {
       await authorizeMessagingUsage(database, context);
       const rows = (await database.execute<UsageOperationRow>(sql`select operation_type,state,idempotency_key,public_result from public.academy_admission_operations where actor_user_id=${context.actorUserId} and tribe_id=${context.tribeId} and idempotency_key=${operationId} and operation_type=any(${sql.param(Object.values(MESSAGING_USAGE_RECOVERABLE_OPERATION))}::text[]) limit 2`)).rows;

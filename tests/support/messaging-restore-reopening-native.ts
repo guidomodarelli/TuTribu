@@ -75,7 +75,6 @@ export async function admitAfterMessagingRestore(database: MessagingRestoreSql, 
   if (dispatch.authorized !== 1 || dispatch.accepted !== 1 || dispatch.unknown !== 0) throw new Error("Messaging restore reopening failed: fresh_dispatch_unconfirmed");
   onPhase?.(MESSAGING_RESTORE_SAFETY_PHASE.freshDispatchCompleted);
   const verified = await current.admission.verification.verify({ ...applicant.context, operationId: randomUUID(), challengeId: issued.result.challengeId, verificationCode: code });
-  code = "";
   if (verified.state !== "completed" || verified.result.result !== "verified") throw new Error("Messaging restore reopening failed: fresh_proof_unavailable");
   onPhase?.(MESSAGING_RESTORE_SAFETY_PHASE.freshProofConfirmed);
   const submitted = await current.admission.requests.submit({ ...applicant.context, type: "submit_admission", operationId: randomUUID(), expectedPolicyVersion: current.policy.version, confirmed: true, source: { kind: ADMISSION_SOURCE_KIND.common }, contact: applicant.contact, proofId: verified.result.proofId, message: null });

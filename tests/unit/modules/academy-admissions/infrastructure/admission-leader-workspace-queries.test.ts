@@ -36,7 +36,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
       // The fixture session lasts ten minutes and this suite runs longer at ~170 ms per round trip; an expired session would measure the signed-out page instead.
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()+${VALIDATION.sessionExtension}::interval where id=${fixture.sessionId}`));
       /** @param statement - Version lookup for the tribe. @returns The stored version, or zero while the row does not exist. */
-      const versionOf = async (statement: ReturnType<typeof sql>) => Number((await database.withContext(fixture.own, (transaction) => transaction.execute<{ version: number }>(statement))).rows[0]?.version ?? 0);
+      const versionOf = async (statement: ReturnType<typeof sql>) => (await database.withContext(fixture.own, (transaction) => transaction.execute<{ version: number }>(statement))).rows[0]?.version ?? 0;
       const measurement = createAdmissionRequestMeasurement({ [slug]: "[slug]", ...Object.fromEntries(pending.map((request) => [request.admissionRequestId, "[requestId]"])), ...Object.fromEntries(memberIds.map((memberId) => [memberId, "[memberId]"])) });
 
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {

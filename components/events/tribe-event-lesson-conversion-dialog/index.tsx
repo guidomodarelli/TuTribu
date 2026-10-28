@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type SubmitEvent, useState } from "react";
 
 import { Button, Dialog, DialogContent, Input, Select, Textarea, AnimatedCollapse, PresenceSwap } from "@golfo/ui";
 
@@ -120,6 +120,289 @@ function findFirstMissingField(
   return title.trim() ? null : FIELD_ID.title;
 }
 
+type LessonConversionCourse = LessonConversionTargetsResponse["courses"][number];
+
+/** ARIA wiring that ties a required control to the validation message. */
+function getValidationProps(
+  invalidFieldId: LessonRequiredFieldId | null,
+  fieldId: LessonRequiredFieldId
+) {
+  return invalidFieldId === fieldId
+    ? { "aria-describedby": FIELD_ID.validationError, "aria-invalid": true }
+    : {};
+}
+
+/** Body state the dialog shows; changing it cross-fades the body. */
+function resolveBodyPresenceKey(
+  { convertedLesson, targetsState }: LessonConversionView,
+  courseWithModulesCount: number
+) {
+  if (convertedLesson) {
+    return BODY_PRESENCE_KEY.result;
+  }
+
+  if (targetsState.status === TRIBE_EVENT_POST_EVENT_LOAD_STATUS.error) {
+    return BODY_PRESENCE_KEY.error;
+  }
+
+  if (targetsState.status !== TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loaded) {
+    return BODY_PRESENCE_KEY.loading;
+  }
+
+  return courseWithModulesCount === 0 ? BODY_PRESENCE_KEY.empty : BODY_PRESENCE_KEY.form;
+}
+
+/**
+ * Closing resets the conversion state in the same update, but the dialog
+ * stays on screen while it animates out: the body keeps rendering the last
+ * open view so it does not flash "Cargando cursos…" on its way out.
+ *
+ * @param isOpen - Whether the dialog is open.
+ * @param openView - Conversion state received from the container.
+ * @returns The view the body must render.
+ */
+function useRetainedConversionView(isOpen: boolean, openView: LessonConversionView): LessonConversionView {
+  const [retainedView, setRetainedView] = useState<LessonConversionView>(openView);
+
+  if (
+    isOpen &&
+    (retainedView.convertedLesson !== openView.convertedLesson ||
+      retainedView.targetsState !== openView.targetsState)
+  ) {
+    setRetainedView({ convertedLesson: openView.convertedLesson, targetsState: openView.targetsState });
+  }
+
+  return isOpen
+    ? { convertedLesson: openView.convertedLesson, targetsState: openView.targetsState }
+    : retainedView;
+}
+
+/**
+ * Values of the conversion form. They live in the dialog, not in the form,
+ * so they survive while the body swaps between states.
+ */
+function useLessonConversionFormState(defaultTitle: string, defaultDescription: string) {
+  const [courseId, setCourseId] = useState(EMPTY_VALUE);
+  const [courseModuleId, setCourseModuleId] = useState(EMPTY_VALUE);
+  const [title, setTitle] = useState(defaultTitle);
+  const [description, setDescription] = useState(defaultDescription);
+  const [invalidFieldId, setInvalidFieldId] = useState<LessonRequiredFieldId | null>(null);
+
+  return {
+    courseId,
+    courseModuleId,
+    description,
+    invalidFieldId,
+    setCourseId,
+    setCourseModuleId,
+    setDescription,
+    setInvalidFieldId,
+    setTitle,
+    title,
+  };
+}
+
+type LessonConversionFormState = ReturnType<typeof useLessonConversionFormState>;
+
+type LessonConversionResultProps = {
+  convertedLesson: LessonConversionResponse;
+  onClose: () => void;
+};
+
+/** Created (or already existing) lesson with a link to it. */
+function LessonConversionResult({ convertedLesson, onClose }: LessonConversionResultProps) {
+  return (
+    <div className={styles.TribeEventLessonConversionDialog__result}>
+      <p className={styles.TribeEventLessonConversionDialog__resultText} role="status">
+        {convertedLesson.isExisting ? COPY.existing : COPY.success}
+      </p>
+      <div className={styles.TribeEventLessonConversionDialog__actions}>
+        <Button type={BUTTON_ATTRIBUTE.typeButton} variant={BUTTON_ATTRIBUTE.variantGhost} onClick={onClose}>
+          {COPY.closeButton}
+        </Button>
+        <ButtonLink href={convertedLesson.lesson.href}>{COPY.openLesson}</ButtonLink>
+      </div>
+    </div>
+  );
+}
+
+/** Courses failed to load, with a retry. */
+function LessonConversionTargetsError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className={styles.TribeEventLessonConversionDialog__result}>
+      <p className={styles.TribeEventLessonConversionDialog__error} role="alert">
+        {message}
+      </p>
+      <Button
+        size={BUTTON_ATTRIBUTE.sizeSmall}
+        type={BUTTON_ATTRIBUTE.typeButton}
+        variant={BUTTON_ATTRIBUTE.variantSecondary}
+        onClick={onRetry}
+      >
+        {COPY.retry}
+      </Button>
+    </div>
+  );
+}
+
+type LessonConversionTargetSelectsProps = {
+  coursesWithModules: LessonConversionCourse[];
+  form: LessonConversionFormState;
+  selectedCourse: LessonConversionCourse | null;
+};
+
+/** Course and module pickers; a course with a single module preselects it. */
+function LessonConversionTargetSelects({
+  coursesWithModules,
+  form,
+  selectedCourse,
+}: LessonConversionTargetSelectsProps) {
+  return (
+    <>
+      <Select
+        {...getValidationProps(form.invalidFieldId, FIELD_ID.course)}
+        id={FIELD_ID.course}
+        label={COPY.courseLabel}
+        options={coursesWithModules.map((course) => ({ label: course.title, value: course.id }))}
+        placeholder={COPY.coursePlaceholder}
+        value={form.courseId}
+        onValueChange={(value) => {
+          const course = coursesWithModules.find((candidate) => candidate.id === value);
+
+          // Radix mirrors the choice into a hidden native select that can
+          // report an empty value while the options are unmounted.
+          if (!course) {
+            return;
+          }
+
+          form.setInvalidFieldId(null);
+          form.setCourseId(value);
+          // A course with a single module preselects it.
+          form.setCourseModuleId(course.modules.length === 1 ? course.modules[0].id : EMPTY_VALUE);
+        }}
+      />
+      <Select
+        {...getValidationProps(form.invalidFieldId, FIELD_ID.module)}
+        disabled={!selectedCourse}
+        id={FIELD_ID.module}
+        label={COPY.moduleLabel}
+        options={(selectedCourse?.modules ?? []).map((courseModule) => ({
+          label: courseModule.title,
+          value: courseModule.id,
+        }))}
+        placeholder={COPY.modulePlaceholder}
+        value={form.courseModuleId}
+        onValueChange={(value) => {
+          if (!value) {
+            return;
+          }
+
+          form.setInvalidFieldId(null);
+          form.setCourseModuleId(value);
+        }}
+      />
+    </>
+  );
+}
+
+type LessonConversionFormProps = Pick<
+  TribeEventLessonConversionDialogProps,
+  "isSubmitting" | "onClose" | "onSubmit"
+> &
+  LessonConversionTargetSelectsProps;
+
+/** Course, module, title and description of the lesson to create. */
+function LessonConversionForm({
+  coursesWithModules,
+  form,
+  isSubmitting,
+  onClose,
+  onSubmit,
+  selectedCourse,
+}: LessonConversionFormProps) {
+  const handleSubmit = (submitEvent: SubmitEvent<HTMLFormElement>) => {
+    submitEvent.preventDefault();
+
+    if (isSubmitting) {
+      return;
+    }
+
+    const missingFieldId = findFirstMissingField(selectedCourse !== null, form.courseModuleId, form.title);
+
+    if (!selectedCourse || missingFieldId) {
+      const fieldToFix = missingFieldId ?? FIELD_ID.course;
+      const control = submitEvent.currentTarget.elements.namedItem(fieldToFix);
+
+      form.setInvalidFieldId(fieldToFix);
+
+      if (control instanceof HTMLElement) {
+        control.focus();
+      }
+
+      return;
+    }
+
+    onSubmit({
+      courseId: selectedCourse.id,
+      courseModuleId: form.courseModuleId,
+      description: form.description.trim() || null,
+      title: form.title.trim(),
+    });
+  };
+
+  return (
+    // Native validation is off so a missing field reaches the Spanish inline
+    // message; `required` still marks the mandatory title for assistive tech.
+    <form
+      className={styles.TribeEventLessonConversionDialog__form}
+      noValidate
+      onSubmit={handleSubmit}
+    >
+      <LessonConversionTargetSelects
+        coursesWithModules={coursesWithModules}
+        form={form}
+        selectedCourse={selectedCourse}
+      />
+      <Input
+        {...getValidationProps(form.invalidFieldId, FIELD_ID.title)}
+        id={FIELD_ID.title}
+        label={COPY.titleLabel}
+        maxLength={COURSE_LESSON_TITLE.maxLength}
+        required
+        value={form.title}
+        onChange={(event) => {
+          form.setInvalidFieldId(null);
+          form.setTitle(event.currentTarget.value);
+        }}
+      />
+      <Textarea
+        id={FIELD_ID.description}
+        label={COPY.descriptionLabel}
+        maxLength={COURSE_LESSON_DESCRIPTION.maxLength}
+        value={form.description}
+        onChange={(event) => form.setDescription(event.currentTarget.value)}
+      />
+      <AnimatedCollapse isOpen={form.invalidFieldId !== null}>
+        <p
+          className={styles.TribeEventLessonConversionDialog__error}
+          id={FIELD_ID.validationError}
+          role="alert"
+        >
+          {COPY.missingFields}
+        </p>
+      </AnimatedCollapse>
+      <div className={styles.TribeEventLessonConversionDialog__actions}>
+        <Button type={BUTTON_ATTRIBUTE.typeButton} variant={BUTTON_ATTRIBUTE.variantGhost} onClick={onClose}>
+          {COPY.cancelButton}
+        </Button>
+        <Button disabled={isSubmitting} type={BUTTON_ATTRIBUTE.typeSubmit}>
+          {isSubmitting ? COPY.submittingButton : COPY.submitButton}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 /**
  * "Convertir en lección": picks a course and a module of the tribe and
  * creates a lesson with the recording video and the prefilled event copy.
@@ -138,96 +421,21 @@ export function TribeEventLessonConversionDialog({
   onSubmit,
   targetsState: openTargetsState,
 }: TribeEventLessonConversionDialogProps) {
-  const [courseId, setCourseId] = useState(EMPTY_VALUE);
-  const [courseModuleId, setCourseModuleId] = useState(EMPTY_VALUE);
-  const [title, setTitle] = useState(defaultTitle);
-  const [description, setDescription] = useState(defaultDescription);
-  const [invalidFieldId, setInvalidFieldId] = useState<LessonRequiredFieldId | null>(null);
-  // Closing resets the conversion state in the same update, but the dialog
-  // stays on screen while it animates out: the body keeps rendering the last
-  // open view so it does not flash "Cargando cursos…" on its way out.
-  const [retainedView, setRetainedView] = useState<LessonConversionView>({
+  const form = useLessonConversionFormState(defaultTitle, defaultDescription);
+  const view = useRetainedConversionView(isOpen, {
     convertedLesson: openConvertedLesson,
     targetsState: openTargetsState,
   });
-
-  if (
-    isOpen &&
-    (retainedView.convertedLesson !== openConvertedLesson ||
-      retainedView.targetsState !== openTargetsState)
-  ) {
-    setRetainedView({ convertedLesson: openConvertedLesson, targetsState: openTargetsState });
-  }
-
-  const { convertedLesson, targetsState } = isOpen
-    ? { convertedLesson: openConvertedLesson, targetsState: openTargetsState }
-    : retainedView;
+  const { convertedLesson, targetsState } = view;
   const courses =
     targetsState.status === TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loaded ? targetsState.courses : [];
   const coursesWithModules = courses.filter((course) => course.modules.length > 0);
-  const selectedCourse = coursesWithModules.find((course) => course.id === courseId) ?? null;
-
-  const handleSubmit = (submitEvent: FormEvent<HTMLFormElement>) => {
-    submitEvent.preventDefault();
-
-    if (isSubmitting) {
-      return;
-    }
-
-    const missingFieldId = findFirstMissingField(selectedCourse !== null, courseModuleId, title);
-
-    if (!selectedCourse || missingFieldId) {
-      const fieldToFix = missingFieldId ?? FIELD_ID.course;
-      const control = submitEvent.currentTarget.elements.namedItem(fieldToFix);
-
-      setInvalidFieldId(fieldToFix);
-
-      if (control instanceof HTMLElement) {
-        control.focus();
-      }
-
-      return;
-    }
-
-    onSubmit({
-      courseId: selectedCourse.id,
-      courseModuleId,
-      description: description.trim() || null,
-      title: title.trim(),
-    });
-  };
-
-  /** ARIA wiring that ties a required control to the validation message. */
-  const getValidationProps = (fieldId: LessonRequiredFieldId) =>
-    invalidFieldId === fieldId
-      ? { "aria-describedby": FIELD_ID.validationError, "aria-invalid": true }
-      : {};
-
-  const bodyPresenceKey = convertedLesson
-    ? BODY_PRESENCE_KEY.result
-    : targetsState.status === TRIBE_EVENT_POST_EVENT_LOAD_STATUS.error
-      ? BODY_PRESENCE_KEY.error
-      : targetsState.status === TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loaded
-        ? coursesWithModules.length === 0
-          ? BODY_PRESENCE_KEY.empty
-          : BODY_PRESENCE_KEY.form
-        : BODY_PRESENCE_KEY.loading;
+  const selectedCourse = coursesWithModules.find((course) => course.id === form.courseId) ?? null;
+  const bodyPresenceKey = resolveBodyPresenceKey(view, coursesWithModules.length);
 
   const renderBody = () => {
     if (convertedLesson) {
-      return (
-        <div className={styles.TribeEventLessonConversionDialog__result}>
-          <p className={styles.TribeEventLessonConversionDialog__resultText} role="status">
-            {convertedLesson.isExisting ? COPY.existing : COPY.success}
-          </p>
-          <div className={styles.TribeEventLessonConversionDialog__actions}>
-            <Button type={BUTTON_ATTRIBUTE.typeButton} variant={BUTTON_ATTRIBUTE.variantGhost} onClick={onClose}>
-              {COPY.closeButton}
-            </Button>
-            <ButtonLink href={convertedLesson.lesson.href}>{COPY.openLesson}</ButtonLink>
-          </div>
-        </div>
-      );
+      return <LessonConversionResult convertedLesson={convertedLesson} onClose={onClose} />;
     }
 
     if (
@@ -242,21 +450,7 @@ export function TribeEventLessonConversionDialog({
     }
 
     if (targetsState.status === TRIBE_EVENT_POST_EVENT_LOAD_STATUS.error) {
-      return (
-        <div className={styles.TribeEventLessonConversionDialog__result}>
-          <p className={styles.TribeEventLessonConversionDialog__error} role="alert">
-            {targetsState.message}
-          </p>
-          <Button
-            size={BUTTON_ATTRIBUTE.sizeSmall}
-            type={BUTTON_ATTRIBUTE.typeButton}
-            variant={BUTTON_ATTRIBUTE.variantSecondary}
-            onClick={onRetry}
-          >
-            {COPY.retry}
-          </Button>
-        </div>
-      );
+      return <LessonConversionTargetsError message={targetsState.message} onRetry={onRetry} />;
     }
 
     if (coursesWithModules.length === 0) {
@@ -264,92 +458,14 @@ export function TribeEventLessonConversionDialog({
     }
 
     return (
-      // Native validation is off so a missing field reaches the Spanish inline
-      // message; `required` still marks the mandatory title for assistive tech.
-      <form
-        className={styles.TribeEventLessonConversionDialog__form}
-        noValidate
-        onSubmit={handleSubmit}
-      >
-        <Select
-          {...getValidationProps(FIELD_ID.course)}
-          id={FIELD_ID.course}
-          label={COPY.courseLabel}
-          options={coursesWithModules.map((course) => ({ label: course.title, value: course.id }))}
-          placeholder={COPY.coursePlaceholder}
-          value={courseId}
-          onValueChange={(value) => {
-            const course = coursesWithModules.find((candidate) => candidate.id === value);
-
-            // Radix mirrors the choice into a hidden native select that can
-            // report an empty value while the options are unmounted.
-            if (!course) {
-              return;
-            }
-
-            setInvalidFieldId(null);
-            setCourseId(value);
-            // A course with a single module preselects it.
-            setCourseModuleId(course.modules.length === 1 ? course.modules[0].id : EMPTY_VALUE);
-          }}
-        />
-        <Select
-          {...getValidationProps(FIELD_ID.module)}
-          disabled={!selectedCourse}
-          id={FIELD_ID.module}
-          label={COPY.moduleLabel}
-          options={(selectedCourse?.modules ?? []).map((courseModule) => ({
-            label: courseModule.title,
-            value: courseModule.id,
-          }))}
-          placeholder={COPY.modulePlaceholder}
-          value={courseModuleId}
-          onValueChange={(value) => {
-            if (!value) {
-              return;
-            }
-
-            setInvalidFieldId(null);
-            setCourseModuleId(value);
-          }}
-        />
-        <Input
-          {...getValidationProps(FIELD_ID.title)}
-          id={FIELD_ID.title}
-          label={COPY.titleLabel}
-          maxLength={COURSE_LESSON_TITLE.maxLength}
-          required
-          value={title}
-          onChange={(event) => {
-            setInvalidFieldId(null);
-            setTitle(event.currentTarget.value);
-          }}
-        />
-        <Textarea
-          id={FIELD_ID.description}
-          label={COPY.descriptionLabel}
-          maxLength={COURSE_LESSON_DESCRIPTION.maxLength}
-          value={description}
-          onChange={(event) => setDescription(event.currentTarget.value)}
-        />
-        <AnimatedCollapse isOpen={invalidFieldId !== null}>
-          <p
-            className={styles.TribeEventLessonConversionDialog__error}
-            id={FIELD_ID.validationError}
-            role="alert"
-          >
-            {COPY.missingFields}
-          </p>
-        </AnimatedCollapse>
-        <div className={styles.TribeEventLessonConversionDialog__actions}>
-          <Button type={BUTTON_ATTRIBUTE.typeButton} variant={BUTTON_ATTRIBUTE.variantGhost} onClick={onClose}>
-            {COPY.cancelButton}
-          </Button>
-          <Button disabled={isSubmitting} type={BUTTON_ATTRIBUTE.typeSubmit}>
-            {isSubmitting ? COPY.submittingButton : COPY.submitButton}
-          </Button>
-        </div>
-      </form>
+      <LessonConversionForm
+        coursesWithModules={coursesWithModules}
+        form={form}
+        isSubmitting={isSubmitting}
+        selectedCourse={selectedCourse}
+        onClose={onClose}
+        onSubmit={onSubmit}
+      />
     );
   };
 

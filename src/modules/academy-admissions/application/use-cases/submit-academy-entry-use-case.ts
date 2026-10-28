@@ -14,8 +14,11 @@ export class SubmitAcademyEntryUseCase<Result extends AdmissionCommittedOutcome>
     try {
       const tribe = await this.resolver.execute({ slug: command.tribeSlug, requestId: command.requestId });
       if (!tribe.ok) return tribe;
-      const { tribeSlug: _tribeSlug, ...intent } = command;
-      return this.submission.execute({ ...intent, tribeId: tribe.value.tribeId });
+      return await this.submission.execute({
+        tribeId: tribe.value.tribeId, requestId: command.requestId, operationId: command.operationId, expectedPolicyVersion: command.expectedPolicyVersion, confirmed: command.confirmed,
+        phone: command.phone, country: command.country, proofId: command.proofId, message: command.message, invitationToken: command.invitationToken, legacyInvitationToken: command.legacyInvitationToken,
+        whatsappNumber: command.whatsappNumber,
+      });
     } catch (error) { return admissionOperationFailure(error); }
   }
 }

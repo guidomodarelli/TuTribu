@@ -49,6 +49,8 @@ function fixture() {
 }
 
 describe("manual admission screen", () => {
+  beforeEach(() => { sessionStorage.clear(); router.refresh.mockClear(); });
+
   it.each([false, true])("should conceal a retained private WhatsApp on Activity reactivation for pending=%s until the account is validated", async (isPending) => {
     const data = fixture(), own = { ...data.request, whatsappNumber: "+14155552671", requiresWhatsappNumber: false };
     if (isPending) { data.state.request = own; data.state.overview.state = "pending"; }
@@ -258,8 +260,6 @@ describe("manual admission screen", () => {
     expect(screen.queryByText(message)).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("La solicitud está pendiente de revisión.");
   });
-
-  beforeEach(() => { sessionStorage.clear(); router.refresh.mockClear(); });
 
   it("should recover a terminal submission denial, preserve the explanation and clear only the original intent without another POST or success message", async () => {
     const data = fixture(), message = "No pudimos usar ese contacto para el ingreso. Revisá tu cuenta o pedí ayuda.";

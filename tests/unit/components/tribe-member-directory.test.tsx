@@ -5,9 +5,10 @@ import userEvent from "@testing-library/user-event";
 import { TribeMemberDirectory } from "@/components/tribes/tribe-member-directory";
 import { downloadTextFile } from "@/components/tribes/tribe-member-directory/export";
 import type { TribeMemberResult } from "@/src/modules/tribes/application/results/tribe-member-result";
+import type * as TribeMemberDirectoryExportModule from "@/components/tribes/tribe-member-directory/export";
 
 vi.mock("@/components/tribes/tribe-member-directory/export", async () => {
-  const actual = await vi.importActual<typeof import("@/components/tribes/tribe-member-directory/export")>(
+  const actual = await vi.importActual<typeof TribeMemberDirectoryExportModule>(
     "@/components/tribes/tribe-member-directory/export"
   );
 

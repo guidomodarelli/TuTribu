@@ -28,7 +28,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission n
       expect(originalSources.requests.length).toBeGreaterThan(0);
       expect(originalSources.obligations.length).toBeGreaterThan(0);
       /** @returns The original idempotency, group and bounded retry deadline, without the signed email or ciphertext. */
-      const readOriginal = () => fixture.preparationExecute(async (transaction) => (await transaction.execute<{ id: string; notification_group_id: string; idempotency_key: string; deadline_at: string; within_retry_window: boolean }>(sql`select id,notification_group_id,idempotency_key,deadline_at::text,deadline_at <= created_at + interval '24 hours' as within_retry_window from public.message_deliveries where id=${group.deliveryId} and tribe_id=${fixture.tribeId}`)).rows[0]);
+      const readOriginal = () => fixture.preparationExecute(async (transaction) => (await transaction.execute<{ id: string; notification_group_id: string; idempotency_key: string; deadline_at: string; within_retry_window: boolean }>(sql`select id,notification_group_id,idempotency_key,deadline_at::text,deadline_at <= created_at + interval '24 hours' as within_retry_window from public.message_deliveries where id=${group.deliveryId} and tribe_id=${fixture.tribeId}`)).rows.at(0));
       const original = await readOriginal();
       expect(original?.within_retry_window).toBe(true);
       const upstreamPrivateMessage = `synthetic-outage-${randomUUID()}`;

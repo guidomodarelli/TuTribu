@@ -58,20 +58,20 @@ function findPersistedIdempotencyResponseBody(
   calls: unknown[][]
 ): Record<string, unknown> | null {
   for (const call of calls) {
-    const sqlText = getSqlText(call?.[0]);
+    const sqlText = getSqlText(call[0]);
     if (
       !sqlText.includes("insert into public.subscription_idempotency_operations")
     ) {
       continue;
     }
 
-    for (const param of getSqlParams(call?.[0])) {
+    for (const param of getSqlParams(call[0])) {
       if (typeof param !== "string") {
         continue;
       }
 
       try {
-        const parsed = JSON.parse(param) as Record<string, unknown>;
+        const parsed: unknown = JSON.parse(param);
         if (parsed && typeof parsed === "object" && "checkoutUrl" in parsed) {
           return parsed;
         }
@@ -102,21 +102,21 @@ function createRepository(
     if (query.startsWith("select ") && query.includes("tribe.admissions_control_activated_at")) return Promise.resolve({ rows: [] });
     return executeWithResourceLocks(statement, ...parameters);
   };
-  return new PostgresTribeMemberSubscriptionRepository(
-    async (callback) => callback({ execute: executeLegacyDatabase } as never),
-    options.createMercadoPagoPreapprovalSubscription ??
-      vi.fn(async () => ({
-        checkoutUrl:
-          "https://www.mercadopago.com.ar/subscriptions/checkout/congrats?preapproval_id=preapproval-created",
-        providerSubscriptionId: "preapproval-created",
-      })),
-    options.getMercadoPagoPreapprovalDetails ?? vi.fn(),
-    options.getMercadoPagoPreapprovalStatus ?? vi.fn(),
-    options.updateMercadoPagoPreapprovalStatus ?? vi.fn(),
-    options.updateMercadoPagoPreapprovalBackUrl ?? vi.fn(async () => undefined),
-    options.refreshMercadoPagoAccessToken ?? vi.fn(),
-    createPaidAdmissionResolutionWriter
-  );
+  return new PostgresTribeMemberSubscriptionRepository({
+    executeWithDatabase: async (callback) => callback({ execute: executeLegacyDatabase } as never),
+    createMercadoPagoPreapprovalSubscription: options.createMercadoPagoPreapprovalSubscription ??
+        vi.fn(async () => ({
+          checkoutUrl:
+            "https://www.mercadopago.com.ar/subscriptions/checkout/congrats?preapproval_id=preapproval-created",
+          providerSubscriptionId: "preapproval-created",
+        })),
+    getMercadoPagoPreapprovalDetails: options.getMercadoPagoPreapprovalDetails ?? vi.fn(),
+    getMercadoPagoPreapprovalStatus: options.getMercadoPagoPreapprovalStatus ?? vi.fn(),
+    updateMercadoPagoPreapprovalStatus: options.updateMercadoPagoPreapprovalStatus ?? vi.fn(),
+    updateMercadoPagoPreapprovalBackUrl: options.updateMercadoPagoPreapprovalBackUrl ?? vi.fn(async () => undefined),
+    refreshMercadoPagoAccessToken: options.refreshMercadoPagoAccessToken ?? vi.fn(),
+    createAdmissionResolution: createPaidAdmissionResolutionWriter,
+  });
 }
 
 const PROVIDER_PLAN_CHECKOUT_URL =
@@ -162,7 +162,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
   });
 
   it("validates Mercado Pago return ids only for the current pending subscription", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [{ has_pending_subscription_return: true }],
     }); });
     const repository = createRepository(execute);
@@ -176,7 +176,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
   });
 
   it("resolves Mercado Pago return paths from stored provider subscription ids", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [{ tribe_slug: "matematica-pro" }],
     }); });
     const repository = createRepository(execute);
@@ -189,7 +189,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
   });
 
   it("reads an already stored return status without calling Mercado Pago", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [{ status: "active" as const }],
     }); });
     const getMercadoPagoPreapprovalStatus = vi.fn();
@@ -210,7 +210,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
   });
 
   it("should resolve subscription reconciliation tokens from the subscription account", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           access_token: "subscription-access-token",
@@ -242,7 +242,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
   });
 
   it("reuses the recently reconciled status without calling Mercado Pago", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           access_token: "subscription-access-token",
@@ -1117,7 +1117,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
       })
       .mockResolvedValueOnce({ rows: [{ id: "subscription-2" }] });
-    const createMercadoPagoPreapprovalSubscription = vi.fn(async (...args: unknown[]) => { void args;
+    const createMercadoPagoPreapprovalSubscription = vi.fn(async (..._args: unknown[]) => { 
       throw new Error("provider checkout timed out");
     });
     const repository = createRepository(execute, {
@@ -2007,7 +2007,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [{ checkout_url: null, reserved_subscription_id: null }],
       });
     const createMercadoPagoPreapprovalSubscription = vi.fn(
-      (...args: unknown[]) => { void args; return PROVIDER_PLAN_CHECKOUT_URL; }
+      (..._args: unknown[]) => { return PROVIDER_PLAN_CHECKOUT_URL; }
     );
     const repository = createRepository(execute, {
       createMercadoPagoPreapprovalSubscription,
@@ -2484,7 +2484,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       }
 
       if (sqlText.includes("insert into public.subscription_idempotency_operations")) {
-        const queryChunks = (statement as { queryChunks?: unknown[] })
+        const queryChunks = (statement as { queryChunks?: unknown[] } | null | undefined)
           ?.queryChunks ?? [];
 
         for (const chunk of queryChunks) {

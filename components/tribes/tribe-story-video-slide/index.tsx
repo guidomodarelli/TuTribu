@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { PlayIcon } from "lucide-react";
 import Image from "next/image";
 
@@ -43,7 +43,6 @@ export function TribeStoryVideoSlide({
   videoProvider,
 }: TribeStoryVideoSlideProps) {
   const [isPlaying, setIsPlaying] = useState(false);
-  const playerRef = useRef<HTMLIFrameElement | null>(null);
   const shouldFocusPlayerRef = useRef(false);
   const thumbnailSource = buildVideoThumbnailSource(
     videoProvider,
@@ -57,12 +56,12 @@ export function TribeStoryVideoSlide({
 
   // The play button unmounts when the player appears; hand focus to the
   // player so keyboard users keep their place instead of landing on <body>.
-  useEffect(() => {
-    if (isPlaying && shouldFocusPlayerRef.current) {
+  const focusPlayerOnMount = (player: HTMLIFrameElement | null) => {
+    if (player && shouldFocusPlayerRef.current) {
       shouldFocusPlayerRef.current = false;
-      playerRef.current?.focus();
+      player.focus();
     }
-  }, [isPlaying]);
+  };
 
   if (isPlaying) {
     return (
@@ -70,7 +69,7 @@ export function TribeStoryVideoSlide({
         allow={PLAYER_IFRAME_ALLOW}
         allowFullScreen
         className={styles.TribeStoryVideoSlide__video}
-        ref={playerRef}
+        ref={focusPlayerOnMount}
         src={buildPlayerEmbedSource(videoProvider, externalVideoId)}
         title={title}
       />

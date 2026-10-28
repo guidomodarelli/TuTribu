@@ -35,7 +35,8 @@ export class ZavuNotificationDeliverySender implements MessageDeliverySender {
     signal.throwIfAborted();
     assertPreparedMessageDeliveryScope(context, prepared);
     const intent = prepared.intent;
-    if (intent.purpose !== NOTIFICATION_DELIVERY_RECOVERY_PURPOSE || intent.channel !== ZAVU_DELIVERY_CHANNEL.email || !intent.recipient || !intent.subject || !intent.text) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
+    // Fail closed even if a caller bypasses the static contract (casts, untyped composition).
+    if ((intent.purpose as string) !== NOTIFICATION_DELIVERY_RECOVERY_PURPOSE || (intent.channel as string) !== ZAVU_DELIVERY_CHANNEL.email || !intent.recipient || !intent.subject || !intent.text) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
     return this.transport.send(context, prepared, { messageType: ZAVU_MESSAGE_TYPE.text, subject: intent.subject, text: intent.text }, signal);
   }
 }

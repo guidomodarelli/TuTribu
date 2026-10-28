@@ -17,14 +17,14 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("persisted original
   it("should retain the original key and reservation, close a removed key before SDK access and send the same original once after reconciliation", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareVerificationDeliveryPipeline(database);
-      const operationId = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ idempotency_key: ReturnType<typeof randomUUID> }>(sql`select operation.idempotency_key from public.academy_admission_operations operation join public.message_deliveries delivery on delivery.idempotency_key=operation.id where delivery.id=${fixture.original.deliveryId} and operation.tribe_id=${fixture.scope.tribeId} and operation.actor_user_id=${fixture.userId}`)).rows[0]?.idempotency_key);
+      const operationId = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ idempotency_key: ReturnType<typeof randomUUID> }>(sql`select operation.idempotency_key from public.academy_admission_operations operation join public.message_deliveries delivery on delivery.idempotency_key=operation.id where delivery.id=${fixture.original.deliveryId} and operation.tribe_id=${fixture.scope.tribeId} and operation.actor_user_id=${fixture.userId}`)).rows.at(0)?.idempotency_key);
       if (!operationId) throw new Error("Payload rotation setup failed: original operation unavailable");
       const oldRing = fixture.config.keyrings[MESSAGING_KEY_PURPOSE.operationPayload], nextKeyId = randomUUID();
       const nextKey = await crypto.subtle.importKey("raw", randomBytes(MESSAGING_CRYPTO.keyBytes), { name: MESSAGING_CRYPTO.macAlgorithm, hash: MESSAGING_CRYPTO.macHash }, false, ["sign", "verify"]);
       const retained: MessagingSecurityConfig = { ...fixture.config, keyrings: { ...fixture.config.keyrings, operation_payload: { ...oldRing, activeKeyId: nextKeyId, keys: new Map([...oldRing.keys, [nextKeyId, nextKey]]) } } };
       const removed: MessagingSecurityConfig = { ...retained, keyrings: { ...retained.keyrings, operation_payload: { ...retained.keyrings.operation_payload, keys: new Map([[nextKeyId, nextKey]]) } } };
       let current = retained, credentialReads = 0;
-      const secrets = new PostgresEncryptedSecretStore(fixture.execute, { getAuthenticatedAccount: async () => null }, async () => current, "authorized_delivery");
+      const secrets = new PostgresEncryptedSecretStore({ executeWithDatabase: fixture.execute, accounts: { getAuthenticatedAccount: async () => null }, readSecurityConfig: async () => current, purpose: "authorized_delivery" });
       const preparation = new PostgresVerificationDeliveryPreparation(fixture.execute, { loadAuthorizedSecret: async (context) => { credentialReads += 1; return secrets.loadAuthorizedSecret(context); } }, async () => current);
       const claim = (await fixture.repository.claim({ leaseToken: randomUUID(), limit: 1, leaseSeconds: 300 }))[0];
       if (!claim) throw new Error("Payload rotation setup failed: original claim unavailable");

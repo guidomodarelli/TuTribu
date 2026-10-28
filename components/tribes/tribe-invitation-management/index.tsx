@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import {
   CheckIcon,
   ClipboardIcon,
@@ -514,6 +514,18 @@ function formatMercadoPagoAccountLabel(
   return null;
 }
 
+function getTrialMonthSuffix(isSingular: boolean): string {
+  return isSingular
+    ? INVITATION_MANAGEMENT_COPY.trialMonthSuffix
+    : INVITATION_MANAGEMENT_COPY.trialMonthsSuffix;
+}
+
+function getTrialDaySuffix(isSingular: boolean): string {
+  return isSingular
+    ? INVITATION_MANAGEMENT_COPY.trialDaySuffix
+    : INVITATION_MANAGEMENT_COPY.trialDaysSuffix;
+}
+
 function formatTrialPeriod(
   trial: TribeInvitationAssociatedPlanTrialResult | null
 ): string | null {
@@ -524,12 +536,8 @@ function formatTrialPeriod(
   const isSingular = trial.frequency === 1;
   const unitLabel =
     trial.frequencyType === TRIAL_FREQUENCY_TYPE.months
-      ? isSingular
-        ? INVITATION_MANAGEMENT_COPY.trialMonthSuffix
-        : INVITATION_MANAGEMENT_COPY.trialMonthsSuffix
-      : isSingular
-      ? INVITATION_MANAGEMENT_COPY.trialDaySuffix
-      : INVITATION_MANAGEMENT_COPY.trialDaysSuffix;
+      ? getTrialMonthSuffix(isSingular)
+      : getTrialDaySuffix(isSingular);
 
   return (
     String(trial.frequency) +
@@ -820,56 +828,62 @@ type CopyFeedback = {
   invitationId: string;
 };
 
-export function TribeInvitationManagement({
-  availablePrices,
-  canManagePrices,
-  invitations,
-  tribeSlug,
-}: TribeInvitationManagementProps) {
-  const [invitationItems, setInvitationItems] = useState(invitations);
+type FormattedInvitation = TribeInvitationListItemResult & {
+  channelLabel: string;
+  createdAtLabel: string;
+  planDescription: PlanDescription;
+};
+
+type RunInvitationMutation = (
+  pendingKey: string,
+  fallbackErrorMessage: string,
+  mutation: () => Promise<void>
+) => Promise<void>;
+
+type SetInvitationItems = Dispatch<SetStateAction<TribeInvitationListItemResult[]>>;
+
+/**
+ * Runs one invitation mutation at a time, exposing its pending key to the UI
+ * and turning any failure into a safe Spanish toast.
+ * @returns The pending key and the mutation runner.
+ */
+function useInvitationMutationRunner() {
   const [pendingInvitationId, setPendingInvitationId] = useState<string | null>(null);
-  const [revokeCandidateId, setRevokeCandidateId] = useState<string | null>(null);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [createSelectorValue, setCreateSelectorValue] = useState<string>("");
-  const [createReferralMetadata, setCreateReferralMetadata] =
-    useState<ReferralMetadataFormState>(EMPTY_REFERRAL_METADATA_FORM);
-  const [editCandidateId, setEditCandidateId] = useState<string | null>(null);
-  const [editSelectorValue, setEditSelectorValue] = useState<string>("");
-  const [editReferralCandidateId, setEditReferralCandidateId] = useState<
-    string | null
-  >(null);
-  const [editReferralMetadata, setEditReferralMetadata] =
-    useState<ReferralMetadataFormState>(EMPTY_REFERRAL_METADATA_FORM);
-  const [copyFeedback, setCopyFeedback] = useState<CopyFeedback | null>(null);
   // Synchronous guard: state updates land after the event, so a fast double
   // activation (double click, Enter + click) could otherwise start two mutations.
   const mutationInFlightRef = useRef(false);
-  const activeInvitationCount = invitationItems.length;
-  const hasActiveInvitations = activeInvitationCount > 0;
-  const formattedInvitations = useMemo(
-    () =>
-      invitationItems.map((invitation) => ({
-        ...invitation,
-        channelLabel: getChannelLabel(invitation.channel),
-        createdAtLabel: formatCreatedAt(invitation.createdAt),
-        planDescription: describeAssociation(invitation.subscriptionAssociation),
-      })),
-    [invitationItems]
-  );
-  const createInProgress = pendingInvitationId === CREATE_MUTATION_PENDING_KEY;
-  const editInProgress =
-    editCandidateId !== null && pendingInvitationId === editCandidateId;
-  const editReferralInProgress =
-    editReferralCandidateId !== null &&
-    pendingInvitationId === editReferralCandidateId;
-  const revokeInProgress =
-    revokeCandidateId !== null && pendingInvitationId === revokeCandidateId;
-  const createReferralMetadataErrors = getReferralMetadataErrors(
-    createReferralMetadata
-  );
-  const editReferralMetadataErrors = getReferralMetadataErrors(
-    editReferralMetadata
-  );
+
+  const runMutation: RunInvitationMutation = async (
+    pendingKey,
+    fallbackErrorMessage,
+    mutation
+  ) => {
+    if (mutationInFlightRef.current) {
+      return;
+    }
+
+    mutationInFlightRef.current = true;
+    setPendingInvitationId(pendingKey);
+
+    try {
+      await mutation();
+    } catch (error) {
+      toast.error(resolveMutationErrorMessage(error, fallbackErrorMessage));
+    } finally {
+      mutationInFlightRef.current = false;
+      setPendingInvitationId(null);
+    }
+  };
+
+  return { pendingInvitationId, runMutation };
+}
+
+/**
+ * Marks the invitation whose link was just copied for a short moment.
+ * @returns The copied invitation and its setter.
+ */
+function useCopyFeedback() {
+  const [copyFeedback, setCopyFeedback] = useState<CopyFeedback | null>(null);
 
   useEffect(() => {
     if (!copyFeedback) {
@@ -889,55 +903,97 @@ export function TribeInvitationManagement({
     setCopyFeedback({ invitationId });
   };
 
-  /**
-   * Runs one invitation mutation at a time, exposing its pending key to the UI
-   * and turning any failure into a safe Spanish toast.
-   */
-  const runMutation = async (
-    pendingKey: string,
-    fallbackErrorMessage: string,
-    mutation: () => Promise<void>
+  return { copyFeedback, showCopyFeedback };
+}
+
+type InvitationDialogOptions = {
+  pendingInvitationId: string | null;
+  runMutation: RunInvitationMutation;
+  setInvitationItems: SetInvitationItems;
+  tribeSlug: string;
+};
+
+/** Puts a created link first, replacing an earlier copy of it. */
+function prependInvitation(
+  currentItems: TribeInvitationListItemResult[],
+  createdInvitation: TribeInvitationListItemResult
+): TribeInvitationListItemResult[] {
+  return [
+    createdInvitation,
+    ...currentItems.filter((invitation) => invitation.id !== createdInvitation.id),
+  ];
+}
+
+/**
+ * State and submission of the create dialog. A created link is copied right
+ * away when the browser still allows it.
+ */
+function useCreateInvitationDialog({
+  pendingInvitationId,
+  runMutation,
+  setInvitationItems,
+  showCopyFeedback,
+  tribeSlug,
+}: InvitationDialogOptions & { showCopyFeedback: (invitationId: string) => void }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectorValue, setSelectorValue] = useState<string>("");
+  const [referralMetadata, setReferralMetadata] =
+    useState<ReferralMetadataFormState>(EMPTY_REFERRAL_METADATA_FORM);
+  const inProgress = pendingInvitationId === CREATE_MUTATION_PENDING_KEY;
+  const referralMetadataErrors = getReferralMetadataErrors(referralMetadata);
+
+  const createInvitation = async (
+    subscriptionAssociation: NonNullable<
+      ReturnType<typeof serializeSelectorValueToAssociation>
+    >
   ) => {
-    if (mutationInFlightRef.current) {
-      return;
+    const response = await submitInvitationRequest(
+      buildInvitationsEndpoint(tribeSlug),
+      INVITATION_MANAGEMENT_REQUEST.postMethod,
+      INVITATION_MANAGEMENT_COPY.fallbackCreateError,
+      {
+        ...normalizeReferralMetadataForm(referralMetadata),
+        subscriptionAssociation,
+      }
+    );
+    const createdInvitation = response.invitation;
+
+    if (createdInvitation) {
+      setInvitationItems((currentItems) =>
+        prependInvitation(currentItems, createdInvitation)
+      );
     }
 
-    mutationInFlightRef.current = true;
-    setPendingInvitationId(pendingKey);
+    // WebKit drops the user activation across the request, so copying can
+    // fail here; the new row keeps its own copy button as the fallback.
+    const isCopied = response.invitationUrl
+      ? await copyTextToClipboard(response.invitationUrl)
+      : false;
 
-    try {
-      await mutation();
-    } catch (error) {
-      toast.error(resolveMutationErrorMessage(error, fallbackErrorMessage));
-    } finally {
-      mutationInFlightRef.current = false;
-      setPendingInvitationId(null);
+    if (isCopied && createdInvitation) {
+      showCopyFeedback(createdInvitation.id);
     }
+
+    toast.success(
+      response.message ?? INVITATION_MANAGEMENT_COPY.createdMessage,
+      {
+        description: isCopied
+          ? INVITATION_MANAGEMENT_COPY.createdCopiedDescription
+          : INVITATION_MANAGEMENT_COPY.createdNotCopiedDescription,
+      }
+    );
+    setIsOpen(false);
+    setSelectorValue("");
+    setReferralMetadata(EMPTY_REFERRAL_METADATA_FORM);
   };
 
-  const copyInvitationUrl = async (
-    invitationId: string,
-    invitationUrl: string
-  ) => {
-    const isCopied = await copyTextToClipboard(invitationUrl);
-
-    if (!isCopied) {
-      toast.error(INVITATION_MANAGEMENT_COPY.fallbackCopyError);
-
-      return;
-    }
-
-    showCopyFeedback(invitationId);
-    toast.success(INVITATION_MANAGEMENT_COPY.copiedMessage);
-  };
-
-  const handleSubmitCreate = async () => {
+  const handleSubmit = async () => {
     const subscriptionAssociation =
-      serializeSelectorValueToAssociation(createSelectorValue);
+      serializeSelectorValueToAssociation(selectorValue);
 
     if (
       !subscriptionAssociation ||
-      hasReferralMetadataErrors(createReferralMetadataErrors)
+      hasReferralMetadataErrors(referralMetadataErrors)
     ) {
       return;
     }
@@ -945,93 +1001,41 @@ export function TribeInvitationManagement({
     await runMutation(
       CREATE_MUTATION_PENDING_KEY,
       INVITATION_MANAGEMENT_COPY.fallbackCreateError,
-      async () => {
-        const response = await submitInvitationRequest(
-          buildInvitationsEndpoint(tribeSlug),
-          INVITATION_MANAGEMENT_REQUEST.postMethod,
-          INVITATION_MANAGEMENT_COPY.fallbackCreateError,
-          {
-            ...normalizeReferralMetadataForm(createReferralMetadata),
-            subscriptionAssociation,
-          }
-        );
-        const createdInvitation = response.invitation;
-
-        if (createdInvitation) {
-          setInvitationItems((currentItems) => [
-            createdInvitation,
-            ...currentItems.filter(
-              (invitation) => invitation.id !== createdInvitation.id
-            ),
-          ]);
-        }
-
-        // WebKit drops the user activation across the request, so copying can
-        // fail here; the new row keeps its own copy button as the fallback.
-        const isCopied = response.invitationUrl
-          ? await copyTextToClipboard(response.invitationUrl)
-          : false;
-
-        if (isCopied && createdInvitation) {
-          showCopyFeedback(createdInvitation.id);
-        }
-
-        toast.success(
-          response.message ?? INVITATION_MANAGEMENT_COPY.createdMessage,
-          {
-            description: isCopied
-              ? INVITATION_MANAGEMENT_COPY.createdCopiedDescription
-              : INVITATION_MANAGEMENT_COPY.createdNotCopiedDescription,
-          }
-        );
-        setIsCreateDialogOpen(false);
-        setCreateSelectorValue("");
-        setCreateReferralMetadata(EMPTY_REFERRAL_METADATA_FORM);
-      }
+      () => createInvitation(subscriptionAssociation)
     );
   };
 
-  const handleSubmitReferralEdit = async () => {
-    const invitationId = editReferralCandidateId;
-
-    if (
-      !invitationId ||
-      hasReferralMetadataErrors(editReferralMetadataErrors)
-    ) {
+  const handleOpenChange = (open: boolean) => {
+    if (inProgress) {
       return;
     }
 
-    await runMutation(
-      invitationId,
-      INVITATION_MANAGEMENT_COPY.fallbackUpdateChannelError,
-      async () => {
-        const response = await submitInvitationRequest(
-          buildInvitationEndpoint(tribeSlug, invitationId),
-          INVITATION_MANAGEMENT_REQUEST.patchMethod,
-          INVITATION_MANAGEMENT_COPY.fallbackUpdateChannelError,
-          normalizeReferralMetadataForm(editReferralMetadata)
-        );
-        const updatedInvitation = response.invitation;
+    setIsOpen(open);
 
-        if (updatedInvitation) {
-          setInvitationItems((currentItems) =>
-            replaceInvitation(currentItems, updatedInvitation)
-          );
-        }
-
-        toast.success(
-          response.message ?? INVITATION_MANAGEMENT_COPY.channelUpdatedMessage
-        );
-        setEditReferralCandidateId(null);
-        setEditReferralMetadata(EMPTY_REFERRAL_METADATA_FORM);
-      }
-    );
+    if (!open) {
+      setSelectorValue("");
+      setReferralMetadata(EMPTY_REFERRAL_METADATA_FORM);
+    }
   };
 
-  const handleSubmitEdit = async () => {
-    const invitationId = editCandidateId;
+  return { handleOpenChange, handleSubmit, inProgress, isOpen, referralMetadata, referralMetadataErrors, selectorValue, setIsOpen, setReferralMetadata, setSelectorValue };
+}
+
+/** State and submission of the dialog that changes the plan of a link. */
+function useEditPlanDialog({
+  pendingInvitationId,
+  runMutation,
+  setInvitationItems,
+  tribeSlug,
+}: InvitationDialogOptions) {
+  const [candidateId, setCandidateId] = useState<string | null>(null);
+  const [selectorValue, setSelectorValue] = useState<string>("");
+  const inProgress = candidateId !== null && pendingInvitationId === candidateId;
+
+  const handleSubmit = async () => {
+    const invitationId = candidateId;
     const subscriptionAssociation =
-      serializeSelectorValueToAssociation(editSelectorValue);
+      serializeSelectorValueToAssociation(selectorValue);
 
     if (!invitationId || !subscriptionAssociation) {
       return;
@@ -1058,13 +1062,110 @@ export function TribeInvitationManagement({
         toast.success(
           response.message ?? INVITATION_MANAGEMENT_COPY.planUpdatedMessage
         );
-        setEditCandidateId(null);
-        setEditSelectorValue("");
+        setCandidateId(null);
+        setSelectorValue("");
       }
     );
   };
 
-  const handleRevokeInvitation = async (invitationId: string) => {
+  const handleOpenChange = (open: boolean) => {
+    if (inProgress) {
+      return;
+    }
+
+    if (!open) {
+      setCandidateId(null);
+      setSelectorValue("");
+    }
+  };
+
+  const openDialog = (invitation: TribeInvitationListItemResult) => {
+    setCandidateId(invitation.id);
+    setSelectorValue(
+      serializeAssociationToSelectorValue(invitation.subscriptionAssociation)
+    );
+  };
+
+  return { candidateId, handleOpenChange, handleSubmit, inProgress, openDialog, selectorValue, setSelectorValue };
+}
+
+/** State and submission of the dialog that edits the channel of a link. */
+function useEditReferralDialog({
+  pendingInvitationId,
+  runMutation,
+  setInvitationItems,
+  tribeSlug,
+}: InvitationDialogOptions) {
+  const [candidateId, setCandidateId] = useState<string | null>(null);
+  const [referralMetadata, setReferralMetadata] =
+    useState<ReferralMetadataFormState>(EMPTY_REFERRAL_METADATA_FORM);
+  const inProgress = candidateId !== null && pendingInvitationId === candidateId;
+  const referralMetadataErrors = getReferralMetadataErrors(referralMetadata);
+
+  const handleSubmit = async () => {
+    const invitationId = candidateId;
+
+    if (!invitationId || hasReferralMetadataErrors(referralMetadataErrors)) {
+      return;
+    }
+
+    await runMutation(
+      invitationId,
+      INVITATION_MANAGEMENT_COPY.fallbackUpdateChannelError,
+      async () => {
+        const response = await submitInvitationRequest(
+          buildInvitationEndpoint(tribeSlug, invitationId),
+          INVITATION_MANAGEMENT_REQUEST.patchMethod,
+          INVITATION_MANAGEMENT_COPY.fallbackUpdateChannelError,
+          normalizeReferralMetadataForm(referralMetadata)
+        );
+        const updatedInvitation = response.invitation;
+
+        if (updatedInvitation) {
+          setInvitationItems((currentItems) =>
+            replaceInvitation(currentItems, updatedInvitation)
+          );
+        }
+
+        toast.success(
+          response.message ?? INVITATION_MANAGEMENT_COPY.channelUpdatedMessage
+        );
+        setCandidateId(null);
+        setReferralMetadata(EMPTY_REFERRAL_METADATA_FORM);
+      }
+    );
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    if (inProgress) {
+      return;
+    }
+
+    if (!open) {
+      setCandidateId(null);
+      setReferralMetadata(EMPTY_REFERRAL_METADATA_FORM);
+    }
+  };
+
+  const openDialog = (invitation: TribeInvitationListItemResult) => {
+    setCandidateId(invitation.id);
+    setReferralMetadata(buildReferralMetadataFormState(invitation));
+  };
+
+  return { candidateId, handleOpenChange, handleSubmit, inProgress, openDialog, referralMetadata, referralMetadataErrors, setReferralMetadata };
+}
+
+/** State and confirmation of the dialog that revokes a link. */
+function useRevokeInvitationDialog({
+  pendingInvitationId,
+  runMutation,
+  setInvitationItems,
+  tribeSlug,
+}: InvitationDialogOptions) {
+  const [candidateId, setCandidateId] = useState<string | null>(null);
+  const inProgress = candidateId !== null && pendingInvitationId === candidateId;
+
+  const handleRevoke = async (invitationId: string) => {
     await runMutation(
       invitationId,
       INVITATION_MANAGEMENT_COPY.fallbackRevokeError,
@@ -1081,499 +1182,676 @@ export function TribeInvitationManagement({
         toast.success(
           response.message ?? INVITATION_MANAGEMENT_COPY.revokedMessage
         );
-        setRevokeCandidateId(null);
+        setCandidateId(null);
       }
     );
   };
 
-  const handleRevokeDialogChange = (open: boolean) => {
-    if (open || revokeInProgress) {
+  const handleOpenChange = (open: boolean) => {
+    if (open || inProgress) {
       return;
     }
 
-    setRevokeCandidateId(null);
+    setCandidateId(null);
   };
 
-  const handleCreateDialogChange = (open: boolean) => {
-    if (createInProgress) {
-      return;
-    }
+  return { candidateId, handleOpenChange, handleRevoke, inProgress, setCandidateId };
+}
 
-    setIsCreateDialogOpen(open);
+/**
+ * Copies a link and confirms it, or reports that the browser blocked it.
+ * @param invitationUrl - Link to copy.
+ * @param onCopied - Marks the copied invitation.
+ */
+async function copyInvitationUrl(invitationUrl: string, onCopied: () => void) {
+  const isCopied = await copyTextToClipboard(invitationUrl);
 
-    if (!open) {
-      setCreateSelectorValue("");
-      setCreateReferralMetadata(EMPTY_REFERRAL_METADATA_FORM);
-    }
-  };
+  if (!isCopied) {
+    toast.error(INVITATION_MANAGEMENT_COPY.fallbackCopyError);
 
-  const handleReferralEditDialogChange = (open: boolean) => {
-    if (editReferralInProgress) {
-      return;
-    }
+    return;
+  }
 
-    if (!open) {
-      setEditReferralCandidateId(null);
-      setEditReferralMetadata(EMPTY_REFERRAL_METADATA_FORM);
-    }
-  };
+  onCopied();
+  toast.success(INVITATION_MANAGEMENT_COPY.copiedMessage);
+}
 
-  const handleEditDialogChange = (open: boolean) => {
-    if (editInProgress) {
-      return;
-    }
+/** Title, description and the create action of the page. */
+function InvitationManagementHeader({
+  disabled,
+  onCreate,
+}: {
+  disabled: boolean;
+  onCreate: () => void;
+}) {
+  return (
+    <header className={styles.TribeInvitationManagement__header}>
+      <div className={styles.TribeInvitationManagement__headingGroup}>
+        <h1 className={styles.TribeInvitationManagement__title}>
+          {INVITATION_MANAGEMENT_COPY.title}
+        </h1>
+        <p className={styles.TribeInvitationManagement__description}>
+          {INVITATION_MANAGEMENT_COPY.description}
+        </p>
+      </div>
+      <div className={styles.TribeInvitationManagement__headerActions}>
+        <Button
+          className={styles.TribeInvitationManagement__createButton}
+          disabled={disabled}
+          onClick={onCreate}
+          type={INVITATION_MANAGEMENT_REQUEST.buttonType}
+        >
+          <LinkIcon />
+          {INVITATION_MANAGEMENT_COPY.createButton}
+        </Button>
+      </div>
+    </header>
+  );
+}
 
-    if (!open) {
-      setEditCandidateId(null);
-      setEditSelectorValue("");
-    }
-  };
+/** Associated plan and channel of a link. */
+function InvitationItemDetails({ invitation }: { invitation: FormattedInvitation }) {
+  return (
+    <dl className={styles.TribeInvitationManagement__details}>
+      <div className={styles.TribeInvitationManagement__detail}>
+        <dt className={styles.TribeInvitationManagement__detailLabel}>
+          {INVITATION_MANAGEMENT_COPY.associatedPlanLabel}
+        </dt>
+        <dd
+          className={cn(
+            styles.TribeInvitationManagement__detailValue,
+            styles["TribeInvitationManagement__detailValue--stacked"]
+          )}
+        >
+          <InvitationPlanValue description={invitation.planDescription} />
+        </dd>
+      </div>
+      <div className={styles.TribeInvitationManagement__detail}>
+        <dt className={styles.TribeInvitationManagement__detailLabel}>
+          {INVITATION_MANAGEMENT_COPY.channelLabel}
+        </dt>
+        <dd className={styles.TribeInvitationManagement__detailValue}>
+          <Badge>{invitation.channelLabel}</Badge>
+          {invitation.campaignName ? (
+            <span className={styles.TribeInvitationManagement__detailSegment}>
+              {invitation.campaignName}
+            </span>
+          ) : null}
+          {invitation.referrerHandle ? (
+            <span className={styles.TribeInvitationManagement__detailSegment}>
+              {invitation.referrerHandle}
+            </span>
+          ) : null}
+        </dd>
+      </div>
+    </dl>
+  );
+}
 
-  const openEditDialog = (invitation: TribeInvitationListItemResult) => {
-    setEditCandidateId(invitation.id);
-    setEditSelectorValue(
-      serializeAssociationToSelectorValue(invitation.subscriptionAssociation)
+type InvitationItemActionsProps = {
+  actions: SplitButtonAction[];
+  invitation: FormattedInvitation;
+  isCopied: boolean;
+  isPending: boolean;
+  onCopy: (invitationId: string, invitationUrl: string) => void;
+};
+
+/** Copy action joined to the related actions, or only the actions menu when the link has no URL. */
+function InvitationItemActions({
+  actions,
+  invitation,
+  isCopied,
+  isPending,
+  onCopy,
+}: InvitationItemActionsProps) {
+  const { invitationUrl } = invitation;
+
+  if (invitationUrl) {
+    // Copying is the main action of an invitation, joined to its related actions.
+    return (
+      <SplitButton
+        className={cn(
+          styles.TribeInvitationManagement__splitButton,
+          isCopied && styles["TribeInvitationManagement__splitButton--copied"]
+        )}
+        label={
+          isCopied
+            ? INVITATION_MANAGEMENT_COPY.copiedButton
+            : INVITATION_MANAGEMENT_COPY.copyButton
+        }
+        icon={isCopied ? <CheckIcon aria-hidden /> : <ClipboardIcon aria-hidden />}
+        variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}
+        disabled={isPending}
+        onClick={() => {
+          onCopy(invitation.id, invitationUrl);
+        }}
+        menuLabel={INVITATION_MANAGEMENT_COPY.moreActionsLabel}
+        actions={actions}
+      />
     );
-  };
+  }
 
-  const openReferralEditDialog = (invitation: TribeInvitationListItemResult) => {
-    setEditReferralCandidateId(invitation.id);
-    setEditReferralMetadata(buildReferralMetadataFormState(invitation));
-  };
+  // Without a link there is nothing to copy, so only the actions menu remains.
+  return (
+    <DropdownMenu
+      align={INVITATION_MANAGEMENT_REQUEST.menuAlign}
+      contentClassName={styles.TribeInvitationManagement__menu}
+      items={actions}
+      label={INVITATION_MANAGEMENT_COPY.moreActionsLabel}
+      trigger={
+        <Button
+          aria-label={INVITATION_MANAGEMENT_COPY.moreActionsLabel}
+          className={styles.TribeInvitationManagement__moreButton}
+          disabled={isPending}
+          size={INVITATION_MANAGEMENT_REQUEST.iconSize}
+          type={INVITATION_MANAGEMENT_REQUEST.buttonType}
+          variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}
+        >
+          <MoreHorizontalIcon />
+        </Button>
+      }
+    />
+  );
+}
+
+type InvitationRowHandlers = {
+  onCopy: (invitationId: string, invitationUrl: string) => void;
+  onEditPlan: (invitation: TribeInvitationListItemResult) => void;
+  onEditReferral: (invitation: TribeInvitationListItemResult) => void;
+  onRevoke: (invitationId: string) => void;
+};
+
+/**
+ * Related actions of a link: changing its plan (for price managers), editing
+ * its channel and revoking it.
+ */
+function buildInvitationActions(
+  invitation: FormattedInvitation,
+  canManagePrices: boolean,
+  { onEditPlan, onEditReferral, onRevoke }: Omit<InvitationRowHandlers, "onCopy">
+): SplitButtonAction[] {
+  return [
+    ...(canManagePrices
+      ? [
+          {
+            label: INVITATION_MANAGEMENT_COPY.changePlanButton,
+            icon: <PencilIcon />,
+            onSelect: () => onEditPlan(invitation),
+          },
+        ]
+      : []),
+    {
+      label: INVITATION_MANAGEMENT_COPY.editChannelButton,
+      icon: <TagIcon />,
+      onSelect: () => onEditReferral(invitation),
+    },
+    {
+      label: INVITATION_MANAGEMENT_COPY.revokeButton,
+      icon: <Trash2Icon />,
+      destructive: true,
+      onSelect: () => onRevoke(invitation.id),
+    },
+  ];
+}
+
+type InvitationListItemContentProps = InvitationRowHandlers & {
+  canManagePrices: boolean;
+  invitation: FormattedInvitation;
+  isCopied: boolean;
+  isPending: boolean;
+};
+
+/** Heading, details and actions of one active link. */
+function InvitationListItemContent({
+  canManagePrices,
+  invitation,
+  isCopied,
+  isPending,
+  onCopy,
+  ...handlers
+}: InvitationListItemContentProps) {
+  return (
+    <>
+      <div className={styles.TribeInvitationManagement__itemBody}>
+        <div className={styles.TribeInvitationManagement__itemHeading}>
+          <p className={styles.TribeInvitationManagement__itemTitle}>
+            <span
+              aria-hidden
+              className={styles.TribeInvitationManagement__statusDot}
+            />
+            {INVITATION_MANAGEMENT_COPY.itemTitle}
+          </p>
+          <p className={styles.TribeInvitationManagement__meta}>
+            {invitation.createdByName ??
+              INVITATION_MANAGEMENT_COPY.createdByFallback}{" "}
+            · {invitation.createdAtLabel}
+          </p>
+        </div>
+        <InvitationItemDetails invitation={invitation} />
+      </div>
+      <div className={styles.TribeInvitationManagement__itemActions}>
+        <InvitationItemActions
+          actions={buildInvitationActions(invitation, canManagePrices, handlers)}
+          invitation={invitation}
+          isCopied={isCopied}
+          isPending={isPending}
+          onCopy={onCopy}
+        />
+      </div>
+    </>
+  );
+}
+
+type InvitationListRegionProps = InvitationRowHandlers & {
+  canManagePrices: boolean;
+  copiedInvitationId: string | null;
+  invitations: FormattedInvitation[];
+  pendingInvitationId: string | null;
+};
+
+/** Active links with their count, or the empty state. */
+function InvitationListRegion({
+  canManagePrices,
+  copiedInvitationId,
+  invitations,
+  pendingInvitationId,
+  ...handlers
+}: InvitationListRegionProps) {
+  const activeInvitationCount = invitations.length;
+  const hasActiveInvitations = activeInvitationCount > 0;
+
+  return (
+    <div className={styles.TribeInvitationManagement__region}>
+      <PresenceSwap
+        presenceKey={
+          hasActiveInvitations
+            ? INVITATION_REGION_PRESENCE_KEY.list
+            : INVITATION_REGION_PRESENCE_KEY.empty
+        }
+      >
+        {hasActiveInvitations ? (
+          <div className={styles.TribeInvitationManagement__listRegion}>
+            <p className={styles.TribeInvitationManagement__listMeta}>
+              <AnimatedCount
+                className={styles.TribeInvitationManagement__listCount}
+                value={activeInvitationCount}
+              />{" "}
+              {activeInvitationCount === 1
+                ? INVITATION_MANAGEMENT_COPY.activeCountSingularSuffix
+                : INVITATION_MANAGEMENT_COPY.activeCountPluralSuffix}
+            </p>
+            <ol
+              aria-label={INVITATION_MANAGEMENT_COPY.listLabel}
+              className={styles.TribeInvitationManagement__list}
+            >
+              <AnimatePresence initial={false}>
+                {invitations.map((invitation) => (
+                  <AnimatedListItem
+                    as="li"
+                    className={styles.TribeInvitationManagement__item}
+                    key={invitation.id}
+                  >
+                    <InvitationListItemContent
+                      canManagePrices={canManagePrices}
+                      invitation={invitation}
+                      isCopied={copiedInvitationId === invitation.id}
+                      isPending={pendingInvitationId === invitation.id}
+                      {...handlers}
+                    />
+                  </AnimatedListItem>
+                ))}
+              </AnimatePresence>
+            </ol>
+          </div>
+        ) : (
+          <div className={styles.TribeInvitationManagement__empty}>
+            <p className={styles.TribeInvitationManagement__emptyTitle}>
+              {INVITATION_MANAGEMENT_COPY.emptyState}
+            </p>
+            <p className={styles.TribeInvitationManagement__emptyHint}>
+              {INVITATION_MANAGEMENT_COPY.emptyStateHint}
+            </p>
+          </div>
+        )}
+      </PresenceSwap>
+    </div>
+  );
+}
+
+type InvitationFormDialogFooterProps = {
+  busyLabel: string;
+  formId: string;
+  icon: ReactNode;
+  idleLabel: string;
+  inProgress: boolean;
+  isSubmitDisabled: boolean;
+  onCancel: () => void;
+};
+
+/** Cancel and submit actions of a link form dialog. */
+function InvitationFormDialogFooter({
+  busyLabel,
+  formId,
+  icon,
+  idleLabel,
+  inProgress,
+  isSubmitDisabled,
+  onCancel,
+}: InvitationFormDialogFooterProps) {
+  return (
+    <>
+      <Button
+        disabled={inProgress}
+        onClick={onCancel}
+        type={INVITATION_MANAGEMENT_REQUEST.buttonType}
+        variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}
+      >
+        {INVITATION_MANAGEMENT_COPY.submitDialogCancel}
+      </Button>
+      <Button
+        aria-busy={inProgress || undefined}
+        disabled={isSubmitDisabled}
+        form={formId}
+        type={INVITATION_MANAGEMENT_REQUEST.submitType}
+      >
+        {icon}
+        {inProgress ? busyLabel : idleLabel}
+      </Button>
+    </>
+  );
+}
+
+type InvitationFormDialogProps = {
+  children: ReactNode;
+  description: string;
+  footer: ReactNode;
+  formId: string;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: () => Promise<void>;
+  open: boolean;
+  title: string;
+};
+
+/** Dialog whose body is a form submitted from its footer. */
+function InvitationFormDialog({
+  children,
+  description,
+  footer,
+  formId,
+  onOpenChange,
+  onSubmit,
+  open,
+  title,
+}: InvitationFormDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent title={title} description={description} footer={footer}>
+        <form
+          id={formId}
+          className={styles.TribeInvitationManagement__dialogForm}
+          onSubmit={(event) => {
+            event.preventDefault();
+            void onSubmit();
+          }}
+        >
+          <div className={styles.TribeInvitationManagement__dialogBody}>
+            {children}
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type PlanOptionsProps = Pick<
+  TribeInvitationManagementProps,
+  "availablePrices" | "canManagePrices"
+>;
+
+/** Dialog that creates a link with its plan and channel. */
+function CreateInvitationDialog({
+  availablePrices,
+  canManagePrices,
+  dialog,
+}: PlanOptionsProps & { dialog: ReturnType<typeof useCreateInvitationDialog> }) {
+  return (
+    <InvitationFormDialog
+      description={INVITATION_MANAGEMENT_COPY.createDialogDescription}
+      footer={
+        <InvitationFormDialogFooter
+          busyLabel={INVITATION_MANAGEMENT_COPY.creatingButton}
+          formId={INVITATION_MANAGEMENT_DIALOG_FORM_ID.create}
+          icon={<LinkIcon />}
+          idleLabel={INVITATION_MANAGEMENT_COPY.submitDialogCreate}
+          inProgress={dialog.inProgress}
+          isSubmitDisabled={
+            dialog.inProgress ||
+            !dialog.selectorValue ||
+            hasReferralMetadataErrors(dialog.referralMetadataErrors)
+          }
+          onCancel={() => {
+            dialog.handleOpenChange(false);
+          }}
+        />
+      }
+      formId={INVITATION_MANAGEMENT_DIALOG_FORM_ID.create}
+      onOpenChange={dialog.handleOpenChange}
+      onSubmit={dialog.handleSubmit}
+      open={dialog.isOpen}
+      title={INVITATION_MANAGEMENT_COPY.createDialogTitle}
+    >
+      <PlanSelectorField
+        availablePrices={availablePrices}
+        canManagePrices={canManagePrices}
+        inputId={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createPlan}
+        onValueChange={dialog.setSelectorValue}
+        value={dialog.selectorValue}
+      />
+      <ReferralMetadataFields
+        campaignInputId={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createCampaign}
+        channelInputId={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createChannel}
+        errors={dialog.referralMetadataErrors}
+        formState={dialog.referralMetadata}
+        onChange={dialog.setReferralMetadata}
+        referrerHandleInputId={
+          INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createReferrerHandle
+        }
+      />
+    </InvitationFormDialog>
+  );
+}
+
+/** Dialog that changes the plan of a link. */
+function EditPlanDialog({
+  availablePrices,
+  canManagePrices,
+  dialog,
+}: PlanOptionsProps & { dialog: ReturnType<typeof useEditPlanDialog> }) {
+  return (
+    <InvitationFormDialog
+      description={INVITATION_MANAGEMENT_COPY.changePlanDialogDescription}
+      footer={
+        <InvitationFormDialogFooter
+          busyLabel={INVITATION_MANAGEMENT_COPY.savingButton}
+          formId={INVITATION_MANAGEMENT_DIALOG_FORM_ID.editPlan}
+          icon={<PencilIcon />}
+          idleLabel={INVITATION_MANAGEMENT_COPY.changePlanSubmit}
+          inProgress={dialog.inProgress}
+          isSubmitDisabled={dialog.inProgress || !dialog.selectorValue}
+          onCancel={() => {
+            dialog.handleOpenChange(false);
+          }}
+        />
+      }
+      formId={INVITATION_MANAGEMENT_DIALOG_FORM_ID.editPlan}
+      onOpenChange={dialog.handleOpenChange}
+      onSubmit={dialog.handleSubmit}
+      open={dialog.candidateId !== null}
+      title={INVITATION_MANAGEMENT_COPY.changePlanDialogTitle}
+    >
+      <PlanSelectorField
+        availablePrices={availablePrices}
+        canManagePrices={canManagePrices}
+        inputId={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editPlan}
+        onValueChange={dialog.setSelectorValue}
+        value={dialog.selectorValue}
+      />
+    </InvitationFormDialog>
+  );
+}
+
+/** Dialog that edits the channel of a link. */
+function EditReferralDialog({
+  dialog,
+}: {
+  dialog: ReturnType<typeof useEditReferralDialog>;
+}) {
+  return (
+    <InvitationFormDialog
+      description={INVITATION_MANAGEMENT_COPY.editChannelDialogDescription}
+      footer={
+        <InvitationFormDialogFooter
+          busyLabel={INVITATION_MANAGEMENT_COPY.savingButton}
+          formId={INVITATION_MANAGEMENT_DIALOG_FORM_ID.editReferral}
+          icon={<PencilIcon />}
+          idleLabel={INVITATION_MANAGEMENT_COPY.changePlanSubmit}
+          inProgress={dialog.inProgress}
+          isSubmitDisabled={
+            dialog.inProgress ||
+            hasReferralMetadataErrors(dialog.referralMetadataErrors)
+          }
+          onCancel={() => {
+            dialog.handleOpenChange(false);
+          }}
+        />
+      }
+      formId={INVITATION_MANAGEMENT_DIALOG_FORM_ID.editReferral}
+      onOpenChange={dialog.handleOpenChange}
+      onSubmit={dialog.handleSubmit}
+      open={dialog.candidateId !== null}
+      title={INVITATION_MANAGEMENT_COPY.editChannelDialogTitle}
+    >
+      <ReferralMetadataFields
+        campaignInputId={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editCampaign}
+        channelInputId={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editChannel}
+        errors={dialog.referralMetadataErrors}
+        formState={dialog.referralMetadata}
+        onChange={dialog.setReferralMetadata}
+        referrerHandleInputId={
+          INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editReferrerHandle
+        }
+      />
+    </InvitationFormDialog>
+  );
+}
+
+/** Confirmation dialog that revokes a link. */
+function RevokeInvitationDialog({
+  dialog,
+}: {
+  dialog: ReturnType<typeof useRevokeInvitationDialog>;
+}) {
+  const { candidateId, inProgress } = dialog;
+
+  return (
+    <Dialog open={candidateId !== null} onOpenChange={dialog.handleOpenChange}>
+      <DialogContent
+        title={INVITATION_MANAGEMENT_COPY.revokeConfirmTitle}
+        description={INVITATION_MANAGEMENT_COPY.revokeConfirmDescription}
+        footer={
+          <>
+            <Button
+              disabled={inProgress}
+              onClick={() => {
+                dialog.handleOpenChange(false);
+              }}
+              type={INVITATION_MANAGEMENT_REQUEST.buttonType}
+              variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}
+            >
+              {INVITATION_MANAGEMENT_COPY.revokeConfirmCancel}
+            </Button>
+            <Button
+              aria-busy={inProgress || undefined}
+              disabled={inProgress || candidateId === null}
+              onClick={() => {
+                if (candidateId) {
+                  void dialog.handleRevoke(candidateId);
+                }
+              }}
+              type={INVITATION_MANAGEMENT_REQUEST.buttonType}
+              variant={INVITATION_MANAGEMENT_REQUEST.dangerVariant}
+            >
+              <Trash2Icon />
+              {inProgress
+                ? INVITATION_MANAGEMENT_COPY.revokingButton
+                : INVITATION_MANAGEMENT_COPY.revokeConfirmConfirm}
+            </Button>
+          </>
+        }
+      />
+    </Dialog>
+  );
+}
+
+export function TribeInvitationManagement({
+  availablePrices,
+  canManagePrices,
+  invitations,
+  tribeSlug,
+}: TribeInvitationManagementProps) {
+  const [invitationItems, setInvitationItems] = useState(invitations);
+  const { pendingInvitationId, runMutation } = useInvitationMutationRunner();
+  const { copyFeedback, showCopyFeedback } = useCopyFeedback();
+  const dialogOptions = { pendingInvitationId, runMutation, setInvitationItems, tribeSlug };
+  const createDialog = useCreateInvitationDialog({ ...dialogOptions, showCopyFeedback });
+  const editPlanDialog = useEditPlanDialog(dialogOptions);
+  const editReferralDialog = useEditReferralDialog(dialogOptions);
+  const revokeDialog = useRevokeInvitationDialog(dialogOptions);
+  const formattedInvitations = useMemo(
+    () =>
+      invitationItems.map((invitation) => ({
+        ...invitation,
+        channelLabel: getChannelLabel(invitation.channel),
+        createdAtLabel: formatCreatedAt(invitation.createdAt),
+        planDescription: describeAssociation(invitation.subscriptionAssociation),
+      })),
+    [invitationItems]
+  );
 
   return (
     <section className={styles.TribeInvitationManagement}>
-      <header className={styles.TribeInvitationManagement__header}>
-        <div className={styles.TribeInvitationManagement__headingGroup}>
-          <h1 className={styles.TribeInvitationManagement__title}>
-            {INVITATION_MANAGEMENT_COPY.title}
-          </h1>
-          <p className={styles.TribeInvitationManagement__description}>
-            {INVITATION_MANAGEMENT_COPY.description}
-          </p>
-        </div>
-        <div className={styles.TribeInvitationManagement__headerActions}>
-          <Button
-            className={styles.TribeInvitationManagement__createButton}
-            disabled={Boolean(pendingInvitationId)}
-            onClick={() => {
-              setIsCreateDialogOpen(true);
-            }}
-            type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-          >
-            <LinkIcon />
-            {INVITATION_MANAGEMENT_COPY.createButton}
-          </Button>
-        </div>
-      </header>
-      <div className={styles.TribeInvitationManagement__region}>
-        <PresenceSwap
-          presenceKey={
-            hasActiveInvitations
-              ? INVITATION_REGION_PRESENCE_KEY.list
-              : INVITATION_REGION_PRESENCE_KEY.empty
-          }
-        >
-          {hasActiveInvitations ? (
-            <div className={styles.TribeInvitationManagement__listRegion}>
-              <p className={styles.TribeInvitationManagement__listMeta}>
-                <AnimatedCount
-                  className={styles.TribeInvitationManagement__listCount}
-                  value={activeInvitationCount}
-                />{" "}
-                {activeInvitationCount === 1
-                  ? INVITATION_MANAGEMENT_COPY.activeCountSingularSuffix
-                  : INVITATION_MANAGEMENT_COPY.activeCountPluralSuffix}
-              </p>
-              <ol
-                aria-label={INVITATION_MANAGEMENT_COPY.listLabel}
-                className={styles.TribeInvitationManagement__list}
-              >
-                <AnimatePresence initial={false}>
-                  {formattedInvitations.map((invitation) => {
-                    const isInvitationPending =
-                      pendingInvitationId === invitation.id;
-                    const isCopied =
-                      copyFeedback?.invitationId === invitation.id;
-                    const invitationActions: SplitButtonAction[] = [
-                      ...(canManagePrices
-                        ? [
-                            {
-                              label: INVITATION_MANAGEMENT_COPY.changePlanButton,
-                              icon: <PencilIcon />,
-                              onSelect: () => openEditDialog(invitation),
-                            },
-                          ]
-                        : []),
-                      {
-                        label: INVITATION_MANAGEMENT_COPY.editChannelButton,
-                        icon: <TagIcon />,
-                        onSelect: () => openReferralEditDialog(invitation),
-                      },
-                      {
-                        label: INVITATION_MANAGEMENT_COPY.revokeButton,
-                        icon: <Trash2Icon />,
-                        destructive: true,
-                        onSelect: () => setRevokeCandidateId(invitation.id),
-                      },
-                    ];
-
-                    return (
-                      <AnimatedListItem
-                        as="li"
-                        className={styles.TribeInvitationManagement__item}
-                        key={invitation.id}
-                      >
-                        <div className={styles.TribeInvitationManagement__itemBody}>
-                          <div
-                            className={styles.TribeInvitationManagement__itemHeading}
-                          >
-                            <p className={styles.TribeInvitationManagement__itemTitle}>
-                              <span
-                                aria-hidden
-                                className={styles.TribeInvitationManagement__statusDot}
-                              />
-                              {INVITATION_MANAGEMENT_COPY.itemTitle}
-                            </p>
-                            <p className={styles.TribeInvitationManagement__meta}>
-                              {invitation.createdByName ??
-                                INVITATION_MANAGEMENT_COPY.createdByFallback}{" "}
-                              · {invitation.createdAtLabel}
-                            </p>
-                          </div>
-                          <dl className={styles.TribeInvitationManagement__details}>
-                            <div className={styles.TribeInvitationManagement__detail}>
-                              <dt
-                                className={styles.TribeInvitationManagement__detailLabel}
-                              >
-                                {INVITATION_MANAGEMENT_COPY.associatedPlanLabel}
-                              </dt>
-                              <dd
-                                className={cn(
-                                  styles.TribeInvitationManagement__detailValue,
-                                  styles["TribeInvitationManagement__detailValue--stacked"]
-                                )}
-                              >
-                                <InvitationPlanValue
-                                  description={invitation.planDescription}
-                                />
-                              </dd>
-                            </div>
-                            <div className={styles.TribeInvitationManagement__detail}>
-                              <dt
-                                className={styles.TribeInvitationManagement__detailLabel}
-                              >
-                                {INVITATION_MANAGEMENT_COPY.channelLabel}
-                              </dt>
-                              <dd
-                                className={styles.TribeInvitationManagement__detailValue}
-                              >
-                                <Badge>
-                                  {invitation.channelLabel}
-                                </Badge>
-                                {invitation.campaignName ? (
-                                  <span
-                                    className={
-                                      styles.TribeInvitationManagement__detailSegment
-                                    }
-                                  >
-                                    {invitation.campaignName}
-                                  </span>
-                                ) : null}
-                                {invitation.referrerHandle ? (
-                                  <span
-                                    className={
-                                      styles.TribeInvitationManagement__detailSegment
-                                    }
-                                  >
-                                    {invitation.referrerHandle}
-                                  </span>
-                                ) : null}
-                              </dd>
-                            </div>
-                          </dl>
-                        </div>
-                        <div className={styles.TribeInvitationManagement__itemActions}>
-                          {invitation.invitationUrl ? (
-                            // Copying is the main action of an invitation, joined to its related actions.
-                            <SplitButton
-                              className={cn(
-                                styles.TribeInvitationManagement__splitButton,
-                                isCopied &&
-                                  styles["TribeInvitationManagement__splitButton--copied"]
-                              )}
-                              label={
-                                isCopied
-                                  ? INVITATION_MANAGEMENT_COPY.copiedButton
-                                  : INVITATION_MANAGEMENT_COPY.copyButton
-                              }
-                              icon={isCopied ? <CheckIcon aria-hidden /> : <ClipboardIcon aria-hidden />}
-                              variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}
-                              disabled={isInvitationPending}
-                              onClick={() => {
-                                void copyInvitationUrl(
-                                  invitation.id,
-                                  invitation.invitationUrl!
-                                );
-                              }}
-                              menuLabel={INVITATION_MANAGEMENT_COPY.moreActionsLabel}
-                              actions={invitationActions}
-                            />
-                          ) : (
-                            // Without a link there is nothing to copy, so only the actions menu remains.
-                            <DropdownMenu
-                              align={INVITATION_MANAGEMENT_REQUEST.menuAlign}
-                              contentClassName={styles.TribeInvitationManagement__menu}
-                              items={invitationActions}
-                              label={INVITATION_MANAGEMENT_COPY.moreActionsLabel}
-                              trigger={
-                                <Button
-                                  aria-label={INVITATION_MANAGEMENT_COPY.moreActionsLabel}
-                                  className={styles.TribeInvitationManagement__moreButton}
-                                  disabled={isInvitationPending}
-                                  size={INVITATION_MANAGEMENT_REQUEST.iconSize}
-                                  type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-                                  variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}
-                                >
-                                  <MoreHorizontalIcon />
-                                </Button>
-                              }
-                            />
-                          )}
-                        </div>
-                      </AnimatedListItem>
-                    );
-                  })}
-                </AnimatePresence>
-              </ol>
-            </div>
-          ) : (
-            <div className={styles.TribeInvitationManagement__empty}>
-              <p className={styles.TribeInvitationManagement__emptyTitle}>
-                {INVITATION_MANAGEMENT_COPY.emptyState}
-              </p>
-              <p className={styles.TribeInvitationManagement__emptyHint}>
-                {INVITATION_MANAGEMENT_COPY.emptyStateHint}
-              </p>
-            </div>
-          )}
-        </PresenceSwap>
-      </div>
-      <Dialog open={isCreateDialogOpen} onOpenChange={handleCreateDialogChange}>
-        <DialogContent
-          title={INVITATION_MANAGEMENT_COPY.createDialogTitle}
-          description={INVITATION_MANAGEMENT_COPY.createDialogDescription}
-          footer={
-            <>
-              <Button
-                disabled={createInProgress}
-                onClick={() => {
-                  handleCreateDialogChange(false);
-                }}
-                type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-                variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}
-              >
-                {INVITATION_MANAGEMENT_COPY.submitDialogCancel}
-              </Button>
-              <Button
-                aria-busy={createInProgress || undefined}
-                disabled={
-                  createInProgress ||
-                  !createSelectorValue ||
-                  hasReferralMetadataErrors(createReferralMetadataErrors)
-                }
-                form={INVITATION_MANAGEMENT_DIALOG_FORM_ID.create}
-                type={INVITATION_MANAGEMENT_REQUEST.submitType}
-              >
-                <LinkIcon />
-                {createInProgress
-                  ? INVITATION_MANAGEMENT_COPY.creatingButton
-                  : INVITATION_MANAGEMENT_COPY.submitDialogCreate}
-              </Button>
-            </>
-          }
-        >
-          <form
-            id={INVITATION_MANAGEMENT_DIALOG_FORM_ID.create}
-            className={styles.TribeInvitationManagement__dialogForm}
-            onSubmit={(event) => {
-              event.preventDefault();
-              void handleSubmitCreate();
-            }}
-          >
-            <div className={styles.TribeInvitationManagement__dialogBody}>
-              <PlanSelectorField
-                availablePrices={availablePrices}
-                canManagePrices={canManagePrices}
-                inputId={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createPlan}
-                onValueChange={setCreateSelectorValue}
-                value={createSelectorValue}
-              />
-              <ReferralMetadataFields
-                campaignInputId={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createCampaign}
-                channelInputId={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createChannel}
-                errors={createReferralMetadataErrors}
-                formState={createReferralMetadata}
-                onChange={setCreateReferralMetadata}
-                referrerHandleInputId={
-                  INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createReferrerHandle
-                }
-              />
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-      <Dialog
-        open={editCandidateId !== null}
-        onOpenChange={handleEditDialogChange}
-      >
-        <DialogContent
-          title={INVITATION_MANAGEMENT_COPY.changePlanDialogTitle}
-          description={INVITATION_MANAGEMENT_COPY.changePlanDialogDescription}
-          footer={
-            <>
-              <Button
-                disabled={editInProgress}
-                onClick={() => {
-                  handleEditDialogChange(false);
-                }}
-                type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-                variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}
-              >
-                {INVITATION_MANAGEMENT_COPY.submitDialogCancel}
-              </Button>
-              <Button
-                aria-busy={editInProgress || undefined}
-                disabled={editInProgress || !editSelectorValue}
-                form={INVITATION_MANAGEMENT_DIALOG_FORM_ID.editPlan}
-                type={INVITATION_MANAGEMENT_REQUEST.submitType}
-              >
-                <PencilIcon />
-                {editInProgress
-                  ? INVITATION_MANAGEMENT_COPY.savingButton
-                  : INVITATION_MANAGEMENT_COPY.changePlanSubmit}
-              </Button>
-            </>
-          }
-        >
-          <form
-            id={INVITATION_MANAGEMENT_DIALOG_FORM_ID.editPlan}
-            className={styles.TribeInvitationManagement__dialogForm}
-            onSubmit={(event) => {
-              event.preventDefault();
-              void handleSubmitEdit();
-            }}
-          >
-            <div className={styles.TribeInvitationManagement__dialogBody}>
-              <PlanSelectorField
-                availablePrices={availablePrices}
-                canManagePrices={canManagePrices}
-                inputId={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editPlan}
-                onValueChange={setEditSelectorValue}
-                value={editSelectorValue}
-              />
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-      <Dialog
-        open={editReferralCandidateId !== null}
-        onOpenChange={handleReferralEditDialogChange}
-      >
-        <DialogContent
-          title={INVITATION_MANAGEMENT_COPY.editChannelDialogTitle}
-          description={INVITATION_MANAGEMENT_COPY.editChannelDialogDescription}
-          footer={
-            <>
-              <Button
-                disabled={editReferralInProgress}
-                onClick={() => {
-                  handleReferralEditDialogChange(false);
-                }}
-                type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-                variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}
-              >
-                {INVITATION_MANAGEMENT_COPY.submitDialogCancel}
-              </Button>
-              <Button
-                aria-busy={editReferralInProgress || undefined}
-                disabled={
-                  editReferralInProgress ||
-                  hasReferralMetadataErrors(editReferralMetadataErrors)
-                }
-                form={INVITATION_MANAGEMENT_DIALOG_FORM_ID.editReferral}
-                type={INVITATION_MANAGEMENT_REQUEST.submitType}
-              >
-                <PencilIcon />
-                {editReferralInProgress
-                  ? INVITATION_MANAGEMENT_COPY.savingButton
-                  : INVITATION_MANAGEMENT_COPY.changePlanSubmit}
-              </Button>
-            </>
-          }
-        >
-          <form
-            id={INVITATION_MANAGEMENT_DIALOG_FORM_ID.editReferral}
-            className={styles.TribeInvitationManagement__dialogForm}
-            onSubmit={(event) => {
-              event.preventDefault();
-              void handleSubmitReferralEdit();
-            }}
-          >
-            <div className={styles.TribeInvitationManagement__dialogBody}>
-              <ReferralMetadataFields
-                campaignInputId={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editCampaign}
-                channelInputId={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editChannel}
-                errors={editReferralMetadataErrors}
-                formState={editReferralMetadata}
-                onChange={setEditReferralMetadata}
-                referrerHandleInputId={
-                  INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editReferrerHandle
-                }
-              />
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-      <Dialog
-        open={revokeCandidateId !== null}
-        onOpenChange={handleRevokeDialogChange}
-      >
-        <DialogContent
-          title={INVITATION_MANAGEMENT_COPY.revokeConfirmTitle}
-          description={INVITATION_MANAGEMENT_COPY.revokeConfirmDescription}
-          footer={
-            <>
-              <Button
-                disabled={revokeInProgress}
-                onClick={() => {
-                  handleRevokeDialogChange(false);
-                }}
-                type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-                variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}
-              >
-                {INVITATION_MANAGEMENT_COPY.revokeConfirmCancel}
-              </Button>
-              <Button
-                aria-busy={revokeInProgress || undefined}
-                disabled={revokeInProgress || revokeCandidateId === null}
-                onClick={() => {
-                  if (revokeCandidateId) {
-                    void handleRevokeInvitation(revokeCandidateId);
-                  }
-                }}
-                type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-                variant={INVITATION_MANAGEMENT_REQUEST.dangerVariant}
-              >
-                <Trash2Icon />
-                {revokeInProgress
-                  ? INVITATION_MANAGEMENT_COPY.revokingButton
-                  : INVITATION_MANAGEMENT_COPY.revokeConfirmConfirm}
-              </Button>
-            </>
-          }
-        />
-      </Dialog>
+      <InvitationManagementHeader
+        disabled={Boolean(pendingInvitationId)}
+        onCreate={() => {
+          createDialog.setIsOpen(true);
+        }}
+      />
+      <InvitationListRegion
+        canManagePrices={canManagePrices}
+        copiedInvitationId={copyFeedback?.invitationId ?? null}
+        invitations={formattedInvitations}
+        onCopy={(invitationId, invitationUrl) => {
+          void copyInvitationUrl(invitationUrl, () => {
+            showCopyFeedback(invitationId);
+          });
+        }}
+        onEditPlan={editPlanDialog.openDialog}
+        onEditReferral={editReferralDialog.openDialog}
+        onRevoke={revokeDialog.setCandidateId}
+        pendingInvitationId={pendingInvitationId}
+      />
+      <CreateInvitationDialog
+        availablePrices={availablePrices}
+        canManagePrices={canManagePrices}
+        dialog={createDialog}
+      />
+      <EditPlanDialog
+        availablePrices={availablePrices}
+        canManagePrices={canManagePrices}
+        dialog={editPlanDialog}
+      />
+      <EditReferralDialog dialog={editReferralDialog} />
+      <RevokeInvitationDialog dialog={revokeDialog} />
     </section>
   );
 }

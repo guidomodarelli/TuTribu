@@ -8,7 +8,7 @@ import type {MessagingAuthenticatedAccount,MessagingLeadershipFacts} from "@/src
 /** @returns Current own account/authorization/readonly ports; no SDK, database or framework is mocked. */
 function recoveryFixture(){
   const now=new Date(),userId=randomUUID(),tribeId=randomUUID(),operationId=randomUUID(),sessionId=randomUUID(),account:MessagingAuthenticatedAccount={userId,session:{id:sessionId,expiresAt:new Date(now.getTime()+3_600_000)},googleAccount:null},leadership:MessagingLeadershipFacts={tribeId,leaderUserId:userId,membership:{userId,role:"leader",status:"active"}};
-  const result={type:"save_messaging_credentials",state:"completed",operationId,replayed:true,result:{id:randomUUID(),name:"Conexión",version:1,configurationVersion:1,state:"draft",maskedCredential:"••••••••"}},read=vi.fn(async():Promise<unknown|null>=>result),accounts={getAuthenticatedAccount:vi.fn(async():Promise<MessagingAuthenticatedAccount|null>=>account)},authorization={getCurrentLeadership:vi.fn(async():Promise<MessagingLeadershipFacts|null>=>leadership)},query={tribeId,operationId,requestId:randomUUID()};
+  const result={type:"save_messaging_credentials",state:"completed",operationId,replayed:true,result:{id:randomUUID(),name:"Conexión",version:1,configurationVersion:1,state:"draft",maskedCredential:"••••••••"}},read=vi.fn(async():Promise<unknown>=>result),accounts={getAuthenticatedAccount:vi.fn(async():Promise<MessagingAuthenticatedAccount|null>=>account)},authorization={getCurrentLeadership:vi.fn(async():Promise<MessagingLeadershipFacts|null>=>leadership)},query={tribeId,operationId,requestId:randomUUID()};
   return{now,account,leadership,accounts,authorization,read,result,query,useCase:new ReadMessagingConnectionOperationUseCase(accounts,authorization,{read},()=>now)};
 }
 describe("original connection operation recovery",()=>{
@@ -31,7 +31,14 @@ describe("original connection operation recovery",()=>{
   });
   it.each(["validate_messaging_connection","configure_messaging_connection","diagnose_messaging_connection","verify_messaging_diagnostic","activate_messaging_connection"] as const)("should guard the original %s result under its own namespace",async(type)=>{
     const fixture=recoveryFixture(),base=fixture.result.result;
-    const result=type==="validate_messaging_connection"?{id:base.id,version:2,configurationVersion:1,credentialState:"valid",credentialMode:"production",validatedAt:fixture.now.toISOString()}:type==="configure_messaging_connection"?{...base,version:2,configurationVersion:2,changed:true}:type==="activate_messaging_connection"?{...base,version:2,state:"active",replaced:null,policyVersion:null}:{outcome:"denied",code:"recipient_not_allowed"};
+    /** @returns The original result shape that belongs to this operation type. */
+    const originalResult=()=>{
+      if(type==="validate_messaging_connection")return{id:base.id,version:2,configurationVersion:1,credentialState:"valid",credentialMode:"production",validatedAt:fixture.now.toISOString()};
+      if(type==="configure_messaging_connection")return{...base,version:2,configurationVersion:2,changed:true};
+      if(type==="activate_messaging_connection")return{...base,version:2,state:"active",replaced:null,policyVersion:null};
+      return{outcome:"denied",code:"recipient_not_allowed"};
+    };
+    const result=originalResult();
     fixture.read.mockResolvedValueOnce({type,state:"completed",operationId:fixture.query.operationId,replayed:true,result});
     expect(await fixture.useCase.execute(fixture.query)).toEqual({ok:true,value:{type,state:"completed",operationId:fixture.query.operationId,replayed:true,result}});
   });

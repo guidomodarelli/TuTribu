@@ -10,9 +10,9 @@ import { MessagingSecretAccessError } from "@/src/modules/messaging/domain/error
 
 /** Checks the authoritative tribe leader and current active membership, not a cached role. */
 function hasCurrentLeadership(leadership: MessagingLeadershipFacts | null, tribeId: string, userId: string): leadership is MessagingLeadershipFacts {
-  return Boolean(leadership && leadership.tribeId === tribeId && leadership.leaderUserId === userId
+  return leadership?.tribeId === tribeId && leadership.leaderUserId === userId
     && leadership.membership?.userId === userId && leadership.membership.role === TRIBE_MEMBER_ROLE.leader
-    && leadership.membership.status === TRIBE_MEMBERSHIP_STATUS.active);
+    && leadership.membership.status === TRIBE_MEMBERSHIP_STATUS.active;
 }
 
 /** Resolves a sensitive leader context; SecretStore independently revalidates before use. */
@@ -49,14 +49,14 @@ export class ResolveMessagingContextUseCase {
     const initialLeadership = await this.authorization.getCurrentLeadership(command.tribeId, initialAccount.userId);
     if (!hasCurrentLeadership(initialLeadership, command.tribeId, initialAccount.userId)) return deny(MESSAGING_ERROR_CODE.permissionDenied);
     const connection = await this.authorization.getConnection(command.tribeId, command.connectionId);
-    if (!connection || connection.tribeId !== command.tribeId || connection.id !== command.connectionId || connection.contributedByUserId !== initialAccount.userId || connection.retiredAt !== null || !connection.secretRef || !Number.isInteger(connection.version) || connection.version < 1) return deny(MESSAGING_ERROR_CODE.resourceUnavailable);
+    if (connection?.tribeId !== command.tribeId || connection.id !== command.connectionId || connection.contributedByUserId !== initialAccount.userId || connection.retiredAt !== null || !connection.secretRef || !Number.isInteger(connection.version) || connection.version < 1) return deny(MESSAGING_ERROR_CODE.resourceUnavailable);
     if (!MESSAGING_CREDENTIAL_USABLE_STATES.has(connection.state)) return deny(MESSAGING_ERROR_CODE.connectionIncomplete);
     const security = await this.security.getCurrentSecurityFacts();
-    if (security.recoveryLocked !== false || !security.environment || !security.securityEpoch || connection.environment !== security.environment || connection.securityEpoch !== security.securityEpoch) return deny(MESSAGING_ERROR_CODE.connectionIncomplete);
+    if (security.recoveryLocked || !security.environment || !security.securityEpoch || connection.environment !== security.environment || connection.securityEpoch !== security.securityEpoch) return deny(MESSAGING_ERROR_CODE.connectionIncomplete);
     // Resource/security reads may wait. Resolve current session/leadership again;
     // the concrete writer/SecretStore repeats these facts under its own locks.
     const account = await this.accounts.getAuthenticatedAccount();
-    if (!account || account.userId !== initialAccount.userId || account.session.id !== initialAccount.session.id) return deny(MESSAGING_ERROR_CODE.authenticationRequired);
+    if (account?.userId !== initialAccount.userId || account.session.id !== initialAccount.session.id) return deny(MESSAGING_ERROR_CODE.authenticationRequired);
     const leadership = await this.authorization.getCurrentLeadership(command.tribeId, account.userId);
     if (!hasCurrentLeadership(leadership, command.tribeId, account.userId)) return deny(MESSAGING_ERROR_CODE.permissionDenied);
     const now = this.clock();

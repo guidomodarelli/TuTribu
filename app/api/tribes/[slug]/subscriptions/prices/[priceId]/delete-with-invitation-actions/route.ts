@@ -52,6 +52,61 @@ function readInvitationActions(body: unknown): unknown {
   ];
 }
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type DeleteTribeSubscriptionPriceWithInvitationActionsResult = Awaited<
+  ReturnType<RequestModules["subscriptions"]["useCases"]["deleteTribeSubscriptionPriceWithInvitationActions"]>
+>;
+
+function createPostResultResponse(result: DeleteTribeSubscriptionPriceWithInvitationActionsResult, priceId: string): Response {
+  switch (result.status) {
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted:
+      return createJsonResponse(
+        {
+          deletedPriceId: priceId,
+          message: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.deletedMessage,
+        },
+        HTTP_STATUS.ok
+      );
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput:
+      return createJsonResponse(
+        { message: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.invalidInputMessage },
+        HTTP_STATUS.badRequest
+      );
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers:
+      return createJsonResponse(
+        { message: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.hasSubscribersMessage },
+        HTTP_STATUS.badRequest
+      );
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
+      return createJsonResponse(
+        {
+          message:
+            DELETE_WITH_ACTIONS_ROUTE_RESPONSE.missingIntegrationMessage,
+        },
+        HTTP_STATUS.serviceUnavailable
+      );
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
+      return createJsonResponse(
+        { message: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.notFoundMessage },
+        HTTP_STATUS.notFound
+      );
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden:
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled:
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.created:
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.current:
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.hasLinkedInvitations:
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached:
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired:
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.updated:
+    default:
+      return createJsonResponse(
+        { message: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.forbiddenMessage },
+        HTTP_STATUS.forbidden
+      );
+  }
+}
+
 export async function POST(
   request: Request,
   context: {
@@ -79,7 +134,7 @@ export async function POST(
   }
 
   try {
-    const body = await request.json().catch(() => null);
+    const body: unknown = await request.json().catch(() => null);
     const result =
       await modules.subscriptions.useCases.deleteTribeSubscriptionPriceWithInvitationActions(
         {
@@ -89,45 +144,7 @@ export async function POST(
         }
       );
 
-    switch (result.status) {
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted:
-        return createJsonResponse(
-          {
-            deletedPriceId: priceId,
-            message: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.deletedMessage,
-          },
-          HTTP_STATUS.ok
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput:
-        return createJsonResponse(
-          { message: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.invalidInputMessage },
-          HTTP_STATUS.badRequest
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers:
-        return createJsonResponse(
-          { message: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.hasSubscribersMessage },
-          HTTP_STATUS.badRequest
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
-        return createJsonResponse(
-          {
-            message:
-              DELETE_WITH_ACTIONS_ROUTE_RESPONSE.missingIntegrationMessage,
-          },
-          HTTP_STATUS.serviceUnavailable
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
-        return createJsonResponse(
-          { message: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-    }
+    return createPostResultResponse(result, priceId);
   } catch (error) {
     logger.error({
       message: DELETE_WITH_ACTIONS_ROUTE_LOG.failureMessage,

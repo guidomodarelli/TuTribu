@@ -335,6 +335,100 @@ export async function startInvitationSubscriptionAction({
   redirect(buildInvitationStatusPath(slug, token, result.status));
 }
 
+type InvitationPaymentProps = {
+  canStartSubscription: boolean;
+  startSubscription: () => Promise<void>;
+  subscriptionOffer: Parameters<typeof renderSubscriptionOffer>[0];
+};
+
+/** Payment step of a paid invitation: the offer and, when available, the button that starts the subscription. */
+function InvitationPayment({
+  canStartSubscription,
+  startSubscription,
+  subscriptionOffer,
+}: InvitationPaymentProps) {
+  return (
+    <main className={styles.TribeInvitationPage}>
+      <section className={styles.TribeInvitationPage__content}>
+        <p className={styles.TribeInvitationPage__eyebrow}>
+          {INVITATION_PAGE_COPY.eyebrow}
+        </p>
+        <h1 className={styles.TribeInvitationPage__title}>
+          {INVITATION_PAGE_COPY.paymentTitle}
+        </h1>
+        <p className={styles.TribeInvitationPage__description}>
+          {INVITATION_PAGE_COPY.paymentDescription}
+        </p>
+        {renderSubscriptionOffer(subscriptionOffer)}
+        {canStartSubscription ? (
+          <form
+            action={startSubscription}
+            className={styles.TribeInvitationPage__form}
+          >
+            <Button type={INVITATION_PAGE_FORM.submitButtonType}>
+              {INVITATION_PAGE_COPY.paymentButton}
+            </Button>
+          </form>
+        ) : null}
+      </section>
+    </main>
+  );
+}
+
+/** Last step of a free invitation: the button that joins the tribe. */
+function InvitationConfirmation({ acceptInvitation: acceptInvitationWithToken }: { acceptInvitation: () => Promise<void> }) {
+  return (
+    <main className={styles.TribeInvitationPage}>
+      <section className={styles.TribeInvitationPage__content}>
+        <p className={styles.TribeInvitationPage__eyebrow}>
+          {INVITATION_PAGE_COPY.eyebrow}
+        </p>
+        <h1 className={styles.TribeInvitationPage__title}>
+          {INVITATION_PAGE_COPY.confirmationTitle}
+        </h1>
+        <p className={styles.TribeInvitationPage__description}>
+          {INVITATION_PAGE_COPY.confirmationDescription}
+        </p>
+        <form
+          action={acceptInvitationWithToken}
+          className={styles.TribeInvitationPage__form}
+        >
+          <Button type={INVITATION_PAGE_FORM.submitButtonType}>
+            {INVITATION_PAGE_COPY.continueButton}
+          </Button>
+        </form>
+      </section>
+    </main>
+  );
+}
+
+/** Payment step reached from a "subscription required" status: the offer, startable only while it is available. */
+async function renderSubscriptionRequired(
+  modules: Awaited<ReturnType<typeof createRequestModules>>,
+  { slug, token }: AcceptInvitationActionInput
+) {
+  const startSubscription = startInvitationSubscriptionAction.bind(null, {
+    slug,
+    token,
+  });
+  const subscriptionOffer =
+    await modules.tribes.useCases.getTribeInvitationSubscriptionOffer({
+      token,
+      tribeSlug: slug,
+    });
+  const canStartSubscription =
+    subscriptionOffer.status ===
+    TRIBE_INVITATION_SUBSCRIPTION_OFFER_STATUS.available;
+
+  return (
+    <InvitationPayment
+      canStartSubscription={canStartSubscription}
+      startSubscription={startSubscription}
+      subscriptionOffer={subscriptionOffer}
+    />
+  );
+}
+
 export default async function TribeInvitationPage({
   params,
   searchParams = Promise.resolve({}),
@@ -385,45 +479,7 @@ export default async function TribeInvitationPage({
   }
 
   if (status === TRIBE_INVITATION_STATUS.subscriptionRequired) {
-    const startSubscription = startInvitationSubscriptionAction.bind(null, {
-      slug,
-      token,
-    });
-    const subscriptionOffer =
-      await modules.tribes.useCases.getTribeInvitationSubscriptionOffer({
-        token,
-        tribeSlug: slug,
-      });
-    const canStartSubscription =
-      subscriptionOffer.status ===
-      TRIBE_INVITATION_SUBSCRIPTION_OFFER_STATUS.available;
-
-    return (
-      <main className={styles.TribeInvitationPage}>
-        <section className={styles.TribeInvitationPage__content}>
-          <p className={styles.TribeInvitationPage__eyebrow}>
-            {INVITATION_PAGE_COPY.eyebrow}
-          </p>
-          <h1 className={styles.TribeInvitationPage__title}>
-            {INVITATION_PAGE_COPY.paymentTitle}
-          </h1>
-          <p className={styles.TribeInvitationPage__description}>
-            {INVITATION_PAGE_COPY.paymentDescription}
-          </p>
-          {renderSubscriptionOffer(subscriptionOffer)}
-          {canStartSubscription ? (
-            <form
-              action={startSubscription}
-              className={styles.TribeInvitationPage__form}
-            >
-              <Button type={INVITATION_PAGE_FORM.submitButtonType}>
-                {INVITATION_PAGE_COPY.paymentButton}
-              </Button>
-            </form>
-          ) : null}
-        </section>
-      </main>
-    );
+    return renderSubscriptionRequired(modules, { slug, token });
   }
 
   const subscriptionOffer =
@@ -442,28 +498,11 @@ export default async function TribeInvitationPage({
     });
 
     return (
-      <main className={styles.TribeInvitationPage}>
-        <section className={styles.TribeInvitationPage__content}>
-          <p className={styles.TribeInvitationPage__eyebrow}>
-            {INVITATION_PAGE_COPY.eyebrow}
-          </p>
-          <h1 className={styles.TribeInvitationPage__title}>
-            {INVITATION_PAGE_COPY.paymentTitle}
-          </h1>
-          <p className={styles.TribeInvitationPage__description}>
-            {INVITATION_PAGE_COPY.paymentDescription}
-          </p>
-          {renderSubscriptionOffer(subscriptionOffer)}
-          <form
-            action={startSubscription}
-            className={styles.TribeInvitationPage__form}
-          >
-            <Button type={INVITATION_PAGE_FORM.submitButtonType}>
-              {INVITATION_PAGE_COPY.paymentButton}
-            </Button>
-          </form>
-        </section>
-      </main>
+      <InvitationPayment
+        canStartSubscription
+        startSubscription={startSubscription}
+        subscriptionOffer={subscriptionOffer}
+      />
     );
   }
 
@@ -472,27 +511,5 @@ export default async function TribeInvitationPage({
     token,
   });
 
-  return (
-    <main className={styles.TribeInvitationPage}>
-      <section className={styles.TribeInvitationPage__content}>
-        <p className={styles.TribeInvitationPage__eyebrow}>
-          {INVITATION_PAGE_COPY.eyebrow}
-        </p>
-        <h1 className={styles.TribeInvitationPage__title}>
-          {INVITATION_PAGE_COPY.confirmationTitle}
-        </h1>
-        <p className={styles.TribeInvitationPage__description}>
-          {INVITATION_PAGE_COPY.confirmationDescription}
-        </p>
-        <form
-          action={acceptInvitationWithToken}
-          className={styles.TribeInvitationPage__form}
-        >
-          <Button type={INVITATION_PAGE_FORM.submitButtonType}>
-            {INVITATION_PAGE_COPY.continueButton}
-          </Button>
-        </form>
-      </section>
-    </main>
-  );
+  return <InvitationConfirmation acceptInvitation={acceptInvitationWithToken} />;
 }

@@ -229,6 +229,39 @@ function createRedirectResponseForResult(input: {
   }
 }
 
+type UnauthenticatedResponseContext = {
+  logger: TribeCreateLogger;
+  requestId: string;
+  requestUrl: string;
+  respondsWithJson: boolean;
+};
+
+function createUnauthenticatedResponse({
+  logger,
+  requestId,
+  requestUrl,
+  respondsWithJson,
+}: UnauthenticatedResponseContext): Response {
+  const signInUrl = buildRedirectUrl(requestUrl, ROUTES.auth.signIn, {
+    [QUERY_PARAMS.auth.callbackUrl]: ROUTES.tribes.create,
+  });
+
+  if (respondsWithJson) {
+    return createPublicJsonResponse({
+      body: {
+        redirectUrl: toSameOriginPath(signInUrl),
+        status: CREATE_TRIBE_ERROR_CODE.unauthenticated,
+      },
+      logger,
+      metadata: {},
+      requestId,
+      status: TRIBE_CREATE_HTTP_STATUS.unauthenticated,
+    });
+  }
+
+  return createRedirectResponse(signInUrl, requestId);
+}
+
 /**
  * Creates a tribe from the create-tribe form. A native form post (no
  * JavaScript) is answered with redirects; an enhanced submission that accepts
@@ -249,24 +282,12 @@ export async function POST(request: Request) {
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   if (!authenticatedMember) {
-    const signInUrl = buildRedirectUrl(request.url, ROUTES.auth.signIn, {
-      [QUERY_PARAMS.auth.callbackUrl]: ROUTES.tribes.create,
+    return createUnauthenticatedResponse({
+      logger,
+      requestId,
+      requestUrl: request.url,
+      respondsWithJson,
     });
-
-    if (respondsWithJson) {
-      return createPublicJsonResponse({
-        body: {
-          redirectUrl: toSameOriginPath(signInUrl),
-          status: CREATE_TRIBE_ERROR_CODE.unauthenticated,
-        },
-        logger,
-        metadata: {},
-        requestId,
-        status: TRIBE_CREATE_HTTP_STATUS.unauthenticated,
-      });
-    }
-
-    return createRedirectResponse(signInUrl, requestId);
   }
 
   try {

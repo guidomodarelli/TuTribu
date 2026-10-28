@@ -233,6 +233,9 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
       expectedSubscriptionId: TOKEN_ID,
       tribeSlug: TRIBE_SLUG,
     });
+
+    expect(issueExecute).toHaveBeenCalledTimes(5);
+    expect(revokeExecute).toHaveBeenCalledTimes(3);
   });
 });
 
@@ -391,7 +394,11 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
       .mockResolvedValueOnce({ rows: [ACCESS_ONLY_ROW] });
     const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
 
-    await reader.readAsOwner(FEED_QUERY);
+    await expect(reader.readAsOwner(FEED_QUERY)).resolves.toEqual({
+      exceptions: [],
+      series: [],
+      tribeName: FEED_TRIBE_NAME,
+    });
   });
 
   it("returns null when the token was revoked or the owner blocked after the access check", async () => {
@@ -465,7 +472,11 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
       .mockResolvedValueOnce({ rows: [ACCESS_ONLY_ROW] });
     const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
 
-    await reader.readAsOwner(FEED_QUERY);
+    await expect(reader.readAsOwner(FEED_QUERY)).resolves.toEqual({
+      exceptions: [],
+      series: [],
+      tribeName: FEED_TRIBE_NAME,
+    });
   });
 
   it("budgets only series whose schedule produces an occurrence overlapping the window", async () => {
@@ -476,7 +487,11 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
       .mockResolvedValueOnce({ rows: [ACCESS_ONLY_ROW] });
     const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
 
-    await reader.readAsOwner(FEED_QUERY);
+    await expect(reader.readAsOwner(FEED_QUERY)).resolves.toEqual({
+      exceptions: [],
+      series: [],
+      tribeName: FEED_TRIBE_NAME,
+    });
   });
 
   it("does not budget a series whose only in-window slots are cancelled or moved away", async () => {
@@ -487,7 +502,11 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
       .mockResolvedValueOnce({ rows: [ACCESS_ONLY_ROW] });
     const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
 
-    await reader.readAsOwner(FEED_QUERY);
+    await expect(reader.readAsOwner(FEED_QUERY)).resolves.toEqual({
+      exceptions: [],
+      series: [],
+      tribeName: FEED_TRIBE_NAME,
+    });
   });
 
   it("returns null and reads nothing else when the owner lost access", async () => {

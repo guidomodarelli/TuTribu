@@ -16,7 +16,7 @@ export class GetAdmissionReviewHistoryPageUseCase {
   constructor(private readonly accounts: AuthenticatedAccountProvider, private readonly readers: { history: Pick<GetAdmissionReviewHistoryUseCase, "execute">; resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute"> }, private readonly clock: () => Date) {}
 
   /** @param query - Once-normalized path, return selection and independent history continuation. @returns Current safe own props or a private application failure without partial facts. */
-  async execute(query: { slug: string; admissionRequestId: string; requestId: string; filters: AdmissionReviewSelection; cursor?: AdmissionReviewHistoryFilters["cursor"] }) {
+  async execute(query: { slug: string; admissionRequestId: string; requestId: string; filters: AdmissionReviewSelection; cursor?: NonNullable<AdmissionReviewHistoryFilters["cursor"]> }) {
     try {
       const first = await this.accounts.getAuthenticatedAccount();
       if (!first || !isAuthenticatedSessionLive(first.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
@@ -26,7 +26,7 @@ export class GetAdmissionReviewHistoryPageUseCase {
       if (!history.ok) return history;
       if (history.value.tribeId !== tribe.value.tribeId || history.value.admissionRequestId !== query.admissionRequestId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       const current = await this.accounts.getAuthenticatedAccount(), now = this.clock();
-      if (!current || current.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+      if (current?.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       const projected = admissionReviewHistoryPageStateSchema.safeParse({ kind: "ready", slug: query.slug, viewerId: current.userId, renderedAt: now.toISOString(), filters: query.filters, page: history.value, hasPrevious: Boolean(query.cursor) });
       if (!projected.success) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable, { cause: projected.error });
       return { ok: true as const, value: projected.data };

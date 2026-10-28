@@ -1,5 +1,5 @@
 /** Builds one persisted membership calculation from current subscription facts. */
-import {sql} from "drizzle-orm";
+import {sql,type SQL} from "drizzle-orm";
 import {TRIBE_MEMBER_ROLE} from "@/src/modules/tribes/constants/tribe-member-role";
 import {TRIBE_MEMBERSHIP_STATUS,TRIBE_MEMBERSHIP_STATUS_REASON} from "@/src/modules/tribes/constants/tribe-page-access";
 import {TRIBE_MEMBER_SUBSCRIPTION_STATUS,TRIBE_SUBSCRIPTION_PRODUCT_KEY} from "@/src/modules/subscriptions/constants/subscriptions";
@@ -9,16 +9,25 @@ import type {RequestDatabase} from "@/src/modules/shared/infrastructure/database
 type SubscriptionMembershipLockScope={tribeSlug:string}|{tribeId:string}|{providerSubscriptionId:string}|{subscriptionId:string};
 
 /**
+ * Selects the tribes a lock scope points at.
+ * @param scope - Own stored resource identity resolved by the repository.
+ * @returns SQL predicate over `public.tribes`.
+ */
+function buildTribeLockPredicate(scope:SubscriptionMembershipLockScope):SQL {
+  if ("tribeSlug" in scope) return sql`tribes.slug=${scope.tribeSlug}`;
+  if ("tribeId" in scope) return sql`tribes.id=${scope.tribeId}`;
+  if ("subscriptionId" in scope) return sql`tribes.id in(select tribe_id from public.tribe_member_subscriptions where id=${scope.subscriptionId})`;
+  return sql`tribes.id in(select tribe_id from public.tribe_member_subscriptions where mercado_pago_preapproval_id=${scope.providerSubscriptionId})`;
+}
+
+/**
  * Pins the actual actor before serializing subscription/member writes by tribe.
  * @param database - Existing guarded transaction; no new pool or RPC is created.
  * @param scope - Own stored resource identity resolved by the repository.
  * @returns Nothing after account then ordered tribe locks; the next statement gets a fresh snapshot.
  */
 export async function lockSubscriptionMembershipTribes(database:RequestDatabase,scope:SubscriptionMembershipLockScope):Promise<void> {
-  const predicate="tribeSlug" in scope?sql`tribes.slug=${scope.tribeSlug}`:
-    "tribeId" in scope?sql`tribes.id=${scope.tribeId}`:
-    "subscriptionId" in scope?sql`tribes.id in(select tribe_id from public.tribe_member_subscriptions where id=${scope.subscriptionId})`:
-    sql`tribes.id in(select tribe_id from public.tribe_member_subscriptions where mercado_pago_preapproval_id=${scope.providerSubscriptionId})`;
+  const predicate=buildTribeLockPredicate(scope);
   // Creator FK checks during account deletion precede any child tribe/member lock.
   await database.execute(sql`select id from public."user" where id=public.current_app_user_id() for share`);
   await database.execute(sql`select tribes.id from public.tribes where ${predicate} order by tribes.id for update`);

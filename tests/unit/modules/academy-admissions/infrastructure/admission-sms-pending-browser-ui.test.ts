@@ -63,7 +63,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native SMS pen
           await page.getByRole("option", { name: "AR", exact: true }).click();
           await consent.click();
           await page.getByRole("button", { name: "Enviar código de ingreso", exact: true }).click();
-          await page.waitForFunction(() => Boolean(document.querySelector('input[autocomplete="one-time-code"]')) || Array.from(document.querySelectorAll('[role="alert"]')).some((element) => element.textContent?.trim()));
+          await page.waitForFunction(() => Boolean(document.querySelector('input[autocomplete="one-time-code"]')) || Array.from(document.querySelectorAll('[role="alert"]')).some((element) => element.textContent.trim()));
           if (await page.getByLabel("Código de ingreso", { exact: true }).count() === 0 && await page.getByText(ADMISSION_CONTACT_COPY.uncertain, { exact: true }).count() > 0) {
             // Recover the actual completed original after browser transport uncertainty, without repeating its POST.
             expect(issueRequests).toBe(1);

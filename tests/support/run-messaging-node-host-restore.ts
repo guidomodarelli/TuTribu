@@ -21,6 +21,10 @@ import { ADMISSION_NODE_HOST, ADMISSION_NODE_RUN_STATE, admissionNodeStatusSchem
 import { MESSAGING_NATIVE_ACTIVATION } from "./constants/messaging-activation-native";
 import { MESSAGING_RESTORE_NODE_HOST as HOST, MESSAGING_RESTORE_NODE_PHASE as PHASE, messagingRestoreNodeInputSchema, type MessagingRestoreNodeInput, type MessagingRestoreNodePhase } from "./constants/messaging-restore-node-host";
 
+/** Single-row facts are read by index (`rows[0]`), so the row may be absent at runtime. */
+type WithAbsentRow<T, K extends keyof T> = Omit<T, K> & { [P in K]: T[P] | undefined };
+type RestoreAdmissionFacts = WithAbsentRow<Awaited<ReturnType<typeof readRestoreAdmissionFacts>>, "policy">;
+type RestoreMessagingFacts = WithAbsentRow<Awaited<ReturnType<typeof readMessagingRestoreFacts>>, "connection">;
 type StoredPhase = { state: string; work_runs: number; cipher_operations: number; checked_rejections: number; provider_requests: number; invitation_round_trip: boolean; runtime_version: string; source_commit: string; bundle_sha256: string };
 export type MessagingNodeHostRestoreObservation = {
   cohortId: string; startedAt: string; passed: boolean; realMessages: 0;
@@ -63,7 +67,7 @@ export async function runMessagingNodeHostRestore(options: { reportFile?: string
       const migration = await readFile(HOST.supportMigration, "utf8");
       await parent.withContext({ userId: null, email: null }, (transaction) => transaction.execute(sql.raw(migration)));
       const applicants = [prepared.applied.context.userId, prepared.available.context.userId, prepared.queued.context.userId, prepared.uncertain.context.userId];
-      const snapshot = (database: Parameters<typeof readRestoreAdmissionFacts>[0]) => readRestoreAdmissionFacts(database, source.context.tribeId, applicants);
+      const snapshot = (database: Parameters<typeof readRestoreAdmissionFacts>[0]): Promise<RestoreAdmissionFacts> => readRestoreAdmissionFacts(database, source.context.tribeId, applicants);
       const checkpoint = await snapshot(parent), credentialCheckpoint = await readMessagingRestoreFacts(parent, source.context), historyCheckpoint = await readMessagingRestoreHistory(parent, history.cases);
       const rotatedEnvironment: Record<string, string> = { ...createAdmissionSyntheticHostingEnvironment(), [MESSAGING_HOSTING_ENV.environment]: HOST.securityEnvironment };
       const lockedEnvironment = { ...rotatedEnvironment, [MESSAGING_HOSTING_ENV.recoveryLock]: MESSAGING_RECOVERY_LOCK_VALUE.locked };
@@ -148,13 +152,13 @@ export async function runMessagingNodeHostRestore(options: { reportFile?: string
           const deadline = Date.now() + ADMISSION_NODE_HOST.requestTimeoutMs;
           while (observed.state === ADMISSION_NODE_RUN_STATE.running && Date.now() < deadline) { await delay(1000); observed = await status("original_wait"); }
           if (observed.state === ADMISSION_NODE_RUN_STATE.failed) {
-            const failureRow = await copy.withContext({ userId: null, email: null }, async (transaction) => (await transaction.execute<{ failure_code: string | null }>(sql`select failure_code from native_test_support.messaging_restore_phases where id=${phaseIds[current.phase]} and cohort_id=${report.cohortId} and expected_branch=${copy.branch.name}`)).rows[0]);
+            const failureRow = await copy.withContext({ userId: null, email: null }, async (transaction) => (await transaction.execute<{ failure_code: string | null }>(sql`select failure_code from native_test_support.messaging_restore_phases where id=${phaseIds[current.phase]} and cohort_id=${report.cohortId} and expected_branch=${copy.branch.name}`)).rows.at(0));
             const code = reportedFailureCode ?? failureRow?.failure_code;
             throw new MessagingNodeHostFailure(typeof code === "string" ? code : "native_phase_failed");
           }
           assert.equal(observed.state, ADMISSION_NODE_RUN_STATE.completed);
-          const row = await copy.withContext({ userId: null, email: null }, async (transaction) => (await transaction.execute<StoredPhase>(sql`select state,work_runs,cipher_operations,checked_rejections,provider_requests,invitation_round_trip,runtime_version,source_commit,bundle_sha256 from native_test_support.messaging_restore_phases where id=${phaseIds[current.phase]} and cohort_id=${report.cohortId} and expected_branch=${copy.branch.name}`)).rows[0]);
-          assert.ok(row && row.work_runs === 1 && row.source_commit === current.deployment.sourceCommit && row.bundle_sha256 === current.deployment.bundleSha256);
+          const row = await copy.withContext({ userId: null, email: null }, async (transaction) => (await transaction.execute<StoredPhase>(sql`select state,work_runs,cipher_operations,checked_rejections,provider_requests,invitation_round_trip,runtime_version,source_commit,bundle_sha256 from native_test_support.messaging_restore_phases where id=${phaseIds[current.phase]} and cohort_id=${report.cohortId} and expected_branch=${copy.branch.name}`)).rows.at(0));
+          assert.ok(row?.work_runs === 1 && row.source_commit === current.deployment.sourceCommit && row.bundle_sha256 === current.deployment.bundleSha256);
           const replay = await fetch(new URL(ADMISSION_NODE_HOST.runPath, current.deployment.hosts[0].url), { method: "POST", headers: { authorization: `${ADMISSION_NODE_HOST.tokenPrefix}${current.token}` }, redirect: "error", signal: AbortSignal.timeout(ADMISSION_NODE_HOST.requestTimeoutMs) });
           report.requests.push({ phase: current.phase, method: "POST", stage: "known_completed_replay", status: replay.status });
           assert.equal(replay.status, 200);
@@ -169,7 +173,8 @@ export async function runMessagingNodeHostRestore(options: { reportFile?: string
           await registerPhases(false);
           await start(PHASE.baseline, originalEnvironment); await executePhase();
           assert.ok(report.phases[0].observation.cipher_operations > 0 && report.phases[0].observation.invitation_round_trip);
-          assert.equal((await readMessagingRestoreFacts(copy, source.context)).connection?.state, "disconnected");
+          const baselineFacts: RestoreMessagingFacts = await readMessagingRestoreFacts(copy, source.context);
+          assert.equal(baselineFacts.connection?.state, "disconnected");
           assert.deepEqual((await snapshot(copy)).memberships, [{ user_id: prepared.applied.context.userId, role: "tribemate", status: "active" }]);
           await start(PHASE.locked, lockedEnvironment);
           await copy.restoreFromParent();
@@ -186,11 +191,11 @@ export async function runMessagingNodeHostRestore(options: { reportFile?: string
           await start(PHASE.retiredKey, retiredKeyEnvironment); await executePhase();
           await start(PHASE.reconcile, lockedEnvironment); await executePhase();
           const reconciled = await snapshot(copy);
-          assert.equal(reconciled.policy?.is_open, false); assert.equal(reconciled.policy?.requires_additional_verification, true);
+          assert.equal(reconciled.policy?.is_open, false); assert.equal(reconciled.policy.requires_additional_verification, true);
           assert.deepEqual(reconciled.memberships, []); assert.deepEqual(reconciled.requests, checkpoint.requests); assert.deepEqual(reconciled.attempts, checkpoint.attempts); assert.deepEqual(reconciled.reservations, checkpoint.reservations);
-          assert.equal(reconciled.policy?.verification_epoch, checkpoint.policy?.verification_epoch);
-          const retiredFacts = await readMessagingRestoreFacts(copy, source.context);
-          assert.equal(retiredFacts.connection?.state, "suspended"); assert.equal(retiredFacts.connection?.is_selected, true);
+          assert.equal(reconciled.policy.verification_epoch, checkpoint.policy?.verification_epoch);
+          const retiredFacts: RestoreMessagingFacts = await readMessagingRestoreFacts(copy, source.context);
+          assert.equal(retiredFacts.connection?.state, "suspended"); assert.equal(retiredFacts.connection.is_selected, true);
           for (const secret of retiredFacts.secret) { assert.ok(secret.retired_at); assert.ok(secret.purge_after); }
           for (const proofId of [prepared.applied.proofId, prepared.available.proofId]) assert.equal(reconciled.proofs.find((proof) => proof.id === proofId)?.status, "invalid");
           const historical = await readMessagingRestoreHistory(copy, history.cases);
@@ -211,7 +216,7 @@ export async function runMessagingNodeHostRestore(options: { reportFile?: string
           assert.deepEqual(reopened.deliveries.find((delivery) => delivery.id === prepared.uncertain.original.deliveryId), checkpoint.deliveries.find((delivery) => delivery.id === prepared.uncertain.original.deliveryId));
           const late = history.cases.find((candidate) => candidate.name === "late");
           const purged = (await readMessagingRestoreHistory(copy, history.cases)).find((row) => row.connection_id === late?.connectionId);
-          assert.ok(purged && purged.has_material === false && purged.purged === true && purged.original_idle_cutoff === true && purged.original_idle_purge === true);
+          assert.ok(purged?.has_material === false && purged.purged === true && purged.original_idle_cutoff === true && purged.original_idle_purge === true);
           assert.deepEqual(await snapshot(parent), checkpoint); assert.deepEqual(await readMessagingRestoreHistory(parent, history.cases), historyCheckpoint);
           report.originalRecordsPreserved = true;
           assert.equal(report.phases.length, Object.values(PHASE).length);

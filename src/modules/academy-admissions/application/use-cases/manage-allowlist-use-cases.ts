@@ -49,7 +49,7 @@ export class ManageAllowlistUseCases {
       if (!authority.allowed) return { ok: false as const, failure: authority.failure };
       const normalized = normalizeAdmissionContact({ type: input.contactType, value: input.identity, country: input.country });
       const displayName = normalizeAllowlistDisplayName(input.displayName);
-      if (!input.confirmed || normalized.status !== ADMISSION_CONTACT_NORMALIZATION_STATUS.valid) return { ok: false as const, failure: admissionFailure(ADMISSION_ERROR_CODE.invalidInput) };
+      if (normalized.status !== ADMISSION_CONTACT_NORMALIZATION_STATUS.valid) return { ok: false as const, failure: admissionFailure(ADMISSION_ERROR_CODE.invalidInput) };
       return { ok: true as const, value: await this.writer.create({ context: authority.context, operationId: input.operationId, confirmed: input.confirmed, contact: normalized.contact, displayName }) };
     } catch (error) { return admissionOperationFailure(error); }
   }
@@ -60,7 +60,7 @@ export class ManageAllowlistUseCases {
       const authority = await this.resolver.execute({ tribeId: input.tribeId, requestId: input.requestId, action: ADMISSION_ACTION.manageAllowlist, resource: { kind: ADMISSION_RESOURCE_KIND.allowlistEntry, id: input.entryId }, sensitiveOperation: REAUTHENTICATION_OPERATION.updateAllowlistEntry });
       if (!authority.allowed) return { ok: false as const, failure: authority.failure };
       const displayName = input.patch.displayName === undefined ? undefined : normalizeAllowlistDisplayName(input.patch.displayName);
-      if (!input.confirmed || !Number.isInteger(input.expectedVersion) || input.expectedVersion <= 0 || input.patch.displayName === undefined && input.patch.status === undefined) return { ok: false as const, failure: admissionFailure(ADMISSION_ERROR_CODE.invalidInput) };
+      if (!Number.isInteger(input.expectedVersion) || input.expectedVersion <= 0 || input.patch.displayName === undefined && input.patch.status === undefined) return { ok: false as const, failure: admissionFailure(ADMISSION_ERROR_CODE.invalidInput) };
       return { ok: true as const, value: await this.writer.update({ context: authority.context, operationId: input.operationId, confirmed: input.confirmed, entryId: input.entryId, expectedVersion: input.expectedVersion, patch: { ...(displayName !== undefined ? { displayName } : {}), ...(input.patch.status !== undefined ? { status: input.patch.status } : {}) } }) };
     } catch (error) { return admissionOperationFailure(error); }
   }

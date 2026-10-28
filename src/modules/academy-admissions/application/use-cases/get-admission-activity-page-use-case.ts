@@ -44,7 +44,7 @@ export class GetAdmissionActivityPageUseCase {
       const activity = await this.readers.observations.activity({ ...query.filters, ...scope });
       if (!activity.ok) return activity;
       const current = await this.accounts.getAuthenticatedAccount(), now = this.clock();
-      if (!current || current.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+      if (current?.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       const cursor = query.filters.cursor;
       return { ok: true as const, value: admissionActivityReadyPageStateSchema.parse({
         kind: ADMISSION_ACTIVITY_PAGE_KIND.ready, slug: query.slug, tribeId: scope.tribeId, viewerId: current.userId, renderedAt: now.toISOString(),

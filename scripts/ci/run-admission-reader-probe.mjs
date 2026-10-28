@@ -19,15 +19,17 @@ const debugPath = process.env.ORCA_DEBUG_LOG, audioPath = process.env.ORCA_AUDIO
 if (!debugPath || !audioPath) throw new Error("AdmissionReaderProbe.start failed: native_capture_paths_required");
 const engines = process.env[PROBE.enginesEnvironment]?.split(",").map((engine) => engine.trim()).filter(Boolean) ?? PROBE.defaultEngines;
 if (engines.length === 0 || engines.some((engine) => !PROBE.engines.includes(engine))) throw new Error("AdmissionReaderProbe.start failed: engines_invalid");
+const CASE_ID_LENGTH = 8;
+const HTTP_STATUS = { notFound: 404, ok: 200 };
 const cases = engines.flatMap((engine) => PROBE.widths.flatMap((width) => Object.values(PROBE.markupVariants).map((markupVariant) => {
-  const id = randomUUID().replaceAll("-", "").slice(0, 8);
+  const id = randomUUID().replaceAll("-", "").slice(0, CASE_ID_LENGTH);
   return { id, engine, width, markupVariant, title: `${PROBE.titlePrefix} ${id}`, focus: `${PROBE.focusPrefix} ${id}`, status: `${PROBE.statusPrefix} ${id}` };
 })));
 const report = { commit: process.env.GITHUB_SHA, kind: "platform_preflight", engines, productJourneysValidated: false, realMessages: 0, orcaVersion: process.env.ORCA_BINARY_VERSION ?? null, orcaSourceCommit: process.env.ORCA_SOURCE_COMMIT ?? null, speechDispatcherVersion: process.env.SPEECH_DISPATCHER_VERSION ?? null, cases: [] };
 const server = createServer((request, response) => {
   const item = cases.find((candidate) => new URL(request.url, "http://127.0.0.1").pathname === `/${candidate.id}`);
-  if (!item) { response.writeHead(404); response.end(); return; }
-  response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+  if (!item) { response.writeHead(HTTP_STATUS.notFound); response.end(); return; }
+  response.writeHead(HTTP_STATUS.ok, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
   response.end(renderAdmissionReaderProbePage(item));
 });
 await new Promise((fulfill) => server.listen(0, "127.0.0.1", fulfill));
@@ -95,6 +97,53 @@ function nativeStatus(expected) {
   try { return JSON.parse(execFileSync("/usr/bin/python3", ["tests/support/admission-reader-atspi.py", expected, String(PROBE.maximumAccessibilityNodes), String(PROBE.maximumAccessibilityDepth), String(PROBE.accessibilityTimeoutMs), "status", PROBE.headingText], { encoding: "utf8", timeout: PROBE.windowCommandTimeoutMs, stdio: ["ignore", "pipe", "pipe"] })); }
   catch (error) { return { unavailable: true, failureName: error instanceof Error ? error.name : "unknown" }; }
 }
+/**
+ * @param {{title:string, focus:string}} item - Owned fixture window.
+ * @param {{controlHasFocus:()=>Promise<boolean>}} browser - Real page focus state.
+ * @param {Record<string, unknown>} observation - Case observation that receives the native control focus.
+ * @returns {Promise<void>} After native Tab presses reach the target control or the maximum is exhausted.
+ */
+async function tabToTargetControl(item, browser, observation) {
+  for (let tabIndex = 0; tabIndex < PROBE.maximumTabs; tabIndex += 1) {
+    nativeKey(item.title, PROBE.nativeKeys.next);
+    await delay(PROBE.pollMs);
+    if (!await browser.controlHasFocus()) continue;
+    observation.nativeControlFocus = nativeFocus(item.focus);
+    if (hasNativeReaderTargetFocus(observation.nativeControlFocus)) return;
+  }
+}
+/** @param {unknown} error - Native event observer failure. @param {string} fallback - Closed code when the failure carries none. @returns {string} Closed failure code. */
+function nativeEventFailureCode(error, fallback) {
+  return error instanceof Error && "code" in error && Object.values(ADMISSION_READER_EVENTS.failures).includes(error.code) ? error.code : fallback;
+}
+/** @param {{status:string}} item - Owned fixture. @param {Record<string, unknown>} observation - Case observation that records a start failure. @returns Native event observer, or `undefined` when it could not start. */
+async function startNativeEventObserver(item, observation) {
+  try { return await startAdmissionNativeEventObservation(item.status); }
+  catch (error) {
+    observation.nativeEventObservation = { available: false, failureCode: nativeEventFailureCode(error, ADMISSION_READER_EVENTS.failures.start) };
+    return undefined;
+  }
+}
+/** @param {{stop:()=>Promise<object>}|undefined} observer - Started native event observer, if any. @param {Record<string, unknown>} observation - Case observation that receives the native events. @returns {Promise<void>} After the observer stops. */
+async function stopNativeEventObserver(observer, observation) {
+  if (!observer) return;
+  try { observation.nativeEventObservation = { available: true, ...await observer.stop() }; }
+  catch (error) {
+    observation.nativeEventObservation = { available: false, failureCode: nativeEventFailureCode(error, ADMISSION_READER_EVENTS.failures.stop) };
+  }
+}
+/** @param {string} line - Native reader log line. @returns {string} The line without `<...>` markup, leaving an unclosed `<` as is. */
+function stripAngleTags(line) {
+  let stripped = "";
+  let position = 0;
+  for (let tagStart = line.indexOf("<"); tagStart !== -1; tagStart = line.indexOf("<", position)) {
+    const tagEnd = line.indexOf(">", tagStart);
+    if (tagEnd === -1) break;
+    stripped += line.slice(position, tagStart);
+    position = tagEnd + 1;
+  }
+  return stripped + line.slice(position);
+}
 try {
   for (const item of cases) {
     const observation = { caseId: item.id, engine: item.engine, width: item.width, markupVariant: item.markupVariant, height: PROBE.height, passed: false };
@@ -118,14 +167,7 @@ try {
       let speechOffset = (await readerLog()).length, audioOffset = await audioSize();
       speechPhaseOffset = speechOffset;
       observation.speechPhase = PROBE.speechPhases.focus;
-      for (let tabIndex = 0; tabIndex < PROBE.maximumTabs; tabIndex += 1) {
-        nativeKey(item.title, PROBE.nativeKeys.next);
-        await delay(PROBE.pollMs);
-        if (await browser.controlHasFocus()) {
-          observation.nativeControlFocus = nativeFocus(item.focus);
-          if (hasNativeReaderTargetFocus(observation.nativeControlFocus)) break;
-        }
-      }
+      await tabToTargetControl(item, browser, observation);
       if (!await browser.controlHasFocus() || !hasNativeReaderTargetFocus(observation.nativeControlFocus)) throw new Error(PROBE.failures.focus);
       await until(async () => hasNativeReaderSpeech((await readerLog()).slice(speechOffset), item.focus), PROBE.failures.speech);
       await until(async () => await audioPeak(audioOffset) > PROBE.audiblePeak, PROBE.failures.audio);
@@ -133,14 +175,7 @@ try {
       await quiet();
       observation.nativeFocusBeforeLive = nativeFocus(item.focus);
       if (!await browser.controlHasFocus() || !hasNativeReaderTargetFocus(observation.nativeFocusBeforeLive)) throw new Error(PROBE.failures.focus);
-      let nativeEventObserver;
-      if (item.engine === ADMISSION_READER_EVENTS.engine) {
-        try { nativeEventObserver = await startAdmissionNativeEventObservation(item.status); }
-        catch (error) {
-          const code = error instanceof Error && "code" in error && Object.values(ADMISSION_READER_EVENTS.failures).includes(error.code) ? error.code : ADMISSION_READER_EVENTS.failures.start;
-          observation.nativeEventObservation = { available: false, failureCode: code };
-        }
-      }
+      const nativeEventObserver = item.engine === ADMISSION_READER_EVENTS.engine ? await startNativeEventObserver(item, observation) : undefined;
       speechOffset = (await readerLog()).length; audioOffset = await audioSize();
       speechPhaseOffset = speechOffset; expectedSpeech = item.status;
       observation.speechPhase = PROBE.speechPhases.live;
@@ -150,13 +185,7 @@ try {
         await until(async () => hasNativeReaderSpeech((await readerLog()).slice(speechOffset), item.status), PROBE.failures.speech);
         await until(async () => await audioPeak(audioOffset) > PROBE.audiblePeak, PROBE.failures.audio);
       } finally {
-        if (nativeEventObserver) {
-          try { observation.nativeEventObservation = { available: true, ...await nativeEventObserver.stop() }; }
-          catch (error) {
-            const code = error instanceof Error && "code" in error && Object.values(ADMISSION_READER_EVENTS.failures).includes(error.code) ? error.code : ADMISSION_READER_EVENTS.failures.stop;
-            observation.nativeEventObservation = { available: false, failureCode: code };
-          }
-        }
+        await stopNativeEventObserver(nativeEventObserver, observation);
       }
       observation.liveSpeechObserved = true; observation.liveAudioPeak = await audioPeak(audioOffset);
       observation.passed = true;
@@ -169,7 +198,7 @@ try {
       const recordedLog = await readerLog();
       if (item.engine === "webkit") await writeFile(join(directory, `${item.engine}-${item.width}-${item.markupVariant}-native.log`), recordedLog.slice(speechPhaseOffset).slice(-PROBE.maximumNativeDiagnosticCharacters));
       const observedLog = recordedLog.slice(caseLogOffset);
-      observation.nativeSpeechTail = observedLog.split(/\r?\n/u).filter((line) => line.includes(PROBE.speechMarker)).slice(-PROBE.maximumDiagnosticLines).map((line) => line.replace(/<[^>]*>/gu, "").slice(0, PROBE.maximumDiagnosticCharacters));
+      observation.nativeSpeechTail = observedLog.split(/\r?\n/u).filter((line) => line.includes(PROBE.speechMarker)).slice(-PROBE.maximumDiagnosticLines).map((line) => stripAngleTags(line).slice(0, PROBE.maximumDiagnosticCharacters));
       observation.scriptDiagnostics = [...new Set(observedLog.split(/\r?\n/u).filter((line) => /(?:SCRIPT|Script).*(?:WebKit|Chromium|chromium|webkit|MiniBrowser|default|gtk)/u.test(line)).map((line) => line.slice(0, PROBE.maximumDiagnosticCharacters)))].slice(-PROBE.maximumDiagnosticLines);
       observation.nativeEventTail = observedLog.split(/\r?\n/u).filter((line) => line.includes(item.status) || /(?:LiveRegion|live region|object:text-changed)/u.test(line)).slice(-PROBE.maximumDiagnosticLines).map((line) => line.slice(0, PROBE.maximumDiagnosticCharacters));
       observation.speechSettings = observedLog.split(/\r?\n/u).filter((line) => /^(?:ORCA|SD) rate/u.test(line)).slice(-PROBE.maximumDiagnosticLines).map((line) => line.slice(0, PROBE.maximumDiagnosticCharacters));

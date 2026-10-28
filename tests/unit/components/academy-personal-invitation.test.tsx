@@ -84,7 +84,7 @@ describe("personal invitation page workflow", () => {
   });
   it("should validate declared WhatsApp before personal confirmation without asking for the account name", async () => {
     const data = fixture();
-    if (data.state.kind !== "ready" || data.state.preview.state !== "available" || !data.state.preview.overview.policy) throw new Error("Expected a personal policy");
+    if (data.state.preview.state !== "available" || !data.state.preview.overview.policy) throw new Error("Expected a personal policy");
     data.state.preview.overview.policy.requiresWhatsappNumber = true;
     render(data.element());
     const input = await screen.findByRole("textbox", { name: "Teléfono" });
@@ -163,7 +163,7 @@ describe("personal invitation page workflow", () => {
 
   it("should keep an anonymous link generic and preserve the exact internal return for sign-in without effects", async () => {
     const data = fixture();
-    data.state = { kind: "ready", viewerId: null, renderedAt: data.state.kind === "ready" ? data.state.renderedAt : "", preview: { state: "sign_in_required", safeMessage: "Iniciá sesión para consultar esta invitación personal." } };
+    data.state = { kind: "ready", viewerId: null, renderedAt: data.state.renderedAt, preview: { state: "sign_in_required", safeMessage: "Iniciá sesión para consultar esta invitación personal." } };
     const anonymousViewer = Promise.withResolvers<Awaited<ReturnType<PersonalInvitationBrowserClient["viewer"]>>>();
     vi.mocked(data.client.viewer).mockReturnValue(anonymousViewer.promise);
     render(<Providers token={data.token}><PersonalInvitationContainer initialState={data.state} client={data.client} contactClient={data.contactClient} /></Providers>);

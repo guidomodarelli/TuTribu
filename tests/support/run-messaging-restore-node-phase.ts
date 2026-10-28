@@ -134,8 +134,8 @@ export async function runMessagingRestoreNodePhase(database: MessagingRestoreNod
 
   if (input.phase === PHASE.reconcile) {
     const observed = await observeMessagingNativeCipher(async () => {
-      const role = await database.withContext({ userId: null, email: null }, async (transaction) => (await transaction.execute<{ bypass: boolean; superuser: boolean }>(sql`select rolbypassrls as bypass,rolsuper as superuser from pg_roles where rolname=${source.nonBypassRoleName}`)).rows[0]);
-      requireCondition(role?.bypass === false && role.superuser === false, "ordinary_role_privilege_unproven");
+      const role = await database.withContext({ userId: null, email: null }, async (transaction) => (await transaction.execute<{ bypass: boolean; superuser: boolean }>(sql`select rolbypassrls as bypass,rolsuper as superuser from pg_roles where rolname=${source.nonBypassRoleName}`)).rows.at(0));
+      requireCondition(role !== undefined && !role.bypass && !role.superuser, "ordinary_role_privilege_unproven");
       const dependencies = { authorize: async () => true, readSecurityFacts: async () => { const current = await readSecurityConfig(); return { environment: current.environment, securityEpoch: current.securityEpoch, recoveryLocked: current.recoveryLocked }; } };
       const recoveryInput = { tribeId: context.tribeId, environment: config.environment, securityEpoch: config.securityEpoch, sourceSecurityEpoch: context.securityEpoch, limit: HOST.recoveryBatchLimit };
       const ordinary = buildMessagingRecoveryModule({ ...dependencies, execute: (run) => database.withContext({ userId: null, email: null }, run, "non_bypass") }).useCases.reconcileRecovery;
@@ -175,7 +175,6 @@ export async function runMessagingRestoreNodePhase(database: MessagingRestoreNod
     return result;
   }
 
-  requireCondition(input.phase === PHASE.reopen, "unsupported_phase");
   await database.withContext({ userId: null, email: null }, async (transaction) => {
     await registerMessagingPrivateMacKeyMaterial(transaction, config, MESSAGING_KEY_PURPOSE.operationPayload);
     await registerMessagingPrivateMacKeyMaterial(transaction, config, MESSAGING_KEY_PURPOSE.contactFingerprint);

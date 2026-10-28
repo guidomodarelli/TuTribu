@@ -67,6 +67,41 @@ function readInvitationReferralMetadata(body: unknown): {
   };
 }
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type UpdateTribeInvitationReferralMetadataResult = Awaited<
+  ReturnType<RequestModules["tribes"]["useCases"]["updateTribeInvitationReferralMetadata"]>
+>;
+
+function createPatchResultResponse(result: UpdateTribeInvitationReferralMetadataResult): Response {
+  switch (result.status) {
+    case TRIBE_INVITATION_STATUS.updated:
+      return createJsonResponse(
+        {
+          invitation: result.invitation,
+          message: INVITATION_ROUTE_RESPONSE.metadataUpdatedMessage,
+        },
+        HTTP_STATUS.ok
+      );
+    case TRIBE_INVITATION_STATUS.invalid:
+      return createJsonResponse(
+        { message: INVITATION_ROUTE_RESPONSE.invalidInputMessage },
+        HTTP_STATUS.badRequest
+      );
+    case TRIBE_INVITATION_STATUS.notFound:
+      return createJsonResponse(
+        { message: INVITATION_ROUTE_RESPONSE.notFoundMessage },
+        HTTP_STATUS.notFound
+      );
+    case TRIBE_INVITATION_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        { message: INVITATION_ROUTE_RESPONSE.forbiddenMessage },
+        HTTP_STATUS.forbidden
+      );
+  }
+}
+
 export async function PATCH(
   request: Request,
   context: {
@@ -116,32 +151,7 @@ export async function PATCH(
         tribeSlug: slug,
       });
 
-    switch (result.status) {
-      case TRIBE_INVITATION_STATUS.updated:
-        return createJsonResponse(
-          {
-            invitation: result.invitation,
-            message: INVITATION_ROUTE_RESPONSE.metadataUpdatedMessage,
-          },
-          HTTP_STATUS.ok
-        );
-      case TRIBE_INVITATION_STATUS.invalid:
-        return createJsonResponse(
-          { message: INVITATION_ROUTE_RESPONSE.invalidInputMessage },
-          HTTP_STATUS.badRequest
-        );
-      case TRIBE_INVITATION_STATUS.notFound:
-        return createJsonResponse(
-          { message: INVITATION_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case TRIBE_INVITATION_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: INVITATION_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-    }
+    return createPatchResultResponse(result);
   } catch (error) {
     logger.error({
       message: INVITATION_ROUTE_LOG.metadataUpdateFailureMessage,

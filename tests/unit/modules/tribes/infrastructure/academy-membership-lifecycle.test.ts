@@ -13,6 +13,14 @@ import type { RequestDatabase } from "@/src/modules/shared/infrastructure/databa
 import { createAcademyApprovedMembershipWriter } from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
 import { PostgresTribeLeadershipRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-leadership-repository";
 
+/**
+ * @param value - Original committed owner result.
+ * @returns Whether it is a completed operation reply.
+ */
+function isCompletedReply(value: unknown): boolean {
+  return value !== null && typeof value === "object" && "state" in value && value.state === "completed";
+}
+
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native academy membership lifecycle", () => {
   it("should cancel a pending request and stage its system decision and notice atomically when membership becomes conduct blocked", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
@@ -81,7 +89,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native academy mem
       let loseResponse = true;
       const execute = async <Result>(_context: TribeMembershipLifecycleContext, run: (transaction: RequestDatabase) => Promise<Result>) => {
         const result = await database.withContext({ userId: fixture.leaving.userId, email: fixture.leaving.email }, run);
-        if (loseResponse && result && typeof result === "object" && "state" in result && result.state === "completed") { loseResponse = false; throw new Error("Synthetic membership reply lost after commit"); }
+        if (loseResponse && isCompletedReply(result)) { loseResponse = false; throw new Error("Synthetic membership reply lost after commit"); }
         return result;
       };
       const leaving = fixture.owner(fixture.leaving, execute), leave = { ...command, operationId: randomUUID(), memberId: fixture.memberIds.leaving, action: "leave" as const, expectedStatus: "muted" as const };

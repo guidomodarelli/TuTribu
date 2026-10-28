@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type FormEvent } from "react";
+import { useId, useState, type SubmitEvent } from "react";
 
 import { Button, Input } from "@golfo/ui";
 import {
@@ -32,6 +32,35 @@ const DEV_SIGN_IN_ERROR_COPY = {
     "El email o la contraseña no coinciden con el usuario de desarrollo.",
 } as const satisfies Partial<Record<DevSignInResult, string>>;
 
+type DevSignInFieldProps = {
+  autoComplete: string;
+  /** Id of the visible error, present only while the form shows one. */
+  errorId: string | undefined;
+  id: string;
+  label: string;
+  onValueChange: (value: string) => void;
+  type: "email" | "password";
+  value: string;
+};
+
+/** Labelled input of the development sign-in that points to the form error while there is one. */
+function DevSignInField({ autoComplete, errorId, id, label, onValueChange, type, value }: DevSignInFieldProps) {
+  return (
+    <label className={styles.DevSignInForm__field} htmlFor={id}>
+      <span>{label}</span>
+      <Input
+        aria-describedby={errorId}
+        aria-invalid={errorId ? true : undefined}
+        autoComplete={autoComplete}
+        id={id}
+        onChange={(event) => onValueChange(event.currentTarget.value)}
+        type={type}
+        value={value}
+      />
+    </label>
+  );
+}
+
 /**
  * Email and password form of the development-only sign-in. The sign-in page
  * renders it only when the server registered that method (`next dev` with
@@ -49,7 +78,7 @@ export function DevSignInForm({ callbackUrl, defaultEmail }: DevSignInFormProps)
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (isSubmitting) {
@@ -87,30 +116,24 @@ export function DevSignInForm({ callbackUrl, defaultEmail }: DevSignInFormProps)
       <p className={styles.DevSignInForm__description}>
         {DEV_SIGN_IN_FORM_COPY.description}
       </p>
-      <label className={styles.DevSignInForm__field} htmlFor={emailInputId}>
-        <span>{DEV_SIGN_IN_FORM_COPY.emailLabel}</span>
-        <Input
-          aria-describedby={errorMessage ? errorId : undefined}
-          aria-invalid={errorMessage ? true : undefined}
-          autoComplete="username"
-          id={emailInputId}
-          onChange={(event) => setEmail(event.currentTarget.value)}
-          type="email"
-          value={email}
-        />
-      </label>
-      <label className={styles.DevSignInForm__field} htmlFor={passwordInputId}>
-        <span>{DEV_SIGN_IN_FORM_COPY.passwordLabel}</span>
-        <Input
-          aria-describedby={errorMessage ? errorId : undefined}
-          aria-invalid={errorMessage ? true : undefined}
-          autoComplete="current-password"
-          id={passwordInputId}
-          onChange={(event) => setPassword(event.currentTarget.value)}
-          type="password"
-          value={password}
-        />
-      </label>
+      <DevSignInField
+        autoComplete="username"
+        errorId={errorMessage ? errorId : undefined}
+        id={emailInputId}
+        label={DEV_SIGN_IN_FORM_COPY.emailLabel}
+        onValueChange={setEmail}
+        type="email"
+        value={email}
+      />
+      <DevSignInField
+        autoComplete="current-password"
+        errorId={errorMessage ? errorId : undefined}
+        id={passwordInputId}
+        label={DEV_SIGN_IN_FORM_COPY.passwordLabel}
+        onValueChange={setPassword}
+        type="password"
+        value={password}
+      />
       {errorMessage ? (
         <p className={styles.DevSignInForm__error} id={errorId} role="alert">
           {errorMessage}

@@ -16,6 +16,24 @@ import { mapZavuSenderResource, mapZavuTemplateResource } from "./zavu-resource-
 export type ZavuInspectionScope = Pick<MessagingSecretResourceScope, "tribeId" | "connectionId" | "connectionVersion" | "environment" | "securityEpoch" | "requestId"> & { credential: string };
 
 /** Creates a fresh client per read, without sending, provisioning or inferring a ready channel. */
+/** Consumed identity fields as the network may actually return them; the SDK types are not a runtime guarantee. */
+type UnverifiedProviderIdentity = {
+  apiKey?: { id?: unknown } | null;
+  isTestMode?: unknown;
+  project?: { id?: unknown } | null;
+  team?: { id?: unknown } | null;
+} | null | undefined;
+
+/**
+ * @param result - Identity as the provider returned it.
+ * @returns The credential inspection.
+ * @throws ZavuInspectionError when a consumed field is missing or malformed.
+ */
+function parseProviderIdentity(result: UnverifiedProviderIdentity): MessagingCredentialInspection {
+  if (!result || typeof result.isTestMode !== "boolean" || typeof result.apiKey?.id !== "string" || !result.apiKey.id || typeof result.project?.id !== "string" || !result.project.id || typeof result.team?.id !== "string" || !result.team.id) throw new ZavuInspectionError("credential", messagingFailure(MESSAGING_ERROR_CODE.upstreamPayloadUnusable));
+  return { isTestMode: result.isTestMode, apiKeyId: result.apiKey.id, projectId: result.project.id, teamId: result.team.id };
+}
+
 export class ZavuConnectionInspector implements MessagingConnectionInspector {
   /** @param scope - Explicit private connection and credential. @param fetch - Hosting or controlled own transport. @param timeoutMs - Per-request deadline in milliseconds. */
   constructor(private readonly scope: ZavuInspectionScope, private readonly fetch: typeof globalThis.fetch, private readonly timeoutMs: number = MESSAGING_PROVIDER_READ_TIMEOUT_MS) {
@@ -25,9 +43,7 @@ export class ZavuConnectionInspector implements MessagingConnectionInspector {
   /** @param signal - Caller cancellation/deadline. @returns Private references and the provider's actual test mode. @throws ZavuInspectionError for safe classified upstream failures. */
   async inspectCredential(signal: AbortSignal): Promise<MessagingCredentialInspection> {
     return this.read("credential", signal, async (client) => {
-      const result = await client.me.retrieve({ signal });
-      if (!result || typeof result.isTestMode !== "boolean" || typeof result.apiKey?.id !== "string" || !result.apiKey.id || typeof result.project?.id !== "string" || !result.project.id || typeof result.team?.id !== "string" || !result.team.id) throw new ZavuInspectionError("credential", messagingFailure(MESSAGING_ERROR_CODE.upstreamPayloadUnusable));
-      return { isTestMode: result.isTestMode, apiKeyId: result.apiKey.id, projectId: result.project.id, teamId: result.team.id };
+      return parseProviderIdentity(await client.me.retrieve({ signal }));
     });
   }
 
@@ -90,7 +106,7 @@ export class ZavuConnectionInspector implements MessagingConnectionInspector {
     const scopedFetch: typeof globalThis.fetch = async (input, init) => {
       const request = new Request(input, init), url = new URL(request.url);
       const allowedPath = url.pathname === ZAVU_INSPECTION_PATH.credential || [ZAVU_INSPECTION_PATH.senders, ZAVU_INSPECTION_PATH.templates].some((path) => url.pathname === path || url.pathname.startsWith(`${path}/`) && !url.pathname.slice(path.length + 1).includes("/"));
-      if (url.origin !== ZAVU_DELIVERY_ENDPOINT.origin || !allowedPath || request.method !== ZAVU_INSPECTION_TRANSPORT.method || url.username || url.password || [...url.searchParams.keys()].some((key) => key !== ZAVU_INSPECTION_TRANSPORT.cursor && key !== ZAVU_INSPECTION_TRANSPORT.limit)) throw new ZavuInspectionError(operation, messagingFailure(MESSAGING_ERROR_CODE.resourceUnavailable));
+      if (url.origin !== ZAVU_DELIVERY_ENDPOINT.origin || !allowedPath || request.method !== ZAVU_INSPECTION_TRANSPORT.method || url.username || url.password || url.searchParams.keys().some((key) => key !== ZAVU_INSPECTION_TRANSPORT.cursor && key !== ZAVU_INSPECTION_TRANSPORT.limit)) throw new ZavuInspectionError(operation, messagingFailure(MESSAGING_ERROR_CODE.resourceUnavailable));
       const headers = new Headers({ [ZAVU_DELIVERY_HEADER.authorization]: `${ZAVU_DELIVERY_TRANSPORT.authorizationPrefix}${this.scope.credential}`, [ZAVU_DELIVERY_HEADER.accept]: ZAVU_DELIVERY_TRANSPORT.json, [ZAVU_DELIVERY_HEADER.requestId]: this.scope.requestId });
       // Preserve the SDK controller directly across sanitized Request clones and native GC.
       return this.fetch(new Request(request, { headers, redirect: ZAVU_DELIVERY_TRANSPORT.redirect }),{signal:init?.signal??request.signal});

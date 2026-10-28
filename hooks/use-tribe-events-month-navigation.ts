@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type RefObject } from "react";
 import { toast } from "@golfo/ui";
 
 import { pushCurrentUrlSearchParams } from "@/lib/browser-navigation";
@@ -64,29 +64,28 @@ function readAddressMonth(): string | null {
 }
 
 /**
- * Changes the visible month of the tribe events calendar without rendering
- * the page again on the server: the page renders the first month (deep links
- * and sign-in callbacks included) and every later month comes from
- * `GET /api/tribes/[slug]/events?month=`. Only the month listing changes, so
- * the streak, permissions, pending proposals, and type filter stay as they are.
+ * Aborts the month load in flight, if any, and forgets it.
  *
- * A month link, "Hoy", or a swipe adds a history entry with the new `month`
- * once the listing arrives (`pushState`, the address is never ahead of the
- * screen); Back and Forward (`popstate`) load the month of the entry the
- * browser moved to, or the server month when the entry has none. Each load
- * aborts the one in flight, so a slower answer for a month the viewer already
- * left never lands, and a new server listing replaces the client month and
- * aborts its load. A failed load keeps the month on screen and shows the
- * route's safe message, or a fallback, in a toast.
+ * @param requestControllerRef - Month load in flight.
+ */
+function abortMonthListingRequest(requestControllerRef: RefObject<AbortController | null>): void {
+  requestControllerRef.current?.abort();
+  requestControllerRef.current = null;
+}
+
+/**
+ * Month listing requests: each one replaces the one in flight and only
+ * changes state once it settles.
  *
  * @param input - Server listing, tribe slug, and the month change callback.
- * @returns The listing on screen, the month being loaded, and the navigation callback.
+ * @returns The listing on screen, the month being loaded, the request
+ * controller, and the request and load actions.
  */
-export function useTribeEventsMonthNavigation({
+function useMonthListingRequests({
   onMonthLoaded,
   serverListing,
   tribeSlug,
-}: UseTribeEventsMonthNavigationInput): TribeEventsMonthNavigation {
+}: UseTribeEventsMonthNavigationInput) {
   const [listingState, setListingState] = useState<MonthListingState>({
     listing: serverListing,
     sourceListing: serverListing,
@@ -179,6 +178,34 @@ export function useTribeEventsMonthNavigation({
     requestMonth(month, shouldPushHistoryEntry);
   };
 
+  return { listing, loadingMonth, requestControllerRef, requestMonth, loadMonth };
+}
+
+/**
+ * Changes the visible month of the tribe events calendar without rendering
+ * the page again on the server: the page renders the first month (deep links
+ * and sign-in callbacks included) and every later month comes from
+ * `GET /api/tribes/[slug]/events?month=`. Only the month listing changes, so
+ * the streak, permissions, pending proposals, and type filter stay as they are.
+ *
+ * A month link, "Hoy", or a swipe adds a history entry with the new `month`
+ * once the listing arrives (`pushState`, the address is never ahead of the
+ * screen); Back and Forward (`popstate`) load the month of the entry the
+ * browser moved to, or the server month when the entry has none. Each load
+ * aborts the one in flight, so a slower answer for a month the viewer already
+ * left never lands, and a new server listing replaces the client month and
+ * aborts its load. A failed load keeps the month on screen and shows the
+ * route's safe message, or a fallback, in a toast.
+ *
+ * @param input - Server listing, tribe slug, and the month change callback.
+ * @returns The listing on screen, the month being loaded, and the navigation callback.
+ */
+export function useTribeEventsMonthNavigation(
+  input: UseTribeEventsMonthNavigationInput
+): TribeEventsMonthNavigation {
+  const { serverListing } = input;
+  const { listing, loadingMonth, requestControllerRef, requestMonth, loadMonth } = useMonthListingRequests(input);
+
   const followHistoryEntry = useEffectEvent(() => {
     loadMonth(readAddressMonth() ?? serverListing.month.current, false);
   });
@@ -213,11 +240,8 @@ export function useTribeEventsMonthNavigation({
   // flight for the previous listing must not land on top of it. The cleanup
   // also runs on unmount, which cancels the load in flight.
   useEffect(() => {
-    return () => {
-      requestControllerRef.current?.abort();
-      requestControllerRef.current = null;
-    };
-  }, [serverListing]);
+    return () => abortMonthListingRequest(requestControllerRef);
+  }, [requestControllerRef, serverListing]);
 
   return {
     listing,

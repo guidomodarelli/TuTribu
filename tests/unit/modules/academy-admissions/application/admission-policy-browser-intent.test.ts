@@ -41,7 +41,7 @@ describe("policy browser intention", () => {
     const storage = new Map<string, string>();
     const port = { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => { storage.set(key, value); }, removeItem: (key: string) => { storage.delete(key); } };
     const intent = { type: "update_admission_policy" as const, input: { operationId: "297d47c2-5419-4c3d-a339-e8b7970275ca", confirmed: true as const, expectedVersion: 7, ...createAdmissionPolicyDraft(state()), allowedCountries: ["AR"], prepared: true } };
-    expect(() => writeAdmissionPolicyIntent("synthetic-leader", "synthetic-academy", intent, port)).toThrow();
+    expect(() => writeAdmissionPolicyIntent("synthetic-leader", "synthetic-academy", intent, port)).toThrow(expect.objectContaining({ issues: [expect.objectContaining({ code: "unrecognized_keys", keys: ["allowedCountries", "prepared"] })] }));
     expect(storage.size).toBe(0);
   });
 

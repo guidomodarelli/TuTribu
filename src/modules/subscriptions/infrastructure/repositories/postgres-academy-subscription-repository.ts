@@ -21,7 +21,7 @@
  * @module postgres-academy-subscription-repository
  */
 
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import { MercadoPagoRequestError, type MercadoPagoCheckoutReferenceInput,
   type MercadoPagoAuthorizedPayment,
   type MercadoPagoAuthorizedPaymentInput,
@@ -53,6 +53,7 @@ import type {
 import {
   decideAcademyInvoiceEffect,
   mergeAcademyInvoicePaymentState,
+  type AcademyInvoiceDecision,
   type AcademyLedgerPaymentStatus,
   type VerifiedAcademyInvoice,
 } from "@/src/modules/subscriptions/domain/services/academy-invoice-policy";
@@ -218,6 +219,256 @@ function compareInvoicesByDebitDate(
   return firstTime - secondTime;
 }
 
+/**
+ * Locks a subscription and reads its contract snapshot.
+ */
+function buildLockedSubscriptionContractStatement(subscriptionId: string): SQL {
+  return sql`
+        select
+          tribe_member_subscriptions.id as subscription_id,
+          tribe_member_subscriptions.tribe_id,
+          tribe_member_subscriptions.user_id,
+          tribe_member_subscriptions.mercado_pago_preapproval_id,
+          tribe_member_subscriptions.payment_integration_id,
+          tribe_member_subscriptions.price_snapshot_amount_cents as amount_cents,
+          tribe_member_subscriptions.price_snapshot_currency as currency,
+          tribe_member_subscriptions.billing_anchor_at
+        from public.tribe_member_subscriptions
+        where tribe_member_subscriptions.id = ${subscriptionId}
+        for update
+      `;
+}
+
+/**
+ * Locks the ledger period already recorded for an invoice, if any.
+ */
+function buildLockedPaymentPeriodStatement(contract: SubscriptionContextRow, providerInvoice: MercadoPagoAuthorizedPayment): SQL {
+  return sql`
+        select id, payment_status, provider_last_modified_at, grant_id
+        from public.subscription_payment_periods
+        where payment_integration_id = ${contract.payment_integration_id}
+          and provider_invoice_id = ${providerInvoice.id}
+        for update
+      `;
+}
+
+/**
+ * Upserts the ledger period of an invoice with the decided payment state.
+ */
+function buildRecordPaymentPeriodStatement({
+  contract,
+  decision,
+  grantId,
+  providerInvoice,
+}: {
+  contract: SubscriptionContextRow;
+  decision: Extract<AcademyInvoiceDecision, { kind: "record" }>;
+  grantId: string | null;
+  providerInvoice: MercadoPagoAuthorizedPayment;
+}): SQL {
+  return sql`
+        insert into public.subscription_payment_periods (
+          tribe_id,
+          user_id,
+          subscription_id,
+          payment_integration_id,
+          product_key,
+          provider_subscription_id,
+          provider_invoice_id,
+          provider_payment_id,
+          payment_status,
+          amount_cents,
+          currency,
+          debit_at,
+          service_starts_at,
+          service_ends_at,
+          provider_last_modified_at,
+          grant_id,
+          review_reason
+        )
+        values (
+          ${contract.tribe_id},
+          ${contract.user_id},
+          ${contract.subscription_id},
+          ${contract.payment_integration_id},
+          ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.academy},
+          ${contract.mercado_pago_preapproval_id},
+          ${providerInvoice.id},
+          ${providerInvoice.paymentId},
+          ${decision.ledgerStatus},
+          ${decision.amountCents},
+          ${providerInvoice.currencyId ?? contract.currency},
+          ${providerInvoice.debitDate},
+          ${decision.serviceInterval?.startsAt ?? null},
+          ${decision.serviceInterval?.endsAt ?? null},
+          ${decision.providerLastModifiedAt},
+          ${grantId},
+          ${decision.reviewReason}
+        )
+        on conflict (payment_integration_id, provider_invoice_id) do update
+          set payment_status = excluded.payment_status,
+              provider_payment_id = coalesce(excluded.provider_payment_id, subscription_payment_periods.provider_payment_id),
+              amount_cents = excluded.amount_cents,
+              currency = excluded.currency,
+              debit_at = coalesce(excluded.debit_at, subscription_payment_periods.debit_at),
+              service_starts_at = coalesce(excluded.service_starts_at, subscription_payment_periods.service_starts_at),
+              service_ends_at = coalesce(excluded.service_ends_at, subscription_payment_periods.service_ends_at),
+              provider_last_modified_at = excluded.provider_last_modified_at,
+              grant_id = coalesce(excluded.grant_id, subscription_payment_periods.grant_id),
+              review_reason = excluded.review_reason,
+              updated_at = timezone('utc', now())
+        returning id
+      `;
+}
+
+/**
+ * Marks the viewer's live academy renewal as cancel-requested and returns its provider context.
+ */
+function buildRequestRenewalCancellationStatement(tribeSlug: string): SQL {
+  return sql`
+        update public.tribe_member_subscriptions
+        set cancel_requested_at = coalesce(tribe_member_subscriptions.cancel_requested_at, now()),
+            updated_at = timezone('utc', now())
+        from public.tribes, public.tribe_payment_integrations
+        where tribes.id = tribe_member_subscriptions.tribe_id
+          and tribes.slug = ${tribeSlug}
+          and tribe_payment_integrations.id = tribe_member_subscriptions.payment_integration_id
+          and tribe_payment_integrations.tribe_id = tribe_member_subscriptions.tribe_id
+          and tribe_member_subscriptions.user_id = public.current_app_user_id()
+          and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.academy}
+          and tribe_member_subscriptions.mercado_pago_preapproval_id is not null
+          and tribe_member_subscriptions.status in (
+            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active},
+            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending},
+            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused}
+          )
+        returning
+          tribe_member_subscriptions.id as subscription_id,
+          tribe_member_subscriptions.tribe_id,
+          tribe_member_subscriptions.user_id,
+          tribe_member_subscriptions.mercado_pago_preapproval_id,
+          tribe_member_subscriptions.payment_integration_id,
+          tribe_payment_integrations.access_token,
+          tribe_payment_integrations.refresh_token,
+          tribe_payment_integrations.token_expires_at
+      `;
+}
+
+/**
+ * Reads the academy sales settings and whether the buyer is verified and already covered.
+ */
+function buildAcademyCheckoutContextStatement(tribeId: string, userId: string): SQL {
+  return sql`
+        select
+          coalesce(tribe_academy_settings.access_model = 'academy', false) as is_academy,
+          coalesce(tribe_academy_settings.sales_enabled, false) as sales_enabled,
+          tribe_academy_settings.offer_version,
+          public.is_member_verified_for_academy(${tribeId}, ${userId}) as is_verified,
+          public.has_active_product_grant(${tribeId}, ${userId}, ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.academy}) as is_covered
+        from (select 1) as anchor
+        left join public.tribe_academy_settings
+          on tribe_academy_settings.tribe_id = ${tribeId}
+      `;
+}
+
+/**
+ * Locks the buyer's live academy subscription with its stored checkout URL, if any.
+ */
+function buildLockedLiveAcademySubscriptionStatement(tribeId: string, userId: string): SQL {
+  return sql`
+        select
+          tribe_member_subscriptions.id,
+          tribe_member_subscriptions.status,
+          tribe_member_subscriptions.mercado_pago_preapproval_id,
+          subscription_idempotency_operations.response_body->>'checkoutUrl' as checkout_url
+        from public.tribe_member_subscriptions
+        left join public.subscription_idempotency_operations
+          on subscription_idempotency_operations.operation_key =
+            ${ACADEMY_OPERATION.checkoutKeyPrefix} || tribe_member_subscriptions.id::text
+        where tribe_member_subscriptions.tribe_id = ${tribeId}
+          and tribe_member_subscriptions.user_id = ${userId}
+          and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.academy}
+          and tribe_member_subscriptions.status in (
+            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active},
+            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending},
+            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused},
+            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.gracePeriod},
+            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pastDue},
+            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked}
+          )
+        limit 1
+        for update of tribe_member_subscriptions
+      `;
+}
+
+/**
+ * Reads the reserved subscription with its price snapshot, seller tokens, and payer email.
+ */
+function buildReservationStatement(subscriptionId: string): SQL {
+  return sql`
+        select
+          tribe_member_subscriptions.id as subscription_id,
+          tribe_member_subscriptions.tribe_id,
+          tribe_member_subscriptions.mercado_pago_preapproval_id,
+          tribe_member_subscriptions.payment_integration_id,
+          tribe_member_subscriptions.price_snapshot_name as price_name,
+          tribe_member_subscriptions.price_snapshot_amount_cents as amount_cents,
+          tribe_member_subscriptions.price_snapshot_currency as currency,
+          tribe_member_subscriptions.price_snapshot_provider_plan_id as provider_plan_id,
+          tribe_payment_integrations.access_token,
+          tribe_payment_integrations.refresh_token,
+          tribe_payment_integrations.token_expires_at,
+          "user".email as payer_email,
+          null::text as checkout_url
+        from public.tribe_member_subscriptions
+        inner join public.tribe_payment_integrations
+          on tribe_payment_integrations.id = tribe_member_subscriptions.payment_integration_id
+          and tribe_payment_integrations.tribe_id = tribe_member_subscriptions.tribe_id
+        inner join public."user"
+          on "user".id = tribe_member_subscriptions.user_id
+        where tribe_member_subscriptions.id = ${subscriptionId}
+      `;
+}
+
+type AcademyCheckoutContextRow = {
+  is_academy: boolean;
+  is_covered: boolean;
+  is_verified: boolean;
+  offer_version: number | null;
+  sales_enabled: boolean;
+};
+
+/**
+ * Rejects a checkout when sales are closed, the offer changed, the buyer is
+ * not verified, or the buyer is already covered.
+ *
+ * @param context - Academy sales settings and buyer facts.
+ * @param acceptedOfferVersion - Offer version the buyer accepted.
+ * @returns The rejection, or `null` when the checkout may proceed.
+ */
+function findCheckoutContextRejection(
+  context: AcademyCheckoutContextRow,
+  acceptedOfferVersion: number
+) {
+  if (!context.is_academy || !context.sales_enabled) {
+    return { status: "sales_closed" as const };
+  }
+
+  if (Number(context.offer_version) !== acceptedOfferVersion) {
+    return { status: "offer_changed" as const };
+  }
+
+  if (!context.is_verified) {
+    return { status: "not_eligible" as const };
+  }
+
+  if (context.is_covered) {
+    return { status: "covered" as const };
+  }
+
+  return null;
+}
+
 export class PostgresAcademySubscriptionRepository implements AcademySubscriptionRepository {
   constructor(
     private readonly executeWithDatabase: DatabaseExecutor,
@@ -243,7 +494,7 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
         order by tribe_member_subscriptions.created_at desc
         limit 1
       `);
-      const row = (result.rows?.[0] ?? null) as {
+      const row = (result.rows[0] ?? null) as {
         cancel_requested_at: string | Date | null;
         status: string;
       } | null;
@@ -307,7 +558,7 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
         where id = ${row.subscription_id} and user_id = public.current_app_user_id()
         on conflict (operation_key) do nothing returning id
       `);
-      return (result.rows ?? []).length > 0;
+      return result.rows.length > 0;
     });
 
     try {
@@ -364,34 +615,8 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
   }): Promise<CancelAcademyRenewalResult> {
     // Billing stays reachable for blocked members: only ownership is checked.
     const context = await this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
-        update public.tribe_member_subscriptions
-        set cancel_requested_at = coalesce(tribe_member_subscriptions.cancel_requested_at, now()),
-            updated_at = timezone('utc', now())
-        from public.tribes, public.tribe_payment_integrations
-        where tribes.id = tribe_member_subscriptions.tribe_id
-          and tribes.slug = ${tribeSlug}
-          and tribe_payment_integrations.id = tribe_member_subscriptions.payment_integration_id
-          and tribe_payment_integrations.tribe_id = tribe_member_subscriptions.tribe_id
-          and tribe_member_subscriptions.user_id = public.current_app_user_id()
-          and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.academy}
-          and tribe_member_subscriptions.mercado_pago_preapproval_id is not null
-          and tribe_member_subscriptions.status in (
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active},
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending},
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused}
-          )
-        returning
-          tribe_member_subscriptions.id as subscription_id,
-          tribe_member_subscriptions.tribe_id,
-          tribe_member_subscriptions.user_id,
-          tribe_member_subscriptions.mercado_pago_preapproval_id,
-          tribe_member_subscriptions.payment_integration_id,
-          tribe_payment_integrations.access_token,
-          tribe_payment_integrations.refresh_token,
-          tribe_payment_integrations.token_expires_at
-      `);
-      const row = (result.rows?.[0] ?? null) as (SubscriptionContextRow & {
+      const result = await database.execute(buildRequestRenewalCancellationStatement(tribeSlug));
+      const row = (result.rows[0] ?? null) as (SubscriptionContextRow & {
         user_id: string;
       }) | null;
 
@@ -493,7 +718,7 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
           (select mercado_pago_preapproval_id from claimed) as preapproval_id
       `);
 
-      return result.rows?.[0] as { found: boolean; preapproval_id: string | null };
+      return result.rows[0] as { found: boolean; preapproval_id: string | null };
     });
 
     if (!claim.found) {
@@ -595,7 +820,7 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
           and (${command.providerAccountId}::text is null or tribe_payment_integrations.provider_account_id = ${command.providerAccountId})
           and tribe_member_subscriptions.mercado_pago_preapproval_id is not null
       `);
-      return (result.rows ?? []) as Array<SubscriptionContextRow & { provider_account_id: string; provider_invoice_id: string }>;
+      return result.rows as Array<SubscriptionContextRow & { provider_account_id: string; provider_invoice_id: string }>;
     });
 
     if (recordedPayments.length === 0) return { status: "ignored" };
@@ -626,7 +851,8 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
       await this.applyInvoice(recordedPayment.subscription_id, updatedInvoice, command.correlationId);
       processedPayment = true;
     }
-    return { status: hadRetryableFailure ? "retryable" : processedPayment ? "processed" : "ignored" };
+    if (hadRetryableFailure) return { status: "retryable" };
+    return { status: processedPayment ? "processed" : "ignored" };
   }
 
   async handleAuthorizedPaymentWebhook(
@@ -665,7 +891,7 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
         ) desc
       `);
 
-      return (result.rows ?? []) as Array<{ has_unlinked_checkout: boolean } & Pick<
+      return result.rows as Array<{ has_unlinked_checkout: boolean } & Pick<
         SubscriptionContextRow,
         "access_token" | "payment_integration_id" | "refresh_token" | "token_expires_at" | "tribe_id"
       >>;
@@ -731,7 +957,7 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
       const tribeResult = await database.execute(sql`
         select tribes.id from public.tribes where tribes.slug = ${command.tribeSlug} limit 1
       `);
-      const tribeId = (tribeResult.rows?.[0] as { id: string } | undefined)?.id;
+      const tribeId = (tribeResult.rows[0] as { id: string } | undefined)?.id;
 
       if (!tribeId) {
         return { status: "not_found" as const };
@@ -746,72 +972,24 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
           and tribe_members.user_id = public.current_app_user_id()
         for share of tribe_members
       `);
-      const member = (memberResult.rows?.[0] ?? null) as { status: string; user_id: string } | null;
+      const member = (memberResult.rows[0] ?? null) as { status: string; user_id: string } | null;
 
       if (!member || (member.status !== "active" && member.status !== "muted")) {
         return { status: "forbidden" as const };
       }
 
-      const contextResult = await database.execute(sql`
-        select
-          coalesce(tribe_academy_settings.access_model = 'academy', false) as is_academy,
-          coalesce(tribe_academy_settings.sales_enabled, false) as sales_enabled,
-          tribe_academy_settings.offer_version,
-          public.is_member_verified_for_academy(${tribeId}, ${member.user_id}) as is_verified,
-          public.has_active_product_grant(${tribeId}, ${member.user_id}, ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.academy}) as is_covered
-        from (select 1) as anchor
-        left join public.tribe_academy_settings
-          on tribe_academy_settings.tribe_id = ${tribeId}
-      `);
-      const context = contextResult.rows?.[0] as {
-        is_academy: boolean;
-        is_covered: boolean;
-        is_verified: boolean;
-        offer_version: number | null;
-        sales_enabled: boolean;
-      };
+      const contextResult = await database.execute(buildAcademyCheckoutContextStatement(tribeId, member.user_id));
+      const rejection = findCheckoutContextRejection(
+        contextResult.rows[0] as AcademyCheckoutContextRow,
+        command.acceptedOfferVersion
+      );
 
-      if (!context.is_academy || !context.sales_enabled) {
-        return { status: "sales_closed" as const };
+      if (rejection) {
+        return rejection;
       }
 
-      if (Number(context.offer_version) !== command.acceptedOfferVersion) {
-        return { status: "offer_changed" as const };
-      }
-
-      if (!context.is_verified) {
-        return { status: "not_eligible" as const };
-      }
-
-      if (context.is_covered) {
-        return { status: "covered" as const };
-      }
-
-      const liveResult = await database.execute(sql`
-        select
-          tribe_member_subscriptions.id,
-          tribe_member_subscriptions.status,
-          tribe_member_subscriptions.mercado_pago_preapproval_id,
-          subscription_idempotency_operations.response_body->>'checkoutUrl' as checkout_url
-        from public.tribe_member_subscriptions
-        left join public.subscription_idempotency_operations
-          on subscription_idempotency_operations.operation_key =
-            ${ACADEMY_OPERATION.checkoutKeyPrefix} || tribe_member_subscriptions.id::text
-        where tribe_member_subscriptions.tribe_id = ${tribeId}
-          and tribe_member_subscriptions.user_id = ${member.user_id}
-          and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.academy}
-          and tribe_member_subscriptions.status in (
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active},
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending},
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused},
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.gracePeriod},
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pastDue},
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked}
-          )
-        limit 1
-        for update of tribe_member_subscriptions
-      `);
-      const live = (liveResult.rows?.[0] ?? null) as {
+      const liveResult = await database.execute(buildLockedLiveAcademySubscriptionStatement(tribeId, member.user_id));
+      const live = (liveResult.rows[0] ?? null) as {
         checkout_url: string | null;
         id: string;
         mercado_pago_preapproval_id: string | null;
@@ -833,31 +1011,9 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
         return { status: "sales_closed" as const };
       }
 
-      const rowResult = await database.execute(sql`
-        select
-          tribe_member_subscriptions.id as subscription_id,
-          tribe_member_subscriptions.tribe_id,
-          tribe_member_subscriptions.mercado_pago_preapproval_id,
-          tribe_member_subscriptions.payment_integration_id,
-          tribe_member_subscriptions.price_snapshot_name as price_name,
-          tribe_member_subscriptions.price_snapshot_amount_cents as amount_cents,
-          tribe_member_subscriptions.price_snapshot_currency as currency,
-          tribe_member_subscriptions.price_snapshot_provider_plan_id as provider_plan_id,
-          tribe_payment_integrations.access_token,
-          tribe_payment_integrations.refresh_token,
-          tribe_payment_integrations.token_expires_at,
-          "user".email as payer_email,
-          null::text as checkout_url
-        from public.tribe_member_subscriptions
-        inner join public.tribe_payment_integrations
-          on tribe_payment_integrations.id = tribe_member_subscriptions.payment_integration_id
-          and tribe_payment_integrations.tribe_id = tribe_member_subscriptions.tribe_id
-        inner join public."user"
-          on "user".id = tribe_member_subscriptions.user_id
-        where tribe_member_subscriptions.id = ${subscriptionId}
-      `);
+      const rowResult = await database.execute(buildReservationStatement(subscriptionId));
 
-      return { row: rowResult.rows?.[0] as ReservationRow, status: "reserved" as const };
+      return { row: rowResult.rows[0] as ReservationRow, status: "reserved" as const };
     });
   }
 
@@ -915,7 +1071,7 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
       on conflict do nothing
       returning id
     `);
-    const subscriptionId = (result.rows?.[0] as { id: string } | undefined)?.id ?? null;
+    const subscriptionId = (result.rows[0] as { id: string } | undefined)?.id ?? null;
 
     if (subscriptionId) {
       await this.recordAuditEvent(database, {
@@ -957,7 +1113,7 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
         returning tribe_member_subscriptions.id
       `);
 
-      if ((linked.rows ?? []).length === 0) {
+      if (linked.rows.length === 0) {
         return { status: "provider_unavailable" as const };
       }
 
@@ -1007,7 +1163,7 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
         limit 1
       `);
 
-      return (result.rows?.[0] ?? null) as SubscriptionContextRow | null;
+      return (result.rows[0] ?? null) as SubscriptionContextRow | null;
     });
   }
 
@@ -1053,6 +1209,64 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
   }
 
   /**
+   * Creates the paid grant of a covered cycle (anchoring the contract on its
+   * first invoice) or revokes the grant of a reversed payment.
+   *
+   * @param database - Transaction of the invoice.
+   * @param input - Contract, decision, grant already linked to the period, and invoice.
+   * @returns The grant to link to the ledger period.
+   */
+  private async applyGrantDecision(
+    database: RequestDatabase,
+    {
+      contract,
+      decision,
+      existingGrantId,
+      providerInvoice,
+    }: {
+      contract: SubscriptionContextRow;
+      decision: Extract<AcademyInvoiceDecision, { kind: "record" }>;
+      existingGrantId: string | null;
+      providerInvoice: MercadoPagoAuthorizedPayment;
+    }
+  ): Promise<string | null> {
+    let grantId = existingGrantId;
+
+    if (decision.grantAction === "create" && decision.serviceInterval) {
+      const grant = await this.writePaidGrant(database, {
+        createdBy: null,
+        endsAt: decision.serviceInterval.endsAt,
+        sourceKey: `${ACADEMY_OPERATION.invoiceSourceKeyPrefix}${contract.payment_integration_id}:${providerInvoice.id}`,
+        sourceType: PAID_GRANT_SOURCE,
+        startsAt: decision.serviceInterval.startsAt,
+        tribeId: contract.tribe_id,
+        userId: contract.user_id,
+      });
+      grantId = grant.grantId;
+
+      if (!contract.billing_anchor_at && decision.billingAnchorAt) {
+        await database.execute(sql`
+          update public.tribe_member_subscriptions
+          set billing_anchor_at = ${decision.billingAnchorAt}
+          where id = ${contract.subscription_id}
+            and billing_anchor_at is null
+        `);
+      }
+    }
+
+    if (decision.grantAction === "revoke" && grantId) {
+      await database.execute(sql`
+        update public.member_access_grants
+        set revoked_at = now()
+        where id = ${grantId}
+          and revoked_at is null
+      `);
+    }
+
+    return grantId;
+  }
+
+  /**
    * Applies one invoice atomically. Returns whether the ledger changed.
    */
   private async applyInvoice(
@@ -1061,29 +1275,10 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
     correlationId: string
   ): Promise<boolean> {
     return this.executeWithDatabase(async (database) => {
-      const contractResult = await database.execute(sql`
-        select
-          tribe_member_subscriptions.id as subscription_id,
-          tribe_member_subscriptions.tribe_id,
-          tribe_member_subscriptions.user_id,
-          tribe_member_subscriptions.mercado_pago_preapproval_id,
-          tribe_member_subscriptions.payment_integration_id,
-          tribe_member_subscriptions.price_snapshot_amount_cents as amount_cents,
-          tribe_member_subscriptions.price_snapshot_currency as currency,
-          tribe_member_subscriptions.billing_anchor_at
-        from public.tribe_member_subscriptions
-        where tribe_member_subscriptions.id = ${subscriptionId}
-        for update
-      `);
-      const contract = contractResult.rows?.[0] as SubscriptionContextRow;
-      const existingResult = await database.execute(sql`
-        select id, payment_status, provider_last_modified_at, grant_id
-        from public.subscription_payment_periods
-        where payment_integration_id = ${contract.payment_integration_id}
-          and provider_invoice_id = ${providerInvoice.id}
-        for update
-      `);
-      const existing = (existingResult.rows?.[0] ?? null) as {
+      const contractResult = await database.execute(buildLockedSubscriptionContractStatement(subscriptionId));
+      const contract = contractResult.rows[0] as SubscriptionContextRow;
+      const existingResult = await database.execute(buildLockedPaymentPeriodStatement(contract, providerInvoice));
+      const existing = (existingResult.rows[0] ?? null) as {
         grant_id: string | null;
         id: string;
         payment_status: AcademyLedgerPaymentStatus;
@@ -1091,7 +1286,7 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
       } | null;
       const decision = decideAcademyInvoiceEffect({
         contract: {
-          amountCents: Number(contract.amount_cents),
+          amountCents: contract.amount_cents,
           billingAnchorAt: toOptionalDate(contract.billing_anchor_at),
           currency: contract.currency,
           providerSubscriptionId: contract.mercado_pago_preapproval_id,
@@ -1112,100 +1307,26 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
       // Same state already applied (repeated delivery or reconciliation):
       // nothing changes, and the paid grant already exists when due.
       if (
-        existing &&
-        existing.payment_status === decision.ledgerStatus &&
+        existing?.payment_status === decision.ledgerStatus &&
         (decision.grantAction !== "create" || existing.grant_id !== null)
       ) {
         return false;
       }
 
-      let grantId = existing?.grant_id ?? null;
+      const grantId = await this.applyGrantDecision(database, {
+        contract,
+        decision,
+        existingGrantId: existing?.grant_id ?? null,
+        providerInvoice,
+      });
 
-      if (decision.grantAction === "create" && decision.serviceInterval) {
-        const grant = await this.writePaidGrant(database, {
-          createdBy: null,
-          endsAt: decision.serviceInterval.endsAt,
-          sourceKey: `${ACADEMY_OPERATION.invoiceSourceKeyPrefix}${contract.payment_integration_id}:${providerInvoice.id}`,
-          sourceType: PAID_GRANT_SOURCE,
-          startsAt: decision.serviceInterval.startsAt,
-          tribeId: contract.tribe_id,
-          userId: contract.user_id,
-        });
-        grantId = grant.grantId;
-
-        if (!contract.billing_anchor_at && decision.billingAnchorAt) {
-          await database.execute(sql`
-            update public.tribe_member_subscriptions
-            set billing_anchor_at = ${decision.billingAnchorAt}
-            where id = ${contract.subscription_id}
-              and billing_anchor_at is null
-          `);
-        }
-      }
-
-      if (decision.grantAction === "revoke" && grantId) {
-        await database.execute(sql`
-          update public.member_access_grants
-          set revoked_at = now()
-          where id = ${grantId}
-            and revoked_at is null
-        `);
-      }
-
-      const ledgerResult = await database.execute(sql`
-        insert into public.subscription_payment_periods (
-          tribe_id,
-          user_id,
-          subscription_id,
-          payment_integration_id,
-          product_key,
-          provider_subscription_id,
-          provider_invoice_id,
-          provider_payment_id,
-          payment_status,
-          amount_cents,
-          currency,
-          debit_at,
-          service_starts_at,
-          service_ends_at,
-          provider_last_modified_at,
-          grant_id,
-          review_reason
-        )
-        values (
-          ${contract.tribe_id},
-          ${contract.user_id},
-          ${contract.subscription_id},
-          ${contract.payment_integration_id},
-          ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.academy},
-          ${contract.mercado_pago_preapproval_id},
-          ${providerInvoice.id},
-          ${providerInvoice.paymentId},
-          ${decision.ledgerStatus},
-          ${decision.amountCents},
-          ${providerInvoice.currencyId ?? contract.currency},
-          ${providerInvoice.debitDate},
-          ${decision.serviceInterval?.startsAt ?? null},
-          ${decision.serviceInterval?.endsAt ?? null},
-          ${decision.providerLastModifiedAt},
-          ${grantId},
-          ${decision.reviewReason}
-        )
-        on conflict (payment_integration_id, provider_invoice_id) do update
-          set payment_status = excluded.payment_status,
-              provider_payment_id = coalesce(excluded.provider_payment_id, subscription_payment_periods.provider_payment_id),
-              amount_cents = excluded.amount_cents,
-              currency = excluded.currency,
-              debit_at = coalesce(excluded.debit_at, subscription_payment_periods.debit_at),
-              service_starts_at = coalesce(excluded.service_starts_at, subscription_payment_periods.service_starts_at),
-              service_ends_at = coalesce(excluded.service_ends_at, subscription_payment_periods.service_ends_at),
-              provider_last_modified_at = excluded.provider_last_modified_at,
-              grant_id = coalesce(excluded.grant_id, subscription_payment_periods.grant_id),
-              review_reason = excluded.review_reason,
-              updated_at = timezone('utc', now())
-        returning id
-      `);
-      const periodId = (ledgerResult.rows?.[0] as { id: string }).id;
+      const ledgerResult = await database.execute(buildRecordPaymentPeriodStatement({
+        contract,
+        decision,
+        grantId,
+        providerInvoice,
+      }));
+      const periodId = (ledgerResult.rows[0] as { id: string }).id;
 
       await this.recordAuditEvent(database, {
         action: ACADEMY_SUBSCRIPTION_AUDIT_ACTION.paymentRecorded,

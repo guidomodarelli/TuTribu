@@ -15,7 +15,7 @@ import { resolveNeonCliEntrypoint } from "./neon-cli-entrypoint";
 
 const execute = promisify(execFile);
 type FunctionMetadata = { slug: string; invocation_url?: string; branch_id?: string };
-type ApiBranch = { id: string; name: string; default: boolean; parent_id: string };
+type ApiBranch = { id: string; name: string; default?: boolean; parent_id: string };
 type EndpointMetadata = { id: string; type: string; branch_id: string; autoscaling_limit_min_cu: number; autoscaling_limit_max_cu: number; region_id: string };
 type AppliedChange = { kind: string; action: string; identifier: string };
 type Compiler = { version: string; build: (options: Record<string, unknown>) => Promise<{ metafile: { inputs: Record<string, unknown> } }> };
@@ -28,6 +28,8 @@ export type OwnedMessagingNodeDeployment = {
   assertInputsUnchanged: () => Promise<void>; assertPrivateMaterialAbsent: () => Promise<void>; remove: () => Promise<void>;
 };
 
+/** Branch descriptor accepted at runtime; a default branch is rejected even though owned fixtures never produce one. */
+type OwnedBranchDescriptor = Omit<AcademyAdmissionTestDatabase["branch"], "isDefault"> & { isDefault: boolean };
 /**
  * Deploys only new function names on a verified child, without secrets in arguments or dotenv files.
  * @param branch - Exact capability returned by the native branch owner.
@@ -38,7 +40,7 @@ export type OwnedMessagingNodeDeployment = {
  * @param options - Trusted source paths and optional exact owned capacity; no HTTP caller controls them.
  * @returns Public deployment identities and cleanup restricted to their original branch and names.
  */
-export async function deployOwnedMessagingNodes(branch: AcademyAdmissionTestDatabase["branch"], operationId: string, token: string, hostingEnvironment: Record<string, string>, inputs: readonly Record<string, unknown>[], options: { entrypoint: string; privateInputVariable: string; supportingFiles: readonly string[]; expectedComputeUnits?: number; sensitiveValues?: readonly string[] }): Promise<OwnedMessagingNodeDeployment> {
+export async function deployOwnedMessagingNodes(branch: OwnedBranchDescriptor, operationId: string, token: string, hostingEnvironment: Record<string, string>, inputs: readonly Record<string, unknown>[], options: { entrypoint: string; privateInputVariable: string; supportingFiles: readonly string[]; expectedComputeUnits?: number; sensitiveValues?: readonly string[] }): Promise<OwnedMessagingNodeDeployment> {
   const cli = await resolveNeonCliEntrypoint();
   if (!inputs.length || inputs.length > DEPLOYMENT.maximumFunctions || !DEPLOYMENT.environmentNamePattern.test(options.privateInputVariable) || DEPLOYMENT.reservedEnvironmentNames.some((reservedName) => reservedName === options.privateInputVariable)) throw new Error("OwnedMessagingDeployment.prepare failed: invalid_owned_host_inputs");
   if (Object.values(MESSAGING_HOSTING_ENV).some((name) => !hostingEnvironment[name]) || Object.keys(hostingEnvironment).some((name) => !Object.values<string>(MESSAGING_HOSTING_ENV).includes(name))) throw new Error("OwnedMessagingDeployment.prepare failed: closed_hosting_environment_required");
@@ -70,7 +72,7 @@ export async function deployOwnedMessagingNodes(branch: AcademyAdmissionTestData
   /** Reads only original branch metadata before any deployment or removal. */
   async function assertBranchScope() {
     const result = await command(["api", `/projects/${ADMISSION_NEON_PROJECT_ID}/branches/${branch.id}`, "--method", "GET"]) as { branch: ApiBranch };
-    if (branch.isDefault !== false || result.branch.id !== branch.id || result.branch.name !== branch.name || result.branch.parent_id !== branch.parentId || result.branch.default !== false) throw new Error("OwnedMessagingDeployment.prepare failed: branch_ownership_unproven");
+    if (branch.isDefault || result.branch.id !== branch.id || result.branch.name !== branch.name || result.branch.parent_id !== branch.parentId || result.branch.default !== false) throw new Error("OwnedMessagingDeployment.prepare failed: branch_ownership_unproven");
   }
   await assertBranchScope();
   const endpoints = await command(["api", `/projects/${ADMISSION_NEON_PROJECT_ID}/endpoints`, "--method", "GET"]) as { endpoints: EndpointMetadata[] };

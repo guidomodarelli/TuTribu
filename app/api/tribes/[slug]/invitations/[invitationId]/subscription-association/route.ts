@@ -75,7 +75,7 @@ export async function PATCH(
   }
 
   try {
-    const body = await request.json().catch(() => null);
+    const body: unknown = await request.json().catch(() => null);
     const result =
       await modules.tribes.useCases.updateTribeInvitationSubscriptionAssociation({
         baseUrl: resolvePublicAppBaseUrl(),

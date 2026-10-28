@@ -85,7 +85,7 @@ describe("real SDK connection inspector", () => {
       { origin: "https://api.zavu.dev", pathname: `/v1/senders/${senderId}`, method: "GET", respond: () => Response.json({ id: randomUUID(), name: "crossed", channels: ["email"] }) },
       { origin: "https://api.zavu.dev", pathname: "/v1/senders", method: "GET", respond: () => Response.json({ items: [], nextCursor: "same" }) },
     ]);
-    expect(() => new ZavuConnectionInspector({ ...fixture, credential: "" }, transport.fetch)).toThrow();
+    expect(() => new ZavuConnectionInspector({ ...fixture, credential: "" }, transport.fetch)).toThrow(expect.objectContaining({ code: "invalid_credentials" }));
     const inspector = new ZavuConnectionInspector(fixture, transport.fetch);
     await expect(inspector.retrieveSender(senderId, new AbortController().signal)).rejects.toMatchObject({ code: "upstream_payload_unusable" });
     await expect(inspector.listSenders(new AbortController().signal)).rejects.toMatchObject({ code: "upstream_payload_unusable" });

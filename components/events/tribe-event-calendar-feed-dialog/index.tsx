@@ -78,41 +78,19 @@ const COPY = {
   workingLabel: "Procesando…",
 } as const;
 
-/**
- * Presentational dialog of the personal calendar subscription (webcal feed).
- * It explains what the link is, generates or regenerates it (with an inline
- * confirmation, since the old link stops working), shows it once with
- * "Copiar" and the Apple/Google shortcuts, and turns it off. State and
- * requests belong to `useTribeEventCalendarFeed`; only the confirmation step
- * is local UI state. Loading, status, the issued link and the confirmation
- * cross-fade in place, and focus follows the confirmation step.
- */
-export function TribeEventCalendarFeedDialog({
-  feedUrl,
-  isOpen,
-  isSubmitting,
-  loadState,
-  onClose,
-  onCopyLink,
-  onGenerate,
-  onRetry,
-  onRevoke,
-}: TribeEventCalendarFeedDialogProps) {
-  const [isConfirmingRegenerate, setIsConfirmingRegenerate] = useState(false);
-  // The confirmation replaces "Regenerar link"; after "Cancelar" the button
-  // comes back (once the swap finishes) and takes the focus again.
-  const [shouldRefocusRegenerate, setShouldRefocusRegenerate] = useState(false);
+type CalendarFeedSubscription = Extract<
+  TribeEventCalendarFeedLoadState,
+  { subscription: unknown }
+>["subscription"];
 
-  const cancelRegenerate = () => {
-    setIsConfirmingRegenerate(false);
-    setShouldRefocusRegenerate(true);
-  };
-  const subscription =
-    loadState.status === TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.loaded
-      ? loadState.subscription
-      : null;
+type CalendarFeedIssuedLinkProps = {
+  issuedFeedUrl: string;
+  onCopyLink: () => void;
+};
 
-  const renderIssuedLink = (issuedFeedUrl: string) => (
+/** Link issued in this session with "Copiar" and the calendar app shortcuts. */
+function CalendarFeedIssuedLink({ issuedFeedUrl, onCopyLink }: CalendarFeedIssuedLinkProps) {
+  return (
     <section className={styles.TribeEventCalendarFeedDialog__issued}>
       <label className={styles.TribeEventCalendarFeedDialog__label} htmlFor={FEED_URL_FIELD_ID}>
         {COPY.feedUrlLabel}
@@ -148,130 +126,229 @@ export function TribeEventCalendarFeedDialog({
       <p className={styles.TribeEventCalendarFeedDialog__hint}>{COPY.outlookHint}</p>
     </section>
   );
+}
 
-  const renderSubscriptionStatus = () => {
-    if (!subscription) {
-      return <p className={styles.TribeEventCalendarFeedDialog__status}>{COPY.noSubscription}</p>;
-    }
+/** Whether the viewer has an active subscription, when it was created and last used. */
+function CalendarFeedSubscriptionStatus({ subscription }: { subscription: CalendarFeedSubscription }) {
+  if (!subscription) {
+    return <p className={styles.TribeEventCalendarFeedDialog__status}>{COPY.noSubscription}</p>;
+  }
 
-    return (
-      <div className={styles.TribeEventCalendarFeedDialog__status}>
-        <p className={styles.TribeEventCalendarFeedDialog__text}>
-          {COPY.activeSince(formatBuenosAiresLongDate(subscription.createdAt))}
-        </p>
-        <p className={styles.TribeEventCalendarFeedDialog__hint}>
-          {subscription.lastUsedAt
-            ? COPY.lastUsed(formatBuenosAiresLongDate(subscription.lastUsedAt))
-            : COPY.neverUsed}
-        </p>
-        <p className={styles.TribeEventCalendarFeedDialog__hint}>{COPY.lostLinkHint}</p>
-      </div>
-    );
-  };
+  return (
+    <div className={styles.TribeEventCalendarFeedDialog__status}>
+      <p className={styles.TribeEventCalendarFeedDialog__text}>
+        {COPY.activeSince(formatBuenosAiresLongDate(subscription.createdAt))}
+      </p>
+      <p className={styles.TribeEventCalendarFeedDialog__hint}>
+        {subscription.lastUsedAt
+          ? COPY.lastUsed(formatBuenosAiresLongDate(subscription.lastUsedAt))
+          : COPY.neverUsed}
+      </p>
+      <p className={styles.TribeEventCalendarFeedDialog__hint}>{COPY.lostLinkHint}</p>
+    </div>
+  );
+}
 
-  const renderActions = () => {
-    if (isConfirmingRegenerate) {
-      return (
-        <div
-          aria-label={COPY.regenerateButton}
-          className={styles.TribeEventCalendarFeedDialog__confirm}
-          role="group"
+type CalendarFeedRegenerateConfirmProps = {
+  isSubmitting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+};
+
+/** Inline confirmation that replaces "Regenerar link", since the old link stops working. */
+function CalendarFeedRegenerateConfirm({
+  isSubmitting,
+  onCancel,
+  onConfirm,
+}: CalendarFeedRegenerateConfirmProps) {
+  return (
+    <div
+      aria-label={COPY.regenerateButton}
+      className={styles.TribeEventCalendarFeedDialog__confirm}
+      role="group"
+    >
+      <p className={styles.TribeEventCalendarFeedDialog__text}>{COPY.regenerateWarning}</p>
+      <div className={styles.TribeEventCalendarFeedDialog__actions}>
+        <Button
+          // "Regenerar link" was replaced by this step: the safe answer
+          // takes the focus so keyboard users are not dropped on the page.
+          autoFocus
+          disabled={isSubmitting}
+          type={BUTTON_ATTRIBUTE.typeButton}
+          variant={BUTTON_ATTRIBUTE.variantGhost}
+          onClick={onCancel}
         >
-          <p className={styles.TribeEventCalendarFeedDialog__text}>{COPY.regenerateWarning}</p>
-          <div className={styles.TribeEventCalendarFeedDialog__actions}>
-            <Button
-              // "Regenerar link" was replaced by this step: the safe answer
-              // takes the focus so keyboard users are not dropped on the page.
-              autoFocus
-              disabled={isSubmitting}
-              type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantGhost}
-              onClick={cancelRegenerate}
-            >
-              {COPY.cancelRegenerate}
-            </Button>
-            <Button
-              disabled={isSubmitting}
-              type={BUTTON_ATTRIBUTE.typeButton}
-              onClick={() => {
-                setIsConfirmingRegenerate(false);
-                onGenerate();
-              }}
-            >
-              {isSubmitting ? COPY.workingLabel : COPY.confirmRegenerate}
-            </Button>
-          </div>
+          {COPY.cancelRegenerate}
+        </Button>
+        <Button disabled={isSubmitting} type={BUTTON_ATTRIBUTE.typeButton} onClick={onConfirm}>
+          {isSubmitting ? COPY.workingLabel : COPY.confirmRegenerate}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+type CalendarFeedActionsProps = {
+  isSubmitting: boolean;
+  onGenerate: () => void;
+  onRegenerate: () => void;
+  onRevoke: () => void;
+  /** Focus "Regenerar link" when it comes back after a cancelled confirmation. */
+  shouldRefocusRegenerate: boolean;
+  subscription: CalendarFeedSubscription;
+};
+
+/** "Generar link" without a subscription; "Desactivar" and "Regenerar" with one. */
+function CalendarFeedActions({
+  isSubmitting,
+  onGenerate,
+  onRegenerate,
+  onRevoke,
+  shouldRefocusRegenerate,
+  subscription,
+}: CalendarFeedActionsProps) {
+  return (
+    <div className={styles.TribeEventCalendarFeedDialog__actions}>
+      {subscription ? (
+        <>
+          <Button
+            disabled={isSubmitting}
+            type={BUTTON_ATTRIBUTE.typeButton}
+            variant={BUTTON_ATTRIBUTE.variantGhost}
+            onClick={onRevoke}
+          >
+            {COPY.revokeButton}
+          </Button>
+          <Button
+            autoFocus={shouldRefocusRegenerate}
+            disabled={isSubmitting}
+            type={BUTTON_ATTRIBUTE.typeButton}
+            variant={BUTTON_ATTRIBUTE.variantSecondary}
+            onClick={onRegenerate}
+          >
+            {COPY.regenerateButton}
+          </Button>
+        </>
+      ) : (
+        <Button disabled={isSubmitting} type={BUTTON_ATTRIBUTE.typeButton} onClick={onGenerate}>
+          {isSubmitting ? COPY.workingLabel : COPY.generateButton}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+type CalendarFeedBodyProps = Pick<
+  TribeEventCalendarFeedDialogProps,
+  "feedUrl" | "isSubmitting" | "loadState" | "onCopyLink" | "onGenerate" | "onRetry" | "onRevoke"
+> & {
+  isConfirmingRegenerate: boolean;
+  onCancelRegenerate: () => void;
+  onConfirmRegenerate: () => void;
+  onStartRegenerate: () => void;
+  shouldRefocusRegenerate: boolean;
+};
+
+/** Content under the warning for the current load state. */
+function CalendarFeedBody({
+  feedUrl,
+  isConfirmingRegenerate,
+  isSubmitting,
+  loadState,
+  onCancelRegenerate,
+  onConfirmRegenerate,
+  onCopyLink,
+  onGenerate,
+  onRetry,
+  onRevoke,
+  onStartRegenerate,
+  shouldRefocusRegenerate,
+}: CalendarFeedBodyProps) {
+  switch (loadState.status) {
+    case TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.error:
+      return (
+        <div className={styles.TribeEventCalendarFeedDialog__status} role="alert">
+          <p className={styles.TribeEventCalendarFeedDialog__text}>{loadState.message}</p>
+          <Button
+            size={BUTTON_ATTRIBUTE.sizeSmall}
+            type={BUTTON_ATTRIBUTE.typeButton}
+            variant={BUTTON_ATTRIBUTE.variantSecondary}
+            onClick={onRetry}
+          >
+            {COPY.retry}
+          </Button>
         </div>
       );
-    }
+    case TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.loaded:
+      return (
+        <>
+          <PresenceSwap presenceKey={feedUrl ? PRESENCE_KEY.issued : PRESENCE_KEY.status}>
+            {feedUrl ? (
+              <CalendarFeedIssuedLink issuedFeedUrl={feedUrl} onCopyLink={onCopyLink} />
+            ) : (
+              <CalendarFeedSubscriptionStatus subscription={loadState.subscription} />
+            )}
+          </PresenceSwap>
+          <PresenceSwap
+            presenceKey={isConfirmingRegenerate ? PRESENCE_KEY.confirm : PRESENCE_KEY.actions}
+          >
+            {isConfirmingRegenerate ? (
+              <CalendarFeedRegenerateConfirm
+                isSubmitting={isSubmitting}
+                onCancel={onCancelRegenerate}
+                onConfirm={onConfirmRegenerate}
+              />
+            ) : (
+              <CalendarFeedActions
+                isSubmitting={isSubmitting}
+                shouldRefocusRegenerate={shouldRefocusRegenerate}
+                subscription={loadState.subscription}
+                onGenerate={onGenerate}
+                onRegenerate={onStartRegenerate}
+                onRevoke={onRevoke}
+              />
+            )}
+          </PresenceSwap>
+        </>
+      );
+    case TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.idle:
+    case TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.loading:
+      return (
+        <p aria-live="polite" className={styles.TribeEventCalendarFeedDialog__status}>
+          {COPY.loading}
+        </p>
+      );
+  }
+}
 
-    return (
-      <div className={styles.TribeEventCalendarFeedDialog__actions}>
-        {subscription ? (
-          <>
-            <Button
-              disabled={isSubmitting}
-              type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantGhost}
-              onClick={onRevoke}
-            >
-              {COPY.revokeButton}
-            </Button>
-            <Button
-              autoFocus={shouldRefocusRegenerate}
-              disabled={isSubmitting}
-              type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantSecondary}
-              onClick={() => setIsConfirmingRegenerate(true)}
-            >
-              {COPY.regenerateButton}
-            </Button>
-          </>
-        ) : (
-          <Button disabled={isSubmitting} type={BUTTON_ATTRIBUTE.typeButton} onClick={onGenerate}>
-            {isSubmitting ? COPY.workingLabel : COPY.generateButton}
-          </Button>
-        )}
-      </div>
-    );
-  };
+/**
+ * Presentational dialog of the personal calendar subscription (webcal feed).
+ * It explains what the link is, generates or regenerates it (with an inline
+ * confirmation, since the old link stops working), shows it once with
+ * "Copiar" and the Apple/Google shortcuts, and turns it off. State and
+ * requests belong to `useTribeEventCalendarFeed`; only the confirmation step
+ * is local UI state. Loading, status, the issued link and the confirmation
+ * cross-fade in place, and focus follows the confirmation step.
+ */
+export function TribeEventCalendarFeedDialog({
+  feedUrl,
+  isOpen,
+  isSubmitting,
+  loadState,
+  onClose,
+  onCopyLink,
+  onGenerate,
+  onRetry,
+  onRevoke,
+}: TribeEventCalendarFeedDialogProps) {
+  const [isConfirmingRegenerate, setIsConfirmingRegenerate] = useState(false);
+  // The confirmation replaces "Regenerar link"; after "Cancelar" the button
+  // comes back (once the swap finishes) and takes the focus again.
+  const [shouldRefocusRegenerate, setShouldRefocusRegenerate] = useState(false);
 
-  const renderBody = () => {
-    switch (loadState.status) {
-      case TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.error:
-        return (
-          <div className={styles.TribeEventCalendarFeedDialog__status} role="alert">
-            <p className={styles.TribeEventCalendarFeedDialog__text}>{loadState.message}</p>
-            <Button
-              size={BUTTON_ATTRIBUTE.sizeSmall}
-              type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantSecondary}
-              onClick={onRetry}
-            >
-              {COPY.retry}
-            </Button>
-          </div>
-        );
-      case TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.loaded:
-        return (
-          <>
-            <PresenceSwap presenceKey={feedUrl ? PRESENCE_KEY.issued : PRESENCE_KEY.status}>
-              {feedUrl ? renderIssuedLink(feedUrl) : renderSubscriptionStatus()}
-            </PresenceSwap>
-            <PresenceSwap
-              presenceKey={isConfirmingRegenerate ? PRESENCE_KEY.confirm : PRESENCE_KEY.actions}
-            >
-              {renderActions()}
-            </PresenceSwap>
-          </>
-        );
-      default:
-        return (
-          <p aria-live="polite" className={styles.TribeEventCalendarFeedDialog__status}>
-            {COPY.loading}
-          </p>
-        );
-    }
+  const cancelRegenerate = () => {
+    setIsConfirmingRegenerate(false);
+    setShouldRefocusRegenerate(true);
   };
 
   return (
@@ -298,7 +375,23 @@ export function TribeEventCalendarFeedDialog({
           className={styles.TribeEventCalendarFeedDialog__body}
           presenceKey={loadState.status}
         >
-          {renderBody()}
+          <CalendarFeedBody
+            feedUrl={feedUrl}
+            isConfirmingRegenerate={isConfirmingRegenerate}
+            isSubmitting={isSubmitting}
+            loadState={loadState}
+            shouldRefocusRegenerate={shouldRefocusRegenerate}
+            onCancelRegenerate={cancelRegenerate}
+            onConfirmRegenerate={() => {
+              setIsConfirmingRegenerate(false);
+              onGenerate();
+            }}
+            onCopyLink={onCopyLink}
+            onGenerate={onGenerate}
+            onRetry={onRetry}
+            onRevoke={onRevoke}
+            onStartRegenerate={() => setIsConfirmingRegenerate(true)}
+          />
         </PresenceSwap>
       </DialogContent>
     </Dialog>

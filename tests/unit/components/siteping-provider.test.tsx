@@ -42,7 +42,7 @@ describe("SitepingProvider with the published Beezping widget", () => {
   });
 
   it("should abort the identity request when the provider unmounts", async () => {
-    const request = vi.fn((_input: RequestInfo | URL, _options?: RequestInit) => new Promise<Response>(() => {}));
+    const request = vi.fn<(input: RequestInfo | URL, options?: RequestInit) => Promise<Response>>(() => new Promise<Response>(() => {}));
     vi.stubGlobal("fetch", request);
     const view = render(<SitepingProvider />);
     await waitFor(() => expect(request).toHaveBeenCalled());

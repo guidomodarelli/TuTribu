@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 
 import {
   DEFAULT_TRIBE_WELCOME_LINKS_HEADING,
@@ -204,43 +204,11 @@ function createDefaultWelcome(): TribeWelcome {
   };
 }
 
-export class PostgresTribeWelcomeRepository implements TribeWelcomeRepository {
-  constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
-
-  async getByTribeSlug({
-    tribeSlug,
-  }: GetTribeWelcomeQuery): Promise<TribeWelcome> {
-    return this.readWelcome({
-      includeInactiveItems: false,
-      tribeSlug,
-    });
-  }
-
-  async getEditableByTribeSlug({
-    tribeSlug,
-  }: GetTribeWelcomeQuery): Promise<TribeWelcome> {
-    return this.readWelcome({
-      includeInactiveItems: true,
-      tribeSlug,
-    });
-  }
-
-  async getByInvitation({
-    token,
-    tribeSlug,
-  }: GetTribeWelcomeByInvitationQuery): Promise<TribeWelcome> {
-    return this.readWelcome({
-      includeInactiveItems: false,
-      invitationTokenHash: hashInvitationToken(token),
-      tribeSlug,
-    });
-  }
-
-  async save(command: SaveTribeWelcomeCommand) {
-    return this.executeWithDatabase(async (database) => {
-      const rulesJson = serializeWelcomeRules(command.rules);
-      const linksJson = serializeWelcomeLinks(command.links);
-      const result = await database.execute(sql`
+/**
+ * Upserts the welcome settings when the viewer may manage the tribe welcome, reporting why it did not otherwise.
+ */
+function buildSaveWelcomeSettingsStatement(command: SaveTribeWelcomeCommand): SQL {
+  return sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -292,25 +260,18 @@ export class PostgresTribeWelcomeRepository implements TribeWelcomeRepository {
             when not exists (select 1 from target_tribe) then ${TRIBE_WELCOME_SAVE_STATUS.notFound}
             else ${TRIBE_WELCOME_SAVE_STATUS.forbidden}
           end as status
-      `);
+      `;
+}
 
-      const row = (result.rows?.[0] ?? null) as WelcomeSaveRow | null;
-
-      if (
-        row?.status === TRIBE_WELCOME_SAVE_STATUS.notFound
-      ) {
-        return { status: row.status };
-      }
-
-      if (row?.status !== TRIBE_WELCOME_SAVE_STATUS.updated) {
-        return { status: TRIBE_WELCOME_SAVE_STATUS.forbidden };
-      }
-
-      await database.execute(sql`
+/**
+ * Deletes the welcome rules of a tribe the viewer may manage.
+ */
+function buildDeleteWelcomeRulesStatement(tribeSlug: string): SQL {
+  return sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
-          where tribes.slug = ${command.tribeSlug}
+          where tribes.slug = ${tribeSlug}
           limit 1
         ),
         editable_tribe as (
@@ -321,12 +282,18 @@ export class PostgresTribeWelcomeRepository implements TribeWelcomeRepository {
         delete from public.tribe_welcome_rules
         using editable_tribe
         where tribe_welcome_rules.tribe_id = editable_tribe.id
-      `);
-      await database.execute(sql`
+      `;
+}
+
+/**
+ * Inserts the submitted welcome rules of a tribe the viewer may manage.
+ */
+function buildInsertWelcomeRulesStatement(tribeSlug: string, rulesJson: string): SQL {
+  return sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
-          where tribes.slug = ${command.tribeSlug}
+          where tribes.slug = ${tribeSlug}
           limit 1
         ),
         editable_tribe as (
@@ -358,45 +325,14 @@ export class PostgresTribeWelcomeRepository implements TribeWelcomeRepository {
             sort_order integer,
             is_active boolean
           )
-      `);
-      await database.execute(sql`
-        with target_tribe as (
-          select tribes.id
-          from public.tribes
-          where tribes.slug = ${command.tribeSlug}
-          limit 1
-        ),
-        editable_tribe as (
-          select target_tribe.id
-          from target_tribe
-          where public.can_manage_tribe_welcome(target_tribe.id)
-        ),
-        submitted_links as (
-          select
-            links.id::uuid as id,
-            links.type,
-            links.label,
-            links.badge_label,
-            links.description,
-            links.url,
-            links.phone_number,
-            links.message,
-            links.sort_order,
-            links.is_active
-          from jsonb_to_recordset(${linksJson}::jsonb) as links(
-            id text,
-            type text,
-            label text,
-            badge_label text,
-            description text,
-            url text,
-            phone_number text,
-            message text,
-            sort_order integer,
-            is_active boolean
-          )
-        )
-        insert into public.tribe_welcome_links (
+      `;
+}
+
+/**
+ * Upsert of the submitted links into the tribe welcome links.
+ */
+function buildUpsertSubmittedWelcomeLinks(): SQL {
+  return sql`        insert into public.tribe_welcome_links (
           id,
           tribe_id,
           type,
@@ -440,12 +376,62 @@ export class PostgresTribeWelcomeRepository implements TribeWelcomeRepository {
           is_active = excluded.is_active,
           updated_at = excluded.updated_at
         where tribe_welcome_links.tribe_id = excluded.tribe_id
-      `);
-      await database.execute(sql`
+      `;
+}
+
+/**
+ * Upserts the submitted welcome links of a tribe the viewer may manage.
+ */
+function buildUpsertWelcomeLinksStatement(tribeSlug: string, linksJson: string): SQL {
+  return sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
-          where tribes.slug = ${command.tribeSlug}
+          where tribes.slug = ${tribeSlug}
+          limit 1
+        ),
+        editable_tribe as (
+          select target_tribe.id
+          from target_tribe
+          where public.can_manage_tribe_welcome(target_tribe.id)
+        ),
+        submitted_links as (
+          select
+            links.id::uuid as id,
+            links.type,
+            links.label,
+            links.badge_label,
+            links.description,
+            links.url,
+            links.phone_number,
+            links.message,
+            links.sort_order,
+            links.is_active
+          from jsonb_to_recordset(${linksJson}::jsonb) as links(
+            id text,
+            type text,
+            label text,
+            badge_label text,
+            description text,
+            url text,
+            phone_number text,
+            message text,
+            sort_order integer,
+            is_active boolean
+          )
+        )
+`.append(buildUpsertSubmittedWelcomeLinks());
+}
+
+/**
+ * Deletes the welcome links the submission no longer lists.
+ */
+function buildDeleteRemovedWelcomeLinksStatement(tribeSlug: string, linksJson: string): SQL {
+  return sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${tribeSlug}
           limit 1
         ),
         editable_tribe as (
@@ -474,7 +460,141 @@ export class PostgresTribeWelcomeRepository implements TribeWelcomeRepository {
             from submitted_links
             where submitted_links.id = tribe_welcome_links.id
           )
-      `);
+      `;
+}
+
+/**
+ * Reads the welcome settings of a tribe.
+ */
+function buildWelcomeSettingsStatement(tribeSlug: string): SQL {
+  return sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${tribeSlug}
+          limit 1
+        )
+        select
+          tribe_welcome_settings.welcome_message,
+          tribe_welcome_settings.selection_modal_title,
+          tribe_welcome_settings.selection_modal_description,
+          tribe_welcome_settings.selection_modal_benefit,
+          tribe_welcome_settings.links_heading
+        from target_tribe
+        left join public.tribe_welcome_settings
+          on tribe_welcome_settings.tribe_id = target_tribe.id
+        limit 1
+      `;
+}
+
+/**
+ * Reads the welcome rules of a tribe, in display order.
+ */
+function buildWelcomeRulesStatement(tribeSlug: string, includeInactiveItems: boolean): SQL {
+  return sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${tribeSlug}
+          limit 1
+        )
+        select
+          tribe_welcome_rules.id,
+          tribe_welcome_rules.label,
+          tribe_welcome_rules.sort_order,
+          tribe_welcome_rules.is_active
+        from public.tribe_welcome_rules
+        inner join target_tribe
+          on target_tribe.id = tribe_welcome_rules.tribe_id
+        where ${includeInactiveItems} or tribe_welcome_rules.is_active = true
+        order by tribe_welcome_rules.sort_order asc, tribe_welcome_rules.created_at asc
+      `;
+}
+
+/**
+ * Reads the welcome links of a tribe, in display order.
+ */
+function buildWelcomeLinksStatement(tribeSlug: string, includeInactiveItems: boolean): SQL {
+  return sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${tribeSlug}
+          limit 1
+        )
+        select
+          tribe_welcome_links.id,
+          tribe_welcome_links.type,
+          tribe_welcome_links.label,
+          tribe_welcome_links.badge_label,
+          tribe_welcome_links.description,
+          tribe_welcome_links.url,
+          tribe_welcome_links.phone_number,
+          tribe_welcome_links.message,
+          tribe_welcome_links.sort_order,
+          tribe_welcome_links.is_active
+        from public.tribe_welcome_links
+        inner join target_tribe
+          on target_tribe.id = tribe_welcome_links.tribe_id
+        where ${includeInactiveItems} or tribe_welcome_links.is_active = true
+        order by tribe_welcome_links.sort_order asc, tribe_welcome_links.created_at asc
+      `;
+}
+
+export class PostgresTribeWelcomeRepository implements TribeWelcomeRepository {
+  constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
+
+  async getByTribeSlug({
+    tribeSlug,
+  }: GetTribeWelcomeQuery): Promise<TribeWelcome> {
+    return this.readWelcome({
+      includeInactiveItems: false,
+      tribeSlug,
+    });
+  }
+
+  async getEditableByTribeSlug({
+    tribeSlug,
+  }: GetTribeWelcomeQuery): Promise<TribeWelcome> {
+    return this.readWelcome({
+      includeInactiveItems: true,
+      tribeSlug,
+    });
+  }
+
+  async getByInvitation({
+    token,
+    tribeSlug,
+  }: GetTribeWelcomeByInvitationQuery): Promise<TribeWelcome> {
+    return this.readWelcome({
+      includeInactiveItems: false,
+      invitationTokenHash: hashInvitationToken(token),
+      tribeSlug,
+    });
+  }
+
+  async save(command: SaveTribeWelcomeCommand) {
+    return this.executeWithDatabase(async (database) => {
+      const rulesJson = serializeWelcomeRules(command.rules);
+      const linksJson = serializeWelcomeLinks(command.links);
+      const result = await database.execute(buildSaveWelcomeSettingsStatement(command));
+
+      const row = (result.rows[0] ?? null) as WelcomeSaveRow | null;
+
+      if (
+        row?.status === TRIBE_WELCOME_SAVE_STATUS.notFound
+      ) {
+        return { status: row.status };
+      }
+
+      if (row?.status !== TRIBE_WELCOME_SAVE_STATUS.updated) {
+        return { status: TRIBE_WELCOME_SAVE_STATUS.forbidden };
+      }
+
+      await database.execute(buildDeleteWelcomeRulesStatement(command.tribeSlug));
+      await database.execute(buildInsertWelcomeRulesStatement(command.tribeSlug, rulesJson));
+      await database.execute(buildUpsertWelcomeLinksStatement(command.tribeSlug, linksJson));
+      await database.execute(buildDeleteRemovedWelcomeLinksStatement(command.tribeSlug, linksJson));
 
       return { status: row.status };
     });
@@ -496,74 +616,17 @@ export class PostgresTribeWelcomeRepository implements TribeWelcomeRepository {
         `);
       }
 
-      const settingsResult = await database.execute(sql`
-        with target_tribe as (
-          select tribes.id
-          from public.tribes
-          where tribes.slug = ${input.tribeSlug}
-          limit 1
-        )
-        select
-          tribe_welcome_settings.welcome_message,
-          tribe_welcome_settings.selection_modal_title,
-          tribe_welcome_settings.selection_modal_description,
-          tribe_welcome_settings.selection_modal_benefit,
-          tribe_welcome_settings.links_heading
-        from target_tribe
-        left join public.tribe_welcome_settings
-          on tribe_welcome_settings.tribe_id = target_tribe.id
-        limit 1
-      `);
-      const rulesResult = await database.execute(sql`
-        with target_tribe as (
-          select tribes.id
-          from public.tribes
-          where tribes.slug = ${input.tribeSlug}
-          limit 1
-        )
-        select
-          tribe_welcome_rules.id,
-          tribe_welcome_rules.label,
-          tribe_welcome_rules.sort_order,
-          tribe_welcome_rules.is_active
-        from public.tribe_welcome_rules
-        inner join target_tribe
-          on target_tribe.id = tribe_welcome_rules.tribe_id
-        where ${input.includeInactiveItems} or tribe_welcome_rules.is_active = true
-        order by tribe_welcome_rules.sort_order asc, tribe_welcome_rules.created_at asc
-      `);
-      const linksResult = await database.execute(sql`
-        with target_tribe as (
-          select tribes.id
-          from public.tribes
-          where tribes.slug = ${input.tribeSlug}
-          limit 1
-        )
-        select
-          tribe_welcome_links.id,
-          tribe_welcome_links.type,
-          tribe_welcome_links.label,
-          tribe_welcome_links.badge_label,
-          tribe_welcome_links.description,
-          tribe_welcome_links.url,
-          tribe_welcome_links.phone_number,
-          tribe_welcome_links.message,
-          tribe_welcome_links.sort_order,
-          tribe_welcome_links.is_active
-        from public.tribe_welcome_links
-        inner join target_tribe
-          on target_tribe.id = tribe_welcome_links.tribe_id
-        where ${input.includeInactiveItems} or tribe_welcome_links.is_active = true
-        order by tribe_welcome_links.sort_order asc, tribe_welcome_links.created_at asc
-      `);
+      const settingsResult = await database.execute(buildWelcomeSettingsStatement(input.tribeSlug));
+      const rulesResult = await database.execute(buildWelcomeRulesStatement(input.tribeSlug, input.includeInactiveItems));
+      const linksResult = await database.execute(buildWelcomeLinksStatement(input.tribeSlug, input.includeInactiveItems));
       const settings = mapSettings(
-        (settingsResult.rows?.[0] ?? null) as WelcomeSettingsRow | null
+        (settingsResult.rows[0] ?? null) as WelcomeSettingsRow | null
       );
 
       return {
         linksHeading: settings.linksHeading,
-        links: ((linksResult.rows ?? []) as WelcomeLinkRow[]).map(mapLink),
-        rules: ((rulesResult.rows ?? []) as WelcomeRuleRow[]).map(mapRule),
+        links: (linksResult.rows as WelcomeLinkRow[]).map(mapLink),
+        rules: (rulesResult.rows as WelcomeRuleRow[]).map(mapRule),
         selectionModalBenefit: settings.selectionModalBenefit,
         selectionModalDescription: settings.selectionModalDescription,
         selectionModalTitle: settings.selectionModalTitle,

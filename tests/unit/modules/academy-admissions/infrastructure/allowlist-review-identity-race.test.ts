@@ -25,7 +25,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native allowlist r
         const now = new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
         expect(await identity.capture({ userId: applicant.userId, accountId: applicant.accountId, sessionId: applicant.sessionId, evidence: { subject: applicant.subject, normalizedEmail: applicant.email, emailVerifiedClaim: true, hostedDomain: "example.test", classification: "workspace", issuer: "https://accounts.google.com", audience: "synthetic-list-client", tokenIssuedAt: now, tokenExpiresAt: new Date(now.getTime()+3_600_000) } })).toMatchObject({ status: "stored" });
       }, () => leader.decide.execute({ tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), admissionRequestId: requestId, expectedVersion: version, confirmed: true, decision: "approve", internalReason: "Revisión de captura que cambió durante la espera", externalMessage: null }));
-      const safeOutcome = result.status === "fulfilled" ? result.value.ok ? `success:${result.value.value.state}` : `denied:${result.value.failure.code}` : "rejected";
+      let safeOutcome = "rejected";
+      if (result.status === "fulfilled") safeOutcome = result.value.ok ? `success:${result.value.value.state}` : `denied:${result.value.failure.code}`;
       expect(result, `Waiting identity approval produced ${safeOutcome}`).toMatchObject({ status: "fulfilled", value: { ok: false, failure: { code: "admission_ineligible" } } });
       await database.withContext(fixture.own, async (transaction) => {
         expect((await transaction.execute(sql`select status,version,submitted_at,expires_at,global_identity_evidence_id from public.academy_admission_requests where id=${requestId}`)).rows[0]).toEqual(before);

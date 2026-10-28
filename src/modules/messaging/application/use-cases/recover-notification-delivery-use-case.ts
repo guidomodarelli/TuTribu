@@ -13,6 +13,17 @@ import type { NotificationDeliveryRecoveryQuery, ResolveMessagingTribeManagement
 /** Requests an exact original delivery, original operation/CAS and explicitly chosen replacement. */
 export type RecoverNotificationDeliveryInput = NotificationDeliveryRecoveryQuery & NotificationDeliveryRecoveryInput;
 
+/**
+ * @param error - Failure of the recovery attempt.
+ * @returns A delivery conflict for a concurrent request, the known messaging code, or an unexpected failure.
+ */
+function proposedRecoveryFailureCode(error: unknown) {
+  if (error instanceof AdmissionOperationError && error.code === ADMISSION_ERROR_CODE.requestConflict) return MESSAGING_ERROR_CODE.deliveryConflict;
+  const known = error instanceof AdmissionOperationError || error instanceof MessagingUsageOperationError || error instanceof MessagingSecretAccessError;
+  if (!known) return MESSAGING_ERROR_CODE.unexpectedFailure;
+  return Object.values(MESSAGING_ERROR_CODE).find((code) => code === error.code) ?? MESSAGING_ERROR_CODE.unexpectedFailure;
+}
+
 /** Leaves current facts, immutable history, cancellation, usage and audit to one authoritative native writer. */
 export class RecoverNotificationDeliveryUseCase<Result> {
   /**
@@ -44,12 +55,9 @@ export class RecoverNotificationDeliveryUseCase<Result> {
       };
       return { ok: true as const, value: await this.repository.recover(context, intent) };
     } catch (error) {
-      const known = error instanceof AdmissionOperationError || error instanceof MessagingUsageOperationError || error instanceof MessagingSecretAccessError;
       const registered = error instanceof AdmissionOperationError && error.operationId === input.operationId;
       const operationState = error instanceof AdmissionOperationError ? error.operationState : undefined;
-      const proposed = error instanceof AdmissionOperationError && error.code === ADMISSION_ERROR_CODE.requestConflict
-        ? MESSAGING_ERROR_CODE.deliveryConflict
-        : known ? Object.values(MESSAGING_ERROR_CODE).find((code) => code === error.code) ?? MESSAGING_ERROR_CODE.unexpectedFailure : MESSAGING_ERROR_CODE.unexpectedFailure;
+      const proposed = proposedRecoveryFailureCode(error);
       const code = proposed === MESSAGING_ERROR_CODE.operationUnresolved && !registered ? MESSAGING_ERROR_CODE.unexpectedFailure : proposed;
       return {
         ok: false as const,

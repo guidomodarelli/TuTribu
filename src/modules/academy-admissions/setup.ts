@@ -55,7 +55,7 @@ import { ReadAdmissionOperationUseCase } from "./application/use-cases/read-admi
 import { PostgresAdmissionOperationReader } from "./infrastructure/repositories/postgres-admission-operation-reader";
 import { ContactVerificationUseCases } from "./application/use-cases/contact-verification-use-cases";
 import { ApplyAdmissionProofUseCase } from "./application/use-cases/apply-admission-proof-use-case";
-import { PostgresAdmissionContactVerificationOperations, type AdmissionVerificationDatabaseExecutor } from "./infrastructure/repositories/postgres-admission-contact-verification-operations";
+import { PostgresAdmissionContactVerificationOperations } from "./infrastructure/repositories/postgres-admission-contact-verification-operations";
 import { ReadCurrentAdmissionChallengeUseCase } from "./application/use-cases/read-current-admission-challenge-use-case";
 import { PostgresAdmissionVerificationDispatchContext } from "./infrastructure/verification/postgres-admission-verification-dispatch-context";
 import type { AdmissionContactChallengeDispatcher, AdmissionChallengeDispatchIntent } from "./domain/repositories/admission-contact-verification";
@@ -133,182 +133,20 @@ type AdmissionVerificationComposition = { scope: VerificationChallengeScope; aut
  * @returns Current context resolution, read-only original-operation recovery and explicit private collaborator factories.
  */
 export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureDependencies) {
-  /** @param scope - Current account/session and resource scope. @param run - DB-only query work. @returns The guarded query result without requiring a verification purpose or security keys. */
-  const executeScopedQuery = async <Result>(scope: AdmissionCommandScope, run: (database: RequestDatabase) => Promise<Result>) => {
-    const account = await dependencies.accounts.getAuthenticatedAccount();
-    if (!account || account.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-    return dependencies.execute(account, run);
-  };
-  /** Rechecks native identity on every verification or attachment checkout; no account snapshot is retained. */
-  const executeVerification: AdmissionVerificationDatabaseExecutor = async (scope, run) => {
-    const account = await dependencies.accounts.getAuthenticatedAccount();
-    if (!account || account.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-    return dependencies.execute(account, run);
-  };
-  const resolveContext = {
-    /** @param command - Fixed server action and validated resource ids. @returns Current private authority or a safe denial. */
-    async execute(command: Parameters<ResolveAdmissionContextUseCase["execute"]>[0]) {
-      const account = await dependencies.accounts.getAuthenticatedAccount();
-      if (!account) return { allowed: false as const, failure: admissionFailure(ADMISSION_ERROR_CODE.authenticationRequired) };
-      return dependencies.execute(account, (database) => new ResolveAdmissionContextUseCase(createTransactionAccountProvider(database, account), new PostgresAdmissionAuthorizationReader(database, account.session.id, command.action), dependencies.clock).execute(command));
-    },
-  };
+  const context: AdmissionModuleContext = { dependencies, resolveContext: createAdmissionContextResolver(dependencies), executeForAccount: createIdentityBoundExecutor(dependencies) };
+  const { resolveContext } = context;
   return {
     useCases: { resolveContext },
-    /** @param options - Current private hosting security for explicit invitation commands. @returns Native leader metadata/commands with atomic related notices and no recovered token on replay. */
-    createPersonalInvitationModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
-      const execute = async <Result>(context: AuthorizedAdmissionContext, run: (database: RequestDatabase) => Promise<Result>) => {
-        const account = await dependencies.accounts.getAuthenticatedAccount();
-        if (!account || account.userId !== context.userId || account.session.id !== context.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-        return dependencies.execute(account, run);
-      };
-      const repository = new PostgresPersonalInvitationRepository(execute, options.readSecurityConfig, createPostgresAdmissionNotificationObligationWriter);
-      const useCases = new ManagePersonalInvitationsUseCases(resolveContext, repository, repository);
-      return { useCases, createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">, policy: Pick<GetAdmissionPolicyUseCase, "execute">) { return new GetPersonalInvitationManagementPageUseCase(dependencies.accounts, { invitations: useCases, policy, resolveTribe, resolveContext, availability: repository }, dependencies.clock); } };
-    },
-    /** @param options - Current private token security, without a provider or mutation port. @returns Native account-bound read-only personal preview. */
-    createPersonalInvitationQueryModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
-      const execute = async <Result>(scope: Pick<AdmissionCommandScope, "userId" | "sessionId">, run: (database: RequestDatabase) => Promise<Result>) => {
-        const account = await dependencies.accounts.getAuthenticatedAccount();
-        if (!account || account.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-        return dependencies.execute(account, run);
-      };
-      const overview = new GetPersonalInvitationOverviewUseCase(dependencies.accounts, new PostgresPersonalInvitationOverviewReader(execute, options.readSecurityConfig), dependencies.clock);
-      return { useCases: { overview }, page: new GetPersonalInvitationPageUseCase(dependencies.accounts, overview, dependencies.clock) };
-    },
-    /** @param options - Local private security for explicit commands only. @returns Leader-only queries and atomic original list commands, rechecking native identity on every checkout. */
-    createAllowlistModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
-      const execute = async <Result>(context: AuthorizedAdmissionContext, run: (database: RequestDatabase) => Promise<Result>) => {
-        const account = await dependencies.accounts.getAuthenticatedAccount();
-        if (!account || account.userId !== context.userId || account.session.id !== context.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-        return dependencies.execute(account, run);
-      };
-      const useCases = new ManageAllowlistUseCases(resolveContext, new PostgresAllowlistReader(execute), new PostgresAllowlistRepository(execute, options.readSecurityConfig));
-      const imports = new ImportAllowlistUseCases(resolveContext, new PostgresAllowlistImportRepository(execute, options.readSecurityConfig), { parse: parseAllowlistCsv });
-      return { useCases, imports, createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">, policy: Pick<GetAdmissionPolicyUseCase, "execute">) { return new GetAllowlistPageUseCase(dependencies.accounts, { allowlist: useCases, policy, resolveTribe }, dependencies.clock); } };
-    },
-    /** @param options - Live private security and an explicit focal launch factory consuming native challenge resolution. @returns Applicant verification with current account checks on every checkout, without caller-selected worker privileges. */
-    createContactVerificationModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig>; createDispatcher: (resolve: (intent: AdmissionChallengeDispatchIntent) => Promise<ResolvedAdmissionChallengeDispatch>) => AdmissionContactChallengeDispatcher }) {
-      const operations = new PostgresAdmissionContactVerificationOperations(executeVerification, options.readSecurityConfig, (database) => new PostgresLegacyAdmissionInvitationReader(database));
-      const context = new PostgresAdmissionVerificationDispatchContext(executeVerification);
-      const dispatcher = options.createDispatcher((intent) => context.resolve(intent));
-      return { useCases: new ContactVerificationUseCases(dependencies.accounts, operations, dispatcher, dependencies.clock) };
-    },
-    /** @param options - Current server security only. @returns Exact-contact selection without a sender or dispatcher. */
-    createCurrentChallengeModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
-      return { useCase: new ReadCurrentAdmissionChallengeUseCase(dependencies.accounts, new PostgresAdmissionContactVerificationOperations(executeVerification, options.readSecurityConfig, (database) => new PostgresLegacyAdmissionInvitationReader(database)), dependencies.clock) };
-    },
-    /** @param options - Live server security for the atomic owner and original ledger. @returns Own pending proof attachment without a sender, dispatcher or provider dependency. */
-    createProofApplicationModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
-      const operations = new PostgresAdmissionContactVerificationOperations(executeVerification, options.readSecurityConfig, (database) => new PostgresLegacyAdmissionInvitationReader(database));
-      return { useCases: new ApplyAdmissionProofUseCase(dependencies.accounts, operations, dependencies.clock) };
-    },
-    /** @param options - Mandatory complete runtime owner and live external recovery lock, without optimistic defaults or keyrings. @returns Informational current inventory; activation still repeats the locked owner in its actual transaction. */
-    createPreflightModule(options: { runtime: AdmissionActivationRuntimeReader; readRecoveryLock: () => Promise<boolean> }) {
-      const inventory = { read: async (context: AuthorizedAdmissionContext) => {
-        const account = await dependencies.accounts.getAuthenticatedAccount();
-        if (!account || account.userId !== context.userId || account.session.id !== context.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-        return dependencies.execute(account, (database) => new PostgresAdmissionActivationRepository(database, context, options.runtime, options.readRecoveryLock).read(context));
-      } };
-      return { useCases: new PreflightAdmissionActivationUseCase(resolveContext, inventory) };
-    },
-    /** @param options - Explicit informational preparation evaluator, or null when no evaluation is available. @returns Current leader query without a keyring, command writer or implicit initialization dependency. */
-    createPolicyQueryModule(options: { composePreparation: ((database: RequestDatabase, context: AuthorizedAdmissionContext) => AdmissionPolicyPreparationReader) | null }) {
-      const executePolicy = async <Result>(context: AuthorizedAdmissionContext, run: (database: RequestDatabase) => Promise<Result>) => {
-        const account = await dependencies.accounts.getAuthenticatedAccount();
-        if (!account || account.userId !== context.userId || account.session.id !== context.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-        return dependencies.execute(account, run);
-      };
-      const usage = (database: RequestDatabase, context: AuthorizedAdmissionContext) => new AdmissionMessagingUsagePolicyReader(new PostgresMessagingUsageRepository(database, async (current, tribeId) => {
-        if (tribeId !== context.tribeId) return false;
-        await authorizeAdmissionPolicy(current, context);
-        return true;
-      }));
-      const policy = new GetAdmissionPolicyUseCase(resolveContext, new PostgresAdmissionPolicyReader(executePolicy, usage), new PostgresAdmissionPolicyViewFactsReader(executePolicy, options.composePreparation));
-      return { useCases: policy, createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">) { return new GetAdmissionPolicyPageUseCase(dependencies.accounts, { policy, resolveTribe }, dependencies.clock); } };
-    },
-    /**
-     * @param options - Live security and a mandatory current SQL cutover owner; no preparation default exists.
-     * @returns Policy management through native authority/ledger/CAS and the sole country owner, plus the same preparation evaluator for
-     * the leader query, so a read lists the same activation requirements (channel, quota, countries) that the writer enforces.
-     */
-    createPolicyModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig>; composePreflight: (database: RequestDatabase, context: AuthorizedAdmissionContext) => AdmissionActivationPreflightReader }) {
-      const executePolicy = async <Result>(context: AuthorizedAdmissionContext, run: (database: RequestDatabase) => Promise<Result>) => {
-        const account = await dependencies.accounts.getAuthenticatedAccount();
-        if (!account || account.userId !== context.userId || account.session.id !== context.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-        return dependencies.execute(account, run);
-      };
-      const authorize = (context: AuthorizedAdmissionContext) => async (database: RequestDatabase, tribeId: string) => {
-        if (tribeId !== context.tribeId) return false;
-        await authorizeAdmissionPolicy(database, context, context.sensitiveOperation);
-        return true;
-      };
-      const usage = (database: RequestDatabase, context: AuthorizedAdmissionContext) => new AdmissionMessagingUsagePolicyReader(new PostgresMessagingUsageRepository(database, authorize(context)));
-      const composePreparation = (database: RequestDatabase, context: AuthorizedAdmissionContext): AdmissionPolicyPreparationReader => new PostgresAdmissionPolicyPreparationReader(options.composePreflight(database, context), usage(database, context), new PostgresAdmissionVerificationReadinessReader(database, authorize(context), options.readSecurityConfig), options.readSecurityConfig);
-      const writer = new PostgresAdmissionPolicyRepository(executePolicy, options.readSecurityConfig, composePreparation);
-      return { useCases: new ManageAdmissionPolicyUseCases(resolveContext, new PostgresAdmissionPolicyReader(executePolicy, usage), writer), composePreparation };
-    },
-    /** @param options - Live security for the original ledger. @returns The leader's review of memberships blocked by payment through the tribes owner functions. */
-    createCommercialMembershipReviewModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
-      const executeReview = async <Result>(context: AuthorizedAdmissionContext, run: (database: RequestDatabase) => Promise<Result>) => {
-        const account = await dependencies.accounts.getAuthenticatedAccount();
-        if (!account || account.userId !== context.userId || account.session.id !== context.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-        return dependencies.execute(account, run);
-      };
-      return { useCases: new ManageCommercialMembershipReviewsUseCases(resolveContext, new PostgresCommercialMembershipReviewRepository(executeReview, options.readSecurityConfig)) };
-    },
+    ...buildInvitationAndVerificationModules(context),
+    ...buildPolicyModules(context),
+    ...buildReadModules(context),
+    ...buildLedgerModules(context),
     /** @param options - Explicit public lookup and live server security; no legacy writer is used for an explicit request. @returns A native admission entry port for the tribe compatibility use case. */
     createAcademyEntryModule(options: { executePublic: <Result>(run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>; readRecoveryLock: () => Promise<boolean>; readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
       const queries = this.createQueryModule(options).useCases;
       const manual = this.createManualRequestModule(options).useCases;
       const entry = new SubmitAcademyEntryUseCase(queries.resolveTribe, manual.submit);
       return { submit: (command: Parameters<typeof entry.execute>[0]) => entry.execute(command) };
-    },
-    /** @returns Current leader activity/metrics without loading hosting keys or provider resources. */
-    createActivityQueryModule() {
-      const observations = new GetAdmissionActivityAndMetricsUseCases(resolveContext, new PostgresAdmissionActivityReader(executeScopedQuery));
-      return { useCases: observations,
-        /** @param resolveTribe - Canonical routing from the same request root. @param usage - The existing sole current country/quota owner. @returns A read-only page that keeps current and historical facts separate. */
-        createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">, usage: Pick<ManageMessagingUsageUseCases, "read">) { return new GetAdmissionActivityPageUseCase(dependencies.accounts, { resolveTribe, observations, usage }, dependencies.clock); },
-      };
-    },
-    /** @returns One request's current-authorized history without a keyring, provider or complete-audit capability. */
-    createReviewHistoryQueryModule() {
-      const history = new GetAdmissionReviewHistoryUseCase(resolveContext, new PostgresAdmissionReviewHistoryReader(executeScopedQuery));
-      return { useCases: { history },
-        /** @param resolveTribe - Canonical slug reader from the same request root. @returns One current-authorized page without provider or hosting credentials. */
-        createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">) { return new GetAdmissionReviewHistoryPageUseCase(dependencies.accounts, { history, resolveTribe }, dependencies.clock); },
-      };
-    },
-    /** @param options - Live recovery state without provider/keyring access. @returns Current authorized read-only inbox/detail use cases. */
-    createReviewQueryModule(options: { readRecoveryLock: () => Promise<boolean> }) {
-      const review = new GetAdmissionReviewUseCases(resolveContext, new PostgresAdmissionReviewReader(executeScopedQuery, options.readRecoveryLock));
-      return { useCases: { review,
-        /** @param resolveTribe - Public slug resolver composed by the request root. @returns The single server page loader over current reviewer reads. */
-        createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">) { return new GetAdmissionReviewPageUseCase(dependencies.accounts, { review, resolveTribe }, dependencies.clock); },
-      } };
-    },
-    /**
-     * Composes public/own reads without a credential, keyring, sender or membership prerequisite.
-     * @param options - Explicit anonymous executor and current platform recovery closure.
-     * @returns Read-only overview and own application use cases, with native identity revalidation.
-     */
-    createQueryModule(options: { executePublic: <Result>(run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>; readRecoveryLock: () => Promise<boolean> }) {
-      const executeAccount = async <Result>(scope: Pick<AdmissionCommandScope, "userId" | "sessionId">, run: (database: RequestDatabase) => Promise<Result>) => {
-        const account = await dependencies.accounts.getAuthenticatedAccount();
-        if (!account || account.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-        return dependencies.execute(account, run);
-      };
-      const overviewReader = new PostgresAdmissionOverviewReader(options.executePublic, executeAccount, options.readRecoveryLock);
-      const overview = new GetAdmissionOverviewUseCase(dependencies.accounts, overviewReader, dependencies.clock);
-      const own = new GetOwnAdmissionUseCases(dependencies.accounts, new PostgresOwnAdmissionRequestReader(executeAccount, options.readRecoveryLock), dependencies.clock);
-      /** The loaders of one render share the public slug lookup; route handlers and other requests read it again. */
-      const resolveTribe = new ResolveAdmissionTribeUseCase({ readIdentity: (query) => memoizeForRequest(`${ADMISSION_REQUEST_MEMO_KEY.tribeIdentity}:${query.slug}`, () => overviewReader.readIdentity(query)) });
-      return { useCases: {
-        overview, resolveTribe, own,
-        page: new GetAdmissionPageUseCase(dependencies.accounts, { overview, resolveTribe, own, legacyInvitations: { findActiveByToken: (query) => executeAccount(query, (database) => new PostgresLegacyAdmissionInvitationReader(database).findActiveByToken(query)) } }, dependencies.clock),
-        operation: new ReadAdmissionOperationUseCase(dependencies.accounts, new PostgresAdmissionOperationReader(executeAccount), dependencies.clock),
-      } };
     },
     /**
      * Composes common manual/list writes with base OFF or local ON evidence and DB-only access effects.
@@ -318,7 +156,7 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
     createManualRequestModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
       const executeRequest = async <Result>(scope: AdmissionCommandScope, run: (database: RequestDatabase) => Promise<Result>) => {
         const account = await readCurrentFeatureSessionContext(dependencies.accounts);
-        if (!account || account.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+        if (account?.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
         return dependencies.execute(account, run);
       };
       const writer = new PostgresAdmissionRequestRepository(executeRequest, options.readSecurityConfig, (database) => ({ memberships: createAcademyApprovedMembershipWriter(database), notifications: createPostgresAdmissionNotificationObligationWriter(database), lockSubmissionScope: (scope) => lockAcademyAdmissionMembershipScope(database, scope.tribeId, scope.userId), readSubmissionActor: (scope) => new PostgresAdmissionAuthorizationReader(database, scope.sessionId, ADMISSION_ACTION.readOwnRequest).getCurrentActorWithSubmissionScope(scope.tribeId, scope.userId), legacyInvitations: new PostgresLegacyAdmissionInvitationReader(database) }), { batchNativeSubmissionAuthorization: true });
@@ -336,43 +174,208 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
         },
       };
     },
-    /**
-     * Reads an original registered operation only; absence cannot manufacture started work.
-     * @param options - Owner-specific authority, result schema and live platform security source.
-     * @returns An application resolver with actual current account/session revalidation at every ledger phase.
-     */
-    createOperationResolver<Result>(options: AdmissionOperationComposition<Result>) {
-      return new ResolveAdmissionOperationUseCase(dependencies.accounts, {
-        async resolve(command) {
-          const account = await dependencies.accounts.getAuthenticatedAccount();
-          if (!account || account.userId !== command.actorUserId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-          const ledger = new PostgresAdmissionOperationRepository((run) => dependencies.execute(account, run), async (database, current) => {
-            const actual = await createTransactionAccountProvider(database, account).getAuthenticatedAccount();
-            return Boolean(actual && actual.userId === current.actorUserId && actual.session.id === account.session.id && await options.authorize(database, current));
-          }, options.readSecurityConfig);
-          const result = await ledger.read(command, options.resultSchema);
-          if (!result) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-          return result;
-        },
-      }, dependencies.clock);
-    },
-    /**
-     * Keeps issuance/validation/proof/budgets on the caller's same transaction, without SDK or another checkout.
-     * @param database - Existing original-operation transaction with the shared lock order held by its owner.
-     * @param options - Fixed owner scope and mandatory current authorization/security callbacks.
-     * @returns Inward-facing writer/issuer/proof/country ports; entrypoints consume their owning application use cases.
-     */
-    createVerificationCollaborators(database: RequestDatabase, options: AdmissionVerificationComposition) {
-      const contacts = new PostgresMessagingContactBudgetRepository(database, (current) => options.authorize(current, options.scope), options.readSecurityConfig);
-      const requests = new PostgresVerificationRequestBudget(database, (current, command) => options.authorize(current, command.scope), contacts);
-      const failures = new PostgresVerificationFailureBudget(database);
-      return {
-        verifier: new PostgresContactVerificationRepository(database, options.authorize, options.readSecurityConfig, failures),
-        issuer: new PostgresContactVerificationIssuer(database, options.authorize, options.readSecurityConfig, requests),
-        proofs: new PostgresAdmissionVerificationProofWriter(database, options.authorize, options.readSecurityConfig),
-        countries: new AdmissionMessagingUsagePolicyReader(new PostgresMessagingUsageRepository(database, (current, tribeId) => tribeId === options.scope.tribeId ? options.authorize(current, options.scope) : Promise.resolve(false))),
-      };
-    },
+  };
+}
+
+/** Request-scoped composition shared by every admission module builder. */
+type AdmissionModuleContext = { dependencies: AuthenticatedFeatureDependencies; resolveContext: ReturnType<typeof createAdmissionContextResolver>; executeForAccount: ReturnType<typeof createIdentityBoundExecutor> };
+
+/** @param dependencies - Native current-account provider and protected executor owned by this request. @returns A guarded executor that rechecks the native account/session on every checkout; no account snapshot is retained. */
+function createIdentityBoundExecutor(dependencies: AuthenticatedFeatureDependencies) {
+  /** @param scope - Current account/session. @param run - DB-only work. @returns The guarded result. @throws AdmissionOperationError when the native account or session changed. */
+  return async <Result>(scope: Pick<AdmissionCommandScope, "userId" | "sessionId">, run: (database: RequestDatabase) => Promise<Result>) => {
+    const account = await dependencies.accounts.getAuthenticatedAccount();
+    if (account?.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+    return dependencies.execute(account, run);
+  };
+}
+
+/** @param dependencies - Native current-account provider and protected executor owned by this request. @returns Current context resolution through the native account. */
+function createAdmissionContextResolver(dependencies: AuthenticatedFeatureDependencies) {
+  return {
+  /** @param command - Fixed server action and validated resource ids. @returns Current private authority or a safe denial. */
+  async execute(command: Parameters<ResolveAdmissionContextUseCase["execute"]>[0]) {
+    const account = await dependencies.accounts.getAuthenticatedAccount();
+    if (!account) return { allowed: false as const, failure: admissionFailure(ADMISSION_ERROR_CODE.authenticationRequired) };
+    return dependencies.execute(account, (database) => new ResolveAdmissionContextUseCase(createTransactionAccountProvider(database, account), new PostgresAdmissionAuthorizationReader(database, account.session.id, command.action), dependencies.clock).execute(command));
+  },
+  };
+}
+
+/** @param context - Shared request composition. @returns Personal invitation, allowlist and applicant verification module factories. */
+function buildInvitationAndVerificationModules({ dependencies, resolveContext, executeForAccount }: AdmissionModuleContext) {
+  return {
+  /** @param options - Current private hosting security for explicit invitation commands. @returns Native leader metadata/commands with atomic related notices and no recovered token on replay. */
+  createPersonalInvitationModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
+    const execute = executeForAccount;
+    const repository = new PostgresPersonalInvitationRepository(execute, options.readSecurityConfig, createPostgresAdmissionNotificationObligationWriter);
+    const useCases = new ManagePersonalInvitationsUseCases(resolveContext, repository, repository);
+    return { useCases, createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">, policy: Pick<GetAdmissionPolicyUseCase, "execute">) { return new GetPersonalInvitationManagementPageUseCase(dependencies.accounts, { invitations: useCases, policy, resolveTribe, resolveContext, availability: repository }, dependencies.clock); } };
+  },
+  /** @param options - Current private token security, without a provider or mutation port. @returns Native account-bound read-only personal preview. */
+  createPersonalInvitationQueryModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
+    const execute = executeForAccount;
+    const overview = new GetPersonalInvitationOverviewUseCase(dependencies.accounts, new PostgresPersonalInvitationOverviewReader(execute, options.readSecurityConfig), dependencies.clock);
+    return { useCases: { overview }, page: new GetPersonalInvitationPageUseCase(dependencies.accounts, overview, dependencies.clock) };
+  },
+  /** @param options - Local private security for explicit commands only. @returns Leader-only queries and atomic original list commands, rechecking native identity on every checkout. */
+  createAllowlistModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
+    const execute = executeForAccount;
+    const useCases = new ManageAllowlistUseCases(resolveContext, new PostgresAllowlistReader(execute), new PostgresAllowlistRepository(execute, options.readSecurityConfig));
+    const imports = new ImportAllowlistUseCases(resolveContext, new PostgresAllowlistImportRepository(execute, options.readSecurityConfig), { parse: parseAllowlistCsv });
+    return { useCases, imports, createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">, policy: Pick<GetAdmissionPolicyUseCase, "execute">) { return new GetAllowlistPageUseCase(dependencies.accounts, { allowlist: useCases, policy, resolveTribe }, dependencies.clock); } };
+  },
+  /** @param options - Live private security and an explicit focal launch factory consuming native challenge resolution. @returns Applicant verification with current account checks on every checkout, without caller-selected worker privileges. */
+  createContactVerificationModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig>; createDispatcher: (resolve: (intent: AdmissionChallengeDispatchIntent) => Promise<ResolvedAdmissionChallengeDispatch>) => AdmissionContactChallengeDispatcher }) {
+    const operations = new PostgresAdmissionContactVerificationOperations(executeForAccount, options.readSecurityConfig, (database) => new PostgresLegacyAdmissionInvitationReader(database));
+    const context = new PostgresAdmissionVerificationDispatchContext(executeForAccount);
+    const dispatcher = options.createDispatcher((intent) => context.resolve(intent));
+    return { useCases: new ContactVerificationUseCases(dependencies.accounts, operations, dispatcher, dependencies.clock) };
+  },
+  /** @param options - Current server security only. @returns Exact-contact selection without a sender or dispatcher. */
+  createCurrentChallengeModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
+    return { useCase: new ReadCurrentAdmissionChallengeUseCase(dependencies.accounts, new PostgresAdmissionContactVerificationOperations(executeForAccount, options.readSecurityConfig, (database) => new PostgresLegacyAdmissionInvitationReader(database)), dependencies.clock) };
+  },
+  /** @param options - Live server security for the atomic owner and original ledger. @returns Own pending proof attachment without a sender, dispatcher or provider dependency. */
+  createProofApplicationModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
+    const operations = new PostgresAdmissionContactVerificationOperations(executeForAccount, options.readSecurityConfig, (database) => new PostgresLegacyAdmissionInvitationReader(database));
+    return { useCases: new ApplyAdmissionProofUseCase(dependencies.accounts, operations, dependencies.clock) };
+  },
+  /** @param options - Mandatory complete runtime owner and live external recovery lock, without optimistic defaults or keyrings. @returns Informational current inventory; activation still repeats the locked owner in its actual transaction. */
+  createPreflightModule(options: { runtime: AdmissionActivationRuntimeReader; readRecoveryLock: () => Promise<boolean> }) {
+    const inventory = { read: (context: AuthorizedAdmissionContext) => executeForAccount(context, (database) => new PostgresAdmissionActivationRepository(database, context, options.runtime, options.readRecoveryLock).read(context)) };
+    return { useCases: new PreflightAdmissionActivationUseCase(resolveContext, inventory) };
+  },
+  };
+}
+
+/** @param context - Shared request composition. @returns Policy query/management and commercial membership review module factories. */
+function buildPolicyModules({ dependencies, resolveContext, executeForAccount }: AdmissionModuleContext) {
+  return {
+  /** @param options - Explicit informational preparation evaluator, or null when no evaluation is available. @returns Current leader query without a keyring, command writer or implicit initialization dependency. */
+  createPolicyQueryModule(options: { composePreparation: ((database: RequestDatabase, context: AuthorizedAdmissionContext) => AdmissionPolicyPreparationReader) | null }) {
+    const executePolicy = executeForAccount;
+    const usage = (database: RequestDatabase, context: AuthorizedAdmissionContext) => new AdmissionMessagingUsagePolicyReader(new PostgresMessagingUsageRepository(database, async (current, tribeId) => {
+      if (tribeId !== context.tribeId) return false;
+      await authorizeAdmissionPolicy(current, context);
+      return true;
+    }));
+    const policy = new GetAdmissionPolicyUseCase(resolveContext, new PostgresAdmissionPolicyReader(executePolicy, usage), new PostgresAdmissionPolicyViewFactsReader(executePolicy, options.composePreparation));
+    return { useCases: policy, createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">) { return new GetAdmissionPolicyPageUseCase(dependencies.accounts, { policy, resolveTribe }, dependencies.clock); } };
+  },
+  /**
+   * @param options - Live security and a mandatory current SQL cutover owner; no preparation default exists.
+   * @returns Policy management through native authority/ledger/CAS and the sole country owner, plus the same preparation evaluator for
+   * the leader query, so a read lists the same activation requirements (channel, quota, countries) that the writer enforces.
+   */
+  createPolicyModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig>; composePreflight: (database: RequestDatabase, context: AuthorizedAdmissionContext) => AdmissionActivationPreflightReader }) {
+    const executePolicy = executeForAccount;
+    const authorize = (context: AuthorizedAdmissionContext) => async (database: RequestDatabase, tribeId: string) => {
+      if (tribeId !== context.tribeId) return false;
+      await authorizeAdmissionPolicy(database, context, context.sensitiveOperation);
+      return true;
+    };
+    const usage = (database: RequestDatabase, context: AuthorizedAdmissionContext) => new AdmissionMessagingUsagePolicyReader(new PostgresMessagingUsageRepository(database, authorize(context)));
+    const composePreparation = (database: RequestDatabase, context: AuthorizedAdmissionContext): AdmissionPolicyPreparationReader => new PostgresAdmissionPolicyPreparationReader(options.composePreflight(database, context), usage(database, context), new PostgresAdmissionVerificationReadinessReader(database, authorize(context), options.readSecurityConfig), options.readSecurityConfig);
+    const writer = new PostgresAdmissionPolicyRepository(executePolicy, options.readSecurityConfig, composePreparation);
+    return { useCases: new ManageAdmissionPolicyUseCases(resolveContext, new PostgresAdmissionPolicyReader(executePolicy, usage), writer), composePreparation };
+  },
+  /** @param options - Live security for the original ledger. @returns The leader's review of memberships blocked by payment through the tribes owner functions. */
+  createCommercialMembershipReviewModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
+    const executeReview = executeForAccount;
+    return { useCases: new ManageCommercialMembershipReviewsUseCases(resolveContext, new PostgresCommercialMembershipReviewRepository(executeReview, options.readSecurityConfig)) };
+  },
+  };
+}
+
+/** @param context - Shared request composition. @returns Read-only activity, history, review and public/own query module factories. */
+function buildReadModules({ dependencies, resolveContext, executeForAccount }: AdmissionModuleContext) {
+  return {
+  /** @returns Current leader activity/metrics without loading hosting keys or provider resources. */
+  createActivityQueryModule() {
+    const observations = new GetAdmissionActivityAndMetricsUseCases(resolveContext, new PostgresAdmissionActivityReader(executeForAccount));
+    return { useCases: observations,
+      /** @param resolveTribe - Canonical routing from the same request root. @param usage - The existing sole current country/quota owner. @returns A read-only page that keeps current and historical facts separate. */
+      createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">, usage: Pick<ManageMessagingUsageUseCases, "read">) { return new GetAdmissionActivityPageUseCase(dependencies.accounts, { resolveTribe, observations, usage }, dependencies.clock); },
+    };
+  },
+  /** @returns One request's current-authorized history without a keyring, provider or complete-audit capability. */
+  createReviewHistoryQueryModule() {
+    const history = new GetAdmissionReviewHistoryUseCase(resolveContext, new PostgresAdmissionReviewHistoryReader(executeForAccount));
+    return { useCases: { history },
+      /** @param resolveTribe - Canonical slug reader from the same request root. @returns One current-authorized page without provider or hosting credentials. */
+      createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">) { return new GetAdmissionReviewHistoryPageUseCase(dependencies.accounts, { history, resolveTribe }, dependencies.clock); },
+    };
+  },
+  /** @param options - Live recovery state without provider/keyring access. @returns Current authorized read-only inbox/detail use cases. */
+  createReviewQueryModule(options: { readRecoveryLock: () => Promise<boolean> }) {
+    const review = new GetAdmissionReviewUseCases(resolveContext, new PostgresAdmissionReviewReader(executeForAccount, options.readRecoveryLock));
+    return { useCases: { review,
+      /** @param resolveTribe - Public slug resolver composed by the request root. @returns The single server page loader over current reviewer reads. */
+      createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">) { return new GetAdmissionReviewPageUseCase(dependencies.accounts, { review, resolveTribe }, dependencies.clock); },
+    } };
+  },
+  /**
+   * Composes public/own reads without a credential, keyring, sender or membership prerequisite.
+   * @param options - Explicit anonymous executor and current platform recovery closure.
+   * @returns Read-only overview and own application use cases, with native identity revalidation.
+   */
+  createQueryModule(options: { executePublic: <Result>(run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>; readRecoveryLock: () => Promise<boolean> }) {
+    const executeAccount = executeForAccount;
+    const overviewReader = new PostgresAdmissionOverviewReader(options.executePublic, executeAccount, options.readRecoveryLock);
+    const overview = new GetAdmissionOverviewUseCase(dependencies.accounts, overviewReader, dependencies.clock);
+    const own = new GetOwnAdmissionUseCases(dependencies.accounts, new PostgresOwnAdmissionRequestReader(executeAccount, options.readRecoveryLock), dependencies.clock);
+    /** The loaders of one render share the public slug lookup; route handlers and other requests read it again. */
+    const resolveTribe = new ResolveAdmissionTribeUseCase({ readIdentity: (query) => memoizeForRequest(`${ADMISSION_REQUEST_MEMO_KEY.tribeIdentity}:${query.slug}`, () => overviewReader.readIdentity(query)) });
+    return { useCases: {
+      overview, resolveTribe, own,
+      page: new GetAdmissionPageUseCase(dependencies.accounts, { overview, resolveTribe, own, legacyInvitations: { findActiveByToken: (query) => executeAccount(query, (database) => new PostgresLegacyAdmissionInvitationReader(database).findActiveByToken(query)) } }, dependencies.clock),
+      operation: new ReadAdmissionOperationUseCase(dependencies.accounts, new PostgresAdmissionOperationReader(executeAccount), dependencies.clock),
+    } };
+  },
+  };
+}
+
+/** @param context - Shared request composition. @returns Original-operation recovery and same-transaction verification collaborator factories. */
+function buildLedgerModules({ dependencies }: AdmissionModuleContext) {
+  return {
+  /**
+   * Reads an original registered operation only; absence cannot manufacture started work.
+   * @param options - Owner-specific authority, result schema and live platform security source.
+   * @returns An application resolver with actual current account/session revalidation at every ledger phase.
+   */
+  createOperationResolver<Result>(options: AdmissionOperationComposition<Result>) {
+    return new ResolveAdmissionOperationUseCase(dependencies.accounts, {
+      async resolve(command) {
+        const account = await dependencies.accounts.getAuthenticatedAccount();
+        if (account?.userId !== command.actorUserId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+        const ledger = new PostgresAdmissionOperationRepository((run) => dependencies.execute(account, run), async (database, current) => {
+          const actual = await createTransactionAccountProvider(database, account).getAuthenticatedAccount();
+          return actual?.userId === current.actorUserId && actual.session.id === account.session.id && await options.authorize(database, current);
+        }, options.readSecurityConfig);
+        const result = await ledger.read(command, options.resultSchema);
+        if (!result) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+        return result;
+      },
+    }, dependencies.clock);
+  },
+  /**
+   * Keeps issuance/validation/proof/budgets on the caller's same transaction, without SDK or another checkout.
+   * @param database - Existing original-operation transaction with the shared lock order held by its owner.
+   * @param options - Fixed owner scope and mandatory current authorization/security callbacks.
+   * @returns Inward-facing writer/issuer/proof/country ports; entrypoints consume their owning application use cases.
+   */
+  createVerificationCollaborators(database: RequestDatabase, options: AdmissionVerificationComposition) {
+    const contacts = new PostgresMessagingContactBudgetRepository(database, (current) => options.authorize(current, options.scope), options.readSecurityConfig);
+    const requests = new PostgresVerificationRequestBudget(database, (current, command) => options.authorize(current, command.scope), contacts);
+    const failures = new PostgresVerificationFailureBudget(database);
+    return {
+      verifier: new PostgresContactVerificationRepository(database, options.authorize, options.readSecurityConfig, failures),
+      issuer: new PostgresContactVerificationIssuer(database, options.authorize, options.readSecurityConfig, requests),
+      proofs: new PostgresAdmissionVerificationProofWriter(database, options.authorize, options.readSecurityConfig),
+      countries: new AdmissionMessagingUsagePolicyReader(new PostgresMessagingUsageRepository(database, (current, tribeId) => tribeId === options.scope.tribeId ? options.authorize(current, options.scope) : Promise.resolve(false))),
+    };
+  },
   };
 }
 

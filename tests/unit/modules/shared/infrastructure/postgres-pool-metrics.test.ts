@@ -154,8 +154,8 @@ describe("Postgres pool usage metrics", () => {
     process.env[METRICS_INTERVAL_ENV] = "60000";
     const port = await reserveClosedPort();
     const pool = createPostgresPool({ connectionString: `postgres://user:secret@127.0.0.1:${port}/db`, operation: "runtime_database_pool_idle_error" });
-    await expect(pool.connect()).rejects.toThrow();
-    await expect(pool.query("select 1")).rejects.toThrow();
+    await expect(pool.connect()).rejects.toThrow(expect.objectContaining({ code: "ECONNREFUSED" }));
+    await expect(pool.query("select 1")).rejects.toThrow(expect.objectContaining({ code: "ECONNREFUSED" }));
     await pool.end();
 
     const logs = readMetricsLogs();
@@ -170,7 +170,7 @@ describe("Postgres pool usage metrics", () => {
     delete process.env[METRICS_INTERVAL_ENV];
     const port = await reserveClosedPort();
     const pool = createPostgresPool({ connectionString: `postgres://user:secret@127.0.0.1:${port}/db`, operation: "runtime_database_pool_idle_error" });
-    await expect(pool.connect()).rejects.toThrow();
+    await expect(pool.connect()).rejects.toThrow(expect.objectContaining({ code: "ECONNREFUSED" }));
     await pool.end();
     expect(readMetricsLogs()).toHaveLength(0);
   });

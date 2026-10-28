@@ -10,6 +10,11 @@ import { createPersonalInvitationTokenCodec } from "@/src/modules/academy-admiss
 import { createAdmissionContactFingerprint } from "@/src/modules/academy-admissions/infrastructure/verification/admission-contact-fingerprint";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 
+/** @param value - Committed native reply of any repository operation. @returns Whether it is a completed operation result. */
+function isCompletedReply(value: unknown): boolean {
+  return typeof value === "object" && value !== null && "state" in value && value.state === "completed";
+}
+
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal invitation administration", () => {
   it("should emit one token, keep replay metadata-only across rename and require exact confirmed replacement before a new version-one resource", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
@@ -18,7 +23,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal in
       let loseReply = false;
       const repository = new PostgresPersonalInvitationRepository(async (_context, run) => {
         const result = await database.withContext(fixture.own, run);
-        if (loseReply && result && typeof result === "object" && "state" in result && result.state === "completed") { loseReply = false; throw new Error("Controlled personal invitation COMMIT response loss"); }
+        if (loseReply && isCompletedReply(result)) { loseReply = false; throw new Error("Controlled personal invitation COMMIT response loss"); }
         return result;
       }, async () => fixture.config);
       const creation = await fixture.confirm(REAUTHENTICATION_OPERATION.createPersonalInvitation);

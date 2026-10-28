@@ -41,13 +41,13 @@ const owner = { userId: null, email: null };
 const sampleMode = process.env[ADMISSION_SAMPLE.environmentVariable] === ADMISSION_SAMPLE.enabledValue;
 /** @returns Its durable own result; no caller can select another operation. */
 async function readStatus(): Promise<AdmissionNodeStatus> {
-  const row = await database().withContext(owner, async (transaction) => (await transaction.execute<{ id: string; state: AdmissionNodeRunState; measurement: AdmissionNodeMeasurement | AdmissionNodeSample | null }>(sql`select id,state,measurement from native_test_support.admission_node_runs where id=${configuration.operationId} and expected_branch=${configuration.branchName}`)).rows[0]);
+  const row = await database().withContext(owner, async (transaction) => (await transaction.execute<{ id: string; state: AdmissionNodeRunState; measurement: AdmissionNodeMeasurement | AdmissionNodeSample | null }>(sql`select id,state,measurement from native_test_support.admission_node_runs where id=${configuration.operationId} and expected_branch=${configuration.branchName}`)).rows.at(0));
   if (!row) throw new Error("AdmissionNodeHost.read failed: operation_unavailable");
   return sampleMode ? { operationId: row.id, state: row.state, measurement: null, sample: row.measurement as AdmissionNodeSample | null } : { operationId: row.id, state: row.state, measurement: row.measurement as AdmissionNodeMeasurement | null };
 }
 /** @returns The original persisted outcome; an already running invocation never starts another workload. */
 async function run(): Promise<AdmissionNodeStatus> {
-  const acquired = await database().withContext(owner, async (transaction) => (await transaction.execute(sql`update native_test_support.admission_node_runs set state=${ADMISSION_NODE_RUN_STATE.running},started_at=clock_timestamp() where id=${configuration.operationId} and expected_branch=${configuration.branchName} and state=${ADMISSION_NODE_RUN_STATE.prepared} returning id`)).rows[0]);
+  const acquired = await database().withContext(owner, async (transaction) => (await transaction.execute(sql`update native_test_support.admission_node_runs set state=${ADMISSION_NODE_RUN_STATE.running},started_at=clock_timestamp() where id=${configuration.operationId} and expected_branch=${configuration.branchName} and state=${ADMISSION_NODE_RUN_STATE.prepared} returning id`)).rows.at(0));
   if (!acquired) return readStatus();
   try {
     const started = performance.now();
@@ -79,14 +79,15 @@ async function run(): Promise<AdmissionNodeStatus> {
     measurement = admissionNodeMeasurementSchema.parse({ ...measured, ...(cpuProfile ? { cpuProfile } : {}), databaseConnection, measurementWindow: { startedAt: measurementStartedAt, finishedAt: measurementFinishedAt }, setupDurationMs, nodeVersion: process.versions.node, sourceCommit: configuration.sourceCommit, bundleSha256: configuration.bundleSha256 });
     }
     await database().withContext(owner, (transaction) => transaction.execute(sql`update native_test_support.admission_node_runs set state=${ADMISSION_NODE_RUN_STATE.completed},measurement=${JSON.stringify(measurement)}::jsonb,completed_at=clock_timestamp() where id=${configuration.operationId} and state=${ADMISSION_NODE_RUN_STATE.running}`));
-    return readStatus();
   } catch (error) {
     try { await database().withContext(owner, (transaction) => transaction.execute(sql`update native_test_support.admission_node_runs set state=${ADMISSION_NODE_RUN_STATE.failed},completed_at=clock_timestamp() where id=${configuration.operationId} and state=${ADMISSION_NODE_RUN_STATE.running}`)); }
     catch (recordingError) { throw new AggregateError([error, recordingError], "AdmissionNodeHost.run failed: terminal_state_unconfirmed", { cause: error }); }
     throw new Error("AdmissionNodeHost.run failed: workload_unavailable", { cause: error });
   }
+  return readStatus();
 }
-export default createAdmissionNodeHostHandler(configuration, {
+const handler = createAdmissionNodeHostHandler(configuration, {
   currentBranchName: () => process.env[ADMISSION_NODE_HOST.branchIdentityVariable], readStatus, run,
   reportFailure: (error) => logger.error({ message: "AdmissionNodeHost.request failed", metadata: { operationId: configuration.operationId, ...readPostgresTestDiagnostics(error) } }),
 });
+export default handler;

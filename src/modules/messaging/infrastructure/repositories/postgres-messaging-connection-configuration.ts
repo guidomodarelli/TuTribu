@@ -32,6 +32,24 @@ export type MessagingConfigurationDatabaseExecutor=<Result>(context:AuthorizedMe
 type CurrentConfiguration={name:string;version:number;state:"draft"|"ready"|"active"|"degraded"|"suspended"|"disconnected";selected_version:number|null;candidate_version:number|null;is_selected:boolean;email_sender_id:string|null;sms_sender_id:string|null;whatsapp_sender_id:string|null;whatsapp_template_id:string|null;whatsapp_template_language:string|null};
 
 /** Replays before CAS and keeps selected versions untouched while replacing only the candidate configuration. */
+/** @param error - Failure of the operation. @returns Its messaging code when known, otherwise an unexpected failure. */
+function knownFailureCode(error:unknown){
+  if(error instanceof AdmissionOperationError)return Object.values(MESSAGING_ERROR_CODE).find((candidate)=>candidate===error.code)??MESSAGING_ERROR_CODE.unexpectedFailure;
+  return error instanceof MessagingCryptographyError?MESSAGING_ERROR_CODE.connectionIncomplete:MESSAGING_ERROR_CODE.unexpectedFailure;
+}
+
+/** @returns The sender the stored version assigns to the channel. */
+function configuredSenderId(row:{email_sender_id:string|null;sms_sender_id:string|null;whatsapp_sender_id:string|null},channel:string):string|null{
+  if(channel===MESSAGING_PUBLIC_CHANNEL.email)return row.email_sender_id;
+  return channel===MESSAGING_PUBLIC_CHANNEL.sms?row.sms_sender_id:row.whatsapp_sender_id;
+}
+
+/** @param input - WhatsApp configuration change. @returns Its template and language. @throws AdmissionOperationError when either is missing. */
+function requiredWhatsappTemplate(input:MessagingConnectionConfigurationInput):{templateId:string;templateLanguage:string}{
+  if(!input.templateId||!input.templateLanguage)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+  return{templateId:input.templateId,templateLanguage:input.templateLanguage};
+}
+
 export class PostgresMessagingConnectionConfiguration implements MessagingConnectionConfigurationOperations{
   /** @param execute - Current native principal's guarded database executor. @param readSecurityConfig - Current external epoch/recovery and purpose-separated keyrings. */
   constructor(private readonly execute:MessagingConfigurationDatabaseExecutor,private readonly readSecurityConfig:()=>Promise<MessagingSecurityConfig>){}
@@ -58,7 +76,7 @@ export class PostgresMessagingConnectionConfiguration implements MessagingConnec
   /** @param error - Original private failure. @returns Safe typed metadata with genuinely registered progress only. */
   private failure(error:unknown){
     if(error instanceof MessagingConnectionOperationError)return error;
-    const code=error instanceof AdmissionOperationError?Object.values(MESSAGING_ERROR_CODE).find((candidate)=>candidate===error.code)??MESSAGING_ERROR_CODE.unexpectedFailure:error instanceof MessagingCryptographyError?MESSAGING_ERROR_CODE.connectionIncomplete:MESSAGING_ERROR_CODE.unexpectedFailure;
+    const code=knownFailureCode(error);
     return new MessagingConnectionOperationError(code,{cause:error,...(error instanceof AdmissionOperationError&&error.code===ADMISSION_ERROR_CODE.operationUnresolved&&error.operationId?{operationId:error.operationId}:{})});
   }
   /** @param database - Authorized protected transaction. @param context - Exact originally resolved configuration. @param input - Current CAS intent. @returns Current immutable fields and semantic change, never an invented replacement of another candidate. */
@@ -66,10 +84,10 @@ export class PostgresMessagingConnectionConfiguration implements MessagingConnec
     const authority=await this.authorize(database,context);
     if(authority.context.connectionVersion!==context.connectionVersion||authority.context.secretRef!==context.secretRef)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionConflict);
     const row=(await database.execute<CurrentConfiguration>(sql`select connection.name,connection.version,connection.state,connection.is_selected,connection.selected_version,connection.candidate_version,resource.email_sender_id,resource.sms_sender_id,resource.whatsapp_sender_id,resource.whatsapp_template_id,resource.whatsapp_template_language from public.tenant_messaging_connections connection join public.messaging_connection_versions resource on resource.connection_id=connection.id and resource.tribe_id=connection.tribe_id and resource.version=${context.connectionVersion} where connection.id=${context.connectionId} and connection.tribe_id=${context.tribeId} for share of connection,resource`)).rows[0];
-    if(!row||row.version!==input.expectedVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionConflict);
+    if(row?.version !== input.expectedVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionConflict);
     const candidate=(await database.execute<{id:string}>(sql`select id from public.tenant_messaging_connections where tribe_id=${context.tribeId} and is_candidate for share`)).rows[0];
     if(candidate&&candidate.id!==context.connectionId)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionConflict);
-    const senderId=input.channel===MESSAGING_PUBLIC_CHANNEL.email?row.email_sender_id:input.channel===MESSAGING_PUBLIC_CHANNEL.sms?row.sms_sender_id:row.whatsapp_sender_id;
+    const senderId=configuredSenderId(row,input.channel);
     const changed=senderId!==input.senderId||input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp&&(row.whatsapp_template_id!==input.templateId||row.whatsapp_template_language!==input.templateLanguage);
     return{row,changed,now:authority.now};
   }
@@ -102,11 +120,11 @@ export class PostgresMessagingConnectionConfiguration implements MessagingConnec
         const envelope=await createMessagingSecretCipher(config).seal(inspection.credential,{tribeId:context.tribeId,connectionId:context.connectionId,connectionVersion:nextVersion,resourceId:secretRef});
         const authorized=await this.authorize(database,context,true),now=authorized.now,security=await this.readSecurityConfig();
         if(authorized.context.connectionVersion!==context.connectionVersion||authorized.context.secretRef!==context.secretRef||security.recoveryLocked||security.environment!==config.environment||security.securityEpoch!==config.securityEpoch||!security.keyrings.credential.keys.has(envelope.keyId))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
-        const emailSenderId=input.channel===MESSAGING_PUBLIC_CHANNEL.email?input.senderId:row.email_sender_id,smsSenderId=input.channel===MESSAGING_PUBLIC_CHANNEL.sms?input.senderId:row.sms_sender_id,whatsappSenderId=input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp?input.senderId:row.whatsapp_sender_id,templateId=input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp?input.templateId!:row.whatsapp_template_id,templateLanguage=input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp?input.templateLanguage!:row.whatsapp_template_language;
+        const emailSenderId=input.channel===MESSAGING_PUBLIC_CHANNEL.email?input.senderId:row.email_sender_id,smsSenderId=input.channel===MESSAGING_PUBLIC_CHANNEL.sms?input.senderId:row.sms_sender_id,whatsappSenderId=input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp?input.senderId:row.whatsapp_sender_id,{templateId,templateLanguage}=input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp?requiredWhatsappTemplate(input):{templateId:row.whatsapp_template_id,templateLanguage:row.whatsapp_template_language};
         await database.execute(sql`insert into public.messaging_connection_versions(connection_id,tribe_id,version,environment,security_epoch,secret_ref,email_sender_id,sms_sender_id,whatsapp_sender_id,whatsapp_template_id,whatsapp_template_language,created_at,last_activity_at) values (${context.connectionId},${context.tribeId},${nextVersion},${context.environment},${context.securityEpoch},${secretRef},${emailSenderId},${smsSenderId},${whatsappSenderId},${templateId},${templateLanguage},${now},${now})`);
         await database.execute(sql`insert into public.messaging_secret_envelopes(secret_ref,tribe_id,connection_id,connection_version,environment,security_epoch,purpose,format,key_id,iv,ciphertext) values (${secretRef},${context.tribeId},${context.connectionId},${nextVersion},${envelope.environment},${envelope.securityEpoch},${envelope.purpose},${envelope.format},${envelope.keyId},${Buffer.from(envelope.iv)},${Buffer.from(envelope.ciphertext)})`);
         await database.execute(sql`insert into public.messaging_connection_capabilities(tribe_id,connection_id,connection_version,channel,sender_id,template_id,template_language,state,checked_at,platform_restrictions) select tribe_id,connection_id,${nextVersion},channel,sender_id,template_id,template_language,case when state=${MESSAGING_CAPABILITY_PUBLIC_STATE.unavailable} then state else ${MESSAGING_CAPABILITY_PUBLIC_STATE.unprepared} end,checked_at,platform_restrictions from public.messaging_connection_capabilities where connection_id=${context.connectionId} and tribe_id=${context.tribeId} and connection_version=${context.connectionVersion} and channel<>${input.channel}`);
-        await database.execute(sql`insert into public.messaging_connection_capabilities(tribe_id,connection_id,connection_version,channel,sender_id,template_id,template_language,state,checked_at,platform_restrictions) values (${context.tribeId},${context.connectionId},${nextVersion},${input.channel},${input.senderId},${input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp?input.templateId!:null},${input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp?input.templateLanguage!:null},${MESSAGING_CAPABILITY_PUBLIC_STATE.unprepared},${now},coalesce((select platform_restrictions from public.messaging_connection_capabilities where connection_id=${context.connectionId} and tribe_id=${context.tribeId} and connection_version=${context.connectionVersion} and channel=${input.channel}),'[]'::jsonb))`);
+        await database.execute(sql`insert into public.messaging_connection_capabilities(tribe_id,connection_id,connection_version,channel,sender_id,template_id,template_language,state,checked_at,platform_restrictions) values (${context.tribeId},${context.connectionId},${nextVersion},${input.channel},${input.senderId},${input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp?requiredWhatsappTemplate(input).templateId:null},${input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp?requiredWhatsappTemplate(input).templateLanguage:null},${MESSAGING_CAPABILITY_PUBLIC_STATE.unprepared},${now},coalesce((select platform_restrictions from public.messaging_connection_capabilities where connection_id=${context.connectionId} and tribe_id=${context.tribeId} and connection_version=${context.connectionVersion} and channel=${input.channel}),'[]'::jsonb))`);
         const state=row.is_selected?row.state:MESSAGING_CONNECTION_STATE.draft;
         await database.execute(sql`update public.tenant_messaging_connections set version=version+1,candidate_version=${nextVersion},is_candidate=true,state=${state},updated_at=${now} where id=${context.connectionId} and tribe_id=${context.tribeId} and version=${input.expectedVersion}`);
         await retireDiagnosticChallenges(database,{tribeId:context.tribeId,connectionId:context.connectionId,connectionVersion:context.connectionVersion,actorUserId:context.actorUserId,operationId:ledgerId});

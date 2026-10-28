@@ -34,7 +34,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native base bindin
       const claim = () => database.withContext({ userId: claimant.userId, email: claimant.email }, async (transaction) => {
         const current = await readAllowlistAdmissionFacts(transaction, scope, contact), policy = await readAdmissionPolicy(transaction, fixture.tribeId, false);
         const facts: AutomaticAdmissionFacts = { ...current, now: new Date(), tribe: { id: fixture.tribeId, isAcademy: true, controlActivated: true, evaluatorEnabled: true, recoveryLocked: false }, policy, source: { kind: "common" }, contact, membership: null, localProof: null, currentConnection: null };
-        await bindBaseAdmissionContact(transaction, scope, request, facts, fixture.config);
+        await bindBaseAdmissionContact(transaction, scope, { request, facts }, fixture.config);
       });
       expect(await withAdmissionAccountDeletionContention(database, fixture.own, ownerUserId, claim)).toMatchObject({ status: "rejected", reason: { code: "contact_binding_conflict" } });
       await database.withContext(fixture.own, async (transaction) => {

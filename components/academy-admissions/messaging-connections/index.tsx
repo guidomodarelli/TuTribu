@@ -16,7 +16,7 @@ export type MessagingConnectionsProps={configuration:MessagingConfigurationResul
 export function MessagingConnections(props:MessagingConnectionsProps){
   const fieldId=useId(),titleId=`${fieldId}-title`,confirmationId=`${fieldId}-confirmation`,nameId=`${fieldId}-name`,keyId=`${fieldId}-key`;
   /** @returns Nothing after focusing the first field the rejected save flagged, in reading order. */
-  const focusFirstInvalid=useEffectEvent(()=>{const invalidId=props.fieldErrors.name?nameId:props.fieldErrors.apiKey?keyId:props.fieldErrors.confirmation?confirmationId:null;if(invalidId)document.getElementById(invalidId)?.focus();});
+  const focusFirstInvalid=useEffectEvent(()=>{const invalidId=[[props.fieldErrors.name,nameId],[props.fieldErrors.apiKey,keyId],[props.fieldErrors.confirmation,confirmationId]].find(([error])=>error)?.[1]??null;if(invalidId)document.getElementById(invalidId)?.focus();});
   useEffect(()=>{if(props.validationAttempt)focusFirstInvalid();},[props.validationAttempt]);
   if(props.configuration.audience===TRIBE_MEMBER_ROLE.guardian)return<section className={styles.MessagingConnections} aria-label="Estado de mensajería"><p className={styles.MessagingConnections__lead} role="status">{MESSAGING_OPERATIONAL_ALERT_LABEL[props.configuration.operationalAlert]}</p></section>;
   if(props.configuration.candidate)return<section className={styles.MessagingConnections} aria-labelledby={titleId} data-beezping-ignore="true">

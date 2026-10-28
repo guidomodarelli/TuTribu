@@ -21,7 +21,11 @@ export function respondToAdmissionSubmission(boundary: ReturnType<typeof createA
   if (parsed.data.state === OPERATION_STATE.started) return boundary.success(startedSchema, parsed.data, HTTP_STATUS.accepted);
   const original = parsed.data.result;
   if (original.operationId.toLowerCase() !== parsed.data.operationId.toLowerCase()) return unusable();
-  const response = original.outcome === ADMISSION_OUTCOME.pending ? { operationId: parsed.data.operationId, outcome: original.outcome, request: original.requestSnapshot, safeMessage: ADMISSION_MUTATION_MESSAGE.pending, nextHref: buildOwnAdmissionRequestRoute(slug, original.admissionRequestId!) }
-    : { operationId: parsed.data.operationId, outcome: original.outcome, membership: original.membership, safeMessage: original.outcome === ADMISSION_OUTCOME.admitted ? ADMISSION_MUTATION_MESSAGE.admitted : ADMISSION_MUTATION_MESSAGE.alreadyMember, nextHref: `/${slug}/academia` };
-  return boundary.success(admissionOutcomeSchema, response, original.created && !parsed.data.replayed ? HTTP_STATUS.created : HTTP_STATUS.ok);
+  const status = original.created && !parsed.data.replayed ? HTTP_STATUS.created : HTTP_STATUS.ok;
+  if (original.outcome === ADMISSION_OUTCOME.pending) {
+    // The committed-outcome schema already requires the request id of a pending outcome.
+    if (original.admissionRequestId === null) return unusable();
+    return boundary.success(admissionOutcomeSchema, { operationId: parsed.data.operationId, outcome: original.outcome, request: original.requestSnapshot, safeMessage: ADMISSION_MUTATION_MESSAGE.pending, nextHref: buildOwnAdmissionRequestRoute(slug, original.admissionRequestId) }, status);
+  }
+  return boundary.success(admissionOutcomeSchema, { operationId: parsed.data.operationId, outcome: original.outcome, membership: original.membership, safeMessage: original.outcome === ADMISSION_OUTCOME.admitted ? ADMISSION_MUTATION_MESSAGE.admitted : ADMISSION_MUTATION_MESSAGE.alreadyMember, nextHref: `/${slug}/academia` }, status);
 }

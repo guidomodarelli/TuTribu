@@ -27,7 +27,7 @@ async function prepareOutbox(database: AcademyAdmissionTestDatabase, phone = fal
   if (phone) await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.messaging_usage_policies set allowed_countries=ARRAY['AR'],version=version+1 where tribe_id=${fixture.scope.tribeId}`));
   const issued = await fixture.issue();
   if (issued.state !== "completed" || issued.result.outcome !== "issued") throw new Error("Synthetic outbox issue did not complete");
-  const repository = new PostgresMessageDeliveryRepository((actorUserId, run) => database.withContext({ userId: actorUserId, email: null }, run), async () => true, async () => fixture.config);
+  const repository = new PostgresMessageDeliveryRepository({ execute: (actorUserId, run) => database.withContext({ userId: actorUserId, email: null }, run), authorizeMaintenance: async () => true, readSecurityConfig: async () => fixture.config });
   return { ...fixture, original: issued.result, repository };
 }
 
@@ -66,12 +66,12 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("message delivery r
       const fixture = await prepareOutbox(database);
       let transactions = 0, preparations = 0, sends = 0;
       const diagnostics: MessagingDispatchDiagnostic[] = [];
-      const repository = new PostgresMessageDeliveryRepository(async (actorUserId, run) => {
+      const repository = new PostgresMessageDeliveryRepository({ execute: async (actorUserId, run) => {
         const result = await database.withContext({ userId: actorUserId, email: null }, run);
         transactions += 1;
         if (transactions === 2) throw new Error("Synthetic marker commit response lost");
         return result;
-      }, async () => true, async () => fixture.config);
+      }, authorizeMaintenance: async () => true, readSecurityConfig: async () => fixture.config });
       const dispatcher = new DispatchMessageDeliveriesUseCase(repository, { async prepare() { preparations += 1; return { async send() { sends += 1; return { outcome: "accepted", providerMessageId: randomUUID(), correlationId: null, reason: "provider_accepted" }; } }; } }, createMessagingDispatchConfig(), { now: Date.now, createId: randomUUID, defer: (work) => { void work; }, report: (diagnostic) => { diagnostics.push(diagnostic); } });
       expect(await dispatcher.execute()).toMatchObject({ claimed: 1, authorized: 0, unresolved: 1, accepted: 0 });
       expect(sends).toBe(0);
@@ -147,11 +147,11 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("message delivery r
       await database.withContext(fixture.own, (transaction) => outcome === "suppressed"
         ? transaction.execute(sql`update public.messaging_usage_policies set allowed_countries='{}',version=version+1 where tribe_id=${fixture.scope.tribeId}`)
         : transaction.execute(sql`update public.messaging_usage_policies set verification_daily_limit=0,version=version+1 where tribe_id=${fixture.scope.tribeId}`));
-      const repository = new PostgresMessageDeliveryRepository((actorUserId, run) => database.withContext({ userId: actorUserId, email: null }, run), async (transaction) => {
+      const repository = new PostgresMessageDeliveryRepository({ execute: (actorUserId, run) => database.withContext({ userId: actorUserId, email: null }, run), authorizeMaintenance: async (transaction) => {
         // The own authority reader observes the actual attempted mutation in its same guarded transaction.
         const current = (await transaction.execute<{ last_outcome: string | null }>(sql`select last_outcome from public.message_deliveries where id=${fixture.original.deliveryId}`)).rows[0];
         return current.last_outcome !== "recipient_not_allowed" && current.last_outcome !== "quota_exceeded";
-      }, async () => fixture.config);
+      }, readSecurityConfig: async () => fixture.config });
       await expect(repository.authorize(claim, randomUUID())).rejects.toMatchObject({ code: "permission_denied" });
       await database.withContext(fixture.own, async (transaction) => {
         expect((await transaction.execute(sql`select state,version,last_outcome from public.message_deliveries where id=${fixture.original.deliveryId}`)).rows).toEqual([{ state: "queued", version: claim.version, last_outcome: null }]);
@@ -261,10 +261,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("message delivery r
       const claim = (await fixture.repository.claim({ leaseToken: randomUUID(), limit: 2, leaseSeconds: 90 }))[0];
       const authorization = await fixture.repository.authorize(claim, randomUUID());
       if (authorization.outcome !== "authorized") throw new Error("Synthetic rollback marker did not commit");
-      const repository = new PostgresMessageDeliveryRepository((actorUserId, run) => database.withContext({ userId: actorUserId, email: null }, run), async (transaction) => {
+      const repository = new PostgresMessageDeliveryRepository({ execute: (actorUserId, run) => database.withContext({ userId: actorUserId, email: null }, run), authorizeMaintenance: async (transaction) => {
         const delivery = (await transaction.execute<{ state: string }>(sql`select state from public.message_deliveries where id=${fixture.original.deliveryId}`)).rows[0];
         return delivery.state !== "accepted";
-      }, async () => fixture.config);
+      }, readSecurityConfig: async () => fixture.config });
       await expect(repository.complete({ context: authorization.context, outcome: "accepted", providerMessageId: randomUUID(), correlationId: null, reason: "provider_accepted" })).rejects.toMatchObject({ code: "permission_denied" });
       await database.withContext(fixture.own, async (transaction) => {
         expect((await transaction.execute(sql`select state,version from public.message_delivery_attempts where id=${authorization.context.attemptId}`)).rows).toEqual([{ state: "in_flight", version: 1 }]);
@@ -300,11 +300,11 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("message delivery r
   it("should deny platform authority and roll back an authorized marker if recovery changes before commit", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareOutbox(database);
-      const denied = new PostgresMessageDeliveryRepository((actorUserId, run) => database.withContext({ userId: actorUserId, email: null }, run), async () => false, async () => fixture.config);
+      const denied = new PostgresMessageDeliveryRepository({ execute: (actorUserId, run) => database.withContext({ userId: actorUserId, email: null }, run), authorizeMaintenance: async () => false, readSecurityConfig: async () => fixture.config });
       await expect(denied.claim({ leaseToken: randomUUID(), limit: 2, leaseSeconds: 90 })).rejects.toMatchObject({ code: "permission_denied" });
       const claim = (await fixture.repository.claim({ leaseToken: randomUUID(), limit: 2, leaseSeconds: 90 }))[0];
       let reads = 0;
-      const recovery = new PostgresMessageDeliveryRepository((actorUserId, run) => database.withContext({ userId: actorUserId, email: null }, run), async () => true, async () => { reads += 1; return { ...fixture.config, recoveryLocked: reads > 1 }; });
+      const recovery = new PostgresMessageDeliveryRepository({ execute: (actorUserId, run) => database.withContext({ userId: actorUserId, email: null }, run), authorizeMaintenance: async () => true, readSecurityConfig: async () => { reads += 1; return { ...fixture.config, recoveryLocked: reads > 1 }; } });
       await expect(recovery.authorize(claim, randomUUID())).rejects.toMatchObject({ code: "connection_incomplete" });
       await database.withContext(fixture.own, async (transaction) => {
         expect((await transaction.execute(sql`select id from public.message_delivery_attempts where delivery_id=${fixture.original.deliveryId}`)).rows).toEqual([]);

@@ -37,6 +37,43 @@ function createJsonResponse(body: Record<string, unknown>, status: number): Resp
   return Response.json(body, { status });
 }
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type SubmitMessagePollVoteResult = Awaited<
+  ReturnType<RequestModules["messages"]["useCases"]["submitMessagePollVote"]>
+>;
+
+function createPostResultResponse(result: SubmitMessagePollVoteResult, slug: string): Response {
+  switch (result.status) {
+    case MESSAGE_MUTATION_STATUS.voted:
+      revalidateTribeRoundCache(slug);
+
+      return createJsonResponse(
+        {
+          message: MESSAGE_POLL_VOTE_RESPONSE.successMessage,
+          poll: result.poll,
+        },
+        HTTP_STATUS.ok
+      );
+    case MESSAGE_MUTATION_STATUS.invalidPoll:
+      return createJsonResponse(
+        { message: MESSAGE_POLL_VOTE_RESPONSE.invalidPollMessage },
+        HTTP_STATUS.badRequest
+      );
+    case MESSAGE_MUTATION_STATUS.notFound:
+      return createJsonResponse(
+        { message: MESSAGE_POLL_VOTE_RESPONSE.notFoundMessage },
+        HTTP_STATUS.notFound
+      );
+    case MESSAGE_MUTATION_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        { message: MESSAGE_POLL_VOTE_RESPONSE.forbiddenMessage },
+        HTTP_STATUS.forbidden
+      );
+  }
+}
+
 export async function POST(
   request: Request,
   context: {
@@ -85,34 +122,7 @@ export async function POST(
       userId: authenticatedMember.id,
     });
 
-    switch (result.status) {
-      case MESSAGE_MUTATION_STATUS.voted:
-        revalidateTribeRoundCache(slug);
-
-        return createJsonResponse(
-          {
-            message: MESSAGE_POLL_VOTE_RESPONSE.successMessage,
-            poll: result.poll,
-          },
-          HTTP_STATUS.ok
-        );
-      case MESSAGE_MUTATION_STATUS.invalidPoll:
-        return createJsonResponse(
-          { message: MESSAGE_POLL_VOTE_RESPONSE.invalidPollMessage },
-          HTTP_STATUS.badRequest
-        );
-      case MESSAGE_MUTATION_STATUS.notFound:
-        return createJsonResponse(
-          { message: MESSAGE_POLL_VOTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case MESSAGE_MUTATION_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: MESSAGE_POLL_VOTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-    }
+    return createPostResultResponse(result, slug);
   } catch (error) {
     logger.error({
       message: MESSAGE_POLL_VOTE_LOG.voteFailureMessage,

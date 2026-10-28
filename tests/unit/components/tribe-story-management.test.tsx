@@ -7,10 +7,11 @@ import userEvent from "@testing-library/user-event";
 import { toast } from "@golfo/ui";
 
 import { TribeStoryManagement } from "@/components/tribes/tribe-story-management";
+import type * as GolfoUiModule from "@golfo/ui";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
 vi.mock("@golfo/ui", async () => ({
-  ...await vi.importActual<typeof import("@golfo/ui")>("@golfo/ui"),
+  ...await vi.importActual<typeof GolfoUiModule>("@golfo/ui"),
   toast: {
     error: vi.fn(),
     success: vi.fn(),
@@ -569,9 +570,9 @@ describe("TribeStoryManagement", () => {
 
     render(<TribeStoryManagement story={null} tribeSlug="matematica-pro" />);
 
-    const contentInput = screen.getByLabelText(
+    const contentInput = screen.getByLabelText<HTMLTextAreaElement>(
       "Historia de la tribu"
-    ) as HTMLTextAreaElement;
+    );
 
     await user.type(contentInput, "Mirá el sitio");
     contentInput.setSelectionRange(5, 13);

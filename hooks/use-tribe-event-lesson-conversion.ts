@@ -34,6 +34,41 @@ type TargetsLoadState = TribeEventOnDemandLoadState<{
 const IDLE_STATE = { status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.idle } as const;
 
 /**
+ * Loads the courses and modules a recording can become a lesson of; a load
+ * aborted because the dialog closed or reopened leaves the state untouched.
+ */
+function loadConversionTargets(
+  tribeSlug: string,
+  signal: AbortSignal,
+  setTargetsState: (state: TargetsLoadState) => void
+): void {
+  fetchLessonConversionTargetsRequest(tribeSlug, signal)
+    .then((result) => {
+      if (signal.aborted) {
+        return;
+      }
+
+      setTargetsState(
+        result.isSuccess
+          ? { courses: result.courses, status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loaded }
+          : {
+              message: result.message ?? COPY.loadFailure,
+              status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.error,
+            }
+      );
+    })
+    .catch(() => {
+      // Aborted loads are expected (dialog closed or reopened).
+      if (!signal.aborted) {
+        setTargetsState({
+          message: COPY.loadFailure,
+          status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.error,
+        });
+      }
+    });
+}
+
+/**
  * "Convertir en lección": loads the courses and modules on demand (when the
  * dialog opens, with an AbortController) and sends the conversion once at a
  * time. The result carries the lesson link, also when the occurrence already
@@ -67,30 +102,7 @@ export function useTribeEventLessonConversion(input: {
     abortControllerRef.current = abortController;
     setConvertedLesson(null);
     setTargetsState({ status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loading });
-    fetchLessonConversionTargetsRequest(input.tribeSlug, abortController.signal)
-      .then((result) => {
-        if (abortController.signal.aborted) {
-          return;
-        }
-
-        setTargetsState(
-          result.isSuccess
-            ? { courses: result.courses, status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loaded }
-            : {
-                message: result.message ?? COPY.loadFailure,
-                status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.error,
-              }
-        );
-      })
-      .catch(() => {
-        // Aborted loads are expected (dialog closed or reopened).
-        if (!abortController.signal.aborted) {
-          setTargetsState({
-            message: COPY.loadFailure,
-            status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.error,
-          });
-        }
-      });
+    loadConversionTargets(input.tribeSlug, abortController.signal, setTargetsState);
   };
 
   const reset = () => {

@@ -109,18 +109,12 @@ function openDestinationWindow(): Window | null {
 }
 
 /**
- * Member-facing welcome screen: greeting, active agreements and the resource
- * links. With a `tribeSlug` each resource records the member selection before
- * opening its destination (pre-opened window keeps popup blockers happy);
- * without it the resources are plain external links, as in the leader preview.
+ * Records the member selection of a welcome resource, one at a time, before
+ * opening its destination in a pre-opened window.
+ * @param tribeSlug - Tribe slug; without it nothing is recorded.
+ * @returns The id of the link being recorded and the selection handler.
  */
-export function TribeWelcomeDisplay({
-  action,
-  tribeSlug,
-  welcome,
-}: TribeWelcomeDisplayProps) {
-  const activeRules = getActiveRules(welcome.rules);
-  const activeLinks = getActiveLinks(welcome.links);
+function useWelcomeSelection(tribeSlug: string | undefined) {
   const [pendingLinkId, setPendingLinkId] = useState<string | null>(null);
   const pendingSelectionRef = useRef(false);
 
@@ -178,61 +172,130 @@ export function TribeWelcomeDisplay({
     }
   };
 
-  const renderLinkCard = (link: TribeWelcomeLinkResult, href: string) => {
-    const isPending = pendingLinkId === link.id;
-    const TrailingIcon = isPending ? LoaderCircleIcon : ArrowUpRightIcon;
-    // Only phrasing content: the card can render as a <button>, where block
-    // elements such as <p> are invalid HTML.
-    const content = (
-      <>
-        <span className={styles.TribeWelcomeDisplay__linkCardText}>
-          <span className={styles.TribeWelcomeDisplay__linkCardTitle}>
-            {link.label}
-          </span>
-          {link.description ? (
-            <span className={styles.TribeWelcomeDisplay__linkCardDescription}>
-              {link.description}
-            </span>
-          ) : null}
+  return { handleSelect, pendingLinkId };
+}
+
+type TribeWelcomeLinkCardProps = {
+  href: string;
+  link: TribeWelcomeLinkResult;
+  onSelect: (link: TribeWelcomeLinkResult, href: string) => void;
+  pendingLinkId: string | null;
+  tribeSlug?: string;
+};
+
+/**
+ * Resource card: a plain external link in the leader preview, or a button
+ * that records the member selection.
+ * @param props - Link, its destination, the pending link and the select handler.
+ * @returns The resource card.
+ */
+function TribeWelcomeLinkCard({
+  href,
+  link,
+  onSelect,
+  pendingLinkId,
+  tribeSlug,
+}: TribeWelcomeLinkCardProps) {
+  const isPending = pendingLinkId === link.id;
+  const TrailingIcon = isPending ? LoaderCircleIcon : ArrowUpRightIcon;
+  // Only phrasing content: the card can render as a <button>, where block
+  // elements such as <p> are invalid HTML.
+  const content = (
+    <>
+      <span className={styles.TribeWelcomeDisplay__linkCardText}>
+        <span className={styles.TribeWelcomeDisplay__linkCardTitle}>
+          {link.label}
         </span>
-        <TrailingIcon
-          aria-hidden
-          className={
-            isPending
-              ? `${styles.TribeWelcomeDisplay__linkCardIcon} ${styles["TribeWelcomeDisplay__linkCardIcon--pending"]}`
-              : styles.TribeWelcomeDisplay__linkCardIcon
-          }
-        />
-      </>
-    );
+        {link.description ? (
+          <span className={styles.TribeWelcomeDisplay__linkCardDescription}>
+            {link.description}
+          </span>
+        ) : null}
+      </span>
+      <TrailingIcon
+        aria-hidden
+        className={
+          isPending
+            ? `${styles.TribeWelcomeDisplay__linkCardIcon} ${styles["TribeWelcomeDisplay__linkCardIcon--pending"]}`
+            : styles.TribeWelcomeDisplay__linkCardIcon
+        }
+      />
+    </>
+  );
 
-    if (!tribeSlug) {
-      return (
-        <a
-          className={styles.TribeWelcomeDisplay__linkCard}
-          href={href}
-          rel={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.noreferrerRel}
-          target={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.blankTarget}
-        >
-          {content}
-        </a>
-      );
-    }
-
+  if (!tribeSlug) {
     return (
-      <button
-        aria-busy={isPending || undefined}
+      <a
         className={styles.TribeWelcomeDisplay__linkCard}
-        disabled={pendingLinkId !== null}
-        onClick={() => {
-          void handleSelect(link, href);
-        }}
-        type={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.buttonType}
+        href={href}
+        rel={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.noreferrerRel}
+        target={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.blankTarget}
       >
         {content}
-      </button>
+      </a>
     );
-  };
+  }
+
+  return (
+    <button
+      aria-busy={isPending || undefined}
+      className={styles.TribeWelcomeDisplay__linkCard}
+      disabled={pendingLinkId !== null}
+      onClick={() => {
+        onSelect(link, href);
+      }}
+      type={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.buttonType}
+    >
+      {content}
+    </button>
+  );
+}
+
+/**
+ * Ordered list of the active agreements.
+ * @param props - Active rules to show.
+ * @returns The agreements section.
+ */
+function TribeWelcomeRules({ rules }: { rules: TribeWelcomeRuleResult[] }) {
+  return (
+    <section
+      aria-labelledby={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.agreementsTitleId}
+      className={styles.TribeWelcomeDisplay__section}
+    >
+      <h2
+        className={styles.TribeWelcomeDisplay__sectionTitle}
+        id={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.agreementsTitleId}
+      >
+        {TRIBE_WELCOME_DISPLAY_COPY.agreementsHeading}
+      </h2>
+      <ol className={styles.TribeWelcomeDisplay__ruleList}>
+        {rules.map((rule) => (
+          <li
+            className={styles.TribeWelcomeDisplay__ruleItem}
+            key={rule.id}
+          >
+            {rule.label}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+/**
+ * Member-facing welcome screen: greeting, active agreements and the resource
+ * links. With a `tribeSlug` each resource records the member selection before
+ * opening its destination (pre-opened window keeps popup blockers happy);
+ * without it the resources are plain external links, as in the leader preview.
+ */
+export function TribeWelcomeDisplay({
+  action,
+  tribeSlug,
+  welcome,
+}: TribeWelcomeDisplayProps) {
+  const activeRules = getActiveRules(welcome.rules);
+  const activeLinks = getActiveLinks(welcome.links);
+  const { handleSelect, pendingLinkId } = useWelcomeSelection(tribeSlug);
 
   return (
     <section className={styles.TribeWelcomeDisplay}>
@@ -249,27 +312,7 @@ export function TribeWelcomeDisplay({
       </header>
 
       {activeRules.length > 0 ? (
-        <section
-          aria-labelledby={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.agreementsTitleId}
-          className={styles.TribeWelcomeDisplay__section}
-        >
-          <h2
-            className={styles.TribeWelcomeDisplay__sectionTitle}
-            id={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.agreementsTitleId}
-          >
-            {TRIBE_WELCOME_DISPLAY_COPY.agreementsHeading}
-          </h2>
-          <ol className={styles.TribeWelcomeDisplay__ruleList}>
-            {activeRules.map((rule) => (
-              <li
-                className={styles.TribeWelcomeDisplay__ruleItem}
-                key={rule.id}
-              >
-                {rule.label}
-              </li>
-            ))}
-          </ol>
-        </section>
+        <TribeWelcomeRules rules={activeRules} />
       ) : null}
 
       {activeLinks.length > 0 ? (
@@ -300,7 +343,15 @@ export function TribeWelcomeDisplay({
                   className={styles.TribeWelcomeDisplay__linkItem}
                   key={link.id}
                 >
-                  {renderLinkCard(link, href)}
+                  <TribeWelcomeLinkCard
+                    href={href}
+                    link={link}
+                    onSelect={(selectedLink, selectedHref) => {
+                      void handleSelect(selectedLink, selectedHref);
+                    }}
+                    pendingLinkId={pendingLinkId}
+                    tribeSlug={tribeSlug}
+                  />
                 </li>
               ) : null;
             })}

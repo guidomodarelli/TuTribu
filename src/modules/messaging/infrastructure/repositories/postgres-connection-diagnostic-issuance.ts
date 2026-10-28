@@ -28,6 +28,12 @@ import {connectionDiagnosticIssuanceSchema} from "@/src/modules/messaging/applic
 /** Every callback is a short protected native transaction; none invokes the provider. */
 export type DiagnosticIssuanceDatabaseExecutor=<Result>(context:AuthorizedMessagingContext,run:(database:RequestDatabase)=>Promise<Result>)=>Promise<Result>;
 /** Reuses issuance primitives while keeping diagnostic authority, proof isolation and transport ownership in messaging. */
+/** @param error - Failure of the operation. @returns Its messaging code when known, otherwise an unexpected failure. */
+function knownFailureCode(error:unknown){
+  if(error instanceof AdmissionOperationError)return Object.values(MESSAGING_ERROR_CODE).find((candidate)=>candidate===error.code)??MESSAGING_ERROR_CODE.unexpectedFailure;
+  return error instanceof MessagingUsageBudgetError?error.code:MESSAGING_ERROR_CODE.unexpectedFailure;
+}
+
 export class PostgresConnectionDiagnosticIssuance implements ConnectionDiagnosticIssueOperations{
   /** @param execute - Exact current native actor executor. @param readSecurityConfig - Current external epoch/recovery and purpose-separated keyrings. */
   constructor(private readonly execute:DiagnosticIssuanceDatabaseExecutor,private readonly readSecurityConfig:()=>Promise<MessagingSecurityConfig>){}
@@ -50,9 +56,10 @@ export class PostgresConnectionDiagnosticIssuance implements ConnectionDiagnosti
     const command={actorUserId:context.actorUserId,tribeId:context.tribeId,operationType,idempotencyKey:input.operationId,intent:{purpose:ADMISSION_VERIFICATION_PURPOSE.connectionDiagnostic,connectionId:context.connectionId,expectedVersion:input.expectedVersion,channel:input.channel,recipient:input.recipient.value,contactType:input.recipient.type,country:input.recipient.type===ADMISSION_CONTACT_TYPE.phone?input.recipient.country:null,currentChallengeId:input.currentChallengeId??null,confirmed:input.confirmed}};
     try{
       return await ledger.run(command,connectionDiagnosticIssuanceSchema,async(database,ledgerId):Promise<ConnectionDiagnosticIssueResult>=>{
-        if(!input.confirmed)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+        /* Consent is rechecked at runtime: callers outside the typed boundary may send it unset. */
+        if(!(input.confirmed as boolean))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
         const connection=(await database.execute<{version:number}>(sql`select version from public.tenant_messaging_connections where id=${context.connectionId} and tribe_id=${context.tribeId}`)).rows[0];
-        if(!connection||connection.version!==input.expectedVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionConflict);
+        if(connection?.version !== input.expectedVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionConflict);
         const scope:VerificationChallengeScope={userId:context.actorUserId,tribeId:context.tribeId,connectionId:context.connectionId,connectionVersion:context.connectionVersion,securityEpoch:context.securityEpoch,purpose:ADMISSION_VERIFICATION_PURPOSE.connectionDiagnostic,verificationEpoch:null,channel:input.channel,contact:input.recipient};
         const ownsScope=async(transaction:RequestDatabase,current:VerificationChallengeScope)=>{if(current.userId!==scope.userId||current.tribeId!==scope.tribeId||current.connectionId!==scope.connectionId||current.connectionVersion!==scope.connectionVersion||current.securityEpoch!==scope.securityEpoch||current.purpose!==scope.purpose||current.verificationEpoch!==null||current.channel!==scope.channel||current.contact.type!==scope.contact.type||current.contact.value!==scope.contact.value)return false;await authorize(transaction);return true;};
         const contacts=new PostgresMessagingContactBudgetRepository(database,authorize,this.readSecurityConfig),budget=new PostgresVerificationRequestBudget(database,async(transaction,budgetCommand)=>ownsScope(transaction,budgetCommand.scope),contacts);
@@ -63,7 +70,7 @@ export class PostgresConnectionDiagnosticIssuance implements ConnectionDiagnosti
         return{outcome:"issued",diagnosticId:result.diagnosticId,challengeId:result.challengeId,deliveryId:result.deliveryId,connectionId:context.connectionId,connectionVersion:context.connectionVersion,channel:input.channel,maskedDestination,expiresAt:result.expiresAt.toISOString(),resendAllowedAt:result.resendAllowedAt.toISOString()};
       });
     }catch(error){
-      const code=error instanceof AdmissionOperationError?Object.values(MESSAGING_ERROR_CODE).find((candidate)=>candidate===error.code)??MESSAGING_ERROR_CODE.unexpectedFailure:error instanceof MessagingUsageBudgetError?error.code:MESSAGING_ERROR_CODE.unexpectedFailure;
+      const code=knownFailureCode(error);
       throw new MessagingDiagnosticOperationError(code,{cause:error,...(error instanceof AdmissionOperationError&&error.code===ADMISSION_ERROR_CODE.operationUnresolved&&error.operationId?{operationId:error.operationId}:{})});
     }
   }

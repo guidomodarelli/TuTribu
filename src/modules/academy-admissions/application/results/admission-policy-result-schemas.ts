@@ -12,7 +12,10 @@ export const admissionPolicyMutationResultSchema = z.object({
   activatedAt: admissionPublicInstantSchema.nullable(),
   controlActivated: z.boolean(),
   changed: z.boolean(),
-}).refine((result) => result.controlActivated === (result.activatedAt !== null));
+}).refine((result) => {
+  const hasActivatedAt = result.activatedAt !== null;
+  return result.controlActivated === hasActivatedAt;
+});
 
 /** Query data and historical mutation results stay separate; absence carries no persisted resource version. */
 export const admissionPolicyStateResultSchema = z.object({

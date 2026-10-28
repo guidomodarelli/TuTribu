@@ -26,6 +26,11 @@ export type AdmissionWhatsappBrowserErrorObservation = {
   frames: { chunk: string; line: number; column: number }[];
 };
 
+/** @param name - Native error name. @returns It when it is a registered name, otherwise the fixed unknown name. */
+function closedErrorName(name: string) {
+  return ADMISSION_WHATSAPP_BROWSER_ERROR.knownNames.some((knownName) => knownName === name) ? name : ADMISSION_WHATSAPP_BROWSER_ERROR.unknownName;
+}
+
 /**
  * Selects closed error names, exact-request comparison booleans and public chunk coordinates only.
  * @param error - Native Playwright error, never persisted directly.
@@ -35,7 +40,7 @@ export type AdmissionWhatsappBrowserErrorObservation = {
 export function observeAdmissionWhatsappBrowserError(error: Error, context: AdmissionWhatsappBrowserErrorContext): AdmissionWhatsappBrowserErrorObservation {
   const description = `${error.name}:${error.message}`;
   const nativeFetch = description.startsWith(ADMISSION_WHATSAPP_BROWSER_ERROR.nativeFetchPrefix);
-  const name = nativeFetch ? ADMISSION_WHATSAPP_BROWSER_ERROR.nativeFetchName : ADMISSION_WHATSAPP_BROWSER_ERROR.knownNames.some((knownName) => knownName === error.name) ? error.name : ADMISSION_WHATSAPP_BROWSER_ERROR.unknownName;
+  const name = nativeFetch ? ADMISSION_WHATSAPP_BROWSER_ERROR.nativeFetchName : closedErrorName(error.name);
   let networkUrl: URL | null = null;
   let networkDescription = "";
   if (nativeFetch) {

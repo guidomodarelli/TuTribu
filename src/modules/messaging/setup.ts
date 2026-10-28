@@ -115,74 +115,99 @@ export type MessagingWorkDependencies = {
 };
 
 /**
+ * @param dependencies - Authenticated feature dependencies.
+ * @returns Runs work for the exact actor (and, when given, session and Google identity) that is still authenticated.
+ * @throws MessagingSecretAccessError when the authenticated account differs.
+ */
+function createActorExecutor(dependencies: AuthenticatedFeatureDependencies) {
+  return async <Result>(context: { actorUserId: string; sessionId?: string; accountId?: string; subject?: string }, run: (database: RequestDatabase) => Promise<Result>) => {
+    const account = await dependencies.accounts.getAuthenticatedAccount();
+    if (account?.userId !== context.actorUserId || context.sessionId !== undefined && account.session.id !== context.sessionId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
+    if (context.accountId !== undefined && (account.googleAccount?.id !== context.accountId || account.googleAccount.subject !== context.subject)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
+    return dependencies.execute(account, run);
+  };
+}
+
+/**
+ * Current tribe management is shared by early usage and creation, before any connection secret is read.
+ * @param dependencies - Native current account, protected transaction executor and current time for this request.
+ * @returns The actor-bound writer executor, the guarded read executor and the current leadership reader.
+ */
+function createMessagingManagement(dependencies: AuthenticatedFeatureDependencies) {
+  const executeActor = createActorExecutor(dependencies);
+  /**
+   * Opens a read-only owner whose first statement is a full SQL guard (actor, live session and canonical leadership) with the request's
+   * session identity, without a separate account projection; see `readCurrentFeatureSessionContext`. Writers keep `executeActor`.
+   */
+  const executeGuardedRead = async <Result>(context: { actorUserId: string; sessionId?: string }, run: (database: RequestDatabase) => Promise<Result>) => {
+    const account = await readCurrentFeatureSessionContext(dependencies.accounts);
+    if (account?.userId !== context.actorUserId || context.sessionId !== undefined && account.session.id !== context.sessionId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
+    return dependencies.execute(account, run);
+  };
+  const leadership = {
+    /** @param tribeId - Canonical tenant. @param userId - Current account. @returns Current leadership without reading a connection; the SQL guard rechecks actor, session and its liveness. */
+    async getCurrentLeadership(tribeId: string, userId: string) {
+      const account = await readCurrentFeatureSessionContext(dependencies.accounts);
+      if (account?.userId !== userId) return null;
+      return dependencies.execute(account, (database) => new PostgresMessagingAuthorizationReader(database, account.session.id, MESSAGING_CONNECTION_SLOT.selected).getCurrentLeadership(tribeId, userId));
+    },
+  };
+  return { executeActor, executeGuardedRead, leadership };
+}
+
+/**
+ * The early usage owner does not depend on a connection slot, SecretStore or provider state.
+ * @param dependencies - Native current account, protected transaction executor and current time for this request.
+ * @param readSecurityConfig - Ledger security source.
+ * @returns Usage management, its operation reader and the page factory.
+ */
+function createMessagingUsage(dependencies: AuthenticatedFeatureDependencies, readSecurityConfig: () => Promise<MessagingSecurityConfig>) {
+  const { executeActor, leadership } = createMessagingManagement(dependencies);
+  const usage = new ManageMessagingUsageUseCases(dependencies.accounts, leadership, new PostgresMessagingUsageOperations(executeActor, readSecurityConfig), dependencies.clock);
+  return { useCases: usage,
+    operation: new ReadMessagingUsageOperationUseCase(dependencies.accounts, leadership, new PostgresMessagingUsageOperationReader(executeActor), dependencies.clock),
+    /** @param resolveTribe - Canonical application routing. @param countryChoices - Standard localized options from native composition. @returns One current authorized early usage snapshot. */
+    createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">, countryChoices: readonly MessagingUsageCountryChoice[]) { return new GetMessagingUsagePageUseCase(dependencies.accounts, { usage, resolveTribe }, dependencies.clock, countryChoices); } };
+}
+
+/**
+ * @param dependencies - Native current account, protected transaction executor and current time for this request.
+ * @param options - Fixed native slot and current external security.
+ * @returns Rechecked sensitive authority without provider or secret access.
+ */
+function createSensitiveMessagingContext(dependencies: AuthenticatedFeatureDependencies, options: MessagingRequestComposition) {
+  return {
+      /** @param command - Own validated resource and fixed sensitive operation. @returns Current private authority or a closed denial. */
+      async execute(command: Parameters<ResolveMessagingContextUseCase["execute"]>[0]) {
+        const account = await dependencies.accounts.getAuthenticatedAccount();
+        if (!account) return { allowed: false as const, failure: messagingFailure(MESSAGING_ERROR_CODE.authenticationRequired) };
+        return dependencies.execute(account, (database) => new ResolveMessagingContextUseCase(createTransactionAccountProvider(database, account), new PostgresMessagingAuthorizationReader(database, account.session.id, options.selection), { getCurrentSecurityFacts: async () => {
+          const current = await options.readSecurityConfig();
+          return { environment: current.environment, securityEpoch: current.securityEpoch, recoveryLocked: current.recoveryLocked };
+        } }, dependencies.clock).execute(command));
+      },
+    };
+}
+
+/**
  * Registers only current implemented request capabilities; a keyring/client/sender is never defaulted.
  * @param dependencies - Native current account, protected transaction executor and current time for this request.
  * @returns Explicit security-bound factories; entrypoints consume the resulting application use cases.
  */
 export function buildMessagingModule(dependencies: AuthenticatedFeatureDependencies) {
-  /** Current tribe management is shared by early usage and creation, before any connection secret is read. */
-  const createManagement = () => {
-    const executeActor = async <Result>(context: { actorUserId: string; sessionId?: string; accountId?: string; subject?: string }, run: (database: RequestDatabase) => Promise<Result>) => {
-      const account = await dependencies.accounts.getAuthenticatedAccount();
-      if (!account || account.userId !== context.actorUserId || context.sessionId !== undefined && account.session.id !== context.sessionId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
-      if (context.accountId !== undefined && (account.googleAccount?.id !== context.accountId || account.googleAccount.subject !== context.subject)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
-      return dependencies.execute(account, run);
-    };
-    /**
-     * Opens a read-only owner whose first statement is a full SQL guard (actor, live session and canonical leadership) with the request's
-     * session identity, without a separate account projection; see `readCurrentFeatureSessionContext`. Writers keep `executeActor`.
-     */
-    const executeGuardedRead = async <Result>(context: { actorUserId: string; sessionId?: string }, run: (database: RequestDatabase) => Promise<Result>) => {
-      const account = await readCurrentFeatureSessionContext(dependencies.accounts);
-      if (!account || account.userId !== context.actorUserId || context.sessionId !== undefined && account.session.id !== context.sessionId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
-      return dependencies.execute(account, run);
-    };
-    const leadership = {
-      /** @param tribeId - Canonical tenant. @param userId - Current account. @returns Current leadership without reading a connection; the SQL guard rechecks actor, session and its liveness. */
-      async getCurrentLeadership(tribeId: string, userId: string) {
-        const account = await readCurrentFeatureSessionContext(dependencies.accounts);
-        if (!account || account.userId !== userId) return null;
-        return dependencies.execute(account, (database) => new PostgresMessagingAuthorizationReader(database, account.session.id, MESSAGING_CONNECTION_SLOT.selected).getCurrentLeadership(tribeId, userId));
-      },
-    };
-    return { executeActor, executeGuardedRead, leadership };
-  };
-  /** The early usage owner does not depend on a connection slot, SecretStore or provider state. */
-  const createUsage = (readSecurityConfig: () => Promise<MessagingSecurityConfig>) => {
-    const { executeActor, leadership } = createManagement();
-    const usage = new ManageMessagingUsageUseCases(dependencies.accounts, leadership, new PostgresMessagingUsageOperations(executeActor, readSecurityConfig), dependencies.clock);
-    return { useCases: usage,
-      operation: new ReadMessagingUsageOperationUseCase(dependencies.accounts, leadership, new PostgresMessagingUsageOperationReader(executeActor), dependencies.clock),
-      /** @param resolveTribe - Canonical application routing. @param countryChoices - Standard localized options from native composition. @returns One current authorized early usage snapshot. */
-      createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">, countryChoices: readonly MessagingUsageCountryChoice[]) { return new GetMessagingUsagePageUseCase(dependencies.accounts, { usage, resolveTribe }, dependencies.clock, countryChoices); } };
-  };
-  /** @param options - Fixed native slot and current external security. @returns Rechecked sensitive authority without provider or secret access. */
-  const createSensitiveContext = (options: MessagingRequestComposition) => {
-    return {
-        /** @param command - Own validated resource and fixed sensitive operation. @returns Current private authority or a closed denial. */
-        async execute(command: Parameters<ResolveMessagingContextUseCase["execute"]>[0]) {
-          const account = await dependencies.accounts.getAuthenticatedAccount();
-          if (!account) return { allowed: false as const, failure: messagingFailure(MESSAGING_ERROR_CODE.authenticationRequired) };
-          return dependencies.execute(account, (database) => new ResolveMessagingContextUseCase(createTransactionAccountProvider(database, account), new PostgresMessagingAuthorizationReader(database, account.session.id, options.selection), { getCurrentSecurityFacts: async () => {
-            const current = await options.readSecurityConfig();
-            return { environment: current.environment, securityEpoch: current.securityEpoch, recoveryLocked: current.recoveryLocked };
-          } }, dependencies.clock).execute(command));
-        },
-      };
-  };
   return {
     /** @param options - Local operation MAC keys and explicit dependency owners, without SDK/SecretStore. @returns Exact local suspension/disconnection use cases and authority. */
     createConnectionLifecycleModule(options:{readSecurityConfig:()=>Promise<MessagingSecurityConfig>;composeDependencies:(database:RequestDatabase)=>MessagingConnectionLifecycleDependencies}){
-      const{executeActor,leadership}=createManagement(),management=new ResolveMessagingTribeManagementUseCase(dependencies.accounts,leadership,dependencies.clock),suspension=new PostgresMessagingConnectionSuspension(executeActor,options.readSecurityConfig,options.composeDependencies),disconnection=new PostgresMessagingConnectionDisconnection(executeActor,options.readSecurityConfig,options.composeDependencies);
+      const{executeActor,leadership}=createMessagingManagement(dependencies),management=new ResolveMessagingTribeManagementUseCase(dependencies.accounts,leadership,dependencies.clock),suspension=new PostgresMessagingConnectionSuspension(executeActor,options.readSecurityConfig,options.composeDependencies),disconnection=new PostgresMessagingConnectionDisconnection(executeActor,options.readSecurityConfig,options.composeDependencies);
       return{useCases:new ManageMessagingConnectionLifecycleUseCases(management,{suspend:(context,input)=>suspension.suspend(context,input),disconnect:(context,input)=>disconnection.disconnect(context,input)})};
     },
     /** @param options - Ledger security only; reading does not load it. @returns Independent current country/quota management without connection or admission policy. */
-    createUsageModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) { return createUsage(options.readSecurityConfig); },
+    createUsageModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) { return createMessagingUsage(dependencies, options.readSecurityConfig); },
     /** @returns Original connection recovery with current native session/leadership, independently of keyrings or the current slot. */
-    createConnectionOperationReadModule(){const{executeActor,leadership}=createManagement();return{useCases:new ReadMessagingConnectionOperationUseCase(dependencies.accounts,leadership,new PostgresMessagingConnectionOperationReader(executeActor),dependencies.clock)};},
+    createConnectionOperationReadModule(){const{executeActor,leadership}=createMessagingManagement(dependencies);return{useCases:new ReadMessagingConnectionOperationUseCase(dependencies.accounts,leadership,new PostgresMessagingConnectionOperationReader(executeActor),dependencies.clock)};},
     /** @param options - Non-secret live recovery state, without keyrings/provider access. @returns Read-only current leader/guardian metadata and the single usage projection. */
     createConfigurationModule(options:{readSecurityFacts:()=>Promise<MessagingSecurityFacts>}){
-      const{executeGuardedRead,leadership}=createManagement();
+      const{executeGuardedRead,leadership}=createMessagingManagement(dependencies);
       const configuration=new ReadMessagingConfigurationUseCase(dependencies.accounts,leadership,new PostgresMessagingConfigurationReader(executeGuardedRead,options.readSecurityFacts),dependencies.clock);
       const catalog=new ReadNotificationDeliveryCatalogUseCase(new ResolveMessagingTribeManagementUseCase(dependencies.accounts,leadership,dependencies.clock),new PostgresNotificationDeliveryCatalogReader(executeGuardedRead));
       return{useCases:configuration,
@@ -193,28 +218,28 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
       };
     },
     /** @returns Minimal leader/challenge-owner transport reads without keyrings, provider calls or mutation. */
-    createDeliveryReadModule(){const{executeActor}=createManagement();return{useCases:new ReadMessageDeliveryUseCase(dependencies.accounts,new PostgresMessageDeliveryReader(executeActor),dependencies.clock)};},
+    createDeliveryReadModule(){const{executeActor}=createMessagingManagement(dependencies);return{useCases:new ReadMessageDeliveryUseCase(dependencies.accounts,new PostgresMessageDeliveryReader(executeActor),dependencies.clock)};},
     /** @param options - Current native security/keyrings for the original ledger and explicit child only. @returns Exact original-delivery recovery with no provider call or automatic dispatch. */
     createNotificationRecoveryModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig>; groupContent?: NotificationGroupRecoveryContent }) {
-      const { executeActor, leadership } = createManagement();
+      const { executeActor, leadership } = createMessagingManagement(dependencies);
       const management = new ResolveMessagingTribeManagementUseCase(dependencies.accounts, leadership, dependencies.clock);
       return { useCases: new RecoverNotificationDeliveryUseCase(management, new PostgresNotificationDeliveryRecoveryRepository(executeActor, options.readSecurityConfig, options.groupContent)) };
     },
     /** @returns Bounded own notification metadata under current leadership, without keyrings, claims or provider queries. */
     createNotificationDeliveryCatalogModule() {
-      const { executeGuardedRead, leadership } = createManagement();
+      const { executeGuardedRead, leadership } = createMessagingManagement(dependencies);
       const management = new ResolveMessagingTribeManagementUseCase(dependencies.accounts, leadership, dependencies.clock);
       return { useCases: new ReadNotificationDeliveryCatalogUseCase(management, new PostgresNotificationDeliveryCatalogReader(executeGuardedRead)) };
     },
     /** @returns Original actor-owned recovery metadata without keyrings, provider calls or mutation capability. */
     createNotificationRecoveryOperationReadModule() {
-      const { executeActor, leadership } = createManagement();
+      const { executeActor, leadership } = createMessagingManagement(dependencies);
       const management = new ResolveMessagingTribeManagementUseCase(dependencies.accounts, leadership, dependencies.clock);
       return { useCases: new ReadNotificationRecoveryOperationUseCase(management, new PostgresNotificationRecoveryOperationReader(executeActor)) };
     },
     /** @param options - Current original-resource security and explicit hosting transport. @returns Original-only provider GET and monotonic persistence, without list/send or replacement credentials. */
     createDeliveryReconciliationModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig>; fetch: typeof globalThis.fetch }) {
-      const { executeActor } = createManagement();
+      const { executeActor } = createMessagingManagement(dependencies);
       const resolveContext = {
         /** @param query - Exact immutable identity obtained from protected message storage. @returns Current authority only for that same still-selected or candidate version. */
         async execute(query: OriginalMessageContextQuery) {
@@ -227,14 +252,14 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
         },
       };
       const execute = <Result>(actorUserId: string, run: (database: RequestDatabase) => Promise<Result>) => executeActor({ actorUserId }, run);
-      const secrets = new PostgresEncryptedSecretStore(execute, dependencies.accounts, options.readSecurityConfig, MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader);
-      const preparation = new PostgresMessageStatusPreparation(resolveContext, execute, secrets, options.readSecurityConfig, dependencies.clock);
+      const secrets = new PostgresEncryptedSecretStore({ executeWithDatabase: execute, accounts: dependencies.accounts, readSecurityConfig: options.readSecurityConfig, purpose: MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader });
+      const preparation = new PostgresMessageStatusPreparation({ resolver: resolveContext, execute, secrets, readSecurityConfig: options.readSecurityConfig, clock: dependencies.clock });
       const lookup = new ZavuMessageStatusLookup(preparation, options.fetch);
-      return { useCases: new ReconcileMessageDeliveryUseCase(dependencies.accounts, resolveContext, new PostgresMessageReconciliationRepository(execute, options.readSecurityConfig), lookup, dependencies.clock) };
+      return { useCases: new ReconcileMessageDeliveryUseCase({ accounts: dependencies.accounts, resolver: resolveContext, repository: new PostgresMessageReconciliationRepository(execute, options.readSecurityConfig), lookup, clock: dependencies.clock }) };
     },
     /** @param options - Explicit current security/keyrings, never a global provider key. @returns Protected creation with no Inspector/Sender or implied activation. */
     createConnectionManagementModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
-      const { executeActor, leadership } = createManagement();
+      const { executeActor, leadership } = createMessagingManagement(dependencies);
       return { useCases: new ManageMessagingConnectionsUseCases(dependencies.accounts, leadership, new PostgresMessagingConnectionRepository(executeActor, options.readSecurityConfig), dependencies.clock) };
     },
     /**
@@ -243,17 +268,12 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
      * @returns Only implemented context, usage, diagnostic, credential-budget and private-secret use cases.
      */
     createRequestModule(options: MessagingRequestComposition) {
-      const resolveContext = createSensitiveContext(options);
-      const executeActor = async <Result>(context: { actorUserId: string; sessionId?: string; accountId?: string; subject?: string }, run: (database: RequestDatabase) => Promise<Result>) => {
-        const account = await dependencies.accounts.getAuthenticatedAccount();
-        if (!account || account.userId !== context.actorUserId || context.sessionId !== undefined && account.session.id !== context.sessionId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
-        if (context.accountId !== undefined && (account.googleAccount?.id !== context.accountId || account.googleAccount.subject !== context.subject)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
-        return dependencies.execute(account, run);
-      };
-      const secrets = new PostgresEncryptedSecretStore((actorUserId, run) => executeActor({ actorUserId: actorUserId ?? "" }, run), dependencies.accounts, options.readSecurityConfig, MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader);
+      const resolveContext = createSensitiveMessagingContext(dependencies, options);
+      const executeActor = createActorExecutor(dependencies);
+      const secrets = new PostgresEncryptedSecretStore({ executeWithDatabase: (actorUserId, run) => executeActor({ actorUserId }, run), accounts: dependencies.accounts, readSecurityConfig: options.readSecurityConfig, purpose: MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader });
       return {
         /** @param inspectors - Explicit approved infrastructure factory; no mutable client/default key. @returns Staged credential validation with current authority, accounting and private material. */
-        createCredentialValidation(inspectors:MessagingCredentialInspectorFactory){return new ValidateMessagingConnectionUseCase(resolveContext,new PostgresMessagingCredentialValidation(executeActor,options.readSecurityConfig),new ReserveMessagingUsageUseCase(new PostgresCredentialValidationBudget(executeActor,options.readSecurityConfig)),secrets,inspectors,dependencies.clock);},
+        createCredentialValidation(inspectors:MessagingCredentialInspectorFactory){return new ValidateMessagingConnectionUseCase({resolver:resolveContext,operations:new PostgresMessagingCredentialValidation(executeActor,options.readSecurityConfig),budget:new ReserveMessagingUsageUseCase(new PostgresCredentialValidationBudget(executeActor,options.readSecurityConfig)),secrets,inspectors,clock:dependencies.clock});},
         /** @param inspectors - Explicit scoped SDK readers. @returns Current resource-gated enumeration without mutation or dispatch. */
         createResourceListing(inspectors:MessagingResourceInspectorFactory){return new ReadMessagingResourcesUseCase(resolveContext,secrets,inspectors,new PostgresMessagingResourceExposureRecorder(executeActor,async()=>{const current=await options.readSecurityConfig();return{environment:current.environment,securityEpoch:current.securityEpoch,recoveryLocked:current.recoveryLocked};}));},
         /** @param inspectors - Explicit detail-only SDK factory. @returns Original/CAS configuration staging with private immutable envelopes, without a dispatcher. */
@@ -264,7 +284,7 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
         createConnectionActivation(composeDependencies:(database:RequestDatabase,context:AuthorizedMessagingContext)=>MessagingSelectionDependencies){return new ActivateMessagingConnectionUseCase(resolveContext,new PostgresMessagingConnectionActivation(executeActor,options.readSecurityConfig,composeDependencies));},
         useCases: {
           resolveContext,
-          manageUsage: createUsage(options.readSecurityConfig).useCases,
+          manageUsage: createMessagingUsage(dependencies, options.readSecurityConfig).useCases,
           verifyDiagnostic: new VerifyConnectionDiagnosticUseCase(resolveContext, new PostgresConnectionDiagnosticOperations(executeActor, options.readSecurityConfig)),
           reserveCredentialValidation: new ReserveMessagingUsageUseCase(new PostgresCredentialValidationBudget(executeActor, options.readSecurityConfig)),
           loadAuthorizedSecret: new LoadAuthorizedMessagingSecretUseCase(resolveContext, secrets),
@@ -299,8 +319,8 @@ export function buildMessagingWorkModule(dependencies: MessagingWorkDependencies
     return result;
   }) : dependencies.execute;
   const resourceAuthority = createAdmissionNotificationResourceAuthority(dependencies.readSecurityConfig);
-  const deliveries = new PostgresMessageDeliveryRepository(dependencies.execute, authorizeOperation, dependencies.readSecurityConfig,dependencies.focalScope??dependencies.diagnosticScope,resourceAuthority.queued);
-  const secrets = new PostgresEncryptedSecretStore(executePreparation, { getAuthenticatedAccount: async () => null }, dependencies.readSecurityConfig, MESSAGING_AUTHORIZATION_PURPOSE.authorizedDelivery,resourceAuthority.marked);
+  const deliveries = new PostgresMessageDeliveryRepository({ execute: dependencies.execute, authorizeMaintenance: authorizeOperation, readSecurityConfig: dependencies.readSecurityConfig, focalScope: dependencies.focalScope??dependencies.diagnosticScope, authorizeQueuedResource: resourceAuthority.queued });
+  const secrets = new PostgresEncryptedSecretStore({ executeWithDatabase: executePreparation, accounts: { getAuthenticatedAccount: async () => null }, readSecurityConfig: dependencies.readSecurityConfig, purpose: MESSAGING_AUTHORIZATION_PURPOSE.authorizedDelivery, authorizeDeliveryResource: resourceAuthority.marked });
   const privatePreparation = new PostgresVerificationDeliveryPreparation(executePreparation, secrets, dependencies.readSecurityConfig);
   const preparation: VerificationDeliveryPreparation = {
     /** @param context - Original backend worker scope. @param signal - Original deadline. @returns Material only while live backend authority remains current. */
@@ -321,7 +341,7 @@ export function buildMessagingWorkModule(dependencies: MessagingWorkDependencies
     },
   };
   return {
-    useCases: { dispatch: new ObserveMessageDispatchRunUseCase(deliveries, sender, createMessagingDispatchConfig(dependencies.settings), dependencies.runtime, new PostgresMessageDispatchRunRecorder(dependencies.execute, authorize, async () => { const config = await dependencies.readSecurityConfig(); return { environment: config.environment, securityEpoch: config.securityEpoch, recoveryLocked: config.recoveryLocked }; }, (dependencies.focalScope ?? dependencies.diagnosticScope)?.tribeId, () => dependencies.runtime.now()), (dependencies.focalScope ?? dependencies.diagnosticScope)?.tribeId) },
+    useCases: { dispatch: new ObserveMessageDispatchRunUseCase({ deliveries, sender, settings: createMessagingDispatchConfig(dependencies.settings), runtime: dependencies.runtime, recorder: new PostgresMessageDispatchRunRecorder(dependencies.execute, authorize, async () => { const config = await dependencies.readSecurityConfig(); return { environment: config.environment, securityEpoch: config.securityEpoch, recoveryLocked: config.recoveryLocked }; }, { focalTribeId: (dependencies.focalScope ?? dependencies.diagnosticScope)?.tribeId, runtimeNow: () => dependencies.runtime.now() }), focalTribeId: (dependencies.focalScope ?? dependencies.diagnosticScope)?.tribeId }) },
     ports: {
       deliveries,
       verificationMaterial: new PostgresVerificationMaterialMaintenance((run) => dependencies.execute(null, run), authorize),
@@ -371,7 +391,7 @@ export type AdmissionMessagingMaintenanceDependencies = {
 /** @param dependencies - Current bearer, original guarded executors, local hosting scope and registered prepared transports. @returns The complete bounded maintenance use case; no schedule, deployment or provider request is activated by composition. */
 export function buildAdmissionMessagingMaintenanceModule(dependencies: AdmissionMessagingMaintenanceDependencies) {
   const metadataExecute = <Result>(run: (database: RequestDatabase) => Promise<Result>) => dependencies.execute(null, run);
-  const progress = new PostgresAdmissionMessagingMaintenanceProgress(metadataExecute, dependencies.authorize, dependencies.readRecoveryLock, dependencies.readExternalScope, dependencies.runtime.now);
+  const progress = new PostgresAdmissionMessagingMaintenanceProgress({ execute: metadataExecute, authorize: dependencies.authorize, readRecoveryLock: dependencies.readRecoveryLock, readExternalScope: dependencies.readExternalScope, now: dependencies.runtime.now });
   /** @param run - Original acquired workflow. @param deadline - Original shared host deadline; it bounds every commit. @param signal - Original phase cancellation. @param phaseDeadline - Soft deadline after which owners start no new step. @returns Lazy real owners with no checkout spanning a phase or RPC. */
   const createOwners = (run: AdmissionMessagingMaintenanceRun, deadline: number, signal: AbortSignal, phaseDeadline: number) => {
     /** @param limit - Instant after which this guard rejects. @returns A guard that passes only while the same native workflow, purpose and that limit still permit the work. */
@@ -407,7 +427,7 @@ export function buildAdmissionMessagingMaintenanceModule(dependencies: Admission
       materializeReminders: () => buildAdmissionNotificationReminderModule({ execute, authorize, readRecoveryLock: dependencies.readRecoveryLock }).useCases.materializeReminders.execute(),
       prepareNotifications: () => buildAdmissionNotificationProducerModule({ execute, authorize, readRecoveryLock: dependencies.readRecoveryLock, readSecurityConfig: dependencies.readSecurityConfig, publicAppBaseUrl: dependencies.publicAppBaseUrl(), runtime: { now: dependencies.runtime.now, createId: dependencies.runtime.createId, report: (error) => dependencies.runtime.report(error, { operation: ADMISSION_MESSAGING_MAINTENANCE_OPERATION.phase, runId: run.runId, phase: ADMISSION_MESSAGING_MAINTENANCE_PHASE.notifications }) } }).useCases.prepareEmailNotifications.prepareGroups(phaseDeadline),
       dispatchOutbox: () => worker().useCases.dispatch.execute(),
-      reconcileLeases: () => new PostgresMessageDeliveryRepository(executeNew, async () => authorize(), dependencies.readSecurityConfig).reconcileExpiredLeases(ADMISSION_MESSAGING_MAINTENANCE_RECONCILIATION_LIMIT),
+      reconcileLeases: () => new PostgresMessageDeliveryRepository({ execute: executeNew, authorizeMaintenance: async () => authorize(), readSecurityConfig: dependencies.readSecurityConfig }).reconcileExpiredLeases(ADMISSION_MESSAGING_MAINTENANCE_RECONCILIATION_LIMIT),
     };
   };
   const work = new OriginalAdmissionMessagingMaintenanceWork(createOwners, dependencies.readSecurityConfig, dependencies.runtime);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { toast } from "@golfo/ui";
 import { useAdmissionNotificationContext } from "./use-admission-notification-context";
 import { readAdmissionNotificationRefreshSnapshot } from "@/lib/notifications/admission-notification-refresh-store";
@@ -70,40 +70,27 @@ function markItemRead(
 }
 
 /**
- * Client state of the notification bell (container side): server-first
- * initial inbox, list refresh on open (AbortController, stale responses
- * ignored), unread polling, and incremental read marks. Every mutation
- * patches the local state and adopts the unread count returned by the
- * server; no route refresh happens. A version of local mutations makes a
- * read that started before a mark discard its (older) result. Reads that
- * would start while a mark is still pending are not issued, because they
- * could observe the server before the mark commits and resolve after it:
- * a poll is skipped (the mark's response carries the fresh count) and a list
- * refresh is deferred until the last pending mark settles. A failed read
- * mark that a newer mutation superseded reconciles from the server (through
- * the same deferred refresh) instead of rolling back over the newer state.
- * Overlapping marks can commit out of order, so a mark's count may still
- * include an older uncommitted mark; when a successful mark's count is
- * discarded because a newer mutation superseded it, the unread count is read
- * again once the last pending mark settles.
- * Reads also race each other (a count poll and a list refresh can observe
- * different server snapshots and resolve out of order), so every read takes a
- * shared, increasing read generation and adopts its unread count only when no
- * newer read already applied one; an older list still renders its items.
- * The list status only matters when there are no rows (the panel keeps
- * rendering cached rows), so it always reflects the latest refresh: an empty
- * cached inbox shows the loading and error states instead of a definitive
- * empty state.
+ * Cancels the list and count reads still in flight when the bell unmounts.
  *
- * @param initialInbox - Inbox rendered by the layout, or null when it could
- * not be loaded (the bell then loads on open and polls the count).
- * @returns State and callbacks for the presentational bell.
+ * @param listControllerRef - Current list refresh.
+ * @param reconcileCountControllerRef - Current count reconciliation.
  */
-export function useNotificationCenter(
-  initialInbox: NotificationInboxResponse | null,
-  { isOpen = false }: { readonly isOpen?: boolean } = {},
-): NotificationCenter {
-  const admission = useAdmissionNotificationContext();
+function abortNotificationReads(
+  listControllerRef: RefObject<AbortController | null>,
+  reconcileCountControllerRef: RefObject<AbortController | null>
+): void {
+  listControllerRef.current?.abort();
+  reconcileCountControllerRef.current?.abort();
+}
+
+type AdmissionNotificationContext = ReturnType<typeof useAdmissionNotificationContext>;
+
+/**
+ * @param initialInbox - Inbox rendered by the layout, or null.
+ * @param admission - Current admission notification context.
+ * @returns Every state, ref and setter of the bell.
+ */
+function useNotificationCenterState(initialInbox: NotificationInboxResponse | null, admission: AdmissionNotificationContext) {
   const [notifications, setNotifications] = useState<NotificationItemResult[]>(
     initialInbox?.notifications ?? []
   );
@@ -126,13 +113,23 @@ export function useNotificationCenter(
   const feedbackGenerationRef = useRef(0);
   const listWorkRef = useRef<Promise<AdmissionNotificationRefreshOutcome> | null>(null);
   const inboxAdmissionRevisionRef = useRef<number | null>(null);
-  const ownRevisionRef = useRef(admission.revision);
+
+  return { notifications, setNotifications, unreadCount, setUnreadCount, listStatus, setListStatus, isMarkingAll, setIsMarkingAll, refreshUnavailable, setRefreshUnavailable, reconciledOwnRevision, setReconciledOwnRevision, isMarkingAllRef, listControllerRef, mutationVersionRef, pendingMutationCountRef, hasDeferredListRefreshRef, hasDiscardedMutationCountRef, reconcileCountControllerRef, readGenerationRef, appliedCountReadGenerationRef, feedbackGenerationRef, listWorkRef, inboxAdmissionRevisionRef };
+}
+type NotificationCenterState = ReturnType<typeof useNotificationCenterState>;
+
+/**
+ * @param state - Bell state.
+ * @returns Read ordering, refresh feedback and the unread count reads.
+ */
+function useNotificationCountReads(state: NotificationCenterState) {
+  const { feedbackGenerationRef, readGenerationRef, appliedCountReadGenerationRef, pendingMutationCountRef, mutationVersionRef, listControllerRef, reconcileCountControllerRef, setRefreshUnavailable, setUnreadCount } = state;
   /** @param generation - Actual read order. @param unavailable - Safe outcome; an older failed read cannot replace newer successful feedback. */
   const recordRefreshFeedback = useCallback((generation: number, unavailable: boolean) => {
     if (generation < feedbackGenerationRef.current) return;
     feedbackGenerationRef.current = generation;
     setRefreshUnavailable(unavailable);
-  }, []);
+  }, [feedbackGenerationRef, setRefreshUnavailable]);
 
   /**
    * Starts a server read (poll or list refresh).
@@ -143,7 +140,7 @@ export function useNotificationCenter(
     readGenerationRef.current += 1;
 
     return readGenerationRef.current;
-  }, []);
+  }, [readGenerationRef]);
 
   /**
    * Adopts the unread count of a read unless a newer read already applied
@@ -156,7 +153,7 @@ export function useNotificationCenter(
 
     appliedCountReadGenerationRef.current = readGeneration;
     setUnreadCount(readUnreadCount);
-  }, []);
+  }, [appliedCountReadGenerationRef, setUnreadCount]);
 
   const refreshUnreadCount = useCallback(async (signal: AbortSignal): Promise<AdmissionNotificationRefreshOutcome> => {
     if (pendingMutationCountRef.current > 0) {
@@ -180,14 +177,11 @@ export function useNotificationCenter(
       recordRefreshFeedback(readGeneration, true);
       return NOTIFICATION_REFRESH_OUTCOME.failed;
     }
-  }, [adoptReadUnreadCount, beginRead, recordRefreshFeedback]);
+  }, [adoptReadUnreadCount, beginRead, mutationVersionRef, pendingMutationCountRef, recordRefreshFeedback]);
 
   useEffect(
-    () => () => {
-      listControllerRef.current?.abort();
-      reconcileCountControllerRef.current?.abort();
-    },
-    []
+    () => () => abortNotificationReads(listControllerRef, reconcileCountControllerRef),
+    [listControllerRef, reconcileCountControllerRef]
   );
 
   /** Reads the unread count again after overlapping marks settled. */
@@ -197,10 +191,22 @@ export function useNotificationCenter(
     const controller = new AbortController();
 
     reconcileCountControllerRef.current = controller;
-    refreshUnreadCount(controller.signal);
-  }, [refreshUnreadCount]);
+    void refreshUnreadCount(controller.signal);
+  }, [reconcileCountControllerRef, refreshUnreadCount]);
 
-  const loadInbox = useCallback(async (signal?: AbortSignal): Promise<AdmissionNotificationRefreshOutcome> => {
+  return { recordRefreshFeedback, beginRead, adoptReadUnreadCount, refreshUnreadCount, reconcileUnreadCount };
+}
+type NotificationCountReads = ReturnType<typeof useNotificationCountReads>;
+
+/**
+ * @param state - Bell state.
+ * @param countReads - Read ordering and feedback.
+ * @returns The inbox read, joined by concurrent callers of the same admission revision.
+ */
+function useNotificationInboxLoad(state: NotificationCenterState, countReads: NotificationCountReads) {
+  const { pendingMutationCountRef, listControllerRef, hasDeferredListRefreshRef, listWorkRef, inboxAdmissionRevisionRef, mutationVersionRef, setListStatus, setNotifications } = state;
+  const { adoptReadUnreadCount, beginRead, recordRefreshFeedback } = countReads;
+  return useCallback(async (signal?: AbortSignal): Promise<AdmissionNotificationRefreshOutcome> => {
     if (pendingMutationCountRef.current > 0) {
       // A pre-mutation read cannot satisfy a refresh requested during the mark.
       // Preserve that intent for the last settling mutation instead of joining it.
@@ -247,8 +253,23 @@ export function useNotificationCenter(
     })();
     listWorkRef.current = work;
     try { return await work; } finally { if (listWorkRef.current === work) listWorkRef.current = null; }
-  }, [adoptReadUnreadCount, beginRead, recordRefreshFeedback]);
+  }, [adoptReadUnreadCount, beginRead, hasDeferredListRefreshRef, inboxAdmissionRevisionRef, listControllerRef, listWorkRef, mutationVersionRef, pendingMutationCountRef, recordRefreshFeedback, setListStatus, setNotifications]);
+}
 
+type NotificationVisibleRefreshInput = {
+  admission: AdmissionNotificationContext;
+  isOpen: boolean;
+  loadInbox: (signal?: AbortSignal) => Promise<AdmissionNotificationRefreshOutcome>;
+  refreshUnreadCount: (signal: AbortSignal) => Promise<AdmissionNotificationRefreshOutcome>;
+};
+
+/**
+ * @param state - Bell state.
+ * @param input - Admission context, whether the bell is open and the two reads.
+ * @returns The explicit list refresh, the visible refresh and whether a confirmed own action still awaits its read.
+ */
+function useNotificationVisibleRefresh(state: NotificationCenterState, { admission, isOpen, loadInbox, refreshUnreadCount }: NotificationVisibleRefreshInput) {
+  const { reconciledOwnRevision, setReconciledOwnRevision } = state;
   const refreshList = useCallback(() => { void loadInbox(); }, [loadInbox]);
   const ownActionPending = reconciledOwnRevision !== admission.revision;
   /** A confirmed original remains pending until its current inbox/count read succeeds, independently of hidden route data. */
@@ -256,14 +277,18 @@ export function useNotificationCenter(
     const outcome = await (isOpen && (admission.active || ownActionPending) ? loadInbox(signal) : refreshUnreadCount(signal));
     if (ownActionPending && outcome === NOTIFICATION_REFRESH_OUTCOME.refreshed) setReconciledOwnRevision((current) => Math.max(current, admission.revision));
     return outcome;
-  }, [admission.active, admission.revision, ownActionPending, isOpen, loadInbox, refreshUnreadCount]);
-  const { refreshNow } = useVisibleNotificationRefresh({ enabled: true, scopeKey: NOTIFICATION_CENTER_REFRESH_SCOPE, intervalMilliseconds: admission.active || ownActionPending ? ADMISSION_NOTIFICATION_REFRESH_INTERVAL_MS : ORDINARY_NOTIFICATION_REFRESH_INTERVAL_MS, requireFocus: admission.active || ownActionPending, refresh: refreshVisible });
-  useEffect(() => {
-    if (ownRevisionRef.current === admission.revision) return;
-    ownRevisionRef.current = admission.revision;
-    refreshNow();
-  }, [admission.revision, refreshNow]);
+  }, [admission.active, admission.revision, ownActionPending, isOpen, loadInbox, refreshUnreadCount, setReconciledOwnRevision]);
+  return { refreshList, refreshVisible, ownActionPending };
+}
 
+/**
+ * @param state - Bell state.
+ * @param reads - The deferred list refresh and the count reconciliation.
+ * @returns The version, count adoption and settling of local mutations.
+ */
+function useNotificationMutationTracking(state: NotificationCenterState, reads: { refreshList: () => void; reconcileUnreadCount: () => void }) {
+  const { mutationVersionRef, pendingMutationCountRef, hasDiscardedMutationCountRef, hasDeferredListRefreshRef, setUnreadCount } = state;
+  const { refreshList, reconcileUnreadCount } = reads;
   /**
    * Starts a local mutation: bumps the version (so in-flight reads discard
    * their results) and counts it as pending (so new reads are not issued).
@@ -275,7 +300,7 @@ export function useNotificationCenter(
     pendingMutationCountRef.current += 1;
 
     return mutationVersionRef.current;
-  }, []);
+  }, [mutationVersionRef, pendingMutationCountRef]);
 
   /**
    * Adopts the unread count returned by a successful mutation, or records
@@ -289,7 +314,7 @@ export function useNotificationCenter(
     }
 
     setUnreadCount(mutationUnreadCount);
-  }, []);
+  }, [hasDiscardedMutationCountRef, mutationVersionRef, setUnreadCount]);
 
   /**
    * Settles a local mutation and, once no mutation is pending, issues the
@@ -312,13 +337,25 @@ export function useNotificationCenter(
       hasDiscardedMutationCountRef.current = false;
       reconcileUnreadCount();
     }
-  }, [reconcileUnreadCount, refreshList]);
+  }, [hasDeferredListRefreshRef, hasDiscardedMutationCountRef, pendingMutationCountRef, reconcileUnreadCount, refreshList]);
 
-  const markRead = useCallback(
+  return { beginMutation, adoptMutationUnreadCount, settleMutation };
+}
+type NotificationMutationTracking = ReturnType<typeof useNotificationMutationTracking>;
+
+/**
+ * @param state - Bell state.
+ * @param tracking - Local mutation tracking.
+ * @returns The optimistic mark of one notification.
+ */
+function useNotificationReadMark(state: NotificationCenterState, tracking: NotificationMutationTracking) {
+  const { notifications, setNotifications, setUnreadCount, mutationVersionRef, hasDeferredListRefreshRef } = state;
+  const { adoptMutationUnreadCount, beginMutation, settleMutation } = tracking;
+  return useCallback(
     (notificationId: string) => {
       const target = notifications.find((notification) => notification.id === notificationId);
 
-      if (!target || target.readAt !== null) {
+      if (target?.readAt !== null) {
         return;
       }
 
@@ -343,22 +380,39 @@ export function useNotificationCenter(
         toast.error(COPY.markReadFailure);
       };
 
-      markNotificationReadRequest({ notificationId })
-        .then((result) => {
+      /** Sends the mark; a failed or rejected request reverts it, and the mutation always settles afterwards. */
+      const send = async () => {
+        try {
+          const result = await markNotificationReadRequest({ notificationId });
+
           if (!result.isSuccess) {
             revert();
             return;
           }
 
           adoptMutationUnreadCount(version, result.unreadCount);
-        })
-        .catch(revert)
-        .finally(settleMutation);
-    },
-    [adoptMutationUnreadCount, beginMutation, notifications, settleMutation]
-  );
+        } catch {
+          revert();
+        } finally {
+          settleMutation();
+        }
+      };
 
-  const markAllRead = useCallback(async () => {
+      void send();
+    },
+    [adoptMutationUnreadCount, beginMutation, hasDeferredListRefreshRef, mutationVersionRef, notifications, setNotifications, setUnreadCount, settleMutation]
+  );
+}
+
+/**
+ * @param state - Bell state.
+ * @param tracking - Local mutation tracking.
+ * @returns The optimistic mark of every notification, announced by its own toast.
+ */
+function useNotificationMarkAll(state: NotificationCenterState, tracking: NotificationMutationTracking) {
+  const { notifications, unreadCount, setNotifications, setUnreadCount, setIsMarkingAll, isMarkingAllRef, mutationVersionRef } = state;
+  const { adoptMutationUnreadCount, beginMutation, settleMutation } = tracking;
+  return useCallback(async () => {
     if (isMarkingAllRef.current) {
       return;
     }
@@ -407,16 +461,67 @@ export function useNotificationCenter(
       setIsMarkingAll(false);
       settleMutation();
     }
-  }, [adoptMutationUnreadCount, beginMutation, notifications, settleMutation, unreadCount]);
+  }, [adoptMutationUnreadCount, beginMutation, isMarkingAllRef, mutationVersionRef, notifications, setIsMarkingAll, setNotifications, setUnreadCount, settleMutation, unreadCount]);
+}
+
+/**
+ * Client state of the notification bell (container side): server-first
+ * initial inbox, list refresh on open (AbortController, stale responses
+ * ignored), unread polling, and incremental read marks. Every mutation
+ * patches the local state and adopts the unread count returned by the
+ * server; no route refresh happens. A version of local mutations makes a
+ * read that started before a mark discard its (older) result. Reads that
+ * would start while a mark is still pending are not issued, because they
+ * could observe the server before the mark commits and resolve after it:
+ * a poll is skipped (the mark's response carries the fresh count) and a list
+ * refresh is deferred until the last pending mark settles. A failed read
+ * mark that a newer mutation superseded reconciles from the server (through
+ * the same deferred refresh) instead of rolling back over the newer state.
+ * Overlapping marks can commit out of order, so a mark's count may still
+ * include an older uncommitted mark; when a successful mark's count is
+ * discarded because a newer mutation superseded it, the unread count is read
+ * again once the last pending mark settles.
+ * Reads also race each other (a count poll and a list refresh can observe
+ * different server snapshots and resolve out of order), so every read takes a
+ * shared, increasing read generation and adopts its unread count only when no
+ * newer read already applied one; an older list still renders its items.
+ * The list status only matters when there are no rows (the panel keeps
+ * rendering cached rows), so it always reflects the latest refresh: an empty
+ * cached inbox shows the loading and error states instead of a definitive
+ * empty state.
+ *
+ * @param initialInbox - Inbox rendered by the layout, or null when it could
+ * not be loaded (the bell then loads on open and polls the count).
+ * @returns State and callbacks for the presentational bell.
+ */
+export function useNotificationCenter(
+  initialInbox: NotificationInboxResponse | null,
+  { isOpen = false }: { readonly isOpen?: boolean } = {},
+): NotificationCenter {
+  const admission = useAdmissionNotificationContext();
+  const ownRevisionRef = useRef(admission.revision);
+  const state = useNotificationCenterState(initialInbox, admission);
+  const countReads = useNotificationCountReads(state);
+  const loadInbox = useNotificationInboxLoad(state, countReads);
+  const { refreshList, refreshVisible, ownActionPending } = useNotificationVisibleRefresh(state, { admission, isOpen, loadInbox, refreshUnreadCount: countReads.refreshUnreadCount });
+  const { refreshNow } = useVisibleNotificationRefresh({ enabled: true, scopeKey: NOTIFICATION_CENTER_REFRESH_SCOPE, intervalMilliseconds: admission.active || ownActionPending ? ADMISSION_NOTIFICATION_REFRESH_INTERVAL_MS : ORDINARY_NOTIFICATION_REFRESH_INTERVAL_MS, requireFocus: admission.active || ownActionPending, refresh: refreshVisible });
+  useEffect(() => {
+    if (ownRevisionRef.current === admission.revision) return;
+    ownRevisionRef.current = admission.revision;
+    refreshNow();
+  }, [admission.revision, refreshNow]);
+  const tracking = useNotificationMutationTracking(state, { refreshList, reconcileUnreadCount: countReads.reconcileUnreadCount });
+  const markRead = useNotificationReadMark(state, tracking);
+  const markAllRead = useNotificationMarkAll(state, tracking);
 
   return {
-    isMarkingAll,
-    listStatus,
+    isMarkingAll: state.isMarkingAll,
+    listStatus: state.listStatus,
     markAllRead,
     markRead,
-    notifications,
+    notifications: state.notifications,
     refreshList,
-    refreshUnavailable: admission.active && refreshUnavailable,
-    unreadCount,
+    refreshUnavailable: admission.active && state.refreshUnavailable,
+    unreadCount: state.unreadCount,
   };
 }

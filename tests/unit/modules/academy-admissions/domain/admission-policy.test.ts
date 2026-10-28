@@ -166,9 +166,12 @@ describe("admission policy configuration", () => {
   it.each(["phoneChannel", "messagingConnectionId", "messagingConnectionVersion"] as const)(
     "should invalidate unapplied verification when %s changes without starting another epoch", (changedField) => {
       const current = { ...createDefaultAdmissionPolicy({ id: "policy", tribeId: fixtures.tribes.academyA.id }), contactType: "phone" as const, requiresAdditionalVerification: true, phoneChannel: "sms" as const, messagingConnectionId: "connection", messagingConnectionVersion: 1 };
-      const patch = changedField === "phoneChannel" ? { phoneChannel: "whatsapp" as const }
-        : changedField === "messagingConnectionId" ? { messagingConnectionId: "replacement" }
-        : { messagingConnectionVersion: 2 };
+      const patches = {
+        phoneChannel: { phoneChannel: "whatsapp" as const },
+        messagingConnectionId: { messagingConnectionId: "replacement" },
+        messagingConnectionVersion: { messagingConnectionVersion: 2 },
+      };
+      const patch = patches[changedField];
       expect(proposeAdmissionPolicyChange(current, patch, current.version, {
         tribeId: current.tribeId, channelPrepared: true, verificationQuotaPositive: true,
         usagePolicy: { ...fixtures.usagePolicy, allowedCountries: ["AR"], platformRestrictions: [] },

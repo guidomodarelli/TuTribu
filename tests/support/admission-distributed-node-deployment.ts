@@ -14,7 +14,7 @@ import { resolveNeonCliEntrypoint } from "./neon-cli-entrypoint";
 
 const execute = promisify(execFile);
 type FunctionMetadata = { slug: string; invocation_url?: string; branch_id?: string };
-type ApiBranch = { id: string; name: string; default: boolean; parent_id: string };
+type ApiBranch = { id: string; name: string; default?: boolean; parent_id: string };
 type EndpointMetadata = { branch_id: string; autoscaling_limit_min_cu: number; autoscaling_limit_max_cu: number; region_id: string };
 type AppliedChange = { kind: string; action: string; identifier: string };
 type Compiler = { version: string; build: (options: Record<string, unknown>) => Promise<{ metafile: { inputs: Record<string, unknown> } }> };
@@ -59,12 +59,12 @@ export async function deployAdmissionDistributedNodes(branch: AcademyAdmissionTe
   /** Reads only original branch metadata before any deployment or removal. */
   async function assertBranchScope() {
     const result = await command(["api", `/projects/${ADMISSION_NEON_PROJECT_ID}/branches/${branch.id}`, "--method", "GET"]) as { branch: ApiBranch };
-    if (branch.isDefault !== false || result.branch.id !== branch.id || result.branch.name !== branch.name || result.branch.parent_id !== branch.parentId || result.branch.default !== false) throw new Error("AdmissionDistributedDeployment.prepare failed: branch_ownership_unproven");
+    if (result.branch.id !== branch.id || result.branch.name !== branch.name || result.branch.parent_id !== branch.parentId || result.branch.default !== false) throw new Error("AdmissionDistributedDeployment.prepare failed: branch_ownership_unproven");
   }
   await assertBranchScope();
   const endpoints = await command(["api", `/projects/${ADMISSION_NEON_PROJECT_ID}/endpoints`, "--method", "GET"]) as { endpoints: EndpointMetadata[] };
   const endpoint = endpoints.endpoints.find((item) => item.branch_id === branch.id);
-  if (!endpoint || endpoint.autoscaling_limit_min_cu !== expectedComputeUnits || endpoint.autoscaling_limit_max_cu !== expectedComputeUnits) throw new Error("AdmissionDistributedDeployment.prepare failed: compute_capacity_unproven");
+  if (endpoint?.autoscaling_limit_min_cu !== expectedComputeUnits || endpoint.autoscaling_limit_max_cu !== expectedComputeUnits) throw new Error("AdmissionDistributedDeployment.prepare failed: compute_capacity_unproven");
   const compute = { minimum: endpoint.autoscaling_limit_min_cu, maximum: endpoint.autoscaling_limit_max_cu, region: endpoint.region_id };
   const require = createRequire(cli), compiler = require("esbuild") as Compiler;
   const built = await compiler.build({ absWorkingDir: workspace, entryPoints: [join(workspace, ADMISSION_DISTRIBUTED_NODE.entrypoint)], outfile: join(directory, "index.mjs"), bundle: true, platform: "node", format: "esm", target: "node24", conditions: ["react-server"], external: ["pg-native"], tsconfig: join(workspace, "tsconfig.json"), alias: { "server-only": join(workspace, "node_modules/next/dist/compiled/server-only/empty.js") }, banner: { js: "import {createRequire as __admissionCreateRequire} from 'node:module';const require=__admissionCreateRequire(import.meta.url);" }, metafile: true, logLevel: "silent" });

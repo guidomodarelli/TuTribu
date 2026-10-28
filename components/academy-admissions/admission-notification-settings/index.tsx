@@ -84,9 +84,15 @@ function saveBlockedReason(props: AdmissionNotificationSettingsProps, needsConse
   return needsConsent && !props.confirmed ? COPY.confirmRequired : undefined;
 }
 
+/** @param saving - The save step in flight, if any. @returns The progress line of that step, empty while nothing saves. */
+function savingCopy(saving: AdmissionNotificationSettingsSaveStep | null): string {
+  if (saving === SAVE_STEP.email) return COPY.savingEmail;
+  return saving === SAVE_STEP.preference ? COPY.savingPreference : "";
+}
+
 /** @param props - Save step and feedback. @returns The announced save progress, error, partial result and success lines. */
 function Feedback({ saving, error, progress, status }: Pick<AdmissionNotificationSettingsProps, "saving" | "error" | "progress" | "status">) {
-  const savingText = saving === SAVE_STEP.email ? COPY.savingEmail : saving === SAVE_STEP.preference ? COPY.savingPreference : "";
+  const savingText = savingCopy(saving);
   return <>
     <p role="status" className={saving ? styles.AdmissionNotificationSettings__note : styles.AdmissionNotificationSettings__hidden}>{savingText}</p>
     {error && <p role="alert" className={styles.AdmissionNotificationSettings__error}>{error}</p>}
@@ -147,9 +153,15 @@ function TribeEmailFields({ draft, pending, messagingHref, onDraft }: Pick<Admis
   </div>;
 }
 
+/** @param draft - Tribe email draft. @param mode - Chosen review notification mode. @returns What the leader will receive once saved. */
+function reviewOutcome(draft: AdmissionNotificationSettingsProps["draft"], mode: AdmissionNotificationSettingsProps["mode"]): string {
+  if (mode === MODE.omitted) return SUMMARY[MODE.omitted];
+  return draft.enabled ? SUMMARY[mode] : "Con el correo de la tribu deshabilitado no vas a recibir correos de revisión.";
+}
+
 /** @param props - Drafts, plan and consent. @returns A readable summary of what will be saved and the single confirmation. */
 function ReviewSummary({ draft, mode, plan, confirmed, onConfirm }: Pick<AdmissionNotificationSettingsProps, "draft" | "mode" | "plan" | "confirmed" | "onConfirm">) {
-  const outcome = mode === MODE.omitted ? SUMMARY[MODE.omitted] : draft.enabled ? SUMMARY[mode] : "Con el correo de la tribu deshabilitado no vas a recibir correos de revisión.";
+  const outcome = reviewOutcome(draft, mode);
   return <div className={styles.AdmissionNotificationSettings__fields}>
     <dl className={styles.AdmissionNotificationSettings__facts}>
       <div className={styles.AdmissionNotificationSettings__fact}>
@@ -214,6 +226,12 @@ function LeaderSteps(props: AdmissionNotificationSettingsProps) {
     footer={<Feedback saving={props.saving} error={props.error} progress={props.progress} status={props.status} />} />;
 }
 
+/** @param props - Guarded current state, drafts and explicit callbacks. @returns The saved summary outside editing, else the leader's guided steps or the member's frequency form. */
+function renderSettingsBody(props: AdmissionNotificationSettingsProps) {
+  if (!props.editing) return <SettingsSummary {...props} />;
+  return props.email ? <LeaderSteps {...props} /> : <MemberForm {...props} />;
+}
+
 /** @param props - Guarded current state, drafts and explicit callbacks. @returns The saved summary, or the guided steps (leader) or the single frequency form (member). */
 export function AdmissionNotificationSettings(props: AdmissionNotificationSettingsProps) {
   const unsaved = props.editing && hasPlannedWrite(props.plan);
@@ -228,6 +246,6 @@ export function AdmissionNotificationSettings(props: AdmissionNotificationSettin
     </div>
     {props.busy && props.saving === null && <p role="status" className={styles.AdmissionNotificationSettings__note}>Consultando los ajustes actuales…</p>}
     {props.pending && <p role="status" className={styles.AdmissionNotificationSettings__callout}>Conservamos el cambio original del correo de la tribu. Consultá su estado antes de empezar otro; los ajustes actuales pueden tener una versión posterior.</p>}
-    {!props.editing ? <SettingsSummary {...props} /> : props.email ? <LeaderSteps {...props} /> : <MemberForm {...props} />}
+    {renderSettingsBody(props)}
   </div>;
 }

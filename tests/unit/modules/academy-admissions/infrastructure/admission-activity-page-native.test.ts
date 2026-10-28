@@ -184,12 +184,12 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native private act
       const diagnostics: { category: string; code?: string; constraint?: string; table?: string; frames: string[]; knownFailure?: string }[] = [];
       let current: unknown = error;
       while (current instanceof Error && diagnostics.length < 5) {
-        const diagnostic: (typeof diagnostics)[number] = { category: current.name, frames: [...(current.stack ?? "").matchAll(/(?:^|[/\\])([\w.-]+\.(?:ts|tsx|js|cjs|mjs):\d+:\d+)/gmu)].slice(0, 4).map((frame) => frame[1]) };
+        const diagnostic: (typeof diagnostics)[number] = { category: current.name, frames: (current.stack ?? "").matchAll(/(?:^|[/\\])([\w.-]+\.(?:ts|tsx|js|cjs|mjs):\d+:\d+)/gmu).take(4).map((frame) => frame[1]).toArray() };
         for (const field of ["code", "constraint", "table"] as const) {
           const value: unknown = Reflect.get(current, field);
-          if (typeof value === "string" && /^[a-zA-Z0-9_]{1,120}$/u.test(value)) diagnostic[field] = value;
+          if (typeof value === "string" && /^\w{1,120}$/u.test(value)) diagnostic[field] = value;
         }
-        const knownFailure = current.message.match(/^(?:AcademyAdmissionDatabase\.[A-Za-z]+|Owned feature migration command) failed: (?:[a-z_]+|exit=[A-Z_0-9]+)/u);
+        const knownFailure = /^(?:AcademyAdmissionDatabase\.[A-Za-z]+|Owned feature migration command) failed: (?:exit=[A-Z_0-9]+|[a-z_]+)/u.exec(current.message);
         if (knownFailure) diagnostic.knownFailure = knownFailure[0];
         diagnostics.push(diagnostic); current = current.cause;
       }

@@ -22,7 +22,7 @@ export const ADMISSION_NODE_HOST = {
 /** Reports only which binding was selected and a hostname marker, never a connection string. */
 export type AdmissionNodeConnectionMetadata = { sourceVariable: "DATABASE_URL_UNPOOLED" | "DATABASE_URL"; hostnameHasPoolerMarker: boolean };
 const admissionNodeConnectionMetadataSchema = z.object({ sourceVariable: z.enum([ADMISSION_NODE_HOST.directDatabaseVariable, ADMISSION_NODE_HOST.databaseVariable]), hostnameHasPoolerMarker: z.boolean() }).strict() satisfies z.ZodType<AdmissionNodeConnectionMetadata>;
-const nonnegative = z.number().finite().nonnegative();
+const nonnegative = z.number().nonnegative();
 const integer = z.number().int().nonnegative();
 export const admissionNodeMeasurementSchema = z.object({
   warmupDurationMs: nonnegative, setupDurationMs: nonnegative,

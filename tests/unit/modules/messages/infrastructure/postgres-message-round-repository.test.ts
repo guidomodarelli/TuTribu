@@ -8,6 +8,10 @@ function getSqlText(statement: unknown): string {
         return chunk;
       }
 
+      if (chunk && typeof chunk === "object" && "queryChunks" in chunk) {
+        return getSqlText(chunk);
+      }
+
       if (
         chunk &&
         typeof chunk === "object" &&

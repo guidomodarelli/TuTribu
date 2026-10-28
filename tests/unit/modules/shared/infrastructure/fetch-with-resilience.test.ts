@@ -238,11 +238,11 @@ describe("readJsonWithTimeout", () => {
       };
 
       const readPromise = readJsonWithTimeout(response, BODY_READ_TIMEOUT_MS);
-      const assertion = await expect(readPromise).rejects.toThrow("Response body read timed out");
 
-      await vi.advanceTimersByTimeAsync(BODY_READ_TIMEOUT_MS);
-
-      await assertion;
+      await Promise.all([
+        expect(readPromise).rejects.toThrow("Response body read timed out"),
+        vi.advanceTimersByTimeAsync(BODY_READ_TIMEOUT_MS),
+      ]);
     } finally {
       vi.useRealTimers();
     }

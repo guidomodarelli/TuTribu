@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { toast } from "@golfo/ui";
 
 import {
@@ -42,31 +42,19 @@ type PendingCommentAttempt = {
   content: string;
 };
 
+type SetConversationLoadState = Dispatch<SetStateAction<TribeEventLoadState<ConversationData>>>;
+
 /**
- * Conversation of one occurrence: loads once per mount (the container
- * remounts per occurrence) with an AbortController, appends a new comment
- * from the route answer, and removes a deleted one, never refreshing the
- * route. A ref guards against duplicate submits. Each send carries a client
- * request id generated once per attempt and reused while the same text is
- * retried after a failure, so a retry after a lost or unreadable response
- * answers the comment already created instead of duplicating it. Comment
- * creations and deletions are registered per occurrence and a load waits for
- * them, so reopening the detail while one is pending shows its outcome.
+ * Loads the conversation once per mount and again on each explicit reload.
  *
  * @param target - Occurrence addressed by the conversation.
- * @returns Load state, submitting flags, and the mutations.
+ * @returns Load state, its setter for local mutations, and the reload.
  */
-export function useTribeEventConversation(target: TribeEventOccurrenceTarget) {
+function useConversationLoad(target: TribeEventOccurrenceTarget) {
   const [loadState, setLoadState] = useState<TribeEventLoadState<ConversationData>>({
     status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loading,
   });
   const [reloadCount, setReloadCount] = useState(0);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [deletingCommentIds, setDeletingCommentIds] = useState<ReadonlySet<string>>(
-    () => new Set()
-  );
-  const isSubmittingRef = useRef(false);
-  const pendingCommentAttemptRef = useRef<PendingCommentAttempt | null>(null);
   const { eventId, originalStartsAt, tribeSlug } = target;
 
   useEffect(() => {
@@ -117,6 +105,22 @@ export function useTribeEventConversation(target: TribeEventOccurrenceTarget) {
     setLoadState({ status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loading });
     setReloadCount((currentCount) => currentCount + 1);
   }, []);
+
+  return { loadState, setLoadState, reload };
+}
+
+/**
+ * Sends new comments, reusing the client request id of an unconfirmed attempt.
+ *
+ * @param target - Occurrence addressed by the conversation.
+ * @param setLoadState - Load state setter, to append the created comment.
+ * @returns The submitting flag and the creation.
+ */
+function useCommentCreation(target: TribeEventOccurrenceTarget, setLoadState: SetConversationLoadState) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
+  const pendingCommentAttemptRef = useRef<PendingCommentAttempt | null>(null);
+  const { eventId, originalStartsAt, tribeSlug } = target;
 
   const createComment = async (content: string): Promise<boolean> => {
     if (isSubmittingRef.current) {
@@ -169,6 +173,22 @@ export function useTribeEventConversation(target: TribeEventOccurrenceTarget) {
     }
   };
 
+  return { createComment, isSubmitting };
+}
+
+/**
+ * Deletes comments, one request per comment at a time.
+ *
+ * @param target - Occurrence addressed by the conversation.
+ * @param setLoadState - Load state setter, to remove the deleted comment.
+ * @returns The comments being deleted and the deletion.
+ */
+function useCommentDeletion(target: TribeEventOccurrenceTarget, setLoadState: SetConversationLoadState) {
+  const [deletingCommentIds, setDeletingCommentIds] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
+  const { eventId, originalStartsAt, tribeSlug } = target;
+
   const deleteComment = async (commentId: string): Promise<void> => {
     if (deletingCommentIds.has(commentId)) {
       return;
@@ -209,6 +229,28 @@ export function useTribeEventConversation(target: TribeEventOccurrenceTarget) {
       });
     }
   };
+
+  return { deleteComment, deletingCommentIds };
+}
+
+/**
+ * Conversation of one occurrence: loads once per mount (the container
+ * remounts per occurrence) with an AbortController, appends a new comment
+ * from the route answer, and removes a deleted one, never refreshing the
+ * route. A ref guards against duplicate submits. Each send carries a client
+ * request id generated once per attempt and reused while the same text is
+ * retried after a failure, so a retry after a lost or unreadable response
+ * answers the comment already created instead of duplicating it. Comment
+ * creations and deletions are registered per occurrence and a load waits for
+ * them, so reopening the detail while one is pending shows its outcome.
+ *
+ * @param target - Occurrence addressed by the conversation.
+ * @returns Load state, submitting flags, and the mutations.
+ */
+export function useTribeEventConversation(target: TribeEventOccurrenceTarget) {
+  const { loadState, setLoadState, reload } = useConversationLoad(target);
+  const { createComment, isSubmitting } = useCommentCreation(target, setLoadState);
+  const { deleteComment, deletingCommentIds } = useCommentDeletion(target, setLoadState);
 
   return { createComment, deleteComment, deletingCommentIds, isSubmitting, loadState, reload };
 }

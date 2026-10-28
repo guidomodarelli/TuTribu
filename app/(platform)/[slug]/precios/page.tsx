@@ -116,58 +116,23 @@ function shouldHideQueryStatus(
   );
 }
 
+type TribePricesPageAccess = Awaited<ReturnType<typeof resolveVisibleTribePageAccess>>;
+
+type PriceListRequest = {
+  isLeader: boolean;
+  shouldAutoConnectMercadoPago: boolean;
+  slug: string;
+};
+
 /**
- * Renders subscription price settings for tribe leaders and guardians.
- *
- * @param props - Route params with the tribe slug.
- * @returns Tribe subscription price page.
+ * Reads the prices of the tribe; a failure is logged and shows an empty list
+ * that asks to reconnect Mercado Pago.
  */
-export default async function TribePricesPage({
-  params,
-  searchParams = Promise.resolve({}),
-}: {
-  params: Promise<{
-    slug: string;
-  }>;
-  searchParams?: Promise<TribePricesPageSearchParams>;
-}) {
-  const { slug } = await params;
-  const resolvedSearchParams = await searchParams;
-  const status = readFirstSearchParamValue(
-    resolvedSearchParams[PRICE_PAGE_QUERY.status]
-  );
-  const statusOrigin = readFirstSearchParamValue(
-    resolvedSearchParams[PRICE_PAGE_QUERY.statusOrigin]
-  );
-  const queryStatusMessage = resolveStatusMessage(status);
-  const { authenticatedMember, tribe, logger, modules } =
-    await resolveVisibleTribePageAccess({
-      callbackPath: ROUTES.tribes.prices(slug),
-      operation: PRICE_MANAGEMENT_PAGE_LOG.operation,
-      slug,
-    });
-  const currentMembership = (
-    await modules.tribes.useCases.getMemberTribes()
-  ).find((tribeListItem) => tribeListItem.slug === tribe.slug);
-
-  if (
-    currentMembership?.role !== PRICE_ADMIN_ROLE.leader &&
-    currentMembership?.role !== PRICE_ADMIN_ROLE.guardian
-  ) {
-    notFound();
-  }
-
-  const membershipStatus =
-    await modules.tribes.useCases.getCurrentTribeMembershipStatus(tribe.slug);
-
-  if (membershipStatus !== TRIBE_MEMBERSHIP_STATUS.active) {
-    notFound();
-  }
-
-  const shouldAutoConnectMercadoPago =
-    status !== TRIBE_SUBSCRIPTION_PRICE_STATUS.connected &&
-    status !== TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired;
-  const priceList = await modules.subscriptions.useCases
+async function loadPriceList(
+  { authenticatedMember, logger, modules, tribe }: TribePricesPageAccess,
+  { isLeader, shouldAutoConnectMercadoPago, slug }: PriceListRequest
+) {
+  return modules.subscriptions.useCases
     .listTribeSubscriptionPrices({
       tribeSlug: tribe.slug,
     })
@@ -195,32 +160,98 @@ export default async function TribePricesPage({
         prices: [],
         shouldAutoConnectMercadoPago: false,
         viewerPermissions: {
-          canManagePrices: currentMembership.role === PRICE_ADMIN_ROLE.leader,
+          canManagePrices: isLeader,
           canViewPrices: true,
         },
       };
     });
+}
+
+/** Subscriber diagnostics for a price manager; `null` when they could not be read. */
+async function loadSubscriberDiagnostics(
+  { authenticatedMember, logger, modules, tribe }: TribePricesPageAccess,
+  slug: string
+) {
+  return modules.subscriptions.useCases
+    .getTribeSubscriberDiagnostics({
+      tribeSlug: tribe.slug,
+    })
+    .catch((error: unknown) => {
+      logger.error({
+        message:
+          PRICE_MANAGEMENT_PAGE_LOG.resolveDiagnosticsFailureMessage,
+        error,
+        metadata: {
+          slug,
+          viewerId: authenticatedMember.id,
+        },
+      });
+
+      return null;
+    });
+}
+
+/**
+ * Renders subscription price settings for tribe leaders and guardians.
+ *
+ * @param props - Route params with the tribe slug.
+ * @returns Tribe subscription price page.
+ */
+export default async function TribePricesPage({
+  params,
+  searchParams = Promise.resolve({}),
+}: {
+  params: Promise<{
+    slug: string;
+  }>;
+  searchParams?: Promise<TribePricesPageSearchParams>;
+}) {
+  const { slug } = await params;
+  const resolvedSearchParams = await searchParams;
+  const status = readFirstSearchParamValue(
+    resolvedSearchParams[PRICE_PAGE_QUERY.status]
+  );
+  const statusOrigin = readFirstSearchParamValue(
+    resolvedSearchParams[PRICE_PAGE_QUERY.statusOrigin]
+  );
+  const queryStatusMessage = resolveStatusMessage(status);
+  const access = await resolveVisibleTribePageAccess({
+    callbackPath: ROUTES.tribes.prices(slug),
+    operation: PRICE_MANAGEMENT_PAGE_LOG.operation,
+    slug,
+  });
+  const { tribe, modules } = access;
+  const currentMembership = (
+    await modules.tribes.useCases.getMemberTribes()
+  ).find((tribeListItem) => tribeListItem.slug === tribe.slug);
+
+  if (
+    currentMembership?.role !== PRICE_ADMIN_ROLE.leader &&
+    currentMembership?.role !== PRICE_ADMIN_ROLE.guardian
+  ) {
+    notFound();
+  }
+
+  const membershipStatus =
+    await modules.tribes.useCases.getCurrentTribeMembershipStatus(tribe.slug);
+
+  if (membershipStatus !== TRIBE_MEMBERSHIP_STATUS.active) {
+    notFound();
+  }
+
+  const shouldAutoConnectMercadoPago =
+    status !== TRIBE_SUBSCRIPTION_PRICE_STATUS.connected &&
+    status !== TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired;
+  const priceList = await loadPriceList(access, {
+    isLeader: currentMembership.role === PRICE_ADMIN_ROLE.leader,
+    shouldAutoConnectMercadoPago,
+    slug,
+  });
   const isMercadoPagoConnected =
     priceList.mercadoPagoConnectionStatus ===
     MERCADO_PAGO_CONNECTION_STATUS.connected;
   const subscriberDiagnostics = priceList.viewerPermissions.canManagePrices
-    ? await modules.subscriptions.useCases
-        .getTribeSubscriberDiagnostics({
-          tribeSlug: tribe.slug,
-        })
-        .catch((error: unknown) => {
-          logger.error({
-            message:
-              PRICE_MANAGEMENT_PAGE_LOG.resolveDiagnosticsFailureMessage,
-            error,
-            metadata: {
-              slug,
-              viewerId: authenticatedMember.id,
-            },
-          });
-
-          return null;
-        })
+    ? await loadSubscriberDiagnostics(access, slug)
     : null;
   const statusMessage = shouldHideQueryStatus(
     status,

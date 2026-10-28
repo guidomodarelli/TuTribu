@@ -166,7 +166,7 @@ describe("post-event routes", () => {
       ]);
       const bodies = await Promise.all(responses.map((response) => response.json()));
 
-      expect(responses.map((response) => response.status)).toEqual(new Array(7).fill(500));
+      expect(responses.map((response) => response.status)).toEqual(Array.from({ length: 7 }, () => 500));
       expect(bodies).toEqual([
         { message: "No pudimos cargar la grabación y los materiales. Intentá de nuevo." },
         { message: "No pudimos guardar la grabación y los materiales. Intentá de nuevo." },
@@ -201,10 +201,9 @@ describe("post-event routes", () => {
     (createRequestModules as Mock).mockRejectedValue(new Error("pool exhausted"));
 
     await GET_POST_EVENT(
-      {
-        ...buildRequest(`${BASE_URL}/post-event?occurrence=${ORIGINAL_STARTS_AT}`),
+      Object.assign(buildRequest(`${BASE_URL}/post-event?occurrence=${ORIGINAL_STARTS_AT}`), {
         headers: new Headers({ "x-request-id": CLIENT_REQUEST_ID }),
-      },
+      }),
       eventContext()
     );
 
@@ -685,10 +684,9 @@ describe("lesson conversion routes", () => {
     (createRequestModules as Mock).mockRejectedValue(new Error("pool exhausted"));
 
     await POST_LESSON_FROM_EVENT(
-      {
-        ...buildRequest("https://tutribu.example.com/api", conversionBody),
+      Object.assign(buildRequest("https://tutribu.example.com/api", conversionBody), {
         headers: new Headers({ "x-request-id": CLIENT_REQUEST_ID }),
-      },
+      }),
       tribeContext()
     );
 

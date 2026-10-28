@@ -22,28 +22,28 @@ describe("allowlist CSV input", () => {
   });
 
   it.each(["", "display_name,identity\na,b", "identity;display_name\na;b", "identity,display_name\na", "identity,display_name\na,b,c", 'identity,display_name\na,"unterminated', 'identity,display_name\na,b"quoted', 'identity,display_name\na,"b"extra', "identity,display_name\ra,b"]) ("should reject a globally unusable header or record format: %s", (input) => {
-    expect(() => parseAllowlistCsv(input)).toThrowError(expect.objectContaining({ code: "invalid_input" }));
+    expect(() => parseAllowlistCsv(input)).toThrow(expect.objectContaining({ code: "invalid_input" }));
   });
 
   it("should accept exactly ten thousand data rows and reject an additional row", () => {
     const row = "person@example.test,\n", header = "identity,display_name\n";
     const result = parseAllowlistCsv(header + row.repeat(ADMISSION_LIMIT.csvDataRowCount));
     expect(result).toHaveLength(10_000); expect(result.at(-1)?.rowNumber).toBe(10_000);
-    expect(() => parseAllowlistCsv(header + row.repeat(ADMISSION_LIMIT.csvDataRowCount + 1))).toThrowError(expect.objectContaining({ code: "invalid_input" }));
+    expect(() => parseAllowlistCsv(header + row.repeat(ADMISSION_LIMIT.csvDataRowCount + 1))).toThrow(expect.objectContaining({ code: "invalid_input" }));
   });
 
   it("should enforce the byte ceiling independently with actual UTF-8 bytes", () => {
     const prefix = 'identity,display_name\nvalid@example.test,"', suffix = '"', byteBase = new TextEncoder().encode(prefix + suffix).length;
     const exact = prefix + "a".repeat(ADMISSION_LIMIT.csvByteCount - byteBase) + suffix;
     expect(parseAllowlistCsv(exact)).toHaveLength(1);
-    expect(() => parseAllowlistCsv(exact + "\n")).toThrowError(expect.objectContaining({ code: "invalid_input" }));
+    expect(() => parseAllowlistCsv(exact + "\n")).toThrow(expect.objectContaining({ code: "invalid_input" }));
     const multibyte = prefix + "á".repeat(Math.floor((ADMISSION_LIMIT.csvByteCount - byteBase) / 2) + 1) + suffix;
-    expect(() => parseAllowlistCsv(multibyte)).toThrowError(expect.objectContaining({ code: "invalid_input" }));
+    expect(() => parseAllowlistCsv(multibyte)).toThrow(expect.objectContaining({ code: "invalid_input" }));
   });
 
   it("should reject malformed UTF-8 and unpaired UTF-16 instead of silently replacing contact data", () => {
-    expect(() => parseAllowlistCsv(new Uint8Array([0xc3, 0x28]))).toThrowError(expect.objectContaining({ code: "invalid_input" }));
-    expect(() => parseAllowlistCsv("identity,display_name\nvalid@example.test,\ud800")).toThrowError(expect.objectContaining({ code: "invalid_input" }));
-    expect(() => parseAllowlistCsv('identity,display_name\nvalid@example.test,"nul\0data"')).toThrowError(expect.objectContaining({ code: "invalid_input" }));
+    expect(() => parseAllowlistCsv(new Uint8Array([0xc3, 0x28]))).toThrow(expect.objectContaining({ code: "invalid_input" }));
+    expect(() => parseAllowlistCsv("identity,display_name\nvalid@example.test,\ud800")).toThrow(expect.objectContaining({ code: "invalid_input" }));
+    expect(() => parseAllowlistCsv('identity,display_name\nvalid@example.test,"nul\0data"')).toThrow(expect.objectContaining({ code: "invalid_input" }));
   });
 });

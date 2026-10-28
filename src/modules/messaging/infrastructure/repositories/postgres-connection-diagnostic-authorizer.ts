@@ -19,7 +19,7 @@ import { authorizeMessagingSecret, messagingSecretLifetimeFailure, messagingSecr
  * @throws MessagingSecretAccessError for a closed scope, authority or external-security mismatch.
  */
 export async function authorizeConnectionDiagnostic(database: RequestDatabase, context: AuthorizedMessagingContext, readSecurityConfig: () => Promise<MessagingSecurityConfig>): Promise<void> {
-  if (context.authorizationPurpose !== MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader || context.operation !== CONNECTION_DIAGNOSTIC_VERIFY_OPERATION || context.resourceId !== context.connectionId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
+  if ((context.authorizationPurpose as string) !== MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader || context.operation !== CONNECTION_DIAGNOSTIC_VERIFY_OPERATION || context.resourceId !== context.connectionId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
   const authority = await authorizeMessagingSecret(database, context, true);
   const config = await readSecurityConfig();
   if (config.recoveryLocked || config.environment !== context.environment || config.securityEpoch !== context.securityEpoch) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.connectionIncomplete);

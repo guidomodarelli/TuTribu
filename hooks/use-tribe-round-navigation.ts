@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
 import { fetchTribeRoundPageRequest } from "@/lib/messages/tribe-round-api-client";
 import {
@@ -80,15 +80,28 @@ type UseTribeRoundNavigationInput = {
 };
 
 /**
+ * Aborts the page load in flight, if any.
+ *
+ * @param abortControllerRef - Page load in flight.
+ */
+function abortRoundPageRequest(abortControllerRef: RefObject<AbortController | null>): void {
+  abortControllerRef.current?.abort();
+}
+
+/**
+ * Loads round pages: each load supersedes the previous one, and only the
+ * latest applies its page or its failure.
+ *
  * @param input - Tribe slug, the server-rendered location, and the callback
  * that applies a loaded page.
- * @returns Navigation state and actions for the round controls.
+ * @returns Pending location, error, the refs of the shown and failed loads,
+ * and the page loader.
  */
-export function useTribeRoundNavigation({
+function useRoundPageLoader({
   initialLocation,
   onRoundLoaded,
   tribeSlug,
-}: UseTribeRoundNavigationInput): TribeRoundNavigation {
+}: UseTribeRoundNavigationInput) {
   const [pendingLocation, setPendingLocation] = useState<TribeRoundLocation | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const displayedLocationRef = useRef(initialLocation);
@@ -167,8 +180,20 @@ export function useTribeRoundNavigation({
         }
       }
     },
-    [tribeSlug]
+    [abortControllerRef, displayedLocationRef, failedRequestRef, onRoundLoadedRef, requestSequenceRef, setErrorMessage, setPendingLocation, tribeSlug]
   );
+
+  return { pendingLocation, errorMessage, displayedLocationRef, abortControllerRef, failedRequestRef, loadRoundPage };
+}
+
+/**
+ * @param input - Tribe slug, the server-rendered location, and the callback
+ * that applies a loaded page.
+ * @returns Navigation state and actions for the round controls.
+ */
+export function useTribeRoundNavigation(input: UseTribeRoundNavigationInput): TribeRoundNavigation {
+  const { tribeSlug } = input;
+  const { pendingLocation, errorMessage, displayedLocationRef, abortControllerRef, failedRequestRef, loadRoundPage } = useRoundPageLoader(input);
 
   const navigateToLocation = useCallback(
     (location: TribeRoundLocation) =>
@@ -178,14 +203,14 @@ export function useTribeRoundNavigation({
 
   const reloadCurrentPage = useCallback(
     () => loadRoundPage({ historyMode: HISTORY_MODE.none, location: displayedLocationRef.current, reload: true }),
-    [loadRoundPage]
+    [displayedLocationRef, loadRoundPage]
   );
 
   const retry = useCallback(() => {
     if (failedRequestRef.current) {
       void loadRoundPage(failedRequestRef.current);
     }
-  }, [loadRoundPage]);
+  }, [failedRequestRef, loadRoundPage]);
 
   // Back/Forward only change the URL (the History API entries share the
   // server-rendered tree), so the round follows the query of the entry.
@@ -207,10 +232,8 @@ export function useTribeRoundNavigation({
   }, [loadRoundPage, tribeSlug]);
 
   useEffect(
-    () => () => {
-      abortControllerRef.current?.abort();
-    },
-    []
+    () => () => abortRoundPageRequest(abortControllerRef),
+    [abortControllerRef]
   );
 
   return {

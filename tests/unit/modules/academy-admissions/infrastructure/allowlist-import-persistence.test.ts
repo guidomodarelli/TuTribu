@@ -29,7 +29,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native allowlist i
       failBlock = true;
       await expect(repository.confirm(original)).rejects.toMatchObject({ code: "operation_unresolved", operationId: original.operationId });
       const partial = await repository.read(confirmContext, importId);
-      expect(partial?.state).toBe("processing"); expect(partial?.rows.filter((row) => row.outcome === "added")).toHaveLength(25);
+      expect(partial.state).toBe("processing"); expect(partial.rows.filter((row) => row.outcome === "added")).toHaveLength(25);
       await database.withContext(fixture.own, async (transaction) => {
         expect((await transaction.execute(sql`select count(*)::int as count from public.academy_allowlist_entries where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ count: 25 }]);
         await transaction.execute(sql`update public.academy_admission_operations set lease_until=clock_timestamp()-interval '1 second',version=version+1 where actor_user_id=${fixture.userId} and tribe_id=${fixture.tribeId} and idempotency_key=${original.operationId}`);

@@ -47,7 +47,7 @@ export async function PUT(
   }
 
   try {
-    const body = await request.json().catch(() => null);
+    const body: unknown = await request.json().catch(() => null);
     const lessonId = readUuidField(body, COURSE_ROUTE_FIELD.lessonId);
 
     if (!lessonId) {

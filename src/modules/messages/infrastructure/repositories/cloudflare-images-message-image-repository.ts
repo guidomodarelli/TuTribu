@@ -478,7 +478,7 @@ export class CloudflareImagesMessageImageRepository
       `);
 
       return Boolean(
-        ((result.rows?.[0] ?? null) as BooleanResultRow | null)?.result
+        ((result.rows[0] ?? null) as BooleanResultRow | null)?.result
       );
     });
   }
@@ -490,7 +490,7 @@ export class CloudflareImagesMessageImageRepository
       `);
 
       return Boolean(
-        ((result.rows?.[0] ?? null) as BooleanResultRow | null)?.result
+        ((result.rows[0] ?? null) as BooleanResultRow | null)?.result
       );
     });
   }
@@ -508,7 +508,7 @@ export class CloudflareImagesMessageImageRepository
         )
       `);
 
-      return (result.rows ?? []) as PendingRemoteImageRow[];
+      return result.rows as PendingRemoteImageRow[];
     });
   }
 
@@ -521,7 +521,7 @@ export class CloudflareImagesMessageImageRepository
         from public.list_queued_remote_image_deletions(${batchLimit})
       `);
 
-      return (result.rows ?? []) as QueuedRemoteImageRow[];
+      return result.rows as QueuedRemoteImageRow[];
     });
   }
 
@@ -536,7 +536,7 @@ export class CloudflareImagesMessageImageRepository
           ${batchLimit}
         ) as reclaimed
       `);
-      const reclaimed = ((result.rows?.[0] ?? null) as ReclaimedDraftsRow | null)
+      const reclaimed = ((result.rows[0] ?? null) as ReclaimedDraftsRow | null)
         ?.reclaimed;
 
       return Number(reclaimed ?? 0);
@@ -591,7 +591,11 @@ export class CloudflareImagesMessageImageRepository
       }
     ).catch(() => null);
 
-    return Boolean(response?.ok || response?.status === HTTP_STATUS.notFound);
+    if (!response) {
+      return false;
+    }
+
+    return response.ok || response.status === HTTP_STATUS.notFound;
   }
 
   private async findAttachableImages(
@@ -624,7 +628,7 @@ export class CloudflareImagesMessageImageRepository
           )
       `);
 
-      return (result.rows ?? []) as DraftMessageImageRow[];
+      return result.rows as DraftMessageImageRow[];
     });
   }
 
@@ -660,7 +664,7 @@ export class CloudflareImagesMessageImageRepository
         limit 1
       `);
 
-      return (result.rows?.[0] ?? null) as DeletableMessageImageRow | null;
+      return (result.rows[0] ?? null) as DeletableMessageImageRow | null;
     });
   }
 
@@ -693,7 +697,7 @@ export class CloudflareImagesMessageImageRepository
           and message_images.status = ${MESSAGE_IMAGE_STATUS.pendingDelete}
       `);
 
-      return (result.rows ?? []) as DeletableMessageImageRow[];
+      return result.rows as DeletableMessageImageRow[];
     });
   }
 
@@ -710,7 +714,7 @@ export class CloudflareImagesMessageImageRepository
         limit 1
       `);
 
-      return (result.rows?.[0] ?? null) as TargetTribeRow | null;
+      return (result.rows[0] ?? null) as TargetTribeRow | null;
     });
   }
 
@@ -748,7 +752,7 @@ export class CloudflareImagesMessageImageRepository
         returning message_images.id as asset_id
       `);
 
-      return (result.rows?.[0] ?? null) as InsertedMessageImageRow | null;
+      return (result.rows[0] ?? null) as InsertedMessageImageRow | null;
     });
   }
 
@@ -818,7 +822,7 @@ export class CloudflareImagesMessageImageRepository
       `);
 
       return Boolean(
-        ((result.rows?.[0] ?? null) as MarkedMessageImageRow | null)?.asset_id
+        ((result.rows[0] ?? null) as MarkedMessageImageRow | null)?.asset_id
       );
     });
   }
@@ -835,7 +839,7 @@ export class CloudflareImagesMessageImageRepository
       `);
 
       return Boolean(
-        ((result.rows?.[0] ?? null) as MarkedMessageImageRow | null)?.asset_id
+        ((result.rows[0] ?? null) as MarkedMessageImageRow | null)?.asset_id
       );
     });
   }
@@ -874,7 +878,7 @@ export class CloudflareImagesMessageImageRepository
       `);
 
       return Boolean(
-        ((result.rows?.[0] ?? null) as MarkedMessageImageRow | null)?.asset_id
+        ((result.rows[0] ?? null) as MarkedMessageImageRow | null)?.asset_id
       );
     });
   }

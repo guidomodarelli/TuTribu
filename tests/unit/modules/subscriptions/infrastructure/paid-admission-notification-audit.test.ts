@@ -66,7 +66,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native paid admiss
           if (failures.length) throw new AggregateError(failures, "Paid recovery and actor deletion failed their native concurrency contract");
           expect(results[0]).toMatchObject({ status: "fulfilled", value: 1 });
         } finally {
-          releaseSource?.();
+          releaseSource();
           await Promise.allSettled([...(recovery ? [recovery] : []), ...(deletion ? [deletion] : [])]);
           await deleter.query("ROLLBACK");
           await Promise.allSettled([deleter.end(), observer.end()]);

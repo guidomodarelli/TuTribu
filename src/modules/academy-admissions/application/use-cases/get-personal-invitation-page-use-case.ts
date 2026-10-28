@@ -21,7 +21,7 @@ export class GetPersonalInvitationPageUseCase {
       const result = await this.preview.execute(query, first);
       if (!result.ok) return result;
       const current = await this.accounts.getAuthenticatedAccount(), now = this.clock();
-      if (first ? !current || current.userId !== first.userId || current.session.id !== first.session.id || current.normalizedEmail !== first.normalizedEmail || !isAuthenticatedSessionLive(current.session.expiresAt, now) : current !== null) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+      if (first ? current?.userId !== first.userId || current.session.id !== first.session.id || current.normalizedEmail !== first.normalizedEmail || !isAuthenticatedSessionLive(current.session.expiresAt, now) : current !== null) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       const parsed = personalInvitationPageStateSchema.safeParse({ kind: PERSONAL_INVITATION_PAGE_KIND.ready, preview: result.value, viewerId: current?.userId ?? null, renderedAt: now.toISOString() });
       if (!parsed.success) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       return { ok: true as const, value: parsed.data };

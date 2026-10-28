@@ -53,7 +53,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await bind(reviewer);
               page.on("pageerror", (error) => errors.push(error.name));
               page.on("request", (request) => { const route = new URL(request.url()); if (request.method() !== "GET" && route.pathname.includes("/admissions/")) writes.push(request.method()); if (route.pathname === "/api/auth/get-session") viewerReads.push(route.pathname); });
-              page.on("response", (response) => { const route = new URL(response.url()), area = route.pathname.includes("/history/") ? "history" : route.pathname.endsWith("/admissions") ? "review" : route.pathname === "/api/auth/get-session" ? "viewer" : null; if (area) responseStatuses.push({ area, status: response.status() }); });
+              page.on("response", (response) => { const route = new URL(response.url()), area = classifyResponseArea(route.pathname); if (area) responseStatuses.push({ area, status: response.status() }); });
               const forbidden = [secret, fixture.own.email, ...[fixture.leader, fixture.guardian, fixture.applicant, fixture.otherApplicant].flatMap((identity) => [identity.sessionToken, identity.sessionId, identity.email]), VALIDATION.privateNote, VALIDATION.unknownEvent, VALIDATION.unknownCause, fixture.foreignRequestId, fixture.otherRequestId];
               // The complete platform document legitimately projects the current viewer's own account-menu email.
               const ownMenuEmail = reviewer === fixture.leader ? fixture.own.email : reviewer.email;
@@ -158,3 +158,16 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
     }
   }, VALIDATION.browser.testTimeoutMs);
 });
+
+/**
+ * Maps an observed response path to the browser area it belongs to.
+ *
+ * @param pathname - Path of the observed response.
+ * @returns Observed area, or null for unrelated responses.
+ */
+function classifyResponseArea(pathname: string): "history" | "review" | "viewer" | null {
+  if (pathname.includes("/history/")) return "history";
+  if (pathname.endsWith("/admissions")) return "review";
+  if (pathname === "/api/auth/get-session") return "viewer";
+  return null;
+}

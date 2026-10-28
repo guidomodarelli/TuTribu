@@ -14,10 +14,18 @@ import { messagingFailure } from "../results/messaging-errors";
 /** Binds authority to the original stored version and preserves the existing closed resolver outcome. */
 export type OriginalMessageContextResolver = { execute(query: OriginalMessageContextQuery): ReturnType<ResolveMessagingContextUseCase["execute"]> };
 
+/** Original account, context, reconciliation and lookup owners; the clock defaults to the host time. */
+export type ReconcileMessageDeliveryDependencies<Result> = { accounts: MessagingAccountProvider; resolver: OriginalMessageContextResolver; repository: MessageReconciliationRepository<Result>; lookup: MessageStatusLookup; clock?: () => Date };
+
 /** Keeps provider reads outside native transactions and rechecks authority before persistence. */
 export class ReconcileMessageDeliveryUseCase<Result> {
-  /** @param accounts - Actual native account/session projection. @param resolver - Current exact leader/connection authority. @param repository - Protected original selector and DB-only writer. @param lookup - Read-only provider port. @param clock - Time sampled after awaited authority reads. */
-  constructor(private readonly accounts: MessagingAccountProvider, private readonly resolver: OriginalMessageContextResolver, private readonly repository: MessageReconciliationRepository<Result>, private readonly lookup: MessageStatusLookup, private readonly clock: () => Date = () => new Date()) {}
+  private readonly accounts: MessagingAccountProvider;
+  private readonly resolver: OriginalMessageContextResolver;
+  private readonly repository: MessageReconciliationRepository<Result>;
+  private readonly lookup: MessageStatusLookup;
+  private readonly clock: () => Date;
+  /** @param dependencies - `accounts`: Actual native account/session projection. `resolver`: Current exact leader/connection authority. `repository`: Protected original selector and DB-only writer. `lookup`: Read-only provider port. `clock`: Time sampled after awaited authority reads. */
+  constructor({ accounts, resolver, repository, lookup, clock = () => new Date() }: ReconcileMessageDeliveryDependencies<Result>) { this.accounts = accounts; this.resolver = resolver; this.repository = repository; this.lookup = lookup; this.clock = clock; }
 
   /** @param reference - Native original reference. @param actor - Original server principal. @param session - Original session. @returns Current exact reconciliation authority. @throws MessagingSecretAccessError on revoked, changed or insufficient authority. */
   private async authorize(reference: MessageStatusReference, actor: string, session: string): Promise<AuthorizedMessagingContext> {
@@ -36,7 +44,7 @@ export class ReconcileMessageDeliveryUseCase<Result> {
       if (!account || !isAuthenticatedSessionLive(account.session.expiresAt, this.clock())) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
       const selected = await this.repository.readReference({ actorUserId: account.userId, sessionId: account.session.id, tribeId: query.tribeId, requestId: query.requestId }, query.deliveryId);
       signal.throwIfAborted();
-      if (!selected || selected.tribeId !== query.tribeId || selected.deliveryId !== query.deliveryId || selected.requestId !== query.requestId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
+      if (selected?.tribeId !== query.tribeId || selected.deliveryId !== query.deliveryId || selected.requestId !== query.requestId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
       const original = Object.freeze({ ...selected });
       const before = await this.authorize(original, account.userId, account.session.id);
       signal.throwIfAborted();

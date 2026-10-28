@@ -39,7 +39,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
       const completeImport = async (importId: string) => {
         activeImportId = importId; nextProgress = 500;
         let snapshot = await repository.read(await fixture.confirm(REAUTHENTICATION_OPERATION.confirmAllowlistImport, importId), importId);
-        if (!snapshot) throw new Error("Maximum import fixture failed: own_preview_unavailable");
         let priorCompleted = -1;
         const originalIntent = { importId, operationId: randomUUID(), confirmed: true as const, expectedVersion: snapshot.version, selectedRows: snapshot.rows.filter((row) => row.outcome === null).map((row) => row.rowNumber) };
         // Renewal keeps the original UUID, selection and expected version.
@@ -69,7 +68,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
           const deadline = Date.now() + lease;
           while (Date.now() < deadline) await new Promise<void>((resolve) => setTimeout(resolve, Math.min(1000, deadline - Date.now())));
           snapshot = await repository.read(context, importId);
-          if (!snapshot) throw new Error("Maximum import recovery failed: own_progress_unavailable");
           priorCompleted = completedRows;
         }
         throw new Error("Maximum import recovery failed: bounded_resume_limit_reached");

@@ -65,7 +65,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 | `pnpm run cf-typegen` | Generate Cloudflare binding types from `wrangler.jsonc`. |
 | `pnpm start` | Run the production build locally. |
 | `pnpm run ci` | Run the full quality gate (also run by GitHub Actions on pushes to `main` and on pull requests): lint, application/test type checks, Vitest, and Next.js build. |
-| `pnpm run lint` | Run oxlint across the repo (configured in `.oxlintrc.json`). |
+| `pnpm run lint` | Run `golfo-lint lint`: `bun lint` with the `@golfo/lint/eslint` preset (configured in `eslint.config.mjs`; needs Bun canary until 1.4.5). |
 | `pnpm run typecheck` | Type-check production code with `bun check` (Bun's type checker, same errors as `tsc` from TypeScript 7). |
 | `pnpm run typecheck:tests` | Type-check the tests with `bun check` against `tsconfig.test.json`. |
 | `pnpm test` | Run Vitest unit and integration tests. |

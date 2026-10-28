@@ -7,7 +7,13 @@ import { ADMISSION_WHATSAPP_VALIDATION_OPERATION } from "../../constants/admissi
 export function validateBrowserAdmissionWhatsappNumberDraft(value: string | undefined, required: boolean): AdmissionWhatsappNumberDraftResult {
   try { return validateAdmissionWhatsappNumberDraft(value, required); }
   catch (error) {
-    console.error(ADMISSION_WHATSAPP_VALIDATION_OPERATION, { category: error instanceof TypeError ? "TypeError" : error instanceof RangeError ? "RangeError" : "Error" });
+    console.error(ADMISSION_WHATSAPP_VALIDATION_OPERATION, { category: errorCategory(error) });
     return { valid: false, code: ADMISSION_ERROR_CODE.unexpectedFailure };
   }
+}
+
+/** @param error - Unexpected validation failure. @returns Only its broad built-in category, never its message. */
+function errorCategory(error: unknown): "TypeError" | "RangeError" | "Error" {
+  if (error instanceof TypeError) return "TypeError";
+  return error instanceof RangeError ? "RangeError" : "Error";
 }

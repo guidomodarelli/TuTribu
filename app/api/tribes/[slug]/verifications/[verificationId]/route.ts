@@ -32,6 +32,59 @@ const DECISION_STATUS = {
   updated: ACADEMY_HTTP_STATUS.ok,
 } as const;
 
+type OpenAcademyRouteScope = Extract<
+  Awaited<ReturnType<typeof openAcademyRouteScope>>,
+  { isOpen: true }
+>;
+
+type ReviewMemberVerificationResult = Awaited<
+  ReturnType<OpenAcademyRouteScope["modules"]["memberVerifications"]["useCases"]["reviewMemberVerification"]>
+>;
+
+type DecisionResponseContext = {
+  logger: OpenAcademyRouteScope["logger"];
+  metadata: Record<string, unknown>;
+};
+
+function createDecisionResultResponse(
+  result: ReviewMemberVerificationResult,
+  { logger, metadata }: DecisionResponseContext
+): Response {
+  switch (result.status) {
+    case "updated":
+    case "conflict":
+    case "invalid_transition":
+      return createAcademyPublicResponse({
+        body: toReviewQueueItemDto(result.verification),
+        logger: logger,
+        metadata: { ...metadata, result: result.status },
+        schema: reviewQueueItemDtoSchema,
+        status: DECISION_STATUS[result.status],
+      });
+    case "reason_required":
+      return createAcademyJsonResponse(
+        { message: ACADEMY_ROUTE_COPY.reasonRequired },
+        ACADEMY_HTTP_STATUS.unprocessable
+      );
+    case "invalid_input":
+      return createAcademyJsonResponse(
+        { message: ACADEMY_ROUTE_MESSAGE.invalidInput },
+        ACADEMY_HTTP_STATUS.badRequest
+      );
+    case "forbidden":
+      return createAcademyJsonResponse(
+        { message: ACADEMY_ROUTE_MESSAGE.forbidden },
+        ACADEMY_HTTP_STATUS.forbidden
+      );
+    case "not_found":
+    default:
+      return createAcademyJsonResponse(
+        { message: ACADEMY_ROUTE_MESSAGE.notFound },
+        ACADEMY_HTTP_STATUS.notFound
+      );
+  }
+}
+
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ slug: string; verificationId: string }> }
@@ -80,38 +133,7 @@ export async function PATCH(
       verificationId: params.data.verificationId,
     });
 
-    switch (result.status) {
-      case "updated":
-      case "conflict":
-      case "invalid_transition":
-        return createAcademyPublicResponse({
-          body: toReviewQueueItemDto(result.verification),
-          logger: scope.logger,
-          metadata: { ...metadata, result: result.status },
-          schema: reviewQueueItemDtoSchema,
-          status: DECISION_STATUS[result.status],
-        });
-      case "reason_required":
-        return createAcademyJsonResponse(
-          { message: ACADEMY_ROUTE_COPY.reasonRequired },
-          ACADEMY_HTTP_STATUS.unprocessable
-        );
-      case "invalid_input":
-        return createAcademyJsonResponse(
-          { message: ACADEMY_ROUTE_MESSAGE.invalidInput },
-          ACADEMY_HTTP_STATUS.badRequest
-        );
-      case "forbidden":
-        return createAcademyJsonResponse(
-          { message: ACADEMY_ROUTE_MESSAGE.forbidden },
-          ACADEMY_HTTP_STATUS.forbidden
-        );
-      default:
-        return createAcademyJsonResponse(
-          { message: ACADEMY_ROUTE_MESSAGE.notFound },
-          ACADEMY_HTTP_STATUS.notFound
-        );
-    }
+    return createDecisionResultResponse(result, { logger: scope.logger, metadata });
   } catch (error) {
     return createAcademyUnexpectedResponse({
       error,

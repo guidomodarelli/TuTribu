@@ -46,6 +46,57 @@ function createJsonResponse(body: Record<string, unknown>, status: number): Resp
   return Response.json(body, { status });
 }
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type ReconcileTribeSubscriberDiagnosticsResult = Awaited<
+  ReturnType<RequestModules["subscriptions"]["useCases"]["reconcileTribeSubscriberDiagnostics"]>
+>;
+
+function createPostResultResponse(result: ReconcileTribeSubscriberDiagnosticsResult): Response {
+  switch (result.status) {
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.verified:
+      return createJsonResponse(
+        {
+          diagnostics: result.diagnostics,
+          message:
+            SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_RESPONSE
+              .successMessage,
+          verifiedCount: result.verifiedCount,
+        },
+        HTTP_STATUS.ok
+      );
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired:
+      return createJsonResponse(
+        {
+          message:
+            SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_RESPONSE
+              .missingIntegrationMessage,
+        },
+        HTTP_STATUS.serviceUnavailable
+      );
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
+      return createJsonResponse(
+        {
+          message:
+            SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_RESPONSE
+              .notFoundMessage,
+        },
+        HTTP_STATUS.notFound
+      );
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        {
+          message:
+            SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_RESPONSE
+              .forbiddenMessage,
+        },
+        HTTP_STATUS.forbidden
+      );
+  }
+}
+
 /**
  * Reconciles aggregate subscriber diagnostics with Mercado Pago.
  *
@@ -88,48 +139,7 @@ export async function POST(
         tribeSlug: slug,
       });
 
-    switch (result.status) {
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.verified:
-        return createJsonResponse(
-          {
-            diagnostics: result.diagnostics,
-            message:
-              SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_RESPONSE
-                .successMessage,
-            verifiedCount: result.verifiedCount,
-          },
-          HTTP_STATUS.ok
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired:
-        return createJsonResponse(
-          {
-            message:
-              SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_RESPONSE
-                .missingIntegrationMessage,
-          },
-          HTTP_STATUS.serviceUnavailable
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
-        return createJsonResponse(
-          {
-            message:
-              SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_RESPONSE
-                .notFoundMessage,
-          },
-          HTTP_STATUS.notFound
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          {
-            message:
-              SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_RESPONSE
-                .forbiddenMessage,
-          },
-          HTTP_STATUS.forbidden
-        );
-    }
+    return createPostResultResponse(result);
   } catch (error) {
     logger.error({
       message: SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_LOG.failureMessage,

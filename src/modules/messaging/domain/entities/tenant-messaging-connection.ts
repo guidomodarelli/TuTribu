@@ -30,13 +30,10 @@ export function createDefaultMessagingConnection(identity: { id: string; tribeId
 /**
  * Matches local diagnostic evidence to the exact prepared capability and inclusive activation window.
  * @param diagnostic - Local confirmation, never a transport receipt.
- * @param connection - Exact current contributing leader and tenant.
- * @param version - Exact immutable configuration version.
- * @param capability - Exact channel/sender/template/language preparation.
- * @param now - Current authoritative time.
+ * @param target - Exact current contributing leader and tenant (`connection`), immutable configuration version (`version`), channel/sender/template/language preparation (`capability`) and current authoritative time (`now`).
  * @returns Whether the local confirmation can support this activation.
  */
-function diagnosticMatches(diagnostic: ConnectionDiagnostic, connection: TenantMessagingConnection, version: MessagingConnectionVersion, capability: MessagingConnectionCapability, now: Date): boolean {
+function diagnosticMatches(diagnostic: ConnectionDiagnostic, { connection, version, capability, now }: { connection: TenantMessagingConnection; version: MessagingConnectionVersion; capability: MessagingConnectionCapability; now: Date }): boolean {
   const ageMs = diagnostic.validatedAt ? now.getTime() - diagnostic.validatedAt.getTime() : Number.NaN;
   return diagnostic.outcome === CONNECTION_DIAGNOSTIC_OUTCOME.verified && diagnostic.tribeId === connection.tribeId && diagnostic.connectionId === connection.id && diagnostic.connectionVersion === version.version && diagnostic.leaderUserId === connection.leaderUserId && diagnostic.channel === capability.channel && diagnostic.senderId === capability.senderId && diagnostic.templateId === capability.templateId && diagnostic.templateLanguage === capability.templateLanguage && Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= MESSAGING_CONNECTION_DIAGNOSTIC_MAXIMUM_AGE_MS;
 }
@@ -58,13 +55,30 @@ export function assessMessagingConnectionActivation(connection: TenantMessagingC
   if (version.credential.isTestMode) return deny(MESSAGING_CONNECTION_REQUIREMENT.testMode);
   if (facts.requiredChannels.length === 0) return deny(MESSAGING_CONNECTION_REQUIREMENT.capabilityRequired);
   for (const channel of new Set(facts.requiredChannels)) {
-    if (channel !== MESSAGING_PUBLIC_CHANNEL.email && !facts.usagePolicy?.allowedCountries.some((country) => !facts.usagePolicy!.platformRestrictions.some((restriction) => restriction.country === country && restriction.channel === channel && !restriction.allowed))) return deny(MESSAGING_CONNECTION_REQUIREMENT.countriesRequired);
-    const senderId = channel === MESSAGING_PUBLIC_CHANNEL.email ? version.configuration.emailSenderId : channel === MESSAGING_PUBLIC_CHANNEL.sms ? version.configuration.smsSenderId : version.configuration.whatsappSenderId;
-    const capability = version.capabilities.find((candidate) => candidate.channel === channel && candidate.senderId === senderId && candidate.state === MESSAGING_CAPABILITY_PUBLIC_STATE.prepared && (channel !== MESSAGING_PUBLIC_CHANNEL.whatsapp || Boolean(version.configuration.whatsappTemplateId && version.configuration.whatsappTemplateLanguage) && candidate.templateId === version.configuration.whatsappTemplateId && candidate.templateLanguage === version.configuration.whatsappTemplateLanguage));
-    if (!senderId || !capability) return deny(MESSAGING_CONNECTION_REQUIREMENT.capabilityRequired);
-    if (!facts.diagnostics.some((diagnostic) => diagnosticMatches(diagnostic, connection, version, capability, facts.now))) return deny(MESSAGING_CONNECTION_REQUIREMENT.diagnosticRequired);
+    const reason = channelActivationRequirement(channel, connection, version, facts);
+    if (reason) return deny(reason);
   }
   return { allowed: true };
+}
+
+/** @returns The sender the configuration assigns to the channel. */
+function configuredSenderId(version: MessagingConnectionVersion, channel: MessagingConnectionActivationFacts["requiredChannels"][number]): string | null {
+  if (channel === MESSAGING_PUBLIC_CHANNEL.email) return version.configuration.emailSenderId;
+  return channel === MESSAGING_PUBLIC_CHANNEL.sms ? version.configuration.smsSenderId : version.configuration.whatsappSenderId;
+}
+
+/**
+ * @param channel - Required channel.
+ * @returns The unmet requirement of that channel (allowed countries, prepared capability, local diagnostic), or null when it is ready.
+ */
+function channelActivationRequirement(channel: MessagingConnectionActivationFacts["requiredChannels"][number], connection: TenantMessagingConnection, version: MessagingConnectionVersion, facts: MessagingConnectionActivationFacts): MessagingConnectionActivationReason | null {
+  const usagePolicy = facts.usagePolicy;
+  if (channel !== MESSAGING_PUBLIC_CHANNEL.email && !usagePolicy?.allowedCountries.some((country) => !usagePolicy.platformRestrictions.some((restriction) => restriction.country === country && restriction.channel === channel && !restriction.allowed))) return MESSAGING_CONNECTION_REQUIREMENT.countriesRequired;
+  const senderId = configuredSenderId(version, channel);
+  const capability = version.capabilities.find((candidate) => candidate.channel === channel && candidate.senderId === senderId && candidate.state === MESSAGING_CAPABILITY_PUBLIC_STATE.prepared && (channel !== MESSAGING_PUBLIC_CHANNEL.whatsapp || Boolean(version.configuration.whatsappTemplateId && version.configuration.whatsappTemplateLanguage) && candidate.templateId === version.configuration.whatsappTemplateId && candidate.templateLanguage === version.configuration.whatsappTemplateLanguage));
+  if (!senderId || !capability) return MESSAGING_CONNECTION_REQUIREMENT.capabilityRequired;
+  if (!facts.diagnostics.some((diagnostic) => diagnosticMatches(diagnostic, { connection, version, capability, now: facts.now }))) return MESSAGING_CONNECTION_REQUIREMENT.diagnosticRequired;
+  return null;
 }
 
 /**

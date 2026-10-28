@@ -55,6 +55,12 @@ type RecordingSourceHold =
   | { isHeld: true; recording: { externalVideoId: string; provider: string } | null }
   | { isHeld: false };
 
+/** Default hold: the source recording is still held and points at the command's video. */
+const HELD_COMMAND_RECORDING: RecordingSourceHold = {
+  isHeld: true,
+  recording: { externalVideoId: command.externalVideoId, provider: command.videoProvider },
+};
+
 type PostLockTarget = {
   can_manage: boolean;
   module_id: string | null;
@@ -69,10 +75,7 @@ type PostLockTarget = {
 function createConversionDatabase(
   postLockTarget: PostLockTarget,
   existingLessonRows: Record<string, unknown>[] = [],
-  recordingSourceHold: RecordingSourceHold = {
-    isHeld: true,
-    recording: { externalVideoId: command.externalVideoId, provider: command.videoProvider },
-  }
+  recordingSourceHold: RecordingSourceHold = HELD_COMMAND_RECORDING
 ) {
   const statements: string[] = [];
   const execute = vi.fn(async (statement: unknown) => {

@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { ADMISSION_NOTIFICATION_TYPES, ADMISSION_NOTIFICATION_AUDIENCE } from "@/src/modules/notifications/constants/admission-notifications";
 import type { AdmissionNotificationType,
   InboxNotification,
+  NotificationEventOccurrenceType,
   NotificationInbox,
   NotificationProposalDecision,
   NotificationType } from "@/src/modules/notifications/domain/entities/notification";
@@ -178,6 +179,8 @@ type InvalidPayloadIdField = typeof PAYLOAD_KEY.eventId | typeof PAYLOAD_KEY.pro
 
 type InvalidPayloadField = InvalidPayloadInstantField | InvalidPayloadIdField;
 
+type InboxNotificationBase = Pick<InboxNotification, "createdAt" | "id" | "readAt" | "tribe">;
+
 type ReportInvalidPayloadField = (row: NotificationInboxRow, field: InvalidPayloadField) => void;
 
 const INVALID_PAYLOAD_FIELD_LOG_MESSAGE: Record<InvalidPayloadField, string> = {
@@ -217,43 +220,68 @@ function mapInboxNotification(
   }
 
   if (row.type === NOTIFICATION_TYPE.eventProposalReviewed) {
-    const proposalId = readPayloadString(row.payload, PAYLOAD_KEY.proposalId);
-    const decision = readPayloadString(row.payload, PAYLOAD_KEY.decision);
-
-    if (!proposalId || !isProposalDecision(decision)) {
-      return null;
-    }
-
-    if (!isPublicUuid(proposalId)) {
-      reportInvalidPayloadField(row, PAYLOAD_KEY.proposalId);
-
-      return null;
-    }
-
-    const rawLinkedEventId = readPayloadString(row.payload, PAYLOAD_KEY.eventId);
-    const linkedEventId =
-      rawLinkedEventId !== null && isPublicUuid(rawLinkedEventId) ? rawLinkedEventId : null;
-
-    if (rawLinkedEventId !== null && !linkedEventId) {
-      reportInvalidPayloadField(row, PAYLOAD_KEY.eventId);
-    }
-
-    const eventStartsAt = linkedEventId ? mapNullableInstant(row.event_starts_at) : null;
-
-    return {
-      ...base,
-      proposal: {
-        decision,
-        eventId: eventStartsAt ? linkedEventId : null,
-        eventStartsAt,
-        proposalId,
-        proposalTitle: row.proposal_title,
-        reviewNote: row.proposal_review_note,
-      },
-      type: row.type,
-    };
+    return mapProposalNotification(row, base, reportInvalidPayloadField);
   }
 
+  return mapEventNotification(row, base, row.type, reportInvalidPayloadField);
+}
+
+/**
+ * Maps a reviewed proposal; a malformed linked event id only drops the link.
+ * @returns The notification, or null when its required payload is missing or malformed.
+ */
+function mapProposalNotification(
+  row: NotificationInboxRow,
+  base: InboxNotificationBase,
+  reportInvalidPayloadField: ReportInvalidPayloadField
+): InboxNotification | null {
+  const proposalId = readPayloadString(row.payload, PAYLOAD_KEY.proposalId);
+  const decision = readPayloadString(row.payload, PAYLOAD_KEY.decision);
+
+  if (!proposalId || !isProposalDecision(decision)) {
+    return null;
+  }
+
+  if (!isPublicUuid(proposalId)) {
+    reportInvalidPayloadField(row, PAYLOAD_KEY.proposalId);
+
+    return null;
+  }
+
+  const rawLinkedEventId = readPayloadString(row.payload, PAYLOAD_KEY.eventId);
+  const linkedEventId =
+    rawLinkedEventId !== null && isPublicUuid(rawLinkedEventId) ? rawLinkedEventId : null;
+
+  if (rawLinkedEventId !== null && !linkedEventId) {
+    reportInvalidPayloadField(row, PAYLOAD_KEY.eventId);
+  }
+
+  const eventStartsAt = linkedEventId ? mapNullableInstant(row.event_starts_at) : null;
+
+  return {
+    ...base,
+    proposal: {
+      decision,
+      eventId: eventStartsAt ? linkedEventId : null,
+      eventStartsAt,
+      proposalId,
+      proposalTitle: row.proposal_title,
+      reviewNote: row.proposal_review_note,
+    },
+    type: NOTIFICATION_TYPE.eventProposalReviewed,
+  };
+}
+
+/**
+ * Maps an event occurrence notice; a cancellation always shows the cancelled time.
+ * @returns The notification, or null when its required payload is missing or malformed.
+ */
+function mapEventNotification(
+  row: NotificationInboxRow,
+  base: InboxNotificationBase,
+  type: NotificationEventOccurrenceType,
+  reportInvalidPayloadField: ReportInvalidPayloadField
+): InboxNotification | null {
   const eventId = readPayloadString(row.payload, PAYLOAD_KEY.eventId);
   const rawOccurrenceStartsAt = readPayloadString(row.payload, PAYLOAD_KEY.occurrenceStartsAt);
 
@@ -285,7 +313,7 @@ function mapInboxNotification(
   }
 
   const startsAt =
-    row.type === NOTIFICATION_TYPE.eventOccurrenceCancelled
+    type === NOTIFICATION_TYPE.eventOccurrenceCancelled
       ? occurrenceStartsAt
       : payloadStartsAt ?? mapNullableInstant(row.moved_starts_at) ?? occurrenceStartsAt;
 
@@ -297,7 +325,7 @@ function mapInboxNotification(
       occurrenceStartsAt,
       startsAt,
     },
-    type: row.type,
+    type,
   };
 }
 
@@ -388,6 +416,65 @@ function unreadCountQuery(cap: number) {
 }
 
 /**
+ * Inbox rows the viewer can show, newest first, with the display facts resolved from the payload ids.
+ * @param limit - Maximum rows listed.
+ */
+function inboxNotificationsQuery(limit: number) {
+  return sql`
+  select
+    notifications.id,
+    notifications.type,
+    notifications.payload,
+    notifications.created_at,
+    notifications.read_at,
+    coalesce(admission_subject.tribe_slug,tribes.slug) as tribe_slug,
+    coalesce(admission_subject.tribe_name,tribes.name) as tribe_name,
+    admission_subject.request_id as admission_request_id,
+    admission_subject.audience as admission_audience,
+    events.title as event_title,
+    events.starts_at as event_starts_at,
+    moved_exceptions.new_starts_at as moved_starts_at,
+    event_proposals.title as proposal_title,
+    event_proposals.review_note as proposal_review_note
+  from public.notifications
+  left join public.tribes
+    on tribes.id = notifications.tribe_id
+  left join lateral public.read_admission_notification_subject(notifications.id) admission_subject on true
+  cross join lateral (
+    select
+      case
+        when notifications.payload ->> 'eventId' ~ ${PAYLOAD_UUID_PATTERN}
+          then (notifications.payload ->> 'eventId')::uuid
+      end as event_id,
+      case
+        when notifications.payload ->> 'proposalId' ~ ${PAYLOAD_UUID_PATTERN}
+          then (notifications.payload ->> 'proposalId')::uuid
+      end as proposal_id,
+      case
+        when notifications.payload ->> 'occurrenceStartsAt' ~ ${PAYLOAD_INSTANT_PATTERN}
+          and pg_input_is_valid(notifications.payload ->> 'occurrenceStartsAt', 'timestamptz')
+          then (notifications.payload ->> 'occurrenceStartsAt')::timestamptz
+      end as occurrence_starts_at
+  ) as subject
+  left join public.events
+    on events.id = subject.event_id
+    and events.tribe_id = notifications.tribe_id
+  left join public.event_occurrence_exceptions moved_exceptions
+    on moved_exceptions.event_id = subject.event_id
+    and moved_exceptions.original_starts_at = subject.occurrence_starts_at
+    and moved_exceptions.kind = 'moved'
+  left join public.event_proposals
+    on event_proposals.id = subject.proposal_id
+    and event_proposals.tribe_id = notifications.tribe_id
+    and event_proposals.proposed_by = notifications.recipient_user_id
+  where ${VISIBLE_NOTIFICATION_PREDICATE}
+    and ${DISPLAYABLE_NOTIFICATION_PREDICATE}
+  order by notifications.created_at desc, notifications.id desc
+  limit ${limit}
+  `;
+}
+
+/**
  * Inbox reads, marks, and the retention purge of `public.notifications`.
  * Display facts (event and proposal titles, the new time of a moved date)
  * are resolved at read time from the ids of the payload.
@@ -411,64 +498,13 @@ export class PostgresNotificationRepository implements NotificationRepository {
       // never disagree about a notification committed between two reads.
       const result = await database.execute(sql`
         with unread_notifications as (${unreadCountQuery(unreadCountCap)}),
-        inbox_notifications as (
-        select
-          notifications.id,
-          notifications.type,
-          notifications.payload,
-          notifications.created_at,
-          notifications.read_at,
-          coalesce(admission_subject.tribe_slug,tribes.slug) as tribe_slug,
-          coalesce(admission_subject.tribe_name,tribes.name) as tribe_name,
-          admission_subject.request_id as admission_request_id,
-          admission_subject.audience as admission_audience,
-          events.title as event_title,
-          events.starts_at as event_starts_at,
-          moved_exceptions.new_starts_at as moved_starts_at,
-          event_proposals.title as proposal_title,
-          event_proposals.review_note as proposal_review_note
-        from public.notifications
-        left join public.tribes
-          on tribes.id = notifications.tribe_id
-        left join lateral public.read_admission_notification_subject(notifications.id) admission_subject on true
-        cross join lateral (
-          select
-            case
-              when notifications.payload ->> 'eventId' ~ ${PAYLOAD_UUID_PATTERN}
-                then (notifications.payload ->> 'eventId')::uuid
-            end as event_id,
-            case
-              when notifications.payload ->> 'proposalId' ~ ${PAYLOAD_UUID_PATTERN}
-                then (notifications.payload ->> 'proposalId')::uuid
-            end as proposal_id,
-            case
-              when notifications.payload ->> 'occurrenceStartsAt' ~ ${PAYLOAD_INSTANT_PATTERN}
-                and pg_input_is_valid(notifications.payload ->> 'occurrenceStartsAt', 'timestamptz')
-                then (notifications.payload ->> 'occurrenceStartsAt')::timestamptz
-            end as occurrence_starts_at
-        ) as subject
-        left join public.events
-          on events.id = subject.event_id
-          and events.tribe_id = notifications.tribe_id
-        left join public.event_occurrence_exceptions moved_exceptions
-          on moved_exceptions.event_id = subject.event_id
-          and moved_exceptions.original_starts_at = subject.occurrence_starts_at
-          and moved_exceptions.kind = 'moved'
-        left join public.event_proposals
-          on event_proposals.id = subject.proposal_id
-          and event_proposals.tribe_id = notifications.tribe_id
-          and event_proposals.proposed_by = notifications.recipient_user_id
-        where ${VISIBLE_NOTIFICATION_PREDICATE}
-          and ${DISPLAYABLE_NOTIFICATION_PREDICATE}
-        order by notifications.created_at desc, notifications.id desc
-        limit ${limit}
-        )
+        inbox_notifications as (${inboxNotificationsQuery(limit)})
         select unread_notifications.unread_count, inbox_notifications.*
         from unread_notifications
         left join inbox_notifications on true
         order by inbox_notifications.created_at desc, inbox_notifications.id desc
       `);
-      const statementRows = (result.rows ?? []) as NotificationInboxStatementRow[];
+      const statementRows = result.rows as NotificationInboxStatementRow[];
       const unreadCount = mapCount(statementRows[0]?.unread_count);
       const listedRows = statementRows.filter(
         (row): row is NotificationInboxListedRow => row.id !== null
@@ -514,7 +550,7 @@ export class PostgresNotificationRepository implements NotificationRepository {
         )
         select exists (select 1 from target_notification) as is_found
       `);
-      const isFound = Boolean((result.rows?.[0] as { is_found?: unknown } | undefined)?.is_found);
+      const isFound = Boolean((result.rows[0] as { is_found?: unknown } | undefined)?.is_found);
 
       if (!isFound) {
         return { status: NOTIFICATION_MUTATION_STATUS.notFound };
@@ -544,7 +580,7 @@ export class PostgresNotificationRepository implements NotificationRepository {
       `);
 
       return {
-        markedCount: mapCount((result.rows?.[0] as { marked_count?: unknown } | undefined)?.marked_count),
+        markedCount: mapCount((result.rows[0] as { marked_count?: unknown } | undefined)?.marked_count),
         unreadCount: await this.countUnreadWith(database, unreadCountCap),
       };
     });
@@ -569,7 +605,7 @@ export class PostgresNotificationRepository implements NotificationRepository {
         ) as deleted_count
       `);
 
-      return mapCount((result.rows?.[0] as { deleted_count?: unknown } | undefined)?.deleted_count);
+      return mapCount((result.rows[0] as { deleted_count?: unknown } | undefined)?.deleted_count);
     });
   }
 
@@ -580,6 +616,6 @@ export class PostgresNotificationRepository implements NotificationRepository {
   private async countUnreadWith(database: RequestDatabase, cap: number): Promise<number> {
     const result = await database.execute(unreadCountQuery(cap));
 
-    return mapCount((result.rows?.[0] as { unread_count?: unknown } | undefined)?.unread_count);
+    return mapCount((result.rows[0] as { unread_count?: unknown } | undefined)?.unread_count);
   }
 }

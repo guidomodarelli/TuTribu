@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type DragEvent,
+  type ReactNode,
 } from "react";
 import Image from "next/image";
 import {
@@ -563,79 +564,84 @@ function MediaThumbnail({ mediaItem, position }: MediaThumbnailProps) {
   );
 }
 
+type StoryTextFormatter = (selectedText: string) => StoryTextFormat;
+type SetStoryValidationMessage = (message: string | null) => void;
+
+/** Bold keeps the wrapped words selected so a second click can be undone. */
+const formatBold: StoryTextFormatter = (selectedText) => ({
+  selectionEnd: STORY_FORMAT.boldMarker.length + selectedText.length,
+  selectionStart: STORY_FORMAT.boldMarker.length,
+  text: STORY_FORMAT.boldMarker + selectedText + STORY_FORMAT.boldMarker,
+});
+
+/** Lists leave the caret after the inserted items, ready to keep typing. */
+const formatList: StoryTextFormatter = (selectedText) => {
+  const text = selectedText
+    ? selectedText
+        .split(STORY_FORMAT.listLineBreak)
+        .map((line) => STORY_FORMAT.listPrefix + line)
+        .join(STORY_FORMAT.listLineBreak)
+    : STORY_FORMAT.listPrefix;
+
+  return { selectionEnd: text.length, selectionStart: text.length, text };
+};
+
+/** Links select the URL placeholder so the leader can paste the address. */
+const formatLink: StoryTextFormatter = (selectedText) => {
+  const urlStart =
+    STORY_FORMAT.linkPrefix.length +
+    selectedText.length +
+    STORY_FORMAT.linkTextEnd.length;
+
+  return {
+    selectionEnd: urlStart + STORY_FORMAT.linkUrlPlaceholder.length,
+    selectionStart: urlStart,
+    text:
+      STORY_FORMAT.linkPrefix +
+      selectedText +
+      STORY_FORMAT.linkTextEnd +
+      STORY_FORMAT.linkUrlPlaceholder +
+      STORY_FORMAT.linkSuffix,
+  };
+};
+
+/** Removes one id from a set held in state, keeping the set when the id is absent. */
+function withoutId(currentIds: ReadonlySet<string>, id: string): ReadonlySet<string> {
+  if (!currentIds.has(id)) {
+    return currentIds;
+  }
+
+  const nextIds = new Set(currentIds);
+
+  nextIds.delete(id);
+
+  return nextIds;
+}
+
+/** @returns The website URL shown in the preview: only a well-formed http(s) URL. */
+function getPreviewWebsiteUrl(websiteUrl: string): string | null {
+  const trimmedWebsiteUrl = websiteUrl.trim();
+
+  return trimmedWebsiteUrl.length > 0 && isHttpUrl(trimmedWebsiteUrl)
+    ? trimmedWebsiteUrl
+    : null;
+}
+
 /**
- * Leader-only editor for the tribe story "About" page: long-form content with
- * a formatting toolbar and safe markdown subset, an optional external website
- * link, and a media gallery of up to five images or videos (uploaded or
- * linked, reorderable), with an edit/preview mode switch. The preview renders
- * the same read-only «TribeStoryAbout» view members see, fed with the draft.
+ * Story content draft with the formatting toolbar actions.
+ * @param setValidationMessage - Clears the validation summary after an edit.
+ * @returns The content, its textarea ref and the format handlers.
  */
-export function TribeStoryManagement({
-  previewContext,
-  story,
-  tribeSlug,
-}: TribeStoryManagementProps) {
-  const [content, setContent] = useState(story?.content ?? "");
-  const [websiteUrl, setWebsiteUrl] = useState(story?.websiteUrl ?? "");
-  const mediaClientIdPrefix = useId();
-  const [mediaItems, setMediaItems] = useState<EditableStoryMediaItem[]>(() =>
-    buildEditableMediaItems(story, mediaClientIdPrefix)
-  );
-  const [validationMessage, setValidationMessage] = useState<string | null>(
-    null
-  );
-  const [invalidMediaClientIds, setInvalidMediaClientIds] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
-  const [isWebsiteInvalid, setIsWebsiteInvalid] = useState(false);
-  const [uploadingTargets, setUploadingTargets] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
-  const [isSaving, setIsSaving] = useState(false);
-  const [draggedMediaClientId, setDraggedMediaClientId] = useState<
-    string | null
-  >(null);
-  const [dropTargetClientId, setDropTargetClientId] = useState<string | null>(
-    null
-  );
-  const [mediaAnnouncement, setMediaAnnouncement] = useState("");
+function useStoryContent(
+  initialContent: string,
+  setValidationMessage: SetStoryValidationMessage
+) {
+  const [content, setContent] = useState(initialContent);
   const contentRef = useRef<HTMLTextAreaElement | null>(null);
-  const addMediaButtonRef = useRef<HTMLButtonElement | null>(null);
-  const draggedMediaClientIdRef = useRef<string | null>(null);
-  const pendingFocusElementIdRef = useRef<string | null>(null);
   const pendingTextareaSelectionRef = useRef<{
     end: number;
     start: number;
   } | null>(null);
-  const isSavingRef = useRef(false);
-  const contentHeadingId = useId();
-  const contentId = useId();
-  const contentHintId = useId();
-  const contentErrorId = useId();
-  const websiteHeadingId = useId();
-  const websiteId = useId();
-  const websiteHintId = useId();
-  const mediaHeadingId = useId();
-  const mediaErrorIdPrefix = useId();
-  const trimmedContent = content.trim();
-  const showContentError =
-    validationMessage !== null && trimmedContent.length === 0;
-  const canAddMedia = mediaItems.length < TRIBE_STORY_MEDIA_MAX_ITEMS;
-  const isContentNearLimit =
-    content.length >=
-    TRIBE_STORY_CONTENT_MAX_LENGTH * CONTENT_COUNTER_WARNING_RATIO;
-  const trimmedWebsiteUrlForPreview = websiteUrl.trim();
-  const previewStory: TribeStoryResult | null = trimmedContent
-    ? {
-        content: trimmedContent,
-        media: buildPreviewMedia(mediaItems),
-        websiteUrl:
-          trimmedWebsiteUrlForPreview.length > 0 &&
-          isHttpUrl(trimmedWebsiteUrlForPreview)
-            ? trimmedWebsiteUrlForPreview
-            : null,
-      }
-    : null;
 
   // Toolbar formats rewrite the controlled value, which moves the caret to the
   // end; restore the intended selection once React has committed the text.
@@ -651,18 +657,52 @@ export function TribeStoryManagement({
     textarea.setSelectionRange(pendingSelection.start, pendingSelection.end);
   }, [content]);
 
-  // Adding, moving or removing a gallery row re-renders the list; move focus to
-  // the control that keeps the leader's place instead of losing it.
-  useEffect(() => {
-    const pendingFocusElementId = pendingFocusElementIdRef.current;
+  const applyTextareaFormat = (format: StoryTextFormatter) => {
+    const textarea = contentRef.current;
 
-    if (!pendingFocusElementId) {
+    if (!textarea) {
       return;
     }
 
-    pendingFocusElementIdRef.current = null;
-    document.getElementById(pendingFocusElementId)?.focus();
-  }, [mediaItems]);
+    const { selectionStart, selectionEnd } = textarea;
+    const selectedText = content.slice(selectionStart, selectionEnd);
+    const formatted = format(selectedText);
+
+    pendingTextareaSelectionRef.current = {
+      end: selectionStart + formatted.selectionEnd,
+      start: selectionStart + formatted.selectionStart,
+    };
+    setContent(
+      content.slice(0, selectionStart) +
+        formatted.text +
+        content.slice(selectionEnd)
+    );
+    setValidationMessage(null);
+    textarea.focus();
+  };
+
+  return {
+    content,
+    contentRef,
+    handleBoldFormat: () => applyTextareaFormat(formatBold),
+    handleLinkFormat: () => applyTextareaFormat(formatLink),
+    handleListFormat: () => applyTextareaFormat(formatList),
+    setContent,
+  };
+}
+
+type StoryContentModel = ReturnType<typeof useStoryContent>;
+
+/**
+ * Uploads gallery images, one per row at a time, after checking their type
+ * and size.
+ * @param tribeSlug - Tribe slug.
+ * @returns Rows being uploaded and the upload handler.
+ */
+function useStoryImageUploads(tribeSlug: string) {
+  const [uploadingTargets, setUploadingTargets] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
 
   const setUploadingTarget = (target: string, isUploading: boolean) => {
     setUploadingTargets((currentTargets) => {
@@ -714,70 +754,55 @@ export function TribeStoryManagement({
       setUploadingTarget(target, false);
     }
   };
-  const applyTextareaFormat = (
-    format: (selectedText: string) => StoryTextFormat
-  ) => {
-    const textarea = contentRef.current;
 
-    if (!textarea) {
+  return { handleImageFileUpload, uploadingTargets };
+}
+
+type StoryImageUploads = ReturnType<typeof useStoryImageUploads>;
+
+/**
+ * Gallery rows of the story. Adding, moving or removing a row re-renders the
+ * list; focus then moves to the control that keeps the leader's place.
+ * @param story - Saved story.
+ * @returns Rows, their failed validation and the screen reader announcement.
+ */
+function useStoryMediaItems(story: TribeStoryResult | null) {
+  const mediaClientIdPrefix = useId();
+  const [mediaItems, setMediaItems] = useState<EditableStoryMediaItem[]>(() =>
+    buildEditableMediaItems(story, mediaClientIdPrefix)
+  );
+  const [invalidMediaClientIds, setInvalidMediaClientIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
+  const [mediaAnnouncement, setMediaAnnouncement] = useState("");
+  const addMediaButtonRef = useRef<HTMLButtonElement | null>(null);
+  const pendingFocusElementIdRef = useRef<string | null>(null);
+
+  // Adding, moving or removing a gallery row re-renders the list; move focus to
+  // the control that keeps the leader's place instead of losing it.
+  useEffect(() => {
+    const pendingFocusElementId = pendingFocusElementIdRef.current;
+
+    if (!pendingFocusElementId) {
       return;
     }
 
-    const selectionStart = textarea.selectionStart ?? content.length;
-    const selectionEnd = textarea.selectionEnd ?? content.length;
-    const selectedText = content.slice(selectionStart, selectionEnd);
-    const formatted = format(selectedText);
+    pendingFocusElementIdRef.current = null;
+    document.getElementById(pendingFocusElementId)?.focus();
+  }, [mediaItems]);
 
-    pendingTextareaSelectionRef.current = {
-      end: selectionStart + formatted.selectionEnd,
-      start: selectionStart + formatted.selectionStart,
-    };
-    setContent(
-      content.slice(0, selectionStart) +
-        formatted.text +
-        content.slice(selectionEnd)
-    );
-    setValidationMessage(null);
-    textarea.focus();
-  };
-  // Bold keeps the wrapped words selected so a second click can be undone.
-  const handleBoldFormat = () =>
-    applyTextareaFormat((selectedText) => ({
-      selectionEnd: STORY_FORMAT.boldMarker.length + selectedText.length,
-      selectionStart: STORY_FORMAT.boldMarker.length,
-      text: STORY_FORMAT.boldMarker + selectedText + STORY_FORMAT.boldMarker,
-    }));
-  // Lists leave the caret after the inserted items, ready to keep typing.
-  const handleListFormat = () =>
-    applyTextareaFormat((selectedText) => {
-      const text = selectedText
-        ? selectedText
-            .split(STORY_FORMAT.listLineBreak)
-            .map((line) => STORY_FORMAT.listPrefix + line)
-            .join(STORY_FORMAT.listLineBreak)
-        : STORY_FORMAT.listPrefix;
+  return { addMediaButtonRef, invalidMediaClientIds, mediaAnnouncement, mediaItems, pendingFocusElementIdRef, setInvalidMediaClientIds, setMediaAnnouncement, setMediaItems };
+}
 
-      return { selectionEnd: text.length, selectionStart: text.length, text };
-    });
-  // Links select the URL placeholder so the leader can paste the address.
-  const handleLinkFormat = () =>
-    applyTextareaFormat((selectedText) => {
-      const urlStart =
-        STORY_FORMAT.linkPrefix.length +
-        selectedText.length +
-        STORY_FORMAT.linkTextEnd.length;
+type StoryMediaModel = ReturnType<typeof useStoryMediaItems>;
 
-      return {
-        selectionEnd: urlStart + STORY_FORMAT.linkUrlPlaceholder.length,
-        selectionStart: urlStart,
-        text:
-          STORY_FORMAT.linkPrefix +
-          selectedText +
-          STORY_FORMAT.linkTextEnd +
-          STORY_FORMAT.linkUrlPlaceholder +
-          STORY_FORMAT.linkSuffix,
-      };
-    });
+/** Edits, adds and removes gallery rows, clearing the error an edit fixes. */
+function createStoryMediaEditHandlers(
+  media: StoryMediaModel,
+  setValidationMessage: SetStoryValidationMessage
+) {
+  const { mediaItems, setInvalidMediaClientIds, setMediaItems } = media;
+  const canAddMedia = mediaItems.length < TRIBE_STORY_MEDIA_MAX_ITEMS;
   const updateMediaItem = (
     clientId: string,
     patch: Partial<EditableStoryMediaItem>
@@ -790,20 +815,8 @@ export function TribeStoryManagement({
       )
     );
     setValidationMessage(null);
-    setInvalidMediaClientIds((currentIds) => {
-      if (!currentIds.has(clientId)) {
-        return currentIds;
-      }
-
-      const nextIds = new Set(currentIds);
-
-      nextIds.delete(clientId);
-
-      return nextIds;
-    });
+    setInvalidMediaClientIds((currentIds) => withoutId(currentIds, clientId));
   };
-  // The id is created outside the updater so the updater stays pure (React may
-  // call it twice) and focus can move to the new row's URL field.
   // An upload can finish after the leader switched the row to video or removed
   // it; only an image row that still exists receives the uploaded URL.
   // The check runs inside the updater because this callback outlives the
@@ -818,18 +831,10 @@ export function TribeStoryManagement({
       )
     );
     setValidationMessage(null);
-    setInvalidMediaClientIds((currentIds) => {
-      if (!currentIds.has(clientId)) {
-        return currentIds;
-      }
-
-      const nextIds = new Set(currentIds);
-
-      nextIds.delete(clientId);
-
-      return nextIds;
-    });
+    setInvalidMediaClientIds((currentIds) => withoutId(currentIds, clientId));
   };
+  // The id is created outside the updater so the updater stays pure (React may
+  // call it twice) and focus can move to the new row's URL field.
   const handleAddMediaItem = () => {
     if (!canAddMedia) {
       return;
@@ -837,7 +842,7 @@ export function TribeStoryManagement({
 
     const createdClientId = createMediaClientId();
 
-    pendingFocusElementIdRef.current =
+    media.pendingFocusElementIdRef.current =
       MEDIA_FOCUS_ID_PREFIX.url + createdClientId;
     setMediaItems((currentItems) =>
       currentItems.length >= TRIBE_STORY_MEDIA_MAX_ITEMS
@@ -858,17 +863,32 @@ export function TribeStoryManagement({
     );
     setValidationMessage(null);
     // The removed row's controls leave the page; land on the add button.
-    addMediaButtonRef.current?.focus();
+    media.addMediaButtonRef.current?.focus();
   };
-  const announceMediaPosition = (targetIndex: number) => {
-    setMediaAnnouncement(
+
+  return { applyUploadedImageUrl, canAddMedia, handleAddMediaItem, handleRemoveMediaItem, updateMediaItem };
+}
+
+type StoryMediaEditHandlers = ReturnType<typeof createStoryMediaEditHandlers>;
+
+/** Announces where a moved row landed. */
+function createMediaPositionAnnouncer(media: StoryMediaModel) {
+  return (targetIndex: number) => {
+    media.setMediaAnnouncement(
       TRIBE_STORY_MANAGEMENT_COPY.mediaMovedAnnouncement(
         targetIndex + 1,
-        mediaItems.length
+        media.mediaItems.length
       )
     );
   };
-  const handleMoveMediaItem = (mediaIndex: number, direction: number) => {
+}
+
+/** Moves a row with its arrow buttons, keeping focus on a usable arrow. */
+function createStoryMediaMoveHandler(media: StoryMediaModel) {
+  const { mediaItems } = media;
+  const announceMediaPosition = createMediaPositionAnnouncer(media);
+
+  return (mediaIndex: number, direction: number) => {
     const targetIndex = mediaIndex + direction;
     const movedItem = mediaItems.at(mediaIndex);
 
@@ -883,15 +903,31 @@ export function TribeStoryManagement({
     const isMovingUp = direction < 0;
     const shouldFocusMoveUp = reachedEdge ? !isMovingUp : isMovingUp;
 
-    pendingFocusElementIdRef.current =
+    media.pendingFocusElementIdRef.current =
       (shouldFocusMoveUp
         ? MEDIA_FOCUS_ID_PREFIX.moveUp
         : MEDIA_FOCUS_ID_PREFIX.moveDown) + movedItem.clientId;
-    setMediaItems((currentItems) =>
+    media.setMediaItems((currentItems) =>
       moveItem(currentItems, mediaIndex, targetIndex)
     );
     announceMediaPosition(targetIndex);
   };
+}
+
+/**
+ * Pointer drag and drop between gallery rows; the arrow buttons remain the
+ * keyboard and screen reader path.
+ * @returns The dragged row, the drop target and the drag handlers.
+ */
+function useStoryMediaDrag() {
+  const [draggedMediaClientId, setDraggedMediaClientId] = useState<
+    string | null
+  >(null);
+  const [dropTargetClientId, setDropTargetClientId] = useState<string | null>(
+    null
+  );
+  const draggedMediaClientIdRef = useRef<string | null>(null);
+
   const resetMediaDrag = () => {
     draggedMediaClientIdRef.current = null;
     setDraggedMediaClientId(null);
@@ -935,13 +971,21 @@ export function TribeStoryManagement({
       setDropTargetClientId(clientId);
     }
   };
-  const handleMediaDrop = (
-    event: DragEvent<HTMLElement>,
-    targetClientId: string
-  ) => {
-    const draggedClientId = draggedMediaClientIdRef.current;
 
-    resetMediaDrag();
+  return { draggedMediaClientId, draggedMediaClientIdRef, dropTargetClientId, handleMediaDragOver, handleMediaDragStart, resetMediaDrag };
+}
+
+type StoryMediaDrag = ReturnType<typeof useStoryMediaDrag>;
+
+/** Drops the dragged row onto another one. */
+function createStoryMediaDropHandler(media: StoryMediaModel, drag: StoryMediaDrag) {
+  const { mediaItems } = media;
+  const announceMediaPosition = createMediaPositionAnnouncer(media);
+
+  return (event: DragEvent<HTMLElement>, targetClientId: string) => {
+    const draggedClientId = drag.draggedMediaClientIdRef.current;
+
+    drag.resetMediaDrag();
 
     if (draggedClientId === null) {
       return;
@@ -960,12 +1004,34 @@ export function TribeStoryManagement({
       return;
     }
 
-    setMediaItems((currentItems) =>
+    media.setMediaItems((currentItems) =>
       moveItem(currentItems, draggedIndex, targetIndex)
     );
     announceMediaPosition(targetIndex);
   };
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+}
+
+type StorySubmitOptions = {
+  content: string;
+  mediaItems: EditableStoryMediaItem[];
+  setInvalidMediaClientIds: (ids: ReadonlySet<string>) => void;
+  setIsWebsiteInvalid: (isInvalid: boolean) => void;
+  setValidationMessage: SetStoryValidationMessage;
+  tribeSlug: string;
+  websiteUrl: string;
+};
+
+/**
+ * Validates and saves the story, one save at a time.
+ * @param options - Draft values, the validation setters and the tribe.
+ * @returns The saving state and the submit handler.
+ */
+function useStorySubmit(options: StorySubmitOptions) {
+  const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
+  const { content, mediaItems, setValidationMessage, tribeSlug, websiteUrl } = options;
+
+  const handleSubmit = async (event: React.SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     // A second submit (double click, Enter held down) must not start another
@@ -974,6 +1040,7 @@ export function TribeStoryManagement({
       return;
     }
 
+    const trimmedContent = content.trim();
     const nextInvalidMediaIds = new Set(
       mediaItems
         .filter((mediaItem) => !isMediaItemValid(mediaItem))
@@ -983,8 +1050,8 @@ export function TribeStoryManagement({
     const nextWebsiteInvalid =
       trimmedWebsiteUrl.length > 0 && !isHttpUrl(trimmedWebsiteUrl);
 
-    setInvalidMediaClientIds(nextInvalidMediaIds);
-    setIsWebsiteInvalid(nextWebsiteInvalid);
+    options.setInvalidMediaClientIds(nextInvalidMediaIds);
+    options.setIsWebsiteInvalid(nextWebsiteInvalid);
 
     if (!trimmedContent) {
       setValidationMessage(TRIBE_STORY_MANAGEMENT_COPY.requiredContent);
@@ -1023,43 +1090,690 @@ export function TribeStoryManagement({
     }
   };
 
-  const addMediaButton = (
+  return { handleSubmit, isSaving };
+}
+
+/** Title and description of the editor. */
+function StoryManagementHeader() {
+  return (
+    <header className={styles.TribeStoryManagement__header}>
+      <h1 className={styles.TribeStoryManagement__title}>
+        {TRIBE_STORY_MANAGEMENT_COPY.title}
+      </h1>
+      <p className={styles.TribeStoryManagement__description}>
+        {TRIBE_STORY_MANAGEMENT_COPY.editDescription}
+      </p>
+    </header>
+  );
+}
+
+type StoryToolbarButtonProps = {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+};
+
+/** One formatting button of the content toolbar. */
+function StoryToolbarButton({ icon, label, onClick }: StoryToolbarButtonProps) {
+  return (
     <Button
-      className={styles.TribeStoryManagement__addMedia}
-      disabled={!canAddMedia}
-      onClick={handleAddMediaItem}
-      ref={addMediaButtonRef}
+      aria-label={label}
+      onClick={onClick}
+      size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
+      title={label}
       type={STORY_MANAGEMENT_REQUEST.buttonType}
       variant={STORY_MANAGEMENT_REQUEST.secondaryVariant}
     >
-      <PlusIcon />
-      {TRIBE_STORY_MANAGEMENT_COPY.addMediaButton}
+      {icon}
     </Button>
   );
+}
+
+/** Bold, list and link formatting toolbar. */
+function StoryFormatToolbar({ contentModel }: { contentModel: StoryContentModel }) {
+  return (
+    <div
+      aria-label={TRIBE_STORY_MANAGEMENT_COPY.toolbarAriaLabel}
+      className={styles.TribeStoryManagement__toolbar}
+      role="toolbar"
+    >
+      <StoryToolbarButton
+        icon={<BoldIcon />}
+        label={TRIBE_STORY_MANAGEMENT_COPY.toolbarBoldLabel}
+        onClick={contentModel.handleBoldFormat}
+      />
+      <StoryToolbarButton
+        icon={<ListIcon />}
+        label={TRIBE_STORY_MANAGEMENT_COPY.toolbarListLabel}
+        onClick={contentModel.handleListFormat}
+      />
+      <StoryToolbarButton
+        icon={<LinkIcon />}
+        label={TRIBE_STORY_MANAGEMENT_COPY.toolbarLinkLabel}
+        onClick={contentModel.handleLinkFormat}
+      />
+    </div>
+  );
+}
+
+type StorySectionIntroProps = {
+  description: string;
+  descriptionId?: string;
+  heading: string;
+  headingId: string;
+};
+
+/** Heading and description of a form section. */
+function StorySectionIntro({
+  description,
+  descriptionId,
+  heading,
+  headingId,
+}: StorySectionIntroProps) {
+  return (
+    <div className={styles.TribeStoryManagement__sectionIntro}>
+      <h2 className={styles.TribeStoryManagement__sectionTitle} id={headingId}>
+        {heading}
+      </h2>
+      <p
+        className={styles.TribeStoryManagement__sectionDescription}
+        id={descriptionId}
+      >
+        {description}
+      </p>
+    </div>
+  );
+}
+
+type StoryContentSectionProps = {
+  contentModel: StoryContentModel;
+  onContentChange: () => void;
+  showContentError: boolean;
+  validationMessage: string | null;
+};
+
+/** Story content editor with its toolbar, error and character counter. */
+function StoryContentSection({
+  contentModel,
+  onContentChange,
+  showContentError,
+  validationMessage,
+}: StoryContentSectionProps) {
+  const contentHeadingId = useId();
+  const contentId = useId();
+  const contentHintId = useId();
+  const contentErrorId = useId();
+  const { content, contentRef, setContent } = contentModel;
+  const isContentNearLimit =
+    content.length >=
+    TRIBE_STORY_CONTENT_MAX_LENGTH * CONTENT_COUNTER_WARNING_RATIO;
+
+  return (
+    <section className={styles.TribeStoryManagement__section}>
+      <StorySectionIntro
+        description={TRIBE_STORY_MANAGEMENT_COPY.contentHint}
+        descriptionId={contentHintId}
+        heading={TRIBE_STORY_MANAGEMENT_COPY.contentLabel}
+        headingId={contentHeadingId}
+      />
+      <div className={styles.TribeStoryManagement__sectionFields}>
+        <div className={styles.TribeStoryManagement__editor}>
+          <StoryFormatToolbar contentModel={contentModel} />
+          <Textarea
+            aria-describedby={
+              showContentError
+                ? `${contentHintId} ${contentErrorId}`
+                : contentHintId
+            }
+            aria-invalid={showContentError}
+            aria-labelledby={contentHeadingId}
+            aria-required
+            className={styles.TribeStoryManagement__textarea}
+            id={contentId}
+            maxLength={TRIBE_STORY_CONTENT_MAX_LENGTH}
+            onChange={(event) => {
+              setContent(event.target.value);
+              onContentChange();
+            }}
+            placeholder={TRIBE_STORY_MANAGEMENT_COPY.contentPlaceholder}
+            ref={contentRef}
+            rows={STORY_TEXTAREA_ROWS}
+            value={content}
+          />
+          <div className={styles.TribeStoryManagement__editorFooter}>
+            {showContentError ? (
+              <p
+                className={styles.TribeStoryManagement__fieldError}
+                id={contentErrorId}
+                role={STORY_MANAGEMENT_ARIA.roleAlert}
+              >
+                {validationMessage}
+              </p>
+            ) : null}
+            <p
+              className={cn(
+                styles.TribeStoryManagement__counter,
+                isContentNearLimit &&
+                  styles["TribeStoryManagement__counter--warning"]
+              )}
+            >
+              {TRIBE_STORY_MANAGEMENT_COPY.contentCounter(
+                content.length,
+                TRIBE_STORY_CONTENT_MAX_LENGTH
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+type StoryWebsiteSectionProps = {
+  isWebsiteInvalid: boolean;
+  onWebsiteUrlChange: (websiteUrl: string) => void;
+  websiteUrl: string;
+};
+
+/** Optional external website of the tribe. */
+function StoryWebsiteSection({
+  isWebsiteInvalid,
+  onWebsiteUrlChange,
+  websiteUrl,
+}: StoryWebsiteSectionProps) {
+  const websiteHeadingId = useId();
+  const websiteId = useId();
+  const websiteHintId = useId();
+
+  return (
+    <section className={styles.TribeStoryManagement__section}>
+      <StorySectionIntro
+        description={TRIBE_STORY_MANAGEMENT_COPY.websiteHint}
+        descriptionId={websiteHintId}
+        heading={TRIBE_STORY_MANAGEMENT_COPY.websiteLabel}
+        headingId={websiteHeadingId}
+      />
+      <div className={styles.TribeStoryManagement__sectionFields}>
+        <Input
+          aria-describedby={websiteHintId}
+          aria-labelledby={websiteHeadingId}
+          error={
+            isWebsiteInvalid
+              ? TRIBE_STORY_MANAGEMENT_COPY.invalidWebsiteUrl
+              : undefined
+          }
+          id={websiteId}
+          onChange={(event) => {
+            onWebsiteUrlChange(event.target.value);
+          }}
+          placeholder={TRIBE_STORY_MANAGEMENT_COPY.websitePlaceholder}
+          value={websiteUrl}
+        />
+      </div>
+    </section>
+  );
+}
+
+/** Error of an invalid row URL, or the upload size note of an image row. */
+function StoryMediaFieldMessage({
+  errorId,
+  isVideoItem,
+  showMediaError,
+}: {
+  errorId: string;
+  isVideoItem: boolean;
+  showMediaError: boolean;
+}) {
+  if (showMediaError) {
+    return (
+      <p className={styles.TribeStoryManagement__fieldError} id={errorId}>
+        {isVideoItem
+          ? TRIBE_STORY_MANAGEMENT_COPY.invalidVideoUrl
+          : TRIBE_STORY_MANAGEMENT_COPY.invalidImageUrl}
+      </p>
+    );
+  }
+
+  if (isVideoItem) {
+    return null;
+  }
+
+  return (
+    <p className={styles.TribeStoryManagement__fieldNote}>
+      {TRIBE_STORY_MANAGEMENT_COPY.uploadLimitHint(UPLOAD_MAX_MEGABYTES)}
+    </p>
+  );
+}
+
+type StoryMediaRowProps = {
+  editHandlers: StoryMediaEditHandlers;
+  errorIdPrefix: string;
+  mediaIndex: number;
+  mediaItem: EditableStoryMediaItem;
+  mediaCount: number;
+  onMove: (mediaIndex: number, direction: number) => void;
+  showMediaError: boolean;
+  uploads: StoryImageUploads;
+  drag: StoryMediaDrag;
+};
+
+/** Drag handle, position and the move and remove actions of a gallery row. */
+function StoryMediaRowHeader({
+  drag,
+  editHandlers,
+  mediaCount,
+  mediaIndex,
+  mediaItem,
+  onMove,
+}: Pick<StoryMediaRowProps, "drag" | "editHandlers" | "mediaCount" | "mediaIndex" | "mediaItem" | "onMove">) {
+  const legend = buildLegend(mediaIndex, mediaCount);
+
+  return (
+    <div className={styles.TribeStoryManagement__mediaItemHeader}>
+      <div className={styles.TribeStoryManagement__mediaLegendGroup}>
+        {/* Pointer-only affordance: the arrow buttons are
+            the keyboard and screen reader path. */}
+        <span
+          aria-hidden
+          className={styles.TribeStoryManagement__dragHandle}
+          draggable
+          onDragEnd={drag.resetMediaDrag}
+          onDragStart={(event) =>
+            drag.handleMediaDragStart(event, mediaItem.clientId)
+          }
+          title={TRIBE_STORY_MANAGEMENT_COPY.dragHandleLabel}
+        >
+          <GripVerticalIcon />
+        </span>
+        <p className={styles.TribeStoryManagement__mediaLegend}>{legend}</p>
+      </div>
+      <div className={styles.TribeStoryManagement__mediaActions}>
+        <Button
+          aria-label={
+            TRIBE_STORY_MANAGEMENT_COPY.moveUpLabel +
+            MEDIA_LEGEND_SEPARATOR +
+            legend
+          }
+          disabled={mediaIndex === 0}
+          id={MEDIA_FOCUS_ID_PREFIX.moveUp + mediaItem.clientId}
+          onClick={() => onMove(mediaIndex, -1)}
+          size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
+          title={TRIBE_STORY_MANAGEMENT_COPY.moveUpLabel}
+          type={STORY_MANAGEMENT_REQUEST.buttonType}
+          variant={STORY_MANAGEMENT_REQUEST.secondaryVariant}
+        >
+          <ArrowUpIcon />
+        </Button>
+        <Button
+          aria-label={
+            TRIBE_STORY_MANAGEMENT_COPY.moveDownLabel +
+            MEDIA_LEGEND_SEPARATOR +
+            legend
+          }
+          disabled={mediaIndex === mediaCount - 1}
+          id={MEDIA_FOCUS_ID_PREFIX.moveDown + mediaItem.clientId}
+          onClick={() => onMove(mediaIndex, 1)}
+          size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
+          title={TRIBE_STORY_MANAGEMENT_COPY.moveDownLabel}
+          type={STORY_MANAGEMENT_REQUEST.buttonType}
+          variant={STORY_MANAGEMENT_REQUEST.secondaryVariant}
+        >
+          <ArrowDownIcon />
+        </Button>
+        <Button
+          aria-label={TRIBE_STORY_MANAGEMENT_COPY.removeMediaLabel(legend)}
+          onClick={() => editHandlers.handleRemoveMediaItem(mediaItem.clientId)}
+          size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
+          title={TRIBE_STORY_MANAGEMENT_COPY.removeMediaTitle}
+          type={STORY_MANAGEMENT_REQUEST.buttonType}
+          variant={STORY_MANAGEMENT_REQUEST.dangerVariant}
+        >
+          <Trash2Icon />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** URL of a gallery row with its upload button and message. */
+function StoryMediaUrlField({
+  editHandlers,
+  errorIdPrefix,
+  mediaItem,
+  showMediaError,
+  uploads,
+}: Pick<StoryMediaRowProps, "editHandlers" | "errorIdPrefix" | "mediaItem" | "showMediaError" | "uploads">) {
+  const mediaUrlInputId = MEDIA_FOCUS_ID_PREFIX.url + mediaItem.clientId;
+  const mediaErrorId = errorIdPrefix + mediaItem.clientId;
+  const isVideoItem = mediaItem.mediaType === TRIBE_STORY_MEDIA_TYPE.video;
+
+  return (
+    <div className={styles.TribeStoryManagement__field}>
+      <label
+        className={styles.TribeStoryManagement__fieldLabel}
+        htmlFor={mediaUrlInputId}
+      >
+        {isVideoItem
+          ? TRIBE_STORY_MANAGEMENT_COPY.mediaUrlVideoLabel
+          : TRIBE_STORY_MANAGEMENT_COPY.mediaUrlImageLabel}
+      </label>
+      <div className={styles.TribeStoryManagement__uploadRow}>
+        <Input
+          aria-describedby={showMediaError ? mediaErrorId : undefined}
+          aria-invalid={showMediaError}
+          aria-required
+          id={mediaUrlInputId}
+          onChange={(event) =>
+            editHandlers.updateMediaItem(mediaItem.clientId, {
+              url: event.target.value,
+            })
+          }
+          placeholder={
+            isVideoItem
+              ? TRIBE_STORY_MANAGEMENT_COPY.mediaUrlVideoPlaceholder
+              : TRIBE_STORY_MANAGEMENT_COPY.mediaUrlImagePlaceholder
+          }
+          value={mediaItem.url}
+        />
+        {!isVideoItem ? (
+          <ImageUploadButton
+            isUploading={uploads.uploadingTargets.has(mediaItem.clientId)}
+            onFileSelected={(imageFile) => {
+              void uploads.handleImageFileUpload(
+                mediaItem.clientId,
+                imageFile,
+                (deliveryUrl) =>
+                  editHandlers.applyUploadedImageUrl(
+                    mediaItem.clientId,
+                    deliveryUrl
+                  )
+              );
+            }}
+          />
+        ) : null}
+      </div>
+      <StoryMediaFieldMessage
+        errorId={mediaErrorId}
+        isVideoItem={isVideoItem}
+        showMediaError={showMediaError}
+      />
+    </div>
+  );
+}
+
+/** Header, thumbnail and fields of one gallery row. */
+function StoryMediaRowContent(props: StoryMediaRowProps) {
+  const { editHandlers, mediaIndex, mediaItem } = props;
+
+  return (
+    <div className={styles.TribeStoryManagement__mediaItemContent}>
+      <StoryMediaRowHeader {...props} />
+      <div className={styles.TribeStoryManagement__mediaItemBody}>
+        <MediaThumbnail mediaItem={mediaItem} position={mediaIndex + 1} />
+        <div className={styles.TribeStoryManagement__mediaFields}>
+          <Select
+            id={"story-media-type-" + mediaItem.clientId}
+            label={TRIBE_STORY_MANAGEMENT_COPY.mediaTypeLabel}
+            onValueChange={(value) =>
+              editHandlers.updateMediaItem(mediaItem.clientId, {
+                mediaType: value as TribeStoryMediaType,
+              })
+            }
+            options={MEDIA_TYPE_OPTIONS}
+            placeholder={TRIBE_STORY_MANAGEMENT_COPY.mediaTypePlaceholder}
+            value={mediaItem.mediaType}
+          />
+          <StoryMediaUrlField {...props} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type StoryMediaListProps = Omit<StoryMediaRowProps, "mediaIndex" | "mediaItem" | "mediaCount" | "showMediaError" | "onMove" | "errorIdPrefix"> & {
+  media: StoryMediaModel;
+};
+
+/** Ordered gallery rows with drag and drop between them. */
+function StoryMediaList({ drag, media, ...rowProps }: StoryMediaListProps) {
+  const errorIdPrefix = useId();
+  const { mediaItems } = media;
+  const onMove = createStoryMediaMoveHandler(media);
+  const onDrop = createStoryMediaDropHandler(media, drag);
+
+  return (
+    <ol className={styles.TribeStoryManagement__mediaList}>
+      <AnimatePresence initial={false}>
+        {mediaItems.map((mediaItem, mediaIndex) => (
+          <AnimatedListItem
+            className={cn(
+              styles.TribeStoryManagement__mediaItem,
+              drag.draggedMediaClientId === mediaItem.clientId &&
+                styles["TribeStoryManagement__mediaItem--dragging"],
+              drag.dropTargetClientId === mediaItem.clientId &&
+                drag.draggedMediaClientId !== mediaItem.clientId &&
+                styles["TribeStoryManagement__mediaItem--dropTarget"]
+            )}
+            key={mediaItem.clientId}
+            onDragOver={(event) =>
+              drag.handleMediaDragOver(event, mediaItem.clientId)
+            }
+            onDrop={(event) => onDrop(event, mediaItem.clientId)}
+          >
+            <StoryMediaRowContent
+              {...rowProps}
+              drag={drag}
+              errorIdPrefix={errorIdPrefix}
+              mediaCount={mediaItems.length}
+              mediaIndex={mediaIndex}
+              mediaItem={mediaItem}
+              onMove={onMove}
+              showMediaError={media.invalidMediaClientIds.has(mediaItem.clientId)}
+            />
+          </AnimatedListItem>
+        ))}
+      </AnimatePresence>
+    </ol>
+  );
+}
+
+type StoryMediaSectionProps = {
+  drag: StoryMediaDrag;
+  editHandlers: StoryMediaEditHandlers;
+  media: StoryMediaModel;
+  uploads: StoryImageUploads;
+};
+
+/** Gallery section: its rows, the add action and the move announcement. */
+function StoryMediaSection({
+  drag,
+  editHandlers,
+  media,
+  uploads,
+}: StoryMediaSectionProps) {
+  const mediaHeadingId = useId();
+  const { addMediaButtonRef, mediaAnnouncement, mediaItems } = media;
+
+  return (
+    <section className={styles.TribeStoryManagement__section}>
+      <div className={styles.TribeStoryManagement__sectionIntro}>
+        <div className={styles.TribeStoryManagement__sectionTitleRow}>
+          <h2
+            className={styles.TribeStoryManagement__sectionTitle}
+            id={mediaHeadingId}
+          >
+            {TRIBE_STORY_MANAGEMENT_COPY.mediaHeading}
+          </h2>
+          <span className={styles.TribeStoryManagement__count}>
+            <AnimatedCount value={mediaItems.length} />
+            /{TRIBE_STORY_MEDIA_MAX_ITEMS}
+          </span>
+        </div>
+        <p className={styles.TribeStoryManagement__sectionDescription}>
+          {TRIBE_STORY_MANAGEMENT_COPY.mediaHint(TRIBE_STORY_MEDIA_MAX_ITEMS)}
+        </p>
+      </div>
+      <div className={styles.TribeStoryManagement__sectionFields}>
+        {mediaItems.length === 0 ? (
+          <p className={styles.TribeStoryManagement__emptyState}>
+            {TRIBE_STORY_MANAGEMENT_COPY.emptyMedia}
+          </p>
+        ) : (
+          <StoryMediaList
+            drag={drag}
+            editHandlers={editHandlers}
+            media={media}
+            uploads={uploads}
+          />
+        )}
+        <Button
+          className={styles.TribeStoryManagement__addMedia}
+          disabled={!editHandlers.canAddMedia}
+          onClick={editHandlers.handleAddMediaItem}
+          ref={addMediaButtonRef}
+          type={STORY_MANAGEMENT_REQUEST.buttonType}
+          variant={STORY_MANAGEMENT_REQUEST.secondaryVariant}
+        >
+          <PlusIcon />
+          {TRIBE_STORY_MANAGEMENT_COPY.addMediaButton}
+        </Button>
+        <p
+          aria-live="polite"
+          className={styles.TribeStoryManagement__visuallyHidden}
+        >
+          {mediaAnnouncement}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/** Validation summary and the save button of the editor. */
+function StorySaveFooter({
+  isDisabled,
+  isSaving,
+  summaryMessage,
+}: {
+  isDisabled: boolean;
+  isSaving: boolean;
+  summaryMessage: string | null;
+}) {
+  return (
+    <div className={styles.TribeStoryManagement__footer}>
+      {summaryMessage !== null ? (
+        <p
+          className={styles.TribeStoryManagement__fieldError}
+          role={STORY_MANAGEMENT_ARIA.roleAlert}
+        >
+          {summaryMessage}
+        </p>
+      ) : null}
+      <Button
+        aria-busy={isSaving || undefined}
+        className={styles.TribeStoryManagement__saveButton}
+        disabled={isDisabled}
+        type={STORY_MANAGEMENT_REQUEST.submitButtonType}
+      >
+        {isSaving ? (
+          <>
+            <LoaderCircleIcon
+              aria-hidden
+              className={styles.TribeStoryManagement__saveSpinner}
+            />
+            {TRIBE_STORY_MANAGEMENT_COPY.savingButton}
+          </>
+        ) : (
+          TRIBE_STORY_MANAGEMENT_COPY.saveButton
+        )}
+      </Button>
+    </div>
+  );
+}
+
+/** Preview of the draft as members see it, or a hint while it has no content. */
+function StoryPreviewPanel({
+  previewContext,
+  previewStory,
+  tribeSlug,
+}: {
+  previewContext?: TribeStoryPreviewContext;
+  previewStory: TribeStoryResult | null;
+  tribeSlug: string;
+}) {
+  return (
+    <section className={styles.TribeStoryManagement__preview}>
+      <p className={styles.TribeStoryManagement__previewNote}>
+        {TRIBE_STORY_MANAGEMENT_COPY.previewNote}
+      </p>
+      {previewStory ? (
+        <div className={styles.TribeStoryManagement__previewFrame}>
+          <TribeStoryAbout
+            headingLevel={PREVIEW_HEADING_LEVEL}
+            offerPrice={null}
+            onlineMembers={previewContext?.onlineMembers}
+            stats={previewContext?.stats ?? null}
+            story={previewStory}
+            tribeName={previewContext?.tribeName ?? tribeSlug}
+          />
+        </div>
+      ) : (
+        <p className={styles.TribeStoryManagement__emptyState}>
+          {TRIBE_STORY_MANAGEMENT_COPY.previewEmpty}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** Edit and preview tabs of the story editor. */
+function StoryModeTabsList() {
+  return (
+    <TabsList className={styles.TribeStoryManagement__modeTabsList}>
+      <TabsTrigger value={STORY_MODE_TAB.edit}>
+        {TRIBE_STORY_MANAGEMENT_COPY.editTabLabel}
+      </TabsTrigger>
+      <TabsTrigger value={STORY_MODE_TAB.preview}>
+        {TRIBE_STORY_MANAGEMENT_COPY.previewTabLabel}
+      </TabsTrigger>
+    </TabsList>
+  );
+}
+
+/**
+ * Leader-only editor for the tribe story "About" page: long-form content with
+ * a formatting toolbar and safe markdown subset, an optional external website
+ * link, and a media gallery of up to five images or videos (uploaded or
+ * linked, reorderable), with an edit/preview mode switch. The preview renders
+ * the same read-only «TribeStoryAbout» view members see, fed with the draft.
+ */
+export function TribeStoryManagement({
+  previewContext,
+  story,
+  tribeSlug,
+}: TribeStoryManagementProps) {
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
+  const contentModel = useStoryContent(story?.content ?? "", setValidationMessage);
+  const [websiteUrl, setWebsiteUrl] = useState(story?.websiteUrl ?? "");
+  const [isWebsiteInvalid, setIsWebsiteInvalid] = useState(false);
+  const media = useStoryMediaItems(story);
+  const uploads = useStoryImageUploads(tribeSlug);
+  const drag = useStoryMediaDrag();
+  const { handleSubmit, isSaving } = useStorySubmit({ content: contentModel.content, mediaItems: media.mediaItems, setInvalidMediaClientIds: media.setInvalidMediaClientIds, setIsWebsiteInvalid, setValidationMessage, tribeSlug, websiteUrl });
+  const trimmedContent = contentModel.content.trim();
+  const showContentError = validationMessage !== null && trimmedContent.length === 0;
+  const previewStory: TribeStoryResult | null = trimmedContent
+    ? { content: trimmedContent, media: buildPreviewMedia(media.mediaItems), websiteUrl: getPreviewWebsiteUrl(websiteUrl) }
+    : null;
 
   return (
     <section className={styles.TribeStoryManagement}>
-      <header className={styles.TribeStoryManagement__header}>
-        <h1 className={styles.TribeStoryManagement__title}>
-          {TRIBE_STORY_MANAGEMENT_COPY.title}
-        </h1>
-        <p className={styles.TribeStoryManagement__description}>
-          {TRIBE_STORY_MANAGEMENT_COPY.editDescription}
-        </p>
-      </header>
+      <StoryManagementHeader />
 
       <Tabs
         className={styles.TribeStoryManagement__modeTabs}
         defaultValue={STORY_MODE_TAB.edit}
       >
-        <TabsList className={styles.TribeStoryManagement__modeTabsList}>
-          <TabsTrigger value={STORY_MODE_TAB.edit}>
-            {TRIBE_STORY_MANAGEMENT_COPY.editTabLabel}
-          </TabsTrigger>
-          <TabsTrigger value={STORY_MODE_TAB.preview}>
-            {TRIBE_STORY_MANAGEMENT_COPY.previewTabLabel}
-          </TabsTrigger>
-        </TabsList>
+        <StoryModeTabsList />
 
         <TabsContent value={STORY_MODE_TAB.edit}>
           <form
@@ -1068,429 +1782,41 @@ export function TribeStoryManagement({
               void handleSubmit(event);
             }}
           >
-            <section className={styles.TribeStoryManagement__section}>
-              <div className={styles.TribeStoryManagement__sectionIntro}>
-                <h2
-                  className={styles.TribeStoryManagement__sectionTitle}
-                  id={contentHeadingId}
-                >
-                  {TRIBE_STORY_MANAGEMENT_COPY.contentLabel}
-                </h2>
-                <p
-                  className={styles.TribeStoryManagement__sectionDescription}
-                  id={contentHintId}
-                >
-                  {TRIBE_STORY_MANAGEMENT_COPY.contentHint}
-                </p>
-              </div>
-              <div className={styles.TribeStoryManagement__sectionFields}>
-                <div className={styles.TribeStoryManagement__editor}>
-                  <div
-                    aria-label={TRIBE_STORY_MANAGEMENT_COPY.toolbarAriaLabel}
-                    className={styles.TribeStoryManagement__toolbar}
-                    role="toolbar"
-                  >
-                    <Button
-                      aria-label={TRIBE_STORY_MANAGEMENT_COPY.toolbarBoldLabel}
-                      onClick={handleBoldFormat}
-                      size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
-                      title={TRIBE_STORY_MANAGEMENT_COPY.toolbarBoldLabel}
-                      type={STORY_MANAGEMENT_REQUEST.buttonType}
-                      variant={STORY_MANAGEMENT_REQUEST.secondaryVariant}
-                    >
-                      <BoldIcon />
-                    </Button>
-                    <Button
-                      aria-label={TRIBE_STORY_MANAGEMENT_COPY.toolbarListLabel}
-                      onClick={handleListFormat}
-                      size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
-                      title={TRIBE_STORY_MANAGEMENT_COPY.toolbarListLabel}
-                      type={STORY_MANAGEMENT_REQUEST.buttonType}
-                      variant={STORY_MANAGEMENT_REQUEST.secondaryVariant}
-                    >
-                      <ListIcon />
-                    </Button>
-                    <Button
-                      aria-label={TRIBE_STORY_MANAGEMENT_COPY.toolbarLinkLabel}
-                      onClick={handleLinkFormat}
-                      size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
-                      title={TRIBE_STORY_MANAGEMENT_COPY.toolbarLinkLabel}
-                      type={STORY_MANAGEMENT_REQUEST.buttonType}
-                      variant={STORY_MANAGEMENT_REQUEST.secondaryVariant}
-                    >
-                      <LinkIcon />
-                    </Button>
-                  </div>
-                  <Textarea
-                    aria-describedby={
-                      showContentError
-                        ? `${contentHintId} ${contentErrorId}`
-                        : contentHintId
-                    }
-                    aria-invalid={showContentError}
-                    aria-labelledby={contentHeadingId}
-                    aria-required
-                    className={styles.TribeStoryManagement__textarea}
-                    id={contentId}
-                    maxLength={TRIBE_STORY_CONTENT_MAX_LENGTH}
-                    onChange={(event) => {
-                      setContent(event.target.value);
-                      setValidationMessage(null);
-                    }}
-                    placeholder={TRIBE_STORY_MANAGEMENT_COPY.contentPlaceholder}
-                    ref={contentRef}
-                    rows={STORY_TEXTAREA_ROWS}
-                    value={content}
-                  />
-                  <div className={styles.TribeStoryManagement__editorFooter}>
-                    {showContentError ? (
-                      <p
-                        className={styles.TribeStoryManagement__fieldError}
-                        id={contentErrorId}
-                        role={STORY_MANAGEMENT_ARIA.roleAlert}
-                      >
-                        {validationMessage}
-                      </p>
-                    ) : null}
-                    <p
-                      className={cn(
-                        styles.TribeStoryManagement__counter,
-                        isContentNearLimit &&
-                          styles["TribeStoryManagement__counter--warning"]
-                      )}
-                    >
-                      {TRIBE_STORY_MANAGEMENT_COPY.contentCounter(
-                        content.length,
-                        TRIBE_STORY_CONTENT_MAX_LENGTH
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section className={styles.TribeStoryManagement__section}>
-              <div className={styles.TribeStoryManagement__sectionIntro}>
-                <h2
-                  className={styles.TribeStoryManagement__sectionTitle}
-                  id={websiteHeadingId}
-                >
-                  {TRIBE_STORY_MANAGEMENT_COPY.websiteLabel}
-                </h2>
-                <p
-                  className={styles.TribeStoryManagement__sectionDescription}
-                  id={websiteHintId}
-                >
-                  {TRIBE_STORY_MANAGEMENT_COPY.websiteHint}
-                </p>
-              </div>
-              <div className={styles.TribeStoryManagement__sectionFields}>
-                <Input
-                  aria-describedby={websiteHintId}
-                  aria-labelledby={websiteHeadingId}
-                  error={
-                    isWebsiteInvalid
-                      ? TRIBE_STORY_MANAGEMENT_COPY.invalidWebsiteUrl
-                      : undefined
-                  }
-                  id={websiteId}
-                  onChange={(event) => {
-                    setWebsiteUrl(event.target.value);
-                    setIsWebsiteInvalid(false);
-                    setValidationMessage(null);
-                  }}
-                  placeholder={TRIBE_STORY_MANAGEMENT_COPY.websitePlaceholder}
-                  value={websiteUrl}
-                />
-              </div>
-            </section>
-
-            <section className={styles.TribeStoryManagement__section}>
-              <div className={styles.TribeStoryManagement__sectionIntro}>
-                <div className={styles.TribeStoryManagement__sectionTitleRow}>
-                  <h2
-                    className={styles.TribeStoryManagement__sectionTitle}
-                    id={mediaHeadingId}
-                  >
-                    {TRIBE_STORY_MANAGEMENT_COPY.mediaHeading}
-                  </h2>
-                  <span className={styles.TribeStoryManagement__count}>
-                    <AnimatedCount value={mediaItems.length} />
-                    /{TRIBE_STORY_MEDIA_MAX_ITEMS}
-                  </span>
-                </div>
-                <p className={styles.TribeStoryManagement__sectionDescription}>
-                  {TRIBE_STORY_MANAGEMENT_COPY.mediaHint(
-                    TRIBE_STORY_MEDIA_MAX_ITEMS
-                  )}
-                </p>
-              </div>
-              <div className={styles.TribeStoryManagement__sectionFields}>
-                {mediaItems.length === 0 ? (
-                  <p className={styles.TribeStoryManagement__emptyState}>
-                    {TRIBE_STORY_MANAGEMENT_COPY.emptyMedia}
-                  </p>
-                ) : (
-                  <ol className={styles.TribeStoryManagement__mediaList}>
-                    <AnimatePresence initial={false}>
-                    {mediaItems.map((mediaItem, mediaIndex) => {
-                      const mediaTypeSelectId =
-                        "story-media-type-" + mediaItem.clientId;
-                      const mediaUrlInputId =
-                        MEDIA_FOCUS_ID_PREFIX.url + mediaItem.clientId;
-                      const mediaErrorId = mediaErrorIdPrefix + mediaItem.clientId;
-                      const showMediaError = invalidMediaClientIds.has(
-                        mediaItem.clientId
-                      );
-                      const isVideoItem =
-                        mediaItem.mediaType === TRIBE_STORY_MEDIA_TYPE.video;
-                      const legend = buildLegend(mediaIndex, mediaItems.length);
-
-                      return (
-                        <AnimatedListItem
-                          className={cn(
-                            styles.TribeStoryManagement__mediaItem,
-                            draggedMediaClientId === mediaItem.clientId &&
-                              styles["TribeStoryManagement__mediaItem--dragging"],
-                            dropTargetClientId === mediaItem.clientId &&
-                              draggedMediaClientId !== mediaItem.clientId &&
-                              styles["TribeStoryManagement__mediaItem--dropTarget"]
-                          )}
-                          key={mediaItem.clientId}
-                          onDragOver={(event) =>
-                            handleMediaDragOver(event, mediaItem.clientId)
-                          }
-                          onDrop={(event) =>
-                            handleMediaDrop(event, mediaItem.clientId)
-                          }
-                        >
-                          <div className={styles.TribeStoryManagement__mediaItemContent}>
-                          <div className={styles.TribeStoryManagement__mediaItemHeader}>
-                            <div className={styles.TribeStoryManagement__mediaLegendGroup}>
-                              {/* Pointer-only affordance: the arrow buttons are
-                                  the keyboard and screen reader path. */}
-                              <span
-                                aria-hidden
-                                className={styles.TribeStoryManagement__dragHandle}
-                                draggable
-                                onDragEnd={resetMediaDrag}
-                                onDragStart={(event) =>
-                                  handleMediaDragStart(event, mediaItem.clientId)
-                                }
-                                title={TRIBE_STORY_MANAGEMENT_COPY.dragHandleLabel}
-                              >
-                                <GripVerticalIcon />
-                              </span>
-                              <p className={styles.TribeStoryManagement__mediaLegend}>
-                                {legend}
-                              </p>
-                            </div>
-                            <div className={styles.TribeStoryManagement__mediaActions}>
-                              <Button
-                                aria-label={
-                                  TRIBE_STORY_MANAGEMENT_COPY.moveUpLabel +
-                                  MEDIA_LEGEND_SEPARATOR +
-                                  legend
-                                }
-                                disabled={mediaIndex === 0}
-                                id={MEDIA_FOCUS_ID_PREFIX.moveUp + mediaItem.clientId}
-                                onClick={() => handleMoveMediaItem(mediaIndex, -1)}
-                                size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
-                                title={TRIBE_STORY_MANAGEMENT_COPY.moveUpLabel}
-                                type={STORY_MANAGEMENT_REQUEST.buttonType}
-                                variant={STORY_MANAGEMENT_REQUEST.secondaryVariant}
-                              >
-                                <ArrowUpIcon />
-                              </Button>
-                              <Button
-                                aria-label={
-                                  TRIBE_STORY_MANAGEMENT_COPY.moveDownLabel +
-                                  MEDIA_LEGEND_SEPARATOR +
-                                  legend
-                                }
-                                disabled={mediaIndex === mediaItems.length - 1}
-                                id={
-                                  MEDIA_FOCUS_ID_PREFIX.moveDown + mediaItem.clientId
-                                }
-                                onClick={() => handleMoveMediaItem(mediaIndex, 1)}
-                                size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
-                                title={TRIBE_STORY_MANAGEMENT_COPY.moveDownLabel}
-                                type={STORY_MANAGEMENT_REQUEST.buttonType}
-                                variant={STORY_MANAGEMENT_REQUEST.secondaryVariant}
-                              >
-                                <ArrowDownIcon />
-                              </Button>
-                              <Button
-                                aria-label={TRIBE_STORY_MANAGEMENT_COPY.removeMediaLabel(
-                                  legend
-                                )}
-                                onClick={() =>
-                                  handleRemoveMediaItem(mediaItem.clientId)
-                                }
-                                size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
-                                title={TRIBE_STORY_MANAGEMENT_COPY.removeMediaTitle}
-                                type={STORY_MANAGEMENT_REQUEST.buttonType}
-                                variant={STORY_MANAGEMENT_REQUEST.dangerVariant}
-                              >
-                                <Trash2Icon />
-                              </Button>
-                            </div>
-                          </div>
-                          <div className={styles.TribeStoryManagement__mediaItemBody}>
-                            <MediaThumbnail
-                              mediaItem={mediaItem}
-                              position={mediaIndex + 1}
-                            />
-                            <div className={styles.TribeStoryManagement__mediaFields}>
-                              <Select
-                                id={mediaTypeSelectId}
-                                label={TRIBE_STORY_MANAGEMENT_COPY.mediaTypeLabel}
-                                onValueChange={(value) =>
-                                  updateMediaItem(mediaItem.clientId, {
-                                    mediaType: value as TribeStoryMediaType,
-                                  })
-                                }
-                                options={MEDIA_TYPE_OPTIONS}
-                                placeholder={TRIBE_STORY_MANAGEMENT_COPY.mediaTypePlaceholder}
-                                value={mediaItem.mediaType}
-                              />
-                              <div className={styles.TribeStoryManagement__field}>
-                                <label
-                                  className={styles.TribeStoryManagement__fieldLabel}
-                                  htmlFor={mediaUrlInputId}
-                                >
-                                  {isVideoItem
-                                    ? TRIBE_STORY_MANAGEMENT_COPY.mediaUrlVideoLabel
-                                    : TRIBE_STORY_MANAGEMENT_COPY.mediaUrlImageLabel}
-                                </label>
-                                <div className={styles.TribeStoryManagement__uploadRow}>
-                                  <Input
-                                    aria-describedby={
-                                      showMediaError ? mediaErrorId : undefined
-                                    }
-                                    aria-invalid={showMediaError}
-                                    aria-required
-                                    id={mediaUrlInputId}
-                                    onChange={(event) =>
-                                      updateMediaItem(mediaItem.clientId, {
-                                        url: event.target.value,
-                                      })
-                                    }
-                                    placeholder={
-                                      isVideoItem
-                                        ? TRIBE_STORY_MANAGEMENT_COPY.mediaUrlVideoPlaceholder
-                                        : TRIBE_STORY_MANAGEMENT_COPY.mediaUrlImagePlaceholder
-                                    }
-                                    value={mediaItem.url}
-                                  />
-                                  {!isVideoItem ? (
-                                    <ImageUploadButton
-                                      isUploading={uploadingTargets.has(
-                                        mediaItem.clientId
-                                      )}
-                                      onFileSelected={(imageFile) => {
-                                        void handleImageFileUpload(
-                                          mediaItem.clientId,
-                                          imageFile,
-                                          (deliveryUrl) =>
-                                            applyUploadedImageUrl(
-                                              mediaItem.clientId,
-                                              deliveryUrl
-                                            )
-                                        );
-                                      }}
-                                    />
-                                  ) : null}
-                                </div>
-                                {showMediaError ? (
-                                  <p
-                                    className={styles.TribeStoryManagement__fieldError}
-                                    id={mediaErrorId}
-                                  >
-                                    {isVideoItem
-                                      ? TRIBE_STORY_MANAGEMENT_COPY.invalidVideoUrl
-                                      : TRIBE_STORY_MANAGEMENT_COPY.invalidImageUrl}
-                                  </p>
-                                ) : !isVideoItem ? (
-                                  <p className={styles.TribeStoryManagement__fieldNote}>
-                                    {TRIBE_STORY_MANAGEMENT_COPY.uploadLimitHint(
-                                      UPLOAD_MAX_MEGABYTES
-                                    )}
-                                  </p>
-                                ) : null}
-                              </div>
-                            </div>
-                          </div>
-                          </div>
-                        </AnimatedListItem>
-                      );
-                    })}
-                    </AnimatePresence>
-                  </ol>
-                )}
-                {addMediaButton}
-                <p
-                  aria-live="polite"
-                  className={styles.TribeStoryManagement__visuallyHidden}
-                >
-                  {mediaAnnouncement}
-                </p>
-              </div>
-            </section>
-
-            <div className={styles.TribeStoryManagement__footer}>
-              {validationMessage !== null && !showContentError ? (
-                <p
-                  className={styles.TribeStoryManagement__fieldError}
-                  role={STORY_MANAGEMENT_ARIA.roleAlert}
-                >
-                  {validationMessage}
-                </p>
-              ) : null}
-              <Button
-                aria-busy={isSaving || undefined}
-                className={styles.TribeStoryManagement__saveButton}
-                disabled={isSaving || uploadingTargets.size > 0}
-                type={STORY_MANAGEMENT_REQUEST.submitButtonType}
-              >
-                {isSaving ? (
-                  <>
-                    <LoaderCircleIcon
-                      aria-hidden
-                      className={styles.TribeStoryManagement__saveSpinner}
-                    />
-                    {TRIBE_STORY_MANAGEMENT_COPY.savingButton}
-                  </>
-                ) : (
-                  TRIBE_STORY_MANAGEMENT_COPY.saveButton
-                )}
-              </Button>
-            </div>
+            <StoryContentSection
+              contentModel={contentModel}
+              onContentChange={() => setValidationMessage(null)}
+              showContentError={showContentError}
+              validationMessage={validationMessage}
+            />
+            <StoryWebsiteSection
+              isWebsiteInvalid={isWebsiteInvalid}
+              onWebsiteUrlChange={(nextWebsiteUrl) => {
+                setWebsiteUrl(nextWebsiteUrl);
+                setIsWebsiteInvalid(false);
+                setValidationMessage(null);
+              }}
+              websiteUrl={websiteUrl}
+            />
+            <StoryMediaSection
+              drag={drag}
+              editHandlers={createStoryMediaEditHandlers(media, setValidationMessage)}
+              media={media}
+              uploads={uploads}
+            />
+            <StorySaveFooter
+              isDisabled={isSaving || uploads.uploadingTargets.size > 0}
+              isSaving={isSaving}
+              summaryMessage={showContentError ? null : validationMessage}
+            />
           </form>
         </TabsContent>
 
         <TabsContent value={STORY_MODE_TAB.preview}>
-          <section className={styles.TribeStoryManagement__preview}>
-            <p className={styles.TribeStoryManagement__previewNote}>
-              {TRIBE_STORY_MANAGEMENT_COPY.previewNote}
-            </p>
-            {previewStory ? (
-              <div className={styles.TribeStoryManagement__previewFrame}>
-                <TribeStoryAbout
-                  headingLevel={PREVIEW_HEADING_LEVEL}
-                  offerPrice={null}
-                  onlineMembers={previewContext?.onlineMembers}
-                  stats={previewContext?.stats ?? null}
-                  story={previewStory}
-                  tribeName={previewContext?.tribeName ?? tribeSlug}
-                />
-              </div>
-            ) : (
-              <p className={styles.TribeStoryManagement__emptyState}>
-                {TRIBE_STORY_MANAGEMENT_COPY.previewEmpty}
-              </p>
-            )}
-          </section>
+          <StoryPreviewPanel
+            previewContext={previewContext}
+            previewStory={previewStory}
+            tribeSlug={tribeSlug}
+          />
         </TabsContent>
       </Tabs>
     </section>

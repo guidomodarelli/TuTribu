@@ -18,7 +18,7 @@ export type AdmissionDatabaseObservationSummary = {
 };
 
 const count = z.number().int().nonnegative();
-const duration = z.number().finite().nonnegative().nullable();
+const duration = z.number().nonnegative().nullable();
 export const admissionDatabaseObservationSummarySchema = z.object({
   transactions: count, statementCount: count, pendingStatements: count,
   elapsedP95Ms: duration, observedAwaitP95Ms: duration, unobservedP95Ms: duration,

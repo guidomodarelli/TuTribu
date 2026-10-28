@@ -72,16 +72,13 @@ function buildCurrentSubscriptionEndpoint(tribeSlug: string): string {
 }
 
 /**
- * Lets a member cancel their own subscription through a two-step
- * confirmation, and reflects the resulting status in place.
+ * Owns the two-step cancellation: the first press asks for confirmation, the
+ * second cancels once at a time and reports the outcome.
  *
- * @param props - Current subscription status and tribe slug.
- * @returns Subscription self-management section.
+ * @param tribeSlug - Tribe slug.
+ * @returns Cancellation state and its handlers.
  */
-export function TribeSubscriptionSelfManagement({
-  subscriptionStatus,
-  tribeSlug,
-}: TribeSubscriptionSelfManagementProps) {
+function useSubscriptionCancellation(tribeSlug: string) {
   const [isCanceling, setIsCanceling] = useState(false);
   const [isConfirmingCancellation, setIsConfirmingCancellation] =
     useState(false);
@@ -89,9 +86,6 @@ export function TribeSubscriptionSelfManagement({
   const [hasCanceled, setHasCanceled] = useState(false);
   // Guards against a second confirmation landing before the disabled state renders.
   const isCancelingRef = useRef(false);
-  const displayedStatus = hasCanceled
-    ? TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled
-    : subscriptionStatus;
 
   const handleKeepSubscription = () => {
     setIsConfirmingCancellation(false);
@@ -148,6 +142,93 @@ export function TribeSubscriptionSelfManagement({
     }
   };
 
+  return {
+    handleCancelSubscription,
+    handleKeepSubscription,
+    hasCanceled,
+    isCanceling,
+    isConfirmingCancellation,
+    statusMessage,
+  };
+}
+
+type SubscriptionCancellationActionsProps = {
+  isCanceling: boolean;
+  isConfirmingCancellation: boolean;
+  onCancel: () => void;
+  onKeep: () => void;
+};
+
+/**
+ * Cancel (or confirm) button and, while confirming, the keep button.
+ *
+ * @param props - Cancellation state and handlers.
+ * @returns The cancellation actions.
+ */
+function SubscriptionCancellationActions({
+  isCanceling,
+  isConfirmingCancellation,
+  onCancel,
+  onKeep,
+}: SubscriptionCancellationActionsProps) {
+  return (
+    <div className={styles.TribeSubscriptionSelfManagement__actions}>
+      <Button
+        aria-busy={isCanceling || undefined}
+        disabled={isCanceling}
+        onClick={onCancel}
+        type={SUBSCRIPTION_SELF_MANAGEMENT_REQUEST.buttonType}
+        variant={SUBSCRIPTION_SELF_MANAGEMENT_REQUEST.dangerVariant}
+      >
+        {isCanceling ? (
+          <LoaderCircleIcon
+            aria-hidden
+            className={styles.TribeSubscriptionSelfManagement__spinner}
+          />
+        ) : (
+          <XCircleIcon aria-hidden />
+        )}
+        {isConfirmingCancellation
+          ? SUBSCRIPTION_SELF_MANAGEMENT_COPY.confirmButton
+          : SUBSCRIPTION_SELF_MANAGEMENT_COPY.cancelButton}
+      </Button>
+      {isConfirmingCancellation ? (
+        <Button
+          disabled={isCanceling}
+          onClick={onKeep}
+          type={SUBSCRIPTION_SELF_MANAGEMENT_REQUEST.buttonType}
+          variant={SUBSCRIPTION_SELF_MANAGEMENT_REQUEST.ghostVariant}
+        >
+          {SUBSCRIPTION_SELF_MANAGEMENT_COPY.keepButton}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Lets a member cancel their own subscription through a two-step
+ * confirmation, and reflects the resulting status in place.
+ *
+ * @param props - Current subscription status and tribe slug.
+ * @returns Subscription self-management section.
+ */
+export function TribeSubscriptionSelfManagement({
+  subscriptionStatus,
+  tribeSlug,
+}: TribeSubscriptionSelfManagementProps) {
+  const {
+    handleCancelSubscription,
+    handleKeepSubscription,
+    hasCanceled,
+    isCanceling,
+    isConfirmingCancellation,
+    statusMessage,
+  } = useSubscriptionCancellation(tribeSlug);
+  const displayedStatus = hasCanceled
+    ? TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled
+    : subscriptionStatus;
+
   return (
     <section className={styles.TribeSubscriptionSelfManagement}>
       <p className={styles.TribeSubscriptionSelfManagement__eyebrow}>
@@ -185,39 +266,14 @@ export function TribeSubscriptionSelfManagement({
         ) : null}
       </div>
       {hasCanceled ? null : (
-        <div className={styles.TribeSubscriptionSelfManagement__actions}>
-          <Button
-            aria-busy={isCanceling || undefined}
-            disabled={isCanceling}
-            onClick={() => {
-              void handleCancelSubscription();
-            }}
-            type={SUBSCRIPTION_SELF_MANAGEMENT_REQUEST.buttonType}
-            variant={SUBSCRIPTION_SELF_MANAGEMENT_REQUEST.dangerVariant}
-          >
-            {isCanceling ? (
-              <LoaderCircleIcon
-                aria-hidden
-                className={styles.TribeSubscriptionSelfManagement__spinner}
-              />
-            ) : (
-              <XCircleIcon aria-hidden />
-            )}
-            {isConfirmingCancellation
-              ? SUBSCRIPTION_SELF_MANAGEMENT_COPY.confirmButton
-              : SUBSCRIPTION_SELF_MANAGEMENT_COPY.cancelButton}
-          </Button>
-          {isConfirmingCancellation ? (
-            <Button
-              disabled={isCanceling}
-              onClick={handleKeepSubscription}
-              type={SUBSCRIPTION_SELF_MANAGEMENT_REQUEST.buttonType}
-              variant={SUBSCRIPTION_SELF_MANAGEMENT_REQUEST.ghostVariant}
-            >
-              {SUBSCRIPTION_SELF_MANAGEMENT_COPY.keepButton}
-            </Button>
-          ) : null}
-        </div>
+        <SubscriptionCancellationActions
+          isCanceling={isCanceling}
+          isConfirmingCancellation={isConfirmingCancellation}
+          onCancel={() => {
+            void handleCancelSubscription();
+          }}
+          onKeep={handleKeepSubscription}
+        />
       )}
     </section>
   );

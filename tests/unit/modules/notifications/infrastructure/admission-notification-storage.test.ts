@@ -94,7 +94,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission notifica
       const results = await Promise.all([0, 1].map(() => database.withContext(fixture.own, async (transaction) => {
         return (await transaction.execute<{ inserted: boolean }>(sql`select public.enqueue_admission_notification(${fixture.obligationId}::uuid,${fixture.applicantId},'applicant') as inserted`)).rows[0].inserted;
       })));
-      expect(results.sort()).toEqual([false, true]);
+      expect(results.toSorted((left, right) => Number(left) - Number(right))).toEqual([false, true]);
       await database.withContext(fixture.own, async (transaction) => {
         const rows = (await transaction.execute(sql`select recipient_user_id,tribe_id,type,payload,admission_obligation_id,admission_audience,read_at from public.notifications where admission_obligation_id=${fixture.obligationId}`)).rows;
         expect(rows).toHaveLength(1);

@@ -4,6 +4,9 @@ import { describe, expect, it } from "vitest";
 import { parseAdmissionNativeEventObservation } from "./admission-native-events.mjs";
 import { ADMISSION_READER_EVENTS } from "./constants/admission-reader-events.mjs";
 
+/** Exact closed failure raised for every rejected worker report. */
+const PROTOCOL_FAILURE = `AdmissionNativeEvents.observe failed: ${ADMISSION_READER_EVENTS.failures.protocol}`;
+
 /** @returns Plain own-protocol input, containing no native source objects or text. */
 function report() {
   return { protocolVersion: ADMISSION_READER_EVENTS.protocolVersion, scope: ADMISSION_READER_EVENTS.scope, registeredEvents: ADMISSION_READER_EVENTS.eventTypes, completion: "stopped", observedEvents: 2, readFailures: 0, droppedEvents: 0, groups: [
@@ -22,11 +25,11 @@ describe("passive native event payload", () => {
   });
 
   it("rejects a worker payload containing private source text", () => {
-    expect(() => parseAdmissionNativeEventObservation(JSON.stringify({ ...report(), privateText: "private event content" }))).toThrow();
+    expect(() => parseAdmissionNativeEventObservation(JSON.stringify({ ...report(), privateText: "private event content" }))).toThrow(PROTOCOL_FAILURE);
   });
 
   it("rejects inconsistent totals instead of presenting lost events as complete", () => {
-    expect(() => parseAdmissionNativeEventObservation(JSON.stringify({ ...report(), observedEvents: 1 }))).toThrow();
+    expect(() => parseAdmissionNativeEventObservation(JSON.stringify({ ...report(), observedEvents: 1 }))).toThrow(PROTOCOL_FAILURE);
   });
 
   it("reports a partial observation when the native source could not be read", () => {
@@ -36,7 +39,7 @@ describe("passive native event payload", () => {
 
   it("rejects an unregistered event type instead of widening the stated observation scope", () => {
     const value = report(); value.groups[0].eventType = "unregistered:private-event";
-    expect(() => parseAdmissionNativeEventObservation(JSON.stringify(value))).toThrow();
+    expect(() => parseAdmissionNativeEventObservation(JSON.stringify(value))).toThrow(PROTOCOL_FAILURE);
   });
 
   it("keeps an observation partial if its own deadline ended before the owner stopped it", () => {
@@ -45,7 +48,7 @@ describe("passive native event payload", () => {
 
   it("rejects duplicate groups rather than inflating the expected-text signal count", () => {
     const value = report(); value.groups[1] = { ...value.groups[0] };
-    expect(() => parseAdmissionNativeEventObservation(JSON.stringify(value))).toThrow();
+    expect(() => parseAdmissionNativeEventObservation(JSON.stringify(value))).toThrow(PROTOCOL_FAILURE);
   });
 
   it("keeps a matching payload from another application separate from the main browser", () => {
@@ -55,6 +58,6 @@ describe("passive native event payload", () => {
 
   it("rejects private application names inside a group", () => {
     const value = report();
-    expect(() => parseAdmissionNativeEventObservation(JSON.stringify({ ...value, groups: [{ ...value.groups[0], applicationName: "private application name" }, value.groups[1]] }))).toThrow();
+    expect(() => parseAdmissionNativeEventObservation(JSON.stringify({ ...value, groups: [{ ...value.groups[0], applicationName: "private application name" }, value.groups[1]] }))).toThrow(PROTOCOL_FAILURE);
   });
 });

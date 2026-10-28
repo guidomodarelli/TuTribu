@@ -14,7 +14,7 @@
 
 "use client";
 
-import { useEffect, useId, useRef, useState, type ComponentProps, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ComponentProps, type SubmitEvent, type ReactNode } from "react";
 import { AnimatePresence, motion, useIsPresent, useReducedMotion, type Variants } from "motion/react";
 import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import { Button, MOTION_EASE, MOTION_EASE_STANDARD, MOTION_TIMING, SPRING_PANEL, SPRING_POP } from "@golfo/ui";
@@ -111,6 +111,46 @@ const stepVariants: Variants = {
 };
 
 /**
+ * Number or check mark of one progress item; it swaps with a short pop when the step completes.
+ *
+ * @param props - Whether the step is complete, its zero-based position and the reduced-motion preference.
+ * @returns The animated glyph of the progress marker.
+ */
+function GuidedStepGlyph({ complete, index, reduced }: { complete: boolean; index: number; reduced: boolean }) {
+  const initial = reduced ? false : { opacity: 0, scale: 0.6 };
+  const exit = reduced ? undefined : { opacity: 0, transition: { duration: MOTION_TIMING.instant } };
+  const transition = reduced ? { duration: 0 } : SPRING_POP;
+  return (
+    <AnimatePresence initial={false} mode="popLayout">
+      {complete
+        ? <motion.svg key="done" className={styles.GuidedSteps__glyph} viewBox="0 0 24 24" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" initial={initial} animate={{ opacity: 1, scale: 1 }} exit={exit} transition={transition}>
+            <motion.path d="M4 12.5 9 17.5 20 6.5" initial={reduced ? false : { pathLength: 0 }} animate={{ pathLength: CHECK_DRAWN }} transition={reduced ? { duration: 0 } : { duration: MOTION_TIMING.standard, ease: MOTION_EASE }} />
+          </motion.svg>
+        : <motion.span key="number" className={styles.GuidedSteps__glyph} initial={initial} animate={{ opacity: 1, scale: 1 }} exit={exit} transition={transition}>{index + 1}</motion.span>}
+    </AnimatePresence>
+  );
+}
+
+/**
+ * One entry of the numbered progress list.
+ *
+ * @param props - The step, its zero-based position, the active step and the reduced-motion preference.
+ * @returns A list item marked as complete, current or upcoming.
+ */
+function GuidedStepProgressItem({ item, index, active, reduced }: { item: GuidedStep; index: number; active: number; reduced: boolean }) {
+  const complete = index < active;
+  const isCurrent = index === active;
+  return (
+    <li className={`${styles.GuidedSteps__item} ${complete ? styles["GuidedSteps__item--complete"] : ""} ${isCurrent ? styles["GuidedSteps__item--current"] : ""}`} aria-current={isCurrent ? "step" : undefined}>
+      <span className={styles.GuidedSteps__marker} aria-hidden="true">
+        <GuidedStepGlyph complete={complete} index={index} reduced={reduced} />
+      </span>
+      <span className={styles.GuidedSteps__label} data-label={item.title}>{item.title}</span>
+    </li>
+  );
+}
+
+/**
  * Presents one decision at a time with a numbered progress list, Back and Continue,
  * and the owner's final action on the last step.
  *
@@ -142,7 +182,7 @@ export function GuidedSteps({ label, steps, current, onCurrentChange, finalActio
   /** Moves to another step and remembers that focus should follow it. */
   const go = (index: number) => { moved.current = true; setDirection(index >= active ? 1 : -1); onCurrentChange(index); };
   /** Enter advances like Continue; a step that owns a write (and the last step) runs it instead, and focus follows the step it opens. */
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (busy || step.blockedReason) return;
     if (stepAction) { if (!stepAction.disabled && !stepAction.loading) { moved.current = true; stepAction.onRun(); } return; }
@@ -153,24 +193,9 @@ export function GuidedSteps({ label, steps, current, onCurrentChange, finalActio
     <form className={styles.GuidedSteps} onSubmit={submit} aria-label={label} noValidate>
       <nav className={styles.GuidedSteps__progress} aria-label={`Paso ${active + 1} de ${steps.length}`}>
         <ol className={styles.GuidedSteps__list}>
-          {steps.map((item, index) => {
-            const complete = index < active;
-            const isCurrent = index === active;
-            return (
-              <li key={item.id} className={`${styles.GuidedSteps__item} ${complete ? styles["GuidedSteps__item--complete"] : ""} ${isCurrent ? styles["GuidedSteps__item--current"] : ""}`} aria-current={isCurrent ? "step" : undefined}>
-                <span className={styles.GuidedSteps__marker} aria-hidden="true">
-                  <AnimatePresence initial={false} mode="popLayout">
-                    {complete
-                      ? <motion.svg key="done" className={styles.GuidedSteps__glyph} viewBox="0 0 24 24" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" initial={reduced ? false : { opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={reduced ? undefined : { opacity: 0, transition: { duration: MOTION_TIMING.instant } }} transition={reduced ? { duration: 0 } : SPRING_POP}>
-                          <motion.path d="M4 12.5 9 17.5 20 6.5" initial={reduced ? false : { pathLength: 0 }} animate={{ pathLength: CHECK_DRAWN }} transition={reduced ? { duration: 0 } : { duration: MOTION_TIMING.standard, ease: MOTION_EASE }} />
-                        </motion.svg>
-                      : <motion.span key="number" className={styles.GuidedSteps__glyph} initial={reduced ? false : { opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={reduced ? undefined : { opacity: 0, transition: { duration: MOTION_TIMING.instant } }} transition={reduced ? { duration: 0 } : SPRING_POP}>{index + 1}</motion.span>}
-                  </AnimatePresence>
-                </span>
-                <span className={styles.GuidedSteps__label} data-label={item.title}>{item.title}</span>
-              </li>
-            );
-          })}
+          {steps.map((item, index) => (
+            <GuidedStepProgressItem key={item.id} item={item} index={index} active={active} reduced={reduced} />
+          ))}
         </ol>
         <span className={styles.GuidedSteps__count} aria-hidden="true">Paso {active + 1} de {steps.length}</span>
         <span className={styles.GuidedSteps__srOnly} aria-live="polite">Paso {active + 1} de {steps.length}: {step.title}</span>

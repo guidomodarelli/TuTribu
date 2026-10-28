@@ -105,13 +105,15 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native current
                 stage = "decide_request";
                 await page.getByRole("button", { name: applicant.width === 390 ? ADMISSION_REVIEW_UI_COPY.approve : ADMISSION_REVIEW_UI_COPY.reject, exact: true }).click();
                 stage = "wait_decision";
-                if (applicant.width === 1280) {
+                /** Captures the pressed desktop decision with its loading state, then releases it. */
+                const captureSavingDecision = async () => {
                   try {
                     await mutationStarted;
                     await captureAdmissionReview(page, "admission-review-saving", forbidden, "review-captures.json", { selector: 'section[aria-label="Detalle de la solicitud"] form' });
                   } finally { releaseDecision(); }
-                }
-                if (engine === "chromium" && applicant.width === 390) {
+                };
+                /** Restores the page after the lost mobile decision and reads its recovered result. */
+                const recoverLostDecision = async () => {
                   await mutationStarted;
                   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })));
                   const recovered = page.getByText(ADMISSION_REVIEW_UI_COPY.recovered, { exact: true });
@@ -120,7 +122,10 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native current
                     await page.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read, exact: true }).click();
                     await recovered.waitFor({ timeout: 90_000 });
                   }
-                } else await page.getByText(ADMISSION_REVIEW_UI_COPY.complete, { exact: true }).waitFor({ timeout: 90_000 });
+                };
+                if (applicant.width === 1280) await captureSavingDecision();
+                if (engine === "chromium" && applicant.width === 390) await recoverLostDecision();
+                else await page.getByText(ADMISSION_REVIEW_UI_COPY.complete, { exact: true }).waitFor({ timeout: 90_000 });
                 await interceptionFinished;
                 expect(writes, "reviewer decision must issue a single original POST").toBe(1);
                 expect(interceptionFailed, "owned decision transport must complete before recovery assertions").toBe(false);

@@ -41,6 +41,41 @@ function createJsonResponse(body: Record<string, unknown>, status: number): Resp
   return Response.json(body, { status });
 }
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type CancelOwnTribeMemberSubscriptionResult = Awaited<
+  ReturnType<RequestModules["subscriptions"]["useCases"]["cancelOwnTribeMemberSubscription"]>
+>;
+
+function createDeleteResultResponse(result: CancelOwnTribeMemberSubscriptionResult): Response {
+  switch (result.status) {
+    case TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled:
+      return createJsonResponse(
+        { message: CURRENT_SUBSCRIPTION_ROUTE_RESPONSE.canceledMessage },
+        HTTP_STATUS.ok
+      );
+    case TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable:
+      return createJsonResponse(
+        {
+          message:
+            CURRENT_SUBSCRIPTION_ROUTE_RESPONSE.providerUnavailableMessage,
+        },
+        HTTP_STATUS.serviceUnavailable
+      );
+    case TRIBE_MEMBER_SUBSCRIPTION_STATUS.notFound:
+    case TRIBE_MEMBER_SUBSCRIPTION_STATUS.active:
+    case TRIBE_MEMBER_SUBSCRIPTION_STATUS.missingCurrentPrice:
+    case TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused:
+    case TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending:
+    case TRIBE_MEMBER_SUBSCRIPTION_STATUS.removedBySubscription:
+    default:
+      return createJsonResponse(
+        { message: CURRENT_SUBSCRIPTION_ROUTE_RESPONSE.notFoundMessage },
+        HTTP_STATUS.notFound
+      );
+  }
+}
+
 export async function DELETE(
   request: Request,
   context: {
@@ -101,27 +136,7 @@ export async function DELETE(
         tribeSlug: slug,
       });
 
-    switch (result.status) {
-      case TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled:
-        return createJsonResponse(
-          { message: CURRENT_SUBSCRIPTION_ROUTE_RESPONSE.canceledMessage },
-          HTTP_STATUS.ok
-        );
-      case TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable:
-        return createJsonResponse(
-          {
-            message:
-              CURRENT_SUBSCRIPTION_ROUTE_RESPONSE.providerUnavailableMessage,
-          },
-          HTTP_STATUS.serviceUnavailable
-        );
-      case TRIBE_MEMBER_SUBSCRIPTION_STATUS.notFound:
-      default:
-        return createJsonResponse(
-          { message: CURRENT_SUBSCRIPTION_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-    }
+    return createDeleteResultResponse(result);
   } catch (error) {
     logger.error({
       message: CURRENT_SUBSCRIPTION_ROUTE_LOG.cancelFailureMessage,

@@ -28,7 +28,7 @@ export function summarizeErrorCauses(cause: unknown): ErrorCauseSummary[] {
     if (visited.has(current)) continue;
     visited.add(current);
     summaries.push(summarizeOne(current));
-    if (current instanceof AggregateError) pending.push(...current.errors);
+    if (current instanceof AggregateError) pending.push(...(current.errors as unknown[]));
     if (current instanceof Error && current.cause !== undefined) pending.push(current.cause);
   }
   return summaries;

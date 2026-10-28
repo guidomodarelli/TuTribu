@@ -6,7 +6,7 @@
 
 import { createHash } from "crypto";
 
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import {buildSubscriptionMembershipUpdateSql,lockSubscriptionMembershipTribes} from "@/src/modules/subscriptions/infrastructure/repositories/subscription-membership-reconciliation-sql";
 import { recoverProtectedSubscriptionMemberships, type PaidAdmissionResolutionFactory } from "./subscription-membership-source-writer";
 
@@ -119,6 +119,55 @@ type SubscriptionStartContextRow = {
   refresh_token: string | null;
   token_expires_at: Date | string | null;
   tribe_id: string | null;
+};
+
+type ReadySubscriptionStartContext = SubscriptionStartContextRow & {
+  current_price_amount_cents: number;
+  current_price_currency: string;
+  current_price_id: string;
+  current_price_name: string;
+  current_price_provider_plan_id: string;
+  current_user_email: string;
+};
+
+/**
+ * Tells whether a start context has a complete current price and a payer email.
+ *
+ * @param context - Start context, if any.
+ * @returns Whether the checkout can be created from it.
+ */
+function isReadySubscriptionStartContext(
+  context: SubscriptionStartContextRow | null
+): context is ReadySubscriptionStartContext {
+  return Boolean(
+    context?.current_price_id &&
+      context.current_price_provider_plan_id &&
+      context.current_price_amount_cents !== null &&
+      context.current_price_currency &&
+      context.current_price_name &&
+      context.current_user_email
+  );
+}
+
+type PendingSubscriptionReservationInput = {
+  currentPriceId: string;
+  invitationTokenHash: string;
+  paymentIntegrationId: string | null;
+  tribeId: string | null;
+  requiresClassicEntry: boolean;
+};
+
+type ReservedPlanCheckoutInput = {
+  checkoutUrl: string;
+  invitationTokenHash: string;
+  operationKey: string;
+  priceId: string;
+  providerPlanId: string;
+  providerSubscriptionId: string;
+  requestId?: string;
+  reservedSubscriptionId: string;
+  tribeId: string | null;
+  tribeSlug: string;
 };
 
 type SubscriptionReservationRow = {
@@ -446,33 +495,624 @@ function isCacheableReconciliationStatus(
   );
 }
 
+/**
+ * Target tribe (with the open-join fallback), checkout settings, and active invitation CTEs of a start.
+ */
+function buildStartTribeAndInvitationCtes(input: StartSubscriptionCheckoutInput, openJoinTribeIdFallback: SQL): SQL {
+  return sql`
+        with target_tribe as (
+          select coalesce(
+            (
+              select tribes.id
+              from public.tribes
+              where tribes.slug = ${input.tribeSlug}
+              limit 1
+            )${openJoinTribeIdFallback}
+          ) as id
+        ),
+        checkout_context as (
+          select
+            set_config(
+              ${SUBSCRIPTION_CHECKOUT_CONTEXT.settingName},
+              coalesce((select id from target_tribe)::text, ''),
+              true
+            ),
+            set_config(
+              ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
+              ${input.invitationTokenHash},
+              true
+            )
+        ),
+        active_invitation as (
+          select
+            tribe_invitations.id,
+            tribe_invitations.subscription_association_type,
+            tribe_invitations.subscription_price_id
+          from public.tribe_invitations
+          cross join checkout_context
+          inner join target_tribe
+            on target_tribe.id = tribe_invitations.tribe_id
+          where tribe_invitations.token_hash = ${input.invitationTokenHash}
+            and tribe_invitations.status = 'active'
+          limit 1
+        ),
+`;
+}
+
+/**
+ * Current price CTE of a start: the invitation price or the tribe current price.
+ */
+function buildStartCurrentPriceCte(input: StartSubscriptionCheckoutInput): SQL {
+  return sql`        current_price as (
+          select
+            tribe_subscription_prices.id,
+            tribe_subscription_prices.amount_cents,
+            tribe_subscription_prices.currency,
+            tribe_subscription_prices.name,
+            tribe_subscription_prices.mercado_pago_preapproval_plan_id,
+            tribe_subscription_prices.payment_integration_id
+          from public.tribe_subscription_prices
+          inner join target_tribe
+            on target_tribe.id = tribe_subscription_prices.tribe_id
+          left join active_invitation
+            on true
+          where tribe_subscription_prices.status = 'active'
+            and tribe_subscription_prices.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
+            and ((${input.allowOpenJoin === true} = false and ${input.requiresActiveInvitation} = false)
+              or (not public.tribe_uses_academy_access((select id from target_tribe))
+                and exists(select 1 from public.tribes entry_scope where entry_scope.id=(select id from target_tribe) and entry_scope.admissions_control_activated_at is null)))
+            and (
+              (
+                ${input.requiresActiveInvitation} = true
+                and active_invitation.subscription_association_type = ${SUBSCRIPTION_INVITATION_ASSOCIATION_TYPE.specific}
+                and tribe_subscription_prices.id = active_invitation.subscription_price_id
+              )
+              or (
+                tribe_subscription_prices.is_current = true
+                and (
+                  ${input.requiresActiveInvitation} = false
+                  or active_invitation.subscription_association_type = ${SUBSCRIPTION_INVITATION_ASSOCIATION_TYPE.current}
+                )
+              )
+            )
+          limit 1
+        ),
+`;
+}
+
+/**
+ * Viewer membership, retry-blocking subscription, pending checkout, and live subscription CTEs of a start.
+ */
+function buildStartMembershipCtes(): SQL {
+  return sql`        existing_membership as (
+          select
+            tribe_members.status,
+            tribe_members.status_reason
+          from public.tribe_members
+          inner join target_tribe
+            on target_tribe.id = tribe_members.tribe_id
+          where tribe_members.user_id = public.current_app_user_id()
+          limit 1
+        ),
+        retry_blocking_member_subscription as (
+          select 1
+          from public.tribe_member_subscriptions
+          inner join target_tribe
+            on target_tribe.id = tribe_member_subscriptions.tribe_id
+          where tribe_member_subscriptions.user_id = public.current_app_user_id()
+            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
+            and tribe_member_subscriptions.status in ${CURRENT_MEMBER_SUBSCRIPTION_STATUSES}
+          limit 1
+        ),
+        existing_pending_checkout as (
+          select
+            subscription_idempotency_operations.response_body->>'checkoutUrl' as checkout_url,
+            tribe_member_subscriptions.id as subscription_id,
+            tribe_member_subscriptions.mercado_pago_preapproval_id as provider_subscription_id
+          from public.tribe_member_subscriptions
+          inner join target_tribe
+            on target_tribe.id = tribe_member_subscriptions.tribe_id
+          inner join public.subscription_idempotency_operations
+            on subscription_idempotency_operations.tribe_id = target_tribe.id
+            and subscription_idempotency_operations.user_id = tribe_member_subscriptions.user_id
+            and subscription_idempotency_operations.operation_type = 'start_member_subscription'
+            and subscription_idempotency_operations.response_body ? 'checkoutUrl'
+          where tribe_member_subscriptions.user_id = public.current_app_user_id()
+            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
+            and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+          order by subscription_idempotency_operations.created_at desc
+          limit 1
+        ),
+        existing_live_subscription as (
+          select tribe_member_subscriptions.mercado_pago_preapproval_id as provider_subscription_id
+          from public.tribe_member_subscriptions
+          inner join target_tribe
+            on target_tribe.id = tribe_member_subscriptions.tribe_id
+          where tribe_member_subscriptions.user_id = public.current_app_user_id()
+            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
+            and tribe_member_subscriptions.mercado_pago_preapproval_id is not null
+            and tribe_member_subscriptions.status in ${LIVE_PROVIDER_SUBSCRIPTION_STATUSES}
+          order by tribe_member_subscriptions.updated_at desc
+          limit 1
+        )
+`;
+}
+
+/**
+ * Final projection of the start context with the seller tokens.
+ */
+function buildStartContextSelect(): SQL {
+  return sql`        select
+          (select id from target_tribe) as tribe_id,
+          (select id from current_price) as current_price_id,
+          (select payment_integration_id from current_price) as current_price_payment_integration_id,
+          (select amount_cents from current_price) as current_price_amount_cents,
+          (select currency from current_price) as current_price_currency,
+          (select name from current_price) as current_price_name,
+          (select mercado_pago_preapproval_plan_id from current_price) as current_price_provider_plan_id,
+          exists (select 1 from active_invitation) as has_active_invitation,
+          (select status from existing_membership) as existing_membership_status,
+          (select status_reason from existing_membership) as existing_membership_status_reason,
+          exists (select 1 from retry_blocking_member_subscription) as has_retry_blocking_member_subscription,
+          (select subscription_id from existing_pending_checkout) as existing_checkout_subscription_id,
+          (select checkout_url from existing_pending_checkout) as existing_checkout_url,
+          (select provider_subscription_id from existing_pending_checkout) as existing_provider_subscription_id,
+          (select provider_subscription_id from existing_live_subscription) as existing_live_provider_subscription_id,
+          public.current_app_user_email() as current_user_email,
+          tribe_payment_integrations.access_token,
+          tribe_payment_integrations.refresh_token,
+          tribe_payment_integrations.token_expires_at
+        from (select 1) result
+        cross join checkout_context
+        left join public.tribe_payment_integrations
+          on tribe_payment_integrations.id = (select payment_integration_id from current_price)
+          and tribe_payment_integrations.tribe_id = (select id from target_tribe)
+          and tribe_payment_integrations.provider = 'mercado_pago'
+      `;
+}
+
+/**
+ * Reads the tribe, price, invitation, membership, and checkout facts of a subscription start.
+ */
+function buildSubscriptionStartContextStatement(input: StartSubscriptionCheckoutInput, openJoinTribeIdFallback: SQL): SQL {
+  return buildStartTribeAndInvitationCtes(input, openJoinTribeIdFallback)
+    .append(buildStartCurrentPriceCte(input))
+    .append(buildStartMembershipCtes())
+    .append(buildStartContextSelect());
+}
+
+/**
+ * Eligibility, invitation, and payment-blocked membership CTEs of a reservation.
+ */
+function buildReservationMembershipCtes(input: PendingSubscriptionReservationInput): SQL {
+  return sql`
+        with eligible_scope as (
+          select tribe.id from public.tribes tribe join public.tribe_subscription_prices price on price.tribe_id=tribe.id
+          where tribe.id=${input.tribeId} and price.id=${input.currentPriceId} and price.product_key=${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
+            and price.status=${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active} and price.payment_integration_id is not distinct from ${input.paymentIntegrationId}::uuid
+            and (${input.requiresClassicEntry}=false or (tribe.admissions_control_activated_at is null and not public.tribe_uses_academy_access(tribe.id)))
+        ), checkout_context as (
+          select set_config(
+            ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
+            ${input.invitationTokenHash},
+            true
+          )
+          from eligible_scope
+        ),
+        target_invitation as (
+          select tribe_invitations.id
+          from public.tribe_invitations
+          cross join checkout_context
+          where tribe_invitations.tribe_id = ${input.tribeId}
+            and tribe_invitations.token_hash = nullif(
+              current_setting(
+                ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
+                true
+              ),
+              ''
+            )
+            and tribe_invitations.status = 'active'
+          limit 1
+        ),
+        inserted_membership as (
+          insert into public.tribe_members (
+            tribe_id,
+            user_id,
+            role,
+            status,
+            status_reason,
+            joined_via_invitation_id,
+            created_at
+          )
+          select
+            ${input.tribeId},
+            public.current_app_user_id(),
+            'tribemate',
+            'blocked',
+            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
+            (select id from target_invitation),
+            timezone('utc', now())
+          from checkout_context
+          on conflict (tribe_id, user_id) do update
+          set
+            status = 'blocked',
+            status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
+            joined_via_invitation_id = coalesce(
+              (select id from target_invitation),
+              tribe_members.joined_via_invitation_id
+            )
+          where (
+              tribe_members.status = 'removed'
+              and tribe_members.status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive}
+            )
+            or (
+              tribe_members.status = 'blocked'
+              and tribe_members.status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
+            )
+          returning id
+        ),
+`;
+}
+
+/**
+ * Reserved, reclaimed, and stored-checkout CTEs of a reservation, with the final projection.
+ */
+function buildReservationSubscriptionCtes(input: PendingSubscriptionReservationInput): SQL {
+  return sql`        reserved_subscription as (
+          insert into public.tribe_member_subscriptions (
+            tribe_id,
+            user_id,
+            price_id,
+            payment_integration_id,
+            status,
+            status_reason,
+            created_at,
+            updated_at
+          )
+          select
+            ${input.tribeId},
+            public.current_app_user_id(),
+            ${input.currentPriceId},
+            ${input.paymentIntegrationId},
+            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending},
+            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
+            timezone('utc', now()),
+            timezone('utc', now())
+          from checkout_context
+          on conflict do nothing
+          returning id
+        ),
+        existing_recoverable_reservation as (
+          select tribe_member_subscriptions.id
+          from public.tribe_member_subscriptions
+          where tribe_member_subscriptions.tribe_id = ${input.tribeId}
+            and tribe_member_subscriptions.user_id = public.current_app_user_id()
+            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
+            and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+            and tribe_member_subscriptions.mercado_pago_preapproval_id is null
+            and tribe_member_subscriptions.updated_at <
+              timezone('utc', now()) - ${SUBSCRIPTION_RESERVATION.staleReservationInterval}::interval
+            and exists(select 1 from eligible_scope)
+          limit 1
+          for update skip locked
+        ),
+        claimed_recoverable_reservation as (
+          update public.tribe_member_subscriptions
+          set updated_at = timezone('utc', now())
+          where tribe_member_subscriptions.id = (
+            select id from existing_recoverable_reservation
+          )
+            and not exists (select 1 from reserved_subscription)
+          returning id
+        ),
+        existing_pending_checkout as (
+          select subscription_idempotency_operations.response_body->>'checkoutUrl' as checkout_url
+          from public.subscription_idempotency_operations
+          where subscription_idempotency_operations.tribe_id = ${input.tribeId}
+            and subscription_idempotency_operations.user_id = public.current_app_user_id()
+            and subscription_idempotency_operations.operation_type = 'start_member_subscription'
+            and subscription_idempotency_operations.response_body ? 'checkoutUrl'
+            and exists(select 1 from eligible_scope)
+            and exists (
+              select 1
+              from public.tribe_member_subscriptions
+              where tribe_member_subscriptions.tribe_id = ${input.tribeId}
+                and tribe_member_subscriptions.user_id = public.current_app_user_id()
+                and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
+                and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+                and tribe_member_subscriptions.price_id = ${input.currentPriceId}
+                and tribe_member_subscriptions.mercado_pago_preapproval_id is not null
+            )
+          order by subscription_idempotency_operations.created_at desc
+          limit 1
+        )
+        select
+          coalesce(
+            (select id from reserved_subscription),
+            (select id from claimed_recoverable_reservation)
+          ) as reserved_subscription_id,
+          (select checkout_url from existing_pending_checkout) as checkout_url
+      `;
+}
+
+/**
+ * Reserves (or reclaims) the pending subscription row of a checkout and reads a stored checkout of the current price.
+ */
+function buildPendingSubscriptionReservationStatement(input: PendingSubscriptionReservationInput): SQL {
+  return buildReservationMembershipCtes(input)
+    .append(buildReservationSubscriptionCtes(input));
+}
+
+/**
+ * Attributes the payment-blocked membership of a reused checkout to its invitation.
+ */
+function buildPendingCheckoutInvitationAttributionStatement(input: {
+  invitationTokenHash: string;
+  tribeId: string | null;
+}): SQL {
+  return sql`
+        with checkout_context as (
+          select set_config(
+            ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
+            ${input.invitationTokenHash},
+            true
+          )
+        ),
+        target_invitation as (
+          select tribe_invitations.id
+          from public.tribe_invitations
+          cross join checkout_context
+          where tribe_invitations.tribe_id = ${input.tribeId}
+            and tribe_invitations.token_hash = nullif(
+              current_setting(
+                ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
+                true
+              ),
+              ''
+            )
+            and tribe_invitations.status = 'active'
+          limit 1
+        )
+        update public.tribe_members
+        set joined_via_invitation_id = target_invitation.id
+        from target_invitation
+        where tribe_members.tribe_id = ${input.tribeId}
+          and tribe_members.user_id = public.current_app_user_id()
+          and tribe_members.status = 'blocked'
+          and tribe_members.status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
+      `;
+}
+
+/**
+ * Stores the checkout URL of a start under its idempotent operation key.
+ */
+function buildStoreStartCheckoutOperationStatement(input: ReservedPlanCheckoutInput): SQL {
+  return sql`
+        insert into public.subscription_idempotency_operations (
+          operation_key,
+          operation_type,
+          tribe_id,
+          user_id,
+          payload_hash,
+          response_body,
+          created_at
+        )
+        values (
+          ${input.operationKey},
+          'start_member_subscription',
+          ${input.tribeId},
+          public.current_app_user_id(),
+          ${hashPayload({ tribeSlug: input.tribeSlug })},
+          ${JSON.stringify({
+            checkoutUrl: input.checkoutUrl,
+            preapprovalPlanId: input.providerPlanId,
+          })}::jsonb,
+          timezone('utc', now())
+        )
+        on conflict (operation_key) do update
+        set
+          payload_hash = excluded.payload_hash,
+          response_body = excluded.response_body,
+          created_at = excluded.created_at
+        where subscription_idempotency_operations.operation_type = excluded.operation_type
+          and subscription_idempotency_operations.tribe_id = excluded.tribe_id
+          and subscription_idempotency_operations.user_id = excluded.user_id
+      `;
+}
+
+/**
+ * Keeps (or creates) the payment-blocked membership of a checkout, attributed to its invitation.
+ */
+function buildPaymentBlockedCheckoutMembershipStatement(input: ReservedPlanCheckoutInput): SQL {
+  return sql`
+        with checkout_context as (
+          select set_config(
+            ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
+            ${input.invitationTokenHash},
+            true
+          )
+        ),
+        target_invitation as (
+          select tribe_invitations.id
+          from public.tribe_invitations
+          cross join checkout_context
+          where tribe_invitations.tribe_id = ${input.tribeId}
+            and tribe_invitations.token_hash = nullif(
+              current_setting(
+                ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
+                true
+              ),
+              ''
+            )
+            and tribe_invitations.status = 'active'
+          limit 1
+        )
+        insert into public.tribe_members (
+          tribe_id,
+          user_id,
+          role,
+          status,
+          status_reason,
+          joined_via_invitation_id,
+          created_at
+        )
+        select
+          ${input.tribeId},
+          public.current_app_user_id(),
+          'tribemate',
+          'blocked',
+          ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
+          (select id from target_invitation),
+          timezone('utc', now())
+        from checkout_context
+        on conflict (tribe_id, user_id) do update
+        set
+          status = 'blocked',
+          status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
+          joined_via_invitation_id = coalesce(
+            (select id from target_invitation),
+            tribe_members.joined_via_invitation_id
+          )
+        where (
+            tribe_members.status = 'removed'
+            and tribe_members.status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive}
+          )
+          or (
+            tribe_members.status = 'blocked'
+            and tribe_members.status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
+          )
+      `;
+}
+
+/**
+ * Reads the subscription of a provider preapproval with its seller tokens.
+ */
+function buildWebhookSubscriptionContextStatement(command: MercadoPagoSubscriptionWebhookCommand): SQL {
+  return sql`
+        select
+          tribe_payment_integrations.id as payment_integration_id,
+          tribe_payment_integrations.access_token,
+          tribe_payment_integrations.refresh_token,
+          tribe_payment_integrations.token_expires_at,
+          tribe_member_subscriptions.price_id,
+          tribe_member_subscriptions.tribe_id,
+          tribe_member_subscriptions.status as local_status,
+          tribe_member_subscriptions.status_reason as local_status_reason,
+          true as subscription_found
+        from public.tribe_member_subscriptions
+        left join public.tribe_subscription_prices
+          on tribe_subscription_prices.id = tribe_member_subscriptions.price_id
+        inner join public.tribe_payment_integrations
+          on tribe_payment_integrations.id = coalesce(
+            tribe_member_subscriptions.payment_integration_id,
+            tribe_subscription_prices.payment_integration_id
+          )
+          and tribe_payment_integrations.tribe_id = tribe_member_subscriptions.tribe_id
+          and tribe_payment_integrations.provider = 'mercado_pago'
+        where tribe_member_subscriptions.mercado_pago_preapproval_id = ${command.resourceId}
+        limit 1
+      `;
+}
+
+/**
+ * Records a webhook operation key once; a repeated key inserts nothing.
+ */
+function buildWebhookOperationInsertStatement(operationKey: string, payloadHash: string): SQL {
+  return sql`
+        insert into public.subscription_idempotency_operations (
+          operation_key,
+          operation_type,
+          payload_hash,
+          response_body,
+          created_at
+        )
+        values (
+          ${operationKey},
+          'mercado_pago_webhook',
+          ${payloadHash},
+          '{}'::jsonb,
+          timezone('utc', now())
+        )
+        on conflict (operation_key) do nothing
+        returning id as operation_inserted
+      `;
+}
+
+/**
+ * Applies the provider status of a preapproval to its local subscription.
+ */
+function buildWebhookSubscriptionStatusUpdateStatement(command: MercadoPagoSubscriptionWebhookCommand, subscriptionStatus: ReturnType<typeof mapMercadoPagoSubscriptionStatus>): SQL {
+  return sql`
+        update public.tribe_member_subscriptions
+        set
+          status = ${subscriptionStatus.status},
+          status_reason = ${subscriptionStatus.statusReason},
+          updated_at = timezone('utc', now())
+        where mercado_pago_preapproval_id = ${command.resourceId}
+      `;
+}
+
+/** Collaborators of {@link PostgresTribeMemberSubscriptionRepository}; `requestId` is optional trace context. */
+export type PostgresTribeMemberSubscriptionRepositoryDependencies = {
+  executeWithDatabase: DatabaseExecutor;
+  createMercadoPagoPreapprovalSubscription: MercadoPagoPreapprovalSubscriptionCreator;
+  getMercadoPagoPreapprovalDetails: MercadoPagoPreapprovalDetailsGetter;
+  getMercadoPagoPreapprovalStatus: MercadoPagoPreapprovalStatusGetter;
+  updateMercadoPagoPreapprovalStatus: MercadoPagoPreapprovalStatusUpdater;
+  updateMercadoPagoPreapprovalBackUrl: MercadoPagoPreapprovalBackUrlUpdater;
+  refreshMercadoPagoAccessToken: MercadoPagoAccessTokenRefresher;
+  createAdmissionResolution: PaidAdmissionResolutionFactory;
+  requestId?: string;
+};
+
 export class PostgresTribeMemberSubscriptionRepository
   implements TribeMemberSubscriptionRepository
 {
+  private readonly executeWithDatabase: DatabaseExecutor;
+  private readonly createMercadoPagoPreapprovalSubscription: MercadoPagoPreapprovalSubscriptionCreator;
+  private readonly getMercadoPagoPreapprovalDetails: MercadoPagoPreapprovalDetailsGetter;
+  private readonly getMercadoPagoPreapprovalStatus: MercadoPagoPreapprovalStatusGetter;
+  private readonly updateMercadoPagoPreapprovalStatus: MercadoPagoPreapprovalStatusUpdater;
+  private readonly updateMercadoPagoPreapprovalBackUrl: MercadoPagoPreapprovalBackUrlUpdater;
+  private readonly refreshMercadoPagoAccessToken: MercadoPagoAccessTokenRefresher;
+  private readonly createAdmissionResolution: PaidAdmissionResolutionFactory;
+  private readonly requestId: string | undefined;
+
   /**
    * Creates a member subscription repository with provider adapters and trace context.
    *
-   * @param executeWithDatabase - Request-scoped database executor.
-   * @param createMercadoPagoPreapprovalSubscription - Adapter that creates a provider preapproval and returns its id plus checkout URL.
-   * @param getMercadoPagoPreapprovalDetails - Adapter that reads provider preapproval details.
-   * @param getMercadoPagoPreapprovalStatus - Adapter that reads provider preapproval status.
-   * @param updateMercadoPagoPreapprovalStatus - Adapter that updates provider preapproval status.
-   * @param updateMercadoPagoPreapprovalBackUrl - Adapter that links the authoritative preapproval id into the provider back URL.
-   * @param refreshMercadoPagoAccessToken - Adapter that refreshes provider tokens.
-   * @param createAdmissionResolution - Admission owner factory bound to the same payment transaction.
-   * @param requestId - Optional request correlation identifier for payment traces.
+   * @param dependencies - Repository collaborators.
+   * @param dependencies.executeWithDatabase - Request-scoped database executor.
+   * @param dependencies.createMercadoPagoPreapprovalSubscription - Adapter that creates a provider preapproval and returns its id plus checkout URL.
+   * @param dependencies.getMercadoPagoPreapprovalDetails - Adapter that reads provider preapproval details.
+   * @param dependencies.getMercadoPagoPreapprovalStatus - Adapter that reads provider preapproval status.
+   * @param dependencies.updateMercadoPagoPreapprovalStatus - Adapter that updates provider preapproval status.
+   * @param dependencies.updateMercadoPagoPreapprovalBackUrl - Adapter that links the authoritative preapproval id into the provider back URL.
+   * @param dependencies.refreshMercadoPagoAccessToken - Adapter that refreshes provider tokens.
+   * @param dependencies.createAdmissionResolution - Admission owner factory bound to the same payment transaction.
+   * @param dependencies.requestId - Optional request correlation identifier for payment traces.
    */
-  constructor(
-    private readonly executeWithDatabase: DatabaseExecutor,
-    private readonly createMercadoPagoPreapprovalSubscription: MercadoPagoPreapprovalSubscriptionCreator,
-    private readonly getMercadoPagoPreapprovalDetails: MercadoPagoPreapprovalDetailsGetter,
-    private readonly getMercadoPagoPreapprovalStatus: MercadoPagoPreapprovalStatusGetter,
-    private readonly updateMercadoPagoPreapprovalStatus: MercadoPagoPreapprovalStatusUpdater,
-    private readonly updateMercadoPagoPreapprovalBackUrl: MercadoPagoPreapprovalBackUrlUpdater,
-    private readonly refreshMercadoPagoAccessToken: MercadoPagoAccessTokenRefresher,
-    private readonly createAdmissionResolution: PaidAdmissionResolutionFactory,
-    private readonly requestId?: string
-  ) {}
+  constructor({
+    executeWithDatabase,
+    createMercadoPagoPreapprovalSubscription,
+    getMercadoPagoPreapprovalDetails,
+    getMercadoPagoPreapprovalStatus,
+    updateMercadoPagoPreapprovalStatus,
+    updateMercadoPagoPreapprovalBackUrl,
+    refreshMercadoPagoAccessToken,
+    createAdmissionResolution,
+    requestId,
+  }: PostgresTribeMemberSubscriptionRepositoryDependencies) {
+    this.executeWithDatabase = executeWithDatabase;
+    this.createMercadoPagoPreapprovalSubscription = createMercadoPagoPreapprovalSubscription;
+    this.getMercadoPagoPreapprovalDetails = getMercadoPagoPreapprovalDetails;
+    this.getMercadoPagoPreapprovalStatus = getMercadoPagoPreapprovalStatus;
+    this.updateMercadoPagoPreapprovalStatus = updateMercadoPagoPreapprovalStatus;
+    this.updateMercadoPagoPreapprovalBackUrl = updateMercadoPagoPreapprovalBackUrl;
+    this.refreshMercadoPagoAccessToken = refreshMercadoPagoAccessToken;
+    this.createAdmissionResolution = createAdmissionResolution;
+    this.requestId = requestId;
+  }
 
   /**
    * Verifies that a provider return belongs to the current user's pending subscription.
@@ -503,7 +1143,7 @@ export class PostgresTribeMemberSubscriptionRepository
             and tribe_member_subscriptions.mercado_pago_preapproval_id = ${query.providerSubscriptionId}
         ) as has_pending_subscription_return
       `);
-      const row = (result.rows?.[0] ?? null) as PendingSubscriptionReturnRow | null;
+      const row = (result.rows[0] ?? null) as PendingSubscriptionReturnRow | null;
 
       return row?.has_pending_subscription_return === true;
     });
@@ -555,7 +1195,7 @@ export class PostgresTribeMemberSubscriptionRepository
           )
         ) as tribe_slug
       `);
-      const row = (result.rows?.[0] ?? null) as
+      const row = (result.rows[0] ?? null) as
         | ProviderSubscriptionReturnPathRow
         | null;
 
@@ -617,7 +1257,7 @@ export class PostgresTribeMemberSubscriptionRepository
         order by tribe_member_subscriptions.updated_at desc
         limit 1
       `);
-      const row = (result.rows?.[0] ?? null) as SubscriptionReturnStatusRow | null;
+      const row = (result.rows[0] ?? null) as SubscriptionReturnStatusRow | null;
 
       return {
         status: row?.status ?? TRIBE_MEMBER_SUBSCRIPTION_STATUS.notFound,
@@ -911,8 +1551,7 @@ export class PostgresTribeMemberSubscriptionRepository
     }
 
     if (
-      !providerSubscription ||
-      providerSubscription.preapprovalPlanId !==
+      providerSubscription?.preapprovalPlanId !==
         context.current_price_provider_plan_id ||
       (providerSubscription.externalReference !== null &&
         providerSubscription.externalReference !==
@@ -1018,7 +1657,7 @@ export class PostgresTribeMemberSubscriptionRepository
           and tribe_payment_integrations.provider = 'mercado_pago'
       `);
 
-      return (result.rows?.[0] ?? null) as
+      return (result.rows[0] ?? null) as
         | SubscriptionReconciliationContextRow
         | null;
     });
@@ -1069,7 +1708,7 @@ export class PostgresTribeMemberSubscriptionRepository
           and tribe_payment_integrations.provider = 'mercado_pago'
       `);
 
-      return (result.rows?.[0] ?? null) as
+      return (result.rows[0] ?? null) as
         | PendingSubscriptionReturnAttachmentContextRow
         | null;
     });
@@ -1139,7 +1778,7 @@ export class PostgresTribeMemberSubscriptionRepository
           and tribe_payment_integrations.provider = 'mercado_pago'
       `);
 
-      return (result.rows?.[0] ?? null) as
+      return (result.rows[0] ?? null) as
         | MissingSubscriptionReturnRecoveryContextRow
         | null;
     });
@@ -1191,7 +1830,7 @@ export class PostgresTribeMemberSubscriptionRepository
         returning id
       `);
 
-      if ((updatedSubscriptionResult.rows ?? []).length === 0) {
+      if (updatedSubscriptionResult.rows.length === 0) {
         return false;
       }
 
@@ -1261,7 +1900,7 @@ export class PostgresTribeMemberSubscriptionRepository
         returning id
       `);
 
-      if ((recoveredSubscriptionResult.rows ?? []).length === 0) {
+      if (recoveredSubscriptionResult.rows.length === 0) {
         return false;
       }
 
@@ -1340,6 +1979,49 @@ export class PostgresTribeMemberSubscriptionRepository
       input.idempotencyKey,
     ].join(":");
 
+    const context = await this.readSubscriptionStartContext(input);
+    const ineligibleResult = this.rejectIneligibleStart(input, context, operationKey);
+
+    if (ineligibleResult) {
+      return ineligibleResult;
+    }
+
+    if (!isReadySubscriptionStartContext(context)) {
+      return this.rejectIncompleteStart(input, context, operationKey);
+    }
+
+    const resumedResult =
+      this.rejectConductBlockedStart(input, context, operationKey) ??
+      (await this.resumeExistingStart(input, context, operationKey));
+
+    if (resumedResult) {
+      return resumedResult;
+    }
+
+    const reservation = await this.reserveStart(input, context, operationKey);
+
+    if ("result" in reservation) {
+      return reservation.result;
+    }
+
+    return this.createStartCheckout(
+      input,
+      context,
+      operationKey,
+      reservation.reservedSubscriptionId
+    );
+  }
+
+  /**
+   * Reads the tribe, price, invitation, membership, and checkout facts of a
+   * subscription start in one statement.
+   *
+   * @param input - Start request.
+   * @returns The start context, or `null` when nothing is readable.
+   */
+  private async readSubscriptionStartContext(
+    input: StartSubscriptionCheckoutInput
+  ): Promise<SubscriptionStartContextRow | null> {
     // An open-join visitor is not a member and has no invitation token, so the
     // tribes SELECT policies hide the tribe row and the direct slug read returns
     // null. Fall back to the SECURITY DEFINER resolver, which exposes only the
@@ -1351,160 +2033,27 @@ export class PostgresTribeMemberSubscriptionRepository
       ? sql`, public.tribe_open_join_id_by_slug(${input.tribeSlug})`
       : sql``;
 
-    const context = await this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
-        with target_tribe as (
-          select coalesce(
-            (
-              select tribes.id
-              from public.tribes
-              where tribes.slug = ${input.tribeSlug}
-              limit 1
-            )${openJoinTribeIdFallback}
-          ) as id
-        ),
-        checkout_context as (
-          select
-            set_config(
-              ${SUBSCRIPTION_CHECKOUT_CONTEXT.settingName},
-              coalesce((select id from target_tribe)::text, ''),
-              true
-            ),
-            set_config(
-              ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
-              ${input.invitationTokenHash},
-              true
-            )
-        ),
-        active_invitation as (
-          select
-            tribe_invitations.id,
-            tribe_invitations.subscription_association_type,
-            tribe_invitations.subscription_price_id
-          from public.tribe_invitations
-          cross join checkout_context
-          inner join target_tribe
-            on target_tribe.id = tribe_invitations.tribe_id
-          where tribe_invitations.token_hash = ${input.invitationTokenHash}
-            and tribe_invitations.status = 'active'
-          limit 1
-        ),
-        current_price as (
-          select
-            tribe_subscription_prices.id,
-            tribe_subscription_prices.amount_cents,
-            tribe_subscription_prices.currency,
-            tribe_subscription_prices.name,
-            tribe_subscription_prices.mercado_pago_preapproval_plan_id,
-            tribe_subscription_prices.payment_integration_id
-          from public.tribe_subscription_prices
-          inner join target_tribe
-            on target_tribe.id = tribe_subscription_prices.tribe_id
-          left join active_invitation
-            on true
-          where tribe_subscription_prices.status = 'active'
-            and tribe_subscription_prices.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
-            and ((${input.allowOpenJoin === true} = false and ${input.requiresActiveInvitation} = false)
-              or (not public.tribe_uses_academy_access((select id from target_tribe))
-                and exists(select 1 from public.tribes entry_scope where entry_scope.id=(select id from target_tribe) and entry_scope.admissions_control_activated_at is null)))
-            and (
-              (
-                ${input.requiresActiveInvitation} = true
-                and active_invitation.subscription_association_type = ${SUBSCRIPTION_INVITATION_ASSOCIATION_TYPE.specific}
-                and tribe_subscription_prices.id = active_invitation.subscription_price_id
-              )
-              or (
-                tribe_subscription_prices.is_current = true
-                and (
-                  ${input.requiresActiveInvitation} = false
-                  or active_invitation.subscription_association_type = ${SUBSCRIPTION_INVITATION_ASSOCIATION_TYPE.current}
-                )
-              )
-            )
-          limit 1
-        ),
-        existing_membership as (
-          select
-            tribe_members.status,
-            tribe_members.status_reason
-          from public.tribe_members
-          inner join target_tribe
-            on target_tribe.id = tribe_members.tribe_id
-          where tribe_members.user_id = public.current_app_user_id()
-          limit 1
-        ),
-        retry_blocking_member_subscription as (
-          select 1
-          from public.tribe_member_subscriptions
-          inner join target_tribe
-            on target_tribe.id = tribe_member_subscriptions.tribe_id
-          where tribe_member_subscriptions.user_id = public.current_app_user_id()
-            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
-            and tribe_member_subscriptions.status in ${CURRENT_MEMBER_SUBSCRIPTION_STATUSES}
-          limit 1
-        ),
-        existing_pending_checkout as (
-          select
-            subscription_idempotency_operations.response_body->>'checkoutUrl' as checkout_url,
-            tribe_member_subscriptions.id as subscription_id,
-            tribe_member_subscriptions.mercado_pago_preapproval_id as provider_subscription_id
-          from public.tribe_member_subscriptions
-          inner join target_tribe
-            on target_tribe.id = tribe_member_subscriptions.tribe_id
-          inner join public.subscription_idempotency_operations
-            on subscription_idempotency_operations.tribe_id = target_tribe.id
-            and subscription_idempotency_operations.user_id = tribe_member_subscriptions.user_id
-            and subscription_idempotency_operations.operation_type = 'start_member_subscription'
-            and subscription_idempotency_operations.response_body ? 'checkoutUrl'
-          where tribe_member_subscriptions.user_id = public.current_app_user_id()
-            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
-            and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
-          order by subscription_idempotency_operations.created_at desc
-          limit 1
-        ),
-        existing_live_subscription as (
-          select tribe_member_subscriptions.mercado_pago_preapproval_id as provider_subscription_id
-          from public.tribe_member_subscriptions
-          inner join target_tribe
-            on target_tribe.id = tribe_member_subscriptions.tribe_id
-          where tribe_member_subscriptions.user_id = public.current_app_user_id()
-            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
-            and tribe_member_subscriptions.mercado_pago_preapproval_id is not null
-            and tribe_member_subscriptions.status in ${LIVE_PROVIDER_SUBSCRIPTION_STATUSES}
-          order by tribe_member_subscriptions.updated_at desc
-          limit 1
-        )
-        select
-          (select id from target_tribe) as tribe_id,
-          (select id from current_price) as current_price_id,
-          (select payment_integration_id from current_price) as current_price_payment_integration_id,
-          (select amount_cents from current_price) as current_price_amount_cents,
-          (select currency from current_price) as current_price_currency,
-          (select name from current_price) as current_price_name,
-          (select mercado_pago_preapproval_plan_id from current_price) as current_price_provider_plan_id,
-          exists (select 1 from active_invitation) as has_active_invitation,
-          (select status from existing_membership) as existing_membership_status,
-          (select status_reason from existing_membership) as existing_membership_status_reason,
-          exists (select 1 from retry_blocking_member_subscription) as has_retry_blocking_member_subscription,
-          (select subscription_id from existing_pending_checkout) as existing_checkout_subscription_id,
-          (select checkout_url from existing_pending_checkout) as existing_checkout_url,
-          (select provider_subscription_id from existing_pending_checkout) as existing_provider_subscription_id,
-          (select provider_subscription_id from existing_live_subscription) as existing_live_provider_subscription_id,
-          public.current_app_user_email() as current_user_email,
-          tribe_payment_integrations.access_token,
-          tribe_payment_integrations.refresh_token,
-          tribe_payment_integrations.token_expires_at
-        from (select 1) result
-        cross join checkout_context
-        left join public.tribe_payment_integrations
-          on tribe_payment_integrations.id = (select payment_integration_id from current_price)
-          and tribe_payment_integrations.tribe_id = (select id from target_tribe)
-          and tribe_payment_integrations.provider = 'mercado_pago'
-      `);
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(buildSubscriptionStartContextStatement(input, openJoinTribeIdFallback));
 
-      return (result.rows?.[0] ?? null) as SubscriptionStartContextRow | null;
+      return (result.rows[0] ?? null) as SubscriptionStartContextRow | null;
     });
+  }
 
+  /**
+   * Rejects a start without the required invitation, or a payment retry of a
+   * member whose membership is not recoverable by paying.
+   *
+   * @param input - Start request.
+   * @param context - Start context.
+   * @param operationKey - Idempotent operation key, for traces.
+   * @returns The rejection, or `null` when the start may continue.
+   */
+  private rejectIneligibleStart(
+    input: StartSubscriptionCheckoutInput,
+    context: SubscriptionStartContextRow | null,
+    operationKey: string
+  ): TribeMemberSubscriptionStartResult | null {
     if (input.requiresActiveInvitation && !context?.has_active_invitation) {
       logMemberSubscriptionPaymentResult({
         operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
@@ -1560,6 +2109,23 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: retryRejectionStatus };
     }
 
+    return null;
+  }
+
+  /**
+   * Rejects a start whose context has no complete current price
+   * (`missing_current_price`) or no payer email (`payment_blocked`).
+   *
+   * @param input - Start request.
+   * @param context - Start context that failed `isReadySubscriptionStartContext`.
+   * @param operationKey - Idempotent operation key, for traces.
+   * @returns The rejection.
+   */
+  private rejectIncompleteStart(
+    input: StartSubscriptionCheckoutInput,
+    context: SubscriptionStartContextRow | null,
+    operationKey: string
+  ): TribeMemberSubscriptionStartResult {
     if (
       !context?.current_price_id ||
       !context.current_price_provider_plan_id ||
@@ -1582,22 +2148,34 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.missingCurrentPrice };
     }
 
-    if (!context.current_user_email) {
-      logMemberSubscriptionPaymentResult({
-        operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
-        result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked,
-        traceContext: buildMemberSubscriptionPaymentTraceContext({
-          operationKey,
-          priceId: context.current_price_id,
-          providerPlanId: context.current_price_provider_plan_id,
-          requestId: this.requestId,
-          tribeSlug: input.tribeSlug,
-        }),
-      });
+    logMemberSubscriptionPaymentResult({
+      operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
+      result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked,
+      traceContext: buildMemberSubscriptionPaymentTraceContext({
+        operationKey,
+        priceId: context.current_price_id,
+        providerPlanId: context.current_price_provider_plan_id,
+        requestId: this.requestId,
+        tribeSlug: input.tribeSlug,
+      }),
+    });
 
-      return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
-    }
+    return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
+  }
 
+  /**
+   * Rejects a start of a member blocked for conduct.
+   *
+   * @param input - Start request.
+   * @param context - Complete start context.
+   * @param operationKey - Idempotent operation key, for traces.
+   * @returns The rejection, or `null` when the start may continue.
+   */
+  private rejectConductBlockedStart(
+    input: StartSubscriptionCheckoutInput,
+    context: ReadySubscriptionStartContext,
+    operationKey: string
+  ): TribeMemberSubscriptionStartResult | null {
     if (
       context.existing_membership_status ===
         MEMBER_SUBSCRIPTION_RECOVERY_MEMBERSHIP_STATUS.blocked &&
@@ -1619,6 +2197,23 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked };
     }
 
+    return null;
+  }
+
+  /**
+   * Answers a start that a live subscription or an in-flight linked checkout
+   * already covers.
+   *
+   * @param input - Start request.
+   * @param context - Complete start context.
+   * @param operationKey - Idempotent operation key, for traces.
+   * @returns The result, or `null` when a new checkout is needed.
+   */
+  private async resumeExistingStart(
+    input: StartSubscriptionCheckoutInput,
+    context: ReadySubscriptionStartContext,
+    operationKey: string
+  ): Promise<TribeMemberSubscriptionStartResult | null> {
     if (context.existing_live_provider_subscription_id) {
       const alreadyActiveOperationKey = buildMemberSubscriptionOperationKey({
         operation:
@@ -1685,6 +2280,23 @@ export class PostgresTribeMemberSubscriptionRepository
       };
     }
 
+    return null;
+  }
+
+  /**
+   * Releases a stale unlinked reservation and reserves the pending row of the
+   * checkout, reusing a stored checkout of the current price.
+   *
+   * @param input - Start request.
+   * @param context - Complete start context.
+   * @param operationKey - Idempotent operation key, for traces.
+   * @returns The reserved row id, or the result that ends the start.
+   */
+  private async reserveStart(
+    input: StartSubscriptionCheckoutInput,
+    context: ReadySubscriptionStartContext,
+    operationKey: string
+  ): Promise<{ reservedSubscriptionId: string } | { result: TribeMemberSubscriptionStartResult }> {
     // A pending reservation that has a stored checkout URL but no linked provider
     // subscription is a stale reservation that never reached a provider
     // preapproval: cancel it so a fresh provider preapproval can be created for
@@ -1708,7 +2320,7 @@ export class PostgresTribeMemberSubscriptionRepository
       paymentIntegrationId: context.current_price_payment_integration_id,
       invitationTokenHash: input.invitationTokenHash,
       tribeId: context.tribe_id,
-      requiresClassicEntry: input.allowOpenJoin || input.requiresActiveInvitation,
+      requiresClassicEntry: input.allowOpenJoin === true || input.requiresActiveInvitation,
     });
 
     // The reservation only returns a stored checkout URL for a pending row of the
@@ -1733,8 +2345,10 @@ export class PostgresTribeMemberSubscriptionRepository
       });
 
       return {
-        checkoutUrl: reservation.checkout_url,
-        status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
+        result: {
+          checkoutUrl: reservation.checkout_url,
+          status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
+        },
       };
     }
 
@@ -1751,17 +2365,31 @@ export class PostgresTribeMemberSubscriptionRepository
         }),
       });
 
-      return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
+      return { result: { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked } };
     }
 
-    const checkoutTraceContext = buildMemberSubscriptionPaymentTraceContext({
-      operationKey,
-      priceId: context.current_price_id,
-      providerPlanId: context.current_price_provider_plan_id,
-      requestId: this.requestId,
-      tribeSlug: input.tribeSlug,
-    });
+    return { reservedSubscriptionId: reservation.reserved_subscription_id };
+  }
 
+  /**
+   * Resolves the seller token and creates the provider preapproval of a
+   * reserved row, releasing the row when either step fails.
+   *
+   * @param input - Start request.
+   * @param context - Complete start context.
+   * @param reservedSubscriptionId - Reserved pending row.
+   * @param checkoutTraceContext - Payment trace of the checkout.
+   * @returns The token and the created preapproval, or `null` when the start is blocked.
+   */
+  private async createReservedPreapproval(
+    input: StartSubscriptionCheckoutInput,
+    context: ReadySubscriptionStartContext,
+    reservedSubscriptionId: string,
+    checkoutTraceContext: ReturnType<typeof buildMemberSubscriptionPaymentTraceContext>
+  ): Promise<{
+    accessToken: string;
+    providerSubscription: { checkoutUrl: string; providerSubscriptionId: string };
+  } | null> {
     // Resolve the provider access token and create the preapproval through the
     // API so the authoritative preapproval id is known before the redirect. This
     // is the core of the fix: the provider subscription is linked to the local
@@ -1783,7 +2411,7 @@ export class PostgresTribeMemberSubscriptionRepository
       // Release the just-reserved pending row so an immediate retry can reserve
       // again instead of waiting out the stale-reservation window.
       await this.cancelPendingSubscriptionReservation({
-        subscriptionId: reservation.reserved_subscription_id,
+        subscriptionId: reservedSubscriptionId,
         tribeId: context.tribe_id,
       });
 
@@ -1793,7 +2421,7 @@ export class PostgresTribeMemberSubscriptionRepository
         traceContext: checkoutTraceContext,
       });
 
-      return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
+      return null;
     }
 
     let providerSubscription: {
@@ -1810,7 +2438,7 @@ export class PostgresTribeMemberSubscriptionRepository
         externalReference: buildPriceExternalReference(context.current_price_id),
         idempotencyKey:
           MEMBER_SUBSCRIPTION_PREAPPROVAL_IDEMPOTENCY_PREFIX +
-          reservation.reserved_subscription_id,
+          reservedSubscriptionId,
         payerEmail: context.current_user_email,
         preapprovalPlanId: context.current_price_provider_plan_id,
         reason: context.current_price_name,
@@ -1824,7 +2452,7 @@ export class PostgresTribeMemberSubscriptionRepository
       // retry can reserve a fresh row instead of being blocked until the
       // stale-reservation window expires.
       await this.cancelPendingSubscriptionReservation({
-        subscriptionId: reservation.reserved_subscription_id,
+        subscriptionId: reservedSubscriptionId,
         tribeId: context.tribe_id,
       });
 
@@ -1834,8 +2462,48 @@ export class PostgresTribeMemberSubscriptionRepository
         traceContext: checkoutTraceContext,
       });
 
+      return null;
+    }
+
+    return { accessToken, providerSubscription };
+  }
+
+  /**
+   * Creates the provider checkout of a reserved row, links it locally, then
+   * links the preapproval id into the provider back URL.
+   *
+   * @param input - Start request.
+   * @param context - Complete start context.
+   * @param operationKey - Idempotent operation key, for traces.
+   * @param reservedSubscriptionId - Reserved pending row.
+   * @returns The checkout result.
+   */
+  private async createStartCheckout(
+    input: StartSubscriptionCheckoutInput,
+    context: ReadySubscriptionStartContext,
+    operationKey: string,
+    reservedSubscriptionId: string
+  ): Promise<TribeMemberSubscriptionStartResult> {
+    const checkoutTraceContext = buildMemberSubscriptionPaymentTraceContext({
+      operationKey,
+      priceId: context.current_price_id,
+      providerPlanId: context.current_price_provider_plan_id,
+      requestId: this.requestId,
+      tribeSlug: input.tribeSlug,
+    });
+
+    const created = await this.createReservedPreapproval(
+      input,
+      context,
+      reservedSubscriptionId,
+      checkoutTraceContext
+    );
+
+    if (!created) {
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
     }
+
+    const { accessToken, providerSubscription } = created;
 
     // Persist the checkout first so the authoritative preapproval id is linked
     // onto the local pending row before anything else runs. The back URL update
@@ -1852,7 +2520,7 @@ export class PostgresTribeMemberSubscriptionRepository
       providerPlanId: context.current_price_provider_plan_id,
       providerSubscriptionId: providerSubscription.providerSubscriptionId,
       requestId: this.requestId,
-      reservedSubscriptionId: reservation.reserved_subscription_id,
+      reservedSubscriptionId: reservedSubscriptionId,
       tribeId: context.tribe_id,
       tribeSlug: input.tribeSlug,
     });
@@ -1952,7 +2620,7 @@ export class PostgresTribeMemberSubscriptionRepository
         returning id
       `);
 
-      return ((result.rows?.[0] ?? null) as { id?: string } | null)?.id ?? null;
+      return ((result.rows[0] ?? null) as { id?: string } | null)?.id ?? null;
     });
   }
 
@@ -1971,37 +2639,7 @@ export class PostgresTribeMemberSubscriptionRepository
     }
 
     await this.executeWithDatabase(async (database) => {
-      await database.execute(sql`
-        with checkout_context as (
-          select set_config(
-            ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
-            ${input.invitationTokenHash},
-            true
-          )
-        ),
-        target_invitation as (
-          select tribe_invitations.id
-          from public.tribe_invitations
-          cross join checkout_context
-          where tribe_invitations.tribe_id = ${input.tribeId}
-            and tribe_invitations.token_hash = nullif(
-              current_setting(
-                ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
-                true
-              ),
-              ''
-            )
-            and tribe_invitations.status = 'active'
-          limit 1
-        )
-        update public.tribe_members
-        set joined_via_invitation_id = target_invitation.id
-        from target_invitation
-        where tribe_members.tribe_id = ${input.tribeId}
-          and tribe_members.user_id = public.current_app_user_id()
-          and tribe_members.status = 'blocked'
-          and tribe_members.status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
-      `);
+      await database.execute(buildPendingCheckoutInvitationAttributionStatement(input));
     });
   }
 
@@ -2011,14 +2649,10 @@ export class PostgresTribeMemberSubscriptionRepository
    * @param input - Current tribe price and invitation data used for the reservation.
    * @returns Existing checkout data or the reserved local subscription id.
    */
-  private async reservePendingSubscription(input: {
-    currentPriceId: string;
-    invitationTokenHash: string;
-    paymentIntegrationId: string | null;
-    tribeId: string | null;
-    requiresClassicEntry: boolean;
-  }): Promise<SubscriptionReservationRow> {
-    if (!input.tribeId) {
+  private async reservePendingSubscription(input: PendingSubscriptionReservationInput): Promise<SubscriptionReservationRow> {
+    const { tribeId } = input;
+
+    if (!tribeId) {
       return {
         checkout_url: null,
         reserved_subscription_id: null,
@@ -2026,151 +2660,11 @@ export class PostgresTribeMemberSubscriptionRepository
     }
 
     return this.executeWithDatabase(async (database) => {
-      await lockSubscriptionMembershipTribes(database,{tribeId:input.tribeId!});
+      await lockSubscriptionMembershipTribes(database,{tribeId});
       await database.execute(sql`select settings.tribe_id from public.tribe_academy_settings settings where settings.tribe_id=${input.tribeId} for share`);
-      const result = await database.execute(sql`
-        with eligible_scope as (
-          select tribe.id from public.tribes tribe join public.tribe_subscription_prices price on price.tribe_id=tribe.id
-          where tribe.id=${input.tribeId} and price.id=${input.currentPriceId} and price.product_key=${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
-            and price.status=${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active} and price.payment_integration_id is not distinct from ${input.paymentIntegrationId}::uuid
-            and (${input.requiresClassicEntry}=false or (tribe.admissions_control_activated_at is null and not public.tribe_uses_academy_access(tribe.id)))
-        ), checkout_context as (
-          select set_config(
-            ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
-            ${input.invitationTokenHash},
-            true
-          )
-          from eligible_scope
-        ),
-        target_invitation as (
-          select tribe_invitations.id
-          from public.tribe_invitations
-          cross join checkout_context
-          where tribe_invitations.tribe_id = ${input.tribeId}
-            and tribe_invitations.token_hash = nullif(
-              current_setting(
-                ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
-                true
-              ),
-              ''
-            )
-            and tribe_invitations.status = 'active'
-          limit 1
-        ),
-        inserted_membership as (
-          insert into public.tribe_members (
-            tribe_id,
-            user_id,
-            role,
-            status,
-            status_reason,
-            joined_via_invitation_id,
-            created_at
-          )
-          select
-            ${input.tribeId},
-            public.current_app_user_id(),
-            'tribemate',
-            'blocked',
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
-            (select id from target_invitation),
-            timezone('utc', now())
-          from checkout_context
-          on conflict (tribe_id, user_id) do update
-          set
-            status = 'blocked',
-            status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
-            joined_via_invitation_id = coalesce(
-              (select id from target_invitation),
-              tribe_members.joined_via_invitation_id
-            )
-          where (
-              tribe_members.status = 'removed'
-              and tribe_members.status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive}
-            )
-            or (
-              tribe_members.status = 'blocked'
-              and tribe_members.status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
-            )
-          returning id
-        ),
-        reserved_subscription as (
-          insert into public.tribe_member_subscriptions (
-            tribe_id,
-            user_id,
-            price_id,
-            payment_integration_id,
-            status,
-            status_reason,
-            created_at,
-            updated_at
-          )
-          select
-            ${input.tribeId},
-            public.current_app_user_id(),
-            ${input.currentPriceId},
-            ${input.paymentIntegrationId},
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending},
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
-            timezone('utc', now()),
-            timezone('utc', now())
-          from checkout_context
-          on conflict do nothing
-          returning id
-        ),
-        existing_recoverable_reservation as (
-          select tribe_member_subscriptions.id
-          from public.tribe_member_subscriptions
-          where tribe_member_subscriptions.tribe_id = ${input.tribeId}
-            and tribe_member_subscriptions.user_id = public.current_app_user_id()
-            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
-            and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
-            and tribe_member_subscriptions.mercado_pago_preapproval_id is null
-            and tribe_member_subscriptions.updated_at <
-              timezone('utc', now()) - ${SUBSCRIPTION_RESERVATION.staleReservationInterval}::interval
-            and exists(select 1 from eligible_scope)
-          limit 1
-          for update skip locked
-        ),
-        claimed_recoverable_reservation as (
-          update public.tribe_member_subscriptions
-          set updated_at = timezone('utc', now())
-          where tribe_member_subscriptions.id = (
-            select id from existing_recoverable_reservation
-          )
-            and not exists (select 1 from reserved_subscription)
-          returning id
-        ),
-        existing_pending_checkout as (
-          select subscription_idempotency_operations.response_body->>'checkoutUrl' as checkout_url
-          from public.subscription_idempotency_operations
-          where subscription_idempotency_operations.tribe_id = ${input.tribeId}
-            and subscription_idempotency_operations.user_id = public.current_app_user_id()
-            and subscription_idempotency_operations.operation_type = 'start_member_subscription'
-            and subscription_idempotency_operations.response_body ? 'checkoutUrl'
-            and exists(select 1 from eligible_scope)
-            and exists (
-              select 1
-              from public.tribe_member_subscriptions
-              where tribe_member_subscriptions.tribe_id = ${input.tribeId}
-                and tribe_member_subscriptions.user_id = public.current_app_user_id()
-                and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
-                and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
-                and tribe_member_subscriptions.price_id = ${input.currentPriceId}
-                and tribe_member_subscriptions.mercado_pago_preapproval_id is not null
-            )
-          order by subscription_idempotency_operations.created_at desc
-          limit 1
-        )
-        select
-          coalesce(
-            (select id from reserved_subscription),
-            (select id from claimed_recoverable_reservation)
-          ) as reserved_subscription_id,
-          (select checkout_url from existing_pending_checkout) as checkout_url
-      `);
+      const result = await database.execute(buildPendingSubscriptionReservationStatement(input));
 
-      return (result.rows?.[0] ?? {
+      return (result.rows[0] ?? {
         checkout_url: null,
         reserved_subscription_id: null,
       }) as SubscriptionReservationRow;
@@ -2188,18 +2682,7 @@ export class PostgresTribeMemberSubscriptionRepository
    * @param input - Provider preapproval checkout data and local subscription identity.
    * @returns Start result containing the checkout URL.
    */
-  private async persistReservedPlanCheckout(input: {
-    checkoutUrl: string;
-    invitationTokenHash: string;
-    operationKey: string;
-    priceId: string;
-    providerPlanId: string;
-    providerSubscriptionId: string;
-    requestId?: string;
-    reservedSubscriptionId: string;
-    tribeId: string | null;
-    tribeSlug: string;
-  }): Promise<TribeMemberSubscriptionStartResult> {
+  private async persistReservedPlanCheckout(input: ReservedPlanCheckoutInput): Promise<TribeMemberSubscriptionStartResult> {
     return this.executeWithDatabase(async (database) => {
       await database.execute(sql`
         update public.tribe_member_subscriptions
@@ -2212,96 +2695,9 @@ export class PostgresTribeMemberSubscriptionRepository
           and tribe_member_subscriptions.mercado_pago_preapproval_id is null
       `);
 
-      await database.execute(sql`
-        with checkout_context as (
-          select set_config(
-            ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
-            ${input.invitationTokenHash},
-            true
-          )
-        ),
-        target_invitation as (
-          select tribe_invitations.id
-          from public.tribe_invitations
-          cross join checkout_context
-          where tribe_invitations.tribe_id = ${input.tribeId}
-            and tribe_invitations.token_hash = nullif(
-              current_setting(
-                ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
-                true
-              ),
-              ''
-            )
-            and tribe_invitations.status = 'active'
-          limit 1
-        )
-        insert into public.tribe_members (
-          tribe_id,
-          user_id,
-          role,
-          status,
-          status_reason,
-          joined_via_invitation_id,
-          created_at
-        )
-        select
-          ${input.tribeId},
-          public.current_app_user_id(),
-          'tribemate',
-          'blocked',
-          ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
-          (select id from target_invitation),
-          timezone('utc', now())
-        from checkout_context
-        on conflict (tribe_id, user_id) do update
-        set
-          status = 'blocked',
-          status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
-          joined_via_invitation_id = coalesce(
-            (select id from target_invitation),
-            tribe_members.joined_via_invitation_id
-          )
-        where (
-            tribe_members.status = 'removed'
-            and tribe_members.status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive}
-          )
-          or (
-            tribe_members.status = 'blocked'
-            and tribe_members.status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
-          )
-      `);
+      await database.execute(buildPaymentBlockedCheckoutMembershipStatement(input));
 
-      await database.execute(sql`
-        insert into public.subscription_idempotency_operations (
-          operation_key,
-          operation_type,
-          tribe_id,
-          user_id,
-          payload_hash,
-          response_body,
-          created_at
-        )
-        values (
-          ${input.operationKey},
-          'start_member_subscription',
-          ${input.tribeId},
-          public.current_app_user_id(),
-          ${hashPayload({ tribeSlug: input.tribeSlug })},
-          ${JSON.stringify({
-            checkoutUrl: input.checkoutUrl,
-            preapprovalPlanId: input.providerPlanId,
-          })}::jsonb,
-          timezone('utc', now())
-        )
-        on conflict (operation_key) do update
-        set
-          payload_hash = excluded.payload_hash,
-          response_body = excluded.response_body,
-          created_at = excluded.created_at
-        where subscription_idempotency_operations.operation_type = excluded.operation_type
-          and subscription_idempotency_operations.tribe_id = excluded.tribe_id
-          and subscription_idempotency_operations.user_id = excluded.user_id
-      `);
+      await database.execute(buildStoreStartCheckoutOperationStatement(input));
 
       logMemberSubscriptionPaymentResult({
         operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
@@ -2336,31 +2732,8 @@ export class PostgresTribeMemberSubscriptionRepository
         resourceId: command.resourceId,
         topic: command.topic,
       });
-      const result = await database.execute(sql`
-        select
-          tribe_payment_integrations.id as payment_integration_id,
-          tribe_payment_integrations.access_token,
-          tribe_payment_integrations.refresh_token,
-          tribe_payment_integrations.token_expires_at,
-          tribe_member_subscriptions.price_id,
-          tribe_member_subscriptions.tribe_id,
-          tribe_member_subscriptions.status as local_status,
-          tribe_member_subscriptions.status_reason as local_status_reason,
-          true as subscription_found
-        from public.tribe_member_subscriptions
-        left join public.tribe_subscription_prices
-          on tribe_subscription_prices.id = tribe_member_subscriptions.price_id
-        inner join public.tribe_payment_integrations
-          on tribe_payment_integrations.id = coalesce(
-            tribe_member_subscriptions.payment_integration_id,
-            tribe_subscription_prices.payment_integration_id
-          )
-          and tribe_payment_integrations.tribe_id = tribe_member_subscriptions.tribe_id
-          and tribe_payment_integrations.provider = 'mercado_pago'
-        where tribe_member_subscriptions.mercado_pago_preapproval_id = ${command.resourceId}
-        limit 1
-      `);
-      const context = (result.rows?.[0] ?? null) as
+      const result = await database.execute(buildWebhookSubscriptionContextStatement(command));
+      const context = (result.rows[0] ?? null) as
         | WebhookSubscriptionContextRow
         | null;
 
@@ -2411,25 +2784,8 @@ export class PostgresTribeMemberSubscriptionRepository
         subscriptionStatus.statusReason,
       ].join(":");
 
-      const operationResult = await database.execute(sql`
-        insert into public.subscription_idempotency_operations (
-          operation_key,
-          operation_type,
-          payload_hash,
-          response_body,
-          created_at
-        )
-        values (
-          ${operationKey},
-          'mercado_pago_webhook',
-          ${payloadHash},
-          '{}'::jsonb,
-          timezone('utc', now())
-        )
-        on conflict (operation_key) do nothing
-        returning id as operation_inserted
-      `);
-      const operation = (operationResult.rows?.[0] ?? null) as
+      const operationResult = await database.execute(buildWebhookOperationInsertStatement(operationKey, payloadHash));
+      const operation = (operationResult.rows[0] ?? null) as
         | WebhookOperationInsertRow
         | null;
 
@@ -2444,14 +2800,7 @@ export class PostgresTribeMemberSubscriptionRepository
         return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.duplicateWebhook };
       }
 
-      await database.execute(sql`
-        update public.tribe_member_subscriptions
-        set
-          status = ${subscriptionStatus.status},
-          status_reason = ${subscriptionStatus.statusReason},
-          updated_at = timezone('utc', now())
-        where mercado_pago_preapproval_id = ${command.resourceId}
-      `);
+      await database.execute(buildWebhookSubscriptionStatusUpdateStatement(command, subscriptionStatus));
 
       await this.updateMembershipAccessForProviderSubscription(
         database,

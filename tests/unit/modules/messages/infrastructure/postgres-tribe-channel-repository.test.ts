@@ -4,7 +4,7 @@ import { PostgresTribeChannelRepository } from "@/src/modules/messages/infrastru
 
 describe("PostgresTribeChannelRepository", () => {
   it("lists tribe channels ordered for the round", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           access_scope: "tribemates",
@@ -35,7 +35,7 @@ describe("PostgresTribeChannelRepository", () => {
   });
 
   it("creates channels guarded by leader or guardian membership", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           access_scope: "tribemates",
@@ -69,7 +69,7 @@ describe("PostgresTribeChannelRepository", () => {
   });
 
   it("maps duplicate channel slugs to a controlled creation status", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           status: "duplicate_slug" as const,
@@ -90,11 +90,11 @@ describe("PostgresTribeChannelRepository", () => {
   });
 
   it("maps unique violations to duplicate_slug during channel creation", async () => {
-    const execute = vi.fn(async (...args: unknown[]) => { void args;
-      throw {
+    const execute = vi.fn(async (..._args: unknown[]) => { 
+      throw Object.assign(new Error("duplicate key value violates unique constraint"), {
         code: "23505",
         constraint: "tribe_channels_tribe_id_slug_key",
-      };
+      });
     });
     const repository = new PostgresTribeChannelRepository(async (callback) =>
       callback({ execute } as never)
@@ -110,7 +110,7 @@ describe("PostgresTribeChannelRepository", () => {
   });
 
   it("maps duplicate channel slugs to a controlled update status", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           status: "duplicate_slug" as const,
@@ -133,11 +133,11 @@ describe("PostgresTribeChannelRepository", () => {
   });
 
   it("maps unique violations to duplicate_slug during channel updates", async () => {
-    const execute = vi.fn(async (...args: unknown[]) => { void args;
-      throw {
+    const execute = vi.fn(async (..._args: unknown[]) => { 
+      throw Object.assign(new Error("duplicate key value violates unique constraint"), {
         code: "23505",
         constraint: "tribe_channels_tribe_id_slug_key",
-      };
+      });
     });
     const repository = new PostgresTribeChannelRepository(async (callback) =>
       callback({ execute } as never)
@@ -155,7 +155,7 @@ describe("PostgresTribeChannelRepository", () => {
   });
 
   it("returns not_found when updating a channel that does not exist", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           status: "not_found" as const,
@@ -179,7 +179,7 @@ describe("PostgresTribeChannelRepository", () => {
   });
 
   it("moves messages before deleting a channel when a target is provided", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           status: "moved_and_deleted" as const,

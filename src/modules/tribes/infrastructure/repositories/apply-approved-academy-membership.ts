@@ -19,6 +19,27 @@ function mapMember(row:MemberRow):AcademyMembershipFacts {
   return {id:row.id,role:row.role,status:row.status,statusReason:row.status_reason,commercialRecoveryStatus:row.commercial_recovery_status,createdAt:new Date(row.created_at)};
 }
 
+type ApprovedMembershipContext=NonNullable<Awaited<ReturnType<typeof readApprovedAcademyMembershipContext>>>;
+type ApplicableDecision=NonNullable<ApprovedMembershipContext["decision"]>&{membership_effect_id:string};
+
+/**
+ * Checks the open policy, the exact decision version, its actor, the academy model and the expiry.
+ * @param context - Locked membership facts with the post-wait database clock.
+ * @param input - Current actor, whether it manages the tribe, and the beneficiary.
+ * @returns The decision when this actor may still consume it for the beneficiary, otherwise null.
+ */
+function findApplicableDecision(context:ApprovedMembershipContext,input:{actorId:string;manages:boolean;userId:string}):ApplicableDecision|null {
+  const {policy,decision}=context;
+  if(!context.admissions_control_activated_at||!policy?.is_open||!policy.activated_at) return null;
+  if(!decision?.membership_effect_id||decision.policy_version!==policy.version||decision.verification_epoch!==policy.verification_epoch||decision.version!==decision.request_version+1) return null;
+  const manual=decision.actor_kind===ACADEMY_MEMBERSHIP_DECISION.user&&decision.actor_user_id===input.actorId&&input.manages&&input.actorId!==input.userId;
+  const automatic=decision.actor_kind===ACADEMY_MEMBERSHIP_DECISION.system&&input.actorId===input.userId&&decision.actor_user_id===null;
+  if(!manual&&!automatic) return null;
+  if(context.access_model!==TRIBE_ACCESS_MODEL.academy) return null;
+  if(new Date(decision.expires_at).getTime()<=new Date(context.now).getTime()) return null;
+  return {...decision,membership_effect_id:decision.membership_effect_id};
+}
+
 /**
  * Applies a scoped approved decision without starting another transaction or any RPC.
  * @param database - The authoritative admission writer's guarded transaction.
@@ -29,7 +50,7 @@ function mapMember(row:MemberRow):AcademyMembershipFacts {
 export async function applyApprovedAcademyMembership(database:RequestDatabase,command:ApplyApprovedAcademyMembershipCommand):Promise<ApplyApprovedAcademyMembershipResult> {
   const context=await readApprovedAcademyMembershipContext(database,command);
   if(!context) return {status:"admission_closed"};
-  const {policy,members,decision}=context;
+  const {members}=context;
   const actorId=context.actor_id;
   if(!actorId) return {status:"admission_closed"};
   const actor=members.find((member)=>member.user_id===actorId);
@@ -39,13 +60,8 @@ export async function applyApprovedAcademyMembership(database:RequestDatabase,co
   const eligibility=evaluateAcademyMembershipEligibility(current?mapMember(current):null);
   if(eligibility.outcome===ACADEMY_MEMBERSHIP_ELIGIBILITY.alreadyMember) return {status:"already_member",member:eligibility.member};
   if(eligibility.outcome===ACADEMY_MEMBERSHIP_ELIGIBILITY.blocked) return {status:"blocked"};
-  if(!context.admissions_control_activated_at||!policy?.is_open||!policy.activated_at) return {status:"admission_closed"};
-  if(!decision?.membership_effect_id||decision.policy_version!==policy.version||decision.verification_epoch!==policy.verification_epoch||decision.version!==decision.request_version+1) return {status:"admission_closed"};
-  const manual=decision.actor_kind===ACADEMY_MEMBERSHIP_DECISION.user&&decision.actor_user_id===actorId&&manages&&actorId!==command.userId;
-  const automatic=decision.actor_kind===ACADEMY_MEMBERSHIP_DECISION.system&&actorId===command.userId&&decision.actor_user_id===null;
-  if(!manual&&!automatic) return {status:"admission_closed"};
-  if(context.access_model!==TRIBE_ACCESS_MODEL.academy) return {status:"admission_closed"};
-  if(new Date(decision.expires_at).getTime()<=new Date(context.now).getTime()) return {status:"admission_closed"};
+  const decision=findApplicableDecision(context,{actorId,manages,userId:command.userId});
+  if(!decision) return {status:"admission_closed"};
   const memberId=current?.id??randomUUID();
   await database.execute(sql`insert into public.academy_admission_membership_effects(id,decision_id,request_id,tribe_id,user_id,member_id,target_status) values (${decision.membership_effect_id},${decision.id},${decision.request_id},${command.tribeId},${command.userId},${memberId},${eligibility.status})`);
   const applied=eligibility.outcome===ACADEMY_MEMBERSHIP_ELIGIBILITY.create

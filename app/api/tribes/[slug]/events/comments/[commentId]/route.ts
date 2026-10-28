@@ -68,6 +68,7 @@ export async function DELETE(request: Request, context: TribeEventCommentRouteCo
           { message: TRIBE_EVENT_ROUTE_RESPONSE.commentNotFoundMessage },
           TRIBE_EVENT_ROUTE_HTTP_STATUS.notFound
         );
+      case TRIBE_EVENT_MUTATION_STATUS.forbidden:
       default:
         return createJsonResponse(
           { message: TRIBE_EVENT_ROUTE_RESPONSE.commentForbiddenMessage },

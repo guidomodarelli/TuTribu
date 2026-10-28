@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import type { PickerProps, EmojiClickData } from "emoji-picker-react";
 
 import { TribeChannelManagement } from "@/components/tribe-round/tribe-channel-management";
+import type * as GolfoUiModule from "@golfo/ui";
 
 type MockEmojiPickerProps = Pick<
   PickerProps,
@@ -84,7 +85,7 @@ vi.mock("emoji-picker-react", () => ({
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
 vi.mock("@golfo/ui", async () => ({
-  ...await vi.importActual<typeof import("@golfo/ui")>("@golfo/ui"),
+  ...await vi.importActual<typeof GolfoUiModule>("@golfo/ui"),
   toast: {
     error: vi.fn(),
     success: vi.fn(),
@@ -186,7 +187,7 @@ describe("TribeChannelManagement", () => {
     const emojiTrigger = within(getChannelItem("Ronda")).getByRole("button", {
       name: "Elegir ícono",
     });
-    const selectedEmojiMatches = emojiTrigger.textContent?.match(/🔥/gu) ?? [];
+    const selectedEmojiMatches = emojiTrigger.textContent.match(/🔥/gu) ?? [];
 
     expect(selectedEmojiMatches).toHaveLength(1);
   });

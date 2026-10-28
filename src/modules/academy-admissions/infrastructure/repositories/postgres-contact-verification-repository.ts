@@ -28,6 +28,41 @@ type ChallengeRow = {
   code_mac: Uint8Array | null; mac_key_id: string; code_envelope_id: string | null; delivery_id: string;
 };
 
+/** @param reason - Closed safe denial. @returns The denied validation outcome. */
+function deniedVerification(reason: Extract<ContactVerificationResult, { outcome: "denied" }>["reason"]): ContactVerificationResult {
+  return { outcome: VERIFICATION_TRANSITION_OUTCOME.denied, reason };
+}
+
+/** Exact scope, challenge and operation identifying one recorded failure. */
+type VerificationFailureIdentity = ValidateContactVerificationCommand["scope"] & { challengeId: string; operationId: string };
+
+/** @param row - Locked stored challenge. @param contact - Exact authorized destination. @returns The domain challenge. */
+function challengeFromRow(row: ChallengeRow, contact: ContactVerificationChallenge["contact"]): ContactVerificationChallenge {
+  return {
+    id: row.id, userId: row.user_id, tribeId: row.tribe_id, contact: contact, purpose: row.purpose,
+    verificationEpoch: row.verification_epoch, connectionId: row.connection_id, connectionVersion: row.connection_version,
+    securityEpoch: row.security_epoch, channel: row.channel, state: row.state, version: row.version,
+    createdAt: new Date(row.created_at), expiresAt: new Date(row.expires_at), failedAttempts: row.failed_attempts,
+    verifiedAt: row.verified_at ? new Date(row.verified_at) : null, invalidatedAt: row.invalidated_at ? new Date(row.invalidated_at) : null,
+    invalidationReason: row.invalidation_reason, codeMac: row.code_mac, macKeyId: row.mac_key_id, codeEnvelopeId: row.code_envelope_id, deliveryId: row.delivery_id,
+  };
+}
+
+/** @param row - Locked challenge. @param contact - Authorized destination. @returns Whether the challenge targets exactly that destination. */
+function isSameDestination(row: Pick<ChallengeRow, "contact_type" | "normalized_contact">, contact: ValidateContactVerificationCommand["scope"]["contact"]): boolean {
+  return row.contact_type === contact.type && row.normalized_contact === contact.value;
+}
+
+/** @param config - Live protection. @param resource - Locked connection version. @param row - Locked challenge. @returns Whether recovery locked, the deployment scope differs from the resource or challenge, or the code key is gone. */
+function isValidationScopeUnavailable(config: MessagingSecurityConfig, resource: { environment: string; security_epoch: string }, row: Pick<ChallengeRow, "security_epoch" | "mac_key_id">): boolean {
+  return config.recoveryLocked || config.environment !== resource.environment || config.securityEpoch !== resource.security_epoch || config.securityEpoch !== row.security_epoch || !config.keyrings[MESSAGING_KEY_PURPOSE.verificationMac].keys.has(row.mac_key_id);
+}
+
+/** @param current - Freshly sampled protection. @param original - Protection used for this validation. @param macKeyId - Key that sealed the code. @returns Whether recovery locked, the deployment scope moved or the code key is gone. */
+function macScopeChanged(current: MessagingSecurityConfig, original: MessagingSecurityConfig, macKeyId: string): boolean {
+  return current.recoveryLocked || current.securityEpoch !== original.securityEpoch || current.environment !== original.environment || !current.keyrings[MESSAGING_KEY_PURPOSE.verificationMac].keys.has(macKeyId);
+}
+
 /**
  * Owns local consumption only; the caller owns issuance, ledger recovery and any diagnostic result transition.
  * No SDK, HTTP call, new checkout or credential read occurs while its locks are held.
@@ -71,50 +106,64 @@ export class PostgresContactVerificationRepository implements ContactVerificatio
    * @throws AdmissionOperationError on conflicting failure identity or an unexpected CAS, forcing rollback.
    */
   async validate(command: ValidateContactVerificationCommand): Promise<ContactVerificationResult> {
-    const denied = (reason: Extract<ContactVerificationResult, { outcome: "denied" }>["reason"]): ContactVerificationResult => ({ outcome: VERIFICATION_TRANSITION_OUTCOME.denied, reason });
-    if (!await this.isAuthorized(command.scope)) return denied(VERIFICATION_CHALLENGE_REASON.scopeMismatch);
+    if (!await this.isAuthorized(command.scope)) return deniedVerification(VERIFICATION_CHALLENGE_REASON.scopeMismatch);
     // Fix deployment scope from the authorized immutable version before account/challenge locks.
     const resource = (await this.database.execute<{ environment: string; security_epoch: string }>(sql`select environment,security_epoch from public.messaging_connection_versions where connection_id=${command.scope.connectionId} and tribe_id=${command.scope.tribeId} and version=${command.scope.connectionVersion} for share`)).rows[0];
-    if (!resource) return denied(VERIFICATION_CHALLENGE_REASON.unavailable);
+    if (!resource) return deniedVerification(VERIFICATION_CHALLENGE_REASON.unavailable);
     await this.failureBudget.lockAccount(command.scope.userId);
     const identity = { ...command.scope, challengeId: command.challengeId, operationId: command.operationId };
-    const replay = await this.failureBudget.readRecordedFailure(identity);
-    if (replay === VERIFICATION_FAILURE_REPLAY_STATE.conflict) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.idempotencyConflict);
-    if (replay === VERIFICATION_FAILURE_REPLAY_STATE.recorded) {
-      if (!await this.isAuthorized(command.scope)) return denied(VERIFICATION_CHALLENGE_REASON.scopeMismatch);
-      return { outcome: VERIFICATION_TRANSITION_OUTCOME.wrongCode };
-    }
+    const replayed = await this.replayedFailure(command, identity);
+    if (replayed) return replayed;
     const row = (await this.database.execute<ChallengeRow>(sql`select * from public.contact_verification_challenges where id=${command.challengeId} and user_id=${command.scope.userId} and tribe_id=${command.scope.tribeId} for update`)).rows[0];
-    if (!row) return denied(VERIFICATION_CHALLENGE_REASON.unavailable);
-    if (row.contact_type !== command.scope.contact.type || row.normalized_contact !== command.scope.contact.value) return denied(VERIFICATION_CHALLENGE_REASON.scopeMismatch);
-    const challenge: ContactVerificationChallenge = {
-      id: row.id, userId: row.user_id, tribeId: row.tribe_id, contact: command.scope.contact, purpose: row.purpose,
-      verificationEpoch: row.verification_epoch, connectionId: row.connection_id, connectionVersion: row.connection_version,
-      securityEpoch: row.security_epoch, channel: row.channel, state: row.state, version: row.version,
-      createdAt: new Date(row.created_at), expiresAt: new Date(row.expires_at), failedAttempts: row.failed_attempts,
-      verifiedAt: row.verified_at ? new Date(row.verified_at) : null, invalidatedAt: row.invalidated_at ? new Date(row.invalidated_at) : null,
-      invalidationReason: row.invalidation_reason, codeMac: row.code_mac, macKeyId: row.mac_key_id, codeEnvelopeId: row.code_envelope_id, deliveryId: row.delivery_id,
-    };
+    if (!row) return deniedVerification(VERIFICATION_CHALLENGE_REASON.unavailable);
+    if (!isSameDestination(row, command.scope.contact)) return deniedVerification(VERIFICATION_CHALLENGE_REASON.scopeMismatch);
+    const challenge = challengeFromRow(row, command.scope.contact);
     const currentChallengeId = row.is_current ? row.id : null;
     const initial = evaluateContactChallenge({ scope: command.scope, challenge, currentChallengeId, now: await this.now(), accountFailureBudgetAvailable: true });
-    if (!initial.allowed) return denied(initial.reason);
+    if (!initial.allowed) return deniedVerification(initial.reason);
+    const codeMac = row.code_mac;
+    if (!codeMac) return deniedVerification(VERIFICATION_CHALLENGE_REASON.unavailable);
     // Retain the envelope lock before the final clock so destruction cannot introduce an unaccounted wait.
-    if (row.code_envelope_id) await this.database.execute(sql`select id from public.verification_code_envelopes where id=${row.code_envelope_id} and challenge_id=${row.id} for update`);
+    await this.lockCodeEnvelope(row);
     const config = await this.readSecurityConfig();
-    if (config.recoveryLocked || config.environment !== resource.environment || config.securityEpoch !== resource.security_epoch || config.securityEpoch !== row.security_epoch || !config.keyrings[MESSAGING_KEY_PURPOSE.verificationMac].keys.has(row.mac_key_id)) return denied(VERIFICATION_CHALLENGE_REASON.unavailable);
+    if (isValidationScopeUnavailable(config, resource, row)) return deniedVerification(VERIFICATION_CHALLENGE_REASON.unavailable);
     const beforeCrypto = await this.now();
-    if (!await this.failureBudget.hasCapacity(command.scope.userId, beforeCrypto)) return denied(VERIFICATION_CHALLENGE_REASON.accountRateLimited);
-    const codeMatches = await createVerificationCodeMac(config).verify(command.code, { keyId: row.mac_key_id, mac: row.code_mac! }, { ...challenge, challengeId: row.id });
+    if (!await this.failureBudget.hasCapacity(command.scope.userId, beforeCrypto)) return deniedVerification(VERIFICATION_CHALLENGE_REASON.accountRateLimited);
+    const codeMatches = await createVerificationCodeMac(config).verify(command.code, { keyId: row.mac_key_id, mac: codeMac }, { ...challenge, challengeId: row.id });
     const currentConfig = await this.readSecurityConfig();
-    if (currentConfig.recoveryLocked || currentConfig.securityEpoch !== config.securityEpoch || currentConfig.environment !== config.environment || !currentConfig.keyrings[MESSAGING_KEY_PURPOSE.verificationMac].keys.has(row.mac_key_id)) return denied(VERIFICATION_CHALLENGE_REASON.unavailable);
-    if (!await this.isAuthorized(command.scope)) return denied(VERIFICATION_CHALLENGE_REASON.scopeMismatch);
+    if (macScopeChanged(currentConfig, config, row.mac_key_id)) return deniedVerification(VERIFICATION_CHALLENGE_REASON.unavailable);
+    if (!await this.isAuthorized(command.scope)) return deniedVerification(VERIFICATION_CHALLENGE_REASON.scopeMismatch);
     const accountFailureBudgetAvailable=await this.failureBudget.hasCapacity(command.scope.userId,await this.now());
     const finalConfig=await this.readSecurityConfig();
-    if(finalConfig.recoveryLocked||finalConfig.securityEpoch!==config.securityEpoch||finalConfig.environment!==config.environment||!finalConfig.keyrings[MESSAGING_KEY_PURPOSE.verificationMac].keys.has(row.mac_key_id))return denied(VERIFICATION_CHALLENGE_REASON.unavailable);
-    if(!await this.isAuthorized(command.scope))return denied(VERIFICATION_CHALLENGE_REASON.scopeMismatch);
+    if (macScopeChanged(finalConfig, config, row.mac_key_id)) return deniedVerification(VERIFICATION_CHALLENGE_REASON.unavailable);
+    if(!await this.isAuthorized(command.scope))return deniedVerification(VERIFICATION_CHALLENGE_REASON.scopeMismatch);
     const now = await this.now();
     const proposal = proposeContactChallengeValidation({ scope: command.scope, challenge, currentChallengeId, now, accountFailureBudgetAvailable, codeMatches });
-    if (proposal.outcome === VERIFICATION_TRANSITION_OUTCOME.denied) return denied(proposal.reason);
+    if (proposal.outcome === VERIFICATION_TRANSITION_OUTCOME.denied) return deniedVerification(proposal.reason);
+    return this.persistTransition({ row, proposal, now, identity });
+  }
+
+  /** @param row - Locked challenge. @returns After locking its code envelope, when it still has one. */
+  private async lockCodeEnvelope(row: ChallengeRow): Promise<void> {
+    if (row.code_envelope_id) await this.database.execute(sql`select id from public.verification_code_envelopes where id=${row.code_envelope_id} and challenge_id=${row.id} for update`);
+  }
+
+  /** @param command - Original validation intent. @param identity - Exact failure identity. @returns The recorded wrong-code outcome on replay, or `null` for a new attempt. @throws AdmissionOperationError when the identity conflicts with a recorded failure. */
+  private async replayedFailure(command: ValidateContactVerificationCommand, identity: VerificationFailureIdentity): Promise<ContactVerificationResult | null> {
+    const replay = await this.failureBudget.readRecordedFailure(identity);
+    if (replay === VERIFICATION_FAILURE_REPLAY_STATE.conflict) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.idempotencyConflict);
+    if (replay !== VERIFICATION_FAILURE_REPLAY_STATE.recorded) return null;
+    if (!await this.isAuthorized(command.scope)) return deniedVerification(VERIFICATION_CHALLENGE_REASON.scopeMismatch);
+    return { outcome: VERIFICATION_TRANSITION_OUTCOME.wrongCode };
+  }
+
+  /**
+   * Stages the proposed transition, its failure accounting, envelope destruction and the admission proof.
+   * @param transition - Locked challenge row, its non-denied proposal, the final clock and the failure identity.
+   * @returns The wrong-code or verified outcome.
+   * @throws AdmissionOperationError on a conflicting failure identity or an unexpected CAS.
+   */
+  private async persistTransition({ row, proposal, now, identity }: { row: ChallengeRow; proposal: Exclude<ReturnType<typeof proposeContactChallengeValidation>, { outcome: typeof VERIFICATION_TRANSITION_OUTCOME.denied }>; now: Date; identity: VerificationFailureIdentity }): Promise<ContactVerificationResult> {
     if (proposal.outcome === VERIFICATION_TRANSITION_OUTCOME.wrongCode && !await this.failureBudget.recordFailure(identity, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.idempotencyConflict);
     const next = proposal.challenge;
     const updated = await this.database.execute(sql`update public.contact_verification_challenges set state=${next.state},version=${next.version},failed_attempts=${next.failedAttempts},verified_at=${next.verifiedAt},invalidated_at=${next.invalidatedAt},invalidation_reason=${next.invalidationReason},code_mac=${next.codeMac ? Buffer.from(next.codeMac) : null},code_envelope_id=${next.codeEnvelopeId} where id=${row.id} and version=${row.version} and expires_at>clock_timestamp() returning id`);

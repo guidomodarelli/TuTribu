@@ -106,7 +106,7 @@ export async function lockTribeEventOccurrenceRecordingForShare(
     return { isHeld: false, status: TRIBE_EVENT_MUTATION_STATUS.notFound };
   }
 
-  const row = (recordingResult.rows?.[0] ?? null) as HeldRecordingRow | null;
+  const row = (recordingResult.rows[0] ?? null) as HeldRecordingRow | null;
 
   return {
     isHeld: true,

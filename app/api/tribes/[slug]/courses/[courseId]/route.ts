@@ -45,7 +45,7 @@ export async function PATCH(
   }
 
   try {
-    const body = await request.json().catch(() => null);
+    const body: unknown = await request.json().catch(() => null);
     const isActive = readBooleanField(body, COURSE_ROUTE_FIELD.isActive);
 
     if (isActive === null) {

@@ -32,7 +32,8 @@ function fixture() {
 describe("admission notification settings HTTP", () => {
   it.each(["readOwnPreference", "changeOwnPreference", "readEmailSettings", "changeEmailSettings"] as const)("should bind %s to native viewer metadata without adding identity to its body", async (method) => {
     const data = fixture();
-    const body = method === "changeOwnPreference" ? { mode: "daily", expectedVersion: 0 } : method === "changeEmailSettings" ? data.command : undefined;
+    const emailSettingsBody = method === "changeEmailSettings" ? data.command : undefined;
+    const body = method === "changeOwnPreference" ? { mode: "daily", expectedVersion: 0 } : emailSettingsBody;
     const response = await data.handlers[method](data.request(body), data.context);
     expect(JSON.parse(response.headers.get("x-tutribu-admission-viewer")!)).toEqual({ viewerId: data.userId });
     expect(await response.json()).not.toHaveProperty("viewerId");

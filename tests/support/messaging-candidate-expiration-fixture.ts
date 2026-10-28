@@ -8,6 +8,19 @@ import { createMessagingSecretCipher } from "@/src/modules/messaging/infrastruct
 /** Names independent current resources whose original activity determines eligibility. */
 export type CandidateExpirationCase = { name: "selected" | "fresh" | "expired" | "late" | "selected_with_candidate"; tribeId: string; connectionId: string; candidateVersion: number | null; selectedVersion: number | null };
 
+/** @param name - Fixture case. @returns The candidate version persisted for the case, or null when it has no candidate. */
+function candidateVersionFor(name: CandidateExpirationCase["name"]): number | null {
+  if (name === "selected") return null;
+  return name === "selected_with_candidate" ? 2 : 1;
+}
+
+/** @param name - Fixture case. @param selected - Whether the connection is selected. @param version - Seeded connection version. @returns Hours of idleness before the transaction time. */
+function idleHoursFor(name: CandidateExpirationCase["name"], selected: boolean, version: number): number {
+  if (name === "fresh") return 144;
+  if (name === "late") return 216;
+  return name === "selected" || (selected && version === 1) ? 240 : 170;
+}
+
 /** @param database - Exact owned disposable branch. @returns Safe fixture identity, cases and persisted snapshots without keys, ciphertext or plaintext. */
 export async function prepareMessagingCandidateExpiration(database: AcademyAdmissionTestDatabase, options: { futureActivity?: string } = {}) {
   const security = await prepareContactVerificationDatabase(database);
@@ -23,7 +36,7 @@ export async function seedMessagingCandidateExpiration(database: AcademyAdmissio
   for (const name of ["selected", "fresh", "expired", "late", "selected_with_candidate"] as const) {
     const tribeId = randomUUID(), connectionId = randomUUID();
     const selected = name === "selected" || name === "selected_with_candidate";
-    const candidateVersion = name === "selected" ? null : name === "selected_with_candidate" ? 2 : 1;
+    const candidateVersion = candidateVersionFor(name);
     const selectedVersion = selected ? 1 : null;
     await database.withContext(own, async (transaction) => {
       await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by,created_at) values (${tribeId},'Academia de candidatas de ejemplo',${`candidate-${tribeId}`},${userId},transaction_timestamp()-interval '19 days')`);
@@ -31,7 +44,7 @@ export async function seedMessagingCandidateExpiration(database: AcademyAdmissio
       await transaction.execute(sql`insert into public.messaging_usage_policies(tribe_id,version) values (${tribeId},3)`);
       await transaction.execute(sql`insert into public.tenant_messaging_connections(id,tribe_id,name,contributed_by_user_id,state,environment,security_epoch,is_selected,is_candidate,selected_version,candidate_version,created_at,updated_at) values (${connectionId},${tribeId},'Conexión de ejemplo',${userId},${selected ? "active" : "draft"},${security.config.environment},${security.config.securityEpoch},${selected},${candidateVersion !== null},${selectedVersion},${candidateVersion},transaction_timestamp()-interval '17 days',transaction_timestamp()-interval '16 days')`);
       for (const version of candidateVersion === 2 ? [1, 2] : [1]) {
-        const secretRef = randomUUID(), idleHours = name === "fresh" ? 144 : name === "late" ? 216 : name === "selected" || (selected && version === 1) ? 240 : 170;
+        const secretRef = randomUUID(), idleHours = idleHoursFor(name, selected, version);
         const envelope = await createMessagingSecretCipher(security.config).seal(randomUUID(), { tribeId, connectionId, connectionVersion: version, resourceId: secretRef });
         const lastActivity = name === "fresh" && options.futureActivity ? sql`${options.futureActivity}::timestamptz` : sql`transaction_timestamp()-${idleHours}*interval '1 hour'`;
         await transaction.execute(sql`insert into public.messaging_connection_versions(connection_id,tribe_id,version,environment,security_epoch,secret_ref,created_at,last_activity_at) values (${connectionId},${tribeId},${version},${security.config.environment},${security.config.securityEpoch},${secretRef},transaction_timestamp()-interval '16 days',${lastActivity})`);

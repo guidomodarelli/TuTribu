@@ -668,7 +668,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
               if (await page.locator(rulesSelector).count()) await page.locator(`${rulesSelector} [aria-busy="false"]`).first().waitFor({ timeout: 90_000 });
               for (const width of [390, 1280]) {
                 await page.setViewportSize({ width, height: 900 });
-                await page.waitForTimeout(300);
+                await page.waitForFunction((expectedWidth) => new Promise<boolean>((resolve) => { requestAnimationFrame(() => { requestAnimationFrame(() => { resolve(innerWidth === expectedWidth); }); }); }), width);
                 expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
                 await page.screenshot({ path: join(process.cwd(), "user-guides/assets/academy-admissions", `${engine}-${width}-${name}.png`), fullPage: true });
               }

@@ -161,7 +161,7 @@ export class PostgresMessagingUsageOperations implements MessagingUsageOperation
       const intent = { expectedVersion: input.expectedVersion, allowedCountries, verificationDailyLimit: input.verificationDailyLimit, notificationDailyLimit: input.notificationDailyLimit, confirmed: input.confirmed };
       return await this.run(ledger, { actorUserId: context.actorUserId, tribeId: context.tribeId, operationType: context.operation, idempotencyKey: input.operationId, intent }, async (database,ledgerId) => {
         const row = await this.readLocked(database, context.tribeId, true);
-        if (!row || row.version !== input.expectedVersion) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.usagePolicyConflict);
+        if (row?.version !== input.expectedVersion) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.usagePolicyConflict);
         if (input.verificationDailyLimit > row.platform_verification_daily_maximum || input.notificationDailyLimit > row.platform_notification_daily_maximum) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
         const currentCountries = [...row.allowed_countries].sort();
         const unchanged = input.verificationDailyLimit === row.verification_daily_limit && input.notificationDailyLimit === row.notification_daily_limit && allowedCountries.length === currentCountries.length && allowedCountries.every((country, index) => country === currentCountries[index]);

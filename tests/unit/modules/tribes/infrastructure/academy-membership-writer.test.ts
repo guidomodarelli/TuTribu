@@ -50,7 +50,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("academy membership w
         reportLocked();await release;
         await transaction.execute(sql`update public.tribe_academy_settings set access_model='legacy',admission_enabled=false where tribe_id=${fixture.tribeId}`);
       });
-      let observedResult:unknown;let writer:Promise<unknown>|undefined;let completed:PromiseSettledResult<unknown>[]=[];
+      let observedResult:unknown;let writer:Promise<unknown>|undefined;let completed:PromiseSettledResult<unknown>[];
       try {
         await Promise.race([locked,blocker]);
         writer=database.withContext(fixture.own,async(transaction)=>{

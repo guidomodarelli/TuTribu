@@ -8,6 +8,11 @@ import { chromium, webkit } from "@playwright/test";
 import { describe, expect, it } from "vitest";
 import { captureAdmissionReview } from "@/tests/support/admission-review-capture";
 
+/** @param outputPath - Capture file owned by this test. @returns Nothing once the file is gone; a missing file is already clean. */
+async function removeCaptureOutput(outputPath: string): Promise<void> {
+  try { await unlink(outputPath); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+}
+
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1" || !process.env.ADMISSION_CAPTURE_SNIPPET)("actual animated manual capture", () => {
   it.each([{ engineName: "chromium", engine: chromium }, { engineName: "webkit", engine: webkit }])("should preserve visible composed styles without mutating the live element in $engineName", async ({ engine }) => {
     const server = createServer((_request, response) => {
@@ -43,7 +48,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1" || !process.env.
         expect(observed).toEqual({ opacity: before.opacity, transform: before.transform, filter: before.filter, liveOpacity: before.inlineOpacity, liveTransform: before.inlineTransform, liveFilter: before.inlineFilter });
       } finally { await browser.close(); }
     } finally {
-      try { try { await unlink(outputPath); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; } }
+      try { await removeCaptureOutput(outputPath); }
       finally { server.closeAllConnections(); await new Promise<void>((resolve) => server.close(() => resolve())); }
     }
   });

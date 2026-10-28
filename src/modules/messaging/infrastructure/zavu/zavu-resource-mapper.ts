@@ -15,9 +15,10 @@ import { ZavuInspectionError } from "./zavu-inspection-error";
  * @returns Owned selection without webhook secrets or contact addresses.
  * @throws ZavuInspectionError when consumed identity cannot be used or crosses the requested selection.
  */
-export function mapZavuSenderResource(sender: Sender, expectedResourceId?: string): MessagingSenderResource {
+export function mapZavuSenderResource(sender: Sender | null | undefined, expectedResourceId?: string): MessagingSenderResource {
   if (!sender || typeof sender.id !== "string" || !sender.id || expectedResourceId !== undefined && sender.id !== expectedResourceId) throw new ZavuInspectionError("sender", messagingFailure(MESSAGING_ERROR_CODE.upstreamPayloadUnusable));
-  const channels = Array.isArray(sender.channels) ? Object.values(ZAVU_DELIVERY_CHANNEL).filter((channel) => sender.channels!.includes(channel)) : [];
+  const senderChannels = sender.channels;
+  const channels = Array.isArray(senderChannels) ? Object.values(ZAVU_DELIVERY_CHANNEL).filter((channel) => senderChannels.includes(channel)) : [];
   return { resourceId: sender.id, name: typeof sender.name === "string" ? sender.name : sender.id, channels, canSendWhatsappTemplates: channels.includes(ZAVU_DELIVERY_CHANNEL.whatsapp) && sender.whatsapp?.paymentStatus?.canSendTemplates === true };
 }
 
@@ -28,7 +29,7 @@ export function mapZavuSenderResource(sender: Sender, expectedResourceId?: strin
  * @returns Owned selection with no body, namespace or provider-only metadata.
  * @throws ZavuInspectionError when the consumed identity or language is unusable.
  */
-export function mapZavuTemplateResource(template: Template, expectedResourceId?: string): MessagingTemplateResource {
+export function mapZavuTemplateResource(template: Template | null | undefined, expectedResourceId?: string): MessagingTemplateResource {
   if (!template || typeof template.id !== "string" || !template.id || typeof template.language !== "string" || !template.language || expectedResourceId !== undefined && template.id !== expectedResourceId) throw new ZavuInspectionError("template", messagingFailure(MESSAGING_ERROR_CODE.upstreamPayloadUnusable));
   return { resourceId: template.id, name: typeof template.name === "string" ? template.name : template.id, language: template.language, authenticationApproved: template.category === ZAVU_TEMPLATE_PREPARATION.authentication && template.status === ZAVU_TEMPLATE_PREPARATION.approved };
 }

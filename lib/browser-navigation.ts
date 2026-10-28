@@ -3,6 +3,14 @@ const BACK_FORWARD_NAVIGATION_TYPE = "back_forward";
 /** `TYPE_BACK_FORWARD` of the legacy `performance.navigation` API (older WebKit). */
 const LEGACY_BACK_FORWARD_NAVIGATION_TYPE = 2;
 
+/**
+ * The legacy `performance.navigation` API that older WebKit still exposes
+ * instead of Navigation Timing Level 2; newer engines may drop it.
+ */
+type LegacyNavigationPerformance = {
+  readonly navigation?: { readonly type: number };
+};
+
 export function reloadCurrentPage(): void {
   window.location.reload();
 }
@@ -112,7 +120,8 @@ export function isBackForwardDocumentLoad(): boolean {
     }
   }
 
+  const legacyPerformance: LegacyNavigationPerformance = performance;
   return (
-    performance.navigation?.type === LEGACY_BACK_FORWARD_NAVIGATION_TYPE
+    legacyPerformance.navigation?.type === LEGACY_BACK_FORWARD_NAVIGATION_TYPE
   );
 }

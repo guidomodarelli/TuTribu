@@ -62,7 +62,7 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
   /** A lost policy after protection is never replaced with new editable defaults. */
   private async current(database: RequestDatabase, tribeId: string): Promise<{ policy: AdmissionPolicy | null; controlActivated: boolean }> {
     const { policy, marker } = await readAdmissionPolicyWithControlMarker(database, tribeId, true);
-    if (marker && (!policy?.activatedAt || policy.activatedAt.getTime() !== marker.getTime()) || !marker && policy?.activatedAt) throw requirementUnmet(ADMISSION_POLICY_ACTIVATION_ERROR.preflightIncomplete);
+    if (marker && policy?.activatedAt?.getTime() !== marker.getTime() || !marker && policy?.activatedAt) throw requirementUnmet(ADMISSION_POLICY_ACTIVATION_ERROR.preflightIncomplete);
     return { policy, controlActivated: Boolean(marker) };
   }
 
@@ -71,8 +71,8 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
     return admissionPolicyMutationResultSchema.parse({ policyId: policy.id, version: policy.version, verificationEpoch: policy.verificationEpoch, activatedAt: policy.activatedAt?.toISOString() ?? null, controlActivated, changed });
   }
 
-  /** @param database - Original owner transaction. @param intent - Authorized original action. @param ledgerId - Exact claimed operation. @param previousPolicy - Locked predecessor or actual initialization absence. @param policy - Effective persisted configuration. @param createdAt - Same native clock used by the resource write. @param reason - Existing bounded private pause explanation, never a metric dimension. @returns After staging one reconstructible effective change. */
-  private async audit(database: RequestDatabase, intent: PolicyIntent, ledgerId: string, previousPolicy: AdmissionPolicy | null, policy: AdmissionPolicy, createdAt: Date, reason?: string): Promise<void> {
+  /** @param database - Original owner transaction. @param intent - Authorized original action. @param change - Exact claimed operation (`ledgerId`), locked predecessor or actual initialization absence (`previousPolicy`), effective persisted configuration (`policy`), the same native clock used by the resource write (`createdAt`) and the existing bounded private pause explanation, never a metric dimension (`reason`). @returns After staging one reconstructible effective change. */
+  private async audit(database: RequestDatabase, intent: PolicyIntent, { ledgerId, previousPolicy, policy, createdAt, reason }: { ledgerId: string; previousPolicy: AdmissionPolicy | null; policy: AdmissionPolicy; createdAt: Date; reason?: string }): Promise<void> {
     await new PostgresAdmissionAuditRepository(database).append(createAdmissionPolicyAuditEvent({
       tribeId: intent.context.tribeId, actorUserId: intent.context.userId,
       operationId: ledgerId, operation: intent.type, previousPolicy, policy,
@@ -117,7 +117,7 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
       const policy = { ...defaults, ...await this.selectionReference(database, defaults) };
       const createdAt = await admissionPolicyDatabaseNow(database);
       await database.execute(sql`insert into public.academy_admission_policies(tribe_id,requires_whatsapp_number,messaging_connection_id,messaging_connection_version,changed_by_user_id,updated_at) values (${policy.tribeId},${policy.requiresWhatsappNumber ?? false},${policy.messagingConnectionId},${policy.messagingConnectionVersion},${intent.context.userId},${createdAt})`);
-      await this.audit(database, intent, ledgerId, null, policy, createdAt);
+      await this.audit(database, intent, { ledgerId, previousPolicy: null, policy, createdAt });
       return this.result(policy, false, true);
     });
   }
@@ -157,7 +157,7 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
     if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.unchanged) return this.result(policy, current.controlActivated, false);
     const changedAt = await this.save(database, proposal.policy, policy.version, intent.context.userId);
     if (proposal.invalidateUnappliedEvidence) await this.invalidateUnappliedEvidence(database, intent.context, ledgerId);
-    await this.audit(database, intent, ledgerId, policy, proposal.policy, changedAt, "reason" in intent ? intent.reason : undefined);
+    await this.audit(database, intent, { ledgerId, previousPolicy: policy, policy: proposal.policy, createdAt: changedAt, reason: "reason" in intent ? intent.reason : undefined });
     if (requiresReadiness) await this.assertCurrentPreparation(database, intent.context, proposal.policy);
     return this.result(proposal.policy, current.controlActivated, true);
   }
@@ -175,7 +175,7 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
     const challenges = (await database.execute<{ id: string; channel: "email" | "sms" | "whatsapp" }>(sql`select id,channel from public.contact_verification_challenges where tribe_id=${tribeId} and purpose=${ADMISSION_VERIFICATION_PURPOSE.admission} order by id for update`)).rows;
     const now = await admissionPolicyDatabaseNow(database);
     const invalidatedProofs = (await database.execute<InvalidatedAdmissionProofAuditRow>(sql`update public.academy_admission_verification_proofs set status=${ADMISSION_PROOF_STATUS.invalid},invalidated_at=${now},invalidation_reason=${ADMISSION_POLICY_AUDIT.invalidationRule} where tribe_id=${tribeId} and status=${ADMISSION_PROOF_STATUS.available} returning id,challenge_id,verification_epoch,applied_request_id,invalidated_at`)).rows;
-    await appendAdmissionProofInvalidationAudit(database, { tribeId, actorUserId: context.userId, operationId: ledgerId, cause: ADMISSION_POLICY_AUDIT.invalidationRule }, invalidatedProofs, new Map(challenges.map((challenge) => [challenge.id, challenge.channel])), ADMISSION_PROOF_STATUS.available);
+    await appendAdmissionProofInvalidationAudit(database, { tribeId, actorUserId: context.userId, operationId: ledgerId, cause: ADMISSION_POLICY_AUDIT.invalidationRule }, { proofs: invalidatedProofs, channels: new Map(challenges.map((challenge) => [challenge.id, challenge.channel])), previousStates: ADMISSION_PROOF_STATUS.available });
     await database.execute(sql`update public.contact_verification_challenges set is_current=false,state=case when state=${VERIFICATION_CHALLENGE_STATE.verified} then state else ${VERIFICATION_CHALLENGE_STATE.invalidated} end,version=version+1,invalidated_at=coalesce(invalidated_at,${now}),invalidation_reason=coalesce(invalidation_reason,${ADMISSION_POLICY_AUDIT.invalidationRule}),code_mac=null,code_envelope_id=null where tribe_id=${tribeId} and purpose=${ADMISSION_VERIFICATION_PURPOSE.admission} and is_current`);
   }
 
@@ -200,7 +200,7 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
       const changedAt = await this.save(database, proposal.policy, current.policy.version, intent.context.userId);
       const updated = (await database.execute(sql`update public.tribes set admissions_control_activated_at=${proposal.controlActivatedAt} where id=${intent.context.tribeId} and admissions_control_activated_at is null returning id`)).rows[0];
       if (!updated) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
-      await this.audit(database, intent, ledgerId, current.policy, proposal.policy, changedAt);
+      await this.audit(database, intent, { ledgerId, previousPolicy: current.policy, policy: proposal.policy, createdAt: changedAt });
       await this.assertCurrentPreparation(database, intent.context, proposal.policy);
       return this.result(proposal.policy, true, true);
     });

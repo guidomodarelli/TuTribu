@@ -82,17 +82,50 @@ function getInitialChannel(
   return initialSettings?.channel ?? TRIBE_SUPPORT_CHANNEL.whatsapp;
 }
 
-export function TribeSupportConfigDialog({
+/**
+ * Saves the support settings of a tribe.
+ * @param tribeSlug - Tribe slug.
+ * @param settings - Normalized settings to save.
+ * @returns Whether the request succeeded and its parsed body, or `null` when
+ * the body is not JSON.
+ */
+async function requestSupportSettingsSave(
+  tribeSlug: string,
+  settings: SupportSettingsPayload
+): Promise<{ ok: boolean; payload: SupportFetchResponse | null }> {
+  const response = await fetch(
+    SUPPORT_DIALOG_REQUEST.apiPrefix +
+      encodeURIComponent(tribeSlug) +
+      SUPPORT_DIALOG_REQUEST.supportSegment,
+    {
+      body: JSON.stringify(settings),
+      headers: {
+        [SUPPORT_DIALOG_REQUEST.contentTypeHeader]:
+          SUPPORT_DIALOG_REQUEST.jsonContentType,
+      },
+      method: SUPPORT_DIALOG_REQUEST.putMethod,
+    }
+  );
+  const payload = (await response
+    .json()
+    .catch(() => null)) as SupportFetchResponse | null;
+
+  return { ok: response.ok, payload };
+}
+
+/**
+ * Owns the support settings draft: it resets to the saved settings each time
+ * the dialog opens and saves them once at a time.
+ * @param options - Dialog props that seed and receive the draft.
+ * @returns Draft fields, their setters, the saving state and the submit handler.
+ */
+function useSupportSettingsForm({
   initialSettings,
   onOpenChange,
   onSaved,
   open,
   tribeSlug,
 }: TribeSupportConfigDialogProps) {
-  const channelInputId = useId();
-  const phoneInputId = useId();
-  const messageInputId = useId();
-  const formId = useId();
   // Synchronous guard: two quick submits can run before `isSaving` re-renders.
   const isSubmittingRef = useRef(false);
   const [channel, setChannel] = useState<TribeSupportChannel>(() =>
@@ -123,7 +156,7 @@ export function TribeSupportConfigDialog({
     }
   }
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (isSubmittingRef.current) {
@@ -139,28 +172,13 @@ export function TribeSupportConfigDialog({
     setErrorMessage(null);
 
     try {
-      const response = await fetch(
-        SUPPORT_DIALOG_REQUEST.apiPrefix +
-          encodeURIComponent(tribeSlug) +
-          SUPPORT_DIALOG_REQUEST.supportSegment,
-        {
-          body: JSON.stringify({
-            channel,
-            message: trimmedMessage.length > 0 ? trimmedMessage : null,
-            phoneNumber: trimmedPhoneNumber,
-          }),
-          headers: {
-            [SUPPORT_DIALOG_REQUEST.contentTypeHeader]:
-              SUPPORT_DIALOG_REQUEST.jsonContentType,
-          },
-          method: SUPPORT_DIALOG_REQUEST.putMethod,
-        }
-      );
-      const payload = (await response
-        .json()
-        .catch(() => null)) as SupportFetchResponse | null;
+      const { ok, payload } = await requestSupportSettingsSave(tribeSlug, {
+        channel,
+        message: trimmedMessage.length > 0 ? trimmedMessage : null,
+        phoneNumber: trimmedPhoneNumber,
+      });
 
-      if (!response.ok || !payload?.settings) {
+      if (!ok || !payload?.settings) {
         setErrorMessage(
           payload?.message ?? SUPPORT_DIALOG_COPY.fallbackError
         );
@@ -178,6 +196,152 @@ export function TribeSupportConfigDialog({
     }
   };
 
+  return {
+    channel,
+    errorMessage,
+    handleSubmit,
+    isSaving,
+    message,
+    phoneNumber,
+    setChannel,
+    setErrorMessage,
+    setMessage,
+    setPhoneNumber,
+  };
+}
+
+type SupportDialogFooterProps = {
+  formId: string;
+  isSaving: boolean;
+  onCancel: () => void;
+};
+
+/**
+ * Cancel and save actions of the support dialog.
+ * @param props - Form to submit, saving state and cancel handler.
+ * @returns The dialog footer actions.
+ */
+function SupportDialogFooter({ formId, isSaving, onCancel }: SupportDialogFooterProps) {
+  return (
+    <>
+      <Button
+        disabled={isSaving}
+        onClick={onCancel}
+        type={SUPPORT_DIALOG_BUTTON.cancelType}
+        variant={SUPPORT_DIALOG_BUTTON.secondaryVariant}
+      >
+        {SUPPORT_DIALOG_COPY.cancelLabel}
+      </Button>
+      <Button
+        aria-busy={isSaving || undefined}
+        disabled={isSaving}
+        form={formId}
+        type={SUPPORT_DIALOG_FORM.submitType}
+      >
+        {isSaving
+          ? SUPPORT_DIALOG_COPY.savingLabel
+          : SUPPORT_DIALOG_COPY.saveLabel}
+      </Button>
+    </>
+  );
+}
+
+type SupportSettingsFieldsProps = {
+  channel: TribeSupportChannel;
+  errorMessage: string | null;
+  message: string;
+  onChannelChange: (channel: TribeSupportChannel) => void;
+  onMessageChange: (message: string) => void;
+  onPhoneNumberChange: (phoneNumber: string) => void;
+  phoneNumber: string;
+};
+
+/**
+ * Channel, phone number and optional message fields of the support settings.
+ * @param props - Draft values, the save error and their change handlers.
+ * @returns The form fields.
+ */
+function SupportSettingsFields({
+  channel,
+  errorMessage,
+  message,
+  onChannelChange,
+  onMessageChange,
+  onPhoneNumberChange,
+  phoneNumber,
+}: SupportSettingsFieldsProps) {
+  const channelInputId = useId();
+  const phoneInputId = useId();
+  const messageInputId = useId();
+
+  return (
+    <>
+      <Select
+        id={channelInputId}
+        label={SUPPORT_DIALOG_COPY.channelLabel}
+        options={SUPPORT_CHANNEL_OPTIONS}
+        placeholder={SUPPORT_DIALOG_COPY.channelPlaceholder}
+        value={channel}
+        onValueChange={(nextValue) =>
+          onChannelChange(nextValue as TribeSupportChannel)
+        }
+      />
+
+      <Input
+        autoComplete={SUPPORT_DIALOG_FORM.phoneAutoComplete}
+        description={errorMessage ? undefined : SUPPORT_DIALOG_COPY.phoneHelp}
+        error={errorMessage ?? undefined}
+        id={phoneInputId}
+        label={SUPPORT_DIALOG_COPY.phoneLabel}
+        onChange={(event) => {
+          onPhoneNumberChange(event.currentTarget.value);
+        }}
+        placeholder={SUPPORT_DIALOG_COPY.phonePlaceholder}
+        required
+        type={SUPPORT_DIALOG_FORM.inputType}
+        value={phoneNumber}
+      />
+
+      <Textarea
+        description={SUPPORT_DIALOG_COPY.messageHelp}
+        id={messageInputId}
+        label={SUPPORT_DIALOG_COPY.messageLabel}
+        maxLength={SUPPORT_DIALOG_MESSAGE_MAX_LENGTH}
+        onChange={(event) => onMessageChange(event.currentTarget.value)}
+        placeholder={SUPPORT_DIALOG_COPY.messagePlaceholder}
+        value={message}
+      />
+    </>
+  );
+}
+
+export function TribeSupportConfigDialog({
+  initialSettings,
+  onOpenChange,
+  onSaved,
+  open,
+  tribeSlug,
+}: TribeSupportConfigDialogProps) {
+  const formId = useId();
+  const {
+    channel,
+    errorMessage,
+    handleSubmit,
+    isSaving,
+    message,
+    phoneNumber,
+    setChannel,
+    setErrorMessage,
+    setMessage,
+    setPhoneNumber,
+  } = useSupportSettingsForm({
+    initialSettings,
+    onOpenChange,
+    onSaved,
+    open,
+    tribeSlug,
+  });
+
   const handleOpenChange = (nextOpen: boolean) => {
     // Keep the dialog open while saving so the result is never lost.
     if (!nextOpen && isSaving) {
@@ -194,26 +358,11 @@ export function TribeSupportConfigDialog({
         title={SUPPORT_DIALOG_COPY.title}
         description={SUPPORT_DIALOG_COPY.description}
         footer={
-          <>
-            <Button
-              disabled={isSaving}
-              onClick={() => handleOpenChange(false)}
-              type={SUPPORT_DIALOG_BUTTON.cancelType}
-              variant={SUPPORT_DIALOG_BUTTON.secondaryVariant}
-            >
-              {SUPPORT_DIALOG_COPY.cancelLabel}
-            </Button>
-            <Button
-              aria-busy={isSaving || undefined}
-              disabled={isSaving}
-              form={formId}
-              type={SUPPORT_DIALOG_FORM.submitType}
-            >
-              {isSaving
-                ? SUPPORT_DIALOG_COPY.savingLabel
-                : SUPPORT_DIALOG_COPY.saveLabel}
-            </Button>
-          </>
+          <SupportDialogFooter
+            formId={formId}
+            isSaving={isSaving}
+            onCancel={() => handleOpenChange(false)}
+          />
         }
       >
         <form
@@ -221,41 +370,17 @@ export function TribeSupportConfigDialog({
           className={styles.TribeSupportConfigDialog__form}
           onSubmit={handleSubmit}
         >
-          <Select
-            id={channelInputId}
-            label={SUPPORT_DIALOG_COPY.channelLabel}
-            options={SUPPORT_CHANNEL_OPTIONS}
-            placeholder={SUPPORT_DIALOG_COPY.channelPlaceholder}
-            value={channel}
-            onValueChange={(nextValue) =>
-              setChannel(nextValue as TribeSupportChannel)
-            }
-          />
-
-          <Input
-            autoComplete={SUPPORT_DIALOG_FORM.phoneAutoComplete}
-            description={errorMessage ? undefined : SUPPORT_DIALOG_COPY.phoneHelp}
-            error={errorMessage ?? undefined}
-            id={phoneInputId}
-            label={SUPPORT_DIALOG_COPY.phoneLabel}
-            onChange={(event) => {
-              setPhoneNumber(event.currentTarget.value);
+          <SupportSettingsFields
+            channel={channel}
+            errorMessage={errorMessage}
+            message={message}
+            onChannelChange={setChannel}
+            onMessageChange={setMessage}
+            onPhoneNumberChange={(nextPhoneNumber) => {
+              setPhoneNumber(nextPhoneNumber);
               setErrorMessage(null);
             }}
-            placeholder={SUPPORT_DIALOG_COPY.phonePlaceholder}
-            required
-            type={SUPPORT_DIALOG_FORM.inputType}
-            value={phoneNumber}
-          />
-
-          <Textarea
-            description={SUPPORT_DIALOG_COPY.messageHelp}
-            id={messageInputId}
-            label={SUPPORT_DIALOG_COPY.messageLabel}
-            maxLength={SUPPORT_DIALOG_MESSAGE_MAX_LENGTH}
-            onChange={(event) => setMessage(event.currentTarget.value)}
-            placeholder={SUPPORT_DIALOG_COPY.messagePlaceholder}
-            value={message}
+            phoneNumber={phoneNumber}
           />
         </form>
       </DialogContent>

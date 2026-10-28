@@ -18,15 +18,27 @@ export const messagingConnectionsStepId=(kind:MessagingConnectionsStepKind,chann
  * @param input - Current selection and candidate, saved usage (a test consumes its daily code quota) and the observation time used to tell a test that expired; the unchanged active selection is not retested daily.
  * @returns Every step with its blocked reason; activation is last and its own action checks the requirements.
  */
+/** @param candidate - Current candidate, if any. @returns Why the credential step is blocked, or null once the key is valid. */
+function credentialBlockReason(candidate:MessagingConfigurationConnection|null):string|null{
+  if(!candidate)return FLOW_COPY.keyRequired;
+  return candidate.credentialState!==MESSAGING_CREDENTIAL_PUBLIC_STATE.valid?FLOW_COPY.credentialRequired:null;
+}
+
+/** @param capability - Usable candidate channel. @param state - Observation time, active selection, missing usage and channel label. @returns Why the channel test is pending, or null once it is proven. */
+function testBlockReason(capability:MessagingConfigurationConnection["capabilities"][number],state:{activeSelection:boolean;label:string;nowMs:number;usageMissing:boolean}):string|null{
+  if(isMessagingCapabilityFreshlyTested(capability,state.nowMs)||state.activeSelection&&capability.state===MESSAGING_CAPABILITY_PUBLIC_STATE.prepared)return null;
+  return state.usageMissing?FLOW_COPY.usageRequired:FLOW_COPY.testRequired(state.label);
+}
+
 export function resolveMessagingConnectionsFlow(input:{selected?:MessagingConfigurationConnection|null;candidate:MessagingConfigurationConnection|null;usage:MessagingUsagePolicyStateDto;observedAt:string}):MessagingConnectionsFlowStep[]{
   const{candidate}=input,nowMs=Date.parse(input.observedAt),activeSelection=isExactActiveSelection(input.selected??null,candidate),usageMissing=input.usage.state===MESSAGING_USAGE_POLICY_STATE.notConfigured;
   const usable=candidate?.capabilities.filter((capability)=>capability.state!==MESSAGING_CAPABILITY_PUBLIC_STATE.unavailable)??[];
-  const credentialBlocked=!candidate?FLOW_COPY.keyRequired:candidate.credentialState!==MESSAGING_CREDENTIAL_PUBLIC_STATE.valid?FLOW_COPY.credentialRequired:null;
+  const credentialBlocked=credentialBlockReason(candidate);
   return[
     {id:messagingConnectionsStepId(STEP_KIND.key),kind:STEP_KIND.key,channel:null,...STEP_COPY.key,blockedReason:candidate?null:FLOW_COPY.keyRequired},
     {id:messagingConnectionsStepId(STEP_KIND.credential),kind:STEP_KIND.credential,channel:null,...STEP_COPY.credential,blockedReason:credentialBlocked},
     {id:messagingConnectionsStepId(STEP_KIND.channels),kind:STEP_KIND.channels,channel:null,...STEP_COPY.channels,blockedReason:credentialBlocked??(usable.length?null:FLOW_COPY.channelRequired)},
-    ...usable.map((capability)=>{const label=MESSAGING_CHANNEL_LABEL[capability.channel];return{id:messagingConnectionsStepId(STEP_KIND.test,capability.channel),kind:STEP_KIND.test,channel:capability.channel,...STEP_COPY.test(label),blockedReason:isMessagingCapabilityFreshlyTested(capability,nowMs)||activeSelection&&capability.state===MESSAGING_CAPABILITY_PUBLIC_STATE.prepared?null:usageMissing?FLOW_COPY.usageRequired:FLOW_COPY.testRequired(label)};}),
+    ...usable.map((capability)=>{const label=MESSAGING_CHANNEL_LABEL[capability.channel];return{id:messagingConnectionsStepId(STEP_KIND.test,capability.channel),kind:STEP_KIND.test,channel:capability.channel,...STEP_COPY.test(label),blockedReason:testBlockReason(capability,{activeSelection,label,nowMs,usageMissing})};}),
     {id:messagingConnectionsStepId(STEP_KIND.activation),kind:STEP_KIND.activation,channel:null,...STEP_COPY.activation,blockedReason:null},
   ];
 }

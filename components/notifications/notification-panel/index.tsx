@@ -2,7 +2,7 @@
 
 import { BellOffIcon, CheckCheckIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { Button, AnimatedListItem, cn, MOTION_TIMING, MOTION_EASE } from "@golfo/ui";
+import { Button, AnimatedListItem, cn } from "@golfo/ui";
 
 import { Link } from "@/components/navigation/link";
 import { describeNotification } from "@/lib/notifications/notification-presentation";
@@ -36,7 +36,7 @@ function resolvePanelView(hasNotifications: boolean, listStatus: NotificationPan
       return NOTIFICATION_PANEL_VIEW.error;
     case NOTIFICATION_PANEL_STATUS.loaded:
       return NOTIFICATION_PANEL_VIEW.empty;
-    default:
+    case NOTIFICATION_PANEL_STATUS.idle:
       return NOTIFICATION_PANEL_VIEW.idle;
   }
 }
@@ -56,6 +56,91 @@ type NotificationPanelProps = {
   titleSlot: React.ReactNode;
   unreadCount: number;
 };
+
+/**
+ * Header of the panel: the surface title and, while something is unread, "Marcar todas como leídas".
+ * @param props - Title slot, unread count, mark-all state and callback, and close button spacing.
+ * @returns The panel header.
+ */
+function NotificationPanelHeader({
+  isMarkingAll,
+  onMarkAllRead,
+  reservesCloseButtonSpace,
+  titleSlot,
+  unreadCount,
+}: Pick<NotificationPanelProps, "isMarkingAll" | "onMarkAllRead" | "titleSlot" | "unreadCount"> & { reservesCloseButtonSpace: boolean }) {
+  return (
+    <div
+      className={cn(
+        styles.NotificationPanel__header,
+        reservesCloseButtonSpace && styles["NotificationPanel__header--withClose"]
+      )}
+    >
+      {titleSlot}
+      <AnimatePresence initial={false}>
+        {unreadCount > 0 ? (
+          <motion.span
+            animate={MARK_ALL_FADE.animate}
+            className={styles.NotificationPanel__markAllSlot}
+            exit={MARK_ALL_FADE.exit}
+            initial={MARK_ALL_FADE.initial}
+            key="mark-all"
+            transition={MARK_ALL_FADE.transition}
+          >
+            <Button
+              className={styles.NotificationPanel__markAll}
+              disabled={isMarkingAll}
+              onClick={onMarkAllRead}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              <CheckCheckIcon aria-hidden="true" />
+              Marcar todas como leídas
+            </Button>
+          </motion.span>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/**
+ * One inbox row that opens its target and marks it read.
+ * @param props - The notification and the selection callback.
+ * @returns The animated list item.
+ */
+function NotificationListItem({ notification, onSelectNotification }: { notification: NotificationItemResult; onSelectNotification: (notificationId: string) => void }) {
+  const presentation = describeNotification(notification);
+  const isUnread = notification.readAt === null;
+
+  return (
+    <AnimatedListItem className={styles.NotificationPanel__item}>
+      <Link
+        className={cn(
+          styles.NotificationPanel__link,
+          isUnread && styles["NotificationPanel__link--unread"]
+        )}
+        href={presentation.href}
+        onClick={() => onSelectNotification(notification.id)}
+      >
+        <span
+          aria-hidden="true"
+          className={cn(
+            styles.NotificationPanel__dot,
+            isUnread && styles["NotificationPanel__dot--unread"]
+          )}
+        />
+        <span className={styles.NotificationPanel__body}>
+          {isUnread ? <span className={styles.NotificationPanel__srOnly}>No leída: </span> : null}
+          <span className={styles.NotificationPanel__title}>{presentation.title}</span>
+          <span className={styles.NotificationPanel__detail}>{presentation.detail}</span>
+          <span className={styles.NotificationPanel__sentAt}>{presentation.sentAtLabel}</span>
+        </span>
+      </Link>
+    </AnimatedListItem>
+  );
+}
 
 /**
  * Content of the notification bell (shared by the desktop popover and the
@@ -79,38 +164,7 @@ export function NotificationPanel({
 
   return (
     <div className={styles.NotificationPanel}>
-      <div
-        className={cn(
-          styles.NotificationPanel__header,
-          reservesCloseButtonSpace && styles["NotificationPanel__header--withClose"]
-        )}
-      >
-        {titleSlot}
-        <AnimatePresence initial={false}>
-          {unreadCount > 0 ? (
-            <motion.span
-              animate={MARK_ALL_FADE.animate}
-              className={styles.NotificationPanel__markAllSlot}
-              exit={MARK_ALL_FADE.exit}
-              initial={MARK_ALL_FADE.initial}
-              key="mark-all"
-              transition={MARK_ALL_FADE.transition}
-            >
-              <Button
-                className={styles.NotificationPanel__markAll}
-                disabled={isMarkingAll}
-                onClick={onMarkAllRead}
-                size="sm"
-                type="button"
-                variant="ghost"
-              >
-                <CheckCheckIcon aria-hidden="true" />
-                Marcar todas como leídas
-              </Button>
-            </motion.span>
-          ) : null}
-        </AnimatePresence>
-      </div>
+      <NotificationPanelHeader isMarkingAll={isMarkingAll} onMarkAllRead={onMarkAllRead} reservesCloseButtonSpace={reservesCloseButtonSpace} titleSlot={titleSlot} unreadCount={unreadCount} />
 
       {panelView === NOTIFICATION_PANEL_VIEW.loading ? (
         <p className={styles.NotificationPanel__state} role="status">
@@ -147,37 +201,9 @@ export function NotificationPanel({
       {panelView === NOTIFICATION_PANEL_VIEW.list ? (
         <ul className={styles.NotificationPanel__list}>
           <AnimatePresence initial={false}>
-            {notifications.map((notification) => {
-              const presentation = describeNotification(notification);
-              const isUnread = notification.readAt === null;
-
-              return (
-                <AnimatedListItem className={styles.NotificationPanel__item} key={notification.id}>
-                  <Link
-                    className={cn(
-                      styles.NotificationPanel__link,
-                      isUnread && styles["NotificationPanel__link--unread"]
-                    )}
-                    href={presentation.href}
-                    onClick={() => onSelectNotification(notification.id)}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        styles.NotificationPanel__dot,
-                        isUnread && styles["NotificationPanel__dot--unread"]
-                      )}
-                    />
-                    <span className={styles.NotificationPanel__body}>
-                      {isUnread ? <span className={styles.NotificationPanel__srOnly}>No leída: </span> : null}
-                      <span className={styles.NotificationPanel__title}>{presentation.title}</span>
-                      <span className={styles.NotificationPanel__detail}>{presentation.detail}</span>
-                      <span className={styles.NotificationPanel__sentAt}>{presentation.sentAtLabel}</span>
-                    </span>
-                  </Link>
-                </AnimatedListItem>
-              );
-            })}
+            {notifications.map((notification) => (
+              <NotificationListItem key={notification.id} notification={notification} onSelectNotification={onSelectNotification} />
+            ))}
           </AnimatePresence>
         </ul>
       ) : null}

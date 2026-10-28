@@ -15,10 +15,12 @@ import {
 import {
   NORMALIZED_MESSAGE_MEDIA_STATUS,
   normalizeMessageMediaDrafts,
+  type NormalizedMessageMediaResult,
 } from "@/src/modules/messages/application/use-cases/normalize-message-media-use-cases";
 import {
   NORMALIZED_MESSAGE_FILES_STATUS,
   normalizeMessageFileDrafts,
+  type NormalizedMessageFileDrafts,
 } from "@/src/modules/messages/application/use-cases/message-files-use-cases";
 import type { MessageImageRepository } from "@/src/modules/messages/domain/repositories/message-image-repository";
 import type { MessageFileRepository } from "@/src/modules/messages/domain/repositories/message-file-repository";
@@ -102,6 +104,205 @@ async function cleanupPreparedMessageFiles({
   );
 }
 
+type ValidMessageMedia = Extract<
+  NormalizedMessageMediaResult,
+  { status: typeof NORMALIZED_MESSAGE_MEDIA_STATUS.valid }
+>;
+
+type ValidMessageFiles = Extract<
+  NormalizedMessageFileDrafts,
+  { status: typeof NORMALIZED_MESSAGE_FILES_STATUS.valid }
+>;
+
+type MessageCreationDraft = {
+  channelId: string;
+  content: string;
+  files: ValidMessageFiles["files"];
+  images: ValidMessageMedia["images"];
+  poll: ReturnType<typeof normalizeMessagePollDraft> | null;
+  title: string;
+  videos: ValidMessageMedia["videos"];
+};
+
+type MessageCreationFailure = { failure: MessageCreationResult };
+
+type MessageCreationScope = {
+  messageFileRepository: CreateTribeMessageDependencies["messageFileRepository"];
+  messageImageRepository: CreateTribeMessageDependencies["messageImageRepository"];
+  tribeSlug: string;
+  userId: string;
+};
+
+/**
+ * Normalizes and validates the publication before any attachment is prepared.
+ * @param command - Raw creation command.
+ * @returns The rejection to answer, or the normalized draft.
+ */
+function validateMessageCreation(
+  command: CreateTribeMessageCommand
+): MessageCreationFailure | { draft: MessageCreationDraft } {
+  const content = normalizeMessageContent(command.content);
+  const title = normalizeMessageTitle(command.title);
+  const channelId = command.channelId.trim();
+  const poll = command.poll ? normalizeMessagePollDraft(command.poll) : null;
+  const normalizedMedia = normalizeMessageMediaDrafts(command.media);
+  const normalizedFiles = normalizeMessageFileDrafts(command.files);
+
+  if (
+    isInvalidText(content, TRIBE_MESSAGE_CONTENT) ||
+    isInvalidText(title, TRIBE_MESSAGE_TITLE)
+  ) {
+    return { failure: { status: MESSAGE_MUTATION_STATUS.invalidContent } };
+  }
+
+  if (!channelId) {
+    return { failure: { status: MESSAGE_MUTATION_STATUS.invalidChannel } };
+  }
+
+  if (poll && !isValidMessagePollDraft(poll)) {
+    return { failure: { status: MESSAGE_MUTATION_STATUS.invalidPoll } };
+  }
+
+  if (normalizedMedia.status !== NORMALIZED_MESSAGE_MEDIA_STATUS.valid) {
+    return { failure: { status: normalizedMedia.status } };
+  }
+
+  if (normalizedFiles.status !== NORMALIZED_MESSAGE_FILES_STATUS.valid) {
+    return { failure: { status: normalizedFiles.status } };
+  }
+
+  return {
+    draft: {
+      channelId,
+      content,
+      files: normalizedFiles.files,
+      images: normalizedMedia.images,
+      poll,
+      title,
+      videos: normalizedMedia.videos,
+    },
+  };
+}
+
+/**
+ * A retry of a stored publication with attachments must be answered before attachment preparation: its assets are
+ * already attached, preparation would reject them and the cleanup that follows would delete the stored media.
+ * Without attachments the repository's single statement already replays the key, so no extra lookup is needed.
+ * @param options - Command, normalized draft, repository and the author scope.
+ * @returns The stored message id when the command replays a stored publication.
+ */
+async function findReplayedPublication({
+  command,
+  draft,
+  messageCreationRepository,
+  tribeSlug,
+  userId,
+}: {
+  command: CreateTribeMessageCommand;
+  draft: MessageCreationDraft;
+  messageCreationRepository: MessageCreationRepository;
+  tribeSlug: string;
+  userId: string;
+}): Promise<string | null> {
+  const hasAttachments = draft.images.length > 0 || draft.files.length > 0;
+
+  if (!command.clientRequestId || !hasAttachments || !messageCreationRepository.findPublicationByClientRequestId) {
+    return null;
+  }
+
+  return messageCreationRepository.findPublicationByClientRequestId({
+    authorId: userId,
+    clientRequestId: command.clientRequestId,
+    tribeSlug,
+  });
+}
+
+/**
+ * Prepares the images and then the files; a failed preparation cleans up what was prepared so far.
+ * @param options - Normalized draft, attachment repositories and the author scope.
+ * @returns The rejection to answer, or the prepared attachments.
+ */
+async function prepareCreationAttachments({
+  draft,
+  ...scope
+}: MessageCreationScope & { draft: MessageCreationDraft }): Promise<
+  MessageCreationFailure | Pick<MessageCreationDraft, "files" | "images">
+> {
+  const { messageFileRepository, messageImageRepository, tribeSlug, userId } = scope;
+  let { files, images } = draft;
+
+  if (images.length > 0) {
+    const preparedImages = await messageImageRepository?.prepareForAttachment({
+      images,
+      tribeSlug,
+      userId,
+    });
+
+    if (
+      preparedImages?.status !== MESSAGE_IMAGE_PREPARATION_STATUS.ready
+    ) {
+      await cleanupPreparedMessageImages({
+        images,
+        messageImageRepository,
+        tribeSlug,
+        userId,
+      });
+
+      return { failure: { status: MESSAGE_MUTATION_STATUS.invalidImage } };
+    }
+
+    images = preparedImages.images;
+  }
+
+  if (files.length > 0) {
+    const preparedFiles = await messageFileRepository?.prepareForAttachment({
+      files,
+      tribeSlug,
+      userId,
+    });
+
+    if (
+      preparedFiles?.status !== MESSAGE_FILE_PREPARATION_STATUS.ready
+    ) {
+      await cleanupPreparedAttachments({ ...scope, files, images });
+
+      return { failure: { status: MESSAGE_MUTATION_STATUS.invalidFile } };
+    }
+
+    files = preparedFiles.files;
+  }
+
+  return { files, images };
+}
+
+/**
+ * Deletes every prepared image and file of a publication that was not stored.
+ * @param options - Prepared attachments, attachment repositories and the author scope.
+ */
+async function cleanupPreparedAttachments({
+  files,
+  images,
+  messageFileRepository,
+  messageImageRepository,
+  tribeSlug,
+  userId,
+}: MessageCreationScope & Pick<MessageCreationDraft, "files" | "images">): Promise<void> {
+  await Promise.all([
+    cleanupPreparedMessageImages({
+      images,
+      messageImageRepository,
+      tribeSlug,
+      userId,
+    }),
+    cleanupPreparedMessageFiles({
+      files,
+      messageFileRepository,
+      tribeSlug,
+      userId,
+    }),
+  ]);
+}
+
 export function createTribeMessage({
   messageCreationRepository,
   messageFileRepository,
@@ -110,137 +311,36 @@ export function createTribeMessage({
   return async (
     command: CreateTribeMessageCommand
   ): Promise<MessageCreationResult> => {
-    const content = normalizeMessageContent(command.content);
-    const title = normalizeMessageTitle(command.title);
-    const channelId = command.channelId.trim();
-    const poll = command.poll ? normalizeMessagePollDraft(command.poll) : null;
-    const normalizedMedia = normalizeMessageMediaDrafts(command.media);
-    const normalizedFiles = normalizeMessageFileDrafts(command.files);
+    const validation = validateMessageCreation(command);
 
-    if (
-      isInvalidText(content, TRIBE_MESSAGE_CONTENT) ||
-      isInvalidText(title, TRIBE_MESSAGE_TITLE)
-    ) {
-      return {
-        status: MESSAGE_MUTATION_STATUS.invalidContent,
-      };
+    if ("failure" in validation) {
+      return validation.failure;
     }
 
-    if (!channelId) {
-      return {
-        status: MESSAGE_MUTATION_STATUS.invalidChannel,
-      };
-    }
-
-    if (poll && !isValidMessagePollDraft(poll)) {
-      return {
-        status: MESSAGE_MUTATION_STATUS.invalidPoll,
-      };
-    }
-
-    if (normalizedMedia.status !== NORMALIZED_MESSAGE_MEDIA_STATUS.valid) {
-      return { status: normalizedMedia.status };
-    }
-
-    if (normalizedFiles.status !== NORMALIZED_MESSAGE_FILES_STATUS.valid) {
-      return { status: normalizedFiles.status };
-    }
-
+    const { draft } = validation;
     const tribeSlug = command.tribeSlug.trim();
     const userId = command.authorId;
+    const storedMessageId = await findReplayedPublication({
+      command,
+      draft,
+      messageCreationRepository,
+      tribeSlug,
+      userId,
+    });
 
-    // A retry of a stored publication with attachments must be answered before attachment preparation: its assets are
-    // already attached, preparation would reject them and the cleanup that follows would delete the stored media.
-    // Without attachments the repository's single statement already replays the key, so no extra lookup is needed.
-    const hasAttachments = normalizedMedia.images.length > 0 || normalizedFiles.files.length > 0;
-    if (command.clientRequestId && hasAttachments && messageCreationRepository.findPublicationByClientRequestId) {
-      const storedMessageId = await messageCreationRepository.findPublicationByClientRequestId({
-        authorId: userId,
-        clientRequestId: command.clientRequestId,
-        tribeSlug,
-      });
-
-      if (storedMessageId) {
-        return { messageId: storedMessageId, status: MESSAGE_MUTATION_STATUS.replayed };
-      }
+    if (storedMessageId) {
+      return { messageId: storedMessageId, status: MESSAGE_MUTATION_STATUS.replayed };
     }
 
-    const videos = normalizedMedia.videos;
-    let images = normalizedMedia.images;
-    let files = normalizedFiles.files;
+    const scope: MessageCreationScope = { messageFileRepository, messageImageRepository, tribeSlug, userId };
+    const prepared = await prepareCreationAttachments({ ...scope, draft });
 
-    if (images.length > 0) {
-      const preparedImages = await messageImageRepository?.prepareForAttachment({
-        images,
-        tribeSlug,
-        userId,
-      });
-
-      if (
-        !preparedImages ||
-        preparedImages.status !== MESSAGE_IMAGE_PREPARATION_STATUS.ready
-      ) {
-        await cleanupPreparedMessageImages({
-          images,
-          messageImageRepository,
-          tribeSlug,
-          userId,
-        });
-
-        return { status: MESSAGE_MUTATION_STATUS.invalidImage };
-      }
-
-      images = preparedImages.images;
+    if ("failure" in prepared) {
+      return prepared.failure;
     }
 
-    if (files.length > 0) {
-      const preparedFiles = await messageFileRepository?.prepareForAttachment({
-        files,
-        tribeSlug,
-        userId,
-      });
-
-      if (
-        !preparedFiles ||
-        preparedFiles.status !== MESSAGE_FILE_PREPARATION_STATUS.ready
-      ) {
-        await Promise.all([
-          cleanupPreparedMessageImages({
-            images,
-            messageImageRepository,
-            tribeSlug,
-            userId,
-          }),
-          cleanupPreparedMessageFiles({
-            files,
-            messageFileRepository,
-            tribeSlug,
-            userId,
-          }),
-        ]);
-
-        return { status: MESSAGE_MUTATION_STATUS.invalidFile };
-      }
-
-      files = preparedFiles.files;
-    }
-
-    const cleanupPreparedAttachments = async (): Promise<void> => {
-      await Promise.all([
-        cleanupPreparedMessageImages({
-          images,
-          messageImageRepository,
-          tribeSlug,
-          userId,
-        }),
-        cleanupPreparedMessageFiles({
-          files,
-          messageFileRepository,
-          tribeSlug,
-          userId,
-        }),
-      ]);
-    };
+    const { files, images } = prepared;
+    const { channelId, content, poll, title, videos } = draft;
 
     try {
       const result = await messageCreationRepository.create({
@@ -259,12 +359,12 @@ export function createTribeMessage({
       // A replay keeps its stored attachments; unattached preparations are left to the orphan cleanup
       // rather than risk deleting an asset the stored message already uses.
       if (result.status !== MESSAGE_MUTATION_STATUS.created && result.status !== MESSAGE_MUTATION_STATUS.replayed) {
-        await cleanupPreparedAttachments();
+        await cleanupPreparedAttachments({ ...scope, files, images });
       }
 
       return result;
     } catch (error) {
-      await cleanupPreparedAttachments();
+      await cleanupPreparedAttachments({ ...scope, files, images });
 
       throw error;
     }

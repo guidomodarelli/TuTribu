@@ -28,13 +28,14 @@ import {
 import { Dialog, Tooltip as TooltipPrimitive } from "radix-ui";
 import {
   useEffect,
+  useEffectEvent,
   useId,
   useLayoutEffect,
   useRef,
   useState,
-  type KeyboardEvent as ReactKeyboardEvent,
   type ReactElement,
   type ReactNode,
+  type RefObject,
 } from "react";
 
 import { TribeSwitcher } from "@/components/platform/tribe-switcher";
@@ -260,14 +261,7 @@ function NavRow({ collapsed, entry, layoutId, onSelect, reduce, tips }: NavRowPr
         aria-label={collapsed ? entry.label : undefined}
         onClick={onSelect}
       >
-        {entry.isActive ? (
-          <motion.span
-            layoutId={layoutId}
-            className={styles.AppRailShell__highlight}
-            style={{ borderRadius: ROW_HIGHLIGHT_RADIUS_PX }}
-            transition={reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.morph}
-          />
-        ) : null}
+        {entry.isActive ? <RowHighlight layoutId={layoutId} reduce={reduce} /> : null}
         <Icon className={styles.AppRailShell__icon} aria-hidden="true" />
         <motion.span
           className={styles.AppRailShell__label}
@@ -291,6 +285,50 @@ function NavRow({ collapsed, entry, layoutId, onSelect, reduce, tips }: NavRowPr
         ) : null}
       </button>
     </RailTip>
+  );
+}
+
+/** The shared highlight that springs between the active rows of one navigation. */
+function RowHighlight({ layoutId, reduce }: { layoutId: string; reduce: boolean }) {
+  return (
+    <motion.span
+      layoutId={layoutId}
+      className={styles.AppRailShell__highlight}
+      style={{ borderRadius: ROW_HIGHLIGHT_RADIUS_PX }}
+      transition={reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.morph}
+    />
+  );
+}
+
+type NavGroupChildrenProps = {
+  entries: AppRailEntry[];
+  label: string;
+  layoutId: string;
+  onSelectHref: (href: string) => void;
+  panelId: string;
+  reduce: boolean;
+  /** Whether the group is open in the wide sidebar; a hidden list is inert and never holds the highlight. */
+  shown: boolean;
+};
+
+/** The subsection rows of a group; the open page keeps the highlight only while the list is shown. */
+function NavGroupChildren({ entries, label, layoutId, onSelectHref, panelId, reduce, shown }: NavGroupChildrenProps) {
+  return (
+    <ul id={panelId} className={styles.AppRailShell__children} aria-label={label} inert={!shown}>
+      {entries.map((child) => (
+        <li key={child.id}>
+          <button
+            type={BUTTON_TYPE}
+            className={`${styles.AppRailShell__item} ${styles["AppRailShell__item--nested"]} ${shown && child.isActive ? styles["AppRailShell__item--lit"] : ""}`}
+            aria-current={child.isActive ? CURRENT_PAGE : undefined}
+            onClick={() => onSelectHref(child.href)}
+          >
+            {shown && child.isActive ? <RowHighlight layoutId={layoutId} reduce={reduce} /> : null}
+            <span className={styles.AppRailShell__label}>{child.label}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -337,14 +375,7 @@ function NavGroup({ collapsed, entry, layoutId, onExpand, onSelectHref, panelId,
           aria-label={collapsed ? entry.label : undefined}
           onClick={toggle}
         >
-          {lit ? (
-            <motion.span
-              layoutId={layoutId}
-              className={styles.AppRailShell__highlight}
-              style={{ borderRadius: ROW_HIGHLIGHT_RADIUS_PX }}
-              transition={reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.morph}
-            />
-          ) : null}
+          {lit ? <RowHighlight layoutId={layoutId} reduce={reduce} /> : null}
           <Icon className={styles.AppRailShell__icon} aria-hidden="true" />
           <motion.span
             className={styles.AppRailShell__label}
@@ -367,28 +398,7 @@ function NavGroup({ collapsed, entry, layoutId, onExpand, onSelectHref, panelId,
         </button>
       </RailTip>
       <AnimatedCollapse isOpen={shown}>
-        <ul id={panelId} className={styles.AppRailShell__children} role="list" aria-label={entry.label} inert={!shown}>
-          {children.map((child) => (
-            <li key={child.id}>
-              <button
-                type={BUTTON_TYPE}
-                className={`${styles.AppRailShell__item} ${styles["AppRailShell__item--nested"]} ${shown && child.isActive ? styles["AppRailShell__item--lit"] : ""}`}
-                aria-current={child.isActive ? CURRENT_PAGE : undefined}
-                onClick={() => onSelectHref(child.href)}
-              >
-                {shown && child.isActive ? (
-                  <motion.span
-                    layoutId={layoutId}
-                    className={styles.AppRailShell__highlight}
-                    style={{ borderRadius: ROW_HIGHLIGHT_RADIUS_PX }}
-                    transition={reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.morph}
-                  />
-                ) : null}
-                <span className={styles.AppRailShell__label}>{child.label}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <NavGroupChildren entries={children} label={entry.label} layoutId={layoutId} onSelectHref={onSelectHref} panelId={panelId} reduce={reduce} shown={shown} />
       </AnimatedCollapse>
     </>
   );
@@ -452,7 +462,7 @@ function Navigation({ baseId, collapsed, footnote, onExpand, onSelect, reduce, s
                 />
               </motion.div>
             ) : null}
-            <ul className={styles.AppRailShell__list} role="list">
+            <ul className={styles.AppRailShell__list}>
               {section.entries.map((entry) => (
                 <li key={entry.id}>
                   {entry.children?.length ? (
@@ -599,54 +609,17 @@ function PanelGlyph({ collapsed, reduce }: { collapsed: boolean; reduce: boolean
   );
 }
 
+/** @param value - Sheet offset, in pixels or as a percentage of its width. @param width - Measured sheet width. @returns The offset as a fraction of the sheet width; NaN when it cannot be read. */
+function sheetShift(value: number | string, width: number): number {
+  if (typeof value === "number") return value / width;
+  return value.endsWith(PERCENT_SUFFIX) ? Number.parseFloat(value) / PERCENT_SCALE : Number.parseFloat(value) / width;
+}
+
 /**
- * Platform shell adapted from the Arc "Sidebar rail" block: a sidebar that
- * folds into an icon rail, floats over the page on mid widths and slides in
- * as a draggable sheet on narrow screens, plus a top bar with the rail
- * toggle, an animated breadcrumb and the page controls.
+ * The [ shortcut toggles the rail, or the sheet when the shell is narrow. It stays out of text fields, menus and dialogs.
+ * It subscribes again after every render, so the handler always sees the current rail state.
  */
-export function AppRailShell({
-  authenticatedMember,
-  children,
-  defaultOpen,
-  headerActions,
-  headerAside,
-  memberTribes,
-}: AppRailShellProps) {
-  const pathname = usePathname();
-  const { push } = useRouter();
-  const baseId = useId();
-  const prefersReduced = Boolean(useReducedMotion());
-  // The first measurement settles the layout before paint, so it never animates.
-  const [settling, setSettling] = useState(true);
-  const reduce = prefersReduced || settling;
-  const [collapsed, setCollapsed] = useState(defaultOpen === false);
-  const [floating, setFloating] = useState(false);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [frame, setFrame] = useState<HTMLElement | null>(null);
-  const [status, setStatus] = useState("");
-  const sheet = useRef<HTMLDivElement>(null);
-  const menuButton = useRef<HTMLButtonElement>(null);
-  const dragging = useRef(false);
-  const closeTimer = useRef(0);
-  const sidebarId = `${baseId}-sidebar`;
-  const navigation = resolveAppRailNavigation(pathname, memberTribes);
-  const tribe = navigation.activeTribe;
-  const crumbRoot = tribe?.name ?? siteConfig.name;
-  const crumbParent = navigation.currentParent;
-  const crumbCurrent = navigation.currentLabel;
-
-  function setRail(nextCollapsed: boolean) {
-    setCollapsed(nextCollapsed);
-    setStatus(nextCollapsed ? APP_RAIL_UI.collapsedAnnouncement : APP_RAIL_UI.expandedAnnouncement);
-    persistOpenState(!nextCollapsed);
-  }
-
-  function toggleRail() {
-    setRail(!collapsed);
-  }
-
-  // The [ shortcut toggles the rail, or the sheet when the shell is narrow. It stays out of text fields, menus and dialogs.
+function useRailShortcut(frame: HTMLElement | null, toggleRail: () => void, toggleSheet: () => void) {
   useEffect(() => {
     if (!frame) return;
 
@@ -654,7 +627,7 @@ export function AppRailShell({
       if (!isRailShortcut(event) || !frame) return;
       event.preventDefault();
       if (frame.clientWidth < COMPACT_WIDTH_PX) {
-        setSheetOpen((open) => !open);
+        toggleSheet();
         return;
       }
       toggleRail();
@@ -663,8 +636,42 @@ export function AppRailShell({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
+}
 
-  // A mid-width shell starts on the rail; crossing the threshold later folds or opens it once, and a sheet has no place in the wide layout.
+/**
+ * Folds the overlaid rail when Escape leaves the shell unhandled. The listener sits on `window`, above the root where
+ * React dispatches its handlers, so a control inside the shell that handles Escape first (a menu, a dialog) marks the
+ * event as handled and keeps the rail open.
+ * @param frame - Shell element; keys pressed outside it do not fold the rail.
+ * @param overlaid - Whether the rail floats over the content.
+ * @param fold - Folds the rail.
+ */
+function useOverlaidRailEscape(frame: HTMLElement | null, overlaid: boolean, fold: () => void) {
+  const onFold = useEffectEvent(fold);
+
+  useEffect(() => {
+    if (!frame || !overlaid) return;
+
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== ESCAPE_KEY || event.defaultPrevented || !(event.target instanceof Node) || !frame?.contains(event.target)) return;
+      event.preventDefault();
+      onFold();
+    }
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [frame, overlaid]);
+}
+
+type ResponsiveRailSetters = {
+  setCollapsed: (collapsed: boolean) => void;
+  setFloating: (floating: boolean) => void;
+  setSettling: (settling: boolean) => void;
+  setSheetOpen: (open: boolean) => void;
+};
+
+/** A mid-width shell starts on the rail; crossing the threshold later folds or opens it once, and a sheet has no place in the wide layout. */
+function useResponsiveRail(frame: HTMLElement | null, { setCollapsed, setFloating, setSettling, setSheetOpen }: ResponsiveRailSetters) {
   const roomy = useRef<boolean | null>(null);
   useLayoutEffect(() => {
     if (!frame) return;
@@ -697,19 +704,186 @@ export function AppRailShell({
       observer.disconnect();
       cancelAnimationFrame(settle);
     };
-  }, [frame]);
+  }, [frame, setCollapsed, setFloating, setSettling, setSheetOpen]);
+}
 
-  useEffect(() => () => window.clearTimeout(closeTimer.current), []);
+/**
+ * Open state of the rail, the floating panel and the sheet, with the navigation that closes them once a row is picked.
+ * @param options - Saved open state, the reduced-motion preference and the router push.
+ * @returns The shell state, its refs and handlers.
+ */
+function useAppRailShellState({ defaultOpen, prefersReduced, push }: { defaultOpen?: boolean; prefersReduced: boolean; push: (href: string) => void }) {
+  // The first measurement settles the layout before paint, so it never animates.
+  const [settling, setSettling] = useState(true);
+  const reduce = prefersReduced || settling;
+  const [collapsed, setCollapsed] = useState(defaultOpen === false);
+  const [floating, setFloating] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [frame, setFrame] = useState<HTMLElement | null>(null);
+  const [status, setStatus] = useState("");
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const draggingRef = useRef(false);
+  const closeTimerRef = useRef(0);
 
-  // Every parent label is measured up front, so a crumb that swaps one parent for another can spring between real widths.
-  const sizers = useRef<HTMLSpanElement>(null);
-  const [parentWidths, setParentWidths] = useState<Record<string, number>>({});
+  function setRail(nextCollapsed: boolean) {
+    setCollapsed(nextCollapsed);
+    setStatus(nextCollapsed ? APP_RAIL_UI.collapsedAnnouncement : APP_RAIL_UI.expandedAnnouncement);
+    persistOpenState(!nextCollapsed);
+  }
+
+  function toggleRail() {
+    setRail(!collapsed);
+  }
+
+  useRailShortcut(frame, toggleRail, () => setSheetOpen((open) => !open));
+  useResponsiveRail(frame, { setCollapsed, setFloating, setSettling, setSheetOpen });
+  useEffect(() => () => window.clearTimeout(closeTimerRef.current), []);
+
+  const overlaid = floating && !collapsed;
+
+  function select(href: string, fromSheet = false) {
+    if (fromSheet && draggingRef.current) return;
+    push(href);
+    if (!fromSheet && !overlaid) return;
+    // Let the highlight arrive before the sheet or the floating panel slides away.
+    window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = window.setTimeout(
+      () => (fromSheet ? setSheetOpen(false) : setRail(true)),
+      reduce ? 0 : SETTLE_MS
+    );
+  }
+
+  useOverlaidRailEscape(frame, overlaid, () => setRail(true));
+
+  return { collapsed, draggingRef, floating, menuButtonRef, overlaid, reduce, select, setFrame, setRail, setSheetOpen, sheetOpen, sheetRef, status, toggleRail };
+}
+
+type RailContentProps = {
+  authenticatedMember: AuthenticatedMemberResult | null;
+  baseId: string;
+  footnote?: string;
+  memberTribes: MemberTribeListItemResult[];
+  navigation: ReturnType<typeof resolveAppRailNavigation>;
+};
+
+type RailSidebarProps = RailContentProps & {
+  view: { collapsed: boolean; floating: boolean; overlaid: boolean; reduce: boolean };
+  onExpand: () => void;
+  onSelect: (href: string) => void;
+  sidebarId: string;
+};
+
+/** The slot holds the sidebar's place in the row. On a floating shell it keeps the rail's width and the panel opens over the page. */
+function RailSidebar({ authenticatedMember, baseId, footnote, memberTribes, navigation, onExpand, onSelect, sidebarId, view }: RailSidebarProps) {
+  const { collapsed, reduce } = view;
+
+  return (
+    <motion.div
+      className={styles.AppRailShell__slot}
+      initial={false}
+      animate={{ width: view.floating || collapsed ? RAIL_WIDTH_PX : FULL_WIDTH_PX }}
+      transition={reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.smooth}
+    >
+      <motion.div
+        id={sidebarId}
+        className={styles.AppRailShell__sidebar}
+        initial={false}
+        animate={{ width: collapsed ? RAIL_WIDTH_PX : FULL_WIDTH_PX }}
+        transition={reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.smooth}
+        data-collapsed={collapsed || undefined}
+        data-floating={view.overlaid || undefined}
+      >
+        <div className={styles.AppRailShell__brandRow}>
+          <Brand
+            collapsed={collapsed}
+            memberTribes={memberTribes}
+            onNavigate={onSelect}
+            onTribeSwitch={() => undefined}
+            reduce={reduce}
+            tribe={navigation.activeTribe}
+          />
+        </div>
+        <Navigation
+          variant="side"
+          baseId={baseId}
+          collapsed={collapsed}
+          sections={navigation.sections}
+          footnote={footnote}
+          reduce={reduce}
+          onExpand={onExpand}
+          onSelect={onSelect}
+        />
+        {authenticatedMember ? <Profile collapsed={collapsed} member={authenticatedMember} reduce={reduce} /> : null}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/** Dims the page under a floating panel; a click folds the panel back to the rail. */
+function FloatScrim({ onClose, overlaid, reduce }: { onClose: () => void; overlaid: boolean; reduce: boolean }) {
+  return (
+    <AnimatePresence>
+      {overlaid ? (
+        <motion.div
+          key="float-scrim"
+          className={`${styles.AppRailShell__scrim} ${styles["AppRailShell__scrim--float"]}`}
+          aria-hidden="true"
+          onClick={onClose}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={reduce ? APP_RAIL_INSTANT : { duration: APP_RAIL_MOTION.durationStandard, ease: APP_RAIL_MOTION.ease.standard }}
+        />
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+/** The rail toggle of the top bar, with its shortcut in the tooltip. */
+function RailToggle({ collapsed, onToggle, reduce, sidebarId }: { collapsed: boolean; onToggle: () => void; reduce: boolean; sidebarId: string }) {
+  const toggleLabel = collapsed ? APP_RAIL_UI.expandLabel : APP_RAIL_UI.collapseLabel;
+
+  return (
+    <TooltipPrimitive.Root>
+      <TooltipPrimitive.Trigger asChild>
+        <button
+          type={BUTTON_TYPE}
+          className={`${styles.AppRailShell__iconButton} ${styles.AppRailShell__railToggle}`}
+          aria-label={toggleLabel}
+          aria-expanded={!collapsed}
+          aria-controls={sidebarId}
+          aria-keyshortcuts={RAIL_SHORTCUT_KEY}
+          onClick={onToggle}
+        >
+          <PanelGlyph collapsed={collapsed} reduce={reduce} />
+        </button>
+      </TooltipPrimitive.Trigger>
+      <TooltipPrimitive.Portal>
+        <TooltipPrimitive.Content className={styles.AppRailShell__tip} side={TIP_SIDE_BOTTOM} sideOffset={RAIL_TIP_COLLISION_PADDING_PX}>
+          <span className={styles.AppRailShell__shortcut}>
+            {toggleLabel}
+            <kbd className={styles.AppRailShell__key}>{RAIL_SHORTCUT_KEY}</kbd>
+          </span>
+        </TooltipPrimitive.Content>
+      </TooltipPrimitive.Portal>
+    </TooltipPrimitive.Root>
+  );
+}
+
+/**
+ * Every parent label is measured up front, so a crumb that swaps one parent for another can spring between real widths.
+ * @param sizersRef - Hidden container holding one sizer per parent label.
+ * @returns The measured width of each label.
+ */
+function useMeasuredLabelWidths(sizersRef: RefObject<HTMLSpanElement | null>) {
+  const [widths, setWidths] = useState<Record<string, number>>({});
   useLayoutEffect(() => {
-    const node = sizers.current;
+    const node = sizersRef.current;
     if (!node) return;
 
     const measure = () =>
-      setParentWidths(
+      setWidths(
         Object.fromEntries(
           Array.from(node.children, (child) => [
             (child as HTMLElement).dataset.label ?? "",
@@ -722,137 +896,250 @@ export function AppRailShell({
     const observer = new ResizeObserver(measure);
     observer.observe(node);
     return () => observer.disconnect();
-  }, []);
+  }, [sizersRef]);
+  return widths;
+}
 
-  const overlaid = floating && !collapsed;
+type BreadcrumbsProps = {
+  crumbCurrent?: string;
+  crumbParent?: string;
+  crumbRoot: string;
+  parentLabels: string[];
+  reduce: boolean;
+};
 
-  function select(href: string, fromSheet = false) {
-    if (fromSheet && dragging.current) return;
-    push(href);
-    if (!fromSheet && !overlaid) return;
-    // Let the highlight arrive before the sheet or the floating panel slides away.
-    window.clearTimeout(closeTimer.current);
-    closeTimer.current = window.setTimeout(
-      () => (fromSheet ? setSheetOpen(false) : setRail(true)),
-      reduce ? 0 : SETTLE_MS
-    );
-  }
-
-  function onShellKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
-    if (event.key === ESCAPE_KEY && overlaid && !event.defaultPrevented) {
-      event.preventDefault();
-      setRail(true);
-    }
-  }
-
-  // The scrim follows the sheet, so a drag to dismiss lightens the page under the finger instead of waiting for release.
-  const sheetX = useMotionValue<number | string>(SHEET_HIDDEN_X);
-  const scrimOpacity = useTransform(sheetX, (value) => {
-    const width = sheet.current?.offsetWidth || SHEET_FALLBACK_WIDTH_PX;
-    const shift =
-      typeof value === "number"
-        ? value / width
-        : value.endsWith(PERCENT_SUFFIX)
-          ? Number.parseFloat(value) / PERCENT_SCALE
-          : Number.parseFloat(value) / width;
-    return Math.min(1, Math.max(0, 1 + (Number.isFinite(shift) ? shift : -1)));
-  });
-
+/** Animated breadcrumb: the parent and current labels swap in place, and the parent's width springs between measured labels. */
+function Breadcrumbs({ crumbCurrent, crumbParent, crumbRoot, parentLabels, reduce }: BreadcrumbsProps) {
+  const sizersRef = useRef<HTMLSpanElement>(null);
+  const parentWidths = useMeasuredLabelWidths(sizersRef);
   const swap = reduce
     ? APP_RAIL_INSTANT
     : { duration: APP_RAIL_MOTION.durationStandard, ease: APP_RAIL_MOTION.ease.enter };
+
+  return (
+    <nav className={styles.AppRailShell__crumbs} aria-label={APP_RAIL_UI.breadcrumbLabel}>
+      <ol className={styles.AppRailShell__crumbList}>
+        <li
+          className={`${styles.AppRailShell__crumb} ${crumbCurrent ? styles["AppRailShell__crumb--root"] : styles["AppRailShell__crumb--current"]}`}
+          aria-current={crumbCurrent ? undefined : CURRENT_PAGE}
+        >
+          {crumbRoot}
+        </li>
+        <AnimatePresence initial={false}>
+          {crumbParent && crumbCurrent ? (
+            <motion.li
+              key="parent"
+              className={`${styles.AppRailShell__crumb} ${styles["AppRailShell__crumb--parent"]}`}
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: "auto" }}
+              exit={{ opacity: 0, width: 0 }}
+              transition={reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.morph}
+            >
+              {/* The parent can change while the crumb stays, so its width follows the new label instead of snapping. */}
+              <motion.span
+                className={styles.AppRailShell__crumbSwap}
+                initial={false}
+                animate={{ width: parentWidths[crumbParent] ?? "auto" }}
+                transition={reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.morph}
+              >
+                <AnimatePresence mode={POP_LAYOUT} initial={false}>
+                  <motion.span key={crumbParent} variants={rise} initial="hidden" animate="shown" exit="gone" transition={swap}>
+                    {crumbParent}
+                  </motion.span>
+                </AnimatePresence>
+              </motion.span>
+            </motion.li>
+          ) : null}
+        </AnimatePresence>
+        {crumbCurrent ? (
+          <li className={`${styles.AppRailShell__crumb} ${styles["AppRailShell__crumb--current"]}`} aria-current={CURRENT_PAGE}>
+            <AnimatePresence mode={POP_LAYOUT} initial={false}>
+              <motion.span
+                key={crumbCurrent}
+                className={styles.AppRailShell__crumbText}
+                variants={rise}
+                initial="hidden"
+                animate="shown"
+                exit="gone"
+                transition={swap}
+              >
+                {crumbCurrent}
+              </motion.span>
+            </AnimatePresence>
+          </li>
+        ) : null}
+      </ol>
+      <span ref={sizersRef} className={styles.AppRailShell__crumbSizers} aria-hidden="true">
+        {parentLabels.map((label) => (
+          <span key={label} className={styles.AppRailShell__crumbSizer} data-label={label}>
+            {label}
+          </span>
+        ))}
+      </span>
+    </nav>
+  );
+}
+
+/** The sheet's own content: its title, workspace row, close button, navigation and profile. */
+function SheetBody({ authenticatedMember, baseId, footnote, memberTribes, navigation, onClose, onSelect, reduce }: RailContentProps & { onClose: () => void; onSelect: (href: string) => void; reduce: boolean }) {
+  return (
+    <>
+      <Dialog.Title className={styles.AppRailShell__srOnly}>{APP_RAIL_UI.sheetTitle}</Dialog.Title>
+      <div className={styles.AppRailShell__sheetHead}>
+        <Brand
+          collapsed={false}
+          memberTribes={memberTribes}
+          onNavigate={onSelect}
+          onTribeSwitch={onClose}
+          reduce={reduce}
+          tribe={navigation.activeTribe}
+        />
+        <Dialog.Close asChild>
+          <button type={BUTTON_TYPE} className={styles.AppRailShell__iconButton} aria-label={APP_RAIL_UI.closeNavigationLabel}>
+            <XIcon className={styles.AppRailShell__closeIcon} aria-hidden="true" />
+          </button>
+        </Dialog.Close>
+      </div>
+      <Navigation
+        variant="sheet"
+        baseId={baseId}
+        collapsed={false}
+        sections={navigation.sections}
+        footnote={footnote}
+        reduce={reduce}
+        onSelect={onSelect}
+      />
+      {authenticatedMember ? <Profile collapsed={false} member={authenticatedMember} reduce={reduce} /> : null}
+    </>
+  );
+}
+
+type NavigationSheetProps = RailContentProps & {
+  draggingRef: RefObject<boolean>;
+  menuButtonRef: RefObject<HTMLButtonElement | null>;
+  onOpenChange: (open: boolean) => void;
+  onSelect: (href: string) => void;
+  open: boolean;
+  prefersReduced: boolean;
+  reduce: boolean;
+  sheetRef: RefObject<HTMLDivElement | null>;
+};
+
+/** Narrow-screen navigation: a draggable sheet whose scrim follows the drag. */
+function NavigationSheet({ draggingRef, menuButtonRef, onOpenChange, onSelect, open, prefersReduced, reduce, sheetRef, ...content }: NavigationSheetProps) {
+  // The scrim follows the sheet, so a drag to dismiss lightens the page under the finger instead of waiting for release.
+  const sheetX = useMotionValue<number | string>(SHEET_HIDDEN_X);
+  const scrimOpacity = useTransform(sheetX, (value) => {
+    const width = sheetRef.current?.offsetWidth || SHEET_FALLBACK_WIDTH_PX;
+    const shift = sheetShift(value, width);
+    return Math.min(1, Math.max(0, 1 + (Number.isFinite(shift) ? shift : -1)));
+  });
+
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <AnimatePresence>
+        {open ? (
+          <Dialog.Portal forceMount>
+            <Dialog.Overlay asChild forceMount>
+              <motion.div className={`${styles.AppRailShell__scrim} ${styles["AppRailShell__scrim--sheet"]}`} style={{ opacity: scrimOpacity }} />
+            </Dialog.Overlay>
+            <Dialog.Content
+              asChild
+              forceMount
+              aria-describedby={undefined}
+              onCloseAutoFocus={(event) => {
+                event.preventDefault();
+                menuButtonRef.current?.focus({ preventScroll: true });
+              }}
+              onOpenAutoFocus={(event) => {
+                const current = sheetRef.current?.querySelector<HTMLElement>(CURRENT_ROW_SELECTOR);
+                if (current && !current.closest(INERT_SELECTOR)) {
+                  event.preventDefault();
+                  current.focus();
+                }
+              }}
+            >
+              <motion.div
+                ref={sheetRef}
+                className={styles.AppRailShell__sheet}
+                style={{ x: sheetX }}
+                initial={{ x: SHEET_HIDDEN_X }}
+                animate={{ x: 0 }}
+                exit={{ x: SHEET_HIDDEN_X }}
+                transition={reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.smooth}
+                drag={prefersReduced ? false : DRAG_AXIS}
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={SHEET_DRAG_ELASTIC}
+                dragMomentum={false}
+                onDragStart={() => {
+                  draggingRef.current = true;
+                  sheetRef.current?.setAttribute(DRAGGING_ATTRIBUTE, "");
+                }}
+                onDragEnd={(_, info) => {
+                  sheetRef.current?.removeAttribute(DRAGGING_ATTRIBUTE);
+                  window.setTimeout(() => {
+                    draggingRef.current = false;
+                  }, 0);
+                  if (info.offset.x < SHEET_DISMISS_OFFSET_PX || info.velocity.x < SHEET_DISMISS_VELOCITY) onOpenChange(false);
+                }}
+              >
+                <SheetBody {...content} onClose={() => onOpenChange(false)} onSelect={onSelect} reduce={reduce} />
+              </motion.div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        ) : null}
+      </AnimatePresence>
+    </Dialog.Root>
+  );
+}
+
+/**
+ * Platform shell adapted from the Arc "Sidebar rail" block: a sidebar that
+ * folds into an icon rail, floats over the page on mid widths and slides in
+ * as a draggable sheet on narrow screens, plus a top bar with the rail
+ * toggle, an animated breadcrumb and the page controls.
+ */
+export function AppRailShell({
+  authenticatedMember,
+  children,
+  defaultOpen,
+  headerActions,
+  headerAside,
+  memberTribes,
+}: AppRailShellProps) {
+  const pathname = usePathname();
+  const { push } = useRouter();
+  const baseId = useId();
+  const prefersReduced = Boolean(useReducedMotion());
+  const { collapsed, draggingRef, floating, menuButtonRef, overlaid, reduce, select, setFrame, setRail, setSheetOpen, sheetOpen, sheetRef, status, toggleRail } =
+    useAppRailShellState({ defaultOpen, prefersReduced, push });
+  const sidebarId = `${baseId}-sidebar`;
+  const navigation = resolveAppRailNavigation(pathname, memberTribes);
+  const tribe = navigation.activeTribe;
   const parentLabels = Array.from(
     new Set(navigation.sections.flatMap((section) => (section.heading ? [section.heading] : [])))
   );
-  const toggleLabel = collapsed ? APP_RAIL_UI.expandLabel : APP_RAIL_UI.collapseLabel;
-  const closeSheet = () => setSheetOpen(false);
   const footnote = authenticatedMember && !tribe && memberTribes.length === 0 ? APP_RAIL_UI.noTribesMessage : undefined;
+  const content = { authenticatedMember, baseId, footnote, memberTribes, navigation };
 
   return (
     <LayoutGroup id={baseId}>
       <TooltipPrimitive.Provider delayDuration={TOOLTIP_DELAY_MS} skipDelayDuration={TOOLTIP_SKIP_DELAY_MS}>
-        <section ref={setFrame} className={styles.AppRailShell} aria-label={APP_RAIL_UI.shellLabel} onKeyDown={onShellKeyDown}>
-          {/* The slot holds the sidebar's place in the row. On a floating shell it keeps the rail's width and the panel opens over the page. */}
-          <motion.div
-            className={styles.AppRailShell__slot}
-            initial={false}
-            animate={{ width: floating || collapsed ? RAIL_WIDTH_PX : FULL_WIDTH_PX }}
-            transition={reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.smooth}
-          >
-            <motion.div
-              id={sidebarId}
-              className={styles.AppRailShell__sidebar}
-              initial={false}
-              animate={{ width: collapsed ? RAIL_WIDTH_PX : FULL_WIDTH_PX }}
-              transition={reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.smooth}
-              data-collapsed={collapsed || undefined}
-              data-floating={overlaid || undefined}
-            >
-              <div className={styles.AppRailShell__brandRow}>
-                <Brand
-                  collapsed={collapsed}
-                  memberTribes={memberTribes}
-                  onNavigate={(href) => select(href)}
-                  onTribeSwitch={() => undefined}
-                  reduce={reduce}
-                  tribe={tribe}
-                />
-              </div>
-              <Navigation
-                variant="side"
-                baseId={baseId}
-                collapsed={collapsed}
-                sections={navigation.sections}
-                footnote={footnote}
-                reduce={reduce}
-                onExpand={() => setRail(false)}
-                onSelect={(href) => select(href)}
-              />
-              {authenticatedMember ? <Profile collapsed={collapsed} member={authenticatedMember} reduce={reduce} /> : null}
-            </motion.div>
-          </motion.div>
-          <AnimatePresence>
-            {overlaid ? (
-              <motion.div
-                key="float-scrim"
-                className={`${styles.AppRailShell__scrim} ${styles["AppRailShell__scrim--float"]}`}
-                aria-hidden="true"
-                onClick={() => setRail(true)}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={reduce ? APP_RAIL_INSTANT : { duration: APP_RAIL_MOTION.durationStandard, ease: APP_RAIL_MOTION.ease.standard }}
-              />
-            ) : null}
-          </AnimatePresence>
+        <section ref={setFrame} className={styles.AppRailShell} aria-label={APP_RAIL_UI.shellLabel}>
+          <RailSidebar
+            {...content}
+            view={{ collapsed, floating, overlaid, reduce }}
+            onExpand={() => setRail(false)}
+            onSelect={(href) => select(href)}
+            sidebarId={sidebarId}
+          />
+          <FloatScrim overlaid={overlaid} reduce={reduce} onClose={() => setRail(true)} />
 
           <main className={styles.AppRailShell__main}>
             <header className={styles.AppRailShell__topbar}>
-              <TooltipPrimitive.Root>
-                <TooltipPrimitive.Trigger asChild>
-                  <button
-                    type={BUTTON_TYPE}
-                    className={`${styles.AppRailShell__iconButton} ${styles.AppRailShell__railToggle}`}
-                    aria-label={toggleLabel}
-                    aria-expanded={!collapsed}
-                    aria-controls={sidebarId}
-                    aria-keyshortcuts={RAIL_SHORTCUT_KEY}
-                    onClick={toggleRail}
-                  >
-                    <PanelGlyph collapsed={collapsed} reduce={reduce} />
-                  </button>
-                </TooltipPrimitive.Trigger>
-                <TooltipPrimitive.Portal>
-                  <TooltipPrimitive.Content className={styles.AppRailShell__tip} side={TIP_SIDE_BOTTOM} sideOffset={RAIL_TIP_COLLISION_PADDING_PX}>
-                    <span className={styles.AppRailShell__shortcut}>
-                      {toggleLabel}
-                      <kbd className={styles.AppRailShell__key}>{RAIL_SHORTCUT_KEY}</kbd>
-                    </span>
-                  </TooltipPrimitive.Content>
-                </TooltipPrimitive.Portal>
-              </TooltipPrimitive.Root>
+              <RailToggle collapsed={collapsed} onToggle={toggleRail} reduce={reduce} sidebarId={sidebarId} />
               <button
-                ref={menuButton}
+                ref={menuButtonRef}
                 type={BUTTON_TYPE}
                 className={`${styles.AppRailShell__iconButton} ${styles.AppRailShell__menuButton}`}
                 aria-label={APP_RAIL_UI.openNavigationLabel}
@@ -863,66 +1150,13 @@ export function AppRailShell({
               >
                 <PanelGlyph collapsed={false} reduce={reduce} />
               </button>
-              <nav className={styles.AppRailShell__crumbs} aria-label={APP_RAIL_UI.breadcrumbLabel}>
-                <ol className={styles.AppRailShell__crumbList}>
-                  <li
-                    className={`${styles.AppRailShell__crumb} ${crumbCurrent ? styles["AppRailShell__crumb--root"] : styles["AppRailShell__crumb--current"]}`}
-                    aria-current={crumbCurrent ? undefined : CURRENT_PAGE}
-                  >
-                    {crumbRoot}
-                  </li>
-                  <AnimatePresence initial={false}>
-                    {crumbParent && crumbCurrent ? (
-                      <motion.li
-                        key="parent"
-                        className={`${styles.AppRailShell__crumb} ${styles["AppRailShell__crumb--parent"]}`}
-                        initial={{ opacity: 0, width: 0 }}
-                        animate={{ opacity: 1, width: "auto" }}
-                        exit={{ opacity: 0, width: 0 }}
-                        transition={reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.morph}
-                      >
-                        {/* The parent can change while the crumb stays, so its width follows the new label instead of snapping. */}
-                        <motion.span
-                          className={styles.AppRailShell__crumbSwap}
-                          initial={false}
-                          animate={{ width: parentWidths[crumbParent] ?? "auto" }}
-                          transition={reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.morph}
-                        >
-                          <AnimatePresence mode={POP_LAYOUT} initial={false}>
-                            <motion.span key={crumbParent} variants={rise} initial="hidden" animate="shown" exit="gone" transition={swap}>
-                              {crumbParent}
-                            </motion.span>
-                          </AnimatePresence>
-                        </motion.span>
-                      </motion.li>
-                    ) : null}
-                  </AnimatePresence>
-                  {crumbCurrent ? (
-                    <li className={`${styles.AppRailShell__crumb} ${styles["AppRailShell__crumb--current"]}`} aria-current={CURRENT_PAGE}>
-                      <AnimatePresence mode={POP_LAYOUT} initial={false}>
-                        <motion.span
-                          key={crumbCurrent}
-                          className={styles.AppRailShell__crumbText}
-                          variants={rise}
-                          initial="hidden"
-                          animate="shown"
-                          exit="gone"
-                          transition={swap}
-                        >
-                          {crumbCurrent}
-                        </motion.span>
-                      </AnimatePresence>
-                    </li>
-                  ) : null}
-                </ol>
-                <span ref={sizers} className={styles.AppRailShell__crumbSizers} aria-hidden="true">
-                  {parentLabels.map((label) => (
-                    <span key={label} className={styles.AppRailShell__crumbSizer} data-label={label}>
-                      {label}
-                    </span>
-                  ))}
-                </span>
-              </nav>
+              <Breadcrumbs
+                crumbCurrent={navigation.currentLabel}
+                crumbParent={navigation.currentParent}
+                crumbRoot={tribe?.name ?? siteConfig.name}
+                parentLabels={parentLabels}
+                reduce={reduce}
+              />
               {headerAside}
               <div className={styles.AppRailShell__actions}>{headerActions}</div>
             </header>
@@ -932,88 +1166,19 @@ export function AppRailShell({
             </p>
           </main>
 
-          <Dialog.Root open={sheetOpen} onOpenChange={setSheetOpen}>
-            <AnimatePresence>
-              {sheetOpen ? (
-                <Dialog.Portal forceMount>
-                  <Dialog.Overlay asChild forceMount>
-                    <motion.div className={`${styles.AppRailShell__scrim} ${styles["AppRailShell__scrim--sheet"]}`} style={{ opacity: scrimOpacity }} />
-                  </Dialog.Overlay>
-                  <Dialog.Content
-                    asChild
-                    forceMount
-                    aria-describedby={undefined}
-                    onCloseAutoFocus={(event) => {
-                      event.preventDefault();
-                      menuButton.current?.focus({ preventScroll: true });
-                    }}
-                    onOpenAutoFocus={(event) => {
-                      const current = sheet.current?.querySelector<HTMLElement>(CURRENT_ROW_SELECTOR);
-                      if (current && !current.closest(INERT_SELECTOR)) {
-                        event.preventDefault();
-                        current.focus();
-                      }
-                    }}
-                  >
-                    <motion.div
-                      ref={sheet}
-                      className={styles.AppRailShell__sheet}
-                      style={{ x: sheetX }}
-                      initial={{ x: SHEET_HIDDEN_X }}
-                      animate={{ x: 0 }}
-                      exit={{ x: SHEET_HIDDEN_X }}
-                      transition={reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.smooth}
-                      drag={prefersReduced ? false : DRAG_AXIS}
-                      dragConstraints={{ left: 0, right: 0 }}
-                      dragElastic={SHEET_DRAG_ELASTIC}
-                      dragMomentum={false}
-                      onDragStart={() => {
-                        dragging.current = true;
-                        sheet.current?.setAttribute(DRAGGING_ATTRIBUTE, "");
-                      }}
-                      onDragEnd={(_, info) => {
-                        sheet.current?.removeAttribute(DRAGGING_ATTRIBUTE);
-                        window.setTimeout(() => {
-                          dragging.current = false;
-                        }, 0);
-                        if (info.offset.x < SHEET_DISMISS_OFFSET_PX || info.velocity.x < SHEET_DISMISS_VELOCITY) setSheetOpen(false);
-                      }}
-                    >
-                      <Dialog.Title className={styles.AppRailShell__srOnly}>{APP_RAIL_UI.sheetTitle}</Dialog.Title>
-                      <div className={styles.AppRailShell__sheetHead}>
-                        <Brand
-                          collapsed={false}
-                          memberTribes={memberTribes}
-                          onNavigate={(href) => select(href, true)}
-                          onTribeSwitch={closeSheet}
-                          reduce={reduce}
-                          tribe={tribe}
-                        />
-                        <Dialog.Close asChild>
-                          <button type={BUTTON_TYPE} className={styles.AppRailShell__iconButton} aria-label={APP_RAIL_UI.closeNavigationLabel}>
-                            <XIcon className={styles.AppRailShell__closeIcon} aria-hidden="true" />
-                          </button>
-                        </Dialog.Close>
-                      </div>
-                      <Navigation
-                        variant="sheet"
-                        baseId={baseId}
-                        collapsed={false}
-                        sections={navigation.sections}
-                        footnote={footnote}
-                        reduce={reduce}
-                        onSelect={(href) => select(href, true)}
-                      />
-                      {authenticatedMember ? <Profile collapsed={false} member={authenticatedMember} reduce={reduce} /> : null}
-                    </motion.div>
-                  </Dialog.Content>
-                </Dialog.Portal>
-              ) : null}
-            </AnimatePresence>
-          </Dialog.Root>
+          <NavigationSheet
+            {...content}
+            draggingRef={draggingRef}
+            menuButtonRef={menuButtonRef}
+            onOpenChange={setSheetOpen}
+            onSelect={(href) => select(href, true)}
+            open={sheetOpen}
+            prefersReduced={prefersReduced}
+            reduce={reduce}
+            sheetRef={sheetRef}
+          />
         </section>
       </TooltipPrimitive.Provider>
     </LayoutGroup>
   );
 }
-

@@ -45,7 +45,7 @@ export async function installAdmissionWhatsappWindowObserver(page: Page): Promis
     state[storageKey] = true;
     const record = (kind: "realm_init" | "pageshow" | "pagehide" | "window_error" | "resource_error" | "unhandled_rejection") => {
       try {
-        const previous = JSON.parse(localStorage.getItem(storageKey) || '{"count":0,"records":[]}');
+        const previous = JSON.parse(localStorage.getItem(storageKey) || '{"count":0,"records":[]}') as { count: number; records: unknown[] };
         previous.count += 1;
         previous.records.push({ kind, at: Date.now(), realm, top: window === window.top });
         previous.records = previous.records.slice(-maximumRecords);

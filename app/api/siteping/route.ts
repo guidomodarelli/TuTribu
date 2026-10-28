@@ -209,6 +209,18 @@ function normalizeAnnotationPayload(
   };
 }
 
+/**
+ * Optional diagnostics snapshot: `null` when absent, `undefined` when present
+ * but malformed (the command is then rejected).
+ */
+function readDiagnostics(value: unknown): SitepingDiagnosticsSnapshot | null | undefined {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  return isDiagnosticsPayload(value) ? value : undefined;
+}
+
 function parseFeedbackCommand(body: unknown): SitepingFeedbackCommand | null {
   if (!isRecord(body)) {
     return null;
@@ -223,12 +235,7 @@ function parseFeedbackCommand(body: unknown): SitepingFeedbackCommand | null {
   const authorName = readRequiredText(body.authorName);
   const authorEmail = readRequiredText(body.authorEmail);
   const clientId = readRequiredText(body.clientId);
-  const diagnostics =
-    body.diagnostics === undefined || body.diagnostics === null
-      ? null
-      : isDiagnosticsPayload(body.diagnostics)
-        ? body.diagnostics
-        : undefined;
+  const diagnostics = readDiagnostics(body.diagnostics);
 
   if (
     !projectName ||

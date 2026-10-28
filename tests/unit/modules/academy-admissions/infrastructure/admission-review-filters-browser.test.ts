@@ -175,11 +175,11 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               if (recordFrames) await captureAdmissionReview(page, "review-filter-default", forbidden, REVIEW_VALIDATION.captureFile);
               stage = reportStage("mute_current_reviewer");
               /* The inbox refresh holds shared locks on these rows; a bounded wait turns a rare stuck lock into a diagnosable failure instead of a silent test timeout. */
-              await database.withContext(fixture.own, async (transaction) => { await transaction.execute(sql`set local lock_timeout='20s'`); await transaction.execute(sql`update public.tribe_members set status='muted' where tribe_id=${tribeId} and user_id=${reviewerId}`); }).catch(async (lockError) => {
+              try { await database.withContext(fixture.own, async (transaction) => { await transaction.execute(sql`set local lock_timeout='20s'`); await transaction.execute(sql`update public.tribe_members set status='muted' where tribe_id=${tribeId} and user_id=${reviewerId}`); }); } catch (lockError) {
                 const holders = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select activity.state, activity.wait_event_type, activity.wait_event, extract(epoch from (clock_timestamp()-activity.xact_start))::int as transaction_seconds, (select string_agg(distinct lock.locktype||':'||lock.mode||':'||lock.granted::text, ',') from pg_locks lock where lock.pid=activity.pid) as locks, cardinality(pg_blocking_pids(activity.pid)) as blockers from pg_stat_activity activity where activity.datname=current_database() and activity.pid<>pg_backend_pid() and activity.state<>'idle' order by activity.xact_start nulls last`)).rows).catch(() => []);
                 process.stdout.write(JSON.stringify({ phase: "native_review_filter_lock_wait", engine: scenario.name, width: scenario.width, holders }) + "\n");
                 throw lockError;
-              });
+              }
               await page.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read, exact: true }).click();
               await expectBrowser(page.getByRole("button", { name: `${ADMISSION_REVIEW_UI_COPY.detail}: ${applicants[0].name}`, exact: true })).toHaveCount(0);
               /** A lost role hides the whole private inbox, filters included, behind the route error instead of leaving them disabled. */

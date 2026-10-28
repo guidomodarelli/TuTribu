@@ -84,7 +84,8 @@ type VerificationRow = {
   status: MemberVerificationStatus;
   updated_at: string | Date;
   user_id?: string;
-  version: number;
+  /** Driver-dependent numeric column; normalized with `Number`. */
+  version: number | string;
 };
 
 type ProviderRow = {
@@ -156,7 +157,7 @@ async function resolveTribeId(
     select tribes.id from public.tribes where tribes.slug = ${tribeSlug} limit 1
   `);
 
-  return (result.rows?.[0] as { id: string } | undefined)?.id ?? null;
+  return (result.rows[0] as { id: string } | undefined)?.id ?? null;
 }
 
 /**
@@ -173,7 +174,7 @@ async function lockOwnMembership(
       and tribe_members.user_id = public.current_app_user_id()
     for share of tribe_members
   `);
-  const row = (result.rows?.[0] ?? null) as {
+  const row = (result.rows[0] ?? null) as {
     role: string;
     status: string;
     user_id: string;
@@ -242,7 +243,7 @@ export class PostgresMemberVerificationRepository implements MemberVerificationR
           )
         order by verification_providers.display_name asc nulls last
       `);
-      const rows = (result.rows ?? []) as Array<ProviderRow & { is_member: boolean }>;
+      const rows = result.rows as Array<ProviderRow & { is_member: boolean }>;
 
       if (!rows[0]?.is_member) {
         return null;
@@ -264,7 +265,7 @@ export class PostgresMemberVerificationRepository implements MemberVerificationR
 
       const actor = await lockOwnMembership(database, tribeId);
 
-      if (!actor || actor.role !== "leader" || actor.status !== "active") {
+      if (actor?.role !== "leader" || actor.status !== "active") {
         return { status: "forbidden" };
       }
 
@@ -285,7 +286,7 @@ export class PostgresMemberVerificationRepository implements MemberVerificationR
               and verification_providers.tribe_id = ${tribeId}
             returning id, key, display_name, instructions, link_url, is_active
           `);
-          row = (result.rows?.[0] ?? null) as ProviderRow | null;
+          row = (result.rows[0] ?? null) as ProviderRow | null;
 
           if (!row) {
             return { status: "not_found" };
@@ -309,7 +310,7 @@ export class PostgresMemberVerificationRepository implements MemberVerificationR
             ) < ${VERIFICATION_PROVIDER_LIMITS.maxProvidersPerTribe}
             returning id, key, display_name, instructions, link_url, is_active
           `);
-          row = (result.rows?.[0] ?? null) as ProviderRow | null;
+          row = (result.rows[0] ?? null) as ProviderRow | null;
 
           if (!row) {
             return { status: "limit_reached" };
@@ -359,8 +360,76 @@ export class PostgresMemberVerificationRepository implements MemberVerificationR
         order by verification_providers.display_name asc
       `);
 
-      return ((result.rows ?? []) as VerificationRow[]).map(mapOwnVerification);
+      return (result.rows as VerificationRow[]).map(mapOwnVerification);
     });
+  }
+
+  /**
+   * Re-requests the caller's existing verification for the provider when its state or declared email changed.
+   * @param database - Same transaction holding the membership lock.
+   * @param command - Original request.
+   * @param member - Resolved tribe and current member.
+   * @returns The unchanged or reopened verification.
+   */
+  private async reopenExisting(
+    database: RequestDatabase,
+    command: RequestMemberVerificationCommand,
+    { tribeId, userId }: { tribeId: string; userId: string }
+  ): Promise<RequestMemberVerificationResult> {
+    const currentResult = await database.execute(sql`
+      select id, status, declared_email
+      from public.member_verifications
+      where tribe_id = ${tribeId}
+        and user_id = ${userId}
+        and provider_id = ${command.providerId}
+      for update
+    `);
+    const current = currentResult.rows[0] as {
+      declared_email: string | null;
+      id: string;
+      status: MemberVerificationStatus;
+    };
+    const transition = resolveVerificationRequestTransition(
+      current.status,
+      (current.declared_email ?? null) !== command.declaredEmail
+    );
+
+    if (transition.kind === "unchanged") {
+      return {
+        status: "unchanged",
+        verification: await this.readOwnById(database, current.id),
+      };
+    }
+
+    await database.execute(sql`
+      update public.member_verifications
+      set
+        status = ${MEMBER_VERIFICATION_STATUS.pending},
+        declared_email = ${command.declaredEmail},
+        decision_reason = null,
+        reviewed_by = null,
+        reviewed_at = null,
+        version = member_verifications.version + 1,
+        updated_at = timezone('utc', now())
+      where member_verifications.id = ${current.id}
+    `);
+    await this.recordAuditEvent(database, {
+      action: VERIFICATION_AUDIT_ACTION.requested,
+      actorUserId: userId,
+      correlationId: command.correlationId,
+      entityId: current.id,
+      entityType: VERIFICATION_AUDIT_ENTITY.verification,
+      fromState: current.status,
+      reason: null,
+      subjectUserId: userId,
+      toState: MEMBER_VERIFICATION_STATUS.pending,
+      tribeId,
+    });
+
+    return {
+      status: "reopened",
+      verification: await this.readOwnById(database, current.id),
+    };
   }
 
   async request(
@@ -387,7 +456,7 @@ export class PostgresMemberVerificationRepository implements MemberVerificationR
           and verification_providers.is_active = true
       `);
 
-      if ((providerResult.rows ?? []).length === 0) {
+      if (providerResult.rows.length === 0) {
         return { status: "provider_unavailable" };
       }
 
@@ -407,7 +476,7 @@ export class PostgresMemberVerificationRepository implements MemberVerificationR
         on conflict (tribe_id, user_id, provider_id) do nothing
         returning id
       `);
-      const insertedId = (inserted.rows?.[0] as { id: string } | undefined)?.id;
+      const insertedId = (inserted.rows[0] as { id: string } | undefined)?.id;
 
       if (insertedId) {
         await this.recordAuditEvent(database, {
@@ -429,60 +498,7 @@ export class PostgresMemberVerificationRepository implements MemberVerificationR
         };
       }
 
-      const currentResult = await database.execute(sql`
-        select id, status, declared_email
-        from public.member_verifications
-        where tribe_id = ${tribeId}
-          and user_id = ${member.userId}
-          and provider_id = ${command.providerId}
-        for update
-      `);
-      const current = currentResult.rows?.[0] as {
-        declared_email: string | null;
-        id: string;
-        status: MemberVerificationStatus;
-      };
-      const transition = resolveVerificationRequestTransition(
-        current.status,
-        (current.declared_email ?? null) !== command.declaredEmail
-      );
-
-      if (transition.kind === "unchanged") {
-        return {
-          status: "unchanged",
-          verification: await this.readOwnById(database, current.id),
-        };
-      }
-
-      await database.execute(sql`
-        update public.member_verifications
-        set
-          status = ${MEMBER_VERIFICATION_STATUS.pending},
-          declared_email = ${command.declaredEmail},
-          decision_reason = null,
-          reviewed_by = null,
-          reviewed_at = null,
-          version = member_verifications.version + 1,
-          updated_at = timezone('utc', now())
-        where member_verifications.id = ${current.id}
-      `);
-      await this.recordAuditEvent(database, {
-        action: VERIFICATION_AUDIT_ACTION.requested,
-        actorUserId: member.userId,
-        correlationId: command.correlationId,
-        entityId: current.id,
-        entityType: VERIFICATION_AUDIT_ENTITY.verification,
-        fromState: current.status,
-        reason: null,
-        subjectUserId: member.userId,
-        toState: MEMBER_VERIFICATION_STATUS.pending,
-        tribeId,
-      });
-
-      return {
-        status: "reopened",
-        verification: await this.readOwnById(database, current.id),
-      };
+      return this.reopenExisting(database, command, { tribeId, userId: member.userId });
     });
   }
 
@@ -500,7 +516,7 @@ export class PostgresMemberVerificationRepository implements MemberVerificationR
         select public.can_review_member_verifications(${tribeId}) as can_review
       `);
 
-      if ((reviewerResult.rows?.[0] as { can_review: boolean }).can_review !== true) {
+      if ((reviewerResult.rows[0] as { can_review: boolean | null }).can_review !== true) {
         return { status: "forbidden" };
       }
 
@@ -523,7 +539,7 @@ export class PostgresMemberVerificationRepository implements MemberVerificationR
         limit ${query.pageSize}
         offset ${(query.page - 1) * query.pageSize}
       `);
-      const rows = (result.rows ?? []) as Array<VerificationRow & { total_count: string | number }>;
+      const rows = result.rows as Array<VerificationRow & { total_count: string | number }>;
 
       return {
         items: rows.map(mapQueueItem),
@@ -543,8 +559,7 @@ export class PostgresMemberVerificationRepository implements MemberVerificationR
       const reviewer = await lockOwnMembership(database, tribeId);
 
       if (
-        !reviewer ||
-        reviewer.status !== "active" ||
+        reviewer?.status !== "active" ||
         (reviewer.role !== "leader" && reviewer.role !== "guardian")
       ) {
         return { status: "forbidden" };
@@ -557,11 +572,11 @@ export class PostgresMemberVerificationRepository implements MemberVerificationR
           and member_verifications.tribe_id = ${tribeId}
         for update
       `);
-      const current = (currentResult.rows?.[0] ?? null) as {
+      const current = (currentResult.rows[0] ?? null) as {
         id: string;
         status: MemberVerificationStatus;
         user_id: string;
-        version: number;
+        version: number | string;
       } | null;
 
       if (!current) {
@@ -646,6 +661,6 @@ export class PostgresMemberVerificationRepository implements MemberVerificationR
       where member_verifications.id = ${verificationId}
     `);
 
-    return result.rows?.[0] as VerificationRow;
+    return result.rows[0] as VerificationRow;
   }
 }

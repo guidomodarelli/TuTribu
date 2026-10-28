@@ -35,7 +35,7 @@ export class PostgresMemberProfileRepository implements MemberProfileRepository 
         where id = ${userId}
         limit 1
       `);
-      const row = (result.rows?.[0] ?? null) as MemberImageRow | null;
+      const row = (result.rows[0] ?? null) as MemberImageRow | null;
 
       return row?.image ?? null;
     });

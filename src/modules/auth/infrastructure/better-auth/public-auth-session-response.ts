@@ -5,7 +5,7 @@ import { HTTP_STATUS } from "@/src/constants/http-status";
 import { PRIVATE_RESPONSE_HEADERS } from "@/src/modules/shared/constants/private-http";
 import { attachRequestContextToResponse, type RequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
-import { PUBLIC_AUTH_SESSION_ENDPOINT, PUBLIC_AUTH_SESSION_TRAILING_SLASH_PATTERN, PUBLIC_AUTH_SESSION_DIAGNOSTIC, PUBLIC_AUTH_SESSION_FAILURE_MESSAGE, PUBLIC_AUTH_SESSION_REPLACED_HEADERS } from "../../constants/public-auth-session";
+import { PUBLIC_AUTH_SESSION_ENDPOINT, PUBLIC_AUTH_SESSION_PATH_SEPARATOR, PUBLIC_AUTH_SESSION_DIAGNOSTIC, PUBLIC_AUTH_SESSION_FAILURE_MESSAGE, PUBLIC_AUTH_SESSION_REPLACED_HEADERS } from "../../constants/public-auth-session";
 import { publicAuthSessionResultSchema, publicAuthSessionMetadataSchema, publicAuthSessionFailureSchema, publicAuthSignInResultSchema, type PublicAuthSessionMetadata, type PublicAuthUser } from "../../application/results/public-auth-session-result";
 
 /** @param value - Native SDK time, serialized by its HTTP handler. @returns The own DTO's ISO field without changing the original instant. */
@@ -37,6 +37,36 @@ function publicUser(user: User): PublicAuthUser {
   };
 }
 
+/** @param request - Native routing. @returns Its decoded path without trailing separators, or empty when it cannot be decoded. */
+function requestPath(request: Request): string {
+  try {
+    const path = decodeURIComponent(new URL(request.url).pathname);
+    let end = path.length;
+    while (end > 0 && path[end - 1] === PUBLIC_AUTH_SESSION_PATH_SEPARATOR) end -= 1;
+    return path.slice(0, end);
+  } catch {
+    return "";
+  }
+}
+
+/** @param body - Parsed native success body. @param endpoint - Whether it answers the current-session or session-list endpoint; otherwise it is a sign-in. @returns The allowlisted own DTO. @throws When the native body does not fit the own contract. */
+function projectNativeBody(body: unknown, { current, list }: { current: boolean; list: boolean }): unknown {
+  if (current) {
+    const native = body as { session: Session; user: User };
+    return publicAuthSessionResultSchema.parse(body === null ? null : {
+      session: publicSession(native.session), user: publicUser(native.user),
+    });
+  }
+  if (list) return publicAuthSessionMetadataSchema.array().parse((body as Session[]).map(publicSession));
+  const native = body as { user: User; redirect?: boolean; url?: string; status?: boolean };
+  return publicAuthSignInResultSchema.parse({
+    user: publicUser(native.user),
+    ...(Object.hasOwn(native, "redirect") ? { redirect: native.redirect } : {}),
+    ...(Object.hasOwn(native, "url") ? { url: native.url } : {}),
+    ...(Object.hasOwn(native, "status") ? { status: native.status } : {}),
+  });
+}
+
 /**
  * Applies private HTTP semantics and selects session/sign-in successes without native token fields.
  * @param request - Native routing, never the source of account or session authority.
@@ -49,12 +79,7 @@ export async function projectPublicAuthResponse(request: Request, response: Resp
   const headers = new Headers(response.headers);
   for (const [name, value] of Object.entries(PRIVATE_RESPONSE_HEADERS)) headers.set(name, value);
   const wrap = (result: Response) => attachRequestContextToResponse(result, context);
-  let path: string;
-  try {
-    path = decodeURIComponent(new URL(request.url).pathname).replace(PUBLIC_AUTH_SESSION_TRAILING_SLASH_PATTERN, "");
-  } catch {
-    path = "";
-  }
+  const path = requestPath(request);
   const current = path.endsWith(PUBLIC_AUTH_SESSION_ENDPOINT.current);
   const list = path.endsWith(PUBLIC_AUTH_SESSION_ENDPOINT.list);
   if (!response.ok || (!current && !list && !headers.get("content-type")?.includes("application/json"))) {
@@ -67,23 +92,7 @@ export async function projectPublicAuthResponse(request: Request, response: Resp
       return wrap(new Response(response.body, { status: response.status, statusText: response.statusText, headers }));
     }
     for (const name of PUBLIC_AUTH_SESSION_REPLACED_HEADERS) headers.delete(name);
-    let projection: unknown;
-    if (current) {
-      const native = body as { session: Session; user: User };
-      projection = publicAuthSessionResultSchema.parse(body === null ? null : {
-        session: publicSession(native.session), user: publicUser(native.user),
-      });
-    } else if (list) {
-      projection = publicAuthSessionMetadataSchema.array().parse((body as Session[]).map(publicSession));
-    } else {
-      const native = body as { user: User; redirect?: boolean; url?: string; status?: boolean };
-      projection = publicAuthSignInResultSchema.parse({
-        user: publicUser(native.user),
-        ...(Object.hasOwn(native, "redirect") ? { redirect: native.redirect } : {}),
-        ...(Object.hasOwn(native, "url") ? { url: native.url } : {}),
-        ...(Object.hasOwn(native, "status") ? { status: native.status } : {}),
-      });
-    }
+    const projection = projectNativeBody(body, { current, list });
     return wrap(Response.json(projection, { status: response.status, headers }));
   } catch {
     for (const name of PUBLIC_AUTH_SESSION_REPLACED_HEADERS) headers.delete(name);

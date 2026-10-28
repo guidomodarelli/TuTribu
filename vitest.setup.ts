@@ -1,4 +1,5 @@
 /** Sets up browser test APIs while preserving native HTTP in Node integration suites. */
+/// <reference types="node" />
 import { vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import { installExitedBrowserStdioRelease } from "./tests/e2e/support/release-exited-browser-stdio";
@@ -13,6 +14,27 @@ if (process.env.RUN_ADMISSION_BROWSER_TESTS === "1") {
 }
 
 const RELATIVE_TIME_ELEMENT_TAG = "relative-time";
+
+/**
+ * Installs a test double on a global object with the same descriptor a plain
+ * assignment creates (writable, enumerable and configurable data property).
+ *
+ * @param target - Global object that receives the property.
+ * @param name - Property name.
+ * @param value - Test double to expose.
+ */
+function defineTestGlobal<Target extends object, Name extends keyof Target>(
+  target: Target,
+  name: Name,
+  value: Target[Name]
+): void {
+  Object.defineProperty(target, name, {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true,
+  });
+}
 
 class ResizeObserverTestStub implements ResizeObserver {
   observe() {
@@ -29,7 +51,7 @@ class ResizeObserverTestStub implements ResizeObserver {
 }
 
 if (!globalThis.ResizeObserver) {
-  globalThis.ResizeObserver = ResizeObserverTestStub;
+  defineTestGlobal(globalThis, "ResizeObserver", ResizeObserverTestStub);
 }
 
 // jsdom does not implement `window.matchMedia`; components that subscribe to a
@@ -42,19 +64,45 @@ const REDUCED_MOTION_MEDIA_QUERIES = new Set([
   "(prefers-reduced-motion)",
 ]);
 
-if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
-  window.matchMedia = function matchMediaTestStub(query: string): MediaQueryList {
-    return {
-      addEventListener: () => undefined,
-      addListener: () => undefined,
-      dispatchEvent: () => false,
-      matches: REDUCED_MOTION_MEDIA_QUERIES.has(query),
-      media: query,
-      onchange: null,
-      removeEventListener: () => undefined,
-      removeListener: () => undefined,
-    };
+// Legacy `MediaQueryList` listener methods that older libraries still call;
+// they are installed by name so the stub keeps the full browser shape.
+const LEGACY_MEDIA_QUERY_LISTENER_METHODS = [
+  "addListener",
+  "removeListener",
+] as const;
+
+/**
+ * Builds the jsdom `matchMedia` result for one query.
+ *
+ * @param query - Media query passed to `window.matchMedia`.
+ * @returns A static list that reports reduced motion and never notifies.
+ */
+function createMediaQueryListStub(query: string): MediaQueryList {
+  const mediaQueryList: Omit<
+    MediaQueryList,
+    (typeof LEGACY_MEDIA_QUERY_LISTENER_METHODS)[number]
+  > = {
+    addEventListener: () => undefined,
+    dispatchEvent: () => false,
+    matches: REDUCED_MOTION_MEDIA_QUERIES.has(query),
+    media: query,
+    onchange: null,
+    removeEventListener: () => undefined,
   };
+
+  for (const methodName of LEGACY_MEDIA_QUERY_LISTENER_METHODS) {
+    Object.assign(mediaQueryList, { [methodName]: () => undefined });
+  }
+
+  return mediaQueryList as MediaQueryList;
+}
+
+if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
+  defineTestGlobal(window, "matchMedia", function matchMediaTestStub(
+    query: string
+  ): MediaQueryList {
+    return createMediaQueryListStub(query);
+  });
 }
 
 if (typeof Element !== "undefined") {
@@ -89,9 +137,9 @@ if (typeof window !== "undefined") {
   // calls it to restore the scroll position after measuring keyframes (such as
   // `height: auto`); jsdom has no layout or scrolling, so there is nothing to
   // restore. Real scrolling and animation lifecycles run in Playwright.
-  window.scrollTo = function scrollTo(): void {
+  defineTestGlobal(window, "scrollTo", function scrollTo(): void {
     return undefined;
-  };
+  });
 }
 
 /**
@@ -142,5 +190,5 @@ if (
 // Browser suites isolate HTTP at their transport boundary. Node integration
 // suites retain native fetch to exercise real provider and database contracts.
 if (typeof window !== "undefined") {
-  global.fetch = vi.fn();
+  defineTestGlobal(globalThis, "fetch", vi.fn());
 }

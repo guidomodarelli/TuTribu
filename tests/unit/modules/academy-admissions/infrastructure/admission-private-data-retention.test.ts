@@ -127,7 +127,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission p
         await database.withContext(backend, async (transaction) => {
           expect((await transaction.execute(sql`select id,private_material_minimized_at is not null as minimized from public.academy_admission_requests where id in (${fixture.oldRequestId},${fixture.unboundRequestId}) order by id`)).rows).toEqual([
             { id: fixture.oldRequestId, minimized: true }, { id: fixture.unboundRequestId, minimized: false },
-          ].sort((left, right) => left.id < right.id ? -1 : 1));
+          ].sort((left, right) => left.id.localeCompare(right.id)));
         });
       } finally { releaseLock(); await holder; }
       expect(await retention.execute({ requestLimit: 1, auditLimit: 1 })).toEqual({ requestsMinimized: 1, auditEventsPurged: 0, archivedAuditEventsPurged: 1, remainingRequests: false, remainingAuditEvents: false });

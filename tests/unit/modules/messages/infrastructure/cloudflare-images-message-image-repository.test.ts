@@ -36,7 +36,7 @@ describe("CloudflareImagesMessageImageRepository", () => {
   });
 
   it("creates a Direct Creator Upload and stores the draft asset", async () => {
-    const fetcher = vi.fn(async (...args: unknown[]) => { void args; return createFetchResponse({
+    const fetcher = vi.fn(async (..._args: unknown[]) => { return createFetchResponse({
         result: {
           id: "cloudflare-image-1",
           uploadURL: "https://upload.imagedelivery.net/direct-upload",
@@ -76,7 +76,7 @@ describe("CloudflareImagesMessageImageRepository", () => {
       headers: { Authorization: "Bearer api-token" },
       method: "POST",
     });
-    expect(((init as RequestInit | undefined)?.body as FormData).get("requireSignedURLs")).toBe("false");
+    expect(((init as RequestInit | undefined)?.body as FormData | undefined)?.get("requireSignedURLs")).toBe("false");
   });
 
   it("deletes the remote asset when storing the draft asset fails", async () => {
@@ -120,12 +120,12 @@ describe("CloudflareImagesMessageImageRepository", () => {
   });
 
   it("verifies draft assets are uploaded before attachment", async () => {
-    const fetcher = vi.fn(async (...args: unknown[]) => { void args; return createFetchResponse({
+    const fetcher = vi.fn(async (..._args: unknown[]) => { return createFetchResponse({
         result: { draft: false, id: "cloudflare-image-1" },
         success: true,
       }); }
     );
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           cloudflare_image_id: "cloudflare-image-1",
@@ -161,7 +161,7 @@ describe("CloudflareImagesMessageImageRepository", () => {
   });
 
   it("treats uploaded Cloudflare assets without a draft flag as ready", async () => {
-    const fetcher = vi.fn(async (...args: unknown[]) => { void args; return createFetchResponse({
+    const fetcher = vi.fn(async (..._args: unknown[]) => { return createFetchResponse({
         result: {
           id: "cloudflare-image-1",
           uploaded: "2026-05-31T00:42:02.249Z",
@@ -169,7 +169,7 @@ describe("CloudflareImagesMessageImageRepository", () => {
         success: true,
       }); }
     );
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           cloudflare_image_id: "cloudflare-image-1",
@@ -211,7 +211,7 @@ describe("CloudflareImagesMessageImageRepository", () => {
           success: true,
         })
       );
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           cloudflare_image_id: "cloudflare-image-1",
@@ -241,7 +241,7 @@ describe("CloudflareImagesMessageImageRepository", () => {
   });
 
   it("marks an allowed asset for deletion and deletes it remotely", async () => {
-    const fetcher = vi.fn(async (...args: unknown[]) => { void args; return createFetchResponse({}); });
+    const fetcher = vi.fn(async (..._args: unknown[]) => { return createFetchResponse({}); });
     const execute = vi
       .fn()
       .mockResolvedValueOnce({
@@ -278,7 +278,7 @@ describe("CloudflareImagesMessageImageRepository", () => {
   });
 
   it("does not delete remotely when the local pending delete mark is not persisted", async () => {
-    const fetcher = vi.fn(async (...args: unknown[]) => { void args; return createFetchResponse({}); });
+    const fetcher = vi.fn(async (..._args: unknown[]) => { return createFetchResponse({}); });
     const logger = { warn: vi.fn() };
     const execute = vi
       .fn()
@@ -317,7 +317,7 @@ describe("CloudflareImagesMessageImageRepository", () => {
   });
 
   it("keeps deletion pending when the final local delete mark is not persisted", async () => {
-    const fetcher = vi.fn(async (...args: unknown[]) => { void args; return createFetchResponse({}); });
+    const fetcher = vi.fn(async (..._args: unknown[]) => { return createFetchResponse({}); });
     const logger = { warn: vi.fn() };
     const execute = vi
       .fn()
@@ -357,7 +357,7 @@ describe("CloudflareImagesMessageImageRepository", () => {
   });
 
   it("restores the local image state when remote deletion fails", async () => {
-    const fetcher = vi.fn(async (...args: unknown[]) => { void args; return ({
+    const fetcher = vi.fn(async (..._args: unknown[]) => { return ({
       json: async () => ({}),
       ok: false,
     }) as Response; });
@@ -391,7 +391,7 @@ describe("CloudflareImagesMessageImageRepository", () => {
   });
 
   it("does not restore a row a concurrent sweep already finalized when remote deletion fails", async () => {
-    const fetcher = vi.fn(async (...args: unknown[]) => { void args; return ({
+    const fetcher = vi.fn(async (..._args: unknown[]) => { return ({
       json: async () => ({}),
       ok: false,
     }) as Response; });
@@ -435,7 +435,7 @@ describe("CloudflareImagesMessageImageRepository", () => {
   });
 
   it("keeps pending image cleanup best effort when remote deletion rejects", async () => {
-    const fetcher = vi.fn(async (...args: unknown[]) => { void args;
+    const fetcher = vi.fn(async (..._args: unknown[]) => { 
       throw new Error("Cloudflare timeout");
     });
     const logger = { warn: vi.fn() };
@@ -472,7 +472,7 @@ describe("CloudflareImagesMessageImageRepository", () => {
   });
 
   it("marks a pending image deleted when the remote asset is already gone", async () => {
-    const fetcher = vi.fn(async (...args: unknown[]) => { void args; return ({
+    const fetcher = vi.fn(async (..._args: unknown[]) => { return ({
       json: async () => ({}),
       ok: false,
       status: HTTP_STATUS.notFound,
@@ -507,7 +507,7 @@ describe("CloudflareImagesMessageImageRepository", () => {
   });
 
   it("sweeps pending images and the orphan queue, deleting each remote asset", async () => {
-    const fetcher = vi.fn(async (...args: unknown[]) => { void args; return createFetchResponse({}); });
+    const fetcher = vi.fn(async (..._args: unknown[]) => { return createFetchResponse({}); });
     const execute = vi
       .fn()
       .mockResolvedValueOnce({ rows: [{ reclaimed: 2 }] })
@@ -548,7 +548,7 @@ describe("CloudflareImagesMessageImageRepository", () => {
   });
 
   it("keeps a pending asset for the next sweep when its remote deletion fails", async () => {
-    const fetcher = vi.fn(async (...args: unknown[]) => { void args; return ({
+    const fetcher = vi.fn(async (..._args: unknown[]) => { return ({
       json: async () => ({}),
       ok: false,
     }) as Response; });

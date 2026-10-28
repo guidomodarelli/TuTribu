@@ -135,12 +135,12 @@ describe("PostgresTribeWelcomeRepository", () => {
   });
 
   it("returns the default simple welcome when storage is not migrated", async () => {
-    const execute = vi.fn(async (...args: unknown[]) => { void args;
-      throw {
+    const execute = vi.fn(async (..._args: unknown[]) => { 
+      throw new Error("Failed query", {
         cause: {
           code: "42P01",
         },
-      };
+      });
     });
     const repository = new PostgresTribeWelcomeRepository(async (callback) =>
       callback({ execute } as never)
@@ -163,7 +163,7 @@ describe("PostgresTribeWelcomeRepository", () => {
   });
 
   it("maps leader save results to updated", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           status: "updated" as const,
@@ -190,7 +190,7 @@ describe("PostgresTribeWelcomeRepository", () => {
   });
 
   it("serializes welcome rules and links with database column names", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           status: "updated" as const,
@@ -262,7 +262,7 @@ describe("PostgresTribeWelcomeRepository", () => {
   });
 
   it("preserves member selections by upserting unchanged links before deleting removed ones", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           status: "updated" as const,

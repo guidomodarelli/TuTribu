@@ -33,7 +33,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("verification deliv
         expect(fixture.transactions).toBe(0);
         const body = await request.json() as { to: string; text: string; fallbackEnabled: boolean; channel: string; idempotencyKey: string };
         expect(body).toMatchObject({ to: fixture.scope.contact.value, channel: "email", fallbackEnabled: false });
-        sentCode = body.text.match(/\d{6}/)?.[0] ?? "";
+        sentCode = /\d{6}/.exec(body.text)?.[0] ?? "";
         expect(sentCode).toHaveLength(6);
         await database.withContext(fixture.own, async (transaction) => {
           expect((await transaction.execute(sql`select state from public.message_delivery_attempts where delivery_id=${fixture.original.deliveryId}`)).rows).toEqual([{ state: "in_flight" }]);

@@ -36,7 +36,7 @@ export function createMessagingUsagePolicyHandlers(open: () => Promise<Messaging
   }
 
   /** Writes preserve original operation identity; version CAS and replay remain owned by persistence. */
-  async function command<Input extends { operationId: string }>(request: Request, context: UsageRouteContext, operation: string, schema: z.ZodType<Input>, execute: (services: MessagingUsagePolicyServices, input: Input & UsageCommandScope) => Promise<UsageCommandResult>): Promise<Response> {
+  async function command<Input extends { operationId: string }>(request: Request, context: UsageRouteContext, { operation, schema, execute }: { operation: string; schema: z.ZodType<Input>; execute: (services: MessagingUsagePolicyServices, input: Input & UsageCommandScope) => Promise<UsageCommandResult> }): Promise<Response> {
     const boundary = createMessagingRouteBoundary({ request, operation });
     try {
       if (!hasAllowedRequestOrigin(request)) return boundary.failure(messagingFailure(MESSAGING_ERROR_CODE.permissionDenied));
@@ -76,8 +76,8 @@ export function createMessagingUsagePolicyHandlers(open: () => Promise<Messaging
       } catch (error) { return boundary.unexpected(error); }
     },
     /** @param request - Explicit confirmed initialization. @param context - Canonical framework params. @returns Original defaults/existing resource without a caller-chosen version or reset. */
-    initialize: (request: Request, context: UsageRouteContext) => command(request, context, MESSAGING_HTTP_OPERATION.usageInitialize, messagingUsagePolicyCreateSchema, (services, input) => services.usage.initialize(input)),
+    initialize: (request: Request, context: UsageRouteContext) => command(request, context, { operation: MESSAGING_HTTP_OPERATION.usageInitialize, schema: messagingUsagePolicyCreateSchema, execute: (services, input) => services.usage.initialize(input) }),
     /** @param request - Once-validated countries/quotas/version. @param context - Canonical framework params. @returns Original CAS/no-op outcome or registered progress; quota history is never reset. */
-    update: (request: Request, context: UsageRouteContext) => command(request, context, MESSAGING_HTTP_OPERATION.usageUpdate, messagingUsagePolicyUpdateSchema, (services, input) => services.usage.update(input)),
+    update: (request: Request, context: UsageRouteContext) => command(request, context, { operation: MESSAGING_HTTP_OPERATION.usageUpdate, schema: messagingUsagePolicyUpdateSchema, execute: (services, input) => services.usage.update(input) }),
   };
 }

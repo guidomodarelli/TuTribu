@@ -107,7 +107,7 @@ describe("browser request deadline", () => {
       const settings = createAdmissionNotificationSettingsApiClient({ fetch: hungFetch(), viewer: signedOutViewer });
       const operationId = randomUUID();
 
-      await expect(afterDeadline(transport.json("/api/tribes/synthetic-academy/admissions/allowlist", z.object({}), new AbortController().signal, { operationId }))).resolves.toEqual({ status: "failed", code: ADMISSION_ERROR_CODE.transportTimeout, message: BROWSER_REQUEST_TIMEOUT_MESSAGE, uncertain: true });
+      await expect(afterDeadline(transport.json("/api/tribes/synthetic-academy/admissions/allowlist", z.object({}), new AbortController().signal, { body: { operationId } }))).resolves.toEqual({ status: "failed", code: ADMISSION_ERROR_CODE.transportTimeout, message: BROWSER_REQUEST_TIMEOUT_MESSAGE, uncertain: true });
       await expect(afterDeadline(settings.readPreference(SLUG, new AbortController().signal))).resolves.toMatchObject({ status: "failed", code: ADMISSION_ERROR_CODE.transportTimeout, uncertain: false });
     });
   });

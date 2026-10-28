@@ -31,7 +31,7 @@ export function useReplacedActionFocus({ scopeKey, resultKey, enabled }: { scope
     if (captured.resultKey === resultKey || captured.element.isConnected) return;
     const active = document.activeElement;
     if (active !== document.body && active !== document.documentElement && active !== captured.element) return;
-    if (resultRef.current?.textContent?.trim()) resultRef.current.focus();
+    if (resultRef.current?.textContent.trim()) resultRef.current.focus();
   }, [completionRevision, enabled, resultKey, scopeKey]);
   useLayoutEffect(() => () => { origin.current = null; }, []);
   return { resultRef, captureActionFocus, finishActionFocus };

@@ -27,6 +27,14 @@ export type MessagingConnectionResourcesProps={
   onReadSenders:()=>void;onReadTemplates:()=>void;onMoreSenders:()=>void;onMoreTemplates:()=>void;onSave:()=>void;
 };
 
+/** Placeholders of one resource select, by what its last read found. */
+type ResourcePlaceholderCopy={empty:string;unread:string;choose:string};
+/** @param empty - The complete read found nothing usable. @param count - Usable resources shown. @param copy - Placeholders of the resource. @returns The select placeholder: why it is empty, that it needs a read, or to choose one. */
+function resourcePlaceholder(empty:boolean,count:number,copy:ResourcePlaceholderCopy):string{
+  if(empty)return copy.empty;
+  return count===0?copy.unread:copy.choose;
+}
+
 /** @param props - Controlled own resource pages and explicit action callbacks. @returns Only fields required by the selected channel; no choice is selected automatically. */
 export function MessagingConnectionResources(props:MessagingConnectionResourcesProps){
   const fieldId=useId(),senderId=`${fieldId}-sender`,templateId=`${fieldId}-template`,languageId=`${fieldId}-language`,channelId=`${fieldId}-channel`;
@@ -34,8 +42,8 @@ export function MessagingConnectionResources(props:MessagingConnectionResourcesP
   const sendersList=props.sendersList??UNREAD_LIST,templatesList=props.templatesList??UNREAD_LIST,reading=props.reading??null;
   // A complete read with nothing usable for the channel explains itself under its select instead of asking to read again.
   const sendersEmpty=sendersList.status==="read"&&senders.length===0,templatesEmpty=templatesList.status==="read"&&props.templates.items.length===0;
-  const senderPlaceholder=sendersEmpty?MESSAGING_RESOURCE_UI_COPY.sendersEmptyPlaceholder:senders.length===0?"Consultá los remitentes primero":"Elegí un remitente";
-  const templatePlaceholder=templatesEmpty?MESSAGING_RESOURCE_UI_COPY.templatesEmptyPlaceholder:props.templates.items.length===0?"Consultá las plantillas primero":"Elegí una plantilla";
+  const senderPlaceholder=resourcePlaceholder(sendersEmpty,senders.length,{empty:MESSAGING_RESOURCE_UI_COPY.sendersEmptyPlaceholder,unread:"Consultá los remitentes primero",choose:"Elegí un remitente"});
+  const templatePlaceholder=resourcePlaceholder(templatesEmpty,props.templates.items.length,{empty:MESSAGING_RESOURCE_UI_COPY.templatesEmptyPlaceholder,unread:"Consultá las plantillas primero",choose:"Elegí una plantilla"});
   /** @param kind - Read whose control is drawn. @returns Its progress and disabled state: the pressed read stays focused and busy, every other control waits. */
   const readControl=(kind:MessagingResourceReading,available=true)=>({loading:reading===kind,disabled:reading!==kind&&(props.busy||!available)});
   return<section className={styles.MessagingConnectionResources} aria-labelledby={`${fieldId}-title`}>

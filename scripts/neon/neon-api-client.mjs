@@ -42,7 +42,7 @@ export class NeonApiError extends Error {
  */
 export async function callNeonApi({ apiKey, method, path, body, operation }) {
   const response = await fetch(`${NEON_API_BASE_URL}${path}`, {
-    body: body === undefined ? undefined : JSON.stringify(body),
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     headers: {
       Accept: "application/json",
       Authorization: `Bearer ${apiKey}`,

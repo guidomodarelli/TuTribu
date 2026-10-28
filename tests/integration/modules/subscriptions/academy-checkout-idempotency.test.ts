@@ -52,7 +52,8 @@ describe.skipIf(!validationDatabaseUrl)("academy checkout provider creation", ()
   });
 
   afterAll(async () => {
-    await pool?.end();
+    // beforeAll may fail before assigning the pool.
+    await (pool as typeof pool | undefined)?.end();
     if (previousBaseUrl === undefined) delete process.env.BETTER_AUTH_URL;
     else process.env.BETTER_AUTH_URL = previousBaseUrl;
   });

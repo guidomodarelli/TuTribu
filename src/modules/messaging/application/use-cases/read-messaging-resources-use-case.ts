@@ -22,6 +22,23 @@ function requireSameResource(original:AuthorizedMessagingContext,current:Authori
   if(original.tribeId!==current.tribeId||original.connectionId!==current.connectionId||original.connectionVersion!==current.connectionVersion||original.secretRef!==current.secretRef||original.environment!==current.environment||original.securityEpoch!==current.securityEpoch||original.resourceId!==current.resourceId||original.operation!==current.operation)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.connectionConflict);
 }
 
+/** @param inspector - Scoped provider reader. @param kind - Requested resource kind. @param signal - Native cancellation/deadline. @returns Every resource of that kind with its readiness. */
+async function listResources(inspector:ReturnType<MessagingResourceInspectorFactory["create"]>,kind:ReadMessagingResourcesInput["kind"],signal:AbortSignal){
+  if(kind===MESSAGING_RESOURCE_KIND.senders)return(await inspector.listSenders(signal)).map((sender)=>({id:sender.resourceId,label:sender.name,channels:[...sender.channels],readiness:sender.channels.some((channel)=>channel!==MESSAGING_PUBLIC_CHANNEL.whatsapp)||sender.canSendWhatsappTemplates?MESSAGING_RESOURCE_READINESS.ready:MESSAGING_RESOURCE_READINESS.incomplete}));
+  return(await inspector.listTemplates(signal)).map((template)=>({id:template.resourceId,label:template.name,channels:[MESSAGING_PUBLIC_CHANNEL.whatsapp],readiness:template.authenticationApproved?MESSAGING_RESOURCE_READINESS.ready:MESSAGING_RESOURCE_READINESS.incomplete,language:template.language}));
+}
+
+/** @returns Code-unit order of resource ids, so pages are stable regardless of locale. */
+function compareResourceIds(left:{id:string},right:{id:string}):number{
+  if(left.id<right.id)return -1;
+  return left.id>right.id?1:0;
+}
+
+/** @param signal - Native cancellation/deadline. @returns Timeout when the caller aborted, otherwise an unexpected failure. */
+function abortedOrUnexpectedCode(signal:AbortSignal){
+  return signal.aborted?MESSAGING_ERROR_CODE.transportTimeout:MESSAGING_ERROR_CODE.unexpectedFailure;
+}
+
 /** Completes all upstream pagination before publishing any bounded own page; partial reads never appear successful. */
 export class ReadMessagingResourcesUseCase{
   /** @param resolver - Current human session, canonical leader and resource authority. @param secrets - Independent current SQL/epoch authorization. @param inspectors - Fresh explicitly scoped SDK readers. @param exposure - Current fixed read-fact recorder without provider data. */
@@ -38,12 +55,11 @@ export class ReadMessagingResourcesUseCase{
       const credential=await this.secrets.loadAuthorizedSecret(context);
       const current=await this.resolver.execute(command);if(!current.allowed)return{ok:false,failure:current.failure};requireSameResource(context,current.context);
       signal.throwIfAborted();
-      const inspector=this.inspectors.create(context,credential);
-      const resources=input.kind===MESSAGING_RESOURCE_KIND.senders?(await inspector.listSenders(signal)).map((sender)=>({id:sender.resourceId,label:sender.name,channels:[...sender.channels],readiness:sender.channels.some((channel)=>channel!==MESSAGING_PUBLIC_CHANNEL.whatsapp)||sender.canSendWhatsappTemplates?MESSAGING_RESOURCE_READINESS.ready:MESSAGING_RESOURCE_READINESS.incomplete})):(await inspector.listTemplates(signal)).map((template)=>({id:template.resourceId,label:template.name,channels:[MESSAGING_PUBLIC_CHANNEL.whatsapp],readiness:template.authenticationApproved?MESSAGING_RESOURCE_READINESS.ready:MESSAGING_RESOURCE_READINESS.incomplete,language:template.language}));
+      const resources=await listResources(this.inspectors.create(context,credential),input.kind,signal);
       signal.throwIfAborted();
       const final=await this.resolver.execute(command);if(!final.allowed)return{ok:false,failure:final.failure};requireSameResource(context,final.context);
       signal.throwIfAborted();
-      const ordered=[...new Map(resources.map((resource)=>[resource.id,resource])).values()].sort((left,right)=>left.id<right.id?-1:left.id>right.id?1:0),offset=cursor?.offset??0;
+      const ordered=[...new Map(resources.map((resource)=>[resource.id,resource])).values()].sort(compareResourceIds),offset=cursor?.offset??0;
       const end=offset+input.limit;
       const page={connectionId:context.connectionId,configurationVersion:context.connectionVersion,items:ordered.slice(offset,end),...(end<ordered.length?{nextCursor:JSON.stringify({tribeId:context.tribeId,connectionId:context.connectionId,configurationVersion:context.connectionVersion,kind:input.kind,offset:end})}:{})};
       const parsed=messagingResourcePageSchema.safeParse(page);if(!parsed.success)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.publicContractUnusable);
@@ -54,7 +70,7 @@ export class ReadMessagingResourcesUseCase{
       return{ok:true,value:parsed.data};
     }catch(error){
       const known=error instanceof MessagingSecretAccessError||error instanceof MessagingConnectionInspectionError||error instanceof MessagingConnectionOperationError;
-      return{ok:false,failure:messagingFailure(known?error.code:signal.aborted?MESSAGING_ERROR_CODE.transportTimeout:MESSAGING_ERROR_CODE.unexpectedFailure,{cause:error})};
+      return{ok:false,failure:messagingFailure(known?error.code:abortedOrUnexpectedCode(signal),{cause:error})};
     }
   }
 }

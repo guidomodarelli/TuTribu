@@ -4,7 +4,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { appendFile, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { chromium, webkit } from "@playwright/test";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
 import { prepareAdmissionBatchBrowserDatabase, bindAdmissionBatchBrowserSession, submitAdmissionBatchBrowserRows } from "@/tests/support/admission-batch-browser-fixture";
 import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
@@ -40,7 +40,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
             const rows = await submitAdmissionBatchBrowserRows(applicant, fixture, origin, secret);
             const batch: Record<string, unknown> = {}, errors: string[] = [];
             observations.batch = batch; observations.pageErrorNames = errors;
-            Object.assign(batch, await validateAdmissionBatchBrowser({ context: reviewer, origin, slug: fixture.slug, rows, privateValues: [secret, ...fixture.applicants.flatMap(({ identity }) => [identity.userId, identity.sessionId, identity.sessionToken, identity.email])], capture: scenario.name === "chromium" && scenario.width === 1280, artifactPath: join(artifacts, `${scenario.name}-${scenario.width}-batch-recovered.png`), errors, observations: batch, onStage: async (phase) => { stage = phase; await appendFile(join(artifacts, `${scenario.name}-${scenario.width}-batch-trace.jsonl`), `${JSON.stringify({ at: new Date().toISOString(), stage, ...batch })}\n`, "utf8"); } }));
+            const validation = await validateAdmissionBatchBrowser({ context: reviewer, origin, slug: fixture.slug, rows, privateValues: [secret, ...fixture.applicants.flatMap(({ identity }) => [identity.userId, identity.sessionId, identity.sessionToken, identity.email])], capture: scenario.name === "chromium" && scenario.width === 1280, artifactPath: join(artifacts, `${scenario.name}-${scenario.width}-batch-recovered.png`), errors, observations: batch, onStage: async (phase) => { stage = phase; await appendFile(join(artifacts, `${scenario.name}-${scenario.width}-batch-trace.jsonl`), `${JSON.stringify({ at: new Date().toISOString(), stage, ...batch })}\n`, "utf8"); } });
+            Object.assign(batch, validation);
+            expect(validation).toMatchObject({ originals: 2 });
             await reviewer.close(); await applicant.close();
           } finally { await browser.close(); }
         }, { messagingSecurity }));

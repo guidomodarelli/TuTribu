@@ -19,9 +19,9 @@ describe("usage local intention storage", () => {
   it("should reject imported browser authority and propagate persistence failure before the caller can send", () => {
     const entries = new Map<string, string>(), storage = { getItem: (key: string) => entries.get(key) ?? null, setItem: (key: string, value: string) => { entries.set(key, value); }, removeItem: (key: string) => { entries.delete(key); } };
     const intent = { type: "initialize_messaging_usage" as const, input: { operationId: "297d47c2-5419-4c3d-a339-e8b7970275ca", confirmed: true as const, expectedVersion: 1, allowedCountries: ["AR"] } };
-    expect(() => writeMessagingUsageIntent("synthetic-leader", "synthetic-academy", intent, storage)).toThrow();
+    expect(() => writeMessagingUsageIntent("synthetic-leader", "synthetic-academy", intent, storage)).toThrow(expect.objectContaining({ issues: [expect.objectContaining({ code: "unrecognized_keys", keys: ["expectedVersion", "allowedCountries"] })] }));
     expect(entries.size).toBe(0);
     const unavailable = { ...storage, setItem: () => { throw new DOMException("Synthetic storage unavailable", "SecurityError"); } };
-    expect(() => writeMessagingUsageIntent("synthetic-leader", "synthetic-academy", { type: "initialize_messaging_usage", input: { operationId: "297d47c2-5419-4c3d-a339-e8b7970275ca", confirmed: true } }, unavailable)).toThrow();
+    expect(() => writeMessagingUsageIntent("synthetic-leader", "synthetic-academy", { type: "initialize_messaging_usage", input: { operationId: "297d47c2-5419-4c3d-a339-e8b7970275ca", confirmed: true } }, unavailable)).toThrow(expect.objectContaining({ name: "SecurityError", message: "Synthetic storage unavailable" }));
   });
 });

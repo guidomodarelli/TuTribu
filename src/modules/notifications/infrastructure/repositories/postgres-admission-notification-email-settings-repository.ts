@@ -72,13 +72,16 @@ export class PostgresAdmissionNotificationEmailSettingsRepository implements Adm
       await this.authorize(database, context, false);
       const stored = await this.read(database, context.tribeId, false);
       await this.authorize(database, context, false);
-      return resolveAdmissionNotificationEmailSettings(context.tribeId, stored)!;
+      const settings = resolveAdmissionNotificationEmailSettings(context.tribeId, stored);
+      if (!settings) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+      return settings;
     });
   }
 
   /** @param context - Current native settings authority and exact sensitive purpose. @param input - Validated confirmed command with original operation/version/zone. @returns The original confirmed outcome or actual registered progress; no send or OTP policy mutation occurs. @throws For current denial, storage/configuration failure or unresolved original completion. */
   async change(context: AuthorizedAdmissionContext, input: AdmissionNotificationEmailSettingsCommand): Promise<AdmissionOperationResult<AdmissionNotificationEmailSettingsChangePlan>> {
-    if (!input.confirmed) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+    // Fail closed even if a caller bypasses the static contract (casts, untyped composition).
+    if (!(input.confirmed as boolean)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     const command = { actorUserId: context.userId, tribeId: context.tribeId, operationType: ADMISSION_EMAIL_SETTINGS_OPERATION, idempotencyKey: input.operationId, intent: { expectedVersion: input.expectedVersion, enabled: input.enabled, timeZone: input.timeZone } };
     const ledger = new PostgresAdmissionOperationRepository((run) => this.execute(context, run), async (database) => { await this.authorize(database, context, true); return true; }, this.readSecurityConfig);
     try {

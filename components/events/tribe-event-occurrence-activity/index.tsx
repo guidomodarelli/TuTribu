@@ -70,46 +70,25 @@ export function TribeEventOccurrenceActivity({
   );
 }
 
-function TribeEventPostEventSection({
-  occurrence,
-  onRecordingAvailabilityChange,
-  target,
-}: {
-  occurrence: TribeEventOccurrenceResult;
-  onRecordingAvailabilityChange: (occurrenceKey: string, hasRecording: boolean) => void;
-  target: { eventId: string; originalStartsAt: string; tribeSlug: string };
-}) {
-  const postEvent = useTribeEventPostEvent({
-    onRecordingAvailabilityChange: (hasRecording) =>
-      onRecordingAvailabilityChange(occurrence.occurrenceKey, hasRecording),
-    target,
-  });
-  const lessonConversion = useTribeEventLessonConversion(target);
-  // Session of the resources form (null before the first opening). Session
-  // ids only grow, so a form reopened while a save is pending never reuses
-  // the id of the form that submitted it. A closed session stays mounted
-  // with `isOpen: false` so the dialog plays its exit animation.
+/**
+ * Session of the resources form (null before the first opening). Session
+ * ids only grow, so a form reopened while a save is pending never reuses
+ * the id of the form that submitted it. A closed session stays mounted
+ * with `isOpen: false` so the dialog plays its exit animation.
+ *
+ * @param isSaving - Whether a resources save is pending; opening waits for it.
+ * @returns The current session plus its open and close actions.
+ */
+function useResourcesFormSession(isSaving: boolean) {
   const [resourcesFormSession, setResourcesFormSession] = useState<ResourcesFormSession | null>(
     null
   );
   const lastResourcesFormSessionRef = useRef(0);
-  const [isLessonDialogOpen, setIsLessonDialogOpen] = useState(false);
-  const [lessonDialogSession, setLessonDialogSession] = useState(0);
-  const loadedPostEvent =
-    postEvent.loadState.status === TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loaded
-      ? postEvent.loadState.postEvent
-      : null;
-
-  const openLessonDialog = () => {
-    setLessonDialogSession((currentSession) => currentSession + 1);
-    setIsLessonDialogOpen(true);
-    lessonConversion.loadTargets();
-  };
 
   const openResourcesForm = () => {
     // A form opened while a save is pending would start from the pre-save
     // resources and its submission would overwrite that save, so it waits.
-    if (postEvent.isSaving) {
+    if (isSaving) {
       return;
     }
 
@@ -126,10 +105,58 @@ function TribeEventPostEventSection({
     );
   };
 
+  return { closeResourcesForm, openResourcesForm, resourcesFormSession };
+}
+
+/**
+ * Open state of the lesson conversion dialog. Every opening starts a new
+ * session (used as the dialog key) and loads the conversion targets again;
+ * closing resets the conversion.
+ *
+ * @param lessonConversion - Conversion actions of the occurrence.
+ * @returns The dialog state plus its open and close actions.
+ */
+function useLessonDialogSession(lessonConversion: Pick<ReturnType<typeof useTribeEventLessonConversion>, "loadTargets" | "reset">) {
+  const [isLessonDialogOpen, setIsLessonDialogOpen] = useState(false);
+  const [lessonDialogSession, setLessonDialogSession] = useState(0);
+
+  const openLessonDialog = () => {
+    setLessonDialogSession((currentSession) => currentSession + 1);
+    setIsLessonDialogOpen(true);
+    lessonConversion.loadTargets();
+  };
+
   const closeLessonDialog = () => {
     setIsLessonDialogOpen(false);
     lessonConversion.reset();
   };
+
+  return { closeLessonDialog, isLessonDialogOpen, lessonDialogSession, openLessonDialog };
+}
+
+function TribeEventPostEventSection({
+  occurrence,
+  onRecordingAvailabilityChange,
+  target,
+}: {
+  occurrence: TribeEventOccurrenceResult;
+  onRecordingAvailabilityChange: (occurrenceKey: string, hasRecording: boolean) => void;
+  target: { eventId: string; originalStartsAt: string; tribeSlug: string };
+}) {
+  const postEvent = useTribeEventPostEvent({
+    onRecordingAvailabilityChange: (hasRecording) =>
+      onRecordingAvailabilityChange(occurrence.occurrenceKey, hasRecording),
+    target,
+  });
+  const lessonConversion = useTribeEventLessonConversion(target);
+  const { closeResourcesForm, openResourcesForm, resourcesFormSession } =
+    useResourcesFormSession(postEvent.isSaving);
+  const { closeLessonDialog, isLessonDialogOpen, lessonDialogSession, openLessonDialog } =
+    useLessonDialogSession(lessonConversion);
+  const loadedPostEvent =
+    postEvent.loadState.status === TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loaded
+      ? postEvent.loadState.postEvent
+      : null;
 
   return (
     <>

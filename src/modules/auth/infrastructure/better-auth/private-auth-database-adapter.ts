@@ -19,6 +19,16 @@ async function privateDatabaseCall<Result>(operation: AuthDatabaseOperation, run
   }
 }
 
+/** @param adapter - Actual ordinary or transaction-local SDK adapter. @returns Its optional schema creator with database-only error protection, only when it has one. */
+function privateCreateSchema(adapter: DBTransactionAdapter): Pick<DBTransactionAdapter, "createSchema"> {
+  const createSchema = adapter.createSchema;
+  if (!createSchema) return {};
+  return {
+    createSchema: (...parameters: Parameters<typeof createSchema>) =>
+      privateDatabaseCall(AUTH_DATABASE_OPERATION.createSchema, () => createSchema.apply(adapter, parameters)),
+  };
+}
+
 /** @param adapter - Actual ordinary or transaction-local SDK adapter. @returns The same metadata and native operations with database-only error protection. */
 function privateTransactionAdapter(adapter: DBTransactionAdapter): DBTransactionAdapter {
   return {
@@ -32,10 +42,7 @@ function privateTransactionAdapter(adapter: DBTransactionAdapter): DBTransaction
     delete: (data) => privateDatabaseCall(AUTH_DATABASE_OPERATION.delete, () => adapter.delete(data)),
     deleteMany: (data) => privateDatabaseCall(AUTH_DATABASE_OPERATION.deleteMany, () => adapter.deleteMany(data)),
     consumeOne: (data) => privateDatabaseCall(AUTH_DATABASE_OPERATION.consumeOne, () => adapter.consumeOne(data)),
-    ...(adapter.createSchema ? {
-      createSchema: (...parameters: Parameters<NonNullable<DBTransactionAdapter["createSchema"]>>) =>
-        privateDatabaseCall(AUTH_DATABASE_OPERATION.createSchema, () => adapter.createSchema!(...parameters)),
-    } : {}),
+    ...privateCreateSchema(adapter),
   };
 }
 

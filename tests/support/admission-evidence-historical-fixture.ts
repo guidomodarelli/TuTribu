@@ -41,7 +41,7 @@ export async function prepareHistoricalAdmissionEvidence(database: AcademyAdmiss
   const predecessorHash = createHash("sha256").update(await readFile(join(directory, `${predecessor.tag}.sql`), "utf8")).digest("hex");
   await database.withContext({ userId: null, email: null }, async (transaction) => {
     const lastMigration = (await transaction.execute<{ hash: string; created_at: string }>(sql`select hash,created_at from drizzle.__drizzle_migrations order by created_at desc limit 1`)).rows[0];
-    if (!lastMigration || lastMigration.hash !== predecessorHash || Number(lastMigration.created_at) !== predecessor.when) throw new Error("AdmissionEvidenceHistory.prepare failed: migration_predecessor_changed");
+    if (lastMigration?.hash !== predecessorHash || Number(lastMigration.created_at) !== predecessor.when) throw new Error("AdmissionEvidenceHistory.prepare failed: migration_predecessor_changed");
     await transaction.execute(sql.raw(executed[0].artifact));
     await transaction.execute(sql`insert into drizzle.__drizzle_migrations(hash,created_at) values ${sql.join(executed.map((entry) => sql`(${entry.hash},${entry.when})`), sql`,`)}`);
   });

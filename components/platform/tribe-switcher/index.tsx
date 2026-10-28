@@ -43,21 +43,12 @@ type TribeSwitcherProps = {
 };
 
 /**
- * Tribe menu of the header and the sidebar brand: create, discover, and jump
- * between the member's tribes. Renders only inside a tribe route; the check
- * mark and `aria-current` identify the tribe being viewed.
+ * @param memberTribes - Tribes of the member.
+ * @param pathname - Current route.
+ * @returns The tribe whose route (or a nested one) is being viewed, if any.
  */
-export function TribeSwitcher({
-  className,
-  dropdownTrigger,
-  memberTribes,
-  onNavigate,
-  showDropdownTrigger = true,
-  showPrivateBadge = true,
-}: TribeSwitcherProps) {
-  const pathname = usePathname();
-  const { push } = useRouter();
-  const activeTribe = memberTribes.find((tribe) => {
+function findActiveTribe(memberTribes: MemberTribeListItemResult[], pathname: string) {
+  return memberTribes.find((tribe) => {
     const tribePath = ROUTES.tribes.bySlug(tribe.slug);
 
     return (
@@ -65,27 +56,27 @@ export function TribeSwitcher({
       pathname.startsWith(`${tribePath}${TRIBE_SWITCHER_UI.nestedRouteSeparator}`)
     );
   });
+}
 
-  const navigateToCreateTribe = () => {
-    push(ROUTES.tribes.create);
-    onNavigate?.();
-  };
+/** Navigations the menu items trigger. */
+type TribeSwitcherNavigation = {
+  navigateToCreateTribe: () => void;
+  navigateToDiscovery: () => void;
+  navigateToTribe: (tribePath: string) => void;
+};
 
-  const navigateToDiscovery = () => {
-    push(ROUTES.home);
-    onNavigate?.();
-  };
-
-  const navigateToTribe = (tribePath: string) => {
-    push(tribePath);
-    onNavigate?.();
-  };
-
-  if (!activeTribe) {
-    return null;
-  }
-
-  const menuItems: DropdownItem[] = [
+/**
+ * @param memberTribes - Tribes of the member.
+ * @param activeTribe - Tribe being viewed.
+ * @param navigation - Navigations of the items.
+ * @returns Create and discover items, then one item per tribe; the active one carries the check mark and `aria-current`.
+ */
+function buildTribeSwitcherMenuItems(
+  memberTribes: MemberTribeListItemResult[],
+  activeTribe: MemberTribeListItemResult,
+  { navigateToCreateTribe, navigateToDiscovery, navigateToTribe }: TribeSwitcherNavigation
+): DropdownItem[] {
+  return [
     {
       className: styles.TribeSwitcher__item,
       icon: <PlusCircleIcon />,
@@ -120,6 +111,49 @@ export function TribeSwitcher({
       };
     }),
   ];
+}
+
+/**
+ * Tribe menu of the header and the sidebar brand: create, discover, and jump
+ * between the member's tribes. Renders only inside a tribe route; the check
+ * mark and `aria-current` identify the tribe being viewed.
+ */
+export function TribeSwitcher({
+  className,
+  dropdownTrigger,
+  memberTribes,
+  onNavigate,
+  showDropdownTrigger = true,
+  showPrivateBadge = true,
+}: TribeSwitcherProps) {
+  const pathname = usePathname();
+  const { push } = useRouter();
+  const activeTribe = findActiveTribe(memberTribes, pathname);
+
+  const navigateToCreateTribe = () => {
+    push(ROUTES.tribes.create);
+    onNavigate?.();
+  };
+
+  const navigateToDiscovery = () => {
+    push(ROUTES.home);
+    onNavigate?.();
+  };
+
+  const navigateToTribe = (tribePath: string) => {
+    push(tribePath);
+    onNavigate?.();
+  };
+
+  if (!activeTribe) {
+    return null;
+  }
+
+  const menuItems = buildTribeSwitcherMenuItems(memberTribes, activeTribe, {
+    navigateToCreateTribe,
+    navigateToDiscovery,
+    navigateToTribe,
+  });
 
   return (
     <div className={cn(styles.TribeSwitcher, className)}>

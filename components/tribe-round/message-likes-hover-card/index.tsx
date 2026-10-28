@@ -3,7 +3,6 @@
 import { UsersIcon } from "lucide-react";
 import {
   type MouseEvent,
-  type MouseEventHandler,
   type ReactNode,
   type TouchEvent,
   useCallback,
@@ -69,7 +68,6 @@ type MessageLikesHoverCardProps = {
   isTriggerDisabled?: boolean;
   likeCount: number;
   messageId: string;
-  onTriggerClick?: MouseEventHandler<HTMLSpanElement>;
   tribeSlug: string;
 };
 
@@ -135,29 +133,22 @@ function useHasNoHoverPointer(): boolean {
   );
 }
 
+type MessageLikersState = {
+  handleOpenChange: (open: boolean) => void;
+  likers: MessageLikerResult[];
+  status: LikersLoadStatus;
+  totalCount: number;
+};
+
 /**
- * Shows, on hover over a message like control, a HoverCard listing the members
- * who liked the message. The likers are fetched on demand the first time the
- * card opens, displaying up to the server-side preview limit plus a collapsed
- * "y otros X..." row when more members reacted.
+ * Loads the likers preview of a message each time its card opens and aborts
+ * the pending request when the card closes or the component unmounts.
  *
- * @param props - Component props.
- * @param props.children - The hover trigger, typically the like button.
- * @param props.isTriggerDisabled - Whether the wrapped trigger control is disabled.
- * @param props.likeCount - Current like count, used to render the empty state.
- * @param props.messageId - Identifier of the message whose likers are shown.
- * @param props.onTriggerClick - Optional click handler for the trigger wrapper.
- * @param props.tribeSlug - Slug of the tribe that owns the message.
- * @returns The hover card wrapping the provided trigger.
+ * @param tribeSlug - Slug of the tribe that owns the message.
+ * @param messageId - Identifier of the message whose likers are shown.
+ * @returns The likers load state and the card open change handler.
  */
-export function MessageLikesHoverCard({
-  children,
-  isTriggerDisabled = false,
-  likeCount,
-  messageId,
-  onTriggerClick,
-  tribeSlug,
-}: MessageLikesHoverCardProps) {
+function useMessageLikers(tribeSlug: string, messageId: string): MessageLikersState {
   const [status, setStatus] = useState<LikersLoadStatus>(
     LIKERS_LOAD_STATUS.idle
   );
@@ -236,22 +227,32 @@ export function MessageLikesHoverCard({
     [loadLikers]
   );
 
+  return { handleOpenChange, likers, status, totalCount };
+}
+
+/**
+ * Renders the likers card body: title, load feedback, likers and the
+ * collapsed "y otros X..." row.
+ *
+ * @param props - Current likers load state.
+ * @param props.likers - Loaded likers preview.
+ * @param props.status - Likers load status.
+ * @param props.totalCount - Total number of members who liked the message.
+ * @returns The card content.
+ */
+function MessageLikersContent({
+  likers,
+  status,
+  totalCount,
+}: Pick<MessageLikersState, "likers" | "status" | "totalCount">) {
   const remainingCount = Math.max(totalCount - likers.length, 0);
   const hasLikers = likers.length > 0;
   // Trust the loaded response over the (possibly stale) optimistic count: a
   // message whose likers were all withdrawn must not render a bare title.
   const isEmpty =
     status === LIKERS_LOAD_STATUS.loaded && !hasLikers && totalCount === 0;
-  const triggerClassName = [
-    styles.MessageLikesHoverCard__trigger,
-    ...(isTriggerDisabled
-      ? [styles["MessageLikesHoverCard__trigger--disabled"]]
-      : []),
-  ].join(" ");
 
-  const hasNoHoverPointer = useHasNoHoverPointer();
-
-  const likersContent = (
+  return (
     <>
       <p className={styles.MessageLikesHoverCard__title}>
         {MESSAGE_LIKES_HOVER_CARD_COPY.title}
@@ -276,29 +277,7 @@ export function MessageLikesHoverCard({
           </p>
         ) : null}
       </div>
-      {hasLikers ? (
-        <ul className={styles.MessageLikesHoverCard__list}>
-          {likers.map((liker) => (
-            <li
-              className={styles.MessageLikesHoverCard__item}
-              key={liker.id}
-            >
-              {/* Decorative: the name is shown next to it. */}
-              <Avatar
-                aria-hidden
-                className={styles.MessageLikesHoverCard__avatar}
-                fallback={liker.avatarFallback}
-                name={liker.name}
-                size="sm"
-                src={liker.image}
-              />
-              <span className={styles.MessageLikesHoverCard__name}>
-                {liker.name}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {hasLikers ? <MessageLikersList likers={likers} /> : null}
       {remainingCount > 0 ? (
         <p className={styles.MessageLikesHoverCard__more}>
           {MESSAGE_LIKES_HOVER_CARD_COPY.buildMoreLabel(remainingCount)}
@@ -306,47 +285,154 @@ export function MessageLikesHoverCard({
       ) : null}
     </>
   );
+}
+
+/**
+ * Renders the loaded likers, each with its avatar and name.
+ *
+ * @param props - Component props.
+ * @param props.likers - Likers to list; never empty.
+ * @returns The likers list.
+ */
+function MessageLikersList({ likers }: { likers: MessageLikerResult[] }) {
+  return (
+    <ul className={styles.MessageLikesHoverCard__list}>
+      {likers.map((liker) => (
+        <li
+          className={styles.MessageLikesHoverCard__item}
+          key={liker.id}
+        >
+          {/* Decorative: the name is shown next to it. */}
+          <Avatar
+            aria-hidden
+            className={styles.MessageLikesHoverCard__avatar}
+            fallback={liker.avatarFallback}
+            name={liker.name}
+            size="sm"
+            src={liker.image}
+          />
+          <span className={styles.MessageLikesHoverCard__name}>
+            {liker.name}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Stops a tap on the touch likers trigger from reaching the message card.
+ *
+ * @param event - Click on the touch likers trigger.
+ */
+function stopTouchTriggerClickPropagation(event: MouseEvent<HTMLButtonElement>) {
+  event.stopPropagation();
+}
+
+type TouchMessageLikesProps = Pick<
+  MessageLikesHoverCardProps,
+  "children" | "likeCount"
+> & {
+  likersContent: ReactNode;
+  onOpenChange: (open: boolean) => void;
+  triggerClassName: string;
+};
+
+/**
+ * Touch devices cannot open a HoverCard: a tap on the like button must keep
+ * toggling the like, so the likers list gets its own tap target next to it.
+ *
+ * @param props - Trigger content, like count and the likers popover content.
+ * @returns The like control followed by the likers popover trigger.
+ */
+function TouchMessageLikes({
+  children,
+  likeCount,
+  likersContent,
+  onOpenChange,
+  triggerClassName,
+}: TouchMessageLikesProps) {
+  return (
+    <span className={styles.MessageLikesHoverCard__touchGroup}>
+      <span className={triggerClassName}>
+        <span className={styles.MessageLikesHoverCard__triggerInteraction}>
+          {children}
+        </span>
+      </span>
+      {likeCount > 0 ? (
+        <Popover onOpenChange={onOpenChange}>
+          <PopoverTrigger asChild>
+            <button
+              aria-label={MESSAGE_LIKES_HOVER_CARD_COPY.touchTriggerLabel}
+              className={styles.MessageLikesHoverCard__touchTrigger}
+              onClick={stopTouchTriggerClickPropagation}
+              type={MESSAGE_LIKES_HOVER_CARD_UI.buttonType}
+            >
+              <UsersIcon aria-hidden />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align={MESSAGE_LIKES_HOVER_CARD_UI.align}
+            className={styles.MessageLikesHoverCard}
+            side={MESSAGE_LIKES_HOVER_CARD_UI.side}
+          >
+            {likersContent}
+          </PopoverContent>
+        </Popover>
+      ) : null}
+    </span>
+  );
+}
+
+/**
+ * Shows, on hover over a message like control, a HoverCard listing the members
+ * who liked the message. The likers are fetched on demand the first time the
+ * card opens, displaying up to the server-side preview limit plus a collapsed
+ * "y otros X..." row when more members reacted.
+ *
+ * @param props - Component props.
+ * @param props.children - The hover trigger, typically the like button.
+ * @param props.isTriggerDisabled - Whether the wrapped trigger control is disabled. A disabled trigger must stay
+ *   focusable (`aria-disabled`, as `ReactionButton` does) so the card still opens from the keyboard.
+ * @param props.likeCount - Current like count, used to render the empty state.
+ * @param props.messageId - Identifier of the message whose likers are shown.
+ * @param props.tribeSlug - Slug of the tribe that owns the message.
+ * @returns The hover card wrapping the provided trigger.
+ */
+export function MessageLikesHoverCard({
+  children,
+  isTriggerDisabled = false,
+  likeCount,
+  messageId,
+  tribeSlug,
+}: MessageLikesHoverCardProps) {
+  const { handleOpenChange, likers, status, totalCount } = useMessageLikers(
+    tribeSlug,
+    messageId
+  );
+  const triggerClassName = [
+    styles.MessageLikesHoverCard__trigger,
+    ...(isTriggerDisabled
+      ? [styles["MessageLikesHoverCard__trigger--disabled"]]
+      : []),
+  ].join(" ");
+
+  const hasNoHoverPointer = useHasNoHoverPointer();
+
+  const likersContent = (
+    <MessageLikersContent likers={likers} status={status} totalCount={totalCount} />
+  );
 
   if (hasNoHoverPointer) {
-    // Touch devices cannot open a HoverCard: a tap on the like button must keep
-    // toggling the like, so the likers list gets its own tap target next to it.
-    const handleTouchTriggerClick = (event: MouseEvent<HTMLButtonElement>) => {
-      event.stopPropagation();
-    };
-
     return (
-      <span className={styles.MessageLikesHoverCard__touchGroup}>
-        <span
-          aria-disabled={isTriggerDisabled || undefined}
-          className={triggerClassName}
-          onClick={isTriggerDisabled ? onTriggerClick : undefined}
-        >
-          <span className={styles.MessageLikesHoverCard__triggerInteraction}>
-            {children}
-          </span>
-        </span>
-        {likeCount > 0 ? (
-          <Popover onOpenChange={handleOpenChange}>
-            <PopoverTrigger asChild>
-              <button
-                aria-label={MESSAGE_LIKES_HOVER_CARD_COPY.touchTriggerLabel}
-                className={styles.MessageLikesHoverCard__touchTrigger}
-                onClick={handleTouchTriggerClick}
-                type={MESSAGE_LIKES_HOVER_CARD_UI.buttonType}
-              >
-                <UsersIcon aria-hidden />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent
-              align={MESSAGE_LIKES_HOVER_CARD_UI.align}
-              className={styles.MessageLikesHoverCard}
-              side={MESSAGE_LIKES_HOVER_CARD_UI.side}
-            >
-              {likersContent}
-            </PopoverContent>
-          </Popover>
-        ) : null}
-      </span>
+      <TouchMessageLikes
+        likeCount={likeCount}
+        likersContent={likersContent}
+        onOpenChange={handleOpenChange}
+        triggerClassName={triggerClassName}
+      >
+        {children}
+      </TouchMessageLikes>
     );
   }
 
@@ -358,12 +444,7 @@ export function MessageLikesHoverCard({
       onOpenChange={handleOpenChange}
       side={MESSAGE_LIKES_HOVER_CARD_UI.side}
     >
-      <span
-        aria-disabled={isTriggerDisabled || undefined}
-        className={triggerClassName}
-        onClick={isTriggerDisabled ? onTriggerClick : undefined}
-        tabIndex={isTriggerDisabled ? 0 : undefined}
-      >
+      <span className={triggerClassName}>
         <span
           className={styles.MessageLikesHoverCard__triggerInteraction}
           onTouchStart={stopTriggerTouchStartPropagation}

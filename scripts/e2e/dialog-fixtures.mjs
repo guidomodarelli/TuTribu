@@ -94,11 +94,12 @@ async function insertMemberWithSession(client, { userId, name, now }) {
  * @returns {Promise<string>} Message id.
  */
 async function insertMessage(client, { tribeId, channelId, authorId, title, content, createdAt }) {
-  const { rows: [message] } = await client.query(
+  const { rows: messageRows } = await client.query(
     `insert into public.messages (tribe_id, channel_id, author_id, title, content, created_at, updated_at)
      values ($1, $2, $3, $4, $5, $6, $6) returning id`,
     [tribeId, channelId, authorId, title, content, createdAt]
   );
+  const [message] = messageRows;
 
   return message.id;
 }
@@ -132,8 +133,8 @@ export async function seedDialogFixtures({ connectionString, runId, authSecret }
   const now = new Date();
   const userId = `e2e-${runId}`;
   const tribemateId = `e2e-tribemate-${runId}`;
-  let sessionToken = "";
-  let tribemateSessionToken = "";
+  let sessionToken;
+  let tribemateSessionToken;
   const tribeSlug = `e2e-dialogos-${runId}`;
 
   await client.connect();
@@ -146,11 +147,12 @@ export async function seedDialogFixtures({ connectionString, runId, authSecret }
       now,
       userId: tribemateId,
     });
-    const { rows: [tribe] } = await client.query(
+    const { rows: tribeRows } = await client.query(
       `insert into public.tribes (name, slug, visibility, created_by)
        values ($1, $2, $3, $4) returning id`,
       [FIXTURE_COPY.tribeName, tribeSlug, FIXTURE_TRIBE.visibility, userId]
     );
+    const [tribe] = tribeRows;
     await client.query(
       `insert into public.tribe_members (tribe_id, user_id, role, status) values ($1, $2, $3, $4)`,
       [tribe.id, userId, FIXTURE_TRIBE.memberRole, FIXTURE_TRIBE.memberStatus]
@@ -160,11 +162,12 @@ export async function seedDialogFixtures({ connectionString, runId, authSecret }
       [tribe.id, tribemateId, FIXTURE_TRIBE.tribemateRole, FIXTURE_TRIBE.memberStatus]
     );
     const { channel } = FIXTURE_TRIBE;
-    const { rows: [insertedChannel] } = await client.query(
+    const { rows: channelRows } = await client.query(
       `insert into public.tribe_channels (tribe_id, name, slug, emoji, sort_order, access_scope)
        values ($1, $2, $3, $4, $5, $6) returning id`,
       [tribe.id, channel.name, channel.slug, channel.emoji, channel.sortOrder, channel.accessScope]
     );
+    const [insertedChannel] = channelRows;
     const messageBase = { authorId: userId, channelId: insertedChannel.id, tribeId: tribe.id };
     await insertMessage(client, {
       ...messageBase,

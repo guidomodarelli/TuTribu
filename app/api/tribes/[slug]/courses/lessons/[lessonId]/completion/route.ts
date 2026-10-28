@@ -47,7 +47,7 @@ export async function PUT(
   }
 
   try {
-    const body = await request.json().catch(() => null);
+    const body: unknown = await request.json().catch(() => null);
     const completed = readBooleanField(body, COURSE_ROUTE_FIELD.completed);
 
     if (completed === null) {

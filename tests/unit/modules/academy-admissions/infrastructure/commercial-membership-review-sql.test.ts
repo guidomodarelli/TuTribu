@@ -153,14 +153,14 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("commercial members
       const results = outcomes.map((outcome) => outcome.status === "fulfilled" && outcome.value.state === "completed" ? outcome.value.result.status : "unconfirmed");
       expect(results.filter((status) => status === "resolved")).toHaveLength(1);
       expect(results.filter((status) => status === "rejected")).toHaveLength(1);
-      await expect(database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_member_commercial_resolutions set reason='x' where tribe_id=${data.tribeId}`))).rejects.toThrow();
+      await expect(database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_member_commercial_resolutions set reason='x' where tribe_id=${data.tribeId}`))).rejects.toThrow(expect.objectContaining({ cause: expect.objectContaining({ code: "23514", message: "commercial membership resolutions are append-only" }) }));
       await database.grantTablesToNonBypass(["tribe_member_commercial_resolutions", "tribe_members"]);
       const visible = await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute<{ count: number }>(sql`select count(*)::int as count from public.tribe_member_commercial_resolutions where tribe_id=${data.tribeId}`)).rows[0].count, "non_bypass");
       expect(visible).toBe(1);
       const stranger = { userId: randomUUID(), email: "stranger@example.test" };
       const hidden = await database.withContext(stranger, async (transaction) => (await transaction.execute<{ count: number }>(sql`select count(*)::int as count from public.tribe_member_commercial_resolutions where tribe_id=${data.tribeId}`)).rows[0].count, "non_bypass");
       expect(hidden).toBe(0);
-      await expect(database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`insert into public.tribe_member_commercial_resolutions(tribe_id,member_id,member_user_id,actor_user_id,operation_id,decision,previous_role,previous_status,previous_status_reason,resulting_role,resulting_status,resulting_status_reason,resulting_recovery_status) values (${data.tribeId},${data.memberIds.removed},${data.fixture.userId},${data.fixture.userId},${randomUUID()},'recover_active','tribemate','removed','subscription_inactive','tribemate','removed','subscription_inactive','active')`), "non_bypass")).rejects.toThrow();
+      await expect(database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`insert into public.tribe_member_commercial_resolutions(tribe_id,member_id,member_user_id,actor_user_id,operation_id,decision,previous_role,previous_status,previous_status_reason,resulting_role,resulting_status,resulting_status_reason,resulting_recovery_status) values (${data.tribeId},${data.memberIds.removed},${data.fixture.userId},${data.fixture.userId},${randomUUID()},'recover_active','tribemate','removed','subscription_inactive','tribemate','removed','subscription_inactive','active')`), "non_bypass")).rejects.toThrow(expect.objectContaining({ cause: expect.objectContaining({ code: "42501" }) }));
       await expect(data.repository.read({ ...data.readContext, sessionId: randomUUID() })).rejects.toMatchObject({ code: "authentication_required" });
     });
   }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);

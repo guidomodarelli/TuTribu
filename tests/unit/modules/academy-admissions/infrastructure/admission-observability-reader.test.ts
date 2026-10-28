@@ -32,7 +32,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission o
   it("should include real completed dispatch and exact per-phase samples while excluding a later incomplete run", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const { fixture, observations, query } = await prepareObservability(database), tribeId = fixture.tribeId;
-      const recorder = new PostgresMessageDispatchRunRecorder((actor, work) => database.withContext({ userId: actor, email: null }, work), async () => true, async () => fixture.config, tribeId);
+      const recorder = new PostgresMessageDispatchRunRecorder((actor, work) => database.withContext({ userId: actor, email: null }, work), async () => true, async () => fixture.config, { focalTribeId: tribeId });
       const counters = { claimed: 1, authorized: 1, accepted: 1, delivered: 0, rejected: 0, unknown: 0, suppressed: 0, quotaDeferred: 0, unresolved: 0, deadlineReached: false }, start = await recorder.begin(randomUUID());
       const phases = [13, 27].map((durationMs) => ({ sampleId: randomUUID(), tribeId, phase: "send" as const, durationMs }));
       await recorder.finish(start, [{ tribeId, outcome: "completed", counters }], phases, 45_000);
@@ -51,7 +51,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission o
     await withAcademyAdmissionDatabase(async (database) => {
       const { fixture, observations, query } = await prepareObservability(database);
       const policyBefore = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select version,verification_epoch from public.academy_admission_policies where tribe_id=${fixture.tribeId}`)).rows);
-      for (const _read of [false, true]) expect(await observations.metrics(query)).toMatchObject({ ok: true, value: { tribeId: fixture.tribeId, requests: { pending: 0, approved: 0, oldestPendingAgeMs: null }, attempts: { inFlight: 0, accepted: 0, delivered: 0, rejected: 0, unknown: 0 }, deliveries: { queued: 0, oldestQueuedAgeMs: null }, usage: { policyVersion: null, verificationToday: 0, notificationToday: 0 }, verification: [], lastSuccessfulRun: null, durations: [], errors: [] } });
+      for (let read = 0; read < 2; read += 1) expect(await observations.metrics(query)).toMatchObject({ ok: true, value: { tribeId: fixture.tribeId, requests: { pending: 0, approved: 0, oldestPendingAgeMs: null }, attempts: { inFlight: 0, accepted: 0, delivered: 0, rejected: 0, unknown: 0 }, deliveries: { queued: 0, oldestQueuedAgeMs: null }, usage: { policyVersion: null, verificationToday: 0, notificationToday: 0 }, verification: [], lastSuccessfulRun: null, durations: [], errors: [] } });
       await database.withContext(fixture.own, async (transaction) => {
         expect((await transaction.execute(sql`select version,verification_epoch from public.academy_admission_policies where tribe_id=${fixture.tribeId}`)).rows).toEqual(policyBefore);
         expect((await transaction.execute(sql`select count(*)::integer as count from public.academy_admission_operations where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ count: 0 }]);
@@ -97,7 +97,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission o
       });
       const seen: string[] = [];
       let cursor: string | undefined;
-      for (const _page of ids) {
+      for (let pageIndex = 0; pageIndex < ids.length; pageIndex += 1) {
         const filters = admissionActivityQuerySchema.parse({ limit: "1", resourceId, ...(cursor ? { cursor } : {}) });
         const page = await observations.activity({ ...query, ...filters });
         if (!page.ok) throw new Error("Native activity paging fixture failed: own_page_unavailable");
@@ -109,7 +109,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission o
         for (const marker of [fixture.own.email, "synthetic-otp", "synthetic-encrypted-body", "Synthetic private note", "Synthetic private cause"]) expect(serialized).not.toContain(marker);
         seen.push(item.id); cursor = page.value.nextCursor ?? undefined;
       }
-      expect(new Set(seen).size).toBe(3); expect(seen.sort()).toEqual(ids.sort()); expect(cursor).toBeUndefined();
+      expect(new Set(seen).size).toBe(3); expect(seen.toSorted()).toEqual(ids.toSorted()); expect(cursor).toBeUndefined();
     });
   }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
 

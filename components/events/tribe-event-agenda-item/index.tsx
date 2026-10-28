@@ -81,6 +81,109 @@ function AttendanceBadge({ occurrence }: { occurrence: TribeEventOccurrenceResul
   return <Badge tone={badge.tone}>{badge.label}</Badge>;
 }
 
+type AgendaItemStatusBadgeProps = {
+  isCancelled: boolean;
+  isPast: boolean;
+  occurrence: TribeEventOccurrenceResult;
+};
+
+/** Finished badge for past dates, the viewer answer otherwise, nothing for a cancelled date. */
+function AgendaItemStatusBadge({ isCancelled, isPast, occurrence }: AgendaItemStatusBadgeProps) {
+  if (isCancelled) {
+    return null;
+  }
+
+  if (isPast) {
+    return <Badge tone={BADGE_TONE.neutral}>{COPY.pastBadge}</Badge>;
+  }
+
+  return <AttendanceBadge occurrence={occurrence} />;
+}
+
+type TribeEventAgendaItemMetaProps = AgendaItemStatusBadgeProps & {
+  hasRecording: boolean;
+  isLive: boolean;
+};
+
+/** Type, cancellation, live, answer, recording and recurrence badges of the row. */
+function TribeEventAgendaItemMeta({
+  hasRecording,
+  isCancelled,
+  isLive,
+  isPast,
+  occurrence,
+}: TribeEventAgendaItemMetaProps) {
+  return (
+    <div className={styles.TribeEventAgendaItem__meta}>
+      <TribeEventTypeBadge eventType={occurrence.eventType} />
+      {isCancelled ? (
+        <Badge tone={BADGE_TONE.danger}>
+          {TRIBE_EVENT_OCCURRENCE_EXCEPTION_COPY.cancelledBadge}
+        </Badge>
+      ) : null}
+      {isLive && !isCancelled ? (
+        <Badge tone={BADGE_TONE.danger}>
+          <span aria-hidden className={styles.TribeEventAgendaItem__liveDot} />
+          {COPY.liveBadge}
+        </Badge>
+      ) : null}
+      <AgendaItemStatusBadge isCancelled={isCancelled} isPast={isPast} occurrence={occurrence} />
+      {hasRecording && !isCancelled ? (
+        <Badge icon={<VideoIcon />} tone={BADGE_TONE.neutral}>
+          {COPY.recordingBadge}
+        </Badge>
+      ) : null}
+      {occurrence.recurrenceFrequency !== TRIBE_EVENT_RECURRENCE_FREQUENCY.none ? (
+        <span className={styles.TribeEventAgendaItem__metaText}>
+          {TRIBE_EVENT_RECURRENCE_LABEL[occurrence.recurrenceFrequency]}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+type TribeEventAgendaItemActionsProps = {
+  canAddToGoogleCalendar: boolean;
+  isCancelled: boolean;
+  occurrence: TribeEventOccurrenceResult;
+};
+
+/** Google Calendar and meeting shortcuts of the row. */
+function TribeEventAgendaItemActions({
+  canAddToGoogleCalendar,
+  isCancelled,
+  occurrence,
+}: TribeEventAgendaItemActionsProps) {
+  return (
+    <div className={styles.TribeEventAgendaItem__actions}>
+      {canAddToGoogleCalendar ? (
+        <a
+          aria-label={COPY.googleCalendar}
+          className={styles.TribeEventAgendaItem__iconLink}
+          href={buildTribeEventGoogleCalendarUrl(occurrence)}
+          rel={LINK_ATTRIBUTE.noreferrer}
+          target={LINK_ATTRIBUTE.targetBlank}
+          title={COPY.googleCalendar}
+        >
+          <CalendarPlusIcon aria-hidden />
+        </a>
+      ) : null}
+      {occurrence.meetingUrl && !isCancelled ? (
+        <a
+          aria-label={COPY.linkOpen}
+          className={styles.TribeEventAgendaItem__iconLink}
+          href={occurrence.meetingUrl}
+          rel={LINK_ATTRIBUTE.noreferrer}
+          target={LINK_ATTRIBUTE.targetBlank}
+          title={COPY.linkOpen}
+        >
+          <ExternalLinkIcon aria-hidden />
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
 /**
  * One agenda row: schedule, title (opens the detail), event type, viewer
  * answer or finished badge, recurrence, a compact attendance summary
@@ -142,35 +245,13 @@ export function TribeEventAgendaItem({
         >
           {occurrence.title}
         </button>
-        <div className={styles.TribeEventAgendaItem__meta}>
-          <TribeEventTypeBadge eventType={occurrence.eventType} />
-          {isCancelled ? (
-            <Badge tone={BADGE_TONE.danger}>
-              {TRIBE_EVENT_OCCURRENCE_EXCEPTION_COPY.cancelledBadge}
-            </Badge>
-          ) : null}
-          {isLive && !isCancelled ? (
-            <Badge tone={BADGE_TONE.danger}>
-              <span aria-hidden className={styles.TribeEventAgendaItem__liveDot} />
-              {COPY.liveBadge}
-            </Badge>
-          ) : null}
-          {isCancelled ? null : isPast ? (
-            <Badge tone={BADGE_TONE.neutral}>{COPY.pastBadge}</Badge>
-          ) : (
-            <AttendanceBadge occurrence={occurrence} />
-          )}
-          {hasRecording && !isCancelled ? (
-            <Badge icon={<VideoIcon />} tone={BADGE_TONE.neutral}>
-              {COPY.recordingBadge}
-            </Badge>
-          ) : null}
-          {occurrence.recurrenceFrequency !== TRIBE_EVENT_RECURRENCE_FREQUENCY.none ? (
-            <span className={styles.TribeEventAgendaItem__metaText}>
-              {TRIBE_EVENT_RECURRENCE_LABEL[occurrence.recurrenceFrequency]}
-            </span>
-          ) : null}
-        </div>
+        <TribeEventAgendaItemMeta
+          hasRecording={hasRecording}
+          isCancelled={isCancelled}
+          isLive={isLive}
+          isPast={isPast}
+          occurrence={occurrence}
+        />
         {movedFromLabel ? (
           <p className={styles.TribeEventAgendaItem__note}>{movedFromLabel}</p>
         ) : null}
@@ -182,32 +263,11 @@ export function TribeEventAgendaItem({
           />
         )}
       </div>
-      <div className={styles.TribeEventAgendaItem__actions}>
-        {canAddToGoogleCalendar ? (
-          <a
-            aria-label={COPY.googleCalendar}
-            className={styles.TribeEventAgendaItem__iconLink}
-            href={buildTribeEventGoogleCalendarUrl(occurrence)}
-            rel={LINK_ATTRIBUTE.noreferrer}
-            target={LINK_ATTRIBUTE.targetBlank}
-            title={COPY.googleCalendar}
-          >
-            <CalendarPlusIcon aria-hidden />
-          </a>
-        ) : null}
-        {occurrence.meetingUrl && !isCancelled ? (
-          <a
-            aria-label={COPY.linkOpen}
-            className={styles.TribeEventAgendaItem__iconLink}
-            href={occurrence.meetingUrl}
-            rel={LINK_ATTRIBUTE.noreferrer}
-            target={LINK_ATTRIBUTE.targetBlank}
-            title={COPY.linkOpen}
-          >
-            <ExternalLinkIcon aria-hidden />
-          </a>
-        ) : null}
-      </div>
+      <TribeEventAgendaItemActions
+        canAddToGoogleCalendar={canAddToGoogleCalendar}
+        isCancelled={isCancelled}
+        occurrence={occurrence}
+      />
     </AnimatedListItem>
   );
 }

@@ -55,10 +55,10 @@ async function loadAcademyPageData(
   ]);
   const membership = memberTribes.find((tribe) => tribe.slug === slug);
   const isActive = membership?.membershipStatus === TRIBE_MEMBERSHIP_STATUS.active;
-  const isActiveLeader = isActive && membership?.role === TRIBE_MEMBER_ROLE.leader;
+  const isActiveLeader = isActive && membership.role === TRIBE_MEMBER_ROLE.leader;
   const canManage =
     isActive &&
-    (membership?.role === TRIBE_MEMBER_ROLE.leader || membership?.role === TRIBE_MEMBER_ROLE.guardian);
+    (membership.role === TRIBE_MEMBER_ROLE.leader || membership.role === TRIBE_MEMBER_ROLE.guardian);
 
   // Legacy tribes (no academy offer): only the active leader sees the setup hint.
   if (!offer && !isActiveLeader) {
@@ -67,7 +67,7 @@ async function loadAcademyPageData(
 
   return {
     access:
-      ownAccess && ownAccess.status === "ok"
+      ownAccess?.status === "ok"
         ? academyAccessStatusDtoSchema.parse(
             toAcademyAccessStatusDto(ownAccess.access, ownAccess.accessModel)
           )

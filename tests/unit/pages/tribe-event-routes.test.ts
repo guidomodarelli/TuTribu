@@ -1398,7 +1398,7 @@ describe("Tribe event routes", () => {
       ],
       [
         "POST /events with a non-JSON body",
-        () => POST(buildRequest(undefined), buildTribeContext()),
+        () => POST(buildRequest(), buildTribeContext()),
         "Completá el título y la fecha de inicio del evento.",
       ],
       [

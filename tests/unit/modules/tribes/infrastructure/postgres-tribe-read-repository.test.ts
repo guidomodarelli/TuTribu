@@ -3,7 +3,7 @@ import { PostgresTribeReadRepository } from "@/src/modules/tribes/infrastructure
 
 describe("PostgresTribeReadRepository", () => {
   it("returns a visible tribe when the row is readable through RLS", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           id: "tribe-1",
@@ -29,7 +29,7 @@ describe("PostgresTribeReadRepository", () => {
   });
 
   it("returns the current membership access through the diagnostic function that preserves blocked-member detection", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [{ status: "blocked" as const, status_reason: "payment_blocked" }],
     }); });
 
@@ -51,7 +51,7 @@ describe("PostgresTribeReadRepository", () => {
   });
 
   it("returns the current membership access and readable tribe in one database query", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           id: "tribe-1",
@@ -91,7 +91,7 @@ describe("PostgresTribeReadRepository", () => {
   });
 
   it("keeps the membership access when the tribe row is not readable", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           id: null,
@@ -125,7 +125,7 @@ describe("PostgresTribeReadRepository", () => {
   });
 
   it("lists visible membership tribes for the current member", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           tribe_id: "tribe-1",
@@ -184,7 +184,7 @@ describe("PostgresTribeReadRepository", () => {
   });
 
   it("lists visible members for a readable tribe", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           email: "ada.lovelace@example.com",
@@ -236,7 +236,7 @@ describe("PostgresTribeReadRepository", () => {
   });
 
   it("treats a missing free-invitation flag as not joined via a free invitation", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           email: null,

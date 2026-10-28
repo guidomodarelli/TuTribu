@@ -113,22 +113,12 @@ function persistReactionIntentOnTeardown({
 }
 
 /**
- * Container logic of the post-event block of one occurrence: loads the
- * resources once per mount (the container remounts per occurrence), saves
- * them incrementally (no route refresh), reports the recording availability
- * of every successful load or save to the parent, and applies reactions
- * optimistically with debounce, coalescing, and rollback to the persisted
- * baseline. Saves and reaction requests are registered per occurrence and a
- * load waits for them, so reopening the detail while one is pending shows its
- * outcome; a reaction still waiting for the debounce is sent on unmount.
+ * State, refs and lifecycle of the post-event block: tracks whether it is
+ * mounted.
  *
- * @param input - Occurrence target and the recording availability callback.
- * @returns Load state, visible reactions, and the mutations.
+ * @returns Every state, ref and setter of the block.
  */
-export function useTribeEventPostEvent({
-  onRecordingAvailabilityChange,
-  target,
-}: UseTribeEventPostEventInput) {
+function useTribeEventPostEventState() {
   const [loadState, setLoadState] = useState<
     TribeEventLoadState<{ postEvent: TribeEventPostEventView }>
   >({ status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loading });
@@ -149,12 +139,6 @@ export function useTribeEventPostEvent({
   // starts: if it changed by the time the save answers, the save may have read
   // the counts before that reaction committed, so its reactions are stale.
   const completedReactionGenerationRef = useRef(0);
-  const { eventId, originalStartsAt, tribeSlug } = target;
-  // Effect event: the load effect reports with the latest parent callback
-  // without refetching whenever the parent re-renders with a new closure.
-  const reportLoadedRecordingAvailability = useEffectEvent((hasRecording: boolean) => {
-    onRecordingAvailabilityChange?.(hasRecording);
-  });
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -164,25 +148,25 @@ export function useTribeEventPostEvent({
     };
   }, []);
 
-  useEffect(() => {
-    const occurrenceTarget = { eventId, originalStartsAt, tribeSlug };
+  return { loadState, setLoadState, visibleReactions, setVisibleReactions, reloadCount, setReloadCount, isSaving, setIsSaving, isSavingRef, isMountedRef, reactionIntentRef, reactionTimerRef, isReactionRequestInFlightRef, inFlightReactionRef, reactionScopeRef, completedReactionGenerationRef };
+}
+type TribeEventPostEventState = ReturnType<typeof useTribeEventPostEventState>;
 
-    return () => {
-      if (reactionTimerRef.current) {
-        clearTimeout(reactionTimerRef.current);
-        reactionTimerRef.current = null;
-      }
-
-      const pendingIntent = reactionIntentRef.current;
-
-      reactionIntentRef.current = null;
-      persistReactionIntentOnTeardown({
-        inFlightReaction: inFlightReactionRef.current,
-        occurrenceTarget,
-        pendingIntent,
-      });
-    };
-  }, [eventId, originalStartsAt, tribeSlug]);
+/**
+ * Loads the resources once per mount and again on each explicit reload.
+ *
+ * @param state - Block state.
+ * @param input - Occurrence target and the recording availability callback.
+ * @returns The reload.
+ */
+function useTribeEventPostEventLoad(state: TribeEventPostEventState, { onRecordingAvailabilityChange, target }: UseTribeEventPostEventInput) {
+  const { setReloadCount, reloadCount, setLoadState, setVisibleReactions, reactionIntentRef, reactionScopeRef } = state;
+  const { eventId, originalStartsAt, tribeSlug } = target;
+  // Effect event: the load effect reports with the latest parent callback
+  // without refetching whenever the parent re-renders with a new closure.
+  const reportLoadedRecordingAvailability = useEffectEvent((hasRecording: boolean) => {
+    onRecordingAvailabilityChange?.(hasRecording);
+  });
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -232,13 +216,26 @@ export function useTribeEventPostEvent({
       });
 
     return () => abortController.abort();
-  }, [eventId, originalStartsAt, reloadCount, tribeSlug]);
+  }, [eventId, originalStartsAt, reactionIntentRef, reactionScopeRef, reloadCount, setLoadState, setVisibleReactions, tribeSlug]);
 
   const reload = useCallback(() => {
     setLoadState({ status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loading });
     setReloadCount((currentCount) => currentCount + 1);
-  }, []);
+  }, [setLoadState, setReloadCount]);
 
+  return reload;
+}
+
+/**
+ * Saves the resources incrementally and reconciles the reactions the save returns.
+ *
+ * @param state - Block state.
+ * @param input - Occurrence target and the recording availability callback.
+ * @returns The resources save.
+ */
+function useTribeEventPostEventSave(state: TribeEventPostEventState, { onRecordingAvailabilityChange, target }: UseTribeEventPostEventInput) {
+  const { setLoadState, setVisibleReactions, setIsSaving, isSavingRef, isMountedRef, reactionIntentRef, reactionScopeRef, completedReactionGenerationRef } = state;
+  const { eventId, originalStartsAt, tribeSlug } = target;
   /**
    * Adopts the reactions of a resources save without discarding the viewer's
    * reactions. A reaction that persisted after the save started wins: the save
@@ -330,6 +327,40 @@ export function useTribeEventPostEvent({
     }
   };
 
+  return saveResources;
+}
+
+/**
+ * Applies reactions optimistically with debounce, coalescing, and rollback to the persisted baseline;
+ * a reaction still waiting for the debounce is sent on teardown.
+ *
+ * @param state - Block state.
+ * @param target - Occurrence target.
+ * @returns The flush of the pending reaction intent.
+ */
+function useTribeEventPostEventReactions(state: TribeEventPostEventState, target: TribeEventOccurrenceTarget) {
+  const { setVisibleReactions, isMountedRef, reactionIntentRef, reactionTimerRef, isReactionRequestInFlightRef, inFlightReactionRef, reactionScopeRef, completedReactionGenerationRef } = state;
+  const { eventId, originalStartsAt, tribeSlug } = target;
+
+  useEffect(() => {
+    const occurrenceTarget = { eventId, originalStartsAt, tribeSlug };
+
+    return () => {
+      if (reactionTimerRef.current) {
+        clearTimeout(reactionTimerRef.current);
+        reactionTimerRef.current = null;
+      }
+
+      const pendingIntent = reactionIntentRef.current;
+
+      reactionIntentRef.current = null;
+      persistReactionIntentOnTeardown({
+        inFlightReaction: inFlightReactionRef.current,
+        occurrenceTarget,
+        pendingIntent,
+      });
+    };
+  }, [eventId, inFlightReactionRef, originalStartsAt, reactionIntentRef, reactionTimerRef, tribeSlug]);
   const flushReactionIntent = async (): Promise<void> => {
     const intent = reactionIntentRef.current;
 
@@ -419,6 +450,18 @@ export function useTribeEventPostEvent({
     void flushReactionIntent();
   };
 
+  return flushReactionIntent;
+}
+
+/**
+ * Records a reaction tap optimistically and debounces its flush.
+ *
+ * @param state - Block state.
+ * @param flushReactionIntent - Sends the pending reaction intent.
+ * @returns The reaction tap.
+ */
+function useTribeEventReactionTap(state: TribeEventPostEventState, flushReactionIntent: () => Promise<void>) {
+  const { loadState, visibleReactions, setVisibleReactions, reactionIntentRef, reactionTimerRef } = state;
   const react = (tappedReaction: TribeEventOccurrenceReaction) => {
     if (loadState.status !== TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loaded || !visibleReactions) {
       return;
@@ -442,6 +485,30 @@ export function useTribeEventPostEvent({
       void flushReactionIntent();
     }, TRIBE_EVENT_REACTION_FLUSH_DELAY_MS);
   };
+
+  return react;
+}
+
+/**
+ * Container logic of the post-event block of one occurrence: loads the
+ * resources once per mount (the container remounts per occurrence), saves
+ * them incrementally (no route refresh), reports the recording availability
+ * of every successful load or save to the parent, and applies reactions
+ * optimistically with debounce, coalescing, and rollback to the persisted
+ * baseline. Saves and reaction requests are registered per occurrence and a
+ * load waits for them, so reopening the detail while one is pending shows its
+ * outcome; a reaction still waiting for the debounce is sent on unmount.
+ *
+ * @param input - Occurrence target and the recording availability callback.
+ * @returns Load state, visible reactions, and the mutations.
+ */
+export function useTribeEventPostEvent(input: UseTribeEventPostEventInput) {
+  const state = useTribeEventPostEventState();
+  const flushReactionIntent = useTribeEventPostEventReactions(state, input.target);
+  const react = useTribeEventReactionTap(state, flushReactionIntent);
+  const reload = useTribeEventPostEventLoad(state, input);
+  const saveResources = useTribeEventPostEventSave(state, input);
+  const { isSaving, loadState, visibleReactions } = state;
 
   return { isSaving, loadState, react, reload, saveResources, visibleReactions };
 }

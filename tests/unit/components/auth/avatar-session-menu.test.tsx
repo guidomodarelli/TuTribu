@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "@golfo/ui";
 
 import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-client";
+import type * as GolfoUiModule from "@golfo/ui";
 
 const replaceCurrentPageWithUrlMock = vi.fn();
 const toastErrorMock = vi.fn();
@@ -18,7 +19,7 @@ vi.mock("next/navigation", () => ({
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
 vi.mock("@golfo/ui", async () => ({
-  ...await vi.importActual<typeof import("@golfo/ui")>("@golfo/ui"),
+  ...await vi.importActual<typeof GolfoUiModule>("@golfo/ui"),
   toast: {
     error: vi.fn(),
   },

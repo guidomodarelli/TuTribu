@@ -194,18 +194,20 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                 try {
                   const state = await runPrivateBrowserRequest("observe_notification_settings_public_state", () => page.evaluate(() => {
                     const root = document.querySelector('section[aria-label="Avisos de admisión"]');
-                    return { alerts: [...root?.querySelectorAll('[role="alert"]') ?? []].map((element) => element.textContent?.slice(0, 300)), statuses: [...root?.querySelectorAll('[role="status"]') ?? []].map((element) => element.textContent?.slice(0, 300)), buttons: [...root?.querySelectorAll('button') ?? []].map((element) => ({ label: element.textContent?.slice(0, 100), disabled: element.disabled })), checks: [...root?.querySelectorAll('[role="checkbox"]') ?? []].map((element) => ({ checked: element.getAttribute("aria-checked"), disabled: element.hasAttribute("disabled") })) };
+                    return { alerts: [...root?.querySelectorAll('[role="alert"]') ?? []].map((element) => element.textContent.slice(0, 300)), statuses: [...root?.querySelectorAll('[role="status"]') ?? []].map((element) => element.textContent.slice(0, 300)), buttons: [...root?.querySelectorAll('button') ?? []].map((element) => ({ label: element.textContent.slice(0, 100), disabled: element.disabled })), checks: [...root?.querySelectorAll('[role="checkbox"]') ?? []].map((element) => ({ checked: element.getAttribute("aria-checked"), disabled: element.hasAttribute("disabled") })) };
                   }));
-                  let databaseMetadata: unknown = null;
-                  if (!completed) {
+                  /** Reads the private database facts of an incomplete scenario, or marks them unavailable. @returns Safe metadata for the failure artifact. */
+                  const readIncompleteMetadata = async (): Promise<unknown> => {
                     try {
-                      databaseMetadata = await database.withContext(fixture.own, async (transaction) => ({
+                      return await database.withContext(fixture.own, async (transaction) => ({
                         settings: (await transaction.execute(sql`select enabled,version,time_zone from public.admission_email_settings where tribe_id=${tribeId}`)).rows,
                         capabilities: (await transaction.execute(sql`select channel,state from public.messaging_connection_capabilities where tribe_id=${tribeId}`)).rows,
                         operations: (await transaction.execute(sql`select operation_type,state,public_result->>'status' as result_status,public_result->>'reason' as result_reason from public.academy_admission_operations where tribe_id=${tribeId} and actor_user_id=${fixture.own.userId}`)).rows,
                       }));
-                    } catch { databaseMetadata = { available: false }; }
-                  }
+                    } catch { return { available: false }; }
+                  };
+                  let databaseMetadata: unknown = null;
+                  if (!completed) databaseMetadata = await readIncompleteMetadata();
                   await writeFile(join(artifacts, `${scenario.name}-${scenario.width}-last-public-state.json`), JSON.stringify({ stage, errors, forwardingFailed, forwardedStatus, historyEvents: navigations, documentNavigationsAfterReady, routeReadsAfterReady, responses: statuses, state, databaseMetadata }, null, 2));
                 } finally { await context.close(); }
               }
@@ -258,7 +260,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               } finally {
                 const state = await runPrivateBrowserRequest("observe_notification_guardian_public_state", () => page.evaluate(() => {
                   const root = document.querySelector('section[aria-label="Avisos de admisión"]');
-                  return { alerts: [...root?.querySelectorAll('[role="alert"]') ?? []].map((element) => element.textContent?.slice(0, 300)), buttons: [...root?.querySelectorAll("button") ?? []].map((button) => ({ label: button.textContent?.slice(0, 100), disabled: button.disabled })) };
+                  return { alerts: [...root?.querySelectorAll('[role="alert"]') ?? []].map((element) => element.textContent.slice(0, 300)), buttons: [...root?.querySelectorAll("button") ?? []].map((button) => ({ label: button.textContent.slice(0, 100), disabled: button.disabled })) };
                 }));
                 const membership = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select role,status from public.tribe_members where tribe_id=${tribeId} and user_id=${guardianId}`)).rows);
                 await writeFile(join(artifacts, "guardian-last-public-state.json"), JSON.stringify({ stage, privilegedGuardianReads, preferenceReads, membership, state }, null, 2));
@@ -273,7 +275,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
         await writeFile(join(artifacts, `${scenario.name}-${scenario.width}-native-proof.json`), JSON.stringify({ capturedAt: new Date().toISOString(), matrix, originalVersion, recoveredVersion, roleLossExercised: scenario.name === "chromium" && scenario.width === 1280, effects, externalMessagesSent: 0 }, null, 2));
       });
     } catch (error) {
-      const diagnostic = error instanceof Error && (error.name === "TimeoutError" || error.name === "AssertionError") ? error.message.split("\n")[0].replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "[synthetic-id]") : error instanceof Error ? error.name : "unknown_failure";
+      const failureName = error instanceof Error ? error.name : "unknown_failure";
+      const diagnostic = error instanceof Error && (error.name === "TimeoutError" || error.name === "AssertionError") ? error.message.split("\n")[0].replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "[synthetic-id]") : failureName;
       throw new Error(`Native notification settings UI failed at ${stage}: ${diagnostic}`, { cause: error });
     }
   }, ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS);

@@ -41,7 +41,12 @@ const MANAGEMENT_URL = `https://tutribu.example.com/api/tribes/${TRIBE_SLUG}/eve
 const SUBSCRIPTION_ID = "2d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f6a";
 const PREVIOUS_SUBSCRIPTION_ID = "1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
 
-function issueRequest(body: unknown = { expectedSubscriptionId: null }) {
+/** Builds a fresh issuance body without an expected previous subscription. */
+function buildDefaultIssueBody(): unknown {
+  return { expectedSubscriptionId: null };
+}
+
+function issueRequest(body: unknown = buildDefaultIssueBody()) {
   return new Request(MANAGEMENT_URL, {
     body: JSON.stringify(body),
     headers: { "Content-Type": "application/json" },

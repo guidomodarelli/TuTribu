@@ -37,9 +37,14 @@ async function openTab(name:string){
   }
   const back=screen.queryByRole("button",{name:"Volver a los pasos"});if(back)await userEvent.click(back);
   for(let moves=0;moves<12;moves+=1){
-    const items=within(screen.getByRole("navigation",{name:/^Paso \d+ de \d+$/})).getAllByRole("listitem"),labels=items.map((item)=>item.querySelector("[data-label]")?.getAttribute("data-label")??"");
+    const items=within(screen.getByRole("navigation",{name:/^Paso \d+ de \d+$/})).getAllByRole("listitem"),labels=items.map((item)=>item.querySelector<HTMLElement>("[data-label]")?.dataset.label??"");
     const current=items.findIndex((item)=>item.getAttribute("aria-current")==="step");
-    const target=name==="Conexión"?(screen.queryByRole("group",{name:"Clave"})&&screen.queryByLabelText(/Nombre de la conexión/i)?current:labels.indexOf("Credencial")):name==="Pruebas"?labels.findIndex((label)=>label.startsWith("Probar ")):labels.indexOf(name);
+    const resolveTarget=():number=>{
+      if(name==="Conexión")return screen.queryByRole("group",{name:"Clave"})&&screen.queryByLabelText(/Nombre de la conexión/i)?current:labels.indexOf("Credencial");
+      if(name==="Pruebas")return labels.findIndex((label)=>label.startsWith("Probar "));
+      return labels.indexOf(name);
+    };
+    const target=resolveTarget();
     if(target<0)throw new Error(`The flow has no step named ${name}: ${labels.join(", ")}`);
     if(target===current){await waitFor(()=>expect(screen.getByRole("group",{name:labels[target]})).toBeVisible(),{timeout:5000});return;}
     await userEvent.click(screen.getByRole("button",{name:target>current?"Siguiente":"Atrás"}));
@@ -651,7 +656,7 @@ describe("connection wizard states beside their origin",()=>{
     const readCurrent=screen.getByRole("button",{name:"Consultar conexión actual"});await waitFor(()=>expect(readCurrent).toBeEnabled());
     await user.click(readCurrent);
     await screen.findByText(MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedTitle);
-    const failure=screen.getAllByRole("alert").find((alert)=>alert.textContent?.includes(MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedTitle));if(!failure)throw new Error("The failed read is not announced as an alert");
+    const failure=screen.getAllByRole("alert").find((alert)=>alert.textContent.includes(MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedTitle));if(!failure)throw new Error("The failed read is not announced as an alert");
     expect(failure).toHaveTextContent(/no indica que la conexión haya cambiado/);
     expect(screen.queryByText(MESSAGING_CREDENTIAL_CHECK_UI_COPY.stale)).not.toBeInTheDocument();expect(screen.queryByRole("region",{name:"Acciones pendientes"})).not.toBeInTheDocument();
     await user.click(within(failure).getByRole("button",{name:MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadRetry}));

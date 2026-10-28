@@ -44,7 +44,7 @@ export async function POST(
   }
 
   try {
-    const body = await request.json().catch(() => null);
+    const body: unknown = await request.json().catch(() => null);
     const files = readLessonFilesField(body);
 
     if (files === null) {

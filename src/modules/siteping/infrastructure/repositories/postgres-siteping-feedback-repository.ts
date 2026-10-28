@@ -160,6 +160,108 @@ function normalizePage(page?: number): number {
   return page;
 }
 
+/**
+ * @param command - Feedback to store as open and pending its GitHub issue.
+ * @returns Insert that does nothing when the idempotency key already exists.
+ */
+function buildInsertFeedbackQuery(command: CreateSitepingFeedbackRecordCommand) {
+  return sql`
+  insert into public.siteping_feedbacks (
+    project_name,
+    type,
+    message,
+    status,
+    url,
+    url_pattern,
+    viewport,
+    user_agent,
+    author_name,
+    author_email,
+    client_id,
+    created_by,
+    screenshot_url,
+    diagnostics,
+    github_issue_status
+  )
+  values (
+    ${command.projectName},
+    ${command.type},
+    ${command.message},
+    ${SITEPING_FEEDBACK_STATUS.open},
+    ${command.url},
+    ${command.urlPattern},
+    ${command.viewport},
+    ${command.userAgent},
+    ${command.authorName},
+    ${command.authorEmail},
+    ${command.clientId},
+    ${command.createdBy},
+    ${command.screenshotUrl},
+    ${JSON.stringify(command.diagnostics)}::jsonb,
+    ${SITEPING_FEEDBACK_GITHUB_STATUS.pending}
+  )
+  on conflict (project_name, created_by, client_id) do nothing
+  returning *
+  `;
+}
+
+/**
+ * @param feedbackId - Feedback the annotation belongs to.
+ * @param annotation - Annotation captured with the feedback.
+ * @returns Insert of the annotation.
+ */
+function buildInsertAnnotationQuery(
+  feedbackId: string,
+  annotation: CreateSitepingFeedbackRecordCommand["annotations"][number]
+) {
+  return sql`
+  insert into public.siteping_annotations (
+    feedback_id,
+    css_selector,
+    xpath,
+    text_snippet,
+    element_tag,
+    element_id,
+    text_prefix,
+    text_suffix,
+    fingerprint,
+    neighbor_text,
+    anchor_key,
+    x_pct,
+    y_pct,
+    w_pct,
+    h_pct,
+    scroll_x,
+    scroll_y,
+    viewport_w,
+    viewport_h,
+    device_pixel_ratio
+  )
+  values (
+    ${feedbackId},
+    ${annotation.cssSelector},
+    ${annotation.xpath},
+    ${annotation.textSnippet},
+    ${annotation.elementTag},
+    ${annotation.elementId},
+    ${annotation.textPrefix},
+    ${annotation.textSuffix},
+    ${annotation.fingerprint},
+    ${annotation.neighborText},
+    ${annotation.anchorKey},
+    ${annotation.xPct},
+    ${annotation.yPct},
+    ${annotation.wPct},
+    ${annotation.hPct},
+    ${annotation.scrollX},
+    ${annotation.scrollY},
+    ${annotation.viewportW},
+    ${annotation.viewportH},
+    ${annotation.devicePixelRatio}
+  )
+  `;
+}
+
 export class PostgresSitepingFeedbackRepository
   implements SitepingFeedbackRepository
 {
@@ -193,44 +295,7 @@ export class PostgresSitepingFeedbackRepository
         };
       }
 
-      const feedbackRows = await database.execute(sql`
-        insert into public.siteping_feedbacks (
-          project_name,
-          type,
-          message,
-          status,
-          url,
-          url_pattern,
-          viewport,
-          user_agent,
-          author_name,
-          author_email,
-          client_id,
-          created_by,
-          screenshot_url,
-          diagnostics,
-          github_issue_status
-        )
-        values (
-          ${command.projectName},
-          ${command.type},
-          ${command.message},
-          ${SITEPING_FEEDBACK_STATUS.open},
-          ${command.url},
-          ${command.urlPattern},
-          ${command.viewport},
-          ${command.userAgent},
-          ${command.authorName},
-          ${command.authorEmail},
-          ${command.clientId},
-          ${command.createdBy},
-          ${command.screenshotUrl},
-          ${JSON.stringify(command.diagnostics)}::jsonb,
-          ${SITEPING_FEEDBACK_GITHUB_STATUS.pending}
-        )
-        on conflict (project_name, created_by, client_id) do nothing
-        returning *
-      `);
+      const feedbackRows = await database.execute(buildInsertFeedbackQuery(command));
       const [feedbackRow] = feedbackRows.rows as FeedbackRow[];
 
       if (!feedbackRow) {
@@ -249,52 +314,7 @@ export class PostgresSitepingFeedbackRepository
       if (command.annotations.length > 0) {
         await Promise.all(
           command.annotations.map((annotation) =>
-            database.execute(sql`
-              insert into public.siteping_annotations (
-                feedback_id,
-                css_selector,
-                xpath,
-                text_snippet,
-                element_tag,
-                element_id,
-                text_prefix,
-                text_suffix,
-                fingerprint,
-                neighbor_text,
-                anchor_key,
-                x_pct,
-                y_pct,
-                w_pct,
-                h_pct,
-                scroll_x,
-                scroll_y,
-                viewport_w,
-                viewport_h,
-                device_pixel_ratio
-              )
-              values (
-                ${feedbackRow.id},
-                ${annotation.cssSelector},
-                ${annotation.xpath},
-                ${annotation.textSnippet},
-                ${annotation.elementTag},
-                ${annotation.elementId},
-                ${annotation.textPrefix},
-                ${annotation.textSuffix},
-                ${annotation.fingerprint},
-                ${annotation.neighborText},
-                ${annotation.anchorKey},
-                ${annotation.xPct},
-                ${annotation.yPct},
-                ${annotation.wPct},
-                ${annotation.hPct},
-                ${annotation.scrollX},
-                ${annotation.scrollY},
-                ${annotation.viewportW},
-                ${annotation.viewportH},
-                ${annotation.devicePixelRatio}
-              )
-            `)
+            database.execute(buildInsertAnnotationQuery(feedbackRow.id, annotation))
           )
         );
       }
@@ -413,7 +433,7 @@ export class PostgresSitepingFeedbackRepository
 
       return {
         feedbacks,
-        total: Number((countRows.rows[0] as { total?: number } | undefined)?.total ?? 0),
+        total: (countRows.rows[0] as { total?: number } | undefined)?.total ?? 0,
       };
     });
   }

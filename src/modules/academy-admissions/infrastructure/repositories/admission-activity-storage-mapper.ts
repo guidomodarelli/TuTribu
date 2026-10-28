@@ -13,6 +13,12 @@ export type AdmissionActivityStorageRow = { id: string; tribe_id: string; actor_
 /** Storage dates are consumed as dates, independently of the own millisecond DTO contract. */
 export type AdmissionMetricsStorage = Omit<AdmissionMetricsResult, "asOf" | "usage" | "lastSuccessfulRun" | "maintenance"> & { asOf: string; usage: Omit<AdmissionMetricsResult["usage"], "dayStartUtc"> & { dayStartUtc: string }; lastSuccessfulRun: { operation: AdmissionMetricRunOperation; at: string } | null; maintenance: { lastCompletedAt: string | null } | null };
 
+/** @param field - Allowed change field. @param value - Stored change value. @returns A selected policy snapshot (or `null`) for policy changes; any other value unchanged. */
+function mapActivityChange(field: string, value: unknown): unknown {
+  if (field !== ADMISSION_POLICY_AUDIT_CHANGE.fromPolicy && field !== ADMISSION_POLICY_AUDIT_CHANGE.toPolicy) return value;
+  return value === null ? null : selectAdmissionPolicyAuditSnapshot(value as AdmissionPolicyAuditSnapshot);
+}
+
 /** @param tribeId - Already authorized exact scope. @param rows - Bounded original storage rows. @param nextCursor - Exact original SQL timestamp/id tuple. @returns Safe owned history without descriptive notes, contacts, payload or arbitrary labels. */
 export function mapAdmissionActivityStorage(tribeId: string, rows: readonly AdmissionActivityStorageRow[], nextCursor: string | null) {
   const resources: readonly string[] = Object.values(ADMISSION_ACTIVITY_RESOURCE), events: readonly string[] = ADMISSION_ACTIVITY_EVENTS, rules: readonly string[] = ADMISSION_ACTIVITY_RULES, causes: readonly string[] = ADMISSION_ACTIVITY_CAUSES;
@@ -22,9 +28,7 @@ export function mapAdmissionActivityStorage(tribeId: string, rows: readonly Admi
     for (const field of ADMISSION_ACTIVITY_CHANGE_FIELDS) {
       if (!Object.hasOwn(row.metadata, field)) continue;
       const value = row.metadata[field];
-      changes[field] = field === ADMISSION_POLICY_AUDIT_CHANGE.fromPolicy || field === ADMISSION_POLICY_AUDIT_CHANGE.toPolicy
-        ? value === null ? null : selectAdmissionPolicyAuditSnapshot(value as AdmissionPolicyAuditSnapshot)
-        : value;
+      changes[field] = mapActivityChange(field, value);
     }
     return { id: row.id, actorUserId: row.actor_user_id, operationId: row.operation_id, tribeLifecycleOperationId: row.tribe_lifecycle_operation_id,
       resourceType: row.resource_type, resourceId: row.resource_id, eventType: events.includes(row.event_type) ? row.event_type : ADMISSION_ACTIVITY_UNCLASSIFIED_EVENT,

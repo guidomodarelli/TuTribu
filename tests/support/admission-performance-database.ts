@@ -9,10 +9,10 @@ export function createAdmissionPerformanceDatabase(pool: Pool): AdmissionPerform
   const client = createPostgresDatabaseClient(pool);
   const observed = { acquisitions: 0, releases: 0, errorReleases: 0, removals: 0, lastErrorRelease: null as PostgresTestDiagnostics | null };
   pool.on("acquire", () => { observed.acquisitions += 1; });
-  pool.on("release", (error) => { observed.releases += 1; if (error) { observed.errorReleases += 1; observed.lastErrorRelease = readPostgresTestDiagnostics(error); } });
+  pool.on("release", (error: Error | undefined) => { observed.releases += 1; if (error) { observed.errorReleases += 1; observed.lastErrorRelease = readPostgresTestDiagnostics(error); } });
   pool.on("remove", () => { observed.removals += 1; });
   return {
     withContext: (context, run) => client.withRequestContext(context, run),
-    readPoolMetrics: () => ({ maximum: pool.options.max ?? null, totalCount: pool.totalCount, idleCount: pool.idleCount, waitingCount: pool.waitingCount, ...observed }),
+    readPoolMetrics: () => ({ maximum: pool.options.max, totalCount: pool.totalCount, idleCount: pool.idleCount, waitingCount: pool.waitingCount, ...observed }),
   };
 }

@@ -73,14 +73,34 @@ export function selectAllowlistImportRows(input: { preview: AllowlistImport; con
   assertImportCurrent(preview, context, expectedVersion);
   if (preview.state === ADMISSION_IMPORT_PUBLIC_STATE.completed) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
   const selected = new Set(input.selectedRows);
-  if (!input.confirmed || selected.size === 0 || selected.size !== input.selectedRows.length || selected.size > ADMISSION_LIMIT.csvDataRowCount) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+  if (selected.size === 0 || selected.size !== input.selectedRows.length || selected.size > ADMISSION_LIMIT.csvDataRowCount) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
   const byNumber = new Map(preview.rows.map((row) => [row.rowNumber, row]));
+  const selectedRows: AllowlistImportRow[] = [];
   for (const rowNumber of selected) {
     const row = byNumber.get(rowNumber);
     if (!Number.isInteger(rowNumber) || !row?.contact || row.errors.length || row.outcome !== null) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+    selectedRows.push(row);
   }
-  if (preview.state === ADMISSION_IMPORT_PUBLIC_STATE.processing && input.selectedRows.every((rowNumber) => byNumber.get(rowNumber)!.selected)) return preview;
+  if (preview.state === ADMISSION_IMPORT_PUBLIC_STATE.processing && selectedRows.every((row) => row.selected)) return preview;
   return { ...preview, version: preview.version + 1, state: ADMISSION_IMPORT_PUBLIC_STATE.processing, rows: preview.rows.map((row) => selected.has(row.rowNumber) && !row.selected ? { ...row, selected: true } : row) };
+}
+
+/** @param outcome - Original row outcome. @returns Whether added and unchanged rows name their entry and positive version (version one when added), and skipped or conflict rows name none. */
+function hasValidOutcomeEntry(outcome: AllowlistImportRowOutcome): boolean {
+  if (outcome.outcome !== ADMISSION_IMPORT_ROW_OUTCOME.added && outcome.outcome !== ADMISSION_IMPORT_ROW_OUTCOME.unchanged) return outcome.entryId === null && outcome.entryVersion === null;
+  if (!outcome.entryId?.trim() || outcome.entryVersion === null || !Number.isInteger(outcome.entryVersion) || outcome.entryVersion <= 0) return false;
+  return outcome.outcome !== ADMISSION_IMPORT_ROW_OUTCOME.added || outcome.entryVersion === 1;
+}
+
+/** @param outcomes - Reported row outcomes. @returns Them keyed by row number. @throws AdmissionOperationError for an empty report or a repeated row. */
+function outcomesByRow(outcomes: readonly AllowlistImportRowOutcome[]): Map<number, AllowlistImportRowOutcome> {
+  const byRow = new Map<number, AllowlistImportRowOutcome>();
+  for (const outcome of outcomes) {
+    if (byRow.has(outcome.rowNumber)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+    byRow.set(outcome.rowNumber, outcome);
+  }
+  if (byRow.size === 0) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+  return byRow;
 }
 
 /** @param input - Owner-confirmed row work and observed preview version. @returns Preserved original progress without executing work; mixed results become completed only when every selected row has an outcome. @throws AdmissionOperationError for contradictory replay, unselected rows, invalid metadata or failed scope/CAS checks. */
@@ -88,23 +108,15 @@ export function recordAllowlistImportRowOutcomes(input: { preview: AllowlistImpo
   const { preview, context, expectedVersion } = input;
   assertImportCurrent(preview, context, expectedVersion);
   if (preview.state !== ADMISSION_IMPORT_PUBLIC_STATE.processing && preview.state !== ADMISSION_IMPORT_PUBLIC_STATE.completed) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-  const outcomes = new Map<number, AllowlistImportRowOutcome>();
-  for (const outcome of input.outcomes) {
-    if (outcomes.has(outcome.rowNumber)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-    outcomes.set(outcome.rowNumber, outcome);
-  }
-  if (outcomes.size === 0) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+  const outcomes = outcomesByRow(input.outcomes);
   const byNumber = new Map(preview.rows.map((row) => [row.rowNumber, row]));
   let changed = false;
   for (const outcome of outcomes.values()) {
     const row = byNumber.get(outcome.rowNumber), committedAt = outcome.committedAt.getTime();
     if (!row?.selected || row.errors.length || !Number.isFinite(committedAt) || committedAt < preview.createdAt.getTime() || committedAt > context.now.getTime() || committedAt >= preview.expiresAt.getTime()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-    if (outcome.outcome === ADMISSION_IMPORT_ROW_OUTCOME.added || outcome.outcome === ADMISSION_IMPORT_ROW_OUTCOME.unchanged) {
-      if (!outcome.entryId?.trim() || !Number.isInteger(outcome.entryVersion) || outcome.entryVersion! <= 0 || outcome.outcome === ADMISSION_IMPORT_ROW_OUTCOME.added && outcome.entryVersion !== 1) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-    } else if (outcome.outcome !== ADMISSION_IMPORT_ROW_OUTCOME.skipped && outcome.outcome !== ADMISSION_IMPORT_ROW_OUTCOME.conflict || outcome.entryId !== null || outcome.entryVersion !== null) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-    if (row.outcome !== null) {
-      if (row.outcome !== outcome.outcome || row.entryId !== outcome.entryId || row.entryVersion !== outcome.entryVersion || row.committedAt?.getTime() !== committedAt) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.allowlistImportConflict);
-    } else changed = true;
+    if (!hasValidOutcomeEntry(outcome)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+    if (row.outcome === null) changed = true;
+    else if (row.outcome !== outcome.outcome || row.entryId !== outcome.entryId || row.entryVersion !== outcome.entryVersion || row.committedAt?.getTime() !== committedAt) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.allowlistImportConflict);
   }
   if (!changed) return preview;
   const rows = preview.rows.map((row) => { const outcome = outcomes.get(row.rowNumber); return outcome && row.outcome === null ? { ...row, outcome: outcome.outcome, entryId: outcome.entryId, entryVersion: outcome.entryVersion, committedAt: new Date(outcome.committedAt) } : row; });

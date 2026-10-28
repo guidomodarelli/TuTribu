@@ -13,6 +13,7 @@ const COMMIT_TYPES = [
 ];
 
 const COMMIT_TYPE_PATTERN = COMMIT_TYPES.join("|");
+const HEADER_MAX_LENGTH = 72;
 const SEMVER_RELEASE_PATTERN = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z-.]+)?$/u;
 const CONVENTIONAL_HEADER_PATTERN = new RegExp(
   `^(?:${COMMIT_TYPE_PATTERN})(?:\\([a-z0-9-]+\\))?!?: \\S.+$`,
@@ -51,7 +52,7 @@ const commitlintConfig = {
     "body-leading-blank": [1, "always"],
     "body-max-line-length": [0],
     "footer-leading-blank": [1, "always"],
-    "header-max-length": [2, "always", 72],
+    "header-max-length": [2, "always", HEADER_MAX_LENGTH],
     "repository-header-format": [2, "always"],
     "subject-case": [0],
     "subject-empty": [0],

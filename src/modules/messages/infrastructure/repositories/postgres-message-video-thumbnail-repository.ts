@@ -89,7 +89,7 @@ export class PostgresMessageVideoThumbnailRepository
           )
       `);
 
-      const rows = (result.rows ?? []) as UnresolvedVideoRow[];
+      const rows = result.rows as UnresolvedVideoRow[];
 
       return rows.flatMap((row) => {
         if (!isVideoProvider(row.external_video_provider) || !row.external_video_id) {
@@ -130,7 +130,7 @@ export class PostgresMessageVideoThumbnailRepository
         ) as persisted
       `);
 
-      const row = (result.rows?.[0] ?? null) as PersistThumbnailRow | null;
+      const row = (result.rows[0] ?? null) as PersistThumbnailRow | null;
 
       return Boolean(row?.persisted);
     });

@@ -1,5 +1,6 @@
 /** Projects public/own admission entry state without claiming work or consuming a link. @module get-admission-overview-use-case */
 import type { AuthenticatedAccountProvider } from "@/src/modules/auth/domain/repositories/authenticated-account-provider";
+import type { AuthenticatedAccount } from "@/src/modules/auth/domain/entities/authenticated-account";
 import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
 import type { AdmissionOverviewReader, AdmissionOverviewFacts } from "@/src/modules/academy-admissions/domain/repositories/admission-query-reader";
 import { admissionOverviewSchema, admissionOwnRequestSchema } from "../results/admission-flow-result-schemas";
@@ -26,6 +27,44 @@ function requiresAnotherAccount(facts: AdmissionOverviewFacts["allowlistEligibil
   return evaluated.outcome === ADMISSION_OUTCOME.denied && ACCOUNT_CHANGE_DENIAL_REASONS.has(evaluated.reason);
 }
 
+/** @returns Whether the account read after the facts is the same live session as before, or the read stays anonymous. */
+function keepsInitialAccount(first: AuthenticatedAccount | null, current: AuthenticatedAccount | null, now: Date): boolean {
+  if (!first) return current === null;
+  return current?.userId === first.userId && current.session.id === first.session.id && isAuthenticatedSessionLive(current.session.expiresAt, now);
+}
+
+type AdmissionOverviewPresentation = {
+  state: typeof ADMISSION_OVERVIEW_STATE[keyof typeof ADMISSION_OVERVIEW_STATE];
+  nextAction: typeof ADMISSION_NEXT_ACTION[keyof typeof ADMISSION_NEXT_ACTION];
+  safeMessage: string;
+};
+
+/** @returns The first matching presentation: membership, pending request, closed admission, retry wait, sign-in, verification or account change; else available. */
+function presentAdmissionOverview({ facts, request, membershipEligibility, signedIn, now }: { facts: AdmissionOverviewFacts; request: ReturnType<typeof admissionOwnRequestSchema.parse> | null; membershipEligibility: ReturnType<typeof evaluateAcademyMembershipEligibility>; signedIn: boolean; now: Date }): AdmissionOverviewPresentation {
+  const membership = facts.membership;
+  if (membership?.status === TRIBE_MEMBERSHIP_STATUS.active || membership?.status === TRIBE_MEMBERSHIP_STATUS.muted) {
+    return { state: ADMISSION_OVERVIEW_STATE.alreadyMember, nextAction: ADMISSION_NEXT_ACTION.openAcademy, safeMessage: ADMISSION_OVERVIEW_MESSAGE.alreadyMember };
+  }
+  if (request?.status === ADMISSION_REQUEST_STATUS.pending && now < new Date(request.expiresAt)) {
+    return { state: ADMISSION_OVERVIEW_STATE.pending, nextAction: ADMISSION_NEXT_ACTION.viewRequest, safeMessage: getOwnAdmissionRequestMessage(request) ?? ADMISSION_OVERVIEW_MESSAGE.pending };
+  }
+  if (facts.recoveryLocked || !facts.tribe.controlActivated || !facts.tribe.evaluatorEnabled || !facts.policy?.isOpen || membershipEligibility.outcome === ACADEMY_MEMBERSHIP_ELIGIBILITY.blocked) {
+    return { state: ADMISSION_OVERVIEW_STATE.closed, nextAction: ADMISSION_NEXT_ACTION.contactLeader, safeMessage: ADMISSION_OVERVIEW_MESSAGE.closed };
+  }
+  if (request?.retryAllowedAt && now < new Date(request.retryAllowedAt)) {
+    return { state: ADMISSION_OVERVIEW_STATE.closed, nextAction: ADMISSION_NEXT_ACTION.wait, safeMessage: ADMISSION_OVERVIEW_MESSAGE.waiting };
+  }
+  if (!signedIn) return { state: ADMISSION_OVERVIEW_STATE.signInRequired, nextAction: ADMISSION_NEXT_ACTION.signIn, safeMessage: ADMISSION_OVERVIEW_MESSAGE.signIn };
+  if (facts.policy.requiresAdditionalVerification) {
+    return { state: ADMISSION_OVERVIEW_STATE.verificationRequired, nextAction: ADMISSION_NEXT_ACTION.verifyContact, safeMessage: ADMISSION_OVERVIEW_MESSAGE.verification };
+  }
+  if (requiresAnotherAccount(facts.allowlistEligibility)) {
+    // Without exceptions the writer would refuse this account; the form is replaced by the account change instead.
+    return { state: ADMISSION_OVERVIEW_STATE.closed, nextAction: ADMISSION_NEXT_ACTION.changeAccount, safeMessage: ADMISSION_OVERVIEW_MESSAGE.allowlistOnly };
+  }
+  return { state: ADMISSION_OVERVIEW_STATE.available, nextAction: ADMISSION_NEXT_ACTION.requestAdmission, safeMessage: ADMISSION_OVERVIEW_MESSAGE.available };
+}
+
 /** The application owns navigation hints; the writer rechecks real eligibility under locks. */
 export class GetAdmissionOverviewUseCase {
   /** @param accounts - Native current account; null is an explicit public read. @param reader - Own read-only fact projection, not a provider DTO. @param clock - Fresh time sampled after awaited facts. */
@@ -38,31 +77,13 @@ export class GetAdmissionOverviewUseCase {
       const scope = first ? { userId: first.userId, sessionId: first.session.id } : null;
       const facts = await this.reader.readOverview(query, scope);
       const current = await this.accounts.getAuthenticatedAccount(), now = this.clock();
-      if (first ? !current || current.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, now) : current !== null) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-      if (!facts || facts.tribe.slug !== query.slug) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+      if (!keepsInitialAccount(first, current, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+      if (facts?.tribe.slug !== query.slug) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
       if (!scope && (facts.membership !== null || facts.request !== null)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       const request = facts.request === null ? null : admissionOwnRequestSchema.parse(facts.request);
       const membership = facts.membership;
       const membershipEligibility = evaluateAcademyMembershipEligibility(membership);
-      let state: typeof ADMISSION_OVERVIEW_STATE[keyof typeof ADMISSION_OVERVIEW_STATE] = ADMISSION_OVERVIEW_STATE.available;
-      let nextAction: typeof ADMISSION_NEXT_ACTION[keyof typeof ADMISSION_NEXT_ACTION] = ADMISSION_NEXT_ACTION.requestAdmission;
-      let safeMessage: string = ADMISSION_OVERVIEW_MESSAGE.available;
-      if (membership?.status === TRIBE_MEMBERSHIP_STATUS.active || membership?.status === TRIBE_MEMBERSHIP_STATUS.muted) {
-        state = ADMISSION_OVERVIEW_STATE.alreadyMember; nextAction = ADMISSION_NEXT_ACTION.openAcademy; safeMessage = ADMISSION_OVERVIEW_MESSAGE.alreadyMember;
-      } else if (request?.status === ADMISSION_REQUEST_STATUS.pending && now < new Date(request.expiresAt)) {
-        state = ADMISSION_OVERVIEW_STATE.pending; nextAction = ADMISSION_NEXT_ACTION.viewRequest; safeMessage = getOwnAdmissionRequestMessage(request) ?? ADMISSION_OVERVIEW_MESSAGE.pending;
-      } else if (facts.recoveryLocked || !facts.tribe.controlActivated || !facts.tribe.evaluatorEnabled || !facts.policy?.isOpen || membershipEligibility.outcome === ACADEMY_MEMBERSHIP_ELIGIBILITY.blocked) {
-        state = ADMISSION_OVERVIEW_STATE.closed; nextAction = ADMISSION_NEXT_ACTION.contactLeader; safeMessage = ADMISSION_OVERVIEW_MESSAGE.closed;
-      } else if (request?.retryAllowedAt && now < new Date(request.retryAllowedAt)) {
-        state = ADMISSION_OVERVIEW_STATE.closed; nextAction = ADMISSION_NEXT_ACTION.wait; safeMessage = ADMISSION_OVERVIEW_MESSAGE.waiting;
-      } else if (!scope) {
-        state = ADMISSION_OVERVIEW_STATE.signInRequired; nextAction = ADMISSION_NEXT_ACTION.signIn; safeMessage = ADMISSION_OVERVIEW_MESSAGE.signIn;
-      } else if (facts.policy.requiresAdditionalVerification) {
-        state = ADMISSION_OVERVIEW_STATE.verificationRequired; nextAction = ADMISSION_NEXT_ACTION.verifyContact; safeMessage = ADMISSION_OVERVIEW_MESSAGE.verification;
-      } else if (requiresAnotherAccount(facts.allowlistEligibility)) {
-        // Without exceptions the writer would refuse this account; the form is replaced by the account change instead.
-        state = ADMISSION_OVERVIEW_STATE.closed; nextAction = ADMISSION_NEXT_ACTION.changeAccount; safeMessage = ADMISSION_OVERVIEW_MESSAGE.allowlistOnly;
-      }
+      const { state, nextAction, safeMessage } = presentAdmissionOverview({ facts, request, membershipEligibility, signedIn: scope !== null, now });
       const parsed = admissionOverviewSchema.safeParse({ tribe: { slug: facts.tribe.slug, name: facts.tribe.name, accessModel: facts.tribe.accessModel }, policy: facts.policy, state, nextAction, safeMessage, ...(request ? { request } : {}), ...(scope && facts.policy?.requiresAdditionalVerification && facts.verification ? { verification: facts.verification } : {}) });
       if (!parsed.success) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       return { ok: true as const, value: parsed.data };

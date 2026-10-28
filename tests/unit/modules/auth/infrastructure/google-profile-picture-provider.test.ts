@@ -98,6 +98,6 @@ describe("GoogleProfilePictureProvider", () => {
       getAccessToken: vi.fn().mockResolvedValue(ACCESS_TOKEN),
     });
 
-    await expect(provider.getCurrentPictureUrl(MEMBER_ID)).rejects.toThrow();
+    await expect(provider.getCurrentPictureUrl(MEMBER_ID)).rejects.toThrow("Google OpenID userinfo profile picture request failed with status 500");
   });
 });

@@ -133,47 +133,33 @@ type MaintenanceModuleContextOverrides = Omit<
   "databaseConnectionUsage"
 >;
 
+type RequestDatabaseExecutor = <T>(
+  callback: Parameters<RequestScopedDatabaseClient["withRequestContext"]>[1]
+) => Promise<T>;
+
 /**
- * Builds request-scoped modules with database context and optional tracing metadata.
+ * Builds the repositories that more than one request module shares.
  *
- * @param contextOverrides - Request flags and correlation data for infrastructure adapters.
- * @returns Composed application modules for the current request.
+ * @param executeWithRequestContext - Request-scoped database executor.
+ * @param requestId - Correlation id for traces and logs.
+ * @returns The shared repositories and the member verifications module.
  */
-export async function createRequestModules(
-  contextOverrides: RequestModuleContextOverrides = {}
+function createSharedRequestRepositories(
+  executeWithRequestContext: RequestDatabaseExecutor,
+  requestId: string | undefined
 ) {
-  const { requestId, databaseConnectionUsage, ...databaseContextOverrides } =
-    contextOverrides;
-  const connectionUsage =
-    databaseConnectionUsage ?? DATABASE_CONNECTION_USAGE.request;
-  const [databaseClient, authContext] = await Promise.all([
-    createServerDatabaseClient(connectionUsage),
-    import("./auth/infrastructure/better-auth/server-auth-context").then(
-      ({ getRequestAuthContext }) => getRequestAuthContext()
-    ),
-  ]);
-  const executeWithRequestContext = <T>(
-    callback: Parameters<RequestScopedDatabaseClient["withRequestContext"]>[1]
-  ) =>
-    databaseClient.withRequestContext(
-      {
-        ...authContext,
-        ...databaseContextOverrides,
-      },
-      callback
-    ) as Promise<T>;
   const tribeSubscriptionPriceRepository =
-    new PostgresTribeSubscriptionPriceRepository(
-      executeWithRequestContext,
-      createMercadoPagoPreapprovalPlan,
-      updateMercadoPagoPreapprovalPlan,
-      getMercadoPagoPreapprovalPlan,
+    new PostgresTribeSubscriptionPriceRepository({
+      executeWithDatabase: executeWithRequestContext,
+      createMercadoPagoPlan: createMercadoPagoPreapprovalPlan,
+      updateMercadoPagoPlan: updateMercadoPagoPreapprovalPlan,
+      getMercadoPagoPlan: getMercadoPagoPreapprovalPlan,
       refreshMercadoPagoAccessToken,
-      getMercadoPagoPreapprovalPlanStatus,
-      getMercadoPagoPreapprovalStatus,
-      createPaidAdmissionResolutionWriter,
-      requestId
-    );
+      getMercadoPagoPlanStatus: getMercadoPagoPreapprovalPlanStatus,
+      getMercadoPagoSubscriptionStatus: getMercadoPagoPreapprovalStatus,
+      createAdmissionResolution: createPaidAdmissionResolutionWriter,
+      requestId,
+    });
   const messageImageRepository = new CloudflareImagesMessageImageRepository(
     executeWithRequestContext,
     {
@@ -216,6 +202,291 @@ export async function createRequestModules(
     }
   );
 
+  return {
+    academySubscriptionRepository,
+    memberVerifications,
+    messageFileRepository,
+    messageImageRepository,
+    tribeSubscriptionPriceRepository,
+  };
+}
+
+/**
+ * Builds the request-scoped product access module.
+ *
+ * @param executeWithRequestContext - Request-scoped database executor.
+ * @param shared - Repositories shared with other request modules.
+ * @returns The product access module.
+ */
+function buildRequestProductAccessModule(
+  executeWithRequestContext: RequestDatabaseExecutor,
+  { academySubscriptionRepository, memberVerifications }: ReturnType<typeof createSharedRequestRepositories>
+) {
+  return buildProductAccessModule({
+    isAcademySalesActivationAllowed,
+    now: () => new Date(),
+    ownAcademyRenewalReader: {
+      getOwnAcademyRenewalStatus: ({ tribeSlug }) =>
+        academySubscriptionRepository.getOwnRenewalStatus({ tribeSlug }),
+    },
+    ownVerificationStatesReader: {
+      listOwnVerificationStates: memberVerifications.useCases.listOwnVerificationStates,
+    },
+    productAccessRepository: new PostgresProductAccessRepository(executeWithRequestContext),
+  });
+}
+
+/**
+ * Builds the request-scoped tribes module.
+ *
+ * @param scope - Request executor, database client, correlation id, and academy admissions.
+ * @returns The tribes module.
+ */
+function buildRequestTribesModule({
+  academyAdmissions,
+  databaseClient,
+  executeWithRequestContext,
+  requestId,
+}: {
+  academyAdmissions: ReturnType<typeof buildAcademyAdmissionsModule>;
+  databaseClient: RequestScopedDatabaseClient;
+  executeWithRequestContext: RequestDatabaseExecutor;
+  requestId: string | undefined;
+}) {
+  return buildTribesModule({
+    academyAdmissionEntry: academyAdmissions.createAcademyEntryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock(), readSecurityConfig: () => readMessagingHostingSecurityConfig() }),
+    tribeAcademyAdmissionRepository: new PostgresTribeAcademyAdmissionRepository(
+      executeWithRequestContext
+    ),
+    tribeReadRepository: new PostgresTribeReadRepository(
+      executeWithRequestContext
+    ),
+    tribeCreationRepository: new PostgresTribeCreationRepository(
+      executeWithRequestContext
+    ),
+    tribeCreatorWhitelistRepository:
+      new PostgresTribeCreatorWhitelistRepository(executeWithRequestContext),
+    tribeInvitationRepository: new PostgresTribeInvitationRepository(
+      executeWithRequestContext
+    ),
+    tribeStoryRepository: new PostgresTribeStoryRepository(
+      executeWithRequestContext
+    ),
+    tribeFreeJoinRepository: new PostgresTribeFreeJoinRepository(
+      executeWithRequestContext
+    ),
+    tribePresenceRepository: new PostgresTribePresenceRepository(
+      executeWithRequestContext
+    ),
+    tribeIdentityRepository: new PostgresTribeIdentityRepository(
+      executeWithRequestContext
+    ),
+    tribeImageRepository: new CloudflareImagesTribeImageRepository(
+      executeWithRequestContext,
+      {
+        logger: createServerLogger({
+          feature: "tribes",
+          operation: "tribe_images",
+          requestId: requestId ?? FALLBACK_REQUEST_ID,
+        }),
+      }
+    ),
+    tribeSupportRepository: new PostgresTribeSupportRepository(
+      executeWithRequestContext
+    ),
+    tribeWelcomeRepository: new PostgresTribeWelcomeRepository(
+      executeWithRequestContext
+    ),
+    tribeWelcomeSelectionRepository:
+      new PostgresTribeWelcomeSelectionRepository(executeWithRequestContext),
+  });
+}
+
+/**
+ * Builds the request-scoped messages module.
+ *
+ * @param executeWithRequestContext - Request-scoped database executor.
+ * @param shared - Repositories shared with other request modules.
+ * @returns The messages module.
+ */
+function buildRequestMessagesModule(
+  executeWithRequestContext: RequestDatabaseExecutor,
+  { messageFileRepository, messageImageRepository }: ReturnType<typeof createSharedRequestRepositories>
+) {
+  return buildMessagesModule({
+    tribeChannelRepository: new PostgresTribeChannelRepository(
+      executeWithRequestContext
+    ),
+    listCachedTribeRoundSharedData: (query) =>
+      import("./messages/infrastructure/cache/tribe-round-shared-data-cache").then(
+        ({ listCachedTribeRoundSharedData }) =>
+          listCachedTribeRoundSharedData(query)
+      ),
+    messageReplyRepository: new PostgresMessageMutationRepository(
+      executeWithRequestContext
+    ),
+    messageCreationRepository: new PostgresMessageMutationRepository(
+      executeWithRequestContext
+    ),
+    messageRoundReadRepository: new PostgresMessageRoundRepository(executeWithRequestContext),
+    messageReactionRepository: new PostgresMessageMutationRepository(
+      executeWithRequestContext
+    ),
+    messagePinRepository: new PostgresMessageMutationRepository(
+      executeWithRequestContext
+    ),
+    messagePollRepository: new PostgresMessageMutationRepository(
+      executeWithRequestContext
+    ),
+    messageDeletionRepository: new PostgresMessageMutationRepository(
+      executeWithRequestContext
+    ),
+    messageCreatedAtUpdateRepository: new PostgresMessageMutationRepository(
+      executeWithRequestContext
+    ),
+    messageContentUpdateRepository: new PostgresMessageMutationRepository(
+      executeWithRequestContext
+    ),
+    messageFileRepository,
+    messageImageRepository,
+  });
+}
+
+/**
+ * Builds the request-scoped courses module.
+ *
+ * @param executeWithRequestContext - Request-scoped database executor.
+ * @param requestId - Correlation id for logs.
+ * @returns The courses module.
+ */
+function buildRequestCoursesModule(
+  executeWithRequestContext: RequestDatabaseExecutor,
+  requestId: string | undefined
+) {
+  return buildCoursesModule({
+    courseRepository: new PostgresCourseRepository(executeWithRequestContext),
+    lessonCommentRepository: new PostgresLessonCommentRepository(
+      executeWithRequestContext
+    ),
+    lessonEventSourceRepository: new PostgresLessonEventSourceRepository(
+      executeWithRequestContext,
+      lockTribeEventOccurrenceRecordingForShare
+    ),
+    lessonFileRepository: new R2LessonFileRepository(
+      executeWithRequestContext,
+      {
+        logger: createServerLogger({
+          feature: "courses",
+          operation: "lesson_files",
+          requestId: requestId ?? FALLBACK_REQUEST_ID,
+        }),
+      }
+    ),
+  });
+}
+
+/**
+ * Builds the request-scoped events module.
+ *
+ * @param executeWithRequestContext - Request-scoped database executor.
+ * @returns The events module.
+ */
+function buildRequestEventsModule(executeWithRequestContext: RequestDatabaseExecutor) {
+  return buildEventsModule({
+    tribeEventCalendarFeedTokenCodec: calendarFeedTokenCodec,
+    tribeEventCalendarFeedTokenRepository: new PostgresTribeEventCalendarFeedTokenRepository(
+      executeWithRequestContext
+    ),
+    tribeEventOccurrenceCommentRepository: new PostgresTribeEventOccurrenceCommentRepository(
+      executeWithRequestContext
+    ),
+    tribeEventOccurrenceExceptionRepository:
+      new PostgresTribeEventOccurrenceExceptionRepository(executeWithRequestContext),
+    tribeEventPostEventRepository: new PostgresTribeEventPostEventRepository(
+      executeWithRequestContext
+    ),
+    tribeEventProposalRepository: new PostgresTribeEventProposalRepository(
+      executeWithRequestContext
+    ),
+    tribeEventReminderRepository: new PostgresTribeEventReminderRepository(
+      executeWithRequestContext
+    ),
+    tribeEventRepository: new PostgresTribeEventRepository(
+      executeWithRequestContext
+    ),
+  });
+}
+
+/**
+ * Builds the request-scoped subscriptions module.
+ *
+ * @param executeWithRequestContext - Request-scoped database executor.
+ * @param requestId - Correlation id for payment traces.
+ * @param shared - Repositories shared with other request modules.
+ * @returns The subscriptions module.
+ */
+function buildRequestSubscriptionsModule(
+  executeWithRequestContext: RequestDatabaseExecutor,
+  requestId: string | undefined,
+  { academySubscriptionRepository, tribeSubscriptionPriceRepository }: ReturnType<typeof createSharedRequestRepositories>
+) {
+  return buildSubscriptionsModule({
+    academySubscriptionRepository,
+    isAcademySalesActivationAllowed,
+    tribeMemberSubscriptionRepository:
+      new PostgresTribeMemberSubscriptionRepository({
+        executeWithDatabase: executeWithRequestContext,
+        createMercadoPagoPreapprovalSubscription,
+        getMercadoPagoPreapprovalDetails,
+        getMercadoPagoPreapprovalStatus,
+        updateMercadoPagoPreapprovalStatus: updateMercadoPagoPreapprovalSubscriptionStatus,
+        updateMercadoPagoPreapprovalBackUrl,
+        refreshMercadoPagoAccessToken,
+        createAdmissionResolution: createPaidAdmissionResolutionWriter,
+        requestId,
+      }),
+    tribePaymentIntegrationRepository:
+      new PostgresTribePaymentIntegrationRepository(executeWithRequestContext),
+    tribeProviderSubscriberReconciliationRepository:
+      tribeSubscriptionPriceRepository,
+    tribeSubscriberDiagnosticsRepository: tribeSubscriptionPriceRepository,
+    tribeSubscriptionPriceRepository:
+      tribeSubscriptionPriceRepository,
+  });
+}
+
+/**
+ * Builds request-scoped modules with database context and optional tracing metadata.
+ *
+ * @param contextOverrides - Request flags and correlation data for infrastructure adapters.
+ * @returns Composed application modules for the current request.
+ */
+export async function createRequestModules(
+  contextOverrides: RequestModuleContextOverrides = {}
+) {
+  const { requestId, databaseConnectionUsage, ...databaseContextOverrides } =
+    contextOverrides;
+  const connectionUsage =
+    databaseConnectionUsage ?? DATABASE_CONNECTION_USAGE.request;
+  const [databaseClient, authContext] = await Promise.all([
+    createServerDatabaseClient(connectionUsage),
+    import("./auth/infrastructure/better-auth/server-auth-context").then(
+      ({ getRequestAuthContext }) => getRequestAuthContext()
+    ),
+  ]);
+  const executeWithRequestContext = <T>(
+    callback: Parameters<RequestScopedDatabaseClient["withRequestContext"]>[1]
+  ) =>
+    databaseClient.withRequestContext(
+      {
+        ...authContext,
+        ...databaseContextOverrides,
+      },
+      callback
+    ) as Promise<T>;
+  const shared = createSharedRequestRepositories(executeWithRequestContext, requestId);
+  const { memberVerifications } = shared;
+
   const academyAdmissions = buildAcademyAdmissionsModule({
       accounts: createRequestAuthenticatedAccountProvider(),
       execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
@@ -229,149 +500,20 @@ export async function createRequestModules(
       clock: () => new Date(),
     } satisfies AuthenticatedFeatureDependencies),
     memberVerifications,
-    productAccess: buildProductAccessModule({
-      isAcademySalesActivationAllowed,
-      now: () => new Date(),
-      ownAcademyRenewalReader: {
-        getOwnAcademyRenewalStatus: ({ tribeSlug }) =>
-          academySubscriptionRepository.getOwnRenewalStatus({ tribeSlug }),
-      },
-      ownVerificationStatesReader: {
-        listOwnVerificationStates: memberVerifications.useCases.listOwnVerificationStates,
-      },
-      productAccessRepository: new PostgresProductAccessRepository(executeWithRequestContext),
-    }),
+    productAccess: buildRequestProductAccessModule(executeWithRequestContext, shared),
     auth: buildAuthModule({
       authSessionRepository: new BetterAuthSessionRepository(),
       authenticatedAccountProvider:createRequestAuthenticatedAccountProvider(),
     }),
-    tribes: buildTribesModule({
-      academyAdmissionEntry: academyAdmissions.createAcademyEntryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock(), readSecurityConfig: () => readMessagingHostingSecurityConfig() }),
-      tribeAcademyAdmissionRepository: new PostgresTribeAcademyAdmissionRepository(
-        executeWithRequestContext
-      ),
-      tribeReadRepository: new PostgresTribeReadRepository(
-        executeWithRequestContext
-      ),
-      tribeCreationRepository: new PostgresTribeCreationRepository(
-        executeWithRequestContext
-      ),
-      tribeCreatorWhitelistRepository:
-        new PostgresTribeCreatorWhitelistRepository(executeWithRequestContext),
-      tribeInvitationRepository: new PostgresTribeInvitationRepository(
-        executeWithRequestContext
-      ),
-      tribeStoryRepository: new PostgresTribeStoryRepository(
-        executeWithRequestContext
-      ),
-      tribeFreeJoinRepository: new PostgresTribeFreeJoinRepository(
-        executeWithRequestContext
-      ),
-      tribePresenceRepository: new PostgresTribePresenceRepository(
-        executeWithRequestContext
-      ),
-      tribeIdentityRepository: new PostgresTribeIdentityRepository(
-        executeWithRequestContext
-      ),
-      tribeImageRepository: new CloudflareImagesTribeImageRepository(
-        executeWithRequestContext,
-        {
-          logger: createServerLogger({
-            feature: "tribes",
-            operation: "tribe_images",
-            requestId: requestId ?? FALLBACK_REQUEST_ID,
-          }),
-        }
-      ),
-      tribeSupportRepository: new PostgresTribeSupportRepository(
-        executeWithRequestContext
-      ),
-      tribeWelcomeRepository: new PostgresTribeWelcomeRepository(
-        executeWithRequestContext
-      ),
-      tribeWelcomeSelectionRepository:
-        new PostgresTribeWelcomeSelectionRepository(executeWithRequestContext),
+    tribes: buildRequestTribesModule({
+      academyAdmissions,
+      databaseClient,
+      executeWithRequestContext,
+      requestId,
     }),
-    messages: buildMessagesModule({
-      tribeChannelRepository: new PostgresTribeChannelRepository(
-        executeWithRequestContext
-      ),
-      listCachedTribeRoundSharedData: (query) =>
-        import("./messages/infrastructure/cache/tribe-round-shared-data-cache").then(
-          ({ listCachedTribeRoundSharedData }) =>
-            listCachedTribeRoundSharedData(query)
-        ),
-      messageReplyRepository: new PostgresMessageMutationRepository(
-        executeWithRequestContext
-      ),
-      messageCreationRepository: new PostgresMessageMutationRepository(
-        executeWithRequestContext
-      ),
-      messageRoundReadRepository: new PostgresMessageRoundRepository(executeWithRequestContext),
-      messageReactionRepository: new PostgresMessageMutationRepository(
-        executeWithRequestContext
-      ),
-      messagePinRepository: new PostgresMessageMutationRepository(
-        executeWithRequestContext
-      ),
-      messagePollRepository: new PostgresMessageMutationRepository(
-        executeWithRequestContext
-      ),
-      messageDeletionRepository: new PostgresMessageMutationRepository(
-        executeWithRequestContext
-      ),
-      messageCreatedAtUpdateRepository: new PostgresMessageMutationRepository(
-        executeWithRequestContext
-      ),
-      messageContentUpdateRepository: new PostgresMessageMutationRepository(
-        executeWithRequestContext
-      ),
-      messageFileRepository,
-      messageImageRepository,
-    }),
-    courses: buildCoursesModule({
-      courseRepository: new PostgresCourseRepository(executeWithRequestContext),
-      lessonCommentRepository: new PostgresLessonCommentRepository(
-        executeWithRequestContext
-      ),
-      lessonEventSourceRepository: new PostgresLessonEventSourceRepository(
-        executeWithRequestContext,
-        lockTribeEventOccurrenceRecordingForShare
-      ),
-      lessonFileRepository: new R2LessonFileRepository(
-        executeWithRequestContext,
-        {
-          logger: createServerLogger({
-            feature: "courses",
-            operation: "lesson_files",
-            requestId: requestId ?? FALLBACK_REQUEST_ID,
-          }),
-        }
-      ),
-    }),
-    events: buildEventsModule({
-      tribeEventCalendarFeedTokenCodec: calendarFeedTokenCodec,
-      tribeEventCalendarFeedTokenRepository: new PostgresTribeEventCalendarFeedTokenRepository(
-        executeWithRequestContext
-      ),
-      tribeEventOccurrenceCommentRepository: new PostgresTribeEventOccurrenceCommentRepository(
-        executeWithRequestContext
-      ),
-      tribeEventOccurrenceExceptionRepository:
-        new PostgresTribeEventOccurrenceExceptionRepository(executeWithRequestContext),
-      tribeEventPostEventRepository: new PostgresTribeEventPostEventRepository(
-        executeWithRequestContext
-      ),
-      tribeEventProposalRepository: new PostgresTribeEventProposalRepository(
-        executeWithRequestContext
-      ),
-      tribeEventReminderRepository: new PostgresTribeEventReminderRepository(
-        executeWithRequestContext
-      ),
-      tribeEventRepository: new PostgresTribeEventRepository(
-        executeWithRequestContext
-      ),
-    }),
+    messages: buildRequestMessagesModule(executeWithRequestContext, shared),
+    courses: buildRequestCoursesModule(executeWithRequestContext, requestId),
+    events: buildRequestEventsModule(executeWithRequestContext),
     notifications: buildNotificationsModule({
       notificationRepository: new PostgresNotificationRepository(executeWithRequestContext, {
         logger: createServerLogger({
@@ -393,29 +535,7 @@ export async function createRequestModules(
         executeWithRequestContext
       ),
     }),
-    subscriptions: buildSubscriptionsModule({
-      academySubscriptionRepository,
-      isAcademySalesActivationAllowed,
-      tribeMemberSubscriptionRepository:
-        new PostgresTribeMemberSubscriptionRepository(
-          executeWithRequestContext,
-          createMercadoPagoPreapprovalSubscription,
-          getMercadoPagoPreapprovalDetails,
-          getMercadoPagoPreapprovalStatus,
-          updateMercadoPagoPreapprovalSubscriptionStatus,
-          updateMercadoPagoPreapprovalBackUrl,
-          refreshMercadoPagoAccessToken,
-          createPaidAdmissionResolutionWriter,
-          requestId
-        ),
-      tribePaymentIntegrationRepository:
-        new PostgresTribePaymentIntegrationRepository(executeWithRequestContext),
-      tribeProviderSubscriberReconciliationRepository:
-        tribeSubscriptionPriceRepository,
-      tribeSubscriberDiagnosticsRepository: tribeSubscriptionPriceRepository,
-      tribeSubscriptionPriceRepository:
-        tribeSubscriptionPriceRepository,
-    }),
+    subscriptions: buildRequestSubscriptionsModule(executeWithRequestContext, requestId, shared),
   };
 }
 
@@ -730,7 +850,7 @@ export async function createAdmissionProofApplicationRequestModule() {
 export async function createTribeLeadershipRequestModule(){
   const accounts=createRequestAuthenticatedAccountProvider(),databaseClient=await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
   return buildTribeLeadershipModule({accounts,clock:()=>new Date(),readSecurityConfig:async()=>readMessagingHostingSecurityConfig(),execute:async(context,run)=>{
-    const account=await accounts.getAuthenticatedAccount();if(!account||account.userId!==context.actorUserId||account.session.id!==context.sessionId)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+    const account=await accounts.getAuthenticatedAccount();if(account?.userId!==context.actorUserId||account.session.id!==context.sessionId)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
     return databaseClient.withRequestContext({userId:account.userId,email:account.normalizedEmail},run);
   }});
 }
@@ -742,7 +862,7 @@ export async function createTribeMembershipRequestModule() {
   const routing = buildAcademyAdmissionsModule(dependencies).createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
   const membership = buildTribeMembershipLifecycleModule({ accounts, clock: dependencies.clock, readSecurityConfig: async () => readMessagingHostingSecurityConfig(), admission: createAdmissionMembershipLifecycleWriter, execute: async (context, run) => {
     const account = await accounts.getAuthenticatedAccount();
-    if (!account || account.userId !== context.actorUserId || account.session.id !== context.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+    if (account?.userId !== context.actorUserId || account.session.id !== context.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
     return databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run);
   } }).useCases;
   return { membership, resolveTribe: routing.resolveTribe };
@@ -753,7 +873,7 @@ export async function createTribeLifecycleRequestModule() {
   const accounts = createRequestAuthenticatedAccountProvider(), databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
   return { lifecycle: buildTribeLifecycleModule({ accounts, readSecurityConfig: async () => readMessagingHostingSecurityConfig(), admission: createAdmissionScopeClosureWriter, execute: async (context, run) => {
     const account = await accounts.getAuthenticatedAccount();
-    if (!account || account.userId !== context.actorUserId || account.session.id !== context.sessionId) throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.authenticationRequired);
+    if (account?.userId !== context.actorUserId || account.session.id !== context.sessionId) throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.authenticationRequired);
     return databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run);
   } }).useCases };
 }
@@ -841,6 +961,13 @@ export async function createMessagingConnectionOperationRequestModule(){
   return{operation:buildMessagingModule(dependencies).createConnectionOperationReadModule().useCases,resolveTribe:routing.resolveTribe};
 }
 
+/** @param error - Failure reported by the maintenance workflow. @returns Closed reason logged for it, never the raw error text. */
+function resolveMaintenanceFailureReason(error: unknown) {
+  if (error instanceof AdmissionMessagingMaintenanceError) return error.reason;
+  if (error instanceof MessagingCryptographyError) return ADMISSION_MESSAGING_MAINTENANCE_REASON.configurationUnavailable;
+  return ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved;
+}
+
 /** @param request - Actual native request, never a browser principal or authority flag. @param context - Bounded private correlation selected by the HTTP boundary. @returns The complete workflow after current bearer authorization, with no global provider credential or pre-composition database read. */
 export async function createAdmissionMessagingMaintenanceRequestModule(request: Request, context: RequestContext) {
   const authorize = createRequestMessagingMaintenanceAuthorizer(request);
@@ -852,7 +979,7 @@ export async function createAdmissionMessagingMaintenanceRequestModule(request: 
     createId: () => crypto.randomUUID(),
     defer: (work) => { after(() => work); },
     report: (error, diagnostic) => {
-      const reason = error instanceof AdmissionMessagingMaintenanceError ? error.reason : error instanceof MessagingCryptographyError ? ADMISSION_MESSAGING_MAINTENANCE_REASON.configurationUnavailable : ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved;
+      const reason = resolveMaintenanceFailureReason(error);
       logger.error({ message: ADMISSION_MESSAGING_MAINTENANCE_LOG.failureMessage, metadata: { operation: diagnostic.operation, reason, ...(diagnostic.runId ? { runId: diagnostic.runId } : {}), ...(diagnostic.phase ? { phase: diagnostic.phase } : {}) } });
     },
   };

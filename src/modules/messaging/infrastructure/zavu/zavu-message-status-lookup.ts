@@ -12,7 +12,24 @@ import { normalizeMessagingProviderFailure } from "../api/messaging-route-http";
 import { messagingFailure } from "../../application/results/messaging-errors";
 import { ZavuInspectionError } from "./zavu-inspection-error";
 
+/** @param status - Provider message status. @returns The attempt state it supports; unknown statuses stay unknown. */
+function providerAttemptState(status: unknown) {
+  if (status === ZAVU_DELIVERY_STATUS.delivered || status === ZAVU_DELIVERY_STATUS.read) return MESSAGE_ATTEMPT_STATE.delivered;
+  if (status === ZAVU_DELIVERY_STATUS.queued || status === ZAVU_DELIVERY_STATUS.sending || status === ZAVU_DELIVERY_STATUS.sent) return MESSAGE_ATTEMPT_STATE.accepted;
+  return status === ZAVU_DELIVERY_STATUS.failed ? MESSAGE_ATTEMPT_STATE.rejected : MESSAGE_ATTEMPT_STATE.unknown;
+}
+
+/** @param response - Lookup as the provider returned it. @returns Its message, when present. */
+function lookupMessage(response: UnverifiedProviderMessageLookup) {
+  return response?.message;
+}
+
 /** A request-owned read adapter; a successful observation never creates a new delivery. */
+/** Provider lookup as the network may actually return it; the SDK types are not a runtime guarantee. */
+type UnverifiedProviderMessageLookup = {
+  message?: Awaited<ReturnType<Zavu["messages"]["retrieve"]>>["message"] | null;
+} | null | undefined;
+
 export class ZavuMessageStatusLookup implements MessageStatusLookup {
   /** @param preparation - Native authorization and transient original credential. @param fetch - Hosting HTTP runtime or owned real-SDK test transport. @param timeoutMs - Bounded read duration; no SDK retries. */
   constructor(private readonly preparation: MessageStatusPreparation, private readonly fetch: typeof globalThis.fetch, private readonly timeoutMs: number = MESSAGING_PROVIDER_READ_TIMEOUT_MS) {}
@@ -38,15 +55,11 @@ export class ZavuMessageStatusLookup implements MessageStatusLookup {
     };
     const client = new Zavu({ apiKey: prepared.credential, baseURL: ZAVU_DELIVERY_ENDPOINT.origin, fetch: scopedFetch, timeout: this.timeoutMs, maxRetries: ZAVU_DELIVERY_TRANSPORT.maximumRetries, logLevel: ZAVU_DELIVERY_TRANSPORT.logLevel });
     try {
-      const response = await client.messages.retrieve(original.providerMessageId, { signal });
-      const message = response?.message;
-      if (!message || message.id !== original.providerMessageId || message.direction !== ZAVU_MESSAGE_DIRECTION.outbound || message.channel !== original.channel) {
+      const message = lookupMessage(await client.messages.retrieve(original.providerMessageId, { signal }));
+      if (message?.id !== original.providerMessageId || message.direction !== ZAVU_MESSAGE_DIRECTION.outbound || message.channel !== original.channel) {
         throw new ZavuInspectionError(MESSAGE_STATUS_LOOKUP_OPERATION, messagingFailure(MESSAGING_ERROR_CODE.upstreamPayloadUnusable));
       }
-      const outcome = message.status === ZAVU_DELIVERY_STATUS.delivered || message.status === ZAVU_DELIVERY_STATUS.read ? MESSAGE_ATTEMPT_STATE.delivered
-        : message.status === ZAVU_DELIVERY_STATUS.queued || message.status === ZAVU_DELIVERY_STATUS.sending || message.status === ZAVU_DELIVERY_STATUS.sent ? MESSAGE_ATTEMPT_STATE.accepted
-        : message.status === ZAVU_DELIVERY_STATUS.failed ? MESSAGE_ATTEMPT_STATE.rejected : MESSAGE_ATTEMPT_STATE.unknown;
-      return { outcome, providerMessageId: original.providerMessageId };
+      return { outcome: providerAttemptState(message.status), providerMessageId: original.providerMessageId };
     } catch (error) {
       if (signal.aborted) signal.throwIfAborted();
       if (error instanceof ZavuInspectionError) throw error;

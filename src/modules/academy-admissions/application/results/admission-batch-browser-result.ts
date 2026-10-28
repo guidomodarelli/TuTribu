@@ -23,13 +23,16 @@ export function matchesAdmissionBatchDecisionResult(input: AdmissionBrowserBatch
   for (const item of result.items) {
     const expectedVersion = selected.get(item.requestId.toLowerCase());
     if (expectedVersion === undefined || !selected.delete(item.requestId.toLowerCase())) return false;
-    if (result.state === OPERATION_STATE.started) {
-      if (item.status !== ADMISSION_BATCH_ITEM_STATUS.unresolved) return false;
-    } else if (item.status === ADMISSION_BATCH_ITEM_STATUS.approved || item.status === ADMISSION_BATCH_ITEM_STATUS.rejected) {
-      if (item.status !== expectedStatus || item.version !== expectedVersion + 1) return false;
-    } else if (item.status !== ADMISSION_BATCH_ITEM_STATUS.conflict && item.status !== ADMISSION_BATCH_ITEM_STATUS.denied) return false;
+    if (!matchesAdmissionBatchItem({ state: result.state, item, expectedStatus, expectedVersion })) return false;
   }
   return selected.size === 0;
+}
+
+/** @returns Whether one row reports the status its operation state allows: unresolved while started, the confirmed decision at the next version, or a closed failure. */
+function matchesAdmissionBatchItem({ state, item, expectedStatus, expectedVersion }: { state: AdmissionBatchResultDto["state"]; item: AdmissionBatchResultDto["items"][number]; expectedStatus: AdmissionBatchResultDto["items"][number]["status"]; expectedVersion: number }): boolean {
+  if (state === OPERATION_STATE.started) return item.status === ADMISSION_BATCH_ITEM_STATUS.unresolved;
+  if (item.status === ADMISSION_BATCH_ITEM_STATUS.approved || item.status === ADMISSION_BATCH_ITEM_STATUS.rejected) return item.status === expectedStatus && item.version === expectedVersion + 1;
+  return item.status === ADMISSION_BATCH_ITEM_STATUS.conflict || item.status === ADMISSION_BATCH_ITEM_STATUS.denied;
 }
 
 /** @param result - A bound public atomic original. @returns Only confirmed row transitions; conflicts and unresolved rows never become decisions. */

@@ -31,29 +31,42 @@ export class ResolveAdmissionContextUseCase {
     const initialAccount = await this.accounts.getAuthenticatedAccount();
     if (!initialAccount || !isAuthenticatedSessionLive(initialAccount.session.expiresAt, this.clock())) return deny(ADMISSION_ERROR_CODE.authenticationRequired);
     const initialActor = await this.authorization.getCurrentActor(command.tribeId, initialAccount.userId);
-    const hasActor = (actor: AdmissionActorFacts | null): actor is AdmissionActorFacts => Boolean(actor && actor.userId === initialAccount.userId && actor.tribeId === command.tribeId);
+    const hasActor = (actor: AdmissionActorFacts | null): actor is AdmissionActorFacts => actor?.userId === initialAccount.userId && actor.tribeId === command.tribeId;
     const ownRequest = ADMISSION_OWN_REQUEST_ACTIONS.has(command.action);
     const decision = ADMISSION_DECISION_ACTIONS.has(command.action);
     if ((ownRequest || decision) && command.resource?.kind !== ADMISSION_RESOURCE_KIND.request) return deny(ADMISSION_ERROR_CODE.invalidInput);
     const sensitiveOperations = ADMISSION_SENSITIVE_OPERATIONS[command.action];
     if (!hasActor(initialActor)) return deny(ADMISSION_ERROR_CODE.permissionDenied);
-    const mayReadResource = ownRequest || (decision
-      ? initialActor.status === TRIBE_MEMBERSHIP_STATUS.active && (initialActor.role === TRIBE_MEMBER_ROLE.leader || initialActor.role === TRIBE_MEMBER_ROLE.guardian)
-      : canPerformAdmissionAction(initialActor, command.action, { tribeId: command.tribeId }));
-    if (!mayReadResource) return deny(ADMISSION_ERROR_CODE.permissionDenied);
-    if (ADMISSION_OPERATION_SCOPED_ACTIONS.has(command.action) && !command.sensitiveOperation) return deny(ADMISSION_ERROR_CODE.invalidInput);
-    if (command.sensitiveOperation && !sensitiveOperations?.includes(command.sensitiveOperation)) return deny(ADMISSION_ERROR_CODE.invalidInput);
-    if (command.sensitiveOperation && REAUTHENTICATION_OPERATION_RESOURCE[command.sensitiveOperation] !== (command.resource?.kind ?? REAUTHENTICATION_RESOURCE_KIND.tribe)) return deny(ADMISSION_ERROR_CODE.invalidInput);
+    if (!ownRequest && !mayReadAdmissionResource(initialActor, command, decision)) return deny(ADMISSION_ERROR_CODE.permissionDenied);
+    if (!hasValidSensitiveOperation(command, sensitiveOperations)) return deny(ADMISSION_ERROR_CODE.invalidInput);
     const resource = command.resource ? await this.authorization.getResource(command.tribeId, command.resource) : null;
-    if (command.resource && (!resource || resource.id !== command.resource.id || resource.tribeId !== command.tribeId)) return deny(ADMISSION_ERROR_CODE.resourceUnavailable);
+    if (command.resource && (resource?.id !== command.resource.id || resource.tribeId !== command.tribeId)) return deny(ADMISSION_ERROR_CODE.resourceUnavailable);
     const account = await this.accounts.getAuthenticatedAccount();
-    if (!account || account.userId !== initialAccount.userId || account.session.id !== initialAccount.session.id) return deny(ADMISSION_ERROR_CODE.authenticationRequired);
+    if (account?.userId !== initialAccount.userId || account.session.id !== initialAccount.session.id) return deny(ADMISSION_ERROR_CODE.authenticationRequired);
     const actor = await this.authorization.getCurrentActor(command.tribeId, account.userId);
     const now = this.clock();
     if (!isAuthenticatedSessionLive(account.session.expiresAt, now)) return deny(ADMISSION_ERROR_CODE.authenticationRequired);
-    const target = { tribeId: command.tribeId, ...(resource?.applicantUserId ? { applicantUserId: resource.applicantUserId } : {}) };
+    const target = { tribeId: command.tribeId, ...applicantOf(resource) };
     if (!hasActor(actor) || !canPerformAdmissionAction(actor, command.action, target)) return deny(ADMISSION_ERROR_CODE.permissionDenied);
     const resourceId = resource?.id ?? command.tribeId;
-    return { allowed: true, context: { userId: account.userId, sessionId: account.session.id, tribeId: command.tribeId, requestId: command.requestId, action: command.action, role: actor.role, membershipStatus: actor.status, resourceId, ...(resource?.applicantUserId ? { applicantUserId: resource.applicantUserId } : {}), ...(command.sensitiveOperation ? { sensitiveOperation: command.sensitiveOperation } : {}) } };
+    return { allowed: true, context: { userId: account.userId, sessionId: account.session.id, tribeId: command.tribeId, requestId: command.requestId, action: command.action, role: actor.role, membershipStatus: actor.status, resourceId, ...applicantOf(resource), ...(command.sensitiveOperation ? { sensitiveOperation: command.sensitiveOperation } : {}) } };
   }
+}
+
+/** @param resource - Resolved scoped resource, if any. @returns Its applicant, only when it has one. */
+function applicantOf(resource: { applicantUserId?: string } | null): { applicantUserId?: string } {
+  return resource?.applicantUserId ? { applicantUserId: resource.applicantUserId } : {};
+}
+
+/** @param actor - Current actor of the tribe. @param command - Requested action. @param decision - Whether the action decides a request. @returns Whether the actor may read the resource: active leaders and guardians for decisions, else the action permission. */
+function mayReadAdmissionResource(actor: AdmissionActorFacts, command: AdmissionContextCommand, decision: boolean): boolean {
+  if (decision) return actor.status === TRIBE_MEMBERSHIP_STATUS.active && (actor.role === TRIBE_MEMBER_ROLE.leader || actor.role === TRIBE_MEMBER_ROLE.guardian);
+  return canPerformAdmissionAction(actor, command.action, { tribeId: command.tribeId });
+}
+
+/** @param command - Requested action. @param sensitiveOperations - Operations allowed for that action. @returns Whether the operation scope is present when required, allowed for the action and bound to the requested resource kind. */
+function hasValidSensitiveOperation(command: AdmissionContextCommand, sensitiveOperations: (typeof ADMISSION_SENSITIVE_OPERATIONS)[AdmissionContextCommand["action"]]): boolean {
+  if (!command.sensitiveOperation) return !ADMISSION_OPERATION_SCOPED_ACTIONS.has(command.action);
+  if (!sensitiveOperations?.includes(command.sensitiveOperation)) return false;
+  return REAUTHENTICATION_OPERATION_RESOURCE[command.sensitiveOperation] === (command.resource?.kind ?? REAUTHENTICATION_RESOURCE_KIND.tribe);
 }

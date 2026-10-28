@@ -31,6 +31,11 @@ console.error=(...argumentsList)=>{
   nativeConsoleError(...argumentsList);
 };
 
+/** @param body - Parsed synthetic provider payload, kept in memory only. @param whatsapp - Whether the payload uses the WhatsApp template channel. @returns The six-digit diagnostic code candidate, or undefined when the payload carries none. */
+function readDiagnosticCode(body,whatsapp){
+  if(whatsapp)return body.content?.templateVariables?.["1"];
+  return typeof body.text==="string"?body.text.match(/\b\d{6}\b/u)?.[0]:undefined;
+}
 /**
  * Exercises the real SDK without letting this native fixture reach the external provider.
  * @param input - Actual fetch input from Next or the pinned SDK.
@@ -42,7 +47,7 @@ globalThis.fetch=async(input,init)=>{
   const request=new Request(input,init),url=new URL(request.url);
   if(url.origin!==PROVIDER_ORIGIN){if(url.origin!==frameworkOrigin)throw new Error("NativeZavuProviderTransport failed: unregistered_external_origin");return nativeFetch(input,init);}
   request.signal.throwIfAborted();
-  const resource=process.env.ADMISSION_TEST_ZAVU_RESOURCES==="1"&&Object.values(RESOURCE_PATH).includes(url.pathname)&&[...url.searchParams.keys()].every((key)=>key==="cursor"||key==="limit")&&url.searchParams.get("limit")==="50"&&(!url.searchParams.has("cursor")||url.searchParams.get("cursor")===RESOURCE_CURSOR);
+  const resource=process.env.ADMISSION_TEST_ZAVU_RESOURCES==="1"&&Object.values(RESOURCE_PATH).includes(url.pathname)&&url.searchParams.keys().every((key)=>key==="cursor"||key==="limit")&&url.searchParams.get("limit")==="50"&&(!url.searchParams.has("cursor")||url.searchParams.get("cursor")===RESOURCE_CURSOR);
   const senderDetail=process.env.ADMISSION_TEST_ZAVU_SENDER_ID!==undefined&&url.pathname===`${RESOURCE_PATH.senders}/${RESOURCE_ID.sender}`&&!url.search;
   const diagnosticSend=process.env.ADMISSION_TEST_ZAVU_RECIPIENT!==undefined&&url.pathname==="/v1/messages"&&request.method==="POST"&&!url.search;
   const notificationSend=notificationRecipients.length>0&&url.pathname==="/v1/messages"&&request.method==="POST"&&!url.search&&notificationRecipients.includes((await request.clone().json().catch(()=>({}))).to);
@@ -58,7 +63,7 @@ globalThis.fetch=async(input,init)=>{
   }
   if(diagnosticSend){
     const body=await request.json(),whatsapp=diagnosticChannel==="whatsapp";
-    const code=whatsapp?body.content?.templateVariables?.["1"]:typeof body.text==="string"?body.text.match(/\b\d{6}\b/u)?.[0]:undefined;
+    const code=readDiagnosticCode(body,whatsapp);
     const allowedPayload=whatsapp?body.messageType==="template"&&body.content?.templateId===process.env.ADMISSION_TEST_ZAVU_TEMPLATE_ID&&body.text===undefined&&body.templateLanguage===undefined&&process.env.ADMISSION_TEST_ZAVU_TEMPLATE_ID!==undefined:body.messageType==="text";
     if(!syntheticRecipients.has(body.to)||body.channel!==diagnosticChannel||body.fallbackEnabled!==false||request.headers.get("Zavu-Sender")!==RESOURCE_ID.sender||!allowedPayload||typeof code!=="string"||!/^\d{6}$/u.test(code))throw new Error("NativeZavuProviderTransport failed: crossed_diagnostic_intent");
     // A private test-only IPC simulates receipt; code/headers/body are never printed or persisted.

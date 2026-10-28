@@ -47,6 +47,86 @@ type AcademyActivationProps = {
   tribeSlug: string;
 };
 
+type AcademyActivationIntroProps = {
+  headingId: string;
+  isAcademy: boolean;
+  statusId: string;
+};
+
+/** Heading, current mode and its description. */
+function AcademyActivationIntro({ headingId, isAcademy, statusId }: AcademyActivationIntroProps) {
+  return (
+    <div className={styles.AcademyActivation__intro}>
+      <h2 className={styles.AcademyActivation__title} id={headingId}>
+        {ACADEMY_ACTIVATION_COPY.heading}
+      </h2>
+      <p className={styles.AcademyActivation__status} id={statusId}>
+        {isAcademy ? ACADEMY_ACTIVATION_COPY.activeStatus : ACADEMY_ACTIVATION_COPY.classicStatus}
+      </p>
+      <p className={styles.AcademyActivation__description}>
+        {isAcademy
+          ? ACADEMY_ACTIVATION_COPY.activeDescription
+          : ACADEMY_ACTIVATION_COPY.classicDescription}
+      </p>
+    </div>
+  );
+}
+
+type AcademyActivationDialogProps = {
+  isOpen: boolean;
+  isSubmitting: boolean;
+  onConfirm: () => void;
+  /** Changes the open state; ignored by the dialog while the activation is pending. */
+  onOpenChange: (open: boolean) => void;
+};
+
+/** Confirmation dialog listing what the academy mode changes. */
+function AcademyActivationDialog({ isOpen, isSubmitting, onConfirm, onOpenChange }: AcademyActivationDialogProps) {
+  return (
+    <Dialog
+      onOpenChange={(open) => {
+        if (!isSubmitting) {
+          onOpenChange(open);
+        }
+      }}
+      open={isOpen}
+    >
+      <DialogContent
+        title={ACADEMY_ACTIVATION_COPY.confirmTitle}
+        description={ACADEMY_ACTIVATION_COPY.classicDescription}
+        footer={
+          <>
+            <Button
+              disabled={isSubmitting}
+              onClick={() => onOpenChange(false)}
+              type="button"
+              variant="secondary"
+            >
+              {ACADEMY_ACTIVATION_COPY.cancelButton}
+            </Button>
+            <Button
+              aria-busy={isSubmitting || undefined}
+              disabled={isSubmitting}
+              onClick={onConfirm}
+              type="button"
+            >
+              {isSubmitting
+                ? ACADEMY_ACTIVATION_COPY.activatePending
+                : ACADEMY_ACTIVATION_COPY.confirmButton}
+            </Button>
+          </>
+        }
+      >
+        <ul className={styles.AcademyActivation__effects}>
+          {ACADEMY_ACTIVATION_COPY.effects.map((effect) => (
+            <li key={effect}>{effect}</li>
+          ))}
+        </ul>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /**
  * Tribe settings section where the active leader switches the tribe to the
  * academy mode. The server checks the role again and keeps current members'
@@ -107,19 +187,7 @@ export function AcademyActivation({ settings: initialSettings, tribeSlug }: Acad
 
   return (
     <section aria-labelledby={headingId} className={styles.AcademyActivation}>
-      <div className={styles.AcademyActivation__intro}>
-        <h2 className={styles.AcademyActivation__title} id={headingId}>
-          {ACADEMY_ACTIVATION_COPY.heading}
-        </h2>
-        <p className={styles.AcademyActivation__status} id={statusId}>
-          {isAcademy ? ACADEMY_ACTIVATION_COPY.activeStatus : ACADEMY_ACTIVATION_COPY.classicStatus}
-        </p>
-        <p className={styles.AcademyActivation__description}>
-          {isAcademy
-            ? ACADEMY_ACTIVATION_COPY.activeDescription
-            : ACADEMY_ACTIVATION_COPY.classicDescription}
-        </p>
-      </div>
+      <AcademyActivationIntro headingId={headingId} isAcademy={isAcademy} statusId={statusId} />
 
       <div className={styles.AcademyActivation__actions}>
         {isAcademy ? (
@@ -147,49 +215,14 @@ export function AcademyActivation({ settings: initialSettings, tribeSlug }: Acad
         </p>
       ) : null}
 
-      <Dialog
-        onOpenChange={(open) => {
-          if (!isSubmitting) {
-            setIsDialogOpen(open);
-          }
+      <AcademyActivationDialog
+        isOpen={isDialogOpen}
+        isSubmitting={isSubmitting}
+        onConfirm={() => {
+          void confirmActivation();
         }}
-        open={isDialogOpen}
-      >
-        <DialogContent
-          title={ACADEMY_ACTIVATION_COPY.confirmTitle}
-          description={ACADEMY_ACTIVATION_COPY.classicDescription}
-          footer={
-            <>
-              <Button
-                disabled={isSubmitting}
-                onClick={() => setIsDialogOpen(false)}
-                type="button"
-                variant="secondary"
-              >
-                {ACADEMY_ACTIVATION_COPY.cancelButton}
-              </Button>
-              <Button
-                aria-busy={isSubmitting || undefined}
-                disabled={isSubmitting}
-                onClick={() => {
-                  void confirmActivation();
-                }}
-                type="button"
-              >
-                {isSubmitting
-                  ? ACADEMY_ACTIVATION_COPY.activatePending
-                  : ACADEMY_ACTIVATION_COPY.confirmButton}
-              </Button>
-            </>
-          }
-        >
-          <ul className={styles.AcademyActivation__effects}>
-            {ACADEMY_ACTIVATION_COPY.effects.map((effect) => (
-              <li key={effect}>{effect}</li>
-            ))}
-          </ul>
-        </DialogContent>
-      </Dialog>
+        onOpenChange={setIsDialogOpen}
+      />
     </section>
   );
 }

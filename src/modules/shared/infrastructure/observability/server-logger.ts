@@ -57,7 +57,6 @@ function serializeError(error: unknown): ServerLogEntry["error"] | undefined {
 
   if (
     typeof error === "object" &&
-    error !== null &&
     SERVER_LOG_FIELD.message in error
   ) {
     const errorWithMessage = error as {
@@ -79,8 +78,22 @@ function serializeError(error: unknown): ServerLogEntry["error"] | undefined {
   }
 
   return {
-    message: String(error),
+    message: describeNonErrorValue(error),
   };
+}
+
+/**
+ * Describes a thrown value that carries no error message.
+ *
+ * @param value - Truthy thrown value that is neither an `Error` nor an object with `message`.
+ * @returns Primitive text as-is; objects keep their `[object Tag]` description.
+ */
+function describeNonErrorValue(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint" || typeof value === "symbol") {
+    return String(value);
+  }
+  return Object.prototype.toString.call(value);
 }
 
 function writeLog(level: ServerLogLevel, entry: ServerLogEntry) {

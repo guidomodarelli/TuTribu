@@ -67,7 +67,7 @@ export async function connectAdmissionReaderWebDriver({ origin, url, width, heig
     };
   } catch (error) {
     try { await close(); }
-    catch (closeError) { throw new AggregateError([error, closeError], DRIVER.failures.session); }
+    catch (closeError) { throw new AggregateError([error, closeError], DRIVER.failures.session, { cause: closeError }); }
     throw error;
   }
 }

@@ -6,7 +6,7 @@ export const ADMISSION_SAMPLE = {
   environmentVariable: "ADMISSION_NODE_ADMISSION_SAMPLE", enabledValue: "1", kind: "deterministic_sample",
 } as const satisfies AdmissionFixtureShape & { batchSize: number; environmentVariable: string; enabledValue: string; kind: string };
 const integer = z.number().int().nonnegative();
-const duration = z.number().finite().nonnegative();
+const duration = z.number().nonnegative();
 export const admissionNodeSampleSchema = z.object({
   kind: z.literal(ADMISSION_SAMPLE.kind), participants: integer, enabledContacts: integer, unlistedContacts: integer,
   admitted: integer, pending: integer, batchSize: integer, batchCount: integer,

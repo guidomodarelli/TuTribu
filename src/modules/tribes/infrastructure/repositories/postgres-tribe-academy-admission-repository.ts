@@ -13,7 +13,7 @@
  * @module postgres-tribe-academy-admission-repository
  */
 
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import {applyApprovedAcademyMembership} from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
 import type {ApplyApprovedAcademyMembershipCommand,ApplyApprovedAcademyMembershipResult} from "@/src/modules/tribes/domain/repositories/academy-approved-membership-writer";
 
@@ -34,6 +34,48 @@ type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
 ) => Promise<T>;
 
+/**
+ * Tells whether the viewer is blocked for conduct in a tribe.
+ */
+function buildConductBlockedMembershipStatement(tribeSlug: string): SQL {
+  return sql`
+          select exists (
+            select 1
+            from public.tribe_members
+            inner join public.tribes on tribes.id = tribe_members.tribe_id
+            where tribes.slug = ${tribeSlug}
+              and tribe_members.user_id = public.current_app_user_id()
+              and tribe_members.status = ${TRIBE_MEMBERSHIP_STATUS.blocked}
+              and tribe_members.status_reason = ${TRIBE_MEMBERSHIP_STATUS_REASON.conductBlocked}
+          ) as is_blocked
+        `;
+}
+
+/**
+ * Reactivates a membership blocked or removed only for a commercial reason, keeping its role.
+ */
+function buildRecoverCommercialBlockStatement(tribeId: string): SQL {
+  return sql`
+        update public.tribe_members
+        set
+          status = ${TRIBE_MEMBERSHIP_STATUS.active},
+          status_reason = ${TRIBE_MEMBERSHIP_STATUS_REASON.none}
+        where tribe_members.tribe_id = ${tribeId}
+          and tribe_members.user_id = public.current_app_user_id()
+          and (
+            (
+              tribe_members.status = ${TRIBE_MEMBERSHIP_STATUS.removed}
+              and tribe_members.status_reason = ${TRIBE_MEMBERSHIP_STATUS_REASON.subscriptionInactive}
+            )
+            or (
+              tribe_members.status = ${TRIBE_MEMBERSHIP_STATUS.blocked}
+              and tribe_members.status_reason = ${TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked}
+            )
+          )
+        returning id
+      `;
+}
+
 export class PostgresTribeAcademyAdmissionRepository
   implements TribeAcademyAdmissionRepository
 {
@@ -52,23 +94,13 @@ export class PostgresTribeAcademyAdmissionRepository
         select public.tribe_academy_admission_id_by_slug(${tribeSlug}) as tribe_id
       `);
       const tribeId =
-        (tribeResult.rows?.[0] as { tribe_id: string | null } | undefined)?.tribe_id ?? null;
+        (tribeResult.rows[0] as { tribe_id: string | null } | undefined)?.tribe_id ?? null;
 
       if (!tribeId) {
-        const blockedResult = await database.execute(sql`
-          select exists (
-            select 1
-            from public.tribe_members
-            inner join public.tribes on tribes.id = tribe_members.tribe_id
-            where tribes.slug = ${tribeSlug}
-              and tribe_members.user_id = public.current_app_user_id()
-              and tribe_members.status = ${TRIBE_MEMBERSHIP_STATUS.blocked}
-              and tribe_members.status_reason = ${TRIBE_MEMBERSHIP_STATUS_REASON.conductBlocked}
-          ) as is_blocked
-        `);
+        const blockedResult = await database.execute(buildConductBlockedMembershipStatement(tribeSlug));
 
         return {
-          status: (blockedResult.rows?.[0] as { is_blocked: boolean }).is_blocked
+          status: (blockedResult.rows[0] as { is_blocked: boolean }).is_blocked
             ? "blocked"
             : "admission_closed",
         };
@@ -91,33 +123,15 @@ export class PostgresTribeAcademyAdmissionRepository
         returning id
       `);
 
-      if ((inserted.rows ?? []).length > 0) {
+      if (inserted.rows.length > 0) {
         return { status: "joined" };
       }
 
       // Existing row (possibly committed by a concurrent join): a new
       // statement sees it. Only commercial blocks are recovered, keeping role.
-      const recovered = await database.execute(sql`
-        update public.tribe_members
-        set
-          status = ${TRIBE_MEMBERSHIP_STATUS.active},
-          status_reason = ${TRIBE_MEMBERSHIP_STATUS_REASON.none}
-        where tribe_members.tribe_id = ${tribeId}
-          and tribe_members.user_id = public.current_app_user_id()
-          and (
-            (
-              tribe_members.status = ${TRIBE_MEMBERSHIP_STATUS.removed}
-              and tribe_members.status_reason = ${TRIBE_MEMBERSHIP_STATUS_REASON.subscriptionInactive}
-            )
-            or (
-              tribe_members.status = ${TRIBE_MEMBERSHIP_STATUS.blocked}
-              and tribe_members.status_reason = ${TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked}
-            )
-          )
-        returning id
-      `);
+      const recovered = await database.execute(buildRecoverCommercialBlockStatement(tribeId));
 
-      if ((recovered.rows ?? []).length > 0) {
+      if (recovered.rows.length > 0) {
         return { status: "joined" };
       }
 
@@ -127,7 +141,7 @@ export class PostgresTribeAcademyAdmissionRepository
         where tribe_members.tribe_id = ${tribeId}
           and tribe_members.user_id = public.current_app_user_id()
       `);
-      const status = (existing.rows?.[0] as { status: string } | undefined)?.status;
+      const status = (existing.rows[0] as { status: string } | undefined)?.status;
 
       return {
         status:

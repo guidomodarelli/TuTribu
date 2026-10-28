@@ -379,7 +379,7 @@ describe("tribe coming soon pages", () => {
       <TribeMeritsPage {...pageProps} key="merits" />,
     ];
 
-    for (const renderedPage of await Promise.all(pages)) {
+    for (const renderedPage of pages) {
       const { unmount } = await renderServerComponent(renderedPage);
 
       expect(screen.getByText("Próximamente")).toBeInTheDocument();

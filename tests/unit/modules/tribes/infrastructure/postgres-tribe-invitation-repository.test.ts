@@ -34,7 +34,7 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("creates invitations with a one-time visible token, token hash, and manager permission guard", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           associated_plan_amount_cents: null,
@@ -72,7 +72,7 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("only creates specific-price invitations for active provider-backed prices", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           associated_plan_amount_cents: 500000,
@@ -112,12 +112,12 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("maps missing invitation storage during creation to setup_required", async () => {
-    const execute = vi.fn(async (...args: unknown[]) => { void args;
-      throw {
+    const execute = vi.fn(async (..._args: unknown[]) => { 
+      throw new Error("Failed query", {
         cause: {
           code: "42P01",
         },
-      };
+      });
     });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
@@ -136,12 +136,12 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("maps a missing encrypted token column during creation to setup_required", async () => {
-    const execute = vi.fn(async (...args: unknown[]) => { void args;
-      throw {
+    const execute = vi.fn(async (..._args: unknown[]) => { 
+      throw new Error("Failed query", {
         cause: {
           code: "42703",
         },
-      };
+      });
     });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
@@ -161,7 +161,7 @@ describe("PostgresTribeInvitationRepository", () => {
 
   it("lists active invitations rebuilding the acceptance link from the encrypted token", async () => {
     const encryptedActiveToken = encryptInvitationToken("active-token");
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           associated_plan_amount_cents: null,
@@ -223,7 +223,7 @@ describe("PostgresTribeInvitationRepository", () => {
 
   it("includes the Mercado Pago account and trial period for specific-price associations", async () => {
     const encryptedActiveToken = encryptInvitationToken("active-token");
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           associated_plan_amount_cents: 1500,
@@ -282,7 +282,7 @@ describe("PostgresTribeInvitationRepository", () => {
 
   it("updates referral metadata through the metadata-only database function", async () => {
     const encryptedActiveToken = encryptInvitationToken("active-token");
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           associated_plan_amount_cents: null,
@@ -340,7 +340,7 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("reads conversion metrics grouped by invitation and payment account", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           campaign_name: "Lanzamiento mayo",
@@ -383,7 +383,7 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("returns null acceptance links when decryption fails for a stored row", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           associated_plan_amount_cents: null,
@@ -438,12 +438,12 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("returns an empty list when invitation storage has not been migrated yet", async () => {
-    const execute = vi.fn(async (...args: unknown[]) => { void args;
-      throw {
+    const execute = vi.fn(async (..._args: unknown[]) => { 
+      throw new Error("Failed query", {
         cause: {
           code: "42P01",
         },
-      };
+      });
     });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
@@ -458,12 +458,12 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("returns an empty list when the encrypted token column has not been migrated yet", async () => {
-    const execute = vi.fn(async (...args: unknown[]) => { void args;
-      throw {
+    const execute = vi.fn(async (..._args: unknown[]) => { 
+      throw new Error("Failed query", {
         cause: {
           code: "42703",
         },
-      };
+      });
     });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
@@ -478,7 +478,7 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("revokes active invitations with manager permission guard", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [{ status: "revoked" as const }],
     }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
@@ -510,7 +510,7 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("only updates invitation associations to active provider-backed prices", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           associated_plan_amount_cents: 500000,
@@ -549,7 +549,7 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("accepts invitations idempotently without persisting the plain token", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [{ status: "accepted" as const }],
     }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
@@ -567,7 +567,7 @@ describe("PostgresTribeInvitationRepository", () => {
   it(
     "tags accepted free-mode memberships with joined_via='free_invitation'",
     async () => {
-      const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+      const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
         rows: [{ status: "accepted" as const }],
       }); });
       const repository = new PostgresTribeInvitationRepository(async (callback) =>
@@ -585,7 +585,7 @@ describe("PostgresTribeInvitationRepository", () => {
   );
 
   it("accepts free invitations only when free join is current", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [{ status: "accepted" as const }],
     }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
@@ -603,7 +603,7 @@ describe("PostgresTribeInvitationRepository", () => {
   it(
     "recovers free invitations from removed memberships whose subscription went inactive",
     async () => {
-      const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+      const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
         rows: [{ status: "accepted" as const }],
       }); });
       const repository = new PostgresTribeInvitationRepository(async (callback) =>
@@ -621,7 +621,7 @@ describe("PostgresTribeInvitationRepository", () => {
   );
 
   it("maps revoked invitation acceptance to a controlled result", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [{ status: "revoked" as const }],
     }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
@@ -637,7 +637,7 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("does not require subscription checkout for revoked invitations", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [{ status: "revoked" as const }],
     }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
@@ -653,7 +653,7 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("returns the current active subscription offer for an active invitation", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           amount_cents: 500000,
@@ -684,7 +684,7 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("returns unavailable when the invitation has no active current subscription offer", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [],
     }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>

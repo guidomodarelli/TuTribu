@@ -17,9 +17,10 @@ export class ScopedConnectionDiagnosticDispatcher implements ConnectionDiagnosti
   constructor(private readonly dependencies:DiagnosticDispatchDependencies){}
   /** @param context - Actual private scope from the successful issuance command. @param deliveryId - Exact committed obligation. @returns After bounded original dispatch observation; unresolved transport remains its stored attempt. */
   async dispatch(context:AuthorizedMessagingContext,deliveryId:string):Promise<void>{
-    if(context.authorizationPurpose!==MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader||context.operation!==REAUTHENTICATION_OPERATION.diagnoseMessagingConnection||context.resourceId!==context.connectionId)throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
+    // Fail closed even if a caller bypasses the static contract (casts, untyped composition).
+    if((context.authorizationPurpose as string)!==MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader||context.operation!==REAUTHENTICATION_OPERATION.diagnoseMessagingConnection||context.resourceId!==context.connectionId)throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
     const{tribeId,actorUserId,connectionId,connectionVersion,environment,securityEpoch}=context;
-    const authorize=async()=>{const current=await this.dependencies.readSecurityFacts();return current.recoveryLocked===false&&current.environment===environment&&current.securityEpoch===securityEpoch;};
+    const authorize=async()=>{const current=await this.dependencies.readSecurityFacts();return !current.recoveryLocked&&current.environment===environment&&current.securityEpoch===securityEpoch;};
     await this.dependencies.createDispatcher({deliveryId,tribeId,contributingLeaderUserId:actorUserId,connectionId,connectionVersion},authorize).execute();
   }
 }

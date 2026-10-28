@@ -227,7 +227,7 @@ describe("buildTribeCalendarFeedIcsFile", () => {
     const calendar = new ICAL.Component(ICAL.parse(buildFeed().content));
     const [master] = calendar.getAllSubcomponents("vevent");
     const iterator = new ICAL.Event(master).iterator();
-    const starts = [0, 1, 2, 3].map(() => iterator.next()?.toString());
+    const starts = [0, 1, 2, 3].map(() => iterator.next().toString());
 
     expect(starts).toEqual([
       "2026-05-07T21:00:00Z",

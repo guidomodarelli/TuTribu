@@ -17,8 +17,8 @@ export function createUnavailableAdmissionMaintenanceHealth(): AdmissionMessagin
   return { available: false, observedAtMilliseconds: null, lastSuccessfulRunAtMilliseconds: null, oldestQueuedAtMilliseconds: null, queueAgeMilliseconds: null };
 }
 
-/** @param phase - Actual fixed original phase. @param output - Own minimal work evidence; unexpected extra fields are not copied. @param startedAtMilliseconds - Original host start. @param finishedAtMilliseconds - Actual observation time. @param late - Whether the original effect settled after the bounded response. @returns An independent snapshot without private adapter/provider fields. */
-export function projectAdmissionMaintenancePhase(phase: AdmissionMessagingMaintenancePhase, output: AdmissionMessagingMaintenancePhaseOutput, startedAtMilliseconds: number, finishedAtMilliseconds: number, late = false): AdmissionMessagingMaintenancePhaseSnapshot {
+/** @param phase - Actual fixed original phase. @param output - Own minimal work evidence; unexpected extra fields are not copied. @param timing - Original host start, actual observation time and whether the original effect settled after the bounded response. @returns An independent snapshot without private adapter/provider fields. */
+export function projectAdmissionMaintenancePhase(phase: AdmissionMessagingMaintenancePhase, output: AdmissionMessagingMaintenancePhaseOutput, { startedAtMilliseconds, finishedAtMilliseconds, late = false }: { startedAtMilliseconds: number; finishedAtMilliseconds: number; late?: boolean }): AdmissionMessagingMaintenancePhaseSnapshot {
   return { phase, status: output.status, reason: output.reason, metrics: output.metrics.map((metric) => ({ key: metric.key, value: metric.value })), hasRemainingWork: output.hasRemainingWork, startedAtMilliseconds, durationMilliseconds: Math.max(0, Math.ceil(finishedAtMilliseconds - startedAtMilliseconds)), observation: ADMISSION_MESSAGING_MAINTENANCE_OBSERVATION.pending, late };
 }
 

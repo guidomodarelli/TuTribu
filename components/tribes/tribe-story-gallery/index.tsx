@@ -29,6 +29,54 @@ type TribeStoryGalleryProps = {
   media: TribeStoryMediaResult[];
 };
 
+type TribeStoryGallerySlideMediaProps = {
+  isActive: boolean;
+  mediaIndex: number;
+  mediaItem: TribeStoryMediaResult;
+};
+
+/**
+ * Content of one gallery slide: an embedded video when the resource has a
+ * provider and id, otherwise its image, or nothing when it has no source.
+ * @param props - Resource, its position and whether its slide is shown.
+ * @returns The slide media, or `null`.
+ */
+function TribeStoryGallerySlideMedia({
+  isActive,
+  mediaIndex,
+  mediaItem,
+}: TribeStoryGallerySlideMediaProps) {
+  if (
+    mediaItem.mediaType === TRIBE_STORY_MEDIA_TYPE.video &&
+    mediaItem.videoProvider &&
+    mediaItem.externalVideoId
+  ) {
+    return (
+      <TribeStoryVideoSlide
+        externalVideoId={mediaItem.externalVideoId}
+        isActive={isActive}
+        title={TRIBE_STORY_GALLERY_COPY.videoTitle(mediaIndex + 1)}
+        videoProvider={mediaItem.videoProvider as VideoProvider}
+      />
+    );
+  }
+
+  if (!mediaItem.url) {
+    return null;
+  }
+
+  return (
+    <Image
+      alt={TRIBE_STORY_GALLERY_COPY.imageAlt(mediaIndex + 1)}
+      className={styles.TribeStoryGallery__image}
+      fill
+      sizes={GALLERY_IMAGE_SIZES}
+      src={mediaItem.url}
+      unoptimized
+    />
+  );
+}
+
 /**
  * Media gallery for the tribe story page: a carousel of leader-curated images
  * and embedded videos, mirroring the About header of communities like Skool.
@@ -56,25 +104,11 @@ export function TribeStoryGallery({ media }: TribeStoryGalleryProps) {
       >
         {media.map((mediaItem, mediaIndex) => (
           <div className={styles.TribeStoryGallery__slide} key={mediaItem.id}>
-            {mediaItem.mediaType === TRIBE_STORY_MEDIA_TYPE.video &&
-            mediaItem.videoProvider &&
-            mediaItem.externalVideoId ? (
-              <TribeStoryVideoSlide
-                externalVideoId={mediaItem.externalVideoId}
-                isActive={mediaIndex === selectedIndex}
-                title={TRIBE_STORY_GALLERY_COPY.videoTitle(mediaIndex + 1)}
-                videoProvider={mediaItem.videoProvider as VideoProvider}
-              />
-            ) : mediaItem.url ? (
-              <Image
-                alt={TRIBE_STORY_GALLERY_COPY.imageAlt(mediaIndex + 1)}
-                className={styles.TribeStoryGallery__image}
-                fill
-                sizes={GALLERY_IMAGE_SIZES}
-                src={mediaItem.url}
-                unoptimized
-              />
-            ) : null}
+            <TribeStoryGallerySlideMedia
+              isActive={mediaIndex === selectedIndex}
+              mediaIndex={mediaIndex}
+              mediaItem={mediaItem}
+            />
           </div>
         ))}
       </Carousel>

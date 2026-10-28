@@ -19,12 +19,12 @@ export class GetPersonalInvitationOverviewUseCase {
   async execute(query: { token: string; requestId: string; proofId?: string }, expectedAccount?: Pick<AuthenticatedAccount, "userId" | "session" | "normalizedEmail"> | null) {
     try {
       const first = await this.accounts.getAuthenticatedAccount();
-      if (expectedAccount !== undefined && (expectedAccount === null ? first !== null : !first || first.userId !== expectedAccount.userId || first.session.id !== expectedAccount.session.id || first.normalizedEmail !== expectedAccount.normalizedEmail)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+      if (expectedAccount !== undefined && (expectedAccount === null ? first !== null : first?.userId !== expectedAccount.userId || first.session.id !== expectedAccount.session.id || first.normalizedEmail !== expectedAccount.normalizedEmail)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       if (!first) return { ok: true as const, value: personalInvitationOverviewSchema.parse({ state: PERSONAL_INVITATION_OVERVIEW_STATE.signInRequired, safeMessage: PERSONAL_INVITATION_OVERVIEW_MESSAGE.signIn }) };
       if (!isAuthenticatedSessionLive(first.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       const facts = await this.reader.readOverview(query, { userId: first.userId, sessionId: first.session.id });
       const current = await this.accounts.getAuthenticatedAccount(), now = this.clock();
-      if (!current || current.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+      if (current?.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       return { ok: true as const, value: projectPersonalInvitationOverview(facts, current, now) };
     } catch (error) { return admissionOperationFailure(error); }
   }

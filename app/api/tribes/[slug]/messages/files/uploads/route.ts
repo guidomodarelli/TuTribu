@@ -73,6 +73,42 @@ function readUploadDeclaration(body: unknown): UploadDeclaration | null {
   return { fileName, fileSizeBytes, mimeType };
 }
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type MessageFileUploadResult = Awaited<
+  ReturnType<RequestModules["messages"]["useCases"]["createMessageFileUpload"]>
+>;
+
+function createUploadResultResponse(result: MessageFileUploadResult): Response {
+  switch (result.status) {
+    case MESSAGE_MUTATION_STATUS.created:
+      return createJsonResponse(
+        {
+          assetId: result.assetId,
+          uploadHeaders: result.uploadHeaders,
+          uploadUrl: result.uploadUrl,
+        },
+        HTTP_STATUS.created
+      );
+    case MESSAGE_MUTATION_STATUS.notFound:
+      return createJsonResponse(
+        { message: MESSAGE_FILE_UPLOAD_ROUTE_RESPONSE.notFoundMessage },
+        HTTP_STATUS.notFound
+      );
+    case MESSAGE_MUTATION_STATUS.invalidFile:
+      return createJsonResponse(
+        { message: MESSAGE_FILE_UPLOAD_ROUTE_RESPONSE.invalidFileMessage },
+        HTTP_STATUS.badRequest
+      );
+    case MESSAGE_MUTATION_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        { message: MESSAGE_FILE_UPLOAD_ROUTE_RESPONSE.forbiddenMessage },
+        HTTP_STATUS.forbidden
+      );
+  }
+}
+
 export async function POST(
   request: Request,
   context: {
@@ -99,7 +135,7 @@ export async function POST(
   }
 
   try {
-    const body = await request.json().catch(() => null);
+    const body: unknown = await request.json().catch(() => null);
     const declaration = readUploadDeclaration(body);
 
     if (!declaration) {
@@ -117,33 +153,7 @@ export async function POST(
       userId: authenticatedMember.id,
     });
 
-    switch (result.status) {
-      case MESSAGE_MUTATION_STATUS.created:
-        return createJsonResponse(
-          {
-            assetId: result.assetId,
-            uploadHeaders: result.uploadHeaders,
-            uploadUrl: result.uploadUrl,
-          },
-          HTTP_STATUS.created
-        );
-      case MESSAGE_MUTATION_STATUS.notFound:
-        return createJsonResponse(
-          { message: MESSAGE_FILE_UPLOAD_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case MESSAGE_MUTATION_STATUS.invalidFile:
-        return createJsonResponse(
-          { message: MESSAGE_FILE_UPLOAD_ROUTE_RESPONSE.invalidFileMessage },
-          HTTP_STATUS.badRequest
-        );
-      case MESSAGE_MUTATION_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: MESSAGE_FILE_UPLOAD_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-    }
+    return createUploadResultResponse(result);
   } catch (error) {
     logger.error({
       message: MESSAGE_FILE_UPLOAD_ROUTE_LOG.failureMessage,

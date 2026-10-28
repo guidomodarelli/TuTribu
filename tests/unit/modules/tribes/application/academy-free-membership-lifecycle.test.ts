@@ -67,7 +67,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native free commer
       // Assert: an old paid source can reconcile its own state without revoking basic admission.
       if (entrypoint === SUBSCRIPTION_MEMBERSHIP_ENTRYPOINT.member) {
         const unexpected = async () => { throw new Error("AcademyFreeMembershipLifecycleTest: provider mutation unexpectedly invoked"); };
-        const paid = new PostgresTribeMemberSubscriptionRepository((run) => database.withContext({ userId: fixture.userId, email: null }, run), unexpected, unexpected, async () => "cancelled", unexpected, unexpected, unexpected, createPaidAdmissionResolutionWriter, randomUUID());
+        const paid = new PostgresTribeMemberSubscriptionRepository({ executeWithDatabase: (run) => database.withContext({ userId: fixture.userId, email: null }, run), createMercadoPagoPreapprovalSubscription: unexpected, getMercadoPagoPreapprovalDetails: unexpected, getMercadoPagoPreapprovalStatus: async () => "cancelled", updateMercadoPagoPreapprovalStatus: unexpected, updateMercadoPagoPreapprovalBackUrl: unexpected, refreshMercadoPagoAccessToken: unexpected, createAdmissionResolution: createPaidAdmissionResolutionWriter, requestId: randomUUID() });
         expect(await paid.handleWebhook({ eventId: randomUUID(), resourceId: scenario.providerId, topic: SUBSCRIPTION_MEMBERSHIP_FIXTURE.providerWebhookTopic })).toMatchObject({ status: "processed" });
       } else {
         const paid = createSubscriptionMembershipReconciliationRepository(database, { userId: fixture.userId, email: null }, "cancelled");

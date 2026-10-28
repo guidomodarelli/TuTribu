@@ -27,7 +27,7 @@ const ADMISSION_FLOW_READY_TIMEOUT_MS = 180_000;
 export async function continueToAdmissionCode(page: Page): Promise<void> {
   const next = page.getByRole("button", { name: "Continuar", exact: true });
   await next.waitFor({ state: "visible" });
-  await page.waitForFunction(() => Array.from(document.querySelectorAll("button")).some((button) => button.textContent?.trim() === "Continuar" && !button.disabled), undefined, { timeout: ADMISSION_FLOW_READY_TIMEOUT_MS });
+  await page.waitForFunction(() => Array.from(document.querySelectorAll("button")).some((button) => button.textContent.trim() === "Continuar" && !button.disabled), undefined, { timeout: ADMISSION_FLOW_READY_TIMEOUT_MS });
   await next.click();
   await settleGuidedStep(page);
 }

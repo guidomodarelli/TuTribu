@@ -95,7 +95,7 @@ export class PostgresTribeFreeJoinRepository implements TribeFreeJoinRepository 
           exists(select 1 from public.tribe_members member where member.tribe_id=(select id from target_tribe) and member.user_id=public.current_app_user_id() and member.status in (${TRIBE_MEMBERSHIP_STATUS.active},${TRIBE_MEMBERSHIP_STATUS.muted})) as member_readable,
           exists (select 1 from inserted_membership) as joined
       `);
-      const row = (result.rows?.[0] ?? null) as FreeJoinRow | null;
+      const row = (result.rows[0] ?? null) as FreeJoinRow | null;
 
       if (row?.joined) {
         return { status: TRIBE_FREE_JOIN_STATUS.joined };
@@ -118,7 +118,7 @@ export class PostgresTribeFreeJoinRepository implements TribeFreeJoinRepository 
           returning tribe_members.id
         `);
 
-        if ((reactivation.rows ?? []).length > 0) {
+        if (reactivation.rows.length > 0) {
           return { status: TRIBE_FREE_JOIN_STATUS.joined };
         }
 

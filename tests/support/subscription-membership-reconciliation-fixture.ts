@@ -43,5 +43,5 @@ export async function seedSubscriptionMembershipReconciliation(database: Academy
  */
 export function createSubscriptionMembershipReconciliationRepository(database: AcademyAdmissionTestDatabase, own: { userId: string; email: null }, providerStatus: "authorized" | "cancelled", createAdmissionResolution: PaidAdmissionResolutionFactory = createPaidAdmissionResolutionWriter) {
   const unexpected = async () => { throw new Error("SubscriptionMembershipReconciliationFixture: provider mutation unexpectedly invoked"); };
-  return new PostgresTribeSubscriptionPriceRepository((callback) => database.withContext(own, callback), unexpected, unexpected, unexpected, unexpected, unexpected, async () => providerStatus, createAdmissionResolution, randomUUID());
+  return new PostgresTribeSubscriptionPriceRepository({ executeWithDatabase: (callback) => database.withContext(own, callback), createMercadoPagoPlan: unexpected, updateMercadoPagoPlan: unexpected, getMercadoPagoPlan: unexpected, refreshMercadoPagoAccessToken: unexpected, getMercadoPagoPlanStatus: unexpected, getMercadoPagoSubscriptionStatus: async () => providerStatus, createAdmissionResolution, requestId: randomUUID() });
 }

@@ -33,9 +33,13 @@ function buildAvatarFallback(name?: string | null, email?: string | null): strin
   return initials || AUTHENTICATED_MEMBER_DEFAULT.avatarFallback;
 }
 
+/** Profile fields read from the stored user row; Better Auth types them as required, but persisted or provider-supplied rows may lack them. */
+type StoredSessionUserProfile = { email?: string | null; name?: string | null };
+
 function mapSessionToMember(session: NonNullable<BetterAuthSession>): AuthenticatedMember {
-  const email = session.user.email?.trim() ?? "";
-  const name = session.user.name?.trim() || email || AUTHENTICATED_MEMBER_DEFAULT.displayName;
+  const profile: StoredSessionUserProfile = session.user;
+  const email = profile.email?.trim() ?? "";
+  const name = profile.name?.trim() || email || AUTHENTICATED_MEMBER_DEFAULT.displayName;
 
   return {
     id: session.user.id,

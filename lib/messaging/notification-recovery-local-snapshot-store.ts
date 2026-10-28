@@ -7,7 +7,11 @@ export function createNotificationRecoveryLocalSnapshotSource(store: Notificatio
   let cached: ReturnType<NotificationRecoveryIntentStore["read"]> | undefined;
   return {
     /** @returns Stable guarded metadata; native storage is accessed only after current-viewer verification. */
-    read: () => verified ? cached ??= store.read(viewerId, slug) : null,
+    read: () => {
+      if (!verified) return null;
+      cached ??= store.read(viewerId, slug);
+      return cached;
+    },
     /** @returns The same absence for server HTML and first hydration. */
     server: () => null,
     /** @param listener - External-store observer. @returns Native listener cleanup without another request or mutation. */

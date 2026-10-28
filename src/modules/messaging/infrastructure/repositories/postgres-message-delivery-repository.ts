@@ -24,19 +24,33 @@ import { NOTIFICATION_DELIVERY_RECOVERY_PURPOSE } from "../../constants/notifica
 type DeliveryDatabaseExecutor = <Result>(actorUserId: string | null, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
 /** Platform authority must not take shared tribe/policy locks before the SQL primitives take exclusive locks. */
 type DeliveryMaintenanceAuthorizer = (database: RequestDatabase, operation: (typeof MESSAGE_STORAGE_OPERATION)[keyof typeof MESSAGE_STORAGE_OPERATION]) => Promise<boolean>;
+/** Collaborators of {@link PostgresMessageDeliveryRepository}; scope and queued-resource guard are optional launch-specific additions. */
+export type PostgresMessageDeliveryRepositoryDependencies = { execute: DeliveryDatabaseExecutor; authorizeMaintenance: DeliveryMaintenanceAuthorizer; readSecurityConfig: () => Promise<MessagingSecurityConfig>; focalScope?: Readonly<FocalDeliveryDispatchScope>; authorizeQueuedResource?: QueuedMessageDeliveryResourceAuthority };
 /** Only consumed persisted fields are projected; PostgreSQL rows are never schema-validated. */
 type AttemptRow = { id: string; delivery_id: string; tribe_id: string; connection_id: string; connection_version: number; sequence: number; reservation_id: string; lease_token: string; send_authorized_at: string | Date; authorized_usage_policy_version: number; recipient_country: string | null; state: MessageDeliveryAttempt["state"]; completed_at: string | Date | null; correlation_id: string | null; provider_message_id: string | null; safe_reason: string | null; version: number };
 
 /** Owns DB-only transitions and never retries a lost marker or a pool acquisition. */
 export class PostgresMessageDeliveryRepository implements MessageDeliveryRepository {
+  private readonly execute: DeliveryDatabaseExecutor;
+  private readonly authorizeMaintenance: DeliveryMaintenanceAuthorizer;
+  private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>;
+  private readonly focalScope: Readonly<FocalDeliveryDispatchScope> | undefined;
+  private readonly authorizeQueuedResource: QueuedMessageDeliveryResourceAuthority | undefined;
   /**
-   * @param execute - Existing guarded maintenance/contributing-actor executor, never a nested checkout.
-   * @param authorizeMaintenance - Mandatory current backend-purpose/bearer authority, without domain row locks.
-   * @param readSecurityConfig - Local external epoch/recovery snapshot, without RPC under locks.
-   * @param focalScope - Optional existing purpose-specific launch scope.
-   * @param authorizeQueuedResource - Current business guard required before charging an explicitly grouped intent.
+   * @param dependencies - Repository collaborators.
+   * @param dependencies.execute - Existing guarded maintenance/contributing-actor executor, never a nested checkout.
+   * @param dependencies.authorizeMaintenance - Mandatory current backend-purpose/bearer authority, without domain row locks.
+   * @param dependencies.readSecurityConfig - Local external epoch/recovery snapshot, without RPC under locks.
+   * @param dependencies.focalScope - Optional existing purpose-specific launch scope.
+   * @param dependencies.authorizeQueuedResource - Current business guard required before charging an explicitly grouped intent.
    */
-  constructor(private readonly execute: DeliveryDatabaseExecutor, private readonly authorizeMaintenance: DeliveryMaintenanceAuthorizer, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>,private readonly focalScope?:Readonly<FocalDeliveryDispatchScope>, private readonly authorizeQueuedResource?: QueuedMessageDeliveryResourceAuthority) {}
+  constructor({ execute, authorizeMaintenance, readSecurityConfig, focalScope, authorizeQueuedResource }: PostgresMessageDeliveryRepositoryDependencies) {
+    this.execute = execute;
+    this.authorizeMaintenance = authorizeMaintenance;
+    this.readSecurityConfig = readSecurityConfig;
+    this.focalScope = focalScope;
+    this.authorizeQueuedResource = authorizeQueuedResource;
+  }
 
   /** @param database - Original transaction holding the canonical tribe fence. @param claim - Exact original lease/CAS, without a possible-send marker. @param configuration - Original external epoch. @param auditRule - Current complete-group denial or unsupported legacy reference. @returns One audited suppression or stale CAS, without reserving or refunding any budget. */
   private async suppressUnavailableNotificationResource(database: RequestDatabase, claim: ClaimedMessageDelivery, configuration: MessagingSecurityConfig, auditRule: string = NOTIFICATION_GROUP_SUPPRESSION_AUDIT_RULE): Promise<MessageDeliveryAuthorization> {
@@ -64,7 +78,7 @@ export class PostgresMessageDeliveryRepository implements MessageDeliveryReposit
   private claimQuery(command:{leaseToken:string;limit:number;leaseSeconds:number}){
     const scope=this.focalScope;
     if(!scope)return sql`public.claim_messaging_deliveries_fairly(${command.leaseToken},${command.limit},${command.leaseSeconds})`;
-    if("purpose"in scope&&scope.purpose===ADMISSION_VERIFICATION_PURPOSE.admission)return sql`public.claim_scoped_messaging_admission(${scope.deliveryId},${scope.tribeId},${scope.contributingLeaderUserId},${scope.applicantUserId},${scope.challengeId},${scope.connectionId},${scope.connectionVersion},${command.leaseToken},${command.leaseSeconds})`;
+    if("purpose"in scope&&(scope.purpose as string)===ADMISSION_VERIFICATION_PURPOSE.admission)return sql`public.claim_scoped_messaging_admission(${scope.deliveryId},${scope.tribeId},${scope.contributingLeaderUserId},${scope.applicantUserId},${scope.challengeId},${scope.connectionId},${scope.connectionVersion},${command.leaseToken},${command.leaseSeconds})`;
     return sql`public.claim_scoped_messaging_diagnostic(${scope.deliveryId},${scope.tribeId},${scope.contributingLeaderUserId},${scope.connectionId},${scope.connectionVersion},${command.leaseToken},${command.leaseSeconds})`;
   }
 
@@ -122,13 +136,14 @@ export class PostgresMessageDeliveryRepository implements MessageDeliveryReposit
         if (afterMarker.recoveryLocked || afterMarker.environment !== configuration.environment || afterMarker.securityEpoch !== configuration.securityEpoch) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.connectionIncomplete, { operation: MESSAGE_STORAGE_OPERATION.authorize, deliveryId: claim.deliveryId });
         if (marker.outcome !== MESSAGE_AUTHORIZATION_OUTCOME.authorized) return { outcome: marker.outcome, deliveryId: claim.deliveryId, deliveryVersion: marker.delivery_version };
         const row = (await database.execute<{ purpose: MessageDelivery["purpose"]; notification_group_id: string | null; connection_id: string; connection_version: number; environment: string; security_epoch: string; contributed_by_user_id: string | null; secret_ref: string | null; send_authorized_at: string | Date; authorized_usage_policy_version: number; attempt_version: number; lease_until: string | Date }>(sql`select delivery.purpose,delivery.notification_group_id,delivery.connection_id,delivery.connection_version,delivery.environment,delivery.security_epoch,connection.contributed_by_user_id,resource.secret_ref,attempt.send_authorized_at,attempt.authorized_usage_policy_version,attempt.version as attempt_version,delivery.lease_until from public.message_deliveries delivery join public.tenant_messaging_connections connection on connection.id=delivery.connection_id and connection.tribe_id=delivery.tribe_id join public.messaging_connection_versions resource on resource.connection_id=delivery.connection_id and resource.tribe_id=delivery.tribe_id and resource.version=delivery.connection_version join public.message_delivery_attempts attempt on attempt.id=${marker.attempt_id} and attempt.delivery_id=delivery.id where delivery.id=${claim.deliveryId}`)).rows[0];
-        if (!row || row.contributed_by_user_id !== actor || !row.secret_ref) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.connectionIncomplete, { operation: MESSAGE_STORAGE_OPERATION.authorize, deliveryId: claim.deliveryId });
+        if (row?.contributed_by_user_id !== actor || !row.secret_ref) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.connectionIncomplete, { operation: MESSAGE_STORAGE_OPERATION.authorize, deliveryId: claim.deliveryId });
         this.assertDispatchScope({...claim,connectionId:row.connection_id,connectionVersion:row.connection_version},MESSAGE_STORAGE_OPERATION.authorize);
         await this.authorizeMaintenanceAction(database, MESSAGE_STORAGE_OPERATION.authorize);
         const latest = await this.readSecurityConfig();
         const now = new Date((await database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
         if (latest.recoveryLocked || latest.environment !== configuration.environment || latest.securityEpoch !== configuration.securityEpoch || new Date(row.lease_until) <= now) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.connectionIncomplete, { operation: MESSAGE_STORAGE_OPERATION.authorize, deliveryId: claim.deliveryId });
-        return { outcome: MESSAGE_AUTHORIZATION_OUTCOME.authorized, deliveryVersion: marker.delivery_version!, context: { authorizationPurpose: MESSAGING_AUTHORIZATION_PURPOSE.authorizedDelivery, contributingLeaderUserId: actor!, tribeId: claim.tribeId, connectionId: row.connection_id, connectionVersion: row.connection_version, environment: row.environment, securityEpoch: row.security_epoch, secretRef: row.secret_ref, requestId, operation: MESSAGING_SECRET_DELIVERY_SCOPE.operation, deliveryId: claim.deliveryId, attemptId: marker.attempt_id!, attemptVersion: row.attempt_version, leaseToken: claim.leaseToken, sendAuthorizedAt: new Date(row.send_authorized_at), authorizedUsagePolicyVersion: row.authorized_usage_policy_version, deliveryPurpose: row.purpose, notificationGroupId: row.notification_group_id } };
+        if (marker.delivery_version === null || !actor || marker.attempt_id === null) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.connectionIncomplete, { operation: MESSAGE_STORAGE_OPERATION.authorize, deliveryId: claim.deliveryId });
+        return { outcome: MESSAGE_AUTHORIZATION_OUTCOME.authorized, deliveryVersion: marker.delivery_version, context: { authorizationPurpose: MESSAGING_AUTHORIZATION_PURPOSE.authorizedDelivery, contributingLeaderUserId: actor, tribeId: claim.tribeId, connectionId: row.connection_id, connectionVersion: row.connection_version, environment: row.environment, securityEpoch: row.security_epoch, secretRef: row.secret_ref, requestId, operation: MESSAGING_SECRET_DELIVERY_SCOPE.operation, deliveryId: claim.deliveryId, attemptId: marker.attempt_id, attemptVersion: row.attempt_version, leaseToken: claim.leaseToken, sendAuthorizedAt: new Date(row.send_authorized_at), authorizedUsagePolicyVersion: row.authorized_usage_policy_version, deliveryPurpose: row.purpose, notificationGroupId: row.notification_group_id } };
       });
     } catch (error) {
       if (error instanceof MessagingDeliveryStorageError) throw error;

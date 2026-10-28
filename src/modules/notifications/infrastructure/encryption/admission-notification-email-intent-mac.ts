@@ -8,6 +8,15 @@ import type { AdmissionNotificationEmailIntent, AdmissionNotificationEmailIntent
 import { projectAdmissionNotificationEmailContent } from "../../domain/policies/project-admission-notification-email-content";
 
 /**
+ * Verifies the persisted intent format at runtime: historical content is external data, so its declared format is not assumed.
+ * @param intent - Intent read from storage.
+ * @returns Whether the intent carries the bound (non-legacy) format.
+ */
+function isBoundIntent(intent: AdmissionNotificationEmailIntent): intent is BoundAdmissionNotificationEmailIntent {
+  return intent.format === ADMISSION_NOTIFICATION_EMAIL_INTENT_FORMAT;
+}
+
+/**
  * Keeps this full-intent contract separate from the unchanged legacy notification recovery MAC.
  * @param config - Current external scope/recovery guard and private nonextractable payload keyring.
  * @returns Exact sign/verify operations; neither operation persists or returns the trusted destination.
@@ -25,8 +34,8 @@ export function createAdmissionNotificationEmailIntentMac(config: MessagingSecur
   const assertLifetime = (context: AdmissionNotificationEmailIntentScope): void => {
     if (!Number.isSafeInteger(context.createdAtMicroseconds) || !Number.isSafeInteger(context.deadlineAtMicroseconds) || context.deadlineAtMicroseconds <= context.createdAtMicroseconds) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.contextMismatch);
   };
-  /** @param context - Complete immutable content and original native scope. @param keyId - Exact retained key. @param domain - Explicit original protocol. @param payer - Raw legacy identity or opaque bound identity. @param recipient - Raw legacy destination or opaque bound destination. @returns Original fixed-order bytes independent of jsonb key order or Date precision. */
-  const data = (context: AdmissionNotificationEmailIntentScope & { intent: AdmissionNotificationEmailIntent }, keyId: string, domain: string, payer: string, recipient: string) => {
+  /** @param context - Complete immutable content and original native scope. @param keyId - Exact retained key. @param bindings - `domain`: explicit original protocol. `payer`: raw legacy identity or opaque bound identity. `recipient`: raw legacy destination or opaque bound destination. @returns Original fixed-order bytes independent of jsonb key order or Date precision. */
+  const data = (context: AdmissionNotificationEmailIntentScope & { intent: AdmissionNotificationEmailIntent }, keyId: string, { domain, payer, recipient }: { domain: string; payer: string; recipient: string }) => {
     const intent = context.intent, manifest = intent.manifest, identity = manifest.identity;
     assertLifetime(context);
     return new TextEncoder().encode(JSON.stringify([
@@ -46,36 +55,36 @@ export function createAdmissionNotificationEmailIntentMac(config: MessagingSecur
     return new TextEncoder().encode(JSON.stringify([domain, keyId, config.environment, config.securityEpoch, context.tribeId, context.deliveryId, context.originalDeliveryId, context.connectionId, context.connectionVersion, context.recipientUserId, context.idempotencyKey, context.queuedUsagePolicyVersion, context.createdAtMicroseconds, context.deadlineAtMicroseconds, identity]));
   };
   /** @param context - Original bound intent without reconstructing erased personal data. @param keyId - Exact retained payload key. @returns Its complete authenticated transcript. */
-  const boundData = (context: OriginalAdmissionNotificationEmailIntentContext, keyId: string) => data(context, keyId, ADMISSION_NOTIFICATION_EMAIL_INTENT_MAC_DOMAIN, context.intent.payerBinding, context.intent.recipientBinding);
+  const boundData = (context: OriginalAdmissionNotificationEmailIntentContext, keyId: string) => data(context, keyId, { domain: ADMISSION_NOTIFICATION_EMAIL_INTENT_MAC_DOMAIN, payer: context.intent.payerBinding, recipient: context.intent.recipientBinding });
   /** @param binding - Persisted opaque identity MAC. @returns Only decoded MAC bytes, or null for an unreadable private binding. */
   const decodeBinding = (binding: string): Uint8Array | null => {
-    try { return Uint8Array.from(atob(binding), (character) => character.charCodeAt(0)); }
+    try { return Uint8Array.from(atob(binding), (character) => character.codePointAt(0) ?? 0); }
     catch { return null; }
   };
   return {
     /** @param context - Existing historical protocol with its still-available original identities. @returns Its unchanged key reference and MAC. @throws MessagingCryptographyError rather than reinterpret another format. */
     async sign(context: AdmissionNotificationEmailIntentContext) {
       if (context.intent.format !== ADMISSION_NOTIFICATION_EMAIL_INTENT_LEGACY_FORMAT) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.contextMismatch);
-      return { keyId: ring.activeKeyId, mac: new Uint8Array(await crypto.subtle.sign(MESSAGING_CRYPTO.macAlgorithm, key(ring.activeKeyId), data(context, ring.activeKeyId, ADMISSION_NOTIFICATION_EMAIL_INTENT_LEGACY_MAC_DOMAIN, context.contributingLeaderUserId, context.normalizedRecipientEmail))) };
+      return { keyId: ring.activeKeyId, mac: new Uint8Array(await crypto.subtle.sign(MESSAGING_CRYPTO.macAlgorithm, key(ring.activeKeyId), data(context, ring.activeKeyId, { domain: ADMISSION_NOTIFICATION_EMAIL_INTENT_LEGACY_MAC_DOMAIN, payer: context.contributingLeaderUserId, recipient: context.normalizedRecipientEmail }))) };
     },
     /** @param context - Complete current content, payer, trusted email and native delivery coordinates. @returns A newly bound complete intent and MAC without persisting either transient identity. */
     async seal(context: AdmissionNotificationEmailSealingContext) {
       const snapshot = { ...context, content: projectAdmissionNotificationEmailContent(context.content) }, keyId = ring.activeKeyId, material = key(keyId);
       const payer = new Uint8Array(await crypto.subtle.sign(MESSAGING_CRYPTO.macAlgorithm, material, bindingData(snapshot, keyId, ADMISSION_NOTIFICATION_EMAIL_PAYER_BINDING_DOMAIN, snapshot.contributingLeaderUserId)));
       const recipient = new Uint8Array(await crypto.subtle.sign(MESSAGING_CRYPTO.macAlgorithm, material, bindingData(snapshot, keyId, ADMISSION_NOTIFICATION_EMAIL_RECIPIENT_BINDING_DOMAIN, snapshot.normalizedRecipientEmail)));
-      const intent: BoundAdmissionNotificationEmailIntent = { ...snapshot.content, format: ADMISSION_NOTIFICATION_EMAIL_INTENT_FORMAT, payerBinding: btoa(String.fromCharCode(...payer)), recipientBinding: btoa(String.fromCharCode(...recipient)) };
+      const intent: BoundAdmissionNotificationEmailIntent = { ...snapshot.content, format: ADMISSION_NOTIFICATION_EMAIL_INTENT_FORMAT, payerBinding: btoa(String.fromCodePoint(...payer)), recipientBinding: btoa(String.fromCodePoint(...recipient)) };
       const mac = new Uint8Array(await crypto.subtle.sign(MESSAGING_CRYPTO.macAlgorithm, material, boundData({ ...snapshot, intent }, keyId)));
       return { intent, keyId, mac };
     },
     /** @param context - Exact bound historical content and original native coordinates. @param signed - Original retained key reference and full-content MAC. @returns Historical authenticity only; current permissions and trusted destination require separate checks. */
     async verifyOriginal(context: OriginalAdmissionNotificationEmailIntentContext, signed: { keyId: string; mac: Uint8Array }): Promise<boolean> {
-      if (context.intent.format !== ADMISSION_NOTIFICATION_EMAIL_INTENT_FORMAT) return false;
+      if (!isBoundIntent(context.intent)) return false;
       return crypto.subtle.verify(MESSAGING_CRYPTO.macAlgorithm, key(signed.keyId), new Uint8Array(signed.mac), boundData(context, signed.keyId));
     },
     /** @param context - Original complete consumed intent with freshly trusted current email. @param signed - Original retained key reference and private MAC. @returns Whether every consumed byte and exact native timestamp remains authentic. */
     async verify(context: AdmissionNotificationEmailIntentContext, signed: { keyId: string; mac: Uint8Array }): Promise<boolean> {
-      if (context.intent.format === ADMISSION_NOTIFICATION_EMAIL_INTENT_LEGACY_FORMAT) return crypto.subtle.verify(MESSAGING_CRYPTO.macAlgorithm, key(signed.keyId), new Uint8Array(signed.mac), data(context, signed.keyId, ADMISSION_NOTIFICATION_EMAIL_INTENT_LEGACY_MAC_DOMAIN, context.contributingLeaderUserId, context.normalizedRecipientEmail));
-      if (context.intent.format !== ADMISSION_NOTIFICATION_EMAIL_INTENT_FORMAT) return false;
+      if (context.intent.format === ADMISSION_NOTIFICATION_EMAIL_INTENT_LEGACY_FORMAT) return crypto.subtle.verify(MESSAGING_CRYPTO.macAlgorithm, key(signed.keyId), new Uint8Array(signed.mac), data(context, signed.keyId, { domain: ADMISSION_NOTIFICATION_EMAIL_INTENT_LEGACY_MAC_DOMAIN, payer: context.contributingLeaderUserId, recipient: context.normalizedRecipientEmail }));
+      if (!isBoundIntent(context.intent)) return false;
       const original = { ...context, intent: context.intent }, material = key(signed.keyId);
       if (!await crypto.subtle.verify(MESSAGING_CRYPTO.macAlgorithm, material, new Uint8Array(signed.mac), boundData(original, signed.keyId))) return false;
       const payer = decodeBinding(original.intent.payerBinding), recipient = decodeBinding(original.intent.recipientBinding);

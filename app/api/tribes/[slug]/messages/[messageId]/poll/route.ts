@@ -10,16 +10,17 @@ function createJsonResponse(body: Record<string, unknown>, status: number): Resp
   return Response.json(body, { status });
 }
 
-export async function PATCH() {
+function createUnavailablePollResponse(): Response {
   return createJsonResponse(
     { message: MESSAGE_POLL_ROUTE_RESPONSE.unavailableMessage },
     HTTP_STATUS.notFound
   );
 }
 
+export async function PATCH() {
+  return createUnavailablePollResponse();
+}
+
 export async function DELETE() {
-  return createJsonResponse(
-    { message: MESSAGE_POLL_ROUTE_RESPONSE.unavailableMessage },
-    HTTP_STATUS.notFound
-  );
+  return createUnavailablePollResponse();
 }

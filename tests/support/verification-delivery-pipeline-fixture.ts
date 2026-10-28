@@ -26,9 +26,9 @@ export async function prepareVerificationDeliveryPipeline(database: AcademyAdmis
     try { return await database.withContext({ userId: actorUserId, email: null }, run); }
     finally { transactions -= 1; }
   };
-  const secrets = new PostgresEncryptedSecretStore(execute, { getAuthenticatedAccount: async () => null }, async () => fixture.config, "authorized_delivery");
+  const secrets = new PostgresEncryptedSecretStore({ executeWithDatabase: execute, accounts: { getAuthenticatedAccount: async () => null }, readSecurityConfig: async () => fixture.config, purpose: "authorized_delivery" });
   const preparation = new PostgresVerificationDeliveryPreparation(execute, secrets, async () => fixture.config);
-  const repository = new PostgresMessageDeliveryRepository(execute, async () => true, async () => fixture.config);
+  const repository = new PostgresMessageDeliveryRepository({ execute, authorizeMaintenance: async () => true, readSecurityConfig: async () => fixture.config });
   /** @returns Only safe original resource/attempt metadata, without any code, recipient or credential. */
   const snapshot = () => database.withContext(fixture.own, async (transaction) => ({
     delivery: (await transaction.execute(sql`select id,state,connection_id,connection_version,last_outcome from public.message_deliveries where id=${original.deliveryId}`)).rows[0],

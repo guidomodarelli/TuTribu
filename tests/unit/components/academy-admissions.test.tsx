@@ -3,7 +3,7 @@ import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentType } from "react";
 import { RECOVERED_SEGMENT_TEXT, renderThroughAppRouter, type RouteErrorBoundaryProps } from "@/tests/support/app-router-error-boundary";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import PublicAdmissionError from "@/app/(admission)/admissions/[slug]/error";
 import PublicAdmissionLoading from "@/app/(admission)/admissions/[slug]/loading";
 import LegacyArrivalLoading from "@/app/(admission)/admissions/[slug]/legacy/[token]/loading";

@@ -29,7 +29,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal pa
         const own = { userId: fixture.userId, email: null };
         if (entrypoint === "member") {
           const unexpected = async () => { throw new Error("Personal paid scenario unexpectedly invoked a provider mutation"); };
-          const repository = new PostgresTribeMemberSubscriptionRepository((run) => database.withContext(own, run), unexpected, unexpected, async () => "authorized", unexpected, unexpected, unexpected, createPaidAdmissionResolutionWriter, randomUUID());
+          const repository = new PostgresTribeMemberSubscriptionRepository({ executeWithDatabase: (run) => database.withContext(own, run), createMercadoPagoPreapprovalSubscription: unexpected, getMercadoPagoPreapprovalDetails: unexpected, getMercadoPagoPreapprovalStatus: async () => "authorized", updateMercadoPagoPreapprovalStatus: unexpected, updateMercadoPagoPreapprovalBackUrl: unexpected, refreshMercadoPagoAccessToken: unexpected, createAdmissionResolution: createPaidAdmissionResolutionWriter, requestId: randomUUID() });
           expect(await repository.handleWebhook({ eventId: randomUUID(), resourceId: scenario.providerId, topic: "subscription_preapproval" })).toMatchObject({ status: expectedWebhookStatus });
         } else {
           const repository = createSubscriptionMembershipReconciliationRepository(database, own, "authorized");

@@ -14,12 +14,13 @@ import type {
 } from "@/src/modules/events/application/results/tribe-event-result";
 import { routeOccurrenceActivityRequests } from "@/tests/unit/components/events/support/occurrence-activity-fetch";
 import { MOTION_SAFE_FAKE_TIMERS } from "@/tests/unit/components/events/support/motion-safe-fake-timers";
+import type * as GolfoUiModule from "@golfo/ui";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
 let apiFetch: Mock = vi.fn();
 
 vi.mock("@golfo/ui", async () => ({
-  ...await vi.importActual<typeof import("@golfo/ui")>("@golfo/ui"),
+  ...await vi.importActual<typeof GolfoUiModule>("@golfo/ui"),
   toast: {
     error: vi.fn(),
     success: vi.fn(),

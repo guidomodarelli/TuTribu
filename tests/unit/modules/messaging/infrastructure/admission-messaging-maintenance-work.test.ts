@@ -22,10 +22,10 @@ async function fixture() {
   const ring = () => { const value = keyring(); value.keys.push({ id: value.activeKeyId, material: crypto.getRandomValues(new Uint8Array(MESSAGING_CRYPTO.keyBytes)) }); return value; };
   const security = await createMessagingSecurityConfig({ environment: randomUUID(), securityEpoch: randomUUID(), recoveryLocked: false, keyrings: { credential: ring(), otp_envelope: ring(), verification_mac: ring(), invitation_token: ring(), contact_fingerprint: ring(), operation_payload: ring() } });
   const owners = { expireRequests: vi.fn(async () => ({ expired: 1 })), purgeAdmission: vi.fn(async () => ({ importMaterial: { purgedRows: 2, completedImports: 1 }, privateData: { requestsMinimized: 3, auditEventsPurged: 4, archivedAuditEventsPurged: 5, remainingRequests: false, remainingAuditEvents: true } })), purgeMessaging: vi.fn(async () => ({ candidates: { expired: 6, purgedImmediately: 2 }, retiredSecretsPurged: 7, verificationMaterialPurged: 8 })), materializeReminders: vi.fn(async () => ({ created: 9 })), prepareNotifications: vi.fn(async () => notificationResult()), dispatchOutbox: vi.fn(async () => dispatchResult()), reconcileLeases: vi.fn(async () => 10) } satisfies AdmissionMessagingMaintenanceOwners;
-  const createOwners = vi.fn((..._parameters: [unknown, number, AbortSignal, number]) => owners), readSecurityConfig = vi.fn(async () => security), report = vi.fn();
+  const createOwners = vi.fn<(...parameters: [unknown, number, AbortSignal, number]) => typeof owners>(() => owners), readSecurityConfig = vi.fn(async () => security), report = vi.fn();
   const work = new OriginalAdmissionMessagingMaintenanceWork(createOwners, readSecurityConfig, { now: Date.now, createId: randomUUID, defer: () => undefined, report });
   const result = createAdmissionMaintenanceResultFixture(), run = { runId: result.runId!, startedAtMilliseconds: Date.now(), firstPhaseIndex: 0, externalScope: null, health: result.health };
-  const execute = (phase: AdmissionMessagingMaintenancePhase, signal = new AbortController().signal) => work.runPhase(phase, Date.now() + ADMISSION_MESSAGING_MAINTENANCE_BUDGET_MS, signal, run);
+  const execute = (phase: AdmissionMessagingMaintenancePhase, signal = new AbortController().signal) => work.runPhase({ phase, deadlineAtMilliseconds: Date.now() + ADMISSION_MESSAGING_MAINTENANCE_BUDGET_MS, signal, run });
   return { owners, createOwners, readSecurityConfig, report, execute, work, run };
 }
 
@@ -86,8 +86,8 @@ describe("actual admission maintenance phase evidence", () => {
 
   it("should give owners the phase's soft deadline while keeping the shared hard deadline for commits", async () => {
     const test = await fixture(), hardDeadline = Date.now() + ADMISSION_MESSAGING_MAINTENANCE_BUDGET_MS, softDeadline = hardDeadline - ADMISSION_MESSAGING_MAINTENANCE_BUDGET_MS / 2;
-    await test.work.runPhase("expire_requests", hardDeadline, new AbortController().signal, test.run, softDeadline);
-    await test.work.runPhase("expire_requests", hardDeadline, new AbortController().signal, test.run, hardDeadline + ADMISSION_MESSAGING_MAINTENANCE_BUDGET_MS);
+    await test.work.runPhase({ phase: "expire_requests", deadlineAtMilliseconds: hardDeadline, signal: new AbortController().signal, run: test.run, phaseDeadlineAtMilliseconds: softDeadline });
+    await test.work.runPhase({ phase: "expire_requests", deadlineAtMilliseconds: hardDeadline, signal: new AbortController().signal, run: test.run, phaseDeadlineAtMilliseconds: hardDeadline + ADMISSION_MESSAGING_MAINTENANCE_BUDGET_MS });
     expect(test.createOwners.mock.calls.map((call) => [call[1], call[3]])).toEqual([[hardDeadline, softDeadline], [hardDeadline, hardDeadline]]);
   });
 

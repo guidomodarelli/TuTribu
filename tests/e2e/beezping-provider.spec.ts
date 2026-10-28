@@ -1,7 +1,7 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 /** Only the application's authenticated identity boundary is replaced. */
-async function serveWidgetIdentity(page: import("@playwright/test").Page, enabled: boolean) {
+async function serveWidgetIdentity(page: Page, enabled: boolean) {
   await page.route("**/api/siteping/identity", (route) => route.fulfill({
     json: { enabled, identity: enabled ? { name: "Reporte de prueba", email: "reporter@example.com" } : null, projectName: "tutribu" },
   }));

@@ -123,7 +123,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("native diagnostic is
       expect(await fixture.operation.execute({tribeId:fixture.scope.tribeId,operationId:fixture.input.operationId,requestId:randomUUID()})).toMatchObject({ok:true,value:{type:"diagnose_messaging_connection",result}});
       const pendingId=randomUUID(),pendingEntered=Promise.withResolvers<void>(),releasePending=Promise.withResolvers<void>();let released=false;
       const pending=fixture.ledger.run({...admissionCommand,operationType:VERIFICATION_ISSUANCE_OPERATION.issue,idempotencyKey:pendingId,intent:{purpose:"connection_diagnostic"}},connectionDiagnosticIssuanceSchema,async(transaction)=>{
-        pendingEntered.resolve();releasePending.promise.then(()=>{released=true;});while(!released)await transaction.execute(sql`select pg_sleep(0.25)`);return{outcome:"denied",code:"recipient_not_allowed"};
+        pendingEntered.resolve();void releasePending.promise.then(()=>{released=true;});while(!released)await transaction.execute(sql`select pg_sleep(0.25)`);return{outcome:"denied",code:"recipient_not_allowed"};
       });
       await pendingEntered.promise;
       try{expect(await fixture.operation.execute({tribeId:fixture.scope.tribeId,operationId:pendingId,requestId:randomUUID()})).toMatchObject({ok:true,value:{type:"diagnose_messaging_connection",state:"started"}});}finally{releasePending.resolve();}

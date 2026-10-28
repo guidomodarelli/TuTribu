@@ -17,12 +17,10 @@ export function projectAdmissionReview(record: AdmissionReviewRecord) {
   const expired = pending && review.now >= request.expiresAt;
   const evaluation = pending ? evaluatePendingAdmissionReview(review) : null;
   const reviewerAllowed = canPerformAdmissionAction(review.reviewer, ADMISSION_ACTION.rejectRequest, { tribeId: request.tribeId, applicantUserId: request.userId });
-  const canPrepareApproval = evaluation?.eligible || evaluation?.reason === ADMISSION_DENIAL_REASON.exceptionReasonRequired;
-  const eligibleActions = pending && !expired && reviewerAllowed ? [ADMISSION_DECISION.reject, ...(canPrepareApproval && record.approvalSupported ? [ADMISSION_DECISION.approve] : [])] : [];
+  const eligibleActions = pending && !expired && reviewerAllowed ? reviewDecisions(evaluation, record.approvalSupported) : [];
   const contact = request.contact;
-  const maskedValue = contact?.type === ADMISSION_CONTACT_TYPE.phone ? `${ADMISSION_CONTACT_MASK}${contact.value.slice(-ADMISSION_PHONE_VISIBLE_SUFFIX_LENGTH)}` : contact ? `${Array.from(contact.value)[0] ?? ""}${ADMISSION_CONTACT_MASK}@${contact.value.split("@").at(-1) ?? ""}` : null;
-  const evidence = request.evidence.kind === ADMISSION_EVIDENCE_KIND.base ? { kind: request.evidence.kind, source: ADMISSION_REVIEW_EVIDENCE_SOURCE.google, scope: ADMISSION_REVIEW_ACCOUNT_SCOPE, verifiedAt: request.evidence.verifiedAt.toISOString() }
-    : request.evidence.kind === ADMISSION_EVIDENCE_KIND.local ? { kind: request.evidence.kind, source: ADMISSION_REVIEW_EVIDENCE_SOURCE.localCode, scope: { tribeId: request.tribeId, requestId: request.id, purpose: ADMISSION_VERIFICATION_PURPOSE.admission }, verifiedAt: request.evidence.verifiedAt.toISOString() } : { kind: request.evidence.kind };
+  const maskedValue = maskReviewContact(contact);
+  const evidence = projectReviewEvidence(request);
   const invitation = review.request.source.kind === ADMISSION_SOURCE_KIND.personal ? review.request.source.invitation : null;
   const retryAt = !pending && request.status !== ADMISSION_REQUEST_STATUS.approved ? getAdmissionRetryAllowedAt(request) : null;
   return admissionReviewSchema.parse({
@@ -30,12 +28,55 @@ export function projectAdmissionReview(record: AdmissionReviewRecord) {
     ...(contact && maskedValue ? { contact: { type: contact.type, maskedValue, evidenceKind: request.evidence.kind }, rawContact: contact.value } : {}),
     needsVerification: pending && !expired && needsPendingAdmissionVerification(review),
     pendingAgeThresholdReached: pending && !expired && review.now.getTime() - request.submittedAt.getTime() >= ADMISSION_LIMIT.pendingReminderDelayMs,
-    eligibilityReasons: expired ? [ADMISSION_DENIAL_REASON.requestExpired] : evaluation?.reason ? [evaluation.reason] : [],
-    ...(record.externalMessage ? { externalMessage: record.externalMessage } : {}), ...(record.internalReason ? { internalReason: record.internalReason } : {}),
-    ...(request.applicantMessage ? { applicantMessage: request.applicantMessage } : {}), ...(retryAt ? { retryAllowedAt: retryAt.toISOString() } : {}),
+    eligibilityReasons: reviewEligibilityReasons(expired, evaluation),
+    ...optionalReviewTexts(record, retryAt),
     applicant: { id: request.userId, name: record.applicantName }, evidence, eligibleActions,
     whatsappNumber: request.whatsappNumber ?? null, requiresWhatsappNumber: review.policy?.requiresWhatsappNumber ?? false,
     restrictions: { requiresAllowlist: request.requiresAllowlist, requiresExceptionReason: evaluation?.reason === ADMISSION_DENIAL_REASON.exceptionReasonRequired,
-      invitation: invitation ? { status: invitation.status, requiresAllowlist: invitation.requiresAllowlist, authorizationRevoked: invitation.authorizationRevoked, recipientMatches: invitation.contact.type === contact?.type && invitation.contact.value === contact?.value, expiresAt: invitation.expiresAt?.toISOString() ?? null } : null },
+      invitation: invitation ? projectReviewInvitation(invitation, contact) : null },
   });
+}
+
+type ReviewedAdmissionRequest = AdmissionReviewRecord["request"];
+
+/** @param contact - Raw applicant contact, when present. @returns The phone suffix or the email's first character and domain behind a mask. */
+function maskReviewContact(contact: ReviewedAdmissionRequest["contact"]): string | null {
+  if (!contact) return null;
+  if (contact.type === ADMISSION_CONTACT_TYPE.phone) return `${ADMISSION_CONTACT_MASK}${contact.value.slice(-ADMISSION_PHONE_VISIBLE_SUFFIX_LENGTH)}`;
+  return `${Array.from(contact.value)[0] ?? ""}${ADMISSION_CONTACT_MASK}@${contact.value.split("@").at(-1) ?? ""}`;
+}
+
+/** @param request - Scoped request with its evidence. @returns Base or local evidence with its public scope, or only the evidence kind. */
+function projectReviewEvidence(request: ReviewedAdmissionRequest) {
+  if (request.evidence.kind === ADMISSION_EVIDENCE_KIND.base) return { kind: request.evidence.kind, source: ADMISSION_REVIEW_EVIDENCE_SOURCE.google, scope: ADMISSION_REVIEW_ACCOUNT_SCOPE, verifiedAt: request.evidence.verifiedAt.toISOString() };
+  if (request.evidence.kind === ADMISSION_EVIDENCE_KIND.local) return { kind: request.evidence.kind, source: ADMISSION_REVIEW_EVIDENCE_SOURCE.localCode, scope: { tribeId: request.tribeId, requestId: request.id, purpose: ADMISSION_VERIFICATION_PURPOSE.admission }, verifiedAt: request.evidence.verifiedAt.toISOString() };
+  return { kind: request.evidence.kind };
+}
+
+/** @param expired - Whether the pending request already expired. @param evaluation - Current pending evaluation, if any. @returns The single reason the reviewer must see, or none. */
+function reviewEligibilityReasons(expired: boolean, evaluation: ReturnType<typeof evaluatePendingAdmissionReview> | null) {
+  if (expired) return [ADMISSION_DENIAL_REASON.requestExpired];
+  return evaluation?.reason ? [evaluation.reason] : [];
+}
+
+/** @param record - Scoped review record. @param retryAt - Next allowed presentation, if any. @returns Only the present optional texts and retry instant. */
+function optionalReviewTexts(record: AdmissionReviewRecord, retryAt: Date | null) {
+  return {
+    ...(record.externalMessage ? { externalMessage: record.externalMessage } : {}), ...(record.internalReason ? { internalReason: record.internalReason } : {}),
+    ...(record.request.applicantMessage ? { applicantMessage: record.request.applicantMessage } : {}), ...(retryAt ? { retryAllowedAt: retryAt.toISOString() } : {}),
+  };
+}
+
+/** @param invitation - Personal invitation behind the request. @param contact - Request contact, if any. @returns The reviewer's invitation restriction view. */
+function projectReviewInvitation(invitation: ReviewInvitation, contact: AdmissionReviewRecord["request"]["contact"]) {
+  return { status: invitation.status, requiresAllowlist: invitation.requiresAllowlist, authorizationRevoked: invitation.authorizationRevoked, recipientMatches: invitation.contact.type === contact?.type && invitation.contact.value === contact.value, expiresAt: invitation.expiresAt?.toISOString() ?? null };
+}
+
+/** Personal invitation facts carried by a personal review source. */
+type ReviewInvitation = Extract<AdmissionReviewRecord["review"]["request"]["source"], { kind: typeof ADMISSION_SOURCE_KIND.personal }>["invitation"];
+
+/** @param evaluation - Current pending evaluation, if any. @param approvalSupported - Whether this writer can approve. @returns Rejection, plus approval when the request is eligible or only needs an exception reason. */
+function reviewDecisions(evaluation: ReturnType<typeof evaluatePendingAdmissionReview> | null, approvalSupported: boolean) {
+  const canPrepareApproval = evaluation !== null && (evaluation.eligible || evaluation.reason === ADMISSION_DENIAL_REASON.exceptionReasonRequired);
+  return [ADMISSION_DECISION.reject, ...(canPrepareApproval && approvalSupported ? [ADMISSION_DECISION.approve] : [])];
 }

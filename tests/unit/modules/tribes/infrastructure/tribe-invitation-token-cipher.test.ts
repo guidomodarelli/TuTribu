@@ -65,7 +65,7 @@ describe("tribe invitation token cipher", () => {
   });
 
   it("throws when the payload uses an unknown version", () => {
-    expect(() => decryptInvitationToken("v2.aaa.bbb.ccc")).toThrow();
+    expect(() => decryptInvitationToken("v2.aaa.bbb.ccc")).toThrow("Unsupported tribe invitation token envelope version");
   });
 
   it("throws when the payload has been tampered with", () => {
@@ -76,10 +76,10 @@ describe("tribe invitation token cipher", () => {
       : "A" + ciphertext.slice(1);
     const tampered = [version, iv, authTag, tamperedCiphertext].join(".");
 
-    expect(() => decryptInvitationToken(tampered)).toThrow();
+    expect(() => decryptInvitationToken(tampered)).toThrow("Unsupported state or unable to authenticate data");
   });
 
   it("throws when the payload structure is malformed", () => {
-    expect(() => decryptInvitationToken("not-an-envelope")).toThrow();
+    expect(() => decryptInvitationToken("not-an-envelope")).toThrow("Invalid tribe invitation token envelope");
   });
 });

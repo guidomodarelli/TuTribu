@@ -1,6 +1,6 @@
 "use client";
 /** Owns native viewer checks and cancellable private reads while presenters remain callback-only. @module admission-activity-container */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { Button } from "@golfo/ui";
 import { AdmissionMetrics } from "@/components/academy-admissions/admission-metrics";
 import { AdmissionActivity } from "@/components/academy-admissions/admission-activity";
@@ -28,6 +28,37 @@ type ActivityContainerProps = { initialState: AdmissionActivityPageState; client
 function combineActivitySnapshots(shown: AdmissionActivityReadyPageState, fresh: AdmissionActivityReadyPageState, mode: AdmissionActivityReadMode): AdmissionActivityReadyPageState {
   if (mode === READ_MODE.older) return { ...fresh, selection: shown.selection, activity: { ...fresh.activity, items: appendAdmissionListPage(shown.activity.items, fresh.activity.items) } };
   return fresh;
+}
+
+/** Refs, reads and setters the container shares with its mount, restoration and visibility lifecycle. */
+type ActivityReadLifecycle = {
+  ready: AdmissionActivityReadyPageState | null;
+  controllerRef: RefObject<AbortController | null>; activated: RefObject<boolean>; selectionRef: RefObject<AdmissionActivityPageSelection | undefined>;
+  readingRef: RefObject<AbortController | null>; visibleRef: RefObject<boolean>;
+  checkViewer: (controller: AbortController) => Promise<boolean>;
+  readSnapshot: (selection: AdmissionActivityPageSelection, controller: AbortController, mode: AdmissionActivityReadMode) => Promise<void>;
+  launchRead: (selection: AdmissionActivityPageSelection, mode: AdmissionActivityReadMode) => void;
+  showPrivate: (visible: boolean) => void; setErrorMessage: (message: string | null) => void; setPhase: (phase: AdmissionActivityBrowserPhase) => void;
+};
+
+/** Checks the viewer on mount, rereads a restored document and refreshes a tab that becomes visible again. @param lifecycle - Shared refs, reads and setters. @returns Nothing. */
+function useActivityReadLifecycle({ ready, controllerRef, activated, selectionRef, readingRef, visibleRef, checkViewer, readSnapshot, launchRead, showPrivate, setErrorMessage, setPhase }: ActivityReadLifecycle): void {
+  useEffect(() => {
+    const controller = new AbortController(); controllerRef.current = controller;
+    void Promise.resolve().then(async () => {
+      if (controller.signal.aborted || !ready) return;
+      const initial = !activated.current; activated.current = true;
+      if (!initial && selectionRef.current) { readingRef.current = controller; await readSnapshot(selectionRef.current, controller, READ_MODE.restore); return; }
+      try { if (await checkViewer(controller) && !controller.signal.aborted && controllerRef.current === controller) setPhase(PHASE.ready); }
+      catch { if (!controller.signal.aborted && controllerRef.current === controller) { showPrivate(false); setErrorMessage(COPY.readFailed); setPhase(PHASE.unavailable); } }
+    });
+    /** Restored private UI is withheld until both current identity and server authorization have been rechecked. */
+    const restored = (event: PageTransitionEvent) => { if (event.persisted && selectionRef.current) launchRead(selectionRef.current, READ_MODE.restore); };
+    /** Returning to the tab rereads in the background: the shown facts stay until the fresh snapshot replaces them, and a read in flight is not superseded. */
+    const visible = () => { if (document.visibilityState === "visible" && selectionRef.current && visibleRef.current && !readingRef.current) launchRead(selectionRef.current, READ_MODE.refresh); };
+    window.addEventListener("pageshow", restored); document.addEventListener("visibilitychange", visible);
+    return () => { controller.abort(); controllerRef.current?.abort(); window.removeEventListener("pageshow", restored); document.removeEventListener("visibilitychange", visible); };
+  }, [ready, checkViewer, readSnapshot, launchRead, showPrivate, controllerRef, activated, selectionRef, readingRef, visibleRef, setErrorMessage, setPhase]);
 }
 
 /** @param props - Current server snapshot with no provider or native session material. @returns The sole browser read owner; it never writes settings or refreshes a route after ordinary reads. */
@@ -97,22 +128,7 @@ export function AdmissionActivityContainer({ initialState, client = admissionAct
     void readSnapshot(selection, controller, mode);
   }, [readSnapshot]);
 
-  useEffect(() => {
-    const controller = new AbortController(); controllerRef.current = controller;
-    void Promise.resolve().then(async () => {
-      if (controller.signal.aborted || !ready) return;
-      const initial = !activated.current; activated.current = true;
-      if (!initial && selectionRef.current) { readingRef.current = controller; await readSnapshot(selectionRef.current, controller, READ_MODE.restore); return; }
-      try { if (await checkViewer(controller) && !controller.signal.aborted && controllerRef.current === controller) setPhase(PHASE.ready); }
-      catch { if (!controller.signal.aborted && controllerRef.current === controller) { showPrivate(false); setErrorMessage(COPY.readFailed); setPhase(PHASE.unavailable); } }
-    });
-    /** Restored private UI is withheld until both current identity and server authorization have been rechecked. */
-    const restored = (event: PageTransitionEvent) => { if (event.persisted && selectionRef.current) launchRead(selectionRef.current, READ_MODE.restore); };
-    /** Returning to the tab rereads in the background: the shown facts stay until the fresh snapshot replaces them, and a read in flight is not superseded. */
-    const visible = () => { if (document.visibilityState === "visible" && selectionRef.current && visibleRef.current && !readingRef.current) launchRead(selectionRef.current, READ_MODE.refresh); };
-    window.addEventListener("pageshow", restored); document.addEventListener("visibilitychange", visible);
-    return () => { controller.abort(); controllerRef.current?.abort(); window.removeEventListener("pageshow", restored); document.removeEventListener("visibilitychange", visible); };
-  }, [ready, checkViewer, readSnapshot, launchRead, showPrivate]);
+  useActivityReadLifecycle({ ready, controllerRef, activated, selectionRef, readingRef, visibleRef, checkViewer, readSnapshot, launchRead, showPrivate, setErrorMessage, setPhase });
 
   const reload = () => { if (selectionRef.current) launchRead(selectionRef.current, privateVisible ? READ_MODE.refresh : READ_MODE.restore); };
   if (!ready || !snapshot || !draft) return <AdmissionRouteError embedded message={initialState.kind === KIND.unavailable ? initialState.message : COPY.readFailed} retry={() => window.location.reload()} />;

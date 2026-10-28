@@ -22,13 +22,20 @@ import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthe
  * @returns Nothing while every locked relationship and post-wait lifetime remains current.
  * @throws MessagingUsageOperationError for a closed actor, tenant, session, binding, leadership or crossed operation.
  */
+/** @param context - Sensitive context. @param scope - Whether the operation is scoped to a connection or a delivery. @returns The id of the resource the operation acts on. */
+function scopedResourceId(context:Parameters<typeof authorizeMessagingTribeManagement>[1],scope:{connectionScoped:boolean;deliveryScoped:boolean}):string{
+  if(scope.deliveryScoped&&"deliveryId" in context)return context.deliveryId;
+  if(scope.connectionScoped&&"connectionId" in context)return context.connectionId;
+  return context.tribeId;
+}
+
 export async function authorizeMessagingTribeManagement(database: RequestDatabase, context: MessagingUsageContext | MessagingUsageSensitiveContext | MessagingConnectionCreationContext | MessagingConnectionLifecycleContext | NotificationDeliveryRecoveryContext): Promise<void> {
   const sensitive = "operation" in context;
   const connectionScoped=sensitive&&(context.operation===REAUTHENTICATION_OPERATION.suspendMessagingConnection||context.operation===REAUTHENTICATION_OPERATION.disconnectMessagingConnection);
   const deliveryScoped=sensitive&&context.operation===MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.recoverNotification;
   // Evaluated here but reported by the SQL guard at the former point: after the first session liveness check.
   const sensitiveScopeMatches=!sensitive||(()=>{
-    const resourceId=deliveryScoped&&"deliveryId" in context?context.deliveryId:connectionScoped&&"connectionId" in context?context.connectionId:context.tribeId;
+    const resourceId=scopedResourceId(context,{connectionScoped,deliveryScoped});
     return connectionScoped===("connectionId" in context)&&deliveryScoped===("deliveryId" in context)&&context.resourceId===resourceId;
   })();
   const exclusive=connectionScoped||deliveryScoped||sensitive&&context.operation===REAUTHENTICATION_OPERATION.saveMessagingCredentials;

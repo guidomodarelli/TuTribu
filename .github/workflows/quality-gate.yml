@@ -37,10 +37,8 @@ jobs:
       - name: Set up quality gate
         uses: ./.github/actions/setup-quality-gate
 
+      # `pnpm run lint` runs in the golfo-lint job, as `golfo-lint lint`.
       - parallel:
-          - name: Lint
-            run: pnpm run lint
-
           - name: Type-check product code
             run: pnpm run typecheck
 
@@ -73,9 +71,53 @@ jobs:
       - name: Run test shard
         run: pnpm run test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
+  golfo-lint:
+    name: golfo-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GITLEAKS_VERSION: 8.30.1
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # gitleaks scans the whole history.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up quality gate
+        uses: ./.github/actions/setup-quality-gate
+
+      # actionlint and zizmor ship as Python packages; golfo-lint runs them through uvx.
+      - name: Set up uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+
+      - name: Install gitleaks
+        run: |
+          set -euo pipefail
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          checksums="gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          base_url="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          curl -fsSLO "${base_url}/${archive}"
+          curl -fsSLO "${base_url}/${checksums}"
+          grep " ${archive}\$" "${checksums}" | sha256sum --check -
+          tar -xzf "${archive}" gitleaks
+          sudo mv gitleaks /usr/local/bin/gitleaks
+          rm "${archive}" "${checksums}"
+
+      # Only the analyses that pass today; `duplicates`, `unused`, `react` and `architecture` join as their findings
+      # get fixed (https://github.com/guidomodarelli/TuTribu/issues/215), and then this becomes `golfo-lint all`.
+      # `golfo-lint lint` is the command `pnpm run lint` runs.
+      - name: golfo-lint analyses
+        run: |
+          set -euo pipefail
+          for analysis in lint styles workflows secrets; do
+            pnpm exec golfo-lint "$analysis"
+          done
+
   quality-gate:
     name: Quality gate
-    needs: [static-checks-and-build, tests]
+    needs: [static-checks-and-build, tests, golfo-lint]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -84,10 +126,11 @@ jobs:
         env:
           STATIC_CHECKS_RESULT: ${{ needs.static-checks-and-build.result }}
           TESTS_RESULT: ${{ needs.tests.result }}
+          GOLFO_LINT_RESULT: ${{ needs.golfo-lint.result }}
         run: |
           set -euo pipefail
-          echo "Static checks and build: ${STATIC_CHECKS_RESULT}; tests: ${TESTS_RESULT}"
-          if [ "${STATIC_CHECKS_RESULT}" != "success" ] || [ "${TESTS_RESULT}" != "success" ]; then
-            echo "::error title=Quality gate failed::Static checks and build ended as ${STATIC_CHECKS_RESULT} and the test shards as ${TESTS_RESULT}."
+          echo "Static checks and build: ${STATIC_CHECKS_RESULT}; tests: ${TESTS_RESULT}; golfo-lint: ${GOLFO_LINT_RESULT}"
+          if [ "${STATIC_CHECKS_RESULT}" != "success" ] || [ "${TESTS_RESULT}" != "success" ] || [ "${GOLFO_LINT_RESULT}" != "success" ]; then
+            echo "::error title=Quality gate failed::Static checks and build ended as ${STATIC_CHECKS_RESULT}, the test shards as ${TESTS_RESULT} and golfo-lint as ${GOLFO_LINT_RESULT}."
             exit 1
           fi

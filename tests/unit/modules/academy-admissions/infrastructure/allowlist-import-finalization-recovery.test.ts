@@ -35,7 +35,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native import fina
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()+interval '1 hour' where id=${fixture.sessionId}`));
       const snapshot = await repository.read(original.context, importId);
       expect(snapshot).toMatchObject({ state: "processing", rows: [{ outcome: "added" }] });
-      expect(snapshot?.rows.filter((row) => row.outcome === null)).toHaveLength(0);
+      expect(snapshot.rows.filter((row) => row.outcome === null)).toHaveLength(0);
       // Preserve the live original lease; no test-only expiry/reset is used.
       const waitMs = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ wait_ms: number }>(sql`select greatest(0,extract(epoch from (lease_until-clock_timestamp()))*1000)::int as wait_ms from public.academy_admission_operations where actor_user_id=${fixture.userId} and tribe_id=${fixture.tribeId} and idempotency_key=${original.operationId}`)).rows[0].wait_ms);
       const deadline = Date.now() + waitMs;

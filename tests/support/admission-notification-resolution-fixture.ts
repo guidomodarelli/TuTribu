@@ -36,7 +36,7 @@ export async function prepareAdmissionNotificationResolution(database: AcademyAd
   const requestId = submitted.value.result.admissionRequestId;
   const rejected = await leader.decide.execute({ tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), admissionRequestId: requestId, expectedVersion: submitted.value.result.committedRequestVersion, confirmed: true, decision: "reject", internalReason: "Synthetic private review reason", externalMessage: "Tu solicitud fue revisada." });
   if (!rejected.ok || rejected.value.state !== "completed") throw new Error("Resolution fixture did not confirm its actual rejection");
-  const obligation = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ id: string }>(sql`select id from public.academy_admission_notification_obligations where tribe_id=${fixture.tribeId} and request_id=${requestId} and event_type='rejected'`)).rows[0]);
+  const obligation = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ id: string }>(sql`select id from public.academy_admission_notification_obligations where tribe_id=${fixture.tribeId} and request_id=${requestId} and event_type='rejected'`)).rows.at(0));
   if (!obligation) throw new Error("Resolution fixture did not preserve its transactional rejection obligation");
 
   /** @param actorUserId - Current backend or original contributing leader. @param run - Native database-only operation. @returns The committed result through the same guarded transaction boundary. */

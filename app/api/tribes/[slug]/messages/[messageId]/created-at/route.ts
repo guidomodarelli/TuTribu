@@ -49,6 +49,43 @@ function extractCreatedAt(body: UpdateCreatedAtRequestBody | null): string | nul
   return trimmed.length > 0 ? trimmed : null;
 }
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type UpdateTribeMessageCreatedAtResult = Awaited<
+  ReturnType<RequestModules["messages"]["useCases"]["updateTribeMessageCreatedAt"]>
+>;
+
+function createPatchResultResponse(result: UpdateTribeMessageCreatedAtResult, slug: string): Response {
+  switch (result.status) {
+    case MESSAGE_MUTATION_STATUS.updated:
+      revalidateTribeRoundCache(slug);
+
+      return createJsonResponse(
+        {
+          createdAt: result.createdAt,
+          message: UPDATE_MESSAGE_CREATED_AT_ROUTE_RESPONSE.successMessage,
+        },
+        HTTP_STATUS.ok
+      );
+    case MESSAGE_MUTATION_STATUS.invalidContent:
+      return createJsonResponse(
+        { message: UPDATE_MESSAGE_CREATED_AT_ROUTE_RESPONSE.invalidContentMessage },
+        HTTP_STATUS.badRequest
+      );
+    case MESSAGE_MUTATION_STATUS.notFound:
+      return createJsonResponse(
+        { message: UPDATE_MESSAGE_CREATED_AT_ROUTE_RESPONSE.notFoundMessage },
+        HTTP_STATUS.notFound
+      );
+    case MESSAGE_MUTATION_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        { message: UPDATE_MESSAGE_CREATED_AT_ROUTE_RESPONSE.forbiddenMessage },
+        HTTP_STATUS.forbidden
+      );
+  }
+}
+
 export async function PATCH(
   request: Request,
   context: {
@@ -100,34 +137,7 @@ export async function PATCH(
       userId: authenticatedMember.id,
     });
 
-    switch (result.status) {
-      case MESSAGE_MUTATION_STATUS.updated:
-        revalidateTribeRoundCache(slug);
-
-        return createJsonResponse(
-          {
-            createdAt: result.createdAt,
-            message: UPDATE_MESSAGE_CREATED_AT_ROUTE_RESPONSE.successMessage,
-          },
-          HTTP_STATUS.ok
-        );
-      case MESSAGE_MUTATION_STATUS.invalidContent:
-        return createJsonResponse(
-          { message: UPDATE_MESSAGE_CREATED_AT_ROUTE_RESPONSE.invalidContentMessage },
-          HTTP_STATUS.badRequest
-        );
-      case MESSAGE_MUTATION_STATUS.notFound:
-        return createJsonResponse(
-          { message: UPDATE_MESSAGE_CREATED_AT_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case MESSAGE_MUTATION_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: UPDATE_MESSAGE_CREATED_AT_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-    }
+    return createPatchResultResponse(result, slug);
   } catch (error) {
     logger.error({
       message: UPDATE_MESSAGE_CREATED_AT_ROUTE_LOG.updateFailureMessage,

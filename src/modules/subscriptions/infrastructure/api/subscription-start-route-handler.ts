@@ -82,6 +82,7 @@ export function createSubscriptionStartRouteHandler(createModules: (input: { req
         case TRIBE_MEMBER_SUBSCRIPTION_STATUS.invalidInvitation:
         case TRIBE_MEMBER_SUBSCRIPTION_STATUS.missingCurrentPrice:
           return boundary.failure({ code: result.status });
+        case TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked:
         default:
           return boundary.failure({ code: "payment_blocked" });
       }

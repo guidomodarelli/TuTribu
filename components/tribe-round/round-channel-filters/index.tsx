@@ -8,7 +8,7 @@
  * while the filtered page loads.
  */
 import { LayoutGroup, motion } from "motion/react";
-import { type MouseEvent, useEffect, useId, useRef, useState } from "react";
+import { type MouseEvent, type Ref, useEffect, useId, useRef, useState } from "react";
 
 import { Link } from "@/components/navigation/link";
 import { isInPageLinkClick } from "@/lib/plain-link-click";
@@ -31,6 +31,15 @@ const ROUND_CHANNEL_FILTERS_UI = {
 
 /** Share of the free space kept on each side when centering the active chip. */
 const ACTIVE_CHIP_CENTERING_DIVISOR = 2;
+
+/** One chip of the strip: the "all channels" chip or a channel. */
+type RoundChannelFilter = {
+  emoji: string | null;
+  href: string;
+  id: string;
+  name: string;
+  slug: string | null;
+};
 
 type RoundChannelFiltersProps = {
   activeChannelId: string | null;
@@ -72,6 +81,88 @@ function revealActiveChip(strip: HTMLElement, chip: HTMLElement) {
 }
 
 /**
+ * Lists the chips of the strip, starting with the "all channels" chip.
+ *
+ * @param input - Channels, the "all channels" label and the href builder.
+ * @returns The chips in display order.
+ */
+function buildRoundChannelFilters({
+  allChannelsLabel,
+  buildChannelHref,
+  channels,
+}: Pick<RoundChannelFiltersProps, "allChannelsLabel" | "buildChannelHref" | "channels">): RoundChannelFilter[] {
+  return [
+    {
+      emoji: null,
+      href: buildChannelHref(null),
+      id: ALL_CHANNELS_FILTER_ID,
+      name: allChannelsLabel,
+      slug: null,
+    },
+    ...channels.map((channel) => ({
+      emoji: channel.emoji,
+      href: buildChannelHref(channel.slug),
+      id: channel.id,
+      name: channel.name,
+      slug: channel.slug,
+    })),
+  ];
+}
+
+type RoundChannelFilterChipProps = {
+  chipRef: Ref<HTMLAnchorElement> | undefined;
+  filter: RoundChannelFilter;
+  isCurrentPage: boolean;
+  isSelected: boolean;
+  onChipClick: (event: MouseEvent<HTMLAnchorElement>, filter: RoundChannelFilter) => void;
+};
+
+/**
+ * Renders one channel chip, with the shared highlight when it is selected.
+ *
+ * @param props - Chip filter, selection state, ref and click handler.
+ * @returns The chip link.
+ */
+function RoundChannelFilterChip({
+  chipRef,
+  filter,
+  isCurrentPage,
+  isSelected,
+  onChipClick,
+}: RoundChannelFilterChipProps) {
+  return (
+    <Link
+      aria-current={isCurrentPage ? ROUND_CHANNEL_FILTERS_UI.ariaCurrentPage : undefined}
+      data-slot={ROUND_CHANNEL_FILTERS_UI.chipSlot}
+      className={cn(
+        styles.RoundChannelFilters__chip,
+        isSelected && styles["RoundChannelFilters__chip--active"]
+      )}
+      href={filter.href}
+      onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+        onChipClick(event, filter);
+      }}
+      ref={chipRef}
+    >
+      {isSelected ? (
+        <motion.span
+          aria-hidden
+          className={styles.RoundChannelFilters__indicator}
+          layoutId={ROUND_CHANNEL_FILTERS_UI.indicatorLayoutId}
+          transition={SPRING_LAYOUT}
+        />
+      ) : null}
+      {filter.emoji ? (
+        <span aria-hidden className={styles.RoundChannelFilters__emoji}>
+          {filter.emoji}
+        </span>
+      ) : null}
+      <span className={styles.RoundChannelFilters__text}>{filter.name}</span>
+    </Link>
+  );
+}
+
+/**
  * Renders the channel filter chips of the round.
  *
  * @param props - Channels, active channel, labels and href builder.
@@ -109,22 +200,7 @@ export function RoundChannelFilters({
     }
   }, [serverActiveFilterId]);
 
-  const filters = [
-    {
-      emoji: null,
-      href: buildChannelHref(null),
-      id: ALL_CHANNELS_FILTER_ID,
-      name: allChannelsLabel,
-      slug: null,
-    },
-    ...channels.map((channel) => ({
-      emoji: channel.emoji,
-      href: buildChannelHref(channel.slug),
-      id: channel.id,
-      name: channel.name,
-      slug: channel.slug,
-    })),
-  ];
+  const filters = buildRoundChannelFilters({ allChannelsLabel, buildChannelHref, channels });
 
   /**
    * Shows the tapped chip as selected right away. With in-place loading it
@@ -133,7 +209,7 @@ export function RoundChannelFilters({
    */
   const handleChipClick = (
     event: MouseEvent<HTMLAnchorElement>,
-    filter: { id: string; slug: string | null }
+    filter: RoundChannelFilter
   ) => {
     if (!isInPageLinkClick(event)) {
       return;
@@ -165,39 +241,17 @@ export function RoundChannelFilters({
         ref={stripRef}
       >
         {filters.map((filter) => {
-          const isSelected = filter.id === selectedFilterId;
           const isCurrentPage = filter.id === serverActiveFilterId;
 
           return (
-            <Link
-              aria-current={isCurrentPage ? ROUND_CHANNEL_FILTERS_UI.ariaCurrentPage : undefined}
-              data-slot={ROUND_CHANNEL_FILTERS_UI.chipSlot}
-              className={cn(
-                styles.RoundChannelFilters__chip,
-                isSelected && styles["RoundChannelFilters__chip--active"]
-              )}
-              href={filter.href}
+            <RoundChannelFilterChip
+              chipRef={isCurrentPage ? activeChipRef : undefined}
+              filter={filter}
+              isCurrentPage={isCurrentPage}
+              isSelected={filter.id === selectedFilterId}
               key={filter.id}
-              onClick={(event: MouseEvent<HTMLAnchorElement>) => {
-                handleChipClick(event, filter);
-              }}
-              ref={isCurrentPage ? activeChipRef : undefined}
-            >
-              {isSelected ? (
-                <motion.span
-                  aria-hidden
-                  className={styles.RoundChannelFilters__indicator}
-                  layoutId={ROUND_CHANNEL_FILTERS_UI.indicatorLayoutId}
-                  transition={SPRING_LAYOUT}
-                />
-              ) : null}
-              {filter.emoji ? (
-                <span aria-hidden className={styles.RoundChannelFilters__emoji}>
-                  {filter.emoji}
-                </span>
-              ) : null}
-              <span className={styles.RoundChannelFilters__text}>{filter.name}</span>
-            </Link>
+              onChipClick={handleChipClick}
+            />
           );
         })}
       </motion.nav>

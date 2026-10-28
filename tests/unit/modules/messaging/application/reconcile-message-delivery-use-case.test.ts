@@ -24,7 +24,7 @@ function prepareReconciliation() {
   const resolver: Pick<ResolveMessagingContextUseCase, "execute"> = { execute: async () => ({ allowed: true, context }) };
   let reads = 0;
   const lookup: MessageStatusLookup = { read: async () => { reads += 1; return { outcome: "delivered", providerMessageId: reference.providerMessageId }; } };
-  const cases = new ReconcileMessageDeliveryUseCase(accounts, resolver, repository, lookup, () => now);
+  const cases = new ReconcileMessageDeliveryUseCase({ accounts, resolver, repository, lookup, clock: () => now });
   const query = { tribeId: reference.tribeId, deliveryId: reference.deliveryId, requestId: reference.requestId };
   return { cases, accounts, account, repository, resolver, context, lookup, reference, query, records, get reads() { return reads; } };
 }

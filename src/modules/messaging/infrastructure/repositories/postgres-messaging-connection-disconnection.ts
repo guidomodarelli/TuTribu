@@ -34,7 +34,7 @@ export class PostgresMessagingConnectionDisconnection implements Pick<MessagingC
     const command={actorUserId:context.actorUserId,tribeId:context.tribeId,operationType:REAUTHENTICATION_OPERATION.disconnectMessagingConnection,idempotencyKey:input.operationId,intent:{connectionId:context.connectionId,expectedVersion:input.expectedVersion,confirmed:input.confirmed}};
     const ledger=new PostgresAdmissionOperationRepository((run)=>executeMessagingLedger(()=>this.execute(context,run)),async(database)=>{await this.authorize(database,context);return true;},this.readSecurityConfig);
     try{return await ledger.run(command,messagingConnectionLifecycleResultSchema,async(database,ledgerId)=>{
-      if(!input.confirmed)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+      if(!(input.confirmed as boolean))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
       const row=await this.authorize(database,context);
       if(row.version!==input.expectedVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionConflict);
       if(row.state===MESSAGING_CONNECTION_STATE.disconnected||row.retired_at!==null)return{id:row.id,version:row.version,state:MESSAGING_CONNECTION_STATE.disconnected,reason:null,changed:false};

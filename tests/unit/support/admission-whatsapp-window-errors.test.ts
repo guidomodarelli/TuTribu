@@ -1,12 +1,24 @@
 /** @vitest-environment node */
 /** Validates the error oracle through its public contracts and actual browser events without SDK mocks. @module admission-whatsapp-window-errors-tests */
 import { createServer } from "node:http";
-import { chromium, webkit } from "@playwright/test";
+import { chromium, webkit, type Page } from "@playwright/test";
 import { describe, expect, it } from "vitest";
 import { observeAdmissionWhatsappBrowserError } from "@/tests/support/admission-whatsapp-browser-errors";
 import { classifyAdmissionWhatsappBrowserErrors, installAdmissionWhatsappWindowObserver, readAdmissionWhatsappWindowSnapshot, type AdmissionWhatsappTimedBrowserError, type AdmissionWhatsappWindowSnapshot } from "@/tests/support/admission-whatsapp-window-errors";
 import { ADMISSION_WHATSAPP_BROWSER_PHASE as PHASE } from "@/tests/support/constants/admission-whatsapp-number";
 import { ADMISSION_WHATSAPP_WINDOW_FAILURE as FAILURE, ADMISSION_WHATSAPP_WINDOW_OBSERVER as OBSERVER } from "@/tests/support/constants/admission-whatsapp-window-errors";
+
+/**
+ * Waits until the observer records the synchronous error or rejection raised by the control page.
+ * @param page - Observed control page.
+ * @param mode - Control mode; `pagehide` raises only while leaving, so there is nothing to wait for.
+ * @returns Nothing once the expected window record is visible.
+ */
+async function waitForObservedWindowError(page: Page, mode: string): Promise<void> {
+  if (mode === "pagehide") return;
+  const expectedKind = mode === "rejection" ? "unhandled_rejection" : "window_error";
+  await expect.poll(async () => { const snapshot = await readAdmissionWhatsappWindowSnapshot(page); return snapshot.available && snapshot.records.some((record) => record.kind === expectedKind); }).toBe(true);
+}
 
 /** @returns A native diagnostic projected by the same public boundary used in the real flow test. */
 function nativeDiagnostic(): AdmissionWhatsappTimedBrowserError {
@@ -78,7 +90,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("actual cross-d
           try {
             const page = await context.newPage(); await installAdmissionWhatsappWindowObserver(page);
             await page.goto(`${origin}/control?mode=${mode}`); await page.waitForFunction(() => (globalThis as unknown as Record<string, unknown>).syntheticReady === true);
-            if (mode !== "pagehide") await expect.poll(async () => { const snapshot = await readAdmissionWhatsappWindowSnapshot(page); return snapshot.available && snapshot.records.some((record) => record.kind === (mode === "rejection" ? "unhandled_rejection" : "window_error")); }).toBe(true);
+            await waitForObservedWindowError(page, mode);
             await page.goto(`${origin}/next`);
             const snapshot = await readAdmissionWhatsappWindowSnapshot(page), result = classifyAdmissionWhatsappBrowserErrors("webkit", [], 0, [{ leaderSurface: false, snapshot }]);
             expect(result.blocking).toContain(mode === "rejection" ? FAILURE.rejection : FAILURE.exception);

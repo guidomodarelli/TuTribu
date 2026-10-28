@@ -58,6 +58,45 @@ const STATE_BADGE = {
   [ADMISSION_POLICY_PUBLIC_STATE.unavailable]: { label: "Requiere revisión", tone: "danger" },
 } as const satisfies Record<AdmissionPolicyStateDto["state"], { label: string; tone: BadgeTone }>;
 
+/** @param props - Current safe state, its draft facts and the step shown. @returns The state badges with the draft, denial, unavailable and status notices. */
+function PolicySummary({ props, unavailable, draftUnpublished, finalStep }: { props: AdmissionPolicyFormProps; unavailable: boolean; draftUnpublished: boolean; finalStep: number }) {
+  const badge = STATE_BADGE[props.state.state];
+  const pending = props.state.impact.pendingRequestCount;
+  return <section className={styles.AdmissionPolicyForm__summary} aria-label="Estado actual">
+    <ul className={styles.AdmissionPolicyForm__badges}>
+      <li><Badge tone={badge.tone}>{badge.label}</Badge></li>
+      <li><Badge tone="neutral">{pending === 1 ? "1 solicitud pendiente" : `${pending} solicitudes pendientes`}</Badge></li>
+    </ul>
+    {!props.state.controlActivated && !unavailable && !props.state.policy && <p className={styles.AdmissionPolicyForm__lead}>Todavía no hay reglas de admisión. Completá los pasos: al final guardamos las reglas y activamos las admisiones en una sola acción.</p>}
+    {draftUnpublished && <div className={styles.AdmissionPolicyForm__draft} role="group" aria-label={ADMISSION_POLICY_DRAFT_COPY.title}>
+      <p className={styles.AdmissionPolicyForm__draftTitle}>{ADMISSION_POLICY_DRAFT_COPY.title}</p>
+      <p className={styles.AdmissionPolicyForm__lead}>{props.platformBlocked ? ADMISSION_POLICY_DRAFT_COPY.platformBlocked : ADMISSION_POLICY_DRAFT_COPY.description}</p>
+      {!props.platformBlocked && props.onReviewDraft && props.step !== finalStep && <Button variant="secondary" size="sm" disabled={props.busy || props.uncertain} onClick={props.onReviewDraft}>{ADMISSION_POLICY_DRAFT_COPY.action}</Button>}
+    </div>}
+    {props.permissionDenied && <p role="alert" className={`${styles.AdmissionPolicyForm__feedback} ${styles["AdmissionPolicyForm__feedback--alert"]}`}>{ADMISSION_POLICY_BROWSER_COPY.permissionDenied}</p>}
+    {unavailable && <p role="alert" className={`${styles.AdmissionPolicyForm__feedback} ${styles["AdmissionPolicyForm__feedback--alert"]}`}>{ADMISSION_POLICY_BROWSER_COPY.unavailable}</p>}
+    {props.statusMessage && <p role="status" className={styles.AdmissionPolicyForm__feedback}>{props.statusMessage}</p>}
+  </section>;
+}
+
+/** @param props - Retry consent, write state and the original operation actions. @returns The recovery of an original operation whose result is unknown. */
+function PolicyOriginalRecovery({ props, retryId }: { props: AdmissionPolicyFormProps; retryId: string }) {
+  return <section className={styles.AdmissionPolicyForm__recovery} aria-label="Recuperar operación original">
+    <p role="status">{ADMISSION_POLICY_BROWSER_COPY.uncertain}</p>
+    <Button variant="secondary" disabled={props.busy} onClick={props.onReloadCurrent}>Consultar operación original</Button>
+    {props.canRetryOriginal && <>
+      <Checkbox id={retryId} checked={props.retryConfirmed} disabled={props.busy} label="Confirmo reintentar la misma operación con sus datos originales." onCheckedChange={(checked) => props.onRetryConfirm(checked === true)} />
+      <Button loading={props.pendingAction === ADMISSION_POLICY_ACTION.original} disabled={!props.retryConfirmed || (props.busy && props.pendingAction !== ADMISSION_POLICY_ACTION.original)} onClick={props.onRetryOriginal}>Reintentar operación original</Button>
+    </>}
+  </section>;
+}
+
+/** @param unavailable - The policy needs a review only the team can do. @param uncertain - The original write result is unknown. @returns Why the rules cannot be changed now, or null. */
+function policyLockedReason(unavailable: boolean, uncertain: boolean): string | null {
+  if (unavailable) return ADMISSION_POLICY_BROWSER_COPY.unavailable;
+  return uncertain ? ADMISSION_POLICY_BROWSER_COPY.originalPending : null;
+}
+
 /**
  * @param props - Current safe state, retained draft, active step, write state and validated container callbacks.
  * @returns The current state summary, then either the guided rules flow or the open/paused status with its actions.
@@ -66,9 +105,7 @@ export function AdmissionPolicyForm(props: AdmissionPolicyFormProps) {
   const editorTitleId = useId(), retryId = useId();
   const unavailable = props.state.state === ADMISSION_POLICY_PUBLIC_STATE.unavailable;
   const showStatus = props.state.controlActivated && !props.editing;
-  const badge = STATE_BADGE[props.state.state];
-  const pending = props.state.impact.pendingRequestCount;
-  const lockedReason = unavailable ? ADMISSION_POLICY_BROWSER_COPY.unavailable : props.uncertain ? ADMISSION_POLICY_BROWSER_COPY.originalPending : null;
+  const lockedReason = policyLockedReason(unavailable, props.uncertain);
   const stepIds = admissionPolicyStepIds(props.editing, Boolean(props.membershipStep));
   const contactStep = stepIds.indexOf(ADMISSION_POLICY_STEP.contact), finalStep = stepIds.length - 1;
   const draftUnpublished = Boolean(props.state.policy) && !props.state.controlActivated && !unavailable;
@@ -77,30 +114,9 @@ export function AdmissionPolicyForm(props: AdmissionPolicyFormProps) {
     onReviewContact={showStatus ? undefined : () => props.onStepChange(contactStep)} onReviewCommercial={showStatus ? undefined : props.onReviewCommercial} />;
 
   return <div className={styles.AdmissionPolicyForm} aria-busy={props.busy}>
-    <section className={styles.AdmissionPolicyForm__summary} aria-label="Estado actual">
-      <ul className={styles.AdmissionPolicyForm__badges}>
-        <li><Badge tone={badge.tone}>{badge.label}</Badge></li>
-        <li><Badge tone="neutral">{pending === 1 ? "1 solicitud pendiente" : `${pending} solicitudes pendientes`}</Badge></li>
-      </ul>
-      {!props.state.controlActivated && !unavailable && !props.state.policy && <p className={styles.AdmissionPolicyForm__lead}>Todavía no hay reglas de admisión. Completá los pasos: al final guardamos las reglas y activamos las admisiones en una sola acción.</p>}
-      {draftUnpublished && <div className={styles.AdmissionPolicyForm__draft} role="group" aria-label={ADMISSION_POLICY_DRAFT_COPY.title}>
-        <p className={styles.AdmissionPolicyForm__draftTitle}>{ADMISSION_POLICY_DRAFT_COPY.title}</p>
-        <p className={styles.AdmissionPolicyForm__lead}>{props.platformBlocked ? ADMISSION_POLICY_DRAFT_COPY.platformBlocked : ADMISSION_POLICY_DRAFT_COPY.description}</p>
-        {!props.platformBlocked && props.onReviewDraft && props.step !== finalStep && <Button variant="secondary" size="sm" disabled={props.busy || props.uncertain} onClick={props.onReviewDraft}>{ADMISSION_POLICY_DRAFT_COPY.action}</Button>}
-      </div>}
-      {props.permissionDenied && <p role="alert" className={`${styles.AdmissionPolicyForm__feedback} ${styles["AdmissionPolicyForm__feedback--alert"]}`}>{ADMISSION_POLICY_BROWSER_COPY.permissionDenied}</p>}
-      {unavailable && <p role="alert" className={`${styles.AdmissionPolicyForm__feedback} ${styles["AdmissionPolicyForm__feedback--alert"]}`}>{ADMISSION_POLICY_BROWSER_COPY.unavailable}</p>}
-      {props.statusMessage && <p role="status" className={styles.AdmissionPolicyForm__feedback}>{props.statusMessage}</p>}
-    </section>
+    <PolicySummary props={props} unavailable={unavailable} draftUnpublished={draftUnpublished} finalStep={finalStep} />
 
-    {props.uncertain && <section className={styles.AdmissionPolicyForm__recovery} aria-label="Recuperar operación original">
-      <p role="status">{ADMISSION_POLICY_BROWSER_COPY.uncertain}</p>
-      <Button variant="secondary" disabled={props.busy} onClick={props.onReloadCurrent}>Consultar operación original</Button>
-      {props.canRetryOriginal && <>
-        <Checkbox id={retryId} checked={props.retryConfirmed} disabled={props.busy} label="Confirmo reintentar la misma operación con sus datos originales." onCheckedChange={(checked) => props.onRetryConfirm(checked === true)} />
-        <Button loading={props.pendingAction === ADMISSION_POLICY_ACTION.original} disabled={!props.retryConfirmed || (props.busy && props.pendingAction !== ADMISSION_POLICY_ACTION.original)} onClick={props.onRetryOriginal}>Reintentar operación original</Button>
-      </>}
-    </section>}
+    {props.uncertain && <PolicyOriginalRecovery props={props} retryId={retryId} />}
 
     {!unavailable && (showStatus
       ? <PolicyStatusPanel rules={props.savedRules} busy={props.busy} locked={props.uncertain} pendingAction={props.pendingAction} pauseOpen={props.pauseOpen} pauseReason={props.pauseReason} feedback={feedback}

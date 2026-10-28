@@ -22,11 +22,21 @@ type PolicyRouteContext = { params: Promise<{ slug: string }> };
 type PolicyCommandIdentity = { operationId: string };
 type PolicyCommandScope = { tribeId: string; requestId: string };
 type PolicyCommandResponse = Awaited<ReturnType<ManageAdmissionPolicyUseCases["initialize"]>>;
+/** One policy command: its diagnostic operation, body schema and application call. */
+type PolicyCommand<Input extends PolicyCommandIdentity> = { operation: string; schema: z.ZodType<Input>; execute: (services: AdmissionPolicyCommandServices, input: Input & PolicyCommandScope) => Promise<PolicyCommandResponse> };
+
+/** @returns Whether a completed original belongs to this policy, commits the expected version, and matches what initialization or activation must produce. */
+function isConsistentPolicyResult({ result, tribeId, body, operation }: { result: z.infer<typeof admissionPolicyMutationResultSchema>; tribeId: string; body: PolicyCommandIdentity; operation: string }): boolean {
+  if (result.policyId.toLowerCase() !== tribeId.toLowerCase()) return false;
+  if ("expectedVersion" in body && typeof body.expectedVersion === "number" && result.version !== body.expectedVersion + (result.changed ? 1 : 0)) return false;
+  if (operation === ADMISSION_HTTP_OPERATION.policyInitialize && result.changed && (result.version !== 1 || result.verificationEpoch !== 1 || result.activatedAt !== null || result.controlActivated)) return false;
+  return operation !== ADMISSION_HTTP_OPERATION.policyActivate || result.controlActivated;
+}
 
 /** @param open - Native server composition, after input/origin validation. @returns Command handlers preserving original UUID/version and only confirmed own outcomes. */
 export function createAdmissionPolicyCommandHandlers(open: () => Promise<AdmissionPolicyCommandServices>) {
   /** Validates each input once and prevents an unusable or foreign operation result from becoming a successful response. */
-  async function command<Input extends PolicyCommandIdentity>(request: Request, context: PolicyRouteContext, operation: string, schema: z.ZodType<Input>, execute: (services: AdmissionPolicyCommandServices, input: Input & PolicyCommandScope) => Promise<PolicyCommandResponse>): Promise<Response> {
+  async function command<Input extends PolicyCommandIdentity>(request: Request, context: PolicyRouteContext, { operation, schema, execute }: PolicyCommand<Input>): Promise<Response> {
     const boundary = createAdmissionRouteBoundary({ request, operation });
     try {
       if (!hasAllowedAdmissionOrigin(request)) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.permissionDenied));
@@ -43,29 +53,22 @@ export function createAdmissionPolicyCommandHandlers(open: () => Promise<Admissi
       if (!result.ok) return boundary.failure(result.failure);
       const parsed = createAdmissionOperationStateSchema(admissionPolicyMutationResultSchema).safeParse(result.value);
       if (!parsed.success || parsed.data.operationId.toLowerCase() !== body.value.operationId.toLowerCase()
-        || parsed.data.state === OPERATION_STATE.completed && parsed.data.result.policyId.toLowerCase() !== identity.value.tribeId.toLowerCase()) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
-      if (parsed.data.state === OPERATION_STATE.completed && "expectedVersion" in body.value && typeof body.value.expectedVersion === "number") {
-        const committedVersion = body.value.expectedVersion + (parsed.data.result.changed ? 1 : 0);
-        if (parsed.data.result.version !== committedVersion) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
-      }
-      if (parsed.data.state === OPERATION_STATE.completed && operation === ADMISSION_HTTP_OPERATION.policyInitialize && parsed.data.result.changed
-        && (parsed.data.result.version !== 1 || parsed.data.result.verificationEpoch !== 1 || parsed.data.result.activatedAt !== null || parsed.data.result.controlActivated)) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
-      if (parsed.data.state === OPERATION_STATE.completed && operation === ADMISSION_HTTP_OPERATION.policyActivate && !parsed.data.result.controlActivated) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
+        || parsed.data.state === OPERATION_STATE.completed && !isConsistentPolicyResult({ result: parsed.data.result, tribeId: identity.value.tribeId, body: body.value, operation })) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
       return boundary.success(createAdmissionOperationStateSchema(admissionPolicyMutationResultSchema), parsed.data, parsed.data.state === OPERATION_STATE.started ? HTTP_STATUS.accepted : HTTP_STATUS.ok);
     } catch (error) { return boundary.unexpected(error); }
   }
 
   return {
     /** @param request - Native request. @param context - Framework params. @returns Closed default initialization only after explicit confirmation and current authority. */
-    initialize: (request: Request, context: PolicyRouteContext) => command(request, context, ADMISSION_HTTP_OPERATION.policyInitialize, admissionPolicyInitializationSchema, (services, input) => services.policy.initialize(input)),
+    initialize: (request: Request, context: PolicyRouteContext) => command(request, context, { operation: ADMISSION_HTTP_OPERATION.policyInitialize, schema: admissionPolicyInitializationSchema, execute: (services, input) => services.policy.initialize(input) }),
     /** @param request - Native request. @param context - Framework params. @returns Original observed-version edit, without client countries or server-controlled counters. */
-    update: (request: Request, context: PolicyRouteContext) => command(request, context, ADMISSION_HTTP_OPERATION.policyUpdate, admissionPolicyUpdateSchema, (services, input) => {
+    update: (request: Request, context: PolicyRouteContext) => command(request, context, { operation: ADMISSION_HTTP_OPERATION.policyUpdate, schema: admissionPolicyUpdateSchema, execute: (services, input) => {
       const { operationId, confirmed, expectedVersion, tribeId, requestId, ...patch } = input;
       return services.policy.update({ operationId, confirmed, expectedVersion, tribeId, requestId, patch });
-    }),
+    } }),
     /** @param request - Native request. @param context - Framework params. @returns Original activation; browser preflight flags are rejected. */
-    activate: (request: Request, context: PolicyRouteContext) => command(request, context, ADMISSION_HTTP_OPERATION.policyActivate, admissionPolicyActivationSchema, (services, input) => services.policy.activate(input)),
+    activate: (request: Request, context: PolicyRouteContext) => command(request, context, { operation: ADMISSION_HTTP_OPERATION.policyActivate, schema: admissionPolicyActivationSchema, execute: (services, input) => services.policy.activate(input) }),
     /** @param request - Native request. @param context - Framework params. @returns Explicit observed-version pause without removing protection. */
-    pause: (request: Request, context: PolicyRouteContext) => command(request, context, ADMISSION_HTTP_OPERATION.policyPause, admissionPolicyPauseSchema, (services, input) => services.policy.pause(input)),
+    pause: (request: Request, context: PolicyRouteContext) => command(request, context, { operation: ADMISSION_HTTP_OPERATION.policyPause, schema: admissionPolicyPauseSchema, execute: (services, input) => services.policy.pause(input) }),
   };
 }

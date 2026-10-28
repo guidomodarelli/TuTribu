@@ -411,7 +411,7 @@ function buildMercadoPagoRequestFailureMessage(
   status: number,
   body: unknown
 ): string {
-  const baseMessage = "Mercado Pago request failed with status " + status;
+  const baseMessage = `Mercado Pago request failed with status ${status}`;
   if (!body || typeof body !== "object") {
     return baseMessage;
   }

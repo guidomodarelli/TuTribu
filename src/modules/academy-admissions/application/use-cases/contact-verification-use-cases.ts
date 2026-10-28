@@ -1,7 +1,7 @@
 /** Orchestrates explicit admission verification with server-owned account/contact and post-commit dispatch recovery. @module contact-verification-use-cases */
 import type {AuthenticatedAccountProvider} from "@/src/modules/auth/domain/repositories/authenticated-account-provider";
 import {isAuthenticatedSessionLive} from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
-import type {AdmissionContactVerificationOperations,AdmissionContactChallengeDispatcher,AdmissionVerificationAccountScope,AdmissionChallengeSnapshot,AdmissionChallengeVerificationSnapshot} from "@/src/modules/academy-admissions/domain/repositories/admission-contact-verification";
+import type {AdmissionContactVerificationOperations,AdmissionContactChallengeDispatcher,AdmissionVerificationAccountScope,AdmissionChallengeSnapshot} from "@/src/modules/academy-admissions/domain/repositories/admission-contact-verification";
 import type {AdmissionOperationResult} from "@/src/modules/academy-admissions/domain/entities/admission-operation";
 import {normalizeAdmissionContact} from "@/src/modules/academy-admissions/domain/value-objects/admission-contact";
 import {ADMISSION_CONTACT_TYPE,ADMISSION_CONTACT_NORMALIZATION_STATUS} from "@/src/modules/academy-admissions/constants/admission-contact";
@@ -38,7 +38,7 @@ export class ContactVerificationUseCases{
   }
 
   /** @param operationId - Exact original client identity. @param value - Own writer result. @returns Nothing when identity and completed proof purpose match. @throws AdmissionOperationError before exposing or dispatching a crossed original. */
-  private assertOriginal(operationId:string,value:AdmissionOperationResult<AdmissionChallengeSnapshot|AdmissionChallengeVerificationSnapshot>):void{
+  private assertOriginal(operationId:string,value:AdmissionOperationResult<{purpose:string}>):void{
     if(value.operationId!==operationId||value.state===OPERATION_STATE.completed&&value.result.purpose!==ADMISSION_VERIFICATION_PURPOSE.admission)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
   }
 
@@ -63,10 +63,10 @@ export class ContactVerificationUseCases{
   async issue(input:IssueAdmissionContactChallengeInput){
     try{
       const {scope,email}=await this.principal(input);
-      if(!input.confirmed||input.country&&!input.phone||input.invitationToken&&input.legacyInvitationToken)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+      if(input.country&&!input.phone||input.invitationToken&&input.legacyInvitationToken)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
       const normalized=normalizeAdmissionContact(input.phone?{type:ADMISSION_CONTACT_TYPE.phone,value:input.phone,country:input.country}:{type:ADMISSION_CONTACT_TYPE.email,value:email});
       if(normalized.status!==ADMISSION_CONTACT_NORMALIZATION_STATUS.valid||normalized.contact.type===ADMISSION_CONTACT_TYPE.email&&input.channel!==MESSAGING_PUBLIC_CHANNEL.email||normalized.contact.type===ADMISSION_CONTACT_TYPE.phone&&input.channel===MESSAGING_PUBLIC_CHANNEL.email)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-      const source=input.invitationToken?{kind:ADMISSION_REQUEST_SOURCE.personal,token:input.invitationToken}:input.legacyInvitationToken?{kind:ADMISSION_REQUEST_SOURCE.legacy,token:input.legacyInvitationToken}:{kind:ADMISSION_REQUEST_SOURCE.common};
+      const source=admissionChallengeSource(input);
       const value=await this.operations.issue({...scope,operationId:input.operationId,expectedPolicyVersion:input.expectedPolicyVersion,confirmed:input.confirmed,contact:normalized.contact,channel:input.channel,admissionRequestId:input.admissionRequestId??null,source});
       return await this.observe(scope,input.operationId,value,input.channel);
     }catch(error){return this.failure(input.operationId,error);}
@@ -83,4 +83,10 @@ export class ContactVerificationUseCases{
     try{const {scope}=await this.principal(input),value=await this.operations.resend({...scope,operationId:input.operationId,challengeId:input.challengeId,...(input.useSmsAlternative?{useSmsAlternative:input.useSmsAlternative}:{})});return await this.observe(scope,input.operationId,value,input.useSmsAlternative?MESSAGING_PUBLIC_CHANNEL.sms:undefined);}
     catch(error){return this.failure(input.operationId,error);}
   }
+}
+
+/** @param input - Proposed invitation tokens. @returns The personal source first, then the legacy one, else the common source. */
+function admissionChallengeSource(input:Pick<IssueAdmissionContactChallengeInput,"invitationToken"|"legacyInvitationToken">){
+  if(input.invitationToken)return{kind:ADMISSION_REQUEST_SOURCE.personal,token:input.invitationToken};
+  return input.legacyInvitationToken?{kind:ADMISSION_REQUEST_SOURCE.legacy,token:input.legacyInvitationToken}:{kind:ADMISSION_REQUEST_SOURCE.common};
 }

@@ -50,10 +50,10 @@ export class PostgresMessagingAuthorizationReader implements MessagingAuthorizat
     if(!actor)return null;
     const leadership=await this.getCurrentLeadership(tribeId,actor);
     if(leadership?.leaderUserId!==actor||leadership.membership?.role!==TRIBE_MEMBER_ROLE.leader||leadership.membership.status!==TRIBE_MEMBERSHIP_STATUS.active)return null;
-    if(this.selection!==MESSAGING_RESOURCE_SELECTION.selected&&this.selection!==MESSAGING_RESOURCE_SELECTION.candidate&&this.selection!==MESSAGING_RESOURCE_SELECTION.management)return null;
+    /* The composition choice is revalidated at runtime, so it is read as untrusted text. */const selection:string=this.selection;
+    if(selection!==MESSAGING_RESOURCE_SELECTION.selected&&selection!==MESSAGING_RESOURCE_SELECTION.candidate&&selection!==MESSAGING_RESOURCE_SELECTION.management)return null;
     if(this.originalVersion!==undefined&&(!Number.isInteger(this.originalVersion)||this.originalVersion<1||this.selection!==MESSAGING_RESOURCE_SELECTION.management))return null;
-    const version=this.originalVersion!==undefined?sql`${this.originalVersion}`:this.selection===MESSAGING_RESOURCE_SELECTION.management?sql`case when connection.is_candidate and connection.candidate_version is not null then connection.candidate_version else connection.selected_version end`:this.selection===MESSAGING_RESOURCE_SELECTION.candidate?sql`connection.candidate_version`:sql`connection.selected_version`;
-    const slot=this.originalVersion!==undefined?sql`((connection.is_candidate and connection.candidate_version=${this.originalVersion}) or (connection.is_selected and connection.selected_version=${this.originalVersion}))`:this.selection===MESSAGING_RESOURCE_SELECTION.management?sql`((connection.is_candidate and connection.candidate_version is not null) or (connection.is_selected and connection.selected_version is not null))`:this.selection===MESSAGING_RESOURCE_SELECTION.candidate?sql`connection.is_candidate`:sql`connection.is_selected`;
+    const version=this.versionClause(),slot=this.slotClause();
     const row=(await this.database.execute<{id:string;tribe_id:string;version:number;contributed_by_user_id:string;state:MessagingConnectionAuthorizationFacts["state"];environment:string;security_epoch:string;retired_at:Date|string|null;secret_ref:string|null}>(sql`
       select connection.id,connection.tribe_id,resource.version,connection.contributed_by_user_id,connection.state,connection.environment,connection.security_epoch,coalesce(connection.retired_at,resource.retired_at) as retired_at,resource.secret_ref
       from public.tenant_messaging_connections connection join public.messaging_connection_versions resource on resource.connection_id=connection.id and resource.tribe_id=connection.tribe_id and resource.version=${version}
@@ -62,5 +62,17 @@ export class PostgresMessagingAuthorizationReader implements MessagingAuthorizat
     `)).rows[0];
     if(!row||!await this.sessionIsLive(actor))return null;
     return {id:row.id,tribeId:row.tribe_id,version:row.version,contributedByUserId:row.contributed_by_user_id,state:row.state,environment:row.environment,securityEpoch:row.security_epoch,retiredAt:row.retired_at===null?null:new Date(row.retired_at),secretRef:row.secret_ref};
+  }
+  /** @returns The configuration version the read resolves: the original one, or the one of the requested selection. */
+  private versionClause(){
+    if(this.originalVersion!==undefined)return sql`${this.originalVersion}`;
+    if(this.selection===MESSAGING_RESOURCE_SELECTION.management)return sql`case when connection.is_candidate and connection.candidate_version is not null then connection.candidate_version else connection.selected_version end`;
+    return this.selection===MESSAGING_RESOURCE_SELECTION.candidate?sql`connection.candidate_version`:sql`connection.selected_version`;
+  }
+  /** @returns The slot condition the connection must hold for the requested selection or original version. */
+  private slotClause(){
+    if(this.originalVersion!==undefined)return sql`((connection.is_candidate and connection.candidate_version=${this.originalVersion}) or (connection.is_selected and connection.selected_version=${this.originalVersion}))`;
+    if(this.selection===MESSAGING_RESOURCE_SELECTION.management)return sql`((connection.is_candidate and connection.candidate_version is not null) or (connection.is_selected and connection.selected_version is not null))`;
+    return this.selection===MESSAGING_RESOURCE_SELECTION.candidate?sql`connection.is_candidate`:sql`connection.is_selected`;
   }
 }

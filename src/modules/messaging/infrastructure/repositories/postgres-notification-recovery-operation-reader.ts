@@ -17,7 +17,7 @@ export class PostgresNotificationRecoveryOperationReader implements Notification
   constructor(private readonly execute: <Result>(context: MessagingUsageContext, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>) {}
 
   /** @param context - Server-derived current actor/session/tribe. @param operationId - Original caller UUID. @returns Only the original public state or absence, never private intent, key, lease or provider metadata. */
-  async read(context: MessagingUsageContext, operationId: string): Promise<unknown | null> {
+  async read(context: MessagingUsageContext, operationId: string): Promise<unknown> {
     return this.execute(context, async (database) => {
       await authorizeMessagingTribeManagement(database, context);
       const row = (await database.execute<RecoveryOperationRow>(sql`select state,idempotency_key,public_result from public.academy_admission_operations where actor_user_id=${context.actorUserId} and tribe_id=${context.tribeId} and operation_type=${MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.recoverNotification} and idempotency_key=${operationId}`)).rows[0];

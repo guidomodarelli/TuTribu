@@ -130,6 +130,47 @@ export async function GET(
   }
 }
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type CreateTribeInvitationResult = Awaited<
+  ReturnType<RequestModules["tribes"]["useCases"]["createTribeInvitation"]>
+>;
+
+function createPostResultResponse(result: CreateTribeInvitationResult): Response {
+  switch (result.status) {
+    case TRIBE_INVITATION_STATUS.created:
+      return createJsonResponse(
+        {
+          invitation: result.invitation,
+          invitationUrl: result.invitationUrl,
+          message: INVITATION_ROUTE_RESPONSE.createdMessage,
+        },
+        HTTP_STATUS.created
+      );
+    case TRIBE_INVITATION_STATUS.invalid:
+      return createJsonResponse(
+        { message: INVITATION_ROUTE_RESPONSE.invalidInputMessage },
+        HTTP_STATUS.badRequest
+      );
+    case TRIBE_INVITATION_STATUS.notFound:
+      return createJsonResponse(
+        { message: INVITATION_ROUTE_RESPONSE.notFoundMessage },
+        HTTP_STATUS.notFound
+      );
+    case TRIBE_INVITATION_STATUS.setupRequired:
+      return createJsonResponse(
+        { message: INVITATION_ROUTE_RESPONSE.setupRequiredMessage },
+        HTTP_STATUS.serviceUnavailable
+      );
+    case TRIBE_INVITATION_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        { message: INVITATION_ROUTE_RESPONSE.forbiddenMessage },
+        HTTP_STATUS.forbidden
+      );
+  }
+}
+
 export async function POST(
   request: Request,
   context: {
@@ -156,7 +197,7 @@ export async function POST(
   }
 
   try {
-    const body = await request.json().catch(() => null);
+    const body: unknown = await request.json().catch(() => null);
     const referralMetadata = readInvitationReferralMetadata(body);
     const result = await modules.tribes.useCases.createTribeInvitation({
       baseUrl: resolvePublicAppBaseUrl(),
@@ -167,38 +208,7 @@ export async function POST(
       tribeSlug: slug,
     });
 
-    switch (result.status) {
-      case TRIBE_INVITATION_STATUS.created:
-        return createJsonResponse(
-          {
-            invitation: result.invitation,
-            invitationUrl: result.invitationUrl,
-            message: INVITATION_ROUTE_RESPONSE.createdMessage,
-          },
-          HTTP_STATUS.created
-        );
-      case TRIBE_INVITATION_STATUS.invalid:
-        return createJsonResponse(
-          { message: INVITATION_ROUTE_RESPONSE.invalidInputMessage },
-          HTTP_STATUS.badRequest
-        );
-      case TRIBE_INVITATION_STATUS.notFound:
-        return createJsonResponse(
-          { message: INVITATION_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case TRIBE_INVITATION_STATUS.setupRequired:
-        return createJsonResponse(
-          { message: INVITATION_ROUTE_RESPONSE.setupRequiredMessage },
-          HTTP_STATUS.serviceUnavailable
-        );
-      case TRIBE_INVITATION_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: INVITATION_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-    }
+    return createPostResultResponse(result);
   } catch (error) {
     logger.error({
       message: INVITATION_ROUTE_LOG.createFailureMessage,

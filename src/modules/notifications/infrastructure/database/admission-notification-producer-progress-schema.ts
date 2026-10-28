@@ -10,8 +10,8 @@ export function createAdmissionNotificationProducerProgressSchema(tribeId: AnyPg
     tribeId: uuid("tribe_id").primaryKey().references(() => tribeId, { onDelete: "cascade" }),
     version: integer("version").notNull().default(1),
     lastSelectedAt: timestamp("last_selected_at", { withTimezone: true, mode: "string" }).notNull().default(sql`clock_timestamp()`),
-  }, (table) => ({
-    versionCheck: check(ADMISSION_NOTIFICATION_PRODUCER_PROGRESS_STORAGE.versionCheck, sql`${table.version}>0`),
-    clockCheck: check(ADMISSION_NOTIFICATION_PRODUCER_PROGRESS_STORAGE.clockCheck, sql`isfinite(${table.lastSelectedAt}) and abs(extract(epoch from ${table.lastSelectedAt})*${MICROSECONDS_PER_SECOND})<=${Number.MAX_SAFE_INTEGER}`),
-  })).enableRLS();
+  }, (table) => [
+    check(ADMISSION_NOTIFICATION_PRODUCER_PROGRESS_STORAGE.versionCheck, sql`${table.version}>0`),
+    check(ADMISSION_NOTIFICATION_PRODUCER_PROGRESS_STORAGE.clockCheck, sql`isfinite(${table.lastSelectedAt}) and abs(extract(epoch from ${table.lastSelectedAt})*${MICROSECONDS_PER_SECOND})<=${Number.MAX_SAFE_INTEGER}`),
+  ]).enableRLS();
 }

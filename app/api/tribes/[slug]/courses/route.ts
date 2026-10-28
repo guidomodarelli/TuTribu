@@ -37,7 +37,7 @@ export async function POST(
   }
 
   try {
-    const body = await request.json().catch(() => null);
+    const body: unknown = await request.json().catch(() => null);
     const result = await modules.courses.useCases.createCourse({
       accessRequirement: readOptionalField(body, COURSE_ROUTE_FIELD.accessRequirement),
       coverImageUrl: readStringField(body, COURSE_ROUTE_FIELD.coverImageUrl),

@@ -57,12 +57,12 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native private pro
         expect(audit).toHaveLength(4);
         expect(audit.every((event) => event.actor_user_id === null && event.operation_id === null && event.resource_version === null && Object.keys(event.metadata).sort().join(",") === "activeKeyId,previousKeyId,purpose,securityEpoch")).toBe(true);
       });
-      const repository = new PostgresMessageDeliveryRepository(fixture.pipeline.execute, async () => true, async () => operational);
+      const repository = new PostgresMessageDeliveryRepository({ execute: fixture.pipeline.execute, authorizeMaintenance: async () => true, readSecurityConfig: async () => operational });
       const claim = (await repository.claim({ leaseToken: randomUUID(), limit: 1, leaseSeconds: 300 }))[0];
       if (!claim) throw new Error("Synthetic rotation original claim unavailable");
       const marker = await repository.authorize(claim, randomUUID());
       if (marker.outcome !== "authorized") throw new Error("Synthetic rotation original marker unavailable");
-      const secrets = new PostgresEncryptedSecretStore(fixture.pipeline.execute, { getAuthenticatedAccount: async () => null }, async () => operational, "authorized_delivery");
+      const secrets = new PostgresEncryptedSecretStore({ executeWithDatabase: fixture.pipeline.execute, accounts: { getAuthenticatedAccount: async () => null }, readSecurityConfig: async () => operational, purpose: "authorized_delivery" });
       const preparation = new PostgresVerificationDeliveryPreparation(fixture.pipeline.execute, secrets, async () => operational);
       const providerId = randomUUID(), transport = createAdmissionProviderTransport([{ origin: "https://api.zavu.dev", pathname: "/v1/messages", method: "POST", respond: async (request) => {
         expect(request.headers.get("Authorization") === `Bearer ${fixture.pipeline.credential}`).toBe(true); expect(fixture.pipeline.transactions).toBe(0);

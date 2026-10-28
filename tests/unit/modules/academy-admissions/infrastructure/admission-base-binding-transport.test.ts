@@ -54,17 +54,17 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native base contac
       expect(contended).toEqual({ status: "fulfilled", value: { binding_id: null, binding_owner_user_id: null, has_minimized_bindings: false } });
       const observation = await database.withContext(context, async (transaction) => {
         const observer = createAdmissionStatementObserver();
-        await bindBaseAdmissionContact(observeAdmissionDatabase(transaction, observer), scope, prepared.request, prepared.facts, fixture.config);
+        await bindBaseAdmissionContact(observeAdmissionDatabase(transaction, observer), scope, { request: prepared.request, facts: prepared.facts }, fixture.config);
         return observer.snapshot();
       });
       const stored = await database.withContext(context, async (transaction) => (await transaction.execute<{ version: number; evidence_source: string; capture_id: string; owner_user_id: string; fingerprint_matches: boolean }>(sql`select request.version,request.evidence_source,request.global_identity_evidence_id as capture_id,binding.owner_user_id,request.contact_fingerprint=binding.contact_fingerprint as fingerprint_matches from public.academy_admission_requests request join public.academy_admission_contact_bindings binding on binding.id=request.binding_id where request.id=${prepared.request.id}`)).rows[0]);
       expect(stored).toEqual({ version: VALIDATION.boundRequestVersion, evidence_source: ADMISSION_EVIDENCE_KIND.base, capture_id: claimant.evidenceId, owner_user_id: claimant.userId, fingerprint_matches: true });
-      const stale = database.withContext(context, (transaction) => bindBaseAdmissionContact(transaction, scope, prepared.request, prepared.facts, fixture.config));
+      const stale = database.withContext(context, (transaction) => bindBaseAdmissionContact(transaction, scope, { request: prepared.request, facts: prepared.facts }, fixture.config));
       await expect(stale).rejects.toMatchObject({ code: ADMISSION_ERROR_CODE.requestConflict });
       expect(await database.withContext(context, async (transaction) => (await transaction.execute(sql`select version from public.academy_admission_requests where id=${prepared.request.id}`)).rows)).toEqual([{ version: VALIDATION.boundRequestVersion }]);
 
       const failedCas = await prepareSubmission();
-      await expect(database.withContext(failedCas.context, (transaction) => bindBaseAdmissionContact(transaction, failedCas.scope, { ...failedCas.request, version: VALIDATION.boundRequestVersion }, failedCas.facts, fixture.config))).rejects.toMatchObject({ code: ADMISSION_ERROR_CODE.requestConflict });
+      await expect(database.withContext(failedCas.context, (transaction) => bindBaseAdmissionContact(transaction, failedCas.scope, { request: { ...failedCas.request, version: VALIDATION.boundRequestVersion }, facts: failedCas.facts }, fixture.config))).rejects.toMatchObject({ code: ADMISSION_ERROR_CODE.requestConflict });
       const rolledBack = await database.withContext(failedCas.context, async (transaction) => ({
         bindings: (await transaction.execute(sql`select id from public.academy_admission_contact_bindings where tribe_id=${fixture.tribeId} and owner_user_id=${failedCas.claimant.userId}`)).rows,
         requests: (await transaction.execute(sql`select version,evidence_source,binding_id,global_identity_evidence_id from public.academy_admission_requests where id=${failedCas.request.id}`)).rows,
@@ -85,7 +85,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native base contac
       expect(await restrictedAccess((transaction) => transaction.execute(sql`select id from public.academy_admission_contact_bindings where tribe_id=${fixture.tribeId} for update`))).toContain(VALIDATION.permissionDeniedSqlState);
       expect(await restrictedAccess((transaction) => prepareBaseAdmissionBinding(transaction, fixture.tribeId, prepared.contact))).toContain(VALIDATION.permissionDeniedSqlState);
       const fingerprint = await createAdmissionContactFingerprint(failedCas.contact, fixture.config);
-      expect(await restrictedAccess((transaction) => writeBaseAdmissionBinding(transaction, failedCas.request, failedCas.contact, failedCas.claimant.evidenceId, fingerprint, null))).toContain(VALIDATION.permissionDeniedSqlState);
+      expect(await restrictedAccess((transaction) => writeBaseAdmissionBinding(transaction, failedCas.request, failedCas.contact, { evidenceId: failedCas.claimant.evidenceId, fingerprint, bindingId: null }))).toContain(VALIDATION.permissionDeniedSqlState);
       const metadata = await database.withContext(context, async (transaction) => (await transaction.execute<{ invoker: boolean; volatility: string }>(sql`select not prosecdef as invoker,provolatile as volatility from pg_proc where oid in ('public.prepare_base_admission_contact_binding(uuid,text,text,text)'::regprocedure,'public.write_base_admission_contact_binding(uuid,text,uuid,integer,text,text,uuid,bytea,text,uuid)'::regprocedure)`)).rows);
       expect(metadata).toHaveLength(VALIDATION.sqlHelpers);
       expect(metadata.every((routine) => routine.invoker && routine.volatility === "v")).toBe(true);

@@ -89,9 +89,28 @@ function buildVideoPageUrl(
       return `${VIDEO_PAGE_URL.wistiaEmbedIframe}${externalId}`;
     case VIDEO_PROVIDER.loom:
       return `${VIDEO_PAGE_URL.loomShare}${externalId}`;
+    case VIDEO_PROVIDER.youtube:
     default:
       return null;
   }
+}
+
+/**
+ * Picks the oEmbed endpoint of a provider that has a video page URL.
+ *
+ * @param provider - Vimeo, Wistia or Loom (the providers with a page URL).
+ * @returns The provider's oEmbed endpoint; Loom for any other provider.
+ */
+function resolveOEmbedEndpoint(provider: VideoProvider): string {
+  if (provider === VIDEO_PROVIDER.vimeo) {
+    return OEMBED_ENDPOINT.vimeo;
+  }
+
+  if (provider === VIDEO_PROVIDER.wistia) {
+    return OEMBED_ENDPOINT.wistia;
+  }
+
+  return OEMBED_ENDPOINT.loom;
 }
 
 /**
@@ -114,14 +133,7 @@ export function buildVideoOEmbedRequestUrl(
     return null;
   }
 
-  const endpoint =
-    provider === VIDEO_PROVIDER.vimeo
-      ? OEMBED_ENDPOINT.vimeo
-      : provider === VIDEO_PROVIDER.wistia
-        ? OEMBED_ENDPOINT.wistia
-        : OEMBED_ENDPOINT.loom;
-
-  const requestUrl = new URL(endpoint);
+  const requestUrl = new URL(resolveOEmbedEndpoint(provider));
   requestUrl.searchParams.set(OEMBED_URL_QUERY_PARAM, videoPageUrl);
 
   return requestUrl.toString();

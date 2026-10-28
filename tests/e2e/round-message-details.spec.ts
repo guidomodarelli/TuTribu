@@ -151,16 +151,21 @@ test.describe("viewed by the leader", () => {
   }
 });
 
-/** Waits past the hover card open delay and asserts the likers card stayed closed. */
+/**
+ * Moves the page clock past the hover card open delay, which fires any pending open at once, and asserts the likers
+ * card stayed closed. The page clock must be installed before the page loads.
+ */
 async function expectLikesHoverCardClosed(page: Page, dialog: Locator) {
-  await page.waitForTimeout(HOVER_CARD_SETTLE_MS);
+  await page.clock.runFor(HOVER_CARD_SETTLE_MS);
 
   await expect(page.getByText(LIKES_HOVER_CARD_TITLE)).toBeHidden();
   await expect(dialog.getByRole("button", { name: /^Me gusta/ })).not.toBeFocused();
 }
 
 test.describe("viewed by a tribemate, without the message actions menu", () => {
-  test.beforeEach(async ({ context }) => {
+  test.beforeEach(async ({ context, page }) => {
+    // The page clock keeps running in real time; it only lets the hover card checks skip ahead.
+    await page.clock.install();
     await signIn(context, seededSession.tribemateSessionCookie);
   });
 

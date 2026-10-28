@@ -65,16 +65,29 @@ function extractVimeo(url: URL): string | null {
 
   const hashFromPath = segments[idIndex + 1];
   const hashFromQuery = url.searchParams.get(VIMEO_HASH_QUERY_PARAM);
-  const hash =
-    hashFromPath && VIMEO_HASH_PATTERN.test(hashFromPath)
-      ? hashFromPath
-      : hashFromQuery && VIMEO_HASH_PATTERN.test(hashFromQuery)
-        ? hashFromQuery
-        : null;
+  const hash = pickVimeoHash([hashFromPath, hashFromQuery]);
 
   return hash
     ? `${idCandidate}${VIMEO_ID_HASH_SEPARATOR}${hash}`
     : idCandidate;
+}
+
+/**
+ * Picks the first valid Vimeo privacy hash, the path one before the query one.
+ *
+ * @param candidates - Hash from the path, then hash from the query string.
+ * @returns The first candidate that is a valid hash, or `null`.
+ */
+function pickVimeoHash(
+  candidates: readonly (string | null | undefined)[]
+): string | null {
+  for (const candidate of candidates) {
+    if (candidate && VIMEO_HASH_PATTERN.test(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
 }
 
 function extractWistia(url: URL): string | null {
@@ -132,11 +145,7 @@ function extractYoutube(url: URL): string | null {
   }
 
   const segments = getPathSegments(url);
-  const watchSegment = segments.find(
-    (segment) => segment === YOUTUBE_WATCH_PATH_SEGMENT
-  );
-
-  if (watchSegment) {
+  if (segments.includes(YOUTUBE_WATCH_PATH_SEGMENT)) {
     const idCandidate = url.searchParams.get(YOUTUBE_VIDEO_QUERY_PARAM);
     return idCandidate && YOUTUBE_ID_PATTERN.test(idCandidate)
       ? idCandidate

@@ -65,7 +65,8 @@ function heldApplicantAuthorityKey(context: AdmissionVerificationAccountScope): 
  * @throws AdmissionOperationError for another actor or purpose, a missing tribe, or a missing or expired session.
  */
 export async function authorizeAdmissionApplicant(database: RequestDatabase, context: AdmissionVerificationAccountScope): Promise<AdmissionApplicantAuthority> {
-  if (context.purpose !== ADMISSION_VERIFICATION_PURPOSE.admission) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+  // Fail closed even if a caller bypasses the static contract (casts, untyped composition).
+  if ((context.purpose as string) !== ADMISSION_VERIFICATION_PURPOSE.admission) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
   const held = heldApplicantAuthority.get(database), key = heldApplicantAuthorityKey(context);
   if (held?.keys.has(key)) return reuseHeldApplicantAuthority(database, context);
   const actor = (await database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
@@ -75,8 +76,8 @@ export async function authorizeAdmissionApplicant(database: RequestDatabase, con
   await database.execute(sql`select id from public.session where id=${context.sessionId} and "userId"=${context.userId} for share`);
   const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: context.userId, sessionId: context.sessionId }), (_identity, run) => run(database));
   const account = await accounts.getAuthenticatedAccount(), now = new Date((await database.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-  if (!account || account.userId !== context.userId || account.session.id !== context.sessionId || !isAuthenticatedSessionLive(account.session.expiresAt, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-  if (held && held.savepointDepth === 0) held.keys.add(key);
+  if (account?.userId !== context.userId || account.session.id !== context.sessionId || !isAuthenticatedSessionLive(account.session.expiresAt, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+  if (held?.savepointDepth === 0) held.keys.add(key);
   return { userId: account.userId, normalizedEmail: account.normalizedEmail };
 }
 

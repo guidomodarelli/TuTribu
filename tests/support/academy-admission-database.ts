@@ -29,7 +29,7 @@ import { ADMISSION_NEON_PROJECT_ID, NEON_ADMIN_TIMEOUT_MS, ADMISSION_BRANCH_NAME
 const runExecutable = promisify(execFile);
 
 /** Describes consumed branch metadata; no provider schema validation is performed. */
-type NeonBranch = { id: string; name: string; parent_id: string; default: boolean };
+type NeonBranch = { id: string; name: string; parent_id: string; default?: boolean };
 /** Records actual role flags rather than assuming that RLS protects runtime writes. */
 type DatabaseRole = { name: string; bypassesRls: boolean; isSuperuser: boolean };
 
@@ -103,7 +103,7 @@ function readMigrationArtifact(fileName: string): Promise<string> {
  * @returns Nothing after confirming ownership.
  * @throws When the candidate could be default, unrelated, or ambiguous.
  */
-function assertOwnedBranch(branch: NeonBranch, name: string, parentId: string): void {
+function assertOwnedBranch(branch: NeonBranch | null | undefined, name: string, parentId: string): void {
   if (!branch?.id || branch.id === parentId || branch.name !== name || branch.parent_id !== parentId || branch.default !== false) {
     throw new Error("AcademyAdmissionDatabase.authorize failed: branch_ownership_unproven");
   }
@@ -237,7 +237,7 @@ export async function withAcademyAdmissionDatabase<Result>(
     pool = createPostgresPool({ connectionString: branchConnection.toString(), operation: "academy_admission_validation" });
     const observedPool = { acquisitions: 0, releases: 0, errorReleases: 0, removals: 0, lastErrorRelease: null as PostgresTestDiagnostics | null };
     pool.on("acquire", () => { observedPool.acquisitions += 1; });
-    pool.on("release", (error) => { observedPool.releases += 1; if (error) { observedPool.errorReleases += 1; observedPool.lastErrorRelease = readPostgresTestDiagnostics(error); } });
+    pool.on("release", (error: Error | undefined) => { observedPool.releases += 1; if (error) { observedPool.errorReleases += 1; observedPool.lastErrorRelease = readPostgresTestDiagnostics(error); } });
     pool.on("remove", () => { observedPool.removals += 1; });
     if (options.concurrentTransactions !== undefined) {
       if (!Number.isInteger(options.concurrentTransactions) || options.concurrentTransactions < 1 || options.concurrentTransactions > 100) throw new Error("AcademyAdmissionDatabase.configure failed: invalid_concurrency");
@@ -269,7 +269,7 @@ export async function withAcademyAdmissionDatabase<Result>(
       nonBypassRole,
       /** @returns Current native gauges and event totals for this exact owned pool; no SQL is executed. */
       readPoolMetrics() {
-        return { maximum: branchPool.options.max ?? null, totalCount: branchPool.totalCount, idleCount: branchPool.idleCount, waitingCount: branchPool.waitingCount, ...observedPool };
+        return { maximum: branchPool.options.max, totalCount: branchPool.totalCount, idleCount: branchPool.idleCount, waitingCount: branchPool.waitingCount, ...observedPool };
       },
       /**
        * Runs a request using the existing guarded checkout and local role/context.
@@ -338,7 +338,7 @@ export async function withAcademyAdmissionDatabase<Result>(
        * @returns The fixture result while this disposable branch is still owned and alive.
        */
       async withServerEnvironment(run) {
-        assertOwnedBranch(ownedBranch!, name, parent.id);
+        assertOwnedBranch(ownedBranch, name, parent.id);
         activeServers += 1;
         try { return await run({ DATABASE_URL: branchConnection.toString(), DATABASE_MAINTENANCE_URL: branchConnection.toString() }); }
         finally { activeServers -= 1; }
@@ -346,7 +346,7 @@ export async function withAcademyAdmissionDatabase<Result>(
       /** @param run - Child-only SQL workflow, with its drivers stopped before reset. @returns Its result after the child is removed. */
       async withRestorableCopy(run) {
         if (!active || activeServers || branchPool.totalCount > branchPool.idleCount) throw new Error("AcademyAdmissionDatabase.copy failed: checkpoint_not_idle");
-        assertOwnedBranch(ownedBranch!, name, parent.id);
+        assertOwnedBranch(ownedBranch, name, parent.id);
         return withAcademyAdmissionRestoreCopy({ projectId: ADMISSION_NEON_PROJECT_ID, source: ownedBranch!, databaseName, roleName, nonBypassRoleName: nonBypassName, requestAdmin: adminRequest }, run);
       },
     };

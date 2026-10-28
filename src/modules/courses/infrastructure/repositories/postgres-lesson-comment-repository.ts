@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 
 import { COURSE_MUTATION_STATUS } from "@/src/modules/courses/constants/courses";
 import type { LessonComment } from "@/src/modules/courses/domain/entities/lesson-comment";
@@ -59,14 +59,11 @@ function mapComment(row: LessonCommentRow): LessonComment {
   };
 }
 
-export class PostgresLessonCommentRepository implements LessonCommentRepository {
-  constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
-
-  async listByLesson(
-    query: ListLessonCommentsQuery
-  ): Promise<LessonCommentListResult> {
-    return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+/**
+ * Lists the comments of a lesson the viewer can read, with the reason when it cannot.
+ */
+function buildListLessonCommentsStatement(query: ListLessonCommentsQuery): SQL {
+  return sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -128,30 +125,14 @@ export class PostgresLessonCommentRepository implements LessonCommentRepository 
             ),
             '[]'::jsonb
           ) as comments
-      `);
-      const row = (result.rows?.[0] ?? null) as CommentListRow | null;
+      `;
+}
 
-      if (row?.status === COMMENT_LIST_STATUS.ok) {
-        return {
-          comments: (row.comments ?? []).map(mapComment),
-          status: COMMENT_LIST_STATUS.ok,
-        };
-      }
-
-      return {
-        status:
-          row?.status === COURSE_MUTATION_STATUS.notFound
-            ? COURSE_MUTATION_STATUS.notFound
-            : COURSE_MUTATION_STATUS.forbidden,
-      };
-    });
-  }
-
-  async createComment(
-    command: CreateLessonCommentRepositoryCommand
-  ): Promise<LessonCommentCreationResult> {
-    return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+/**
+ * Inserts a comment on a lesson when the viewer is an active member, with the reason when it cannot.
+ */
+function buildCreateLessonCommentStatement(command: CreateLessonCommentRepositoryCommand): SQL {
+  return sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -218,8 +199,41 @@ export class PostgresLessonCommentRepository implements LessonCommentRepository 
           on true
         left join public."user" comment_author
           on comment_author.id = inserted_comment.author_id
-      `);
-      const row = (result.rows?.[0] ?? null) as CommentMutationRow | null;
+      `;
+}
+
+export class PostgresLessonCommentRepository implements LessonCommentRepository {
+  constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
+
+  async listByLesson(
+    query: ListLessonCommentsQuery
+  ): Promise<LessonCommentListResult> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(buildListLessonCommentsStatement(query));
+      const row = (result.rows[0] ?? null) as CommentListRow | null;
+
+      if (row?.status === COMMENT_LIST_STATUS.ok) {
+        return {
+          comments: (row.comments ?? []).map(mapComment),
+          status: COMMENT_LIST_STATUS.ok,
+        };
+      }
+
+      return {
+        status:
+          row?.status === COURSE_MUTATION_STATUS.notFound
+            ? COURSE_MUTATION_STATUS.notFound
+            : COURSE_MUTATION_STATUS.forbidden,
+      };
+    });
+  }
+
+  async createComment(
+    command: CreateLessonCommentRepositoryCommand
+  ): Promise<LessonCommentCreationResult> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(buildCreateLessonCommentStatement(command));
+      const row = (result.rows[0] ?? null) as CommentMutationRow | null;
 
       if (
         row?.status === COMMENT_MUTATION_STATUS.created &&
@@ -298,7 +312,7 @@ export class PostgresLessonCommentRepository implements LessonCommentRepository 
             else ${COURSE_MUTATION_STATUS.forbidden}
           end as status
       `);
-      const row = (result.rows?.[0] ?? null) as { status: string | null } | null;
+      const row = (result.rows[0] ?? null) as { status: string | null } | null;
 
       if (
         row?.status === COMMENT_MUTATION_STATUS.deleted ||

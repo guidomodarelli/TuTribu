@@ -34,17 +34,27 @@ export class SubmitAdmissionUseCase<Result extends AdmissionCommittedOutcome = A
       if (input.country && !input.phone) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
       const normalized = normalizeAdmissionContact(input.phone ? { type: ADMISSION_CONTACT_TYPE.phone, value: input.phone, country: input.country } : { type: ADMISSION_CONTACT_TYPE.email, value: account.normalizedEmail });
       if (normalized.status !== ADMISSION_CONTACT_NORMALIZATION_STATUS.valid) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-      const source: AdmissionSubmissionIntent["source"] = input.invitationToken ? { kind: ADMISSION_REQUEST_SOURCE.personal, token: input.invitationToken }
-        : input.legacyInvitationToken ? { kind: ADMISSION_REQUEST_SOURCE.legacy, token: input.legacyInvitationToken } : { kind: ADMISSION_REQUEST_SOURCE.common };
+      const source = admissionSubmissionSource(input);
       const intent: AdmissionSubmissionIntent = {
         tribeId: input.tribeId, requestId: input.requestId, userId: account.userId, sessionId: account.session.id,
         operationId: input.operationId, type: ADMISSION_OPERATION_TYPE.submit, expectedPolicyVersion: input.expectedPolicyVersion, confirmed: input.confirmed,
         source, contact: normalized.contact, proofId: input.proofId ?? null, message: input.message?.trim() || null,
         // With phone contact, that same number is the one reviewers compare with the group; a separate declared number is ignored.
-        ...(normalized.contact.type === ADMISSION_CONTACT_TYPE.phone ? { whatsappNumber: normalized.contact.value }
-          : input.whatsappNumber !== undefined ? { whatsappNumber: normalizeAdmissionWhatsappNumber(input.whatsappNumber) } : {}),
+        ...declaredWhatsappNumber(normalized.contact, input.whatsappNumber),
       };
       return { ok: true as const, value: await this.writer.submit(intent) };
     } catch (error) { return admissionOperationFailure(error); }
   }
+}
+
+/** @param input - Proposed invitation tokens. @returns The personal source first, then the legacy one, else the common source. */
+function admissionSubmissionSource(input: Pick<SubmitAdmissionInput, "invitationToken" | "legacyInvitationToken">): AdmissionSubmissionIntent["source"] {
+  if (input.invitationToken) return { kind: ADMISSION_REQUEST_SOURCE.personal, token: input.invitationToken };
+  return input.legacyInvitationToken ? { kind: ADMISSION_REQUEST_SOURCE.legacy, token: input.legacyInvitationToken } : { kind: ADMISSION_REQUEST_SOURCE.common };
+}
+
+/** @param contact - Normalized submission contact. @param whatsappNumber - Separately declared group number, if any. @returns The phone contact itself, else the normalized declared number, else nothing. */
+function declaredWhatsappNumber(contact: NonNullable<AdmissionSubmissionIntent["contact"]>, whatsappNumber: string | undefined): { whatsappNumber?: string | null } {
+  if (contact.type === ADMISSION_CONTACT_TYPE.phone) return { whatsappNumber: contact.value };
+  return whatsappNumber !== undefined ? { whatsappNumber: normalizeAdmissionWhatsappNumber(whatsappNumber) } : {};
 }

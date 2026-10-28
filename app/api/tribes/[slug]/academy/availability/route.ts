@@ -88,6 +88,7 @@ export async function PUT(request: Request, context: { params: Promise<{ slug: s
           { message: ACADEMY_ROUTE_MESSAGE.forbidden },
           ACADEMY_HTTP_STATUS.forbidden
         );
+      case "not_found":
       default:
         return createAcademyJsonResponse(
           { message: ACADEMY_ROUTE_MESSAGE.notFound },

@@ -92,6 +92,143 @@ type TribesModuleDependencies<AdmissionResult> = {
   tribeWelcomeSelectionRepository: TribeWelcomeSelectionRepository;
 };
 
+/**
+ * Builds the tribe invitation use cases.
+ *
+ * @param tribeInvitationRepository - Repository the use cases read and write.
+ * @returns Use cases keyed by name.
+ */
+function buildTribeInvitationUseCases(tribeInvitationRepository: TribeInvitationRepository) {
+  return {
+    listTribeInvitations: listTribeInvitations({
+      tribeInvitationRepository,
+    }),
+    listTribeInvitationsByPrice: listTribeInvitationsByPrice({
+      tribeInvitationRepository,
+    }),
+    createTribeInvitation: createTribeInvitation({
+      tribeInvitationRepository,
+    }),
+    updateTribeInvitationSubscriptionAssociation:
+      updateTribeInvitationSubscriptionAssociation({
+        tribeInvitationRepository,
+      }),
+    updateTribeInvitationReferralMetadata:
+      updateTribeInvitationReferralMetadata({
+        tribeInvitationRepository,
+      }),
+    revokeTribeInvitation: revokeTribeInvitation({
+      tribeInvitationRepository,
+    }),
+    acceptTribeInvitation: acceptTribeInvitation({
+      tribeInvitationRepository,
+    }),
+    getTribeInvitationSubscriptionOffer: getTribeInvitationSubscriptionOffer({
+      tribeInvitationRepository,
+    }),
+    getTribeInvitationConversionMetrics:
+      getTribeInvitationConversionMetrics({
+        tribeInvitationRepository,
+      }),
+  };
+}
+
+/**
+ * Builds the tribe welcome use cases.
+ *
+ * @param tribeWelcomeRepository - Repository the use cases read and write.
+ * @returns Use cases keyed by name.
+ */
+function buildTribeWelcomeUseCases(tribeWelcomeRepository: TribeWelcomeRepository) {
+  return {
+    getEditableTribeWelcome: getEditableTribeWelcome({
+      tribeWelcomeRepository,
+    }),
+    getTribeWelcome: getTribeWelcome({
+      tribeWelcomeRepository,
+    }),
+    getTribeWelcomeByInvitation: getTribeWelcomeByInvitation({
+      tribeWelcomeRepository,
+    }),
+    saveTribeWelcome: saveTribeWelcome({
+      tribeWelcomeRepository,
+    }),
+  };
+}
+
+/**
+ * Builds the tribe welcome selection use cases.
+ *
+ * @param tribeWelcomeSelectionRepository - Repository the use cases read and write.
+ * @returns Use cases keyed by name.
+ */
+function buildTribeWelcomeSelectionUseCases(tribeWelcomeSelectionRepository: TribeWelcomeSelectionRepository) {
+  return {
+    recordTribeWelcomeSelection: recordTribeWelcomeSelection({
+      tribeWelcomeSelectionRepository,
+    }),
+    listCurrentMemberTribeWelcomeSelections:
+      listCurrentMemberTribeWelcomeSelections({
+        tribeWelcomeSelectionRepository,
+      }),
+    listTribeWelcomeSelections: listTribeWelcomeSelections({
+      tribeWelcomeSelectionRepository,
+    }),
+  };
+}
+
+/**
+ * Builds the tribe story use cases.
+ *
+ * @param tribeStoryRepository - Repository the use cases read and write.
+ * @returns Use cases keyed by name.
+ */
+function buildTribeStoryUseCases(tribeStoryRepository: TribeStoryRepository) {
+  return {
+    getTribeStory: getTribeStory({
+      tribeStoryRepository,
+    }),
+    getTribeStoryStats: getTribeStoryStats({
+      tribeStoryRepository,
+    }),
+    getTribeStoryOnlineMembers: getTribeStoryOnlineMembers({
+      tribeStoryRepository,
+    }),
+    listPublicTribeStorySlugs: listPublicTribeStorySlugs({
+      tribeStoryRepository,
+    }),
+    saveTribeStory: saveTribeStory({
+      tribeStoryRepository,
+    }),
+  };
+}
+
+/**
+ * Builds the tribe read use cases.
+ *
+ * @param tribeReadRepository - Repository the use cases read and write.
+ * @returns Use cases keyed by name.
+ */
+function buildTribeReadUseCases(tribeReadRepository: TribeReadRepository) {
+  return {
+    getTribeBySlug: getTribeBySlug({
+      tribeReadRepository,
+    }),
+    getCurrentTribeMembershipStatus: getCurrentTribeMembershipStatus({
+      tribeReadRepository,
+    }),
+    getTribePageAccess: getTribePageAccess({
+      tribeReadRepository,
+    }),
+    getMemberTribes: getMemberTribes({
+      tribeReadRepository,
+    }),
+    listVisibleTribeMembers: listVisibleTribeMembers({
+      tribeReadRepository,
+    }),
+  };
+}
+
 export function buildTribesModule<AdmissionResult>({
   academyAdmissionEntry,
   tribeAcademyAdmissionRepository,
@@ -110,6 +247,11 @@ export function buildTribesModule<AdmissionResult>({
 }: TribesModuleDependencies<AdmissionResult>) {
   return {
     useCases: {
+      ...buildTribeInvitationUseCases(tribeInvitationRepository),
+      ...buildTribeWelcomeUseCases(tribeWelcomeRepository),
+      ...buildTribeWelcomeSelectionUseCases(tribeWelcomeSelectionRepository),
+      ...buildTribeStoryUseCases(tribeStoryRepository),
+      ...buildTribeReadUseCases(tribeReadRepository),
       joinTribeAcademyAdmission: joinTribeAcademyAdmission({
         tribeAcademyAdmissionRepository,
         academyAdmissionEntry,
@@ -118,93 +260,14 @@ export function buildTribesModule<AdmissionResult>({
         tribeCreatorWhitelistRepository,
         tribeCreationRepository,
       }),
-      getTribeBySlug: getTribeBySlug({
-        tribeReadRepository,
-      }),
       getTribeCreationEligibility: getTribeCreationEligibility({
         tribeCreatorWhitelistRepository,
-      }),
-      getCurrentTribeMembershipStatus: getCurrentTribeMembershipStatus({
-        tribeReadRepository,
-      }),
-      getTribePageAccess: getTribePageAccess({
-        tribeReadRepository,
-      }),
-      getMemberTribes: getMemberTribes({
-        tribeReadRepository,
-      }),
-      listVisibleTribeMembers: listVisibleTribeMembers({
-        tribeReadRepository,
-      }),
-      listTribeInvitations: listTribeInvitations({
-        tribeInvitationRepository,
-      }),
-      listTribeInvitationsByPrice: listTribeInvitationsByPrice({
-        tribeInvitationRepository,
-      }),
-      createTribeInvitation: createTribeInvitation({
-        tribeInvitationRepository,
-      }),
-      updateTribeInvitationSubscriptionAssociation:
-        updateTribeInvitationSubscriptionAssociation({
-          tribeInvitationRepository,
-        }),
-      updateTribeInvitationReferralMetadata:
-        updateTribeInvitationReferralMetadata({
-          tribeInvitationRepository,
-        }),
-      revokeTribeInvitation: revokeTribeInvitation({
-        tribeInvitationRepository,
-      }),
-      acceptTribeInvitation: acceptTribeInvitation({
-        tribeInvitationRepository,
-      }),
-      getTribeInvitationSubscriptionOffer: getTribeInvitationSubscriptionOffer({
-        tribeInvitationRepository,
-      }),
-      getTribeInvitationConversionMetrics:
-        getTribeInvitationConversionMetrics({
-          tribeInvitationRepository,
-        }),
-      getEditableTribeWelcome: getEditableTribeWelcome({
-        tribeWelcomeRepository,
-      }),
-      getTribeWelcome: getTribeWelcome({
-        tribeWelcomeRepository,
-      }),
-      getTribeWelcomeByInvitation: getTribeWelcomeByInvitation({
-        tribeWelcomeRepository,
-      }),
-      saveTribeWelcome: saveTribeWelcome({
-        tribeWelcomeRepository,
-      }),
-      recordTribeWelcomeSelection: recordTribeWelcomeSelection({
-        tribeWelcomeSelectionRepository,
-      }),
-      listCurrentMemberTribeWelcomeSelections:
-        listCurrentMemberTribeWelcomeSelections({
-          tribeWelcomeSelectionRepository,
-        }),
-      listTribeWelcomeSelections: listTribeWelcomeSelections({
-        tribeWelcomeSelectionRepository,
       }),
       getTribeSupport: getTribeSupport({
         tribeSupportRepository,
       }),
       saveTribeSupport: saveTribeSupport({
         tribeSupportRepository,
-      }),
-      getTribeStory: getTribeStory({
-        tribeStoryRepository,
-      }),
-      getTribeStoryStats: getTribeStoryStats({
-        tribeStoryRepository,
-      }),
-      getTribeStoryOnlineMembers: getTribeStoryOnlineMembers({
-        tribeStoryRepository,
-      }),
-      listPublicTribeStorySlugs: listPublicTribeStorySlugs({
-        tribeStoryRepository,
       }),
       cleanupOrphanTribeImages: cleanupOrphanTribeImages({
         tribeImageRepository,
@@ -226,9 +289,6 @@ export function buildTribesModule<AdmissionResult>({
       }),
       saveTribeIdentity: saveTribeIdentity({
         tribeIdentityRepository,
-      }),
-      saveTribeStory: saveTribeStory({
-        tribeStoryRepository,
       }),
     },
   };

@@ -28,7 +28,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
         for (const [engine, browserType] of [["chromium", chromium], ["webkit", webkit]] as const) {
           const browser = await browserType.launch({ headless: true });
           try {
-            for (const width of [1280, 390]) {
+            /** Verifies the activity audit and its filter in one isolated context at the given viewport width. */
+            const verifyActivityView = async (width: number) => {
               const context = await browser.newContext({ viewport: { width, height: ADMISSION_ACTIVITY_VALIDATION.height } });
               try {
                 await context.addCookies([{ name: "better-auth.session_token", value: encodeURIComponent(`${identity.token}.${await makeSignature(identity.token, secret)}`), url: origin, httpOnly: true, sameSite: "Lax" }]);
@@ -72,7 +73,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                 if (engine === "chromium" && width === 1280) await captureAdmissionReview(page, "admission-email-settings-history", [fixture.own.userId, fixture.read.tribeId, fixture.read.sessionId, identity.token, secret], "email-settings-history-captures.json", { selector: 'section[class*="AdmissionActivity"]', omit: "details dl > div:nth-child(1), details dl > div:nth-child(2), details dl > div:nth-child(4), details dl > div:nth-child(8), details dl > div:nth-child(9)" });
                 matrix.push({ engine, width, horizontalOverflow: overflow, pageErrors: errors.length });
               } finally { await context.close(); }
-            }
+            };
+            for (const width of [1280, 390]) await verifyActivityView(width);
           } finally { await browser.close(); }
         }
       }));

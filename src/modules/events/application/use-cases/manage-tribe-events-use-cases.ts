@@ -79,7 +79,7 @@ function buildCreatedEventOccurrences(
     return [];
   }
 
-  return buildTribeEventOccurrences([event], [], [], createBuenosAiresMonthRange(visibleMonth));
+  return buildTribeEventOccurrences({ attendances: [], events: [event], exceptions: [] }, createBuenosAiresMonthRange(visibleMonth));
 }
 
 /**
@@ -125,12 +125,7 @@ export function listTribeEvents({
       ...range,
       tribeSlug: query.tribeSlug,
     });
-    const allEvents = buildTribeEventOccurrences(
-      listing.events,
-      listing.attendances,
-      listing.exceptions,
-      range
-    );
+    const allEvents = buildTribeEventOccurrences(listing, range);
     const events =
       query.eventTypes.length === 0
         ? allEvents

@@ -97,7 +97,7 @@ const PORTLESS_MIN_VERSION = "0.15.5";
 const PORTLESS_HTTPS_PORT = "443";
 
 /** First `X.Y.Z` triple in the `portless --version` output. */
-const SEMANTIC_VERSION_PATTERN = /(\d+)\.(\d+)\.(\d+)/;
+const SEMANTIC_VERSION_PATTERN = /(?<!\d)(\d+)\.(\d+)\.(\d+)/;
 
 const PORTLESS_BINARY = "portless";
 const DEV_SERVER_COMMAND = ["next", "dev"];

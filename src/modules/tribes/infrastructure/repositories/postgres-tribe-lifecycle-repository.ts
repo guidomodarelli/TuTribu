@@ -83,6 +83,13 @@ export class PostgresTribeLifecycleRepository implements TribeLifecycleWriter {
     await this.identity(database, context);
   }
 
+  /** @param context - Native actor and fixed UUID scope. @param input - Original confirmed action/CAS. @param error - Failure seen after the change was staged. @returns The original committed by a lost commit response. @throws TribeLifecycleError unresolved when no original can be observed, or the recovery authority failure. */
+  private async recoverStagedChange(context: TribeLifecycleContext, input: TribeLifecycleInput, error: unknown): Promise<AdmissionOperationResult<TribeLifecycleResult>> {
+    try { const original = await this.recover(context, input); if (original) return original; }
+    catch (recoveryError) { if (recoveryError instanceof TribeLifecycleError && (recoveryError.code === TRIBE_LIFECYCLE_ERROR.authenticationRequired || recoveryError.code === TRIBE_LIFECYCLE_ERROR.permissionDenied)) throw recoveryError; throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.operationUnresolved, { cause: new AggregateError([error, recoveryError], "Tribe lifecycle original could not be observed", { cause: error }), operationId: input.operationId }); }
+    throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.operationUnresolved, { cause: error, operationId: input.operationId });
+  }
+
   /** @param context - Native actor and fixed UUID scope. @param input - Original confirmed action/CAS. @returns The original committed metadata; a lost commit response is reconciled before another mutation. */
   async change(context: TribeLifecycleContext, input: TribeLifecycleInput): Promise<AdmissionOperationResult<TribeLifecycleResult>> {
     if (!input.confirmed || !TRIBE_LIFECYCLE_ACTIONS.includes(input.action)) throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.invalidInput);
@@ -97,7 +104,7 @@ export class PostgresTribeLifecycleRepository implements TribeLifecycleWriter {
         if (!(await database.execute(sql`select id from public.tribes where id=${context.tribeId}`)).rows[0]) throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.resourceUnavailable);
         await this.authorizeChange(database, context);
         const settings = (await database.execute<{access_model: string;config_version: number}>(sql`select access_model,config_version from public.tribe_academy_settings where tribe_id=${context.tribeId} for update`)).rows[0];
-        if (!settings || settings.config_version !== input.expectedConfigVersion || input.action === TRIBE_LIFECYCLE_ACTION.exitAcademy && settings.access_model !== TRIBE_ACCESS_MODEL.academy) throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.lifecycleConflict);
+        if (settings?.config_version !== input.expectedConfigVersion || input.action === TRIBE_LIFECYCLE_ACTION.exitAcademy && settings.access_model !== TRIBE_ACCESS_MODEL.academy) throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.lifecycleConflict);
         const signed = await fingerprint.sign(command);
         await this.authorizeChange(database, context);
         const deleted = input.action === TRIBE_LIFECYCLE_ACTION.deleteTribe;
@@ -116,11 +123,7 @@ export class PostgresTribeLifecycleRepository implements TribeLifecycleWriter {
       });
     } catch (error) {
       if (error instanceof TribeLifecycleError) throw error;
-      if (transactionStaged) {
-        try { const original = await this.recover(context, input); if (original) return original; }
-        catch (recoveryError) { if (recoveryError instanceof TribeLifecycleError && (recoveryError.code === TRIBE_LIFECYCLE_ERROR.authenticationRequired || recoveryError.code === TRIBE_LIFECYCLE_ERROR.permissionDenied)) throw recoveryError; throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.operationUnresolved, { cause: new AggregateError([error, recoveryError], "Tribe lifecycle original could not be observed", { cause: error }), operationId: input.operationId }); }
-        throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.operationUnresolved, { cause: error, operationId: input.operationId });
-      }
+      if (transactionStaged) return this.recoverStagedChange(context, input, error);
       throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.unexpectedFailure, { cause: error });
     }
   }

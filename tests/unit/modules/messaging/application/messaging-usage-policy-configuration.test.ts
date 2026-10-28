@@ -273,10 +273,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
               try {
                 await context.addCookies([{ name: "better-auth.session_token", value: encodeURIComponent(`${fixture.sessionToken}.${await makeSignature(fixture.sessionToken, secret)}`), url: origin, httpOnly: true, sameSite: "Lax" }]);
                 const page = await context.newPage(), errors: string[] = [];
-                const pendingRequests = new Map<string, { method: string; path: string }>();
-                page.on("request", (request) => { const path = new URL(request.url()).pathname; if (path.endsWith("/api/auth/get-session") || path.endsWith("/messaging/usage-policy")) { const safePath = path.endsWith("/api/auth/get-session") ? "native-session" : "usage-policy"; pendingRequests.set(request.url(), { method: request.method(), path: safePath }); process.stdout.write(JSON.stringify({ phase: "usage_request_started", engine, width, method: request.method(), path: safePath }) + "\n"); } });
-                page.on("requestfinished", (request) => { pendingRequests.delete(request.url()); });
-                page.on("requestfailed", (request) => { pendingRequests.delete(request.url()); });
+                page.on("request", (request) => { const path = new URL(request.url()).pathname; if (path.endsWith("/api/auth/get-session") || path.endsWith("/messaging/usage-policy")) { const safePath = path.endsWith("/api/auth/get-session") ? "native-session" : "usage-policy"; process.stdout.write(JSON.stringify({ phase: "usage_request_started", engine, width, method: request.method(), path: safePath }) + "\n"); } });
                 page.on("pageerror", () => errors.push("page_error"));
                 page.on("console", (message) => { if (message.type() === "error" && /hydration|did not match/i.test(message.text())) errors.push("hydration_error"); });
                 if (width === 1280) {
@@ -354,7 +351,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
                   const feedback = await failedPage.locator('section[class*="MessagingUsage"] [role="alert"]').allTextContents().catch(() => []);
                   process.stdout.write(JSON.stringify({ phase: "usage_safe_feedback", engine, width, feedback: feedback.map((message) => message.slice(0, 500)) }) + "\n");
                   await failedPage.screenshot({ path: join(process.cwd(), "user-guides/assets/academy-admissions", `${engine}-${width}-usage-failure.png`), fullPage: true }).catch(() => undefined);
-                  const controls = await failedPage.evaluate(() => Array.from(document.querySelectorAll('section[class*="MessagingUsage"] button, section[class*="MessagingUsage"] input')).map((element) => ({ tag: element.tagName, text: element.tagName === "BUTTON" ? element.textContent?.trim().slice(0, 90) : undefined, disabled: element.hasAttribute("disabled"), checked: element.getAttribute("aria-checked"), value: element.tagName === "INPUT" ? (element as HTMLInputElement).value : undefined })));
+                  const controls = await failedPage.evaluate(() => Array.from(document.querySelectorAll('section[class*="MessagingUsage"] button, section[class*="MessagingUsage"] input')).map((element) => ({ tag: element.tagName, text: element.tagName === "BUTTON" ? element.textContent.trim().slice(0, 90) : undefined, disabled: element.hasAttribute("disabled"), checked: element.getAttribute("aria-checked"), value: element.tagName === "INPUT" ? (element as HTMLInputElement).value : undefined })));
                   process.stdout.write(JSON.stringify({ phase: "usage_control_state", engine, width, controls }) + "\n");
                 }
                 const waits = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select state,wait_event_type,wait_event,cardinality(pg_blocking_pids(pid))::int as blockers from pg_stat_activity where datname=current_database() and pid<>pg_backend_pid() and state<>'idle'`)).rows);

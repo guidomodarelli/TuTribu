@@ -156,7 +156,7 @@ describe("PostgresTribeEventRepository", () => {
   });
 
   it("keeps viewer permissions and skips the attendance query when the range has no events", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           can_manage_events: true,
@@ -191,7 +191,7 @@ describe("PostgresTribeEventRepository", () => {
   });
 
   it("finds a single event readable by the viewer", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({ rows: [eventRow] }); });
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({ rows: [eventRow] }); });
     const repository = createRepository(execute);
 
     await expect(
@@ -206,7 +206,7 @@ describe("PostgresTribeEventRepository", () => {
   });
 
   it("creates events guarded by leader or guardian membership", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [{ ...eventRow, can_manage_events: undefined, status: "created" as const }],
     }); });
     const repository = createRepository(execute);
@@ -262,7 +262,7 @@ describe("PostgresTribeEventRepository", () => {
   });
 
   it("maps update failures to not found or forbidden", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({ rows: [{ status: "not_found" as const }] }); });
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({ rows: [{ status: "not_found" as const }] }); });
     // The lock finds no manageable row; the UPDATE statement classifies it.
     execute.mockResolvedValueOnce({ rows: [] });
     const repository = createRepository(execute);

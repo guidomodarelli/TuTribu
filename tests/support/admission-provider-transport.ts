@@ -32,6 +32,18 @@ export type AdmissionProviderTestTransport = {
 let isGlobalTransportInstalled = false;
 
 /**
+ * Rethrows the exact cancellation reason, as native fetch does, once the signal has aborted.
+ *
+ * @param signal - Aborted transport signal.
+ * @returns Never; it always throws.
+ * @throws The original abort reason, or a fixed error if called before cancellation.
+ */
+function throwAbortReason(signal: AbortSignal): never {
+  signal.throwIfAborted();
+  throw new Error("AdmissionProviderTransport.abort failed: signal_not_aborted");
+}
+
+/**
  * Waits for a controlled response while honoring native request cancellation.
  *
  * @param request - Request whose signal bounds the controlled provider work.
@@ -47,10 +59,10 @@ async function respondToControlledRequest(
 ): Promise<Response> {
   signal.throwIfAborted();
   let onAbort = () => undefined as void;
-  const aborted = new Promise<never>((_resolve, reject) => {
-    onAbort = () => reject(signal.reason);
+  const aborted = new Promise<void>((resolve) => {
+    onAbort = () => resolve();
     signal.addEventListener("abort", onAbort, { once: true });
-  });
+  }).then(() => throwAbortReason(signal));
 
   try {
     return await Promise.race([

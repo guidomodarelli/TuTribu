@@ -53,7 +53,7 @@ type UpdateTribeSubscriptionPriceInput = Omit<
 
 const AMOUNT_CENTS_MULTIPLIER = 100;
 const POSTGRES_INTEGER_MAX_VALUE = 2147483647;
-const VALID_AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/;
+const VALID_AMOUNT_PATTERN = /^\d+(?:\.\d{1,2})?$/;
 const VALID_TRIAL_FREQUENCY_PATTERN = /^\d+$/;
 const SUPPORTED_TRIAL_FREQUENCY_TYPES = new Set<string>([
   TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE.days,

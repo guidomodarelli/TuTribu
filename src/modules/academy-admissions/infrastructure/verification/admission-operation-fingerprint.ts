@@ -7,6 +7,11 @@ import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastruc
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 
+/** @param value - Normalized intent value. @returns Whether it is an intent array; `Array.isArray` alone widens readonly arrays to `any[]`. */
+function isIntentArray(value: AdmissionIntentValue): value is readonly AdmissionIntentValue[] {
+  return Array.isArray(value);
+}
+
 /** Orders object keys recursively while preserving the normalized intent's array order and values. */
 function canonicalJson(value: AdmissionIntentValue): string {
   if (value === null || typeof value === "boolean" || typeof value === "string") return JSON.stringify(value);
@@ -14,8 +19,8 @@ function canonicalJson(value: AdmissionIntentValue): string {
     if (!Number.isFinite(value)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     return JSON.stringify(value);
   }
-  if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item)).join(",")}]`;
-  const object = value as { readonly [key: string]: AdmissionIntentValue };
+  if (isIntentArray(value)) return `[${value.map((item) => canonicalJson(item)).join(",")}]`;
+  const object = value;
   return `{${Object.keys(object).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(object[key])}`).join(",")}}`;
 }
 

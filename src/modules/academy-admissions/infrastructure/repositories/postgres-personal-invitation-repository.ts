@@ -60,8 +60,8 @@ export class PostgresPersonalInvitationRepository implements PersonalInvitationR
     return { contactType: policy.contact_type, requiresAdditionalVerification: policy.requires_additional_verification };
   }
 
-  /** @param database - Current locked command transaction. @param context - Actual native leader. @param ledgerId - Original private registry identity. @param operation - Server-selected lifecycle purpose. @param invitation - Effectively changed resource with its owner clock. @param previous - Locked prior status/version/authorization or absence for a new resource. @returns After staging lineage without recipient, descriptive name or token material. */
-  private async audit(database: RequestDatabase, context: AuthorizedAdmissionContext, ledgerId: string, operation: PersonalInvitationAuditInput["eventType"], invitation: PersonalInvitation, previous: PersonalInvitationAuditInput["previous"]) {
+  /** @param database - Current locked command transaction. @param context - Actual native leader. @param ledgerId - Original private registry identity. @param change - Server-selected lifecycle purpose (`operation`), effectively changed resource with its owner clock (`invitation`), and locked prior status/version/authorization or absence for a new resource (`previous`). @returns After staging lineage without recipient, descriptive name or token material. */
+  private async audit(database: RequestDatabase, context: AuthorizedAdmissionContext, ledgerId: string, { operation, invitation, previous }: { operation: PersonalInvitationAuditInput["eventType"]; invitation: PersonalInvitation; previous: PersonalInvitationAuditInput["previous"] }) {
     await new PostgresAdmissionAuditRepository(database).append(createPersonalInvitationAuditEvent({ actorUserId: context.userId, operationId: ledgerId, eventType: operation, invitation, previous }));
   }
 
@@ -72,8 +72,8 @@ export class PostgresPersonalInvitationRepository implements PersonalInvitationR
     return mapPersonalInvitationRow(row);
   }
 
-  /** @param intent - Server-derived explicit command. @param operation - Exact namespace. @param resourceId - Tribe or observed invitation. @param payload - Canonical protected intent without token. @param mutate - Atomic DB-only mutation. @returns Confirmed original metadata or recorded progress; expected refusal rolls back effects first. */
-  private async run(intent: InvitationIntent, operation: ReauthenticationOperation, resourceId: string, payload: Parameters<PostgresAdmissionOperationRepository["run"]>[0]["intent"], mutate: (database: RequestDatabase, ledgerId: string) => Promise<PersonalInvitationMutationResult>) {
+  /** @param intent - Server-derived explicit command. @param target - Exact namespace (`operation`), tribe or observed invitation (`resourceId`), and canonical protected intent without token (`payload`). @param mutate - Atomic DB-only mutation. @returns Confirmed original metadata or recorded progress; expected refusal rolls back effects first. */
+  private async run(intent: InvitationIntent, { operation, resourceId, payload }: { operation: ReauthenticationOperation; resourceId: string; payload: Parameters<PostgresAdmissionOperationRepository["run"]>[0]["intent"] }, mutate: (database: RequestDatabase, ledgerId: string) => Promise<PersonalInvitationMutationResult>) {
     const command = { actorUserId: intent.context.userId, tribeId: intent.context.tribeId, operationType: operation, idempotencyKey: intent.operationId, intent: payload };
     const ledger = new PostgresAdmissionOperationRepository((work) => this.execute(intent.context, work), async (database) => { await authorizeAdmissionLeader(database, intent.context, { action: ADMISSION_ACTION.manageInvitations, resourceId, operation }); return true; }, this.readSecurityConfig);
     let original, refusalCause: unknown;
@@ -103,9 +103,8 @@ export class PostgresPersonalInvitationRepository implements PersonalInvitationR
 
   /** @param intent - Explicit issuance/replacement and restrictions. @returns Initial token only after a newly acknowledged original commit; replay or lost COMMIT response returns metadata alone. */
   async create(intent: PersonalInvitationCreationIntent): Promise<PersonalInvitationCreationResult> {
-    if (!intent.confirmed) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     let initialToken: string | undefined;
-    const original = await this.run(intent, REAUTHENTICATION_OPERATION.createPersonalInvitation, intent.context.tribeId, { confirmed: true, contact: intent.contact, internalName: intent.internalName, requiresAllowlist: intent.requiresAllowlist, allowlistExemptionAcknowledged: intent.allowlistExemptionAcknowledged, expiry: intent.expiresAt === undefined ? PERSONAL_INVITATION_DEFAULT_EXPIRY : intent.expiresAt?.toISOString() ?? null, replacement: intent.replacement ?? null }, async (database, ledgerId) => {
+    const original = await this.run(intent, { operation: REAUTHENTICATION_OPERATION.createPersonalInvitation, resourceId: intent.context.tribeId, payload: { confirmed: true, contact: intent.contact, internalName: intent.internalName, requiresAllowlist: intent.requiresAllowlist, allowlistExemptionAcknowledged: intent.allowlistExemptionAcknowledged, expiry: intent.expiresAt === undefined ? PERSONAL_INVITATION_DEFAULT_EXPIRY : intent.expiresAt?.toISOString() ?? null, replacement: intent.replacement ?? null } }, async (database, ledgerId) => {
       const policy = await this.policy(database, intent.context.tribeId), now = await admissionDatabaseNow(database);
       const invitation = createPersonalInvitation({ id: randomUUID(), tribeId: intent.context.tribeId, actorUserId: intent.context.userId, contact: intent.contact, internalName: intent.internalName, requiresAllowlist: intent.requiresAllowlist, allowlistExemptionAcknowledged: intent.allowlistExemptionAcknowledged, expiresAt: intent.expiresAt, now, policy });
       if (invitation.requiresAllowlist && !(await database.execute(sql`select id from public.academy_allowlist_entries where tribe_id=${intent.context.tribeId} and contact_type=${invitation.contact.type} and status=${ALLOWLIST_ENTRY_STATUS.enabled} limit 1`)).rows[0]) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationUnavailable);
@@ -114,17 +113,17 @@ export class PostgresPersonalInvitationRepository implements PersonalInvitationR
         const existing = mapPersonalInvitationRow(row);
         if (intent.replacement && (intent.replacement.invitationId !== existing.id || intent.replacement.expectedVersion !== existing.version)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationConflict);
         const expired = expirePersonalInvitation({ invitation: existing, expectedVersion: existing.version, now });
-        if (expired.changed) { await database.execute(sql`update public.academy_personal_invitations set status=${ADMISSION_INVITATION_STATUS.expired},version=version+1,updated_at=${now} where id=${existing.id} and version=${existing.version}`); await this.audit(database, intent.context, ledgerId, ADMISSION_INVITATION_STATUS.expired, expired.invitation, existing); }
+        if (expired.changed) { await database.execute(sql`update public.academy_personal_invitations set status=${ADMISSION_INVITATION_STATUS.expired},version=version+1,updated_at=${now} where id=${existing.id} and version=${existing.version}`); await this.audit(database, intent.context, ledgerId, { operation: ADMISSION_INVITATION_STATUS.expired, invitation: expired.invitation, previous: existing }); }
         else {
           if (intent.replacement?.invitationId !== existing.id || intent.replacement.expectedVersion !== existing.version) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationConflict);
           const revoked = revokePersonalInvitation({ invitation: existing, expectedVersion: existing.version, revokeRedeemedAuthorization: false, now }).invitation;
           await database.execute(sql`update public.academy_personal_invitations set status=${ADMISSION_INVITATION_STATUS.revoked},revoked_at=${now},version=${revoked.version},updated_at=${now} where id=${existing.id} and version=${existing.version}`);
-          await this.audit(database, intent.context, ledgerId, REAUTHENTICATION_OPERATION.revokePersonalInvitation, revoked, existing);
+          await this.audit(database, intent.context, ledgerId, { operation: REAUTHENTICATION_OPERATION.revokePersonalInvitation, invitation: revoked, previous: existing });
         }
       } else if (intent.replacement) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationConflict);
       const config = await this.readSecurityConfig(), fingerprint = await createAdmissionContactFingerprint(invitation.contact, config), token = await createPersonalInvitationTokenCodec(config).issue({ tribeId: invitation.tribeId, invitationId: invitation.id });
       await database.execute(sql`insert into public.academy_personal_invitations(id,tribe_id,created_by_user_id,internal_name,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,requires_allowlist,expires_at,token_hash,token_key_id,token_context_digest,created_at,updated_at) values (${invitation.id},${invitation.tribeId},${invitation.createdByUserId},${invitation.internalName},${invitation.contact.type},${invitation.contact.value},${Buffer.from(fingerprint.digest)},${fingerprint.keyId},${invitation.requiresAllowlist},${invitation.expiresAt},${Buffer.from(token.lookupDigest)},${token.keyId},${Buffer.from(token.digest)},${now},${now})`);
-      await this.audit(database, intent.context, ledgerId, REAUTHENTICATION_OPERATION.createPersonalInvitation, invitation, null);
+      await this.audit(database, intent.context, ledgerId, { operation: REAUTHENTICATION_OPERATION.createPersonalInvitation, invitation, previous: null });
       const current = await this.readSecurityConfig();
       if (current.recoveryLocked || current.environment !== config.environment || current.securityEpoch !== config.securityEpoch || !current.keyrings.invitation_token.keys.has(token.keyId) || !current.keyrings.contact_fingerprint.keys.has(fingerprint.keyId)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
       initialToken = token.token;
@@ -137,24 +136,23 @@ export class PostgresPersonalInvitationRepository implements PersonalInvitationR
 
   /** @param intent - Exact observed name edit. @returns One increment or a current no-op; immutable restrictions remain unchanged. */
   async rename(intent: PersonalInvitationRenameIntent) {
-    if (!intent.confirmed) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-    return this.run(intent, REAUTHENTICATION_OPERATION.renamePersonalInvitation, intent.invitationId, { confirmed: true, invitationId: intent.invitationId, expectedVersion: intent.expectedVersion, internalName: intent.internalName }, async (database, ledgerId) => {
+    return this.run(intent, { operation: REAUTHENTICATION_OPERATION.renamePersonalInvitation, resourceId: intent.invitationId, payload: { confirmed: true, invitationId: intent.invitationId, expectedVersion: intent.expectedVersion, internalName: intent.internalName } }, async (database, ledgerId) => {
       const original = await this.current(database, intent.context, intent.invitationId), now = await admissionDatabaseNow(database), proposal = renamePersonalInvitation({ invitation: original, expectedVersion: intent.expectedVersion, internalName: intent.internalName, now });
-      if (proposal.changed) { await database.execute(sql`update public.academy_personal_invitations set internal_name=${proposal.invitation.internalName},version=${proposal.invitation.version},updated_at=${now} where id=${original.id} and version=${intent.expectedVersion}`); await this.audit(database, intent.context, ledgerId, REAUTHENTICATION_OPERATION.renamePersonalInvitation, proposal.invitation, original); }
+      if (proposal.changed) { await database.execute(sql`update public.academy_personal_invitations set internal_name=${proposal.invitation.internalName},version=${proposal.invitation.version},updated_at=${now} where id=${original.id} and version=${intent.expectedVersion}`); await this.audit(database, intent.context, ledgerId, { operation: REAUTHENTICATION_OPERATION.renamePersonalInvitation, invitation: proposal.invitation, previous: original }); }
       return { invitationId: original.id, version: proposal.invitation.version, changed: proposal.changed, created: false };
     });
   }
 
   /** @param intent - Explicit observed active revocation or redeemed authorization withdrawal. @returns The original versioned result with any redeemed pending cancellation in the same commit; approved members remain untouched. */
   async revoke(intent: PersonalInvitationRevocationIntent) {
-    if (!intent.confirmed || !intent.internalReason.trim() || intent.internalReason.trim().length > ADMISSION_LIMIT.internalMessageCharacters) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-    return this.run(intent, REAUTHENTICATION_OPERATION.revokePersonalInvitation, intent.invitationId, { confirmed: true, invitationId: intent.invitationId, expectedVersion: intent.expectedVersion, revokeRedeemedAuthorization: intent.revokeRedeemedAuthorization, internalReason: intent.internalReason.trim() }, async (database, ledgerId) => {
+    if (!intent.internalReason.trim() || intent.internalReason.trim().length > ADMISSION_LIMIT.internalMessageCharacters) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+    return this.run(intent, { operation: REAUTHENTICATION_OPERATION.revokePersonalInvitation, resourceId: intent.invitationId, payload: { confirmed: true, invitationId: intent.invitationId, expectedVersion: intent.expectedVersion, revokeRedeemedAuthorization: intent.revokeRedeemedAuthorization, internalReason: intent.internalReason.trim() } }, async (database, ledgerId) => {
       const original = await this.current(database, intent.context, intent.invitationId), now = await admissionDatabaseNow(database), proposal = revokePersonalInvitation({ invitation: original, expectedVersion: intent.expectedVersion, revokeRedeemedAuthorization: intent.revokeRedeemedAuthorization, now });
       if (proposal.cancelPendingRequestId) {
         if (!this.notifications) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
         await cancelRevokedPersonalAdmission(database, { context: intent.context, invitation: original, ledgerId, internalReason: intent.internalReason.trim(), now }, this.notifications(database));
       }
-      if (proposal.changed) { await database.execute(sql`update public.academy_personal_invitations set status=${proposal.invitation.status},revoked_at=${proposal.invitation.revokedAt},authorization_revoked_at=${proposal.invitation.authorizationRevokedAt},version=${proposal.invitation.version},updated_at=${now} where id=${original.id} and version=${intent.expectedVersion}`); await this.audit(database, intent.context, ledgerId, REAUTHENTICATION_OPERATION.revokePersonalInvitation, proposal.invitation, original); }
+      if (proposal.changed) { await database.execute(sql`update public.academy_personal_invitations set status=${proposal.invitation.status},revoked_at=${proposal.invitation.revokedAt},authorization_revoked_at=${proposal.invitation.authorizationRevokedAt},version=${proposal.invitation.version},updated_at=${now} where id=${original.id} and version=${intent.expectedVersion}`); await this.audit(database, intent.context, ledgerId, { operation: REAUTHENTICATION_OPERATION.revokePersonalInvitation, invitation: proposal.invitation, previous: original }); }
       return { invitationId: original.id, version: proposal.invitation.version, changed: proposal.changed, created: false };
     });
   }

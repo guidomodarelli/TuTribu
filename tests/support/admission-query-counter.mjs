@@ -25,9 +25,15 @@ function longestSequentialChain(intervals) {
   return chain.reduce((maximum, length) => Math.max(maximum, length), 0);
 }
 
+/** @param config - Native pg query argument. @returns Its SQL text when present, kept in memory only for classification. */
+function statementText(config) {
+  if (typeof config === "string") return config;
+  return typeof config?.text === "string" ? config.text : "";
+}
+
 /** @param config - Native pg query argument. @returns Only the statement class, never its text. */
 function classify(config) {
-  const text = typeof config === "string" ? config : typeof config?.text === "string" ? config.text : "";
+  const text = statementText(config);
   if (TRANSACTION_STATEMENT.begin.test(text)) return "begin";
   if (TRANSACTION_STATEMENT.commit.test(text)) return "commit";
   if (TRANSACTION_STATEMENT.rollback.test(text)) return "rollback";
@@ -50,7 +56,7 @@ pg.Client.prototype.query = function countedQuery(config, values, callback) {
     return originalQuery.apply(this, args.slice(0, Math.max(callbackIndex + 1, arguments.length)));
   }
   const result = Reflect.apply(originalQuery, this, arguments);
-  if (result && typeof result.then === "function") result.then(finish, finish);
+  if (result && typeof result.then === "function") result.then(finish).catch(finish);
   else finish();
   return result;
 };
