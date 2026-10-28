@@ -7,7 +7,7 @@ import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admi
 import { PERSONAL_INVITATION_MANAGEMENT_COPY as COPY } from "@/src/modules/academy-admissions/constants/personal-invitation-management-browser";
 import { formatBuenosAiresDateTime } from "@/lib/date-time/buenos-aires-format";
 import { fromBuenosAiresMinuteKey } from "@/src/modules/shared/application/date-time/buenos-aires-minute";
-import type { InvitationManagementProps } from "./index";
+import type { InvitationManagementProps } from "./types";
 import styles from "./styles.module.scss";
 
 /** The chosen action and the derived facts every step builder reads beside the controlled props. */

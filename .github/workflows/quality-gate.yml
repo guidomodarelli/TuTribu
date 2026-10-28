@@ -105,13 +105,13 @@ jobs:
           sudo mv gitleaks /usr/local/bin/gitleaks
           rm "${archive}" "${checksums}"
 
-      # Only the analyses that pass today; `duplicates`, `unused`, `react` and `architecture` join as their findings
+      # Only the analyses that pass today; `duplicates`, `unused` and `react` join as their findings
       # get fixed (https://github.com/guidomodarelli/TuTribu/issues/215), and then this becomes `golfo-lint all`.
       # `golfo-lint lint` is the command `pnpm run lint` runs.
       - name: golfo-lint analyses
         run: |
           set -euo pipefail
-          for analysis in lint styles workflows secrets; do
+          for analysis in lint styles workflows secrets architecture; do
             pnpm exec golfo-lint "$analysis"
           done
 
