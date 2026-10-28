@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.10.3] - 2026-10-28
+
 ### Fixed
 
 - En el celular, al abrir el detalle de un mensaje, el botón de opciones (…) queda al lado izquierdo de la cruz para cerrar, a la misma altura, en vez de quedar encimado sobre ella.
