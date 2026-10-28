@@ -7,6 +7,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 ### Fixed
 
 - En el celular, al abrir el detalle de un mensaje, el botón de opciones (…) queda al lado izquierdo de la cruz para cerrar, a la misma altura, en vez de quedar encimado sobre ella.
+- En los filtros de Solicitudes y del Historial de actividad de admisiones, los títulos de «Búsqueda», «Desde», «Hasta» y «Referencia del recurso» tienen el mismo tamaño que los demás campos.
+- En iPhone, el interruptor activado muestra el círculo centrado y los campos de fecha y hora (como «Desde» y «Hasta» en Solicitudes) ya no se salen del formulario.
 
 ## [1.10.2] - 2026-10-28
 
