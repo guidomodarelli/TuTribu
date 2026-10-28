@@ -33,6 +33,11 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
 // (see the media viewer overlay rules at the end of this file).
 $media-viewer-overlay-opacity: 72%;
 
+// @golfo/ui's viewport close button: its inset from the viewport corner, and the gap
+// the message details actions menu keeps from it on full-screen dialogs.
+$message-details-close-inset: 1rem;
+$message-details-close-gap: 0.5rem;
+
 .TribeRound {
   display: flex;
   flex-direction: column;
@@ -2150,12 +2155,20 @@ $media-viewer-overlay-opacity: 72%;
 
     &__composerDialog--messageDetails &__messageDetailsHeader {
       padding-inline-start: 1rem;
-      // At this width the modal spans the full viewport, so the dialog's fixed
-      // close button (`right: 1rem`, `size-7` = 1.75rem wide) sits flush against
-      // the same trailing edge where the header grid places the actions menu
-      // (`...`), and the two collide. Reserve the close button's span plus a
-      // 0.5rem gap on the trailing edge so the `...` lands just to its left.
-      padding-inline-end: 2.25rem;
+      // The author's name and time stop before the actions menu and the close button.
+      padding-inline-end: calc(#{$message-details-close-inset} + 2 * var(--space-8) + 2 * #{$message-details-close-gap});
+    }
+
+    // At this width the modal spans the viewport and @golfo/ui pins its close button
+    // to the viewport corner (`fixed`, `top`/`right: 1rem`, `--space-8` square). The
+    // actions menu floats on the same row, just left of it and centered on it, so the
+    // `...` never competes with the `x` for the corner.
+    &__composerDialog--messageDetails &__messageDetailsHeader &__messageMeta {
+      position: fixed;
+      top: $message-details-close-inset;
+      right: calc(#{$message-details-close-inset} + var(--space-8) + #{$message-details-close-gap});
+      height: var(--space-8);
+      max-width: none;
     }
 
     &__composerDialog--messageDetails &__modalReplysSection {
