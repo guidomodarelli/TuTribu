@@ -126,8 +126,10 @@ export async function resolveTribePageAccess({
  *
  * A visitor without a session is redirected to sign-in with `callbackPath`, the
  * same rule the tribe home applies, so losing the session (or opening a saved
- * link while signed out) never ends in a misleading 404. Signed-in viewers
- * without access still get `notFound()` so hidden tribes stay hidden, while a
+ * link while signed out) never ends in a misleading 404. A signed-in non-member
+ * of a tribe with a public academy offer is sent to that offer, also like the
+ * tribe home, so a shared section link leads to the entry request. Other
+ * viewers without access still get `notFound()` so hidden tribes stay hidden, while a
  * failure to resolve access propagates to the segment error boundary.
  *
  * @param options - Log operation, tribe slug, and the page's callback path.
@@ -167,6 +169,20 @@ export async function resolveVisibleTribePageAccess({
     // academy page (offer and personal steps) instead of a 404.
     if (accessResult.reason === TRIBE_PAGE_ACCESS_REASON.academyAccessRequired) {
       redirect(ROUTES.tribes.academy(options.slug));
+    }
+
+    // A signed-in visitor who is not a member yet (for example, someone on the
+    // admission allowlist who opened a link the leader shared) lands on the
+    // public academy offer, where they can request entry, instead of a 404.
+    // The offer is the same minimum public data the tribe home already exposes.
+    if (accessResult.reason === TRIBE_PAGE_ACCESS_REASON.notFoundOrNotVisible) {
+      const academyOffer = await modules.productAccess.useCases
+        .getAcademyPublicOffer({ tribeSlug: options.slug })
+        .catch(() => null);
+
+      if (academyOffer) {
+        redirect(ROUTES.tribes.academy(options.slug));
+      }
     }
 
     notFound();
