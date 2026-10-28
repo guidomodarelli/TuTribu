@@ -18,7 +18,9 @@ $platform-page-padding: clamp(1rem, 3vw, 2rem);
     min-height: 0;
     min-width: 0;
     flex-direction: column;
-    padding: $platform-page-padding;
+    // Exposed so full-bleed surfaces (not-found, error state) can cancel it and keep their own spacing.
+    --platform-page-padding: #{$platform-page-padding};
+    padding: var(--platform-page-padding);
 
     > :where(main, section) {
       box-sizing: border-box;

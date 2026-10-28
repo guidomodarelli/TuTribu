@@ -12,7 +12,10 @@
   isolation: isolate;
   display: grid;
   flex: 1;
-  width: 100%;
+  // Inside the platform layout the surface cancels the page gutter so its backdrop reaches the edges;
+  // elsewhere the variable is unset and both values fall back to the plain layout.
+  width: calc(100% + 2 * var(--platform-page-padding, 0px));
+  margin: calc(-1 * var(--platform-page-padding, 0px));
   min-height: 100%;
   align-content: center;
   justify-items: start;
