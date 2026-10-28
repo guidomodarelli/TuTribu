@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- Cuando no podés dar «Me gusta» a un mensaje, el botón igual se enfoca con el teclado y los lectores de pantalla lo anuncian como un botón no disponible; al enfocarlo sigue mostrando quiénes dieron me gusta, sin abrir el mensaje.
+
 ## [1.10.0] - 2026-10-26
 
 ### Changed
