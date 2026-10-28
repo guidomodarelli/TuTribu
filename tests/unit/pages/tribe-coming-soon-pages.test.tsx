@@ -11,6 +11,7 @@ import { createServerLogger } from "@/src/modules/shared/infrastructure/observab
 
 const getAuthenticatedMember = vi.fn();
 const getTribePageAccess = vi.fn();
+const getAcademyPublicOffer = vi.fn();
 const listTribeEvents = vi.fn();
 const getTribeEventAttendanceStreakSnapshot = vi.fn();
 const infoMock = vi.fn();
@@ -108,6 +109,8 @@ describe("tribe coming soon pages", () => {
     vi.clearAllMocks();
     getAuthenticatedMember.mockReset();
     getTribePageAccess.mockReset();
+    getAcademyPublicOffer.mockReset();
+    getAcademyPublicOffer.mockResolvedValue(null);
     listTribeEvents.mockReset();
     getTribeEventAttendanceStreakSnapshot.mockReset();
     getTribeEventAttendanceStreakSnapshot.mockResolvedValue({
@@ -122,6 +125,11 @@ describe("tribe coming soon pages", () => {
       auth: {
         useCases: {
           getAuthenticatedMember,
+        },
+      },
+      productAccess: {
+        useCases: {
+          getAcademyPublicOffer,
         },
       },
       tribes: {
@@ -456,5 +464,84 @@ describe("tribe coming soon pages", () => {
         viewerId: "member-1",
       }),
     });
+  });
+  it("sends a signed-in non-member to the academy offer when the tribe has one", async () => {
+    getAuthenticatedMember.mockResolvedValue(authenticatedMember);
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden" as const,
+      reason: "not_found_or_not_visible",
+    });
+    getAcademyPublicOffer.mockResolvedValue({ tribeSlug: "matematica-pro" });
+    (redirect as unknown as Mock).mockImplementation(function () {
+      throw new Error("NEXT_REDIRECT");
+    });
+
+    await expect(
+      TribeEventsPage({
+        params: Promise.resolve({ slug: "matematica-pro" }),
+        searchParams: Promise.resolve({ month: "2026-05" }),
+      })
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(getAcademyPublicOffer).toHaveBeenCalledWith({ tribeSlug: "matematica-pro" });
+    expect(redirect).toHaveBeenCalledWith("/matematica-pro/academia");
+    expect(notFound).not.toHaveBeenCalled();
+    expect(listTribeEvents).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 for a signed-in non-member when the tribe has no academy offer", async () => {
+    getAuthenticatedMember.mockResolvedValue(authenticatedMember);
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden" as const,
+      reason: "not_found_or_not_visible",
+    });
+    (notFound as unknown as Mock).mockImplementation(function () {
+      throw new Error("NEXT_NOT_FOUND");
+    });
+
+    await expect(
+      renderServerComponent(<TribeMeritsPage params={Promise.resolve({ slug: "matematica-pro" })} />)
+    ).rejects.toThrow("NEXT_NOT_FOUND");
+
+    expect(getAcademyPublicOffer).toHaveBeenCalledWith({ tribeSlug: "matematica-pro" });
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 for a signed-in non-member when the academy offer cannot be read", async () => {
+    getAuthenticatedMember.mockResolvedValue(authenticatedMember);
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden" as const,
+      reason: "not_found_or_not_visible",
+    });
+    getAcademyPublicOffer.mockRejectedValue(new Error("db down"));
+    (notFound as unknown as Mock).mockImplementation(function () {
+      throw new Error("NEXT_NOT_FOUND");
+    });
+
+    await expect(
+      renderServerComponent(<TribeMeritsPage params={Promise.resolve({ slug: "matematica-pro" })} />)
+    ).rejects.toThrow("NEXT_NOT_FOUND");
+
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
+  it("keeps a blocked member on 404 without reading the academy offer", async () => {
+    getAuthenticatedMember.mockResolvedValue(authenticatedMember);
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden" as const,
+      reason: "blocked_hidden",
+      blockedReason: "conduct_blocked",
+    });
+    getAcademyPublicOffer.mockResolvedValue({ tribeSlug: "matematica-pro" });
+    (notFound as unknown as Mock).mockImplementation(function () {
+      throw new Error("NEXT_NOT_FOUND");
+    });
+
+    await expect(
+      renderServerComponent(<TribeMeritsPage params={Promise.resolve({ slug: "matematica-pro" })} />)
+    ).rejects.toThrow("NEXT_NOT_FOUND");
+
+    expect(getAcademyPublicOffer).not.toHaveBeenCalled();
+    expect(redirect).not.toHaveBeenCalled();
   });
 });

@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- En una tribu en modo academia, quien todavía no es integrante y abre un enlace a una sección (por ejemplo Cursos o Eventos) llega a la página de Academia para solicitar el ingreso, en lugar de ver «Esta página no existe o ya no está disponible».
+
 ## [1.10.0] - 2026-10-26
 
 ### Changed
