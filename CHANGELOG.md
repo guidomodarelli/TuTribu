@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.10.1] - 2026-10-28
+
 ### Changed
 
 - Los líderes de una academia ya pueden habilitar las ventas del acceso pago desde Gestionar academia, con Mercado Pago conectado y un precio configurado.
