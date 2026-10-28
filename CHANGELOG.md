@@ -8,6 +8,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 - Todas las páginas de la tribu (Fogón, Academia, Gestionar academia, Canales, Suscripción, Cursos, Eventos, Admisiones y las demás) y sus pantallas de carga tienen el mismo margen interior: ya no quedan pegadas al borde ni con margen doble según la sección.
 - Las pantallas «Esta página no existe» y de error vuelven a ocupar todo el ancho del área de contenido: su fondo llega hasta los bordes, sin la franja de margen que las rodeaba.
+- La pantalla «Esta página no existe» ocupa toda la altura de la ventana en vez de cortarse a la mitad con un bloque blanco debajo, y la pantalla de error ya no genera una barra de desplazamiento dentro de la tribu.
 
 ## [1.10.1] - 2026-10-28
 

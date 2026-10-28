@@ -20,6 +20,8 @@ $platform-page-padding: clamp(1rem, 3vw, 2rem);
     flex-direction: column;
     // Exposed so full-bleed surfaces (not-found, error state) can cancel it and keep their own spacing.
     --platform-page-padding: #{$platform-page-padding};
+    // Full-bleed surfaces fill this flex column instead of the viewport, which would scroll under the header.
+    --platform-surface-min-height: 0px;
     padding: var(--platform-page-padding);
 
     > :where(main, section) {
