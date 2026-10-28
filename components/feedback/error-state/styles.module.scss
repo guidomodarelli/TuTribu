@@ -10,8 +10,9 @@
   // elsewhere the variable is unset and both values fall back to the plain layout.
   width: calc(100% + 2 * var(--platform-page-padding, 0px));
   margin: calc(-1 * var(--platform-page-padding, 0px));
-  height: 100%;
-  min-height: 100svh;
+  flex: 1;
+  // Fills the viewport on its own and the content area inside the platform layout.
+  min-height: var(--platform-surface-min-height, 100svh);
   align-content: center;
   justify-items: start;
   gap: 1.25rem;
